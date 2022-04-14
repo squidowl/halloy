@@ -1,0 +1,65 @@
+use iced::{pure::widget::container, Background};
+
+use crate::theme::Theme;
+
+pub fn pane(theme: &Theme, is_active: bool) -> Pane {
+    Pane {
+        theme,
+        is_focused: is_active,
+    }
+}
+
+pub fn header(theme: &Theme) -> Header {
+    Header { theme }
+}
+
+pub fn primary(theme: &Theme) -> Primary {
+    Primary { theme }
+}
+
+pub struct Pane<'a> {
+    theme: &'a Theme,
+    is_focused: bool,
+}
+
+impl<'a> container::StyleSheet for Pane<'a> {
+    fn style(&self) -> container::Style {
+        container::Style {
+            background: Some(Background::Color(self.theme.palette.background.into())),
+            border_width: 2.0,
+            border_color: if self.is_focused {
+                self.theme.palette.background.lighten()
+            } else {
+                self.theme.palette.background.into()
+            },
+            ..Default::default()
+        }
+    }
+}
+
+pub struct Header<'a> {
+    theme: &'a Theme,
+}
+
+impl<'a> container::StyleSheet for Header<'a> {
+    fn style(&self) -> container::Style {
+        container::Style {
+            background: Some(Background::Color(self.theme.palette.background.lighten())),
+            ..Default::default()
+        }
+    }
+}
+
+pub struct Primary<'a> {
+    theme: &'a Theme,
+}
+
+impl<'a> container::StyleSheet for Primary<'a> {
+    fn style(&self) -> container::Style {
+        container::Style {
+            background: Some(Background::Color(self.theme.palette.background.darken())),
+            text_color: Some(self.theme.palette.text.into()),
+            ..Default::default()
+        }
+    }
+}

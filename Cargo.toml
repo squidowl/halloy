@@ -1,0 +1,32 @@
+[package]
+name = "halloy"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["opengl"]
+opengl = ["iced/glow"]
+
+[dependencies]
+data = { version = "0.1.0", path = "data" }
+palette = "0.6.0"
+
+[dependencies.iced]
+version = "0.3"
+default-features = false
+features = ["tokio", "pure", "palette"]
+
+[dependencies.iced_lazy]
+version = "0.1"
+
+[workspace]
+members = ["data"]
+
+[patch.crates-io]
+iced = { git = "https://github.com/iced-rs/iced.git", rev = "3042fa2cb63c651ebed2abe6f4054e61f70b0331" }
+iced_core = { git = "https://github.com/iced-rs/iced.git", rev = "3042fa2cb63c651ebed2abe6f4054e61f70b0331" }
+iced_futures = { git = "https://github.com/iced-rs/iced.git", rev = "3042fa2cb63c651ebed2abe6f4054e61f70b0331" }
+iced_graphics = { git = "https://github.com/iced-rs/iced.git", rev = "3042fa2cb63c651ebed2abe6f4054e61f70b0331" }
+iced_native = { git = "https://github.com/iced-rs/iced.git", rev = "3042fa2cb63c651ebed2abe6f4054e61f70b0331" }
+iced_lazy = { git = "https://github.com/iced-rs/iced.git", rev = "3042fa2cb63c651ebed2abe6f4054e61f70b0331" }
+iced_pure = { git = "https://github.com/iced-rs/iced.git", rev = "3042fa2cb63c651ebed2abe6f4054e61f70b0331" }
