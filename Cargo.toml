@@ -10,6 +10,15 @@ opengl = ["iced/glow"]
 [dependencies]
 data = { version = "0.1.0", path = "data" }
 palette = "0.6.0"
+serde_yaml = "0.8.23"
+dirs-next = "2.0.0"
+thiserror = "1.0.30"
+tokio = { version = "1.0", features = ["rt", "fs", "process"] }
+
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
 
 [dependencies.iced]
 version = "0.3"

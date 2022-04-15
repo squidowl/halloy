@@ -1,7 +1,9 @@
+mod config;
 mod screen;
 mod style;
 mod theme;
 
+use config::Config;
 use iced::{
     executor,
     pure::{container, Application, Element},
@@ -26,6 +28,7 @@ enum Screen {
 #[derive(Debug, Clone)]
 enum Message {
     Dashboard(dashboard::Message),
+    ConfigSaved(Result<(), config::Error>),
 }
 
 impl Application for Halloy {
@@ -35,13 +38,14 @@ impl Application for Halloy {
 
     fn new(_flags: ()) -> (Halloy, Command<Self::Message>) {
         let screen = screen::Dashboard::new();
+        let config = Config::load().unwrap_or_default();
 
         (
             Halloy {
                 screen: Screen::Dashboard(screen),
-                theme: Theme::default(),
+                theme: config.theme,
             },
-            Command::none(),
+            Command::perform(config.save(), Message::ConfigSaved),
         )
     }
 
@@ -58,6 +62,9 @@ impl Application for Halloy {
                     }
                 }
             },
+            Message::ConfigSaved(_) => {
+                println!("config saved.")
+            }
         }
 
         Command::none()

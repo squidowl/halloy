@@ -18,11 +18,11 @@ pub struct Primary<'a>(&'a Theme);
 impl<'a> StyleSheet for Primary<'a> {
     fn active(&self) -> Style {
         Style {
-            text_color: self.0.palette.text.into(),
+            text_color: self.0.text.into(),
             border_width: 1.0,
             border_color: Color {
                 a: 0.2,
-                ..self.0.palette.primary.darken()
+                ..self.0.primary.darken()
             },
             ..Style::default()
         }
@@ -30,13 +30,13 @@ impl<'a> StyleSheet for Primary<'a> {
 
     fn hovered(&self) -> Style {
         Style {
-            text_color: self.0.palette.primary.into(),
+            text_color: self.0.primary.into(),
             background: Some(Background::Color(Color {
                 a: 0.2,
-                ..self.0.palette.primary.into()
+                ..self.0.primary.into()
             })),
             border_width: 1.0,
-            border_color: self.0.palette.primary.darken(),
+            border_color: self.0.primary.darken(),
             ..Style::default()
         }
     }
@@ -45,7 +45,7 @@ impl<'a> StyleSheet for Primary<'a> {
         Style {
             background: Some(Background::Color(Color {
                 a: 0.15,
-                ..self.0.palette.primary.into()
+                ..self.0.primary.into()
             })),
             ..self.active()
         }
@@ -73,11 +73,11 @@ pub struct Destruction<'a>(&'a Theme);
 impl<'a> StyleSheet for Destruction<'a> {
     fn active(&self) -> Style {
         Style {
-            text_color: self.0.palette.text.into(),
+            text_color: self.0.text.into(),
             border_width: 1.0,
             border_color: Color {
                 a: 0.2,
-                ..self.0.palette.error.darken()
+                ..self.0.error.darken()
             },
             ..Style::default()
         }
@@ -85,13 +85,13 @@ impl<'a> StyleSheet for Destruction<'a> {
 
     fn hovered(&self) -> Style {
         Style {
-            text_color: self.0.palette.error.into(),
+            text_color: self.0.error.into(),
             background: Some(Background::Color(Color {
                 a: 0.2,
-                ..self.0.palette.error.into()
+                ..self.0.error.into()
             })),
             border_width: 1.0,
-            border_color: self.0.palette.error.darken(),
+            border_color: self.0.error.darken(),
             ..Style::default()
         }
     }
@@ -100,7 +100,7 @@ impl<'a> StyleSheet for Destruction<'a> {
         Style {
             background: Some(Background::Color(Color {
                 a: 0.15,
-                ..self.0.palette.error.into()
+                ..self.0.error.into()
             })),
             ..self.active()
         }

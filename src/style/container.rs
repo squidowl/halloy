@@ -25,12 +25,12 @@ pub struct Pane<'a> {
 impl<'a> container::StyleSheet for Pane<'a> {
     fn style(&self) -> container::Style {
         container::Style {
-            background: Some(Background::Color(self.theme.palette.background.into())),
+            background: Some(Background::Color(self.theme.background.into())),
             border_width: 2.0,
             border_color: if self.is_focused {
-                self.theme.palette.background.lighten()
+                self.theme.background.lighten()
             } else {
-                self.theme.palette.background.into()
+                self.theme.background.into()
             },
             ..Default::default()
         }
@@ -44,7 +44,7 @@ pub struct Header<'a> {
 impl<'a> container::StyleSheet for Header<'a> {
     fn style(&self) -> container::Style {
         container::Style {
-            background: Some(Background::Color(self.theme.palette.background.lighten())),
+            background: Some(Background::Color(self.theme.background.lighten())),
             ..Default::default()
         }
     }
@@ -57,8 +57,8 @@ pub struct Primary<'a> {
 impl<'a> container::StyleSheet for Primary<'a> {
     fn style(&self) -> container::Style {
         container::Style {
-            background: Some(Background::Color(self.theme.palette.background.darken())),
-            text_color: Some(self.theme.palette.text.into()),
+            background: Some(Background::Color(self.theme.background.darken())),
+            text_color: Some(self.theme.text.into()),
             ..Default::default()
         }
     }
