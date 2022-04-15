@@ -10,7 +10,7 @@ pub struct Config {
 }
 
 impl Config {
-    fn config_dir() -> Result<PathBuf, Error> {
+    pub fn config_dir() -> Result<PathBuf, Error> {
         let mut dir = dirs_next::config_dir().ok_or(Error::DirectoryNotFound)?;
         dir.push("halloy");
 
@@ -19,13 +19,13 @@ impl Config {
                 std::fs::create_dir(dir.as_path()).map_err(|_| Error::DirectoryCreationError)?;
         }
 
-        dir.push("config.yaml");
-
         Ok(dir)
     }
 
     pub async fn save(self) -> Result<(), Error> {
-        let config_dir = Self::config_dir()?;
+        let mut config_dir = Self::config_dir()?;
+        config_dir.push("config.yaml");
+
         let serialized = serde_yaml::to_string(&self).map_err(|_| Error::SerializationError)?;
 
         let _ = tokio::fs::write(config_dir, serialized)

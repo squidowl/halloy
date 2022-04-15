@@ -1,4 +1,6 @@
 mod config;
+mod icon;
+mod logger;
 mod screen;
 mod style;
 mod theme;
@@ -12,7 +14,17 @@ use iced::{
 use screen::dashboard;
 use theme::Theme;
 
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub fn main() -> iced::Result {
+    #[cfg(debug_assertions)]
+    let is_debug = true;
+    #[cfg(not(debug_assertions))]
+    let is_debug = false;
+
+    logger::setup(is_debug).expect("setup logging");
+    log::info!("application ({}) has started", VERSION);
+
     Halloy::run(Settings::default())
 }
 
@@ -63,7 +75,7 @@ impl Application for Halloy {
                 }
             },
             Message::ConfigSaved(_) => {
-                println!("config saved.")
+                log::info!("config saved to disk");
             }
         }
 

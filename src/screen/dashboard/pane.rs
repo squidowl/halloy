@@ -4,8 +4,8 @@ use iced::pure::{button, column, container, row, text, Element};
 use iced::Length;
 use iced_lazy::responsive::{self};
 
-use crate::style;
 use crate::theme::Theme;
+use crate::{icon, style};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Message {}
@@ -43,13 +43,14 @@ impl Pane {
         theme: &'a Theme,
         mapper: Mapper<M>,
         id: pane_grid::Pane,
+        panes: usize,
         is_focused: bool,
     ) -> Content<'a, M> {
         // let Pane { responsive, .. } = self;
 
         let title_bar = self
             .title_bar
-            .view(theme, &mapper, id, is_focused)
+            .view(theme, &mapper, id, panes, is_focused)
             .style(style::container::header(theme));
 
         pane_grid::Content::new(container(text("content").size(style::TEXT_SIZE)).padding(4))
@@ -64,26 +65,25 @@ impl TitleBar {
         theme: &'a Theme,
         mapper: &Mapper<M>,
         id: iced::pane_grid::Pane,
+        panes: usize,
         _is_focused: bool,
     ) -> pane_grid::TitleBar<'a, M> {
-        let delete: Element<M> = button(text("delete").size(style::TEXT_SIZE))
-            .on_press(mapper.on_close.clone())
+        let delete = button(icon::close())
             .style(style::button::destruction(theme))
-            .into();
-        let split_h: Element<M> = button(text("horizontal").size(style::TEXT_SIZE))
+            .on_press(mapper.on_close.clone());
+        let split_h = button(icon::box_arrow_right())
             .on_press((mapper.on_split)(Axis::Horizontal))
-            .style(style::button::primary(theme))
-            .into();
-        let split_v: Element<M> = button(text("vertical").size(style::TEXT_SIZE))
+            .style(style::button::primary(theme));
+        let split_v = button(icon::box_arrow_down())
             .on_press((mapper.on_split)(Axis::Vertical))
-            .style(style::button::primary(theme))
-            .into();
-        let controls = row()
-            .push(split_h)
-            .push(split_v)
-            .push(delete)
-            .spacing(4)
-            .padding(4);
+            .style(style::button::primary(theme));
+
+        let mut controls = row().spacing(4).padding(4).push(split_h).push(split_v);
+
+        if panes > 1 {
+            controls = controls.push(delete);
+        }
+
         let title = column()
             .push(
                 container(text(format!("title {:?}", &id)).size(style::TITLE_SIZE))

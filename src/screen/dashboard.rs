@@ -76,6 +76,7 @@ impl Dashboard {
 
         let pane_grid = PaneGrid::new(&self.panes, |id, pane| {
             let is_focused = focus == Some(id);
+            let panes = self.panes.len();
             pane.view(
                 theme,
                 pane::Mapper {
@@ -84,6 +85,7 @@ impl Dashboard {
                     on_split: |axis| Message::SplitPane(axis),
                 },
                 id,
+                panes,
                 is_focused,
             )
         })
