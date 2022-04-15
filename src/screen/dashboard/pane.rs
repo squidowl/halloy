@@ -1,6 +1,6 @@
 use iced::pane_grid::Axis;
 use iced::pure::widget::pane_grid::{self, Content};
-use iced::pure::{button, column, container, row, text, Element};
+use iced::pure::{button, column, container, row, text};
 use iced::Length;
 use iced_lazy::responsive::{self};
 

@@ -14,11 +14,11 @@ pub fn close() -> Text {
 }
 
 pub fn box_arrow_down() -> Text {
-    to_text('\u{f1a7}')
+    to_text('\u{f1b1}')
 }
 
 pub fn box_arrow_right() -> Text {
-    to_text('\u{f1b1}')
+    to_text('\u{f1a7}')
 }
 
 #[allow(dead_code)]
