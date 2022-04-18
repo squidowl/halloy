@@ -1,48 +1,164 @@
-use iced_native::event::{self, Event, MacOS, PlatformSpecific};
-use iced_native::subscription;
-use iced_native::{Hasher, Subscription};
+use futures::FutureExt;
+use iced::futures::stream::{self, BoxStream, StreamExt};
+use iced::Subscription;
+use iced_native::subscription::Recipe;
+use iced_native::Hasher;
+use tokio::sync::mpsc;
 
-use futures::stream::{BoxStream, StreamExt};
-use irc::client::Sender;
-use irc::proto::Message;
-
-#[derive(Default, Debug)]
-pub struct Client {
-    pub streams: Vec<irc::client::ClientStream>,
-    pub senders: Vec<irc::client::Sender>,
+pub fn run() -> Subscription<Result> {
+    Subscription::from_recipe(Client {})
 }
 
-impl Client {
-    pub async fn setup(configs: Vec<irc::client::data::Config>) -> irc::error::Result<Self> {
-        let mut streams = Vec::new();
-        let mut senders = Vec::new();
+pub type Result<T = Event, E = Error> = std::result::Result<T, E>;
 
-        for config in configs {
-            // Immediate errors like failure to resolve the server's domain or to establish any connection will
-            // manifest here in the result of prepare_client_and_connect.
-            let mut client = irc::client::Client::from_config(config).await?;
-            client.identify()?;
+#[derive(Debug)]
+pub enum Error {
+    Connection(irc::error::Error),
+}
 
-            streams.push(client.stream()?);
-            senders.push(client.sender());
-        }
+#[derive(Debug)]
+pub enum Event {
+    Ready(mpsc::Sender<Message>),
+    Connected, // TODO: Add server info to this?
+    MessageReceived(irc::proto::Message),
+}
 
-        // https://github.com/aatxe/irc/blob/develop/examples/multiserver.rs
+#[derive(Debug, Clone)]
+pub enum Message {
+    Connect(irc::client::data::Config),
+}
 
-        // loop {
-        //     let (message, index, _) =
-        //         futures::future::select_all(streams.iter_mut().map(|s| s.select_next_some())).await;
-        //     let message = message?;
-        //     let sender = &senders[index];
-        //     // process_msg(sender, message)?;
-        // }
+enum State {
+    Disconnected,
+    Ready {
+        receiver: mpsc::Receiver<Message>,
+    },
+    Connected {
+        receiver: mpsc::Receiver<Message>,
+        streams: Vec<irc::client::ClientStream>,
+        senders: Vec<irc::client::Sender>,
+    },
+}
 
-        Ok(Client { streams, senders })
+enum Input {
+    Message(Option<Message>),
+    IrcMessage(usize, Result<irc::proto::Message, irc::error::Error>), // TODO: We probably need to encode some "Server Name" to proporly map response to the right server
+}
+
+pub struct Client {}
+
+impl<E> Recipe<iced_native::Hasher, E> for Client {
+    type Output = Result;
+
+    fn hash(&self, state: &mut Hasher) {
+        use std::hash::Hash;
+
+        struct Marker;
+        std::any::TypeId::of::<Marker>().hash(state);
     }
 
-    // pub fn on_message(&self) -> Subscription<(Sender, Message)> {
-    //     Subscription::from_recipe(OnMessage)
-    // }
+    fn stream(self: Box<Self>, _input: BoxStream<E>) -> BoxStream<Self::Output> {
+        stream::unfold(State::Disconnected, move |state| async move {
+            match state {
+                State::Disconnected => {
+                    let (sender, receiver) = mpsc::channel(20);
+
+                    Some((Ok(Event::Ready(sender)), State::Ready { receiver }))
+                }
+                State::Ready { mut receiver } => loop {
+                    if let Some(Message::Connect(config)) = receiver.recv().await {
+                        match connect(config).await {
+                            Ok((stream, sender)) => {
+                                let streams = vec![stream];
+                                let senders = vec![sender];
+
+                                return Some((
+                                    Ok(Event::Connected),
+                                    State::Connected {
+                                        receiver,
+                                        streams,
+                                        senders,
+                                    },
+                                ));
+                            }
+                            Err(e) => {
+                                return Some((
+                                    Err(Error::Connection(e)),
+                                    State::Ready { receiver },
+                                ));
+                            }
+                        }
+                    }
+                },
+                State::Connected {
+                    mut receiver,
+                    mut streams,
+                    mut senders,
+                } => loop {
+                    let input = {
+                        let mut select = stream::select(
+                            stream::select_all(streams.iter_mut())
+                                .enumerate()
+                                .map(|(idx, result)| Input::IrcMessage(idx, result)),
+                            receiver.recv().map(Input::Message).into_stream().boxed(),
+                        );
+
+                        select.next().await.expect("Await stream input")
+                    };
+
+                    match input {
+                        Input::Message(Some(message)) => match message {
+                            Message::Connect(config) => match connect(config).await {
+                                Ok((stream, sender)) => {
+                                    streams.push(stream);
+                                    senders.push(sender);
+
+                                    return Some((
+                                        Ok(Event::Connected),
+                                        State::Connected {
+                                            receiver,
+                                            streams,
+                                            senders,
+                                        },
+                                    ));
+                                }
+                                Err(e) => {
+                                    return Some((
+                                        Err(Error::Connection(e)),
+                                        State::Ready { receiver },
+                                    ));
+                                }
+                            },
+                        },
+                        Input::IrcMessage(idx, Ok(message)) => {
+                            //let sender = &senders[idx];
+                            // process_msg(sender, message)?; // TODO: ??
+
+                            return Some((
+                                Ok(Event::MessageReceived(message)),
+                                State::Connected {
+                                    receiver,
+                                    streams,
+                                    senders,
+                                },
+                            ));
+                        }
+                        Input::Message(None) => {}
+                        Input::IrcMessage(_, Err(_)) => {} // TODO: Handle?
+                    }
+                },
+                State::Disconnected => todo!(), // TODO: Not sure what this looks like yet
+            }
+        })
+        .boxed()
+    }
 }
 
-struct OnMessage;
+async fn connect(
+    config: irc::client::data::Config,
+) -> Result<(irc::client::ClientStream, irc::client::Sender), irc::error::Error> {
+    let mut client = irc::client::Client::from_config(config).await?;
+    client.identify()?;
+
+    Ok((client.stream()?, client.sender()))
+}
