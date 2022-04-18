@@ -6,7 +6,6 @@ mod screen;
 mod style;
 mod theme;
 
-use client::Client;
 use config::Config;
 use iced::{
     executor,
@@ -15,6 +14,7 @@ use iced::{
 };
 use screen::dashboard;
 use theme::Theme;
+use tokio::sync::mpsc;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -38,7 +38,8 @@ pub fn main() -> iced::Result {
 struct Halloy {
     screen: Screen,
     theme: Theme,
-    client: Client,
+    config: Config,
+    sender: Option<mpsc::Sender<client::Message>>,
 }
 
 enum Screen {
@@ -49,9 +50,7 @@ enum Screen {
 enum Message {
     Dashboard(dashboard::Message),
     ConfigSaved(Result<(), config::Error>),
-    // TODO: Change to own error.
-    ClientSetup(irc::error::Result<Client>),
-    ClientMessageReceived((irc::client::Sender, irc::proto::Message)),
+    Client(client::Result),
 }
 
 impl Application for Halloy {
@@ -62,18 +61,15 @@ impl Application for Halloy {
     fn new(_flags: ()) -> (Halloy, Command<Self::Message>) {
         let screen = screen::Dashboard::new();
         let config = Config::load().unwrap_or_default();
-        let servers = config.servers.clone();
 
         (
             Halloy {
                 screen: Screen::Dashboard(screen),
                 theme: Theme::default(),
-                client: Client::default(),
+                config,
+                sender: None,
             },
-            Command::batch(vec![Command::perform(
-                Client::setup(servers),
-                Message::ClientSetup,
-            )]),
+            Command::none(),
         )
     }
 
@@ -93,15 +89,24 @@ impl Application for Halloy {
             Message::ConfigSaved(_) => {
                 log::info!("config saved to disk");
             }
-            Message::ClientSetup(result) => match result {
-                Ok(client) => {
-                    self.client = client;
+            Message::Client(Ok(event)) => match event {
+                client::Event::Ready(sender) => {
+                    log::debug!("Client ready to receive connections");
+
+                    for server in self.config.servers.clone() {
+                        let _ = sender.blocking_send(client::Message::Connect(server));
+                    }
+
+                    self.sender = Some(sender);
                 }
-                Err(error) => {
-                    log::error!("{:?}", error);
+                client::Event::Connected => log::info!("Server connected!"),
+                client::Event::MessageReceived(message) => {
+                    log::debug!("Message received: {:?}", message)
                 }
             },
-            Message::ClientMessageReceived((sender, message)) => {}
+            Message::Client(Err(error)) => {
+                log::error!("{:?}", error);
+            }
         }
 
         Command::none()
@@ -119,11 +124,6 @@ impl Application for Halloy {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        // Subscription::batch(vec![self
-        //     .client
-        //     .on_message()
-        //     .map(Message::ClientMessageReceived)])
-
-        Subscription::none()
+        client::run().map(Message::Client)
     }
 }
