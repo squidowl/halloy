@@ -8,6 +8,7 @@ default = ["opengl"]
 opengl = ["iced/glow"]
 
 [dependencies]
+data = { version = "0.1.0", path = "data" }
 palette = "0.6.0"
 serde_yaml = "0.8.23"
 dirs-next = "2.0.0"
@@ -18,6 +19,10 @@ fern = "0.6.1"
 chrono = { version = "0.4", features = ['serde'] }
 irc = "0.15.0"
 futures = "0.3.21"
+
+[dependencies.uuid]
+version = "1.0"
+features = ["v4"]
 
 [dependencies.serde]
 version = "1.0"
@@ -35,6 +40,7 @@ version = "0.4"
 version = "0.1"
 
 [workspace]
+members = ["data"]
 
 [patch.crates-io]
 iced = { git = "https://github.com/iced-rs/iced.git", rev = "3042fa2cb63c651ebed2abe6f4054e61f70b0331" }

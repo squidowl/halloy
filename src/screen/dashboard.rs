@@ -1,4 +1,6 @@
 pub mod pane;
+use std::collections::HashMap;
+
 use pane::Pane;
 
 use iced::pure::widget::pane_grid::{self, PaneGrid};
@@ -7,6 +9,8 @@ use iced::pure::{column, container};
 use iced::Command;
 use iced::Length;
 
+use crate::buffer::{self, Buffer};
+use crate::config::Config;
 use crate::style;
 use crate::theme::Theme;
 
@@ -18,6 +22,7 @@ pub struct Dashboard {
 #[derive(Debug, Clone)]
 pub enum Message {
     Pane(pane::Message),
+    Buffer(pane_grid::Pane, buffer::Message),
     PaneClicked(pane_grid::Pane),
     PaneResized(pane_grid::ResizeEvent),
     PaneDragged(pane_grid::DragEvent),
@@ -28,8 +33,20 @@ pub enum Message {
 pub enum Event {}
 
 impl Dashboard {
-    pub fn new() -> Self {
-        let (panes, _) = pane_grid::State::new(Pane::new(0));
+    pub fn new(config: &Config) -> Self {
+        let (mut panes, pane) = pane_grid::State::new(Pane::new(Buffer::Empty));
+
+        // TODO: Create initial panels (channels) more nicely.
+        for server in config.servers.iter() {
+            for channel in server.channels() {
+                panes.split(pane_grid::Axis::Horizontal, &pane, Pane::new(Buffer::Empty));
+            }
+        }
+
+        // TODO: A little hacke for now, just to get the ball rolling.
+        if config.servers.len() > 0 {
+            panes.close(&pane);
+        }
 
         Dashboard { panes, focus: None }
     }
@@ -55,16 +72,17 @@ impl Dashboard {
             }
             Message::SplitPane(axis) => {
                 if let Some(pane) = self.focus {
-                    let result = self
-                        .panes
-                        .split(axis, &pane, Pane::new(self.panes.len() + 1));
+                    let result = self.panes.split(axis, &pane, Pane::new(Buffer::Empty));
                     if let Some((pane, _)) = result {
                         self.focus = Some(pane);
                     }
                 }
             }
             Message::Pane(message) => {
-                println!("message: {:?}", message);
+                println!("pane message: {:?}", message);
+            }
+            Message::Buffer(_, _) => {
+                println!("buffer message: {:?}", message);
             }
         }
 
@@ -81,6 +99,7 @@ impl Dashboard {
                 theme,
                 pane::Mapper {
                     pane: Message::Pane,
+                    buffer: Message::Buffer,
                     on_close: Message::ClosePane,
                     on_split: |axis| Message::SplitPane(axis),
                 },

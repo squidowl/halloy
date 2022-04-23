@@ -1,26 +1,29 @@
 use iced::pane_grid::Axis;
 use iced::pure::widget::pane_grid::{self, Content};
-use iced::pure::{button, column, container, row, text};
-use iced::Length;
-use iced_lazy::responsive::{self};
+use iced::pure::widget::Container;
+use iced::pure::{self, button, column, container, row, scrollable, text, text_input};
+use iced::{alignment, Length};
+use uuid::Uuid;
 
+use crate::buffer::{self, Buffer};
 use crate::theme::Theme;
 use crate::{icon, style};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Message {}
 
 #[derive(Clone, Copy)]
 pub struct Mapper<Message> {
     pub pane: fn(self::Message) -> Message,
+    pub buffer: fn(pane_grid::Pane, buffer::Message) -> Message,
     pub on_close: Message,
     pub on_split: fn(Axis) -> Message,
 }
 
 #[derive(Clone)]
 pub struct Pane {
-    pub id: usize,
-    pub responsive: responsive::State,
+    pub id: Uuid,
+    pub buffer: Buffer,
     title_bar: TitleBar,
 }
 
@@ -28,10 +31,10 @@ pub struct Pane {
 pub struct TitleBar {}
 
 impl Pane {
-    pub fn new(id: usize) -> Self {
+    pub fn new(buffer: Buffer) -> Self {
         Self {
-            id,
-            responsive: responsive::State::new(),
+            id: Uuid::new_v4(),
+            buffer,
             title_bar: TitleBar::default(),
         }
     }
@@ -46,14 +49,17 @@ impl Pane {
         panes: usize,
         is_focused: bool,
     ) -> Content<'a, M> {
-        // let Pane { responsive, .. } = self;
-
         let title_bar = self
             .title_bar
             .view(theme, &mapper, id, panes, is_focused)
             .style(style::container::header(theme));
 
-        pane_grid::Content::new(container(text("content").size(style::TEXT_SIZE)).padding(4))
+        let content = self
+            .buffer
+            .view(theme)
+            .map(move |msg| (mapper.buffer)(id, msg));
+
+        pane_grid::Content::new(content)
             .title_bar(title_bar)
             .style(style::container::pane(theme, is_focused))
     }

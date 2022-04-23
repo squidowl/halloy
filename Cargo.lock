@@ -387,6 +387,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "data"
+version = "0.1.0"
+
+[[package]]
 name = "dirs-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -830,6 +834,7 @@ name = "halloy"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "data",
  "dirs-next",
  "fern",
  "futures",
@@ -843,6 +848,7 @@ dependencies = [
  "serde_yaml",
  "thiserror",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -2119,6 +2125,15 @@ name = "unicode-xid"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
+
+[[package]]
+name = "uuid"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8cfcd319456c4d6ea10087ed423473267e1a071f3bc0aa89f80d60997843c6f0"
+dependencies = [
+ "getrandom",
+]
 
 [[package]]
 name = "vcpkg"

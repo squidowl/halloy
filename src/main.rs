@@ -1,3 +1,4 @@
+mod buffer;
 mod client;
 mod config;
 mod icon;
@@ -5,6 +6,8 @@ mod logger;
 mod screen;
 mod style;
 mod theme;
+
+use std::collections::HashMap;
 
 use config::Config;
 use iced::{
@@ -40,6 +43,7 @@ struct Halloy {
     theme: Theme,
     config: Config,
     sender: Option<mpsc::Sender<client::Message>>,
+    servers: HashMap<String, irc::client::Sender>,
 }
 
 enum Screen {
@@ -49,7 +53,6 @@ enum Screen {
 #[derive(Debug)]
 enum Message {
     Dashboard(dashboard::Message),
-    ConfigSaved(Result<(), config::Error>),
     Client(client::Result),
 }
 
@@ -59,8 +62,8 @@ impl Application for Halloy {
     type Flags = ();
 
     fn new(_flags: ()) -> (Halloy, Command<Self::Message>) {
-        let screen = screen::Dashboard::new();
         let config = Config::load().unwrap_or_default();
+        let screen = screen::Dashboard::new(&config);
 
         (
             Halloy {
@@ -68,6 +71,7 @@ impl Application for Halloy {
                 theme: Theme::default(),
                 config,
                 sender: None,
+                servers: Default::default(),
             },
             Command::none(),
         )
@@ -86,9 +90,6 @@ impl Application for Halloy {
                     }
                 }
             },
-            Message::ConfigSaved(_) => {
-                log::info!("config saved to disk");
-            }
             Message::Client(Ok(event)) => match event {
                 client::Event::Ready(sender) => {
                     log::debug!("Client ready to receive connections");
@@ -99,9 +100,12 @@ impl Application for Halloy {
 
                     self.sender = Some(sender);
                 }
-                client::Event::Connected => log::info!("Server connected!"),
+                client::Event::Connected(server, sender) => {
+                    log::info!("connected to {:?}", server);
+                    self.servers.insert(server, sender);
+                }
                 client::Event::MessageReceived(message) => {
-                    log::debug!("Message received: {:?}", message)
+                    // log::debug!("Message received: {:?}", message)
                 }
             },
             Message::Client(Err(error)) => {
