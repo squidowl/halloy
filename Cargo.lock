@@ -389,6 +389,9 @@ dependencies = [
 [[package]]
 name = "data"
 version = "0.1.0"
+dependencies = [
+ "irc",
+]
 
 [[package]]
 name = "dirs-next"
