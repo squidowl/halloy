@@ -1,3 +1,5 @@
+// TODO: This should live in its own crate.
+
 use futures::FutureExt;
 use iced::futures::stream::{self, BoxStream, StreamExt};
 use iced::Subscription;
@@ -19,7 +21,7 @@ pub enum Error {
 #[derive(Debug)]
 pub enum Event {
     Ready(mpsc::Sender<Message>),
-    Connected, // TODO: Add server info to this?
+    Connected(String, irc::client::Sender),
     MessageReceived(irc::proto::Message),
 }
 
@@ -36,7 +38,6 @@ enum State {
     Connected {
         receiver: mpsc::Receiver<Message>,
         streams: Vec<irc::client::ClientStream>,
-        senders: Vec<irc::client::Sender>,
     },
 }
 
@@ -67,18 +68,14 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                 }
                 State::Ready { mut receiver } => loop {
                     if let Some(Message::Connect(config)) = receiver.recv().await {
-                        match connect(config).await {
+                        match connect(config.clone()).await {
                             Ok((stream, sender)) => {
                                 let streams = vec![stream];
-                                let senders = vec![sender];
+                                let server = config.server.expect("expected server");
 
                                 return Some((
-                                    Ok(Event::Connected),
-                                    State::Connected {
-                                        receiver,
-                                        streams,
-                                        senders,
-                                    },
+                                    Ok(Event::Connected(server, sender)),
+                                    State::Connected { receiver, streams },
                                 ));
                             }
                             Err(e) => {
@@ -93,7 +90,6 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                 State::Connected {
                     mut receiver,
                     mut streams,
-                    mut senders,
                 } => loop {
                     let input = {
                         let mut select = stream::select(
@@ -108,18 +104,14 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
 
                     match input {
                         Input::Message(Some(message)) => match message {
-                            Message::Connect(config) => match connect(config).await {
+                            Message::Connect(config) => match connect(config.clone()).await {
                                 Ok((stream, sender)) => {
+                                    let server = config.server.expect("expected server");
                                     streams.push(stream);
-                                    senders.push(sender);
 
                                     return Some((
-                                        Ok(Event::Connected),
-                                        State::Connected {
-                                            receiver,
-                                            streams,
-                                            senders,
-                                        },
+                                        Ok(Event::Connected(server, sender)),
+                                        State::Connected { receiver, streams },
                                     ));
                                 }
                                 Err(e) => {
@@ -131,16 +123,12 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                             },
                         },
                         Input::IrcMessage(idx, Ok(message)) => {
-                            //let sender = &senders[idx];
+                            // let sender = &senders[idx];
                             // process_msg(sender, message)?; // TODO: ??
 
                             return Some((
                                 Ok(Event::MessageReceived(message)),
-                                State::Connected {
-                                    receiver,
-                                    streams,
-                                    senders,
-                                },
+                                State::Connected { receiver, streams },
                             ));
                         }
                         Input::Message(None) => {}
