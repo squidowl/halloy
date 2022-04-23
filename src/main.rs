@@ -104,7 +104,7 @@ impl Application for Halloy {
                     log::info!("connected to {:?}", server);
                     self.servers.insert(server, sender);
                 }
-                client::Event::MessageReceived(message) => {
+                client::Event::MessageReceived(server, message) => {
                     // log::debug!("Message received: {:?}", message)
                 }
             },

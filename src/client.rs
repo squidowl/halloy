@@ -22,7 +22,7 @@ pub enum Error {
 pub enum Event {
     Ready(mpsc::Sender<Message>),
     Connected(String, irc::client::Sender),
-    MessageReceived(irc::proto::Message),
+    MessageReceived(String, irc::proto::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -37,8 +37,13 @@ enum State {
     },
     Connected {
         receiver: mpsc::Receiver<Message>,
-        streams: Vec<irc::client::ClientStream>,
+        servers: Vec<Server>,
     },
+}
+
+struct Server {
+    config: irc::client::data::Config,
+    stream: irc::client::ClientStream,
 }
 
 enum Input {
@@ -70,12 +75,15 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                     if let Some(Message::Connect(config)) = receiver.recv().await {
                         match connect(config.clone()).await {
                             Ok((stream, sender)) => {
-                                let streams = vec![stream];
+                                let servers = vec![Server {
+                                    config: config.clone(),
+                                    stream,
+                                }];
                                 let server = config.server.expect("expected server");
 
                                 return Some((
                                     Ok(Event::Connected(server, sender)),
-                                    State::Connected { receiver, streams },
+                                    State::Connected { receiver, servers },
                                 ));
                             }
                             Err(e) => {
@@ -89,11 +97,11 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                 },
                 State::Connected {
                     mut receiver,
-                    mut streams,
+                    mut servers,
                 } => loop {
                     let input = {
                         let mut select = stream::select(
-                            stream::select_all(streams.iter_mut())
+                            stream::select_all(servers.iter_mut().map(|server| &mut server.stream))
                                 .enumerate()
                                 .map(|(idx, result)| Input::IrcMessage(idx, result)),
                             receiver.recv().map(Input::Message).into_stream().boxed(),
@@ -106,12 +114,15 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                         Input::Message(Some(message)) => match message {
                             Message::Connect(config) => match connect(config.clone()).await {
                                 Ok((stream, sender)) => {
+                                    servers.push(Server {
+                                        config: config.clone(),
+                                        stream,
+                                    });
                                     let server = config.server.expect("expected server");
-                                    streams.push(stream);
 
                                     return Some((
                                         Ok(Event::Connected(server, sender)),
-                                        State::Connected { receiver, streams },
+                                        State::Connected { receiver, servers },
                                     ));
                                 }
                                 Err(e) => {
@@ -123,12 +134,16 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                             },
                         },
                         Input::IrcMessage(idx, Ok(message)) => {
+                            let server = &servers[idx];
                             // let sender = &senders[idx];
                             // process_msg(sender, message)?; // TODO: ??
 
                             return Some((
-                                Ok(Event::MessageReceived(message)),
-                                State::Connected { receiver, streams },
+                                Ok(Event::MessageReceived(
+                                    server.config.server.clone().expect("expected server"),
+                                    message,
+                                )),
+                                State::Connected { receiver, servers },
                             ));
                         }
                         Input::Message(None) => {}
