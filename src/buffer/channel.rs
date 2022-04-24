@@ -1,23 +1,29 @@
+use data::{message::Channel, server::Server};
 use iced::{
-    alignment,
-    pure::{container, text, Element},
+    pure::{container, text, widget::Column, Element},
     Length,
 };
 
-use crate::{style, theme::Theme};
+use crate::theme::Theme;
 
-pub fn view<'a, Message: 'a>(_theme: &'a Theme) -> Element<'a, Message> {
+pub fn view<'a, Message: 'a>(
+    server: &Server,
+    channel: &Channel,
+    clients: &data::client::Map,
+    _theme: &'a Theme,
+) -> Element<'a, Message> {
+    let messages = clients
+        .get_messages(server, channel)
+        .into_iter()
+        .map(|message| text(format!("{:?}", message)).into())
+        .collect();
+
+    let content = Column::with_children(messages);
+
     // TODO: Scrollable with chat messages.
 
-    container(
-        text("channel")
-            .vertical_alignment(alignment::Vertical::Center)
-            .horizontal_alignment(alignment::Horizontal::Center)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .size(style::TEXT_SIZE),
-    )
-    .width(Length::Fill)
-    .height(Length::Fill)
-    .into()
+    container(content)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
 }

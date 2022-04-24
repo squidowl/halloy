@@ -1,5 +1,4 @@
 pub mod pane;
-use std::collections::HashMap;
 
 use pane::Pane;
 
@@ -39,7 +38,14 @@ impl Dashboard {
         // TODO: Create initial panels (channels) more nicely.
         for server in config.servers.iter() {
             for channel in server.channels() {
-                panes.split(pane_grid::Axis::Horizontal, &pane, Pane::new(Buffer::Empty));
+                panes.split(
+                    pane_grid::Axis::Horizontal,
+                    &pane,
+                    Pane::new(Buffer::Channel(
+                        server.server.clone().unwrap().into(),
+                        channel.as_str().parse().unwrap(),
+                    )),
+                );
             }
         }
 
@@ -89,7 +95,11 @@ impl Dashboard {
         None
     }
 
-    pub fn view<'a>(&'a self, theme: &'a Theme) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        clients: &data::client::Map,
+        theme: &'a Theme,
+    ) -> Element<'a, Message> {
         let focus = self.focus;
 
         let pane_grid = PaneGrid::new(&self.panes, |id, pane| {
@@ -106,6 +116,7 @@ impl Dashboard {
                 id,
                 panes,
                 is_focused,
+                clients,
             )
         })
         .on_click(Message::PaneClicked)
