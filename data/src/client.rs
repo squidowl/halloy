@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::ops;
+use std::{collections::HashMap, fmt};
 
 use crate::{
-    message::{Channel, Message},
+    message::{Channel, Message, MsgTarget},
     server::Server,
 };
 
@@ -19,6 +20,15 @@ pub struct Client {
 
 #[derive(Debug, Clone)]
 pub struct Sender(irc::client::Sender);
+
+impl Sender {
+    pub fn send_privmsg(&self, msg_target: MsgTarget, text: impl fmt::Display) {
+        // TODO: Handle error
+        if let Err(e) = self.0.send_privmsg(msg_target, text) {
+            dbg!(&e);
+        }
+    }
+}
 
 impl From<irc::client::Sender> for Sender {
     fn from(sender: irc::client::Sender) -> Self {
@@ -55,6 +65,14 @@ impl Map {
     pub fn add_message(&mut self, server: &Server, message: Message) {
         if let Some(State::Ready(client)) = self.0.get_mut(server) {
             client.messages.push(message);
+        }
+    }
+
+    pub fn send_message(&self, server: &Server, channel: &Channel, text: impl fmt::Display) {
+        if let Some(client) = self.client(server) {
+            client
+                .sender
+                .send_privmsg(MsgTarget::Channel(channel.clone()), text);
         }
     }
 
