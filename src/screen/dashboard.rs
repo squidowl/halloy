@@ -41,10 +41,10 @@ impl Dashboard {
                 panes.split(
                     pane_grid::Axis::Horizontal,
                     &pane,
-                    Pane::new(Buffer::Channel(
+                    Pane::new(Buffer::Channel(buffer::channel::State::new(
                         server.server.clone().unwrap().into(),
                         channel.as_str().parse().unwrap(),
-                    )),
+                    ))),
                 );
             }
         }
@@ -57,7 +57,11 @@ impl Dashboard {
         Dashboard { panes, focus: None }
     }
 
-    pub fn update(&mut self, message: Message) -> Option<(Event, Command<Message>)> {
+    pub fn update(
+        &mut self,
+        message: Message,
+        clients: &data::client::Map,
+    ) -> Option<(Event, Command<Message>)> {
         match message {
             Message::PaneClicked(pane) => {
                 self.focus = Some(pane);
@@ -87,8 +91,10 @@ impl Dashboard {
             Message::Pane(message) => {
                 println!("pane message: {:?}", message);
             }
-            Message::Buffer(_, _) => {
-                println!("buffer message: {:?}", message);
+            Message::Buffer(pane, message) => {
+                if let Some(pane) = self.panes.get_mut(&pane) {
+                    pane.buffer.update(message, clients);
+                }
             }
         }
 

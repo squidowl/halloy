@@ -1,3 +1,4 @@
+use std::fmt::{self, Write};
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
@@ -57,6 +58,15 @@ pub enum MsgTarget {
     User(String),
 }
 
+impl fmt::Display for MsgTarget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MsgTarget::Channel(channel) => channel.fmt(f),
+            MsgTarget::User(user) => user.fmt(f),
+        }
+    }
+}
+
 impl From<String> for MsgTarget {
     fn from(msg_target: String) -> Self {
         match msg_target.parse::<Channel>() {
@@ -78,6 +88,26 @@ pub struct Channel {
     id: Option<String>,
     name: String,
     mask: Option<String>,
+}
+
+impl fmt::Display for Channel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = String::default();
+
+        write!(s, "{}", self.first);
+
+        if let Some(id) = &self.id {
+            write!(s, "{}", id);
+        }
+
+        write!(s, "{}", self.name);
+
+        if let Some(mask) = &self.mask {
+            write!(s, ":{}", mask);
+        }
+
+        write!(f, "{}", s)
+    }
 }
 
 impl FromStr for Channel {

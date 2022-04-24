@@ -1,4 +1,3 @@
-use data::{message::Channel, server::Server};
 use iced::pure::Element;
 
 use crate::theme::Theme;
@@ -9,14 +8,21 @@ pub mod empty;
 #[derive(Clone)]
 pub enum Buffer {
     Empty,
-    Channel(Server, Channel),
+    Channel(channel::State),
 }
 
 #[derive(Debug, Clone)]
-pub enum Message {}
+pub enum Message {
+    Channel(channel::Message),
+}
 
 impl Buffer {
-    pub fn _update(&mut self, _message: Message) {}
+    pub fn update(&mut self, message: Message, clients: &data::client::Map) {
+        match (self, message) {
+            (Buffer::Channel(state), Message::Channel(message)) => state.update(message, clients),
+            _ => {}
+        }
+    }
 
     pub fn view<'a>(
         &'a self,
@@ -25,7 +31,7 @@ impl Buffer {
     ) -> Element<'a, Message> {
         match self {
             Buffer::Empty => empty::view(theme),
-            Buffer::Channel(server, channel) => channel::view(server, channel, clients, theme),
+            Buffer::Channel(state) => channel::view(state, clients, theme).map(Message::Channel),
         }
     }
 }

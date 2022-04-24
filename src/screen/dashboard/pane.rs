@@ -39,7 +39,7 @@ impl Pane {
         }
     }
 
-    pub fn _update(&mut self, _message: Message) {}
+    pub fn update(&mut self, message: Message) {}
 
     pub fn view<'a, M: 'static + Clone>(
         &'a self,
