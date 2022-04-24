@@ -6,6 +6,20 @@ pub struct Message {
     command: Command,
 }
 
+impl Message {
+    pub fn is_for_channel(&self, channel: &Channel) -> bool {
+        match &self.command {
+            Command::PrivMsg { msg_target, .. } | Command::Notice { msg_target, .. } => {
+                match msg_target {
+                    MsgTarget::Channel(c) => c == channel,
+                    MsgTarget::User(_) => false,
+                }
+            }
+            Command::Other(_) => false,
+        }
+    }
+}
+
 impl From<irc::proto::Message> for Message {
     fn from(raw: irc::proto::Message) -> Self {
         let command = Command::from(raw.command.clone());
@@ -58,7 +72,7 @@ pub enum Target {
     Server(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Channel {
     first: char,
     id: Option<String>,

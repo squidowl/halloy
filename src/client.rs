@@ -1,5 +1,7 @@
 // TODO: This should live in its own crate.
 
+use data::client::Sender;
+use data::server::Server;
 use futures::FutureExt;
 use iced::futures::stream::{self, BoxStream, StreamExt};
 use iced::Subscription;
@@ -21,8 +23,8 @@ pub enum Error {
 #[derive(Debug)]
 pub enum Event {
     Ready(mpsc::Sender<Message>),
-    Connected(String, irc::client::Sender),
-    MessageReceived(String, irc::proto::Message),
+    Connected(Server, Sender),
+    MessageReceived(Server, data::message::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -37,11 +39,11 @@ enum State {
     },
     Connected {
         receiver: mpsc::Receiver<Message>,
-        servers: Vec<Server>,
+        servers: Vec<ServerData>,
     },
 }
 
-struct Server {
+struct ServerData {
     config: irc::client::data::Config,
     stream: irc::client::ClientStream,
 }
@@ -75,11 +77,11 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                     if let Some(Message::Connect(config)) = receiver.recv().await {
                         match connect(config.clone()).await {
                             Ok((stream, sender)) => {
-                                let servers = vec![Server {
+                                let servers = vec![ServerData {
                                     config: config.clone(),
                                     stream,
                                 }];
-                                let server = config.server.expect("expected server");
+                                let server = config.server.expect("expected server").into();
 
                                 return Some((
                                     Ok(Event::Connected(server, sender)),
@@ -114,11 +116,11 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                         Input::Message(Some(message)) => match message {
                             Message::Connect(config) => match connect(config.clone()).await {
                                 Ok((stream, sender)) => {
-                                    servers.push(Server {
+                                    servers.push(ServerData {
                                         config: config.clone(),
                                         stream,
                                     });
-                                    let server = config.server.expect("expected server");
+                                    let server = config.server.expect("expected server").into();
 
                                     return Some((
                                         Ok(Event::Connected(server, sender)),
@@ -140,8 +142,13 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
 
                             return Some((
                                 Ok(Event::MessageReceived(
-                                    server.config.server.clone().expect("expected server"),
-                                    message,
+                                    server
+                                        .config
+                                        .server
+                                        .clone()
+                                        .expect("expected server")
+                                        .into(),
+                                    message.into(),
                                 )),
                                 State::Connected { receiver, servers },
                             ));
@@ -150,7 +157,6 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                         Input::IrcMessage(_, Err(_)) => {} // TODO: Handle?
                     }
                 },
-                State::Disconnected => todo!(), // TODO: Not sure what this looks like yet
             }
         })
         .boxed()
@@ -159,9 +165,9 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
 
 async fn connect(
     config: irc::client::data::Config,
-) -> Result<(irc::client::ClientStream, irc::client::Sender), irc::error::Error> {
+) -> Result<(irc::client::ClientStream, Sender), irc::error::Error> {
     let mut client = irc::client::Client::from_config(config).await?;
     client.identify()?;
 
-    Ok((client.stream()?, client.sender()))
+    Ok((client.stream()?, client.sender().into()))
 }

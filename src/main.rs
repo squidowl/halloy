@@ -7,8 +7,6 @@ mod screen;
 mod style;
 mod theme;
 
-use std::collections::HashMap;
-
 use config::Config;
 use iced::{
     executor,
@@ -43,7 +41,7 @@ struct Halloy {
     theme: Theme,
     config: Config,
     sender: Option<mpsc::Sender<client::Message>>,
-    servers: HashMap<String, irc::client::Sender>,
+    clients: data::client::Map,
 }
 
 enum Screen {
@@ -65,13 +63,19 @@ impl Application for Halloy {
         let config = Config::load().unwrap_or_default();
         let screen = screen::Dashboard::new(&config);
 
+        let mut clients = data::client::Map::default();
+
+        for server in &config.servers {
+            clients.disconnected(server.server.clone().expect("config server").into());
+        }
+
         (
             Halloy {
                 screen: Screen::Dashboard(screen),
                 theme: Theme::default(),
                 config,
                 sender: None,
-                servers: Default::default(),
+                clients,
             },
             Command::none(),
         )
@@ -102,10 +106,11 @@ impl Application for Halloy {
                 }
                 client::Event::Connected(server, sender) => {
                     log::info!("connected to {:?}", server);
-                    self.servers.insert(server, sender);
+                    self.clients.ready(server, sender);
                 }
                 client::Event::MessageReceived(server, message) => {
-                    log::debug!("Server {} message received: {:?}", server, message);
+                    log::debug!("Server {:?} message received: {:?}", &server, &message);
+                    self.clients.add_message(&server, message);
                 }
             },
             Message::Client(Err(error)) => {
@@ -118,7 +123,9 @@ impl Application for Halloy {
 
     fn view<'a>(&'a self) -> Element<'a, Message> {
         let content = match &self.screen {
-            Screen::Dashboard(dashboard) => dashboard.view(&self.theme).map(Message::Dashboard),
+            Screen::Dashboard(dashboard) => dashboard
+                .view(&self.clients, &self.theme)
+                .map(Message::Dashboard),
         };
 
         container(content)
