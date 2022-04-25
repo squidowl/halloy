@@ -1,10 +1,12 @@
+use std::fmt;
+
 use data::{message::Channel, server::Server};
 use iced::{
-    pure::{container, text, text_input, widget::Column, Element},
+    pure::{container, text, text_input, vertical_space, widget::Column, Element},
     Length, Space,
 };
 
-use crate::theme::Theme;
+use crate::{style, theme::Theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -15,19 +17,26 @@ pub enum Message {
 pub fn view<'a>(
     state: &State,
     clients: &data::client::Map,
-    _theme: &'a Theme,
+    is_focused: bool,
+    theme: &'a Theme,
 ) -> Element<'a, Message> {
     let messages = clients
         .get_messages(&state.server, &state.channel)
         .into_iter()
-        .map(|message| text(format!("{:?}", message)).into())
+        .map(|message| text(format!("{:?}", message)).size(style::TEXT_SIZE).into())
         .collect();
 
-    let content = Column::with_children(messages)
-        .push(Space::with_height(Length::Fill))
-        .push(text_input("", &state.input, Message::Input).on_submit(Message::Send));
+    let mut content = Column::with_children(messages).push(vertical_space(Length::Fill));
 
-    // TODO: Scrollable with chat messages.
+    if is_focused {
+        content = content.push(
+            text_input("Send message...", &state.input, Message::Input)
+                .on_submit(Message::Send)
+                .padding(8)
+                .style(style::text_input::primary(theme))
+                .size(style::TEXT_SIZE),
+        )
+    }
 
     container(content)
         .width(Length::Fill)
@@ -59,5 +68,14 @@ impl State {
             }
             Message::Input(input) => self.input = input,
         }
+    }
+}
+
+impl fmt::Display for State {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let channel = self.channel.to_string();
+        let server: String = self.server.clone().into();
+
+        write!(f, "{} ({})", channel, server)
     }
 }

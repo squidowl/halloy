@@ -5,12 +5,20 @@ pub struct Color(iced::Color);
 
 impl Color {
     pub fn lighten(&self) -> iced::Color {
-        let hsl = Hsl::from_color(Srgb::from(self.0)).lighten(0.05);
-        Srgb::from_color(hsl).into()
+        self.lighten_by(0.05)
     }
 
     pub fn darken(&self) -> iced::Color {
-        let hsl = Hsl::from_color(Srgb::from(self.0)).darken(0.05);
+        self.darken_by(0.05)
+    }
+
+    pub fn darken_by(&self, float: f32) -> iced::Color {
+        let hsl = Hsl::from_color(Srgb::from(self.0)).darken(float);
+        Srgb::from_color(hsl).into()
+    }
+
+    pub fn lighten_by(&self, float: f32) -> iced::Color {
+        let hsl = Hsl::from_color(Srgb::from(self.0)).lighten(float);
         Srgb::from_color(hsl).into()
     }
 
