@@ -1,5 +1,7 @@
 // TODO: This should live in its own crate.
 
+use data::client::Sender;
+use data::server::Server;
 use futures::FutureExt;
 use iced::futures::stream::{self, BoxStream, StreamExt};
 use iced::Subscription;
@@ -21,8 +23,8 @@ pub enum Error {
 #[derive(Debug)]
 pub enum Event {
     Ready(mpsc::Sender<Message>),
-    Connected(String, irc::client::Sender),
-    MessageReceived(irc::proto::Message),
+    Connected(Server, Sender),
+    MessageReceived(Server, data::message::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -37,8 +39,13 @@ enum State {
     },
     Connected {
         receiver: mpsc::Receiver<Message>,
-        streams: Vec<irc::client::ClientStream>,
+        servers: Vec<ServerData>,
     },
+}
+
+struct ServerData {
+    config: irc::client::data::Config,
+    stream: irc::client::ClientStream,
 }
 
 enum Input {
@@ -70,12 +77,15 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                     if let Some(Message::Connect(config)) = receiver.recv().await {
                         match connect(config.clone()).await {
                             Ok((stream, sender)) => {
-                                let streams = vec![stream];
-                                let server = config.server.expect("expected server");
+                                let servers = vec![ServerData {
+                                    config: config.clone(),
+                                    stream,
+                                }];
+                                let server = config.server.expect("expected server").into();
 
                                 return Some((
                                     Ok(Event::Connected(server, sender)),
-                                    State::Connected { receiver, streams },
+                                    State::Connected { receiver, servers },
                                 ));
                             }
                             Err(e) => {
@@ -89,11 +99,11 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                 },
                 State::Connected {
                     mut receiver,
-                    mut streams,
+                    mut servers,
                 } => loop {
                     let input = {
                         let mut select = stream::select(
-                            stream::select_all(streams.iter_mut())
+                            stream::select_all(servers.iter_mut().map(|server| &mut server.stream))
                                 .enumerate()
                                 .map(|(idx, result)| Input::IrcMessage(idx, result)),
                             receiver.recv().map(Input::Message).into_stream().boxed(),
@@ -106,12 +116,15 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                         Input::Message(Some(message)) => match message {
                             Message::Connect(config) => match connect(config.clone()).await {
                                 Ok((stream, sender)) => {
-                                    let server = config.server.expect("expected server");
-                                    streams.push(stream);
+                                    servers.push(ServerData {
+                                        config: config.clone(),
+                                        stream,
+                                    });
+                                    let server = config.server.expect("expected server").into();
 
                                     return Some((
                                         Ok(Event::Connected(server, sender)),
-                                        State::Connected { receiver, streams },
+                                        State::Connected { receiver, servers },
                                     ));
                                 }
                                 Err(e) => {
@@ -123,19 +136,27 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                             },
                         },
                         Input::IrcMessage(idx, Ok(message)) => {
+                            let server = &servers[idx];
                             // let sender = &senders[idx];
                             // process_msg(sender, message)?; // TODO: ??
 
                             return Some((
-                                Ok(Event::MessageReceived(message)),
-                                State::Connected { receiver, streams },
+                                Ok(Event::MessageReceived(
+                                    server
+                                        .config
+                                        .server
+                                        .clone()
+                                        .expect("expected server")
+                                        .into(),
+                                    message.into(),
+                                )),
+                                State::Connected { receiver, servers },
                             ));
                         }
                         Input::Message(None) => {}
                         Input::IrcMessage(_, Err(_)) => {} // TODO: Handle?
                     }
                 },
-                State::Disconnected => todo!(), // TODO: Not sure what this looks like yet
             }
         })
         .boxed()
@@ -144,9 +165,9 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
 
 async fn connect(
     config: irc::client::data::Config,
-) -> Result<(irc::client::ClientStream, irc::client::Sender), irc::error::Error> {
+) -> Result<(irc::client::ClientStream, Sender), irc::error::Error> {
     let mut client = irc::client::Client::from_config(config).await?;
     client.identify()?;
 
-    Ok((client.stream()?, client.sender()))
+    Ok((client.stream()?, client.sender().into()))
 }
