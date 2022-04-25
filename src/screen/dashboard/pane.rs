@@ -39,7 +39,7 @@ impl Pane {
         }
     }
 
-    pub fn _update(&mut self, _message: Message) {}
+    pub fn update(&mut self, message: Message) {}
 
     pub fn view<'a, M: 'static + Clone>(
         &'a self,
@@ -48,6 +48,7 @@ impl Pane {
         id: pane_grid::Pane,
         panes: usize,
         is_focused: bool,
+        clients: &data::client::Map,
     ) -> Content<'a, M> {
         let title_bar = self
             .title_bar
@@ -56,7 +57,7 @@ impl Pane {
 
         let content = self
             .buffer
-            .view(theme)
+            .view(clients, theme)
             .map(move |msg| (mapper.buffer)(id, msg));
 
         pane_grid::Content::new(content)
