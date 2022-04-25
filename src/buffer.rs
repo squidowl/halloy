@@ -27,11 +27,14 @@ impl Buffer {
     pub fn view<'a>(
         &'a self,
         clients: &data::client::Map,
+        is_focused: bool,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         match self {
             Buffer::Empty => empty::view(theme),
-            Buffer::Channel(state) => channel::view(state, clients, theme).map(Message::Channel),
+            Buffer::Channel(state) => {
+                channel::view(state, clients, is_focused, theme).map(Message::Channel)
+            }
         }
     }
 }

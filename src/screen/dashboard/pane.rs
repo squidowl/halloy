@@ -39,7 +39,7 @@ impl Pane {
         }
     }
 
-    pub fn update(&mut self, message: Message) {}
+    pub fn _update(&mut self, _message: Message) {}
 
     pub fn view<'a, M: 'static + Clone>(
         &'a self,
@@ -50,14 +50,19 @@ impl Pane {
         is_focused: bool,
         clients: &data::client::Map,
     ) -> Content<'a, M> {
+        let title_bar_text = match &self.buffer {
+            Buffer::Empty => String::new(),
+            Buffer::Channel(state) => state.to_string(),
+        };
+
         let title_bar = self
             .title_bar
-            .view(theme, &mapper, id, panes, is_focused)
+            .view(title_bar_text, theme, &mapper, id, panes, is_focused)
             .style(style::container::header(theme));
 
         let content = self
             .buffer
-            .view(clients, theme)
+            .view(clients, is_focused, theme)
             .map(move |msg| (mapper.buffer)(id, msg));
 
         pane_grid::Content::new(content)
@@ -69,9 +74,10 @@ impl Pane {
 impl TitleBar {
     fn view<'a, M: 'static + Clone>(
         &'a self,
+        value: String,
         theme: &'a Theme,
         mapper: &Mapper<M>,
-        id: iced::pane_grid::Pane,
+        _id: iced::pane_grid::Pane,
         panes: usize,
         _is_focused: bool,
     ) -> pane_grid::TitleBar<'a, M> {
@@ -93,7 +99,7 @@ impl TitleBar {
 
         let title = column()
             .push(
-                container(text(format!("title {:?}", &id)).size(style::TITLE_SIZE))
+                container(text(value).size(style::TEXT_SIZE))
                     .padding(4)
                     .center_y()
                     .height(Length::Units(35)),

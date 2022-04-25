@@ -2,11 +2,8 @@ use iced::{pure::widget::container, Background};
 
 use crate::theme::Theme;
 
-pub fn pane(theme: &Theme, is_active: bool) -> Pane {
-    Pane {
-        theme,
-        is_focused: is_active,
-    }
+pub fn pane(theme: &Theme, is_focused: bool) -> Pane {
+    Pane { theme, is_focused }
 }
 
 pub fn header(theme: &Theme) -> Header {

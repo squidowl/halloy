@@ -7,6 +7,12 @@ impl From<String> for Server {
     }
 }
 
+impl Into<String> for Server {
+    fn into(self) -> String {
+        self.0
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Config {
     server: Server,
