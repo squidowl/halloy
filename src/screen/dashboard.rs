@@ -33,25 +33,30 @@ pub enum Event {}
 
 impl Dashboard {
     pub fn new(config: &Config) -> Self {
-        let (mut panes, pane) = pane_grid::State::new(Pane::new(Buffer::Empty));
-
-        // TODO: Create initial panels (channels) more nicely.
+        let mut buffers: Vec<Buffer> = Vec::new();
         for server in config.servers.iter() {
+            buffers.push(Buffer::Server(buffer::server::State::new(
+                server.server.clone().unwrap().into(),
+            )));
+
             for channel in server.channels() {
-                panes.split(
-                    pane_grid::Axis::Horizontal,
-                    &pane,
-                    Pane::new(Buffer::Channel(buffer::channel::State::new(
-                        server.server.clone().unwrap().into(),
-                        channel.as_str().parse().unwrap(),
-                    ))),
-                );
+                buffers.push(Buffer::Channel(buffer::channel::State::new(
+                    server.server.clone().unwrap().into(),
+                    channel.as_str().parse().unwrap(),
+                )));
             }
         }
 
-        // TODO: A little hacke for now, just to get the ball rolling.
-        if config.servers.len() > 0 {
-            panes.close(&pane);
+        let first_buffer = if buffers.len() > 0 {
+            buffers.remove(0)
+        } else {
+            Buffer::Empty
+        };
+
+        let (mut panes, pane) = pane_grid::State::new(Pane::new(first_buffer));
+
+        for buffer in buffers {
+            panes.split(pane_grid::Axis::Horizontal, &pane, Pane::new(buffer));
         }
 
         Dashboard { panes, focus: None }

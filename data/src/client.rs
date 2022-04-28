@@ -1,4 +1,3 @@
-use std::ops;
 use std::{collections::HashMap, fmt};
 
 use crate::{
@@ -83,6 +82,18 @@ impl Map {
                     .messages
                     .iter()
                     .filter(|m| m.is_for_channel(channel))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn get_messages_for_server(&self, server: &Server) -> Vec<&Message> {
+        self.client(server)
+            .map(|client| {
+                client
+                    .messages
+                    .iter()
+                    .filter(|m| m.is_for_server())
                     .collect()
             })
             .unwrap_or_default()

@@ -109,7 +109,7 @@ impl Application for Halloy {
                     self.clients.ready(server, sender);
                 }
                 client::Event::MessageReceived(server, message) => {
-                    log::debug!("Server {:?} message received: {:?}", &server, &message);
+                    // log::debug!("Server {:?} message received: {:?}", &server, &message);
                     self.clients.add_message(&server, message);
                 }
             },

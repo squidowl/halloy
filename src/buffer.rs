@@ -4,16 +4,19 @@ use crate::theme::Theme;
 
 pub mod channel;
 pub mod empty;
+pub mod server;
 
 #[derive(Clone)]
 pub enum Buffer {
     Empty,
     Channel(channel::State),
+    Server(server::State),
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Channel(channel::Message),
+    Server(server::Message),
 }
 
 impl Buffer {
@@ -34,6 +37,9 @@ impl Buffer {
             Buffer::Empty => empty::view(theme),
             Buffer::Channel(state) => {
                 channel::view(state, clients, is_focused, theme).map(Message::Channel)
+            }
+            Buffer::Server(state) => {
+                server::view(state, clients, is_focused, theme).map(Message::Server)
             }
         }
     }
