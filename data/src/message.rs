@@ -8,6 +8,10 @@ pub struct Message {
 }
 
 impl Message {
+    pub fn command(&self) -> &Command {
+        &self.command
+    }
+
     pub fn is_for_channel(&self, channel: &Channel) -> bool {
         match &self.command {
             Command::PrivMsg { msg_target, .. } | Command::Notice { msg_target, .. } => {
@@ -16,7 +20,14 @@ impl Message {
                     MsgTarget::User(_) => false,
                 }
             }
-            Command::Other(_) => false,
+            Command::Response { .. } | Command::Other(_) => false,
+        }
+    }
+
+    pub fn is_for_server(&self) -> bool {
+        match &self.command {
+            Command::Response { .. } => true,
+            _ => false,
         }
     }
 }
@@ -31,9 +42,52 @@ impl From<irc::proto::Message> for Message {
 
 #[derive(Debug, Clone)]
 pub enum Command {
-    PrivMsg { msg_target: MsgTarget, text: String },
-    Notice { msg_target: MsgTarget, text: String },
+    PrivMsg {
+        msg_target: MsgTarget,
+        text: String,
+    },
+    Notice {
+        msg_target: MsgTarget,
+        text: String,
+    },
+    Response {
+        response: Response,
+        text: Vec<String>,
+    },
     Other(irc::proto::Command),
+}
+
+#[derive(Debug, Clone)]
+pub enum Response {
+    Welcome,
+    MOTDStart,
+    MOTD,
+    MOTDEnd,
+    Other,
+}
+
+impl Response {
+    pub fn parse(&self, text: &Vec<String>) -> Option<String> {
+        match self {
+            Response::Welcome => text.get(1).cloned(),
+            Response::MOTDStart => text.get(1).cloned(),
+            Response::MOTD => text.get(1).cloned(),
+            Response::MOTDEnd => text.get(1).cloned(),
+            Response::Other => None,
+        }
+    }
+}
+
+impl From<irc::proto::Response> for Response {
+    fn from(response: irc::proto::Response) -> Self {
+        match response {
+            irc::proto::Response::RPL_WELCOME => Response::Welcome,
+            irc::proto::Response::RPL_MOTD => Response::MOTD,
+            irc::proto::Response::RPL_MOTDSTART => Response::MOTDStart,
+            irc::proto::Response::RPL_ENDOFMOTD => Response::MOTDEnd,
+            _ => Response::Other,
+        }
+    }
 }
 
 impl From<irc::proto::Command> for Command {
@@ -45,6 +99,10 @@ impl From<irc::proto::Command> for Command {
             },
             irc::proto::Command::NOTICE(msg_target, text) => Command::Notice {
                 msg_target: MsgTarget::from(msg_target),
+                text,
+            },
+            irc::proto::Command::Response(response, text) => Command::Response {
+                response: response.into(),
                 text,
             },
             _ => Command::Other(command),

@@ -41,6 +41,7 @@ pub fn view<'a>(
     container(content)
         .width(Length::Fill)
         .height(Length::Fill)
+        .padding(4)
         .into()
 }
 
