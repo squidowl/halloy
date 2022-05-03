@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
 use crate::theme::Theme;
-use crate::{icon, style};
+use crate::{font, icon, style};
 
 #[derive(Debug, Clone)]
 pub enum Message {}
@@ -100,7 +100,7 @@ impl TitleBar {
 
         let title = column()
             .push(
-                container(text(value).size(style::TEXT_SIZE))
+                container(text(value).font(font::BOLD).size(style::TEXT_SIZE))
                     .padding(4)
                     .center_y()
                     .height(Length::Units(35)),

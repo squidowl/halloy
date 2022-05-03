@@ -34,7 +34,9 @@ pub fn view<'a>(
         })
         .collect();
 
-    let content = Column::with_children(components).push(vertical_space(Length::Fill));
+    let content = Column::with_children(components)
+        .push(vertical_space(Length::Fill))
+        .width(Length::Fill);
 
     scrollable(content).height(Length::Fill).into()
 }
