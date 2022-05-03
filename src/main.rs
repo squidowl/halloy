@@ -1,6 +1,7 @@
 mod buffer;
 mod client;
 mod config;
+mod font;
 mod icon;
 mod logger;
 mod screen;
@@ -28,11 +29,19 @@ pub fn main() -> iced::Result {
     logger::setup(is_debug).expect("setup logging");
     log::info!("application ({}) has started", VERSION);
 
-    if let Err(error) = Halloy::run(Settings::default()) {
+    if let Err(error) = Halloy::run(settings()) {
         log::error!("{}", error.to_string());
         Err(error)
     } else {
         Ok(())
+    }
+}
+
+fn settings() -> iced::Settings<()> {
+    iced::Settings {
+        default_font: Some(include_bytes!("../fonts/iosevka-term-regular.ttf")),
+        default_text_size: style::TEXT_SIZE,
+        ..Default::default()
     }
 }
 
