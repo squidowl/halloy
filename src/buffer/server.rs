@@ -14,13 +14,12 @@ use crate::{style, theme::Theme};
 pub enum Message {}
 
 pub fn view<'a>(
-    state: &State,
     clients: &data::client::Map,
     is_focused: bool,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let components: Vec<Element<'a, Message>> = clients
-        .get_messages_for_server(&state.server)
+        .get_messages_for_server()
         .into_iter()
         .filter_map(|message| match message.command() {
             data::message::Command::Response { response, text } => {
@@ -42,22 +41,14 @@ pub fn view<'a>(
 }
 
 #[derive(Debug, Clone)]
-pub struct State {
-    server: Server,
-}
+pub struct State;
 
 impl State {
-    pub fn new(server: Server) -> Self {
-        Self { server }
-    }
-
     pub fn _update(&mut self, message: Message, clients: &data::client::Map) {}
 }
 
 impl fmt::Display for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let server: String = self.server.clone().into();
-
-        write!(f, "{}", server)
+        write!(f, "Server")
     }
 }

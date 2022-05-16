@@ -33,12 +33,9 @@ pub enum Event {}
 
 impl Dashboard {
     pub fn new(config: &Config) -> Self {
-        let mut buffers: Vec<Buffer> = Vec::new();
-        for server in config.servers.iter() {
-            buffers.push(Buffer::Server(buffer::server::State::new(
-                server.server.clone().unwrap().into(),
-            )));
+        let mut buffers = vec![Buffer::Server];
 
+        for server in config.servers.iter() {
             for channel in server.channels() {
                 buffers.push(Buffer::Channel(buffer::channel::State::new(
                     server.server.clone().unwrap().into(),
