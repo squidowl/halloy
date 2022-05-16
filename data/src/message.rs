@@ -30,6 +30,19 @@ impl Message {
             _ => false,
         }
     }
+
+    pub fn nickname(&self) -> String {
+        if let Some(prefix) = self.raw.prefix.clone() {
+            return match prefix {
+                irc::proto::Prefix::ServerName(name) => name,
+                // TODO: How to get mods, like '@'
+                irc::proto::Prefix::Nickname(name, _, _) => name,
+            };
+        }
+
+        // TODO: When can this happen?
+        String::new()
+    }
 }
 
 impl From<irc::proto::Message> for Message {

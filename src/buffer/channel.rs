@@ -2,7 +2,7 @@ use std::fmt;
 
 use data::{message::Channel, server::Server};
 use iced::{
-    pure::{container, text, text_input, vertical_space, widget::Column, Element},
+    pure::{self, container, text, text_input, vertical_space, widget::Column, Element},
     Length, Space,
 };
 
@@ -20,10 +20,23 @@ pub fn view<'a>(
     is_focused: bool,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
-    let messages = clients
+    let messages: Vec<Element<'a, Message>> = clients
         .get_messages(&state.server, &state.channel)
         .into_iter()
-        .map(|message| text(format!("{:?}", message)).size(style::TEXT_SIZE).into())
+        .filter_map(|message| {
+            println!("message: {:?}", message);
+
+            match message.command() {
+                data::message::Command::PrivMsg { text, .. } => Some(
+                    container(
+                        pure::text(format!("<{}> {}", message.nickname(), text))
+                            .size(style::TEXT_SIZE),
+                    )
+                    .into(),
+                ),
+                _ => None,
+            }
+        })
         .collect();
 
     let mut content = Column::with_children(messages).push(vertical_space(Length::Fill));

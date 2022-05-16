@@ -10,7 +10,7 @@ pub mod server;
 pub enum Buffer {
     Empty,
     Channel(channel::State),
-    Server(server::State),
+    Server,
 }
 
 #[derive(Debug, Clone)]
@@ -38,9 +38,7 @@ impl Buffer {
             Buffer::Channel(state) => {
                 channel::view(state, clients, is_focused, theme).map(Message::Channel)
             }
-            Buffer::Server(state) => {
-                server::view(state, clients, is_focused, theme).map(Message::Server)
-            }
+            Buffer::Server => server::view(clients, is_focused, theme).map(Message::Server),
         }
     }
 }

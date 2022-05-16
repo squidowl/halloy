@@ -87,15 +87,24 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_messages_for_server(&self, server: &Server) -> Vec<&Message> {
-        self.client(server)
-            .map(|client| {
-                client
-                    .messages
-                    .iter()
-                    .filter(|m| m.is_for_server())
-                    .collect()
-            })
-            .unwrap_or_default()
+    pub fn get_messages_for_server(&self) -> Vec<&Message> {
+        let mut messages: Vec<&Message> = vec![];
+
+        for (server, _) in &self.0 {
+            let client = self.client(server);
+            messages.append(
+                &mut client
+                    .map(|client| {
+                        client
+                            .messages
+                            .iter()
+                            .filter(|m| m.is_for_server())
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+            );
+        }
+
+        messages
     }
 }
