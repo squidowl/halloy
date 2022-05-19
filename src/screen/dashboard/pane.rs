@@ -1,8 +1,7 @@
 use iced::pane_grid::Axis;
 use iced::pure::widget::pane_grid::{self, Content};
-use iced::pure::widget::Container;
-use iced::pure::{self, button, column, container, row, scrollable, text, text_input};
-use iced::{alignment, Length};
+use iced::pure::{button, column, container, row, text};
+use iced::Length;
 use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};

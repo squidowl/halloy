@@ -2,8 +2,10 @@ use std::fmt;
 
 use data::{message::Channel, server::Server};
 use iced::{
-    pure::{self, container, text, text_input, vertical_space, widget::Column, Element},
-    Length, Space,
+    pure::{
+        self, column, container, scrollable, text_input, vertical_space, widget::Column, Element,
+    },
+    Length,
 };
 
 use crate::{style, theme::Theme};
@@ -23,31 +25,32 @@ pub fn view<'a>(
     let messages: Vec<Element<'a, Message>> = clients
         .get_messages(&state.server, &state.channel)
         .into_iter()
-        .filter_map(|message| {
-            println!("message: {:?}", message);
-
-            match message.command() {
-                data::message::Command::PrivMsg { text, .. } => Some(
-                    container(
-                        pure::text(format!("<{}> {}", message.nickname(), text))
-                            .size(style::TEXT_SIZE),
-                    )
-                    .into(),
-                ),
-                _ => None,
-            }
+        .filter_map(|message| match message.command() {
+            data::message::Command::PrivMsg { text, .. } => Some(
+                container(
+                    pure::text(format!("<{}> {}", message.nickname(), text)).size(style::TEXT_SIZE),
+                )
+                .into(),
+            ),
+            _ => None,
         })
         .collect();
 
-    let mut content = Column::with_children(messages).push(vertical_space(Length::Fill));
+    let mut content = column()
+        .push(scrollable(Column::with_children(messages)))
+        .push(vertical_space(Length::Fill));
 
     if is_focused {
         content = content.push(
-            text_input("Send message...", &state.input, Message::Input)
-                .on_submit(Message::Send)
-                .padding(8)
-                .style(style::text_input::primary(theme))
-                .size(style::TEXT_SIZE),
+            container(
+                text_input("Send message...", &state.input, Message::Input)
+                    .on_submit(Message::Send)
+                    .padding(8)
+                    .style(style::text_input::primary(theme))
+                    .size(style::TEXT_SIZE),
+            )
+            .width(Length::Fill)
+            .height(Length::Units(40)),
         )
     }
 

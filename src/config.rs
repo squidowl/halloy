@@ -24,15 +24,16 @@ impl Config {
         Ok(dir)
     }
 
-    pub async fn save(self) -> Result<(), Error> {
+    // TODO: Futher down the road it make sense to make changes to config and then save.
+    pub async fn _save(self) -> Result<(), Error> {
         let mut config_dir = Self::config_dir()?;
         config_dir.push("config.yaml");
 
-        let serialized = serde_yaml::to_string(&self).map_err(|_| Error::SerializationError)?;
+        let serialized = serde_yaml::to_string(&self).map_err(|_| Error::_SerializationError)?;
 
         let _ = tokio::fs::write(config_dir, serialized)
             .await
-            .map_err(|_| Error::WriteError)?;
+            .map_err(|_| Error::_WriteError)?;
 
         Ok(())
     }
@@ -63,7 +64,7 @@ pub enum Error {
     #[error("config directory could not be created")]
     DirectoryCreationError,
     #[error("config could not be serialized")]
-    SerializationError,
+    _SerializationError,
     #[error("config file could not be written")]
-    WriteError,
+    _WriteError,
 }

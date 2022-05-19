@@ -140,8 +140,6 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                             // let sender = &senders[idx];
                             // process_msg(sender, message)?; // TODO: ??
 
-                            println!("{:?}", message.command);
-
                             return Some((
                                 Ok(Event::MessageReceived(
                                     server

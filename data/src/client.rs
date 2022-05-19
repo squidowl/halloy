@@ -90,7 +90,7 @@ impl Map {
     pub fn get_messages_for_server(&self) -> Vec<&Message> {
         let mut messages: Vec<&Message> = vec![];
 
-        for (server, _) in &self.0 {
+        for server in self.0.keys() {
             let client = self.client(server);
             messages.append(
                 &mut client
