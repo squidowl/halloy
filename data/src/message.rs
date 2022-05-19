@@ -25,10 +25,10 @@ impl Message {
     }
 
     pub fn is_for_server(&self) -> bool {
-        match &self.command {
-            Command::Response { .. } => true,
-            _ => false,
-        }
+        matches!(
+            &self.command,
+            Command::Response { .. } | Command::Notice { .. }
+        )
     }
 
     pub fn nickname(&self) -> String {
@@ -80,7 +80,9 @@ pub enum Response {
 }
 
 impl Response {
-    pub fn parse(&self, text: &Vec<String>) -> Option<String> {
+    pub fn parse(&self, text: &[String]) -> Option<String> {
+        // TODO: This could be parsed better in many cases.
+        // Perhaps with `nom`.
         match self {
             Response::Welcome => text.get(1).cloned(),
             Response::MOTDStart => text.get(1).cloned(),

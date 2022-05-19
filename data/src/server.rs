@@ -15,6 +15,6 @@ impl Into<String> for Server {
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    server: Server,
-    raw: irc::client::data::Config,
+    _server: Server,
+    _raw: irc::client::data::Config,
 }

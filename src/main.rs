@@ -12,7 +12,7 @@ use config::Config;
 use iced::{
     executor,
     pure::{container, Application, Element},
-    Command, Length, Settings, Subscription,
+    Command, Length, Subscription,
 };
 use screen::dashboard;
 use theme::Theme;

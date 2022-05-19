@@ -1,11 +1,8 @@
 use std::fmt;
 
-use data::{message::Channel, server::Server};
 use iced::{
-    pure::{
-        self, container, scrollable, text, text_input, vertical_space, widget::Column, Element,
-    },
-    Length, Space,
+    pure::{self, column, container, scrollable, vertical_space, widget::Column, Element},
+    Length,
 };
 
 use crate::{style, theme::Theme};
@@ -15,36 +12,31 @@ pub enum Message {}
 
 pub fn view<'a>(
     clients: &data::client::Map,
-    is_focused: bool,
-    theme: &'a Theme,
+    _is_focused: bool,
+    _theme: &'a Theme,
 ) -> Element<'a, Message> {
-    let components: Vec<Element<'a, Message>> = clients
+    let messages: Vec<Element<'a, Message>> = clients
         .get_messages_for_server()
         .into_iter()
         .filter_map(|message| match message.command() {
-            data::message::Command::Response { response, text } => {
-                if let Some(value) = response.parse(text) {
-                    Some(container(pure::text(value).size(style::TEXT_SIZE)).into())
-                } else {
-                    None
-                }
+            data::message::Command::Response { response, text } => response
+                .parse(text)
+                .map(|value| container(pure::text(value).size(style::TEXT_SIZE)).into()),
+            data::message::Command::Notice { text, .. } => {
+                Some(container(pure::text(text).size(style::TEXT_SIZE)).into())
             }
             _ => None,
         })
         .collect();
 
-    let content = Column::with_children(components)
-        .push(vertical_space(Length::Fill))
-        .width(Length::Fill);
-
-    scrollable(content).height(Length::Fill).into()
+    scrollable(Column::with_children(messages).width(Length::Fill)).into()
 }
 
 #[derive(Debug, Clone)]
 pub struct State;
 
 impl State {
-    pub fn _update(&mut self, message: Message, clients: &data::client::Map) {}
+    pub fn _update(&mut self, _message: Message, _clients: &data::client::Map) {}
 }
 
 impl fmt::Display for State {
