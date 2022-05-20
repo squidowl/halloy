@@ -2,13 +2,15 @@ use std::fmt;
 
 use data::{message::Channel, server::Server};
 use iced::{
-    pure::{
-        self, column, container, scrollable, text_input, vertical_space, widget::Column, Element,
-    },
+    pure::{self, column, container, text_input, vertical_space, widget::Column, Element},
     Length,
 };
 
-use crate::{style, theme::Theme};
+use crate::{
+    style,
+    theme::Theme,
+    widget::{self, sticky_scrollable::scrollable},
+};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -36,28 +38,27 @@ pub fn view<'a>(
         })
         .collect();
 
-    let mut content = column()
-        .push(scrollable(Column::with_children(messages)))
-        .push(vertical_space(Length::Fill));
+    let mut content = column().push(
+        container(scrollable(
+            Column::with_children(messages).width(Length::Fill),
+        ))
+        .height(Length::Fill),
+    );
 
     if is_focused {
-        content = content.push(
-            container(
-                text_input("Send message...", &state.input, Message::Input)
-                    .on_submit(Message::Send)
-                    .padding(8)
-                    .style(style::text_input::primary(theme))
-                    .size(style::TEXT_SIZE),
-            )
-            .width(Length::Fill)
-            .height(Length::Units(40)),
+        content = content.push(vertical_space(Length::Units(5))).push(
+            text_input("Send message...", &state.input, Message::Input)
+                .on_submit(Message::Send)
+                .padding(8)
+                .style(style::text_input::primary(theme))
+                .size(style::TEXT_SIZE),
         )
     }
 
     container(content)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(4)
+        .padding([0, 8])
         .into()
 }
 

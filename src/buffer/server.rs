@@ -1,11 +1,11 @@
 use std::fmt;
 
 use iced::{
-    pure::{self, column, container, scrollable, vertical_space, widget::Column, Element},
+    pure::{self, column, container, widget::Column, Element},
     Length,
 };
 
-use crate::{style, theme::Theme};
+use crate::{style, theme::Theme, widget::sticky_scrollable::scrollable};
 
 #[derive(Debug, Clone)]
 pub enum Message {}
@@ -29,7 +29,13 @@ pub fn view<'a>(
         })
         .collect();
 
-    scrollable(Column::with_children(messages).width(Length::Fill)).into()
+    container(scrollable(
+        Column::with_children(messages).width(Length::Fill),
+    ))
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .padding([0, 8])
+    .into()
 }
 
 #[derive(Debug, Clone)]

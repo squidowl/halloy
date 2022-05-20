@@ -845,6 +845,7 @@ dependencies = [
  "iced",
  "iced_lazy",
  "iced_native",
+ "iced_pure",
  "irc",
  "log",
  "palette",
@@ -872,8 +873,8 @@ dependencies = [
 
 [[package]]
 name = "iced"
-version = "0.3.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+version = "0.4.2"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -888,8 +889,8 @@ dependencies = [
 
 [[package]]
 name = "iced_core"
-version = "0.4.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+version = "0.5.0"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "bitflags",
  "palette",
@@ -898,8 +899,8 @@ dependencies = [
 
 [[package]]
 name = "iced_futures"
-version = "0.3.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+version = "0.4.0"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "futures",
  "log",
@@ -910,8 +911,8 @@ dependencies = [
 
 [[package]]
 name = "iced_glow"
-version = "0.2.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+version = "0.3.0"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "bytemuck",
  "euclid",
@@ -925,19 +926,20 @@ dependencies = [
 
 [[package]]
 name = "iced_glutin"
-version = "0.2.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+version = "0.3.0"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "glutin",
  "iced_graphics",
  "iced_native",
  "iced_winit",
+ "log",
 ]
 
 [[package]]
 name = "iced_graphics"
-version = "0.2.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+version = "0.3.0"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "bytemuck",
  "glam",
@@ -951,7 +953,7 @@ dependencies = [
 [[package]]
 name = "iced_lazy"
 version = "0.1.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "iced_native",
  "ouroboros",
@@ -959,8 +961,8 @@ dependencies = [
 
 [[package]]
 name = "iced_native"
-version = "0.4.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+version = "0.5.0"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -972,8 +974,8 @@ dependencies = [
 
 [[package]]
 name = "iced_pure"
-version = "0.1.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+version = "0.2.1"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "iced_native",
  "iced_style",
@@ -982,16 +984,16 @@ dependencies = [
 
 [[package]]
 name = "iced_style"
-version = "0.3.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+version = "0.4.0"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "iced_core",
 ]
 
 [[package]]
 name = "iced_winit"
-version = "0.3.0"
-source = "git+https://github.com/iced-rs/iced.git?rev=3042fa2cb63c651ebed2abe6f4054e61f70b0331#3042fa2cb63c651ebed2abe6f4054e61f70b0331"
+version = "0.4.0"
+source = "git+https://github.com/iced-rs/iced.git?rev=ba33e92818ec181508b4957d1eae5b2beb9ea221#ba33e92818ec181508b4957d1eae5b2beb9ea221"
 dependencies = [
  "iced_futures",
  "iced_graphics",
