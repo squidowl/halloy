@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub struct Message {
-    raw: irc::proto::Message,
-    command: Command,
+    pub raw: irc::proto::Message,
+    pub command: Command,
 }
 
 impl Message {
@@ -20,14 +20,14 @@ impl Message {
                     MsgTarget::User(_) => false,
                 }
             }
-            Command::Response { .. } | Command::Other(_) => false,
+            Command::Response { .. } | Command::Nick(_) | Command::Other(_) => false,
         }
     }
 
     pub fn is_for_server(&self) -> bool {
         matches!(
             &self.command,
-            Command::Response { .. } | Command::Notice { .. }
+            Command::Response { .. } | Command::Notice { .. } | Command::Nick(_)
         )
     }
 
@@ -67,7 +67,22 @@ pub enum Command {
         response: Response,
         text: Vec<String>,
     },
+    Nick(String),
     Other(irc::proto::Command),
+}
+
+impl From<Command> for irc::proto::Command {
+    fn from(command: Command) -> Self {
+        match command {
+            Command::PrivMsg { msg_target, text } => {
+                irc::proto::Command::PRIVMSG(msg_target.to_string(), text)
+            }
+            Command::Notice { msg_target, text } => todo!(),
+            Command::Response { response, text } => todo!(),
+            Command::Nick(nickname) => irc::proto::Command::NICK(nickname),
+            Command::Other(_) => todo!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -167,16 +182,16 @@ impl fmt::Display for Channel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::default();
 
-        write!(s, "{}", self.first);
+        write!(s, "{}", self.first)?;
 
         if let Some(id) = &self.id {
-            write!(s, "{}", id);
+            write!(s, "{}", id)?;
         }
 
-        write!(s, "{}", self.name);
+        write!(s, "{}", self.name)?;
 
         if let Some(mask) = &self.mask {
-            write!(s, ":{}", mask);
+            write!(s, ":{}", mask)?;
         }
 
         write!(f, "{}", s)

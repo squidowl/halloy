@@ -20,7 +20,7 @@ pub enum Message {
 }
 
 impl Buffer {
-    pub fn update(&mut self, message: Message, clients: &data::client::Map) {
+    pub fn update(&mut self, message: Message, clients: &mut data::client::Map) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => state.update(message, clients),
             _ => {}

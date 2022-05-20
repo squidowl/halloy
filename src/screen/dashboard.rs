@@ -62,7 +62,7 @@ impl Dashboard {
     pub fn update(
         &mut self,
         message: Message,
-        clients: &data::client::Map,
+        clients: &mut data::client::Map,
     ) -> Option<(Event, Command<Message>)> {
         match message {
             Message::PaneClicked(pane) => {
