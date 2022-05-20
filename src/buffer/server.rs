@@ -1,7 +1,7 @@
 use std::fmt;
 
 use iced::{
-    pure::{self, column, container, widget::Column, Element},
+    pure::{self, container, widget::Column, Element},
     Length,
 };
 

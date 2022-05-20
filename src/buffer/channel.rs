@@ -6,11 +6,7 @@ use iced::{
     Length,
 };
 
-use crate::{
-    style,
-    theme::Theme,
-    widget::{self, sticky_scrollable::scrollable},
-};
+use crate::{style, theme::Theme, widget::sticky_scrollable::scrollable};
 
 #[derive(Debug, Clone)]
 pub enum Message {
