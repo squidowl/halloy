@@ -7,6 +7,7 @@ mod logger;
 mod screen;
 mod style;
 mod theme;
+mod widget;
 
 use config::Config;
 use iced::{
