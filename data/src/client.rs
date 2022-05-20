@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt};
 
+use crate::message::Command;
 use crate::{
     message::{Channel, Message, MsgTarget},
     server::Server,
@@ -21,11 +22,39 @@ pub struct Client {
 pub struct Sender(irc::client::Sender);
 
 impl Sender {
-    pub fn send_privmsg(&self, msg_target: MsgTarget, text: impl fmt::Display) {
+    pub fn send_privmsg(
+        &self,
+        nickname: Option<String>,
+        msg_target: MsgTarget,
+        text: impl fmt::Display,
+    ) -> Message {
+        let command = Command::PrivMsg {
+            msg_target,
+            text: text.to_string(),
+        };
+
+        let proto_command = irc::proto::Command::from(command.clone());
+        let proto_message = irc::proto::Message::from(proto_command);
+
+        let mut message = Message {
+            raw: proto_message.clone(),
+            command,
+        };
+
+        if let Some(nick) = nickname {
+            message.raw.prefix = Some(irc::proto::Prefix::Nickname(
+                nick,
+                String::new(),
+                String::new(),
+            ));
+        }
+
         // TODO: Handle error
-        if let Err(e) = self.0.send_privmsg(msg_target, text) {
+        if let Err(e) = self.0.send(proto_message) {
             dbg!(&e);
         }
+
+        message
     }
 }
 
@@ -49,6 +78,7 @@ impl Map {
             State::Ready(Client {
                 sender,
                 messages: vec![],
+                nickname: None,
             }),
         );
     }
@@ -61,17 +91,34 @@ impl Map {
         }
     }
 
-    pub fn add_message(&mut self, server: &Server, message: Message) {
+    fn client_mut(&mut self, server: &Server) -> Option<&mut Client> {
         if let Some(State::Ready(client)) = self.0.get_mut(server) {
+            Some(client)
+        } else {
+            None
+        }
+    }
+
+    pub fn add_message(&mut self, server: &Server, message: Message) {
+        println!("{:?}", message.command());
+        if let Some(State::Ready(client)) = self.0.get_mut(server) {
+            match message.command() {
+                Command::Nick(nickname) => client.nickname = Some(nickname.clone()),
+                _ => {}
+            }
+
             client.messages.push(message);
         }
     }
 
-    pub fn send_message(&self, server: &Server, channel: &Channel, text: impl fmt::Display) {
-        if let Some(client) = self.client(server) {
-            client
-                .sender
-                .send_privmsg(MsgTarget::Channel(channel.clone()), text);
+    pub fn send_message(&mut self, server: &Server, channel: &Channel, text: impl fmt::Display) {
+        if let Some(client) = self.client_mut(server) {
+            let message = client.sender.send_privmsg(
+                client.nickname.clone(),
+                MsgTarget::Channel(channel.clone()),
+                text,
+            );
+            self.add_message(server, message);
         }
     }
 

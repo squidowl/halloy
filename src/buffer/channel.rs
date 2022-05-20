@@ -74,7 +74,7 @@ impl State {
         }
     }
 
-    pub fn update(&mut self, message: Message, clients: &data::client::Map) {
+    pub fn update(&mut self, message: Message, clients: &mut data::client::Map) {
         match message {
             Message::Send => {
                 clients.send_message(&self.server, &self.channel, &self.input);
