@@ -131,7 +131,7 @@ impl Application for Halloy {
         Command::none()
     }
 
-    fn view<'a>(&'a self) -> Element<'a, Message> {
+    fn view(&self) -> Element<Message> {
         let content = match &self.screen {
             Screen::Dashboard(dashboard) => dashboard
                 .view(&self.clients, &self.theme)
