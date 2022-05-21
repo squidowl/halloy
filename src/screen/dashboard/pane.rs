@@ -100,7 +100,7 @@ impl TitleBar {
         let title = column()
             .push(
                 container(text(value).font(font::BOLD).size(style::TEXT_SIZE))
-                    .padding(4)
+                    .padding([0, 8])
                     .center_y()
                     .height(Length::Units(35)),
             )
