@@ -114,9 +114,9 @@ impl Application for Halloy {
 
                     self.sender = Some(sender);
                 }
-                client::Event::Connected(server, sender) => {
+                client::Event::Connected(server, client) => {
                     log::info!("connected to {:?}", server);
-                    self.clients.ready(server, sender);
+                    self.clients.ready(server, client);
                 }
                 client::Event::MessageReceived(server, message) => {
                     // log::debug!("Server {:?} message received: {:?}", &server, &message);
