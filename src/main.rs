@@ -50,7 +50,6 @@ struct Halloy {
     screen: Screen,
     theme: Theme,
     config: Config,
-    sender: Option<mpsc::Sender<client::Message>>,
     clients: data::client::Map,
 }
 
@@ -84,7 +83,6 @@ impl Application for Halloy {
                 screen: Screen::Dashboard(screen),
                 theme: Theme::default(),
                 config,
-                sender: None,
                 clients,
             },
             Command::none(),
@@ -111,8 +109,6 @@ impl Application for Halloy {
                     for server in self.config.servers.clone() {
                         let _ = sender.blocking_send(client::Message::Connect(server));
                     }
-
-                    self.sender = Some(sender);
                 }
                 client::Event::Connected(server, client) => {
                     log::info!("connected to {:?}", server);

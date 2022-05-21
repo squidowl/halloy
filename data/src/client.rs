@@ -6,26 +6,40 @@ use crate::{
     server::Server,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum State {
     Disconnected,
-    Ready(Client),
+    Ready(Connection),
 }
 
-#[derive(Debug, Clone)]
-pub struct Client {
-    nickname: Option<String>,
-    sender: Sender,
+#[derive(Debug)]
+pub struct Connection {
+    client: ClientTwo,
     messages: Vec<Message>,
 }
 
-impl Client {
-    pub fn new(nickname: Option<String>, sender: Sender) -> Self {
+impl Connection {
+    pub fn new(client: ClientTwo) -> Self {
         Self {
-            nickname,
-            sender,
+            client,
             messages: vec![],
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct ClientTwo(irc::client::Client);
+
+impl ClientTwo {
+    pub fn sender(&self) -> Sender {
+        let a = self.0.sender();
+        a.into()
+    }
+}
+
+impl From<irc::client::Client> for ClientTwo {
+    fn from(client: irc::client::Client) -> Self {
+        Self(client)
     }
 }
 
@@ -75,7 +89,7 @@ impl From<irc::client::Sender> for Sender {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct Map(HashMap<Server, State>);
 
 impl Map {
@@ -83,11 +97,11 @@ impl Map {
         self.0.insert(server, State::Disconnected);
     }
 
-    pub fn ready(&mut self, server: Server, client: Client) {
+    pub fn ready(&mut self, server: Server, client: Connection) {
         self.0.insert(server, State::Ready(client));
     }
 
-    fn client(&self, server: &Server) -> Option<&Client> {
+    fn connection(&self, server: &Server) -> Option<&Connection> {
         if let Some(State::Ready(client)) = self.0.get(server) {
             Some(client)
         } else {
@@ -95,7 +109,7 @@ impl Map {
         }
     }
 
-    fn client_mut(&mut self, server: &Server) -> Option<&mut Client> {
+    fn connection_mut(&mut self, server: &Server) -> Option<&mut Connection> {
         if let Some(State::Ready(client)) = self.0.get_mut(server) {
             Some(client)
         } else {
@@ -106,19 +120,19 @@ impl Map {
     pub fn add_message(&mut self, server: &Server, message: Message) {
         println!("{:?}", message.command());
         if let Some(State::Ready(client)) = self.0.get_mut(server) {
-            match message.command() {
+            /* match message.command() {
                 Command::Nick(nickname) => client.nickname = Some(nickname.clone()),
                 _ => {}
-            }
+            } */
 
             client.messages.push(message);
         }
     }
 
     pub fn send_message(&mut self, server: &Server, channel: &Channel, text: impl fmt::Display) {
-        if let Some(client) = self.client_mut(server) {
-            let message = client.sender.send_privmsg(
-                client.nickname.clone(),
+        if let Some(connection) = self.connection_mut(server) {
+            let message = connection.client.sender().send_privmsg(
+                None,
                 MsgTarget::Channel(channel.clone()),
                 text,
             );
@@ -127,7 +141,7 @@ impl Map {
     }
 
     pub fn get_messages(&self, server: &Server, channel: &Channel) -> Vec<&Message> {
-        self.client(server)
+        self.connection(server)
             .map(|client| {
                 client
                     .messages
@@ -142,7 +156,7 @@ impl Map {
         let mut messages: Vec<&Message> = vec![];
 
         for server in self.0.keys() {
-            let client = self.client(server);
+            let client = self.connection(server);
             messages.append(
                 &mut client
                     .map(|client| {
