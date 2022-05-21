@@ -1,5 +1,6 @@
 // TODO: This should live in its own crate.
 
+use data::client;
 use data::client::Sender;
 use data::server::Server;
 use futures::FutureExt;
@@ -23,7 +24,7 @@ pub enum Error {
 #[derive(Debug)]
 pub enum Event {
     Ready(mpsc::Sender<Message>),
-    Connected(Server, Sender),
+    Connected(Server, client::Client),
     MessageReceived(Server, data::message::Message),
 }
 
@@ -82,9 +83,10 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                                     stream,
                                 }];
                                 let server = config.server.expect("expected server").into();
+                                let client = client::Client::new(config.nickname.clone(), sender);
 
                                 return Some((
-                                    Ok(Event::Connected(server, sender)),
+                                    Ok(Event::Connected(server, client)),
                                     State::Connected { receiver, servers },
                                 ));
                             }
@@ -121,9 +123,11 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
                                         stream,
                                     });
                                     let server = config.server.expect("expected server").into();
+                                    let client =
+                                        client::Client::new(config.nickname.clone(), sender);
 
                                     return Some((
-                                        Ok(Event::Connected(server, sender)),
+                                        Ok(Event::Connected(server, client)),
                                         State::Connected { receiver, servers },
                                     ));
                                 }

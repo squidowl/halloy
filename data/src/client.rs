@@ -14,8 +14,19 @@ pub enum State {
 
 #[derive(Debug, Clone)]
 pub struct Client {
+    nickname: Option<String>,
     sender: Sender,
     messages: Vec<Message>,
+}
+
+impl Client {
+    pub fn new(nickname: Option<String>, sender: Sender) -> Self {
+        Self {
+            nickname,
+            sender,
+            messages: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -41,17 +52,17 @@ impl Sender {
             command,
         };
 
+        // TODO: Handle error
+        if let Err(e) = self.0.send(proto_message) {
+            dbg!(&e);
+        }
+
         if let Some(nick) = nickname {
             message.raw.prefix = Some(irc::proto::Prefix::Nickname(
                 nick,
                 String::new(),
                 String::new(),
             ));
-        }
-
-        // TODO: Handle error
-        if let Err(e) = self.0.send(proto_message) {
-            dbg!(&e);
         }
 
         message
@@ -72,15 +83,8 @@ impl Map {
         self.0.insert(server, State::Disconnected);
     }
 
-    pub fn ready(&mut self, server: Server, sender: Sender) {
-        self.0.insert(
-            server,
-            State::Ready(Client {
-                sender,
-                messages: vec![],
-                nickname: None,
-            }),
-        );
+    pub fn ready(&mut self, server: Server, client: Client) {
+        self.0.insert(server, State::Ready(client));
     }
 
     fn client(&self, server: &Server) -> Option<&Client> {
