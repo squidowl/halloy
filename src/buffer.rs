@@ -15,6 +15,7 @@ pub enum Buffer {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Empty(empty::Message),
     Channel(channel::Message),
     Server(server::Message),
 }
@@ -34,7 +35,7 @@ impl Buffer {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         match self {
-            Buffer::Empty => empty::view(theme),
+            Buffer::Empty => empty::view(theme).map(Message::Empty),
             Buffer::Channel(state) => {
                 channel::view(state, clients, is_focused, theme).map(Message::Channel)
             }

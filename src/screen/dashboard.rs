@@ -33,7 +33,7 @@ pub enum Event {}
 
 impl Dashboard {
     pub fn new(config: &Config) -> Self {
-        let mut buffers = vec![Buffer::Server];
+        let mut buffers = vec![Buffer::Server, Buffer::Empty];
 
         for server in config.servers.iter() {
             for channel in server.channels() {
