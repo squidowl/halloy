@@ -27,13 +27,17 @@ pub enum Message {
     PaneDragged(pane_grid::DragEvent),
     ClosePane,
     SplitPane(pane_grid::Axis),
+    Users(String),
 }
 
 pub enum Event {}
 
 impl Dashboard {
     pub fn new(config: &Config) -> Self {
-        let mut buffers = vec![Buffer::Server, Buffer::Empty];
+        let mut buffers = vec![
+            Buffer::Server,
+            Buffer::Empty(buffer::empty::State::default()),
+        ];
 
         for server in config.servers.iter() {
             for channel in server.channels() {
@@ -47,7 +51,7 @@ impl Dashboard {
         let first_buffer = if buffers.len() > 0 {
             buffers.remove(0)
         } else {
-            Buffer::Empty
+            Buffer::Empty(buffer::empty::State::default())
         };
 
         let (mut panes, pane) = pane_grid::State::new(Pane::new(first_buffer));
@@ -84,7 +88,11 @@ impl Dashboard {
             }
             Message::SplitPane(axis) => {
                 if let Some(pane) = self.focus {
-                    let result = self.panes.split(axis, &pane, Pane::new(Buffer::Empty));
+                    let result = self.panes.split(
+                        axis,
+                        &pane,
+                        Pane::new(Buffer::Empty(buffer::empty::State::default())),
+                    );
                     if let Some((pane, _)) = result {
                         self.focus = Some(pane);
                     }
@@ -96,6 +104,18 @@ impl Dashboard {
             Message::Buffer(pane, message) => {
                 if let Some(pane) = self.panes.get_mut(&pane) {
                     pane.buffer.update(message, clients);
+                }
+            }
+            Message::Users(_) => {
+                if let Some(pane) = self.focus {
+                    let result = self.panes.split(
+                        iced::pane_grid::Axis::Vertical,
+                        &pane,
+                        Pane::new(Buffer::Users(buffer::users::State::default())),
+                    );
+                    if let Some((pane, _)) = result {
+                        self.focus = Some(pane);
+                    }
                 }
             }
         }
@@ -120,6 +140,7 @@ impl Dashboard {
                     buffer: Message::Buffer,
                     on_close: Message::ClosePane,
                     on_split: |axis| Message::SplitPane(axis),
+                    on_users: |channel| Message::Users(channel),
                 },
                 id,
                 panes,

@@ -25,8 +25,24 @@ pub fn chat() -> Text {
     to_text('\u{f255}')
 }
 
-pub fn people() -> Text {
+pub fn person() -> Text {
     to_text('\u{f48f}')
+}
+
+pub fn people() -> Text {
+    to_text('\u{f47e}')
+}
+
+pub fn door() -> Text {
+    to_text('\u{f2d4}')
+}
+
+pub fn lightning() -> Text {
+    to_text('\u{f42b}')
+}
+
+pub fn house() -> Text {
+    to_text('\u{f3e8}')
 }
 
 #[allow(dead_code)]
