@@ -21,6 +21,14 @@ pub fn box_arrow_right() -> Text {
     to_text('\u{f1a7}')
 }
 
+pub fn chat() -> Text {
+    to_text('\u{f255}')
+}
+
+pub fn people() -> Text {
+    to_text('\u{f48f}')
+}
+
 #[allow(dead_code)]
 pub fn raw(unicode: char) -> Text {
     to_text(unicode)
