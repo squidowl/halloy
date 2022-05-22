@@ -17,6 +17,7 @@ pub struct Mapper<Message> {
     pub buffer: fn(pane_grid::Pane, buffer::Message) -> Message,
     pub on_close: Message,
     pub on_split: fn(Axis) -> Message,
+    pub on_users: fn(String) -> Message,
 }
 
 #[derive(Clone)]
@@ -50,14 +51,23 @@ impl Pane {
         clients: &data::client::Map,
     ) -> Content<'a, M> {
         let title_bar_text = match &self.buffer {
-            Buffer::Empty => String::new(),
+            Buffer::Empty(state) => state.to_string(),
             Buffer::Channel(state) => state.to_string(),
             Buffer::Server => String::from("server"),
+            Buffer::Users(state) => state.to_string(),
         };
 
         let title_bar = self
             .title_bar
-            .view(title_bar_text, theme, &mapper, id, panes, is_focused)
+            .view(
+                &self.buffer,
+                title_bar_text,
+                theme,
+                &mapper,
+                id,
+                panes,
+                is_focused,
+            )
             .style(style::container::header(theme));
 
         let content = self
@@ -74,6 +84,7 @@ impl Pane {
 impl TitleBar {
     fn view<'a, M: 'static + Clone>(
         &'a self,
+        buffer: &Buffer,
         value: String,
         theme: &'a Theme,
         mapper: &Mapper<M>,
@@ -90,8 +101,17 @@ impl TitleBar {
         let split_v = button(icon::box_arrow_down())
             .on_press((mapper.on_split)(Axis::Vertical))
             .style(style::button::primary(theme));
+        let users = button(icon::people())
+            .on_press((mapper.on_users)(String::from("tbc, should be channel.")))
+            .style(style::button::primary(theme));
 
-        let mut controls = row().spacing(4).padding(4).push(split_h).push(split_v);
+        let mut controls = row().spacing(4).padding(4);
+
+        if matches!(buffer, Buffer::Channel(_)) {
+            controls = controls.push(users);
+        }
+
+        controls = controls.push(split_h).push(split_v);
 
         if panes > 1 {
             controls = controls.push(delete);
