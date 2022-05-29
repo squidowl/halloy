@@ -10,6 +10,7 @@ mod theme;
 mod widget;
 
 use config::Config;
+use data::stream;
 use iced::{
     executor,
     pure::{container, Application, Element},
@@ -59,7 +60,7 @@ enum Screen {
 #[derive(Debug)]
 enum Message {
     Dashboard(dashboard::Message),
-    Client(client::Result),
+    Stream(stream::Result),
 }
 
 impl Application for Halloy {
@@ -101,24 +102,24 @@ impl Application for Halloy {
                     }
                 }
             },
-            Message::Client(Ok(event)) => match event {
-                client::Event::Ready(sender) => {
+            Message::Stream(Ok(event)) => match event {
+                stream::Event::Ready(sender) => {
                     log::debug!("Client ready to receive connections");
 
                     for server in self.config.servers.clone() {
-                        let _ = sender.blocking_send(client::Message::Connect(server));
+                        let _ = sender.blocking_send(stream::Message::Connect(server));
                     }
                 }
-                client::Event::Connected(server, client) => {
+                stream::Event::Connected(server, client) => {
                     log::info!("connected to {:?}", server);
                     self.clients.ready(server, client);
                 }
-                client::Event::MessageReceived(server, message) => {
+                stream::Event::MessageReceived(server, message) => {
                     // log::debug!("Server {:?} message received: {:?}", &server, &message);
                     self.clients.add_message(&server, message);
                 }
             },
-            Message::Client(Err(error)) => {
+            Message::Stream(Err(error)) => {
                 log::error!("{:?}", error);
             }
         }
@@ -140,6 +141,6 @@ impl Application for Halloy {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        client::run().map(Message::Client)
+        client::run().map(Message::Stream)
     }
 }

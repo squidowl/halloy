@@ -390,8 +390,11 @@ dependencies = [
 name = "data"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "irc",
+ "serde",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -841,12 +844,10 @@ dependencies = [
  "data",
  "dirs-next",
  "fern",
- "futures",
  "iced",
  "iced_lazy",
  "iced_native",
  "iced_pure",
- "irc",
  "log",
  "palette",
  "serde",

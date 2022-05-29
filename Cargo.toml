@@ -17,8 +17,6 @@ tokio = { version = "1.0", features = ["rt", "fs", "process"] }
 log = "0.4.16"
 fern = "0.6.1"
 chrono = { version = "0.4", features = ['serde'] }
-irc = "0.15.0"
-futures = "0.3.21"
 
 [dependencies.uuid]
 version = "1.0"
