@@ -41,7 +41,7 @@ pub fn view<'a>(
     let mut messages = column().push(
         container(scrollable(
             Column::with_children(messages)
-                .width(Length::Shrink)
+                .width(Length::Fill)
                 .padding([0, 8]),
         ))
         .height(Length::Fill),
