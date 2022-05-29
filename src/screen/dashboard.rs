@@ -1,5 +1,6 @@
 pub mod pane;
 
+use data::server::Server;
 use pane::Pane;
 
 use iced::pure::widget::pane_grid::{self, PaneGrid};
@@ -27,7 +28,7 @@ pub enum Message {
     PaneDragged(pane_grid::DragEvent),
     ClosePane,
     SplitPane(pane_grid::Axis),
-    Users(String),
+    Users(Server, String),
 }
 
 pub enum Event {}
@@ -109,12 +110,12 @@ impl Dashboard {
                     pane.buffer.update(message, clients);
                 }
             }
-            Message::Users(_) => {
+            Message::Users(server, channel) => {
                 if let Some(pane) = self.focus {
                     let result = self.panes.split(
                         iced::pane_grid::Axis::Vertical,
                         &pane,
-                        Pane::new(Buffer::Users(buffer::users::State::default())),
+                        Pane::new(Buffer::Users(buffer::users::State::new(server, channel))),
                     );
                     if let Some((pane, _)) = result {
                         self.focus = Some(pane);
@@ -142,8 +143,8 @@ impl Dashboard {
                     pane: Message::Pane,
                     buffer: Message::Buffer,
                     on_close: Message::ClosePane,
-                    on_split: |axis| Message::SplitPane(axis),
-                    on_users: |channel| Message::Users(channel),
+                    on_split: Message::SplitPane,
+                    on_users: Message::Users,
                 },
                 id,
                 panes,

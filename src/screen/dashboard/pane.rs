@@ -1,3 +1,4 @@
+use data::server::Server;
 use iced::pane_grid::Axis;
 use iced::pure::widget::pane_grid::{self, Content};
 use iced::pure::{button, column, container, row, text};
@@ -17,7 +18,7 @@ pub struct Mapper<Message> {
     pub buffer: fn(pane_grid::Pane, buffer::Message) -> Message,
     pub on_close: Message,
     pub on_split: fn(Axis) -> Message,
-    pub on_users: fn(String) -> Message,
+    pub on_users: fn(Server, String) -> Message,
 }
 
 #[derive(Clone)]
@@ -101,13 +102,17 @@ impl TitleBar {
         let split_v = button(icon::box_arrow_down())
             .on_press((mapper.on_split)(Axis::Vertical))
             .style(style::button::primary(theme));
-        let users = button(icon::people())
-            .on_press((mapper.on_users)(String::from("tbc, should be channel.")))
-            .style(style::button::primary(theme));
 
         let mut controls = row().spacing(4).padding(4);
 
-        if matches!(buffer, Buffer::Channel(_)) {
+        if let Buffer::Channel(state) = &buffer {
+            let users = button(icon::people())
+                .on_press((mapper.on_users)(
+                    state.server().clone(),
+                    state.channel().to_string(),
+                ))
+                .style(style::button::primary(theme));
+
             controls = controls.push(users);
         }
 

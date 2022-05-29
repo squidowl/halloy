@@ -84,6 +84,14 @@ impl State {
             Message::Input(input) => self.input = input,
         }
     }
+
+    pub fn channel(&self) -> &str {
+        &self.channel
+    }
+
+    pub fn server(&self) -> &Server {
+        &self.server
+    }
 }
 
 impl fmt::Display for State {

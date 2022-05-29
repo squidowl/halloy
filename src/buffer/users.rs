@@ -1,5 +1,7 @@
 use core::fmt;
 
+use data::client;
+use data::server::Server;
 use iced::{pure::Element, Length};
 use iced_pure::{button, column, container, scrollable, text};
 
@@ -10,15 +12,14 @@ pub enum Message {
     Noop,
 }
 
-pub fn view<'a>(_state: &State, theme: &'a Theme) -> Element<'a, Message> {
-    // TODO: Get open channels. For now just dummy hardcoded to work out UI.
-    // TODO: Rewrite to function to reduce repetivness.
+pub fn view<'a>(state: &State, clients: &client::Map, theme: &'a Theme) -> Element<'a, Message> {
+    let users = clients.get_channel_users(&state.server, &state.channel);
 
     let mut column = column().width(Length::Fill).spacing(1);
 
-    for _ in 0..15 {
+    for user in users {
         column = column.push(
-            button(text("Foobar"))
+            button(text(user.nickname()))
                 .width(Length::Fill)
                 .style(style::button::secondary(theme))
                 .on_press(Message::Noop),
@@ -34,10 +35,17 @@ pub fn view<'a>(_state: &State, theme: &'a Theme) -> Element<'a, Message> {
         .into()
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct State {}
+#[derive(Debug, Clone)]
+pub struct State {
+    server: Server,
+    channel: String,
+}
 
 impl State {
+    pub fn new(server: Server, channel: String) -> Self {
+        Self { server, channel }
+    }
+
     pub fn update(&mut self, message: Message) {
         match message {
             Message::Noop => todo!(),
@@ -47,6 +55,6 @@ impl State {
 
 impl fmt::Display for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Users in |TODO|")
+        write!(f, "Users in {}", self.channel)
     }
 }
