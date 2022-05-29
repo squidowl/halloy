@@ -26,9 +26,9 @@ pub enum Message {
 impl Buffer {
     pub fn update(&mut self, message: Message, clients: &mut data::client::Map) {
         match (self, message) {
+            (Buffer::Empty(state), Message::Empty(message)) => state.update(message),
             (Buffer::Channel(state), Message::Channel(message)) => state.update(message, clients),
             (Buffer::Users(state), Message::Users(message)) => state.update(message),
-            (Buffer::Empty(state), Message::Empty(message)) => state.update(message),
             _ => {}
         }
     }
@@ -47,7 +47,7 @@ impl Buffer {
             Buffer::Server(state) => {
                 server::view(state, clients, is_focused, theme).map(Message::Server)
             }
-            Buffer::Users(state) => users::view(state, theme).map(Message::Users),
+            Buffer::Users(state) => users::view(state, clients, theme).map(Message::Users),
         }
     }
 }
