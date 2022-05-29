@@ -18,7 +18,7 @@ pub struct Mapper<Message> {
     pub buffer: fn(pane_grid::Pane, buffer::Message) -> Message,
     pub on_close: Message,
     pub on_split: fn(Axis) -> Message,
-    pub on_users: fn(Server, String) -> Message,
+    pub on_users: Message,
 }
 
 #[derive(Clone)]
@@ -55,7 +55,6 @@ impl Pane {
             Buffer::Empty(state) => state.to_string(),
             Buffer::Channel(state) => state.to_string(),
             Buffer::Server(state) => state.to_string(),
-            Buffer::Users(state) => state.to_string(),
         };
 
         let title_bar = self
@@ -105,12 +104,9 @@ impl TitleBar {
 
         let mut controls = row().spacing(4).padding(4);
 
-        if let Buffer::Channel(state) = &buffer {
+        if let Buffer::Channel(_state) = &buffer {
             let users = button(icon::people())
-                .on_press((mapper.on_users)(
-                    state.server().clone(),
-                    state.channel().to_string(),
-                ))
+                .on_press(mapper.on_users.clone())
                 .style(style::button::primary(theme));
 
             controls = controls.push(users);

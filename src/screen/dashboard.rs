@@ -28,7 +28,7 @@ pub enum Message {
     PaneDragged(pane_grid::DragEvent),
     ClosePane,
     SplitPane(pane_grid::Axis),
-    Users(Server, String),
+    Users,
 }
 
 pub enum Event {}
@@ -110,15 +110,13 @@ impl Dashboard {
                     pane.buffer.update(message, clients);
                 }
             }
-            Message::Users(server, channel) => {
+            Message::Users => {
                 if let Some(pane) = self.focus {
-                    let result = self.panes.split(
-                        iced::pane_grid::Axis::Vertical,
-                        &pane,
-                        Pane::new(Buffer::Users(buffer::users::State::new(server, channel))),
-                    );
-                    if let Some((pane, _)) = result {
-                        self.focus = Some(pane);
+                    if let Some(pane) = self.panes.get_mut(&pane) {
+                        pane.buffer.update(
+                            buffer::Message::Channel(buffer::channel::Message::Users),
+                            clients,
+                        );
                     }
                 }
             }

@@ -3,7 +3,9 @@ use std::fmt;
 use data::server::Server;
 use data::theme::Theme;
 use iced::{
-    pure::{self, column, container, text_input, vertical_space, widget::Column, Element},
+    pure::{
+        self, button, column, container, row, text_input, vertical_space, widget::Column, Element,
+    },
     Length,
 };
 
@@ -13,6 +15,7 @@ use crate::{style, widget::sticky_scrollable::scrollable};
 pub enum Message {
     Send,
     Input(String),
+    Users,
 }
 
 pub fn view<'a>(
@@ -35,17 +38,17 @@ pub fn view<'a>(
         })
         .collect();
 
-    let mut content = column().push(
+    let mut messages = column().push(
         container(scrollable(
             Column::with_children(messages)
-                .width(Length::Fill)
+                .width(Length::Shrink)
                 .padding([0, 8]),
         ))
         .height(Length::Fill),
     );
 
     if is_focused {
-        content = content.push(vertical_space(Length::Units(5))).push(
+        messages = messages.push(vertical_space(Length::Units(5))).push(
             text_input("Send message...", &state.input, Message::Input)
                 .on_submit(Message::Send)
                 .padding(8)
@@ -53,6 +56,30 @@ pub fn view<'a>(
                 .size(style::TEXT_SIZE),
         )
     }
+
+    let mut content = row();
+
+    // TODO: Maybe we should show it to the right instead of left.
+    if state.is_showing_user_list {
+        let users = clients.get_channel_users(&state.server, &state.channel);
+        let mut column = column().width(Length::Shrink).spacing(1);
+
+        for user in users {
+            // TODO: Enable button pushes (interactions) on users.
+            column = column.push(
+                button(
+                    row()
+                        .push(pure::text(user.highest_access_level().to_string()))
+                        .push(pure::text(user.nickname())),
+                )
+                .style(style::button::secondary(theme)),
+            );
+        }
+
+        content = content.push(container(scrollable(column).height(Length::Fill)))
+    }
+
+    content = content.push(messages);
 
     container(content)
         .width(Length::Fill)
@@ -65,6 +92,7 @@ pub struct State {
     server: Server,
     channel: String,
     input: String,
+    is_showing_user_list: bool,
 }
 
 impl State {
@@ -73,6 +101,7 @@ impl State {
             server,
             channel,
             input: String::new(),
+            is_showing_user_list: true,
         }
     }
 
@@ -83,6 +112,9 @@ impl State {
                 self.input = String::new();
             }
             Message::Input(input) => self.input = input,
+            Message::Users => {
+                self.is_showing_user_list = !self.is_showing_user_list;
+            }
         }
     }
 
