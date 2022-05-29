@@ -3,6 +3,7 @@ use std::{collections::HashMap, fmt};
 use irc::client::Client;
 use irc::proto::Command;
 
+use crate::user::User;
 use crate::{message::Message, server::Server};
 
 #[derive(Debug)]
@@ -25,7 +26,7 @@ impl Connection {
         }
     }
 
-    pub fn send_privmsg(&mut self, target: String, text: impl fmt::Display) {
+    fn send_privmsg(&mut self, target: String, text: impl fmt::Display) {
         let command = Command::PRIVMSG(target, text.to_string());
 
         let proto_message = irc::proto::Message::from(command);
@@ -43,8 +44,17 @@ impl Connection {
         self.messages.push(message);
     }
 
-    pub fn channels(&self) -> Vec<String> {
+    fn channels(&self) -> Vec<String> {
         self.client.list_channels().unwrap_or_default()
+    }
+
+    fn users(&self, channel: &str) -> Vec<User> {
+        self.client
+            .list_users(channel)
+            .unwrap_or_default()
+            .into_iter()
+            .map(User::from)
+            .collect()
     }
 }
 
@@ -87,6 +97,12 @@ impl Map {
         if let Some(connection) = self.connection_mut(server) {
             connection.send_privmsg(channel.to_string(), text);
         }
+    }
+
+    pub fn get_channel_users(&self, server: &Server, channel: &str) -> Vec<User> {
+        self.connection(server)
+            .map(|connection| connection.users(channel))
+            .unwrap_or_default()
     }
 
     pub fn get_channel_messages(&self, server: &Server, channel: &str) -> Vec<&Message> {
