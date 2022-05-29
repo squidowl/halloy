@@ -5,14 +5,12 @@ use data::theme::Theme;
 pub mod channel;
 pub mod empty;
 pub mod server;
-pub mod users;
 
 #[derive(Clone)]
 pub enum Buffer {
     Empty(empty::State),
     Channel(channel::State),
     Server(server::State),
-    Users(users::State),
 }
 
 #[derive(Debug, Clone)]
@@ -20,7 +18,6 @@ pub enum Message {
     Empty(empty::Message),
     Channel(channel::Message),
     Server(server::Message),
-    Users(users::Message),
 }
 
 impl Buffer {
@@ -28,7 +25,6 @@ impl Buffer {
         match (self, message) {
             (Buffer::Empty(state), Message::Empty(message)) => state.update(message),
             (Buffer::Channel(state), Message::Channel(message)) => state.update(message, clients),
-            (Buffer::Users(state), Message::Users(message)) => state.update(message),
             _ => {}
         }
     }
@@ -47,7 +43,6 @@ impl Buffer {
             Buffer::Server(state) => {
                 server::view(state, clients, is_focused, theme).map(Message::Server)
             }
-            Buffer::Users(state) => users::view(state, clients, theme).map(Message::Users),
         }
     }
 }
