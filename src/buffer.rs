@@ -11,7 +11,7 @@ pub mod users;
 pub enum Buffer {
     Empty(empty::State),
     Channel(channel::State),
-    Server,
+    Server(server::State),
     Users(users::State),
 }
 
@@ -44,7 +44,9 @@ impl Buffer {
             Buffer::Channel(state) => {
                 channel::view(state, clients, is_focused, theme).map(Message::Channel)
             }
-            Buffer::Server => server::view(clients, is_focused, theme).map(Message::Server),
+            Buffer::Server(state) => {
+                server::view(state, clients, is_focused, theme).map(Message::Server)
+            }
             Buffer::Users(state) => users::view(state, theme).map(Message::Users),
         }
     }

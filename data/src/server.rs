@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Server(String);
 
@@ -7,14 +9,8 @@ impl From<String> for Server {
     }
 }
 
-impl Into<String> for Server {
-    fn into(self) -> String {
-        self.0
+impl fmt::Display for Server {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Config {
-    _server: Server,
-    _raw: irc::client::data::Config,
 }

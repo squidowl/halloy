@@ -1,10 +1,9 @@
 use std::{collections::HashMap, fmt};
 
-use crate::message::Command;
-use crate::{
-    message::{Channel, Message, MsgTarget},
-    server::Server,
-};
+use irc::client::Client;
+use irc::proto::Command;
+
+use crate::{message::Message, server::Server};
 
 #[derive(Debug)]
 pub enum State {
@@ -14,78 +13,38 @@ pub enum State {
 
 #[derive(Debug)]
 pub struct Connection {
-    client: ClientTwo,
+    client: Client,
     messages: Vec<Message>,
 }
 
 impl Connection {
-    pub fn new(client: ClientTwo) -> Self {
+    pub fn new(client: Client) -> Self {
         Self {
             client,
             messages: vec![],
         }
     }
-}
 
-#[derive(Debug)]
-pub struct ClientTwo(irc::client::Client);
+    pub fn send_privmsg(&mut self, target: String, text: impl fmt::Display) {
+        let command = Command::PRIVMSG(target, text.to_string());
 
-impl ClientTwo {
-    pub fn sender(&self) -> Sender {
-        let a = self.0.sender();
-        a.into()
-    }
-}
+        let proto_message = irc::proto::Message::from(command);
 
-impl From<irc::client::Client> for ClientTwo {
-    fn from(client: irc::client::Client) -> Self {
-        Self(client)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Sender(irc::client::Sender);
-
-impl Sender {
-    pub fn send_privmsg(
-        &self,
-        nickname: Option<String>,
-        msg_target: MsgTarget,
-        text: impl fmt::Display,
-    ) -> Message {
-        let command = Command::PrivMsg {
-            msg_target,
-            text: text.to_string(),
-        };
-
-        let proto_command = irc::proto::Command::from(command.clone());
-        let proto_message = irc::proto::Message::from(proto_command);
-
-        let mut message = Message {
-            raw: proto_message.clone(),
-            command,
+        let message = Message::Sent {
+            nickname: self.client.current_nickname().to_string(),
+            message: proto_message.clone(),
         };
 
         // TODO: Handle error
-        if let Err(e) = self.0.send(proto_message) {
+        if let Err(e) = self.client.send(proto_message) {
             dbg!(&e);
         }
 
-        if let Some(nick) = nickname {
-            message.raw.prefix = Some(irc::proto::Prefix::Nickname(
-                nick,
-                String::new(),
-                String::new(),
-            ));
-        }
-
-        message
+        self.messages.push(message);
     }
-}
 
-impl From<irc::client::Sender> for Sender {
-    fn from(sender: irc::client::Sender) -> Self {
-        Self(sender)
+    pub fn channels(&self) -> Vec<String> {
+        self.client.list_channels().unwrap_or_default()
     }
 }
 
@@ -118,58 +77,39 @@ impl Map {
     }
 
     pub fn add_message(&mut self, server: &Server, message: Message) {
-        println!("{:?}", message.command());
-        if let Some(State::Ready(client)) = self.0.get_mut(server) {
-            /* match message.command() {
-                Command::Nick(nickname) => client.nickname = Some(nickname.clone()),
-                _ => {}
-            } */
-
-            client.messages.push(message);
+        println!("{:?}", &message);
+        if let Some(State::Ready(connection)) = self.0.get_mut(server) {
+            connection.messages.push(message);
         }
     }
 
-    pub fn send_message(&mut self, server: &Server, channel: &Channel, text: impl fmt::Display) {
+    pub fn send_privmsg(&mut self, server: &Server, channel: &str, text: impl fmt::Display) {
         if let Some(connection) = self.connection_mut(server) {
-            let message = connection.client.sender().send_privmsg(
-                None,
-                MsgTarget::Channel(channel.clone()),
-                text,
-            );
-            self.add_message(server, message);
+            connection.send_privmsg(channel.to_string(), text);
         }
     }
 
-    pub fn get_messages(&self, server: &Server, channel: &Channel) -> Vec<&Message> {
+    pub fn get_channel_messages(&self, server: &Server, channel: &str) -> Vec<&Message> {
         self.connection(server)
-            .map(|client| {
-                client
+            .map(|connection| {
+                connection
                     .messages
                     .iter()
-                    .filter(|m| m.is_for_channel(channel))
+                    .filter(|message| message.is_for_channel(channel))
                     .collect()
             })
             .unwrap_or_default()
     }
 
-    pub fn get_messages_for_server(&self) -> Vec<&Message> {
-        let mut messages: Vec<&Message> = vec![];
-
-        for server in self.0.keys() {
-            let client = self.connection(server);
-            messages.append(
-                &mut client
-                    .map(|client| {
-                        client
-                            .messages
-                            .iter()
-                            .filter(|m| m.is_for_server())
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-            );
-        }
-
-        messages
+    pub fn get_server_messages(&self, server: &Server) -> Vec<&Message> {
+        self.connection(server)
+            .map(|connection| {
+                connection
+                    .messages
+                    .iter()
+                    .filter(|message| message.is_server_message(&connection.channels()))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }

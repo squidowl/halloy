@@ -1,5 +1,6 @@
 use std::fmt;
 
+use data::server::Server;
 use iced::{
     pure::{self, container, widget::Column, Element},
     Length,
@@ -11,21 +12,16 @@ use crate::{style, theme::Theme, widget::sticky_scrollable::scrollable};
 pub enum Message {}
 
 pub fn view<'a>(
+    state: &'a State,
     clients: &data::client::Map,
     _is_focused: bool,
     _theme: &'a Theme,
 ) -> Element<'a, Message> {
     let messages: Vec<Element<'a, Message>> = clients
-        .get_messages_for_server()
+        .get_server_messages(&state.server)
         .into_iter()
-        .filter_map(|message| match message.command() {
-            data::message::Command::Response { response, text } => response
-                .parse(text)
-                .map(|value| container(pure::text(value).size(style::TEXT_SIZE)).into()),
-            data::message::Command::Notice { text, .. } => {
-                Some(container(pure::text(text).size(style::TEXT_SIZE)).into())
-            }
-            _ => None,
+        .filter_map(|message| {
+            Some(container(pure::text(message.text()?).size(style::TEXT_SIZE)).into())
         })
         .collect();
 
@@ -39,14 +35,20 @@ pub fn view<'a>(
 }
 
 #[derive(Debug, Clone)]
-pub struct State;
+pub struct State {
+    server: Server,
+}
 
 impl State {
+    pub fn new(server: Server) -> Self {
+        Self { server }
+    }
+
     pub fn _update(&mut self, _message: Message, _clients: &data::client::Map) {}
 }
 
 impl fmt::Display for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Server")
+        write!(f, "{}", self.server)
     }
 }

@@ -1,7 +1,7 @@
 use core::fmt;
 
 use iced::{alignment, pure::Element, Length};
-use iced_pure::{button, column, container, horizontal_space, row, text, vertical_space};
+use iced_pure::{button, column, container, horizontal_space, row, text};
 
 use crate::{icon, style, theme::Theme};
 

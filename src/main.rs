@@ -17,7 +17,6 @@ use iced::{
 };
 use screen::dashboard;
 use theme::Theme;
-use tokio::sync::mpsc;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

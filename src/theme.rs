@@ -22,7 +22,7 @@ impl Color {
         Srgb::from_color(hsl).into()
     }
 
-    pub fn to_hex(&self) -> String {
+    pub fn as_hex(&self) -> String {
         format!(
             "#{:02x}{:02x}{:02x}",
             (255.0 * self.0.r).round() as u8,
@@ -108,14 +108,14 @@ pub mod theme_serde {
             S: Serializer,
         {
             let hex_theme = HexTheme {
-                background: self.background.to_hex(),
-                text: self.text.to_hex(),
-                primary: self.primary.to_hex(),
-                secondary: self.secondary.to_hex(),
-                error: self.error.to_hex(),
-                warning: self.warning.to_hex(),
-                info: self.info.to_hex(),
-                success: self.success.to_hex(),
+                background: self.background.as_hex(),
+                text: self.text.as_hex(),
+                primary: self.primary.as_hex(),
+                secondary: self.secondary.as_hex(),
+                error: self.error.as_hex(),
+                warning: self.warning.as_hex(),
+                info: self.info.as_hex(),
+                success: self.success.as_hex(),
             };
 
             hex_theme.serialize(serializer)
@@ -131,21 +131,21 @@ pub mod theme_serde {
 
             Ok(Theme {
                 background: hex_to_color(hex_theme.background.as_str())
-                    .ok_or(serde::de::Error::custom("not a valid hex"))?,
+                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
                 text: hex_to_color(hex_theme.text.as_str())
-                    .ok_or(serde::de::Error::custom("not a valid hex"))?,
+                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
                 primary: hex_to_color(hex_theme.primary.as_str())
-                    .ok_or(serde::de::Error::custom("not a valid hex"))?,
+                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
                 secondary: hex_to_color(hex_theme.secondary.as_str())
-                    .ok_or(serde::de::Error::custom("not a valid hex"))?,
+                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
                 error: hex_to_color(hex_theme.error.as_str())
-                    .ok_or(serde::de::Error::custom("not a valid hex"))?,
+                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
                 warning: hex_to_color(hex_theme.warning.as_str())
-                    .ok_or(serde::de::Error::custom("not a valid hex"))?,
+                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
                 info: hex_to_color(hex_theme.info.as_str())
-                    .ok_or(serde::de::Error::custom("not a valid hex"))?,
+                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
                 success: hex_to_color(hex_theme.success.as_str())
-                    .ok_or(serde::de::Error::custom("not a valid hex"))?,
+                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
             })
         }
     }

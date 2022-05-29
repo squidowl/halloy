@@ -1,6 +1,6 @@
 use std::fmt;
 
-use data::{message::Channel, server::Server};
+use data::server::Server;
 use iced::{
     pure::{self, column, container, text_input, vertical_space, widget::Column, Element},
     Length,
@@ -21,16 +21,16 @@ pub fn view<'a>(
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let messages: Vec<Element<'a, Message>> = clients
-        .get_messages(&state.server, &state.channel)
+        .get_channel_messages(&state.server, &state.channel)
         .into_iter()
-        .filter_map(|message| match message.command() {
-            data::message::Command::PrivMsg { text, .. } => Some(
-                container(
-                    pure::text(format!("<{}> {}", message.nickname(), text)).size(style::TEXT_SIZE),
-                )
-                .into(),
-            ),
-            _ => None,
+        .filter_map(|message| {
+            let nickname = message.nickname().unwrap_or_default();
+            let text = message.text()?;
+
+            Some(
+                container(pure::text(format!("<{}> {}", nickname, text)).size(style::TEXT_SIZE))
+                    .into(),
+            )
         })
         .collect();
 
@@ -62,12 +62,12 @@ pub fn view<'a>(
 #[derive(Debug, Clone)]
 pub struct State {
     server: Server,
-    channel: Channel,
+    channel: String,
     input: String,
 }
 
 impl State {
-    pub fn new(server: Server, channel: Channel) -> Self {
+    pub fn new(server: Server, channel: String) -> Self {
         Self {
             server,
             channel,
@@ -78,7 +78,7 @@ impl State {
     pub fn update(&mut self, message: Message, clients: &mut data::client::Map) {
         match message {
             Message::Send => {
-                clients.send_message(&self.server, &self.channel, &self.input);
+                clients.send_privmsg(&self.server, &self.channel, &self.input);
                 self.input = String::new();
             }
             Message::Input(input) => self.input = input,
@@ -89,8 +89,7 @@ impl State {
 impl fmt::Display for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let channel = self.channel.to_string();
-        let server: String = self.server.clone().into();
 
-        write!(f, "{} ({})", channel, server)
+        write!(f, "{} ({})", channel, self.server)
     }
 }
