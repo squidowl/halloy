@@ -1,9 +1,10 @@
 use core::fmt;
 
+use data::theme::Theme;
 use iced::{alignment, pure::Element, Length};
 use iced_pure::{button, column, container, horizontal_space, row, text};
 
-use crate::{icon, style, theme::Theme};
+use crate::{icon, style};
 
 #[derive(Debug, Clone)]
 pub enum Message {

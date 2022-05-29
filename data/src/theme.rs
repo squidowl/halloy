@@ -1,25 +1,25 @@
 use palette::{FromColor, Hsl, Shade, Srgb};
 
 #[derive(Debug, Clone, Copy)]
-pub struct Color(iced::Color);
+pub struct Color(iced_core::Color);
 
 impl Color {
-    pub fn lighten(&self) -> iced::Color {
+    pub fn lighten(&self) -> Color {
         self.lighten_by(0.05)
     }
 
-    pub fn darken(&self) -> iced::Color {
+    pub fn darken(&self) -> Color {
         self.darken_by(0.05)
     }
 
-    pub fn darken_by(&self, float: f32) -> iced::Color {
+    pub fn darken_by(&self, float: f32) -> Color {
         let hsl = Hsl::from_color(Srgb::from(self.0)).darken(float);
-        Srgb::from_color(hsl).into()
+        Self(Srgb::from_color(hsl).into())
     }
 
-    pub fn lighten_by(&self, float: f32) -> iced::Color {
+    pub fn lighten_by(&self, float: f32) -> Color {
         let hsl = Hsl::from_color(Srgb::from(self.0)).lighten(float);
-        Srgb::from_color(hsl).into()
+        Self(Srgb::from_color(hsl).into())
     }
 
     pub fn as_hex(&self) -> String {
@@ -32,9 +32,15 @@ impl Color {
     }
 }
 
-impl Into<iced::Color> for Color {
-    fn into(self) -> iced::Color {
-        self.0
+impl From<iced_core::Color> for Color {
+    fn from(color: iced_core::Color) -> Color {
+        Color(color)
+    }
+}
+
+impl From<Color> for iced_core::Color {
+    fn from(color: Color) -> iced_core::Color {
+        color.0
     }
 }
 
@@ -73,7 +79,7 @@ fn hex_to_color(hex: &str) -> Option<Color> {
         let b = u8::from_str_radix(&hex[5..7], 16);
 
         return match (hash, r, g, b) {
-            ("#", Ok(r), Ok(g), Ok(b)) => Some(Color(iced::Color {
+            ("#", Ok(r), Ok(g), Ok(b)) => Some(Color(iced_core::Color {
                 r: r as f32 / 255.0,
                 g: g as f32 / 255.0,
                 b: b as f32 / 255.0,

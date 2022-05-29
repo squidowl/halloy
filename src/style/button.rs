@@ -1,9 +1,8 @@
+use data::theme::Theme;
 use iced::{
     button::{Style, StyleSheet},
     Background, Color,
 };
-
-use crate::theme::Theme;
 
 pub fn primary<'a>(theme: &'a Theme) -> Box<dyn StyleSheet + 'a> {
     Box::new(Primary(theme))
@@ -26,7 +25,7 @@ impl<'a> StyleSheet for Primary<'a> {
             border_width: 1.0,
             border_color: Color {
                 a: 0.2,
-                ..self.0.primary.darken()
+                ..self.0.primary.darken().into()
             },
             ..Style::default()
         }
@@ -40,7 +39,7 @@ impl<'a> StyleSheet for Primary<'a> {
                 ..self.0.primary.into()
             })),
             border_width: 1.0,
-            border_color: self.0.primary.darken(),
+            border_color: self.0.primary.darken().into(),
             ..Style::default()
         }
     }
@@ -81,7 +80,7 @@ impl<'a> StyleSheet for Destruction<'a> {
             border_width: 1.0,
             border_color: Color {
                 a: 0.2,
-                ..self.0.error.darken()
+                ..self.0.error.darken().into()
             },
             ..Style::default()
         }
@@ -95,7 +94,7 @@ impl<'a> StyleSheet for Destruction<'a> {
                 ..self.0.error.into()
             })),
             border_width: 1.0,
-            border_color: self.0.error.darken(),
+            border_color: self.0.error.darken().into(),
             ..Style::default()
         }
     }
@@ -145,7 +144,7 @@ impl<'a> StyleSheet for Secondary<'a> {
                 ..self.0.primary.into()
             })),
             border_width: 1.0,
-            border_color: self.0.primary.darken(),
+            border_color: self.0.primary.darken().into(),
             ..Style::default()
         }
     }

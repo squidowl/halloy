@@ -3,6 +3,8 @@ pub mod pane;
 use data::server::Server;
 use pane::Pane;
 
+use data::config::Config;
+use data::theme::Theme;
 use iced::pure::widget::pane_grid::{self, PaneGrid};
 use iced::pure::Element;
 use iced::pure::{column, container};
@@ -10,9 +12,7 @@ use iced::Command;
 use iced::Length;
 
 use crate::buffer::{self, Buffer};
-use crate::config::Config;
 use crate::style;
-use crate::theme::Theme;
 
 pub struct Dashboard {
     panes: pane_grid::State<Pane>,

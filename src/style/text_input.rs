@@ -1,6 +1,5 @@
+use data::theme::Theme;
 use iced::{text_input::Style, text_input::StyleSheet, Background, Color};
-
-use crate::theme::Theme;
 
 pub fn primary<'a>(theme: &'a Theme) -> Box<dyn StyleSheet + 'a> {
     Box::new(Primary(theme))
@@ -11,7 +10,7 @@ pub struct Primary<'a>(&'a Theme);
 impl<'a> StyleSheet for Primary<'a> {
     fn active(&self) -> Style {
         Style {
-            background: Background::Color(self.0.background.lighten()),
+            background: Background::Color(self.0.background.lighten().into()),
             border_radius: 0.0,
             border_width: 0.0,
             border_color: Color::TRANSPARENT,
@@ -20,7 +19,7 @@ impl<'a> StyleSheet for Primary<'a> {
 
     fn focused(&self) -> Style {
         Style {
-            background: Background::Color(self.0.background.lighten()),
+            background: Background::Color(self.0.background.lighten().into()),
             border_radius: 0.0,
             border_width: 0.0,
             border_color: Color::TRANSPARENT,
@@ -39,7 +38,7 @@ impl<'a> StyleSheet for Primary<'a> {
     }
 
     fn placeholder_color(&self) -> Color {
-        self.0.text.darken_by(0.25)
+        self.0.text.darken_by(0.25).into()
     }
 
     fn value_color(&self) -> Color {

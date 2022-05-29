@@ -2,10 +2,11 @@ use core::fmt;
 
 use data::client;
 use data::server::Server;
+use data::theme::Theme;
 use iced::{pure::Element, Length};
 use iced_pure::{button, column, container, scrollable, text};
 
-use crate::{style, theme::Theme};
+use crate::style;
 
 #[derive(Debug, Clone)]
 pub enum Message {

@@ -1,12 +1,13 @@
 use std::fmt;
 
 use data::server::Server;
+use data::theme::Theme;
 use iced::{
     pure::{self, column, container, text_input, vertical_space, widget::Column, Element},
     Length,
 };
 
-use crate::{style, theme::Theme, widget::sticky_scrollable::scrollable};
+use crate::{style, widget::sticky_scrollable::scrollable};
 
 #[derive(Debug, Clone)]
 pub enum Message {
