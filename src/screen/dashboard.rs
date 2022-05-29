@@ -34,21 +34,24 @@ pub enum Event {}
 
 impl Dashboard {
     pub fn new(config: &Config) -> Self {
-        let mut buffers = vec![
-            Buffer::Server,
-            Buffer::Empty(buffer::empty::State::default()),
-        ];
+        let mut buffers = vec![];
 
-        for server in config.servers.iter() {
-            for channel in server.channels() {
+        for server_config in config.servers.iter() {
+            buffers.push(Buffer::Server(buffer::server::State::new(
+                server_config.server.clone().unwrap_or_default().into(),
+            )));
+
+            for channel in server_config.channels() {
                 buffers.push(Buffer::Channel(buffer::channel::State::new(
-                    server.server.clone().unwrap().into(),
-                    channel.as_str().parse().unwrap(),
+                    server_config.server.clone().unwrap_or_default().into(),
+                    channel.clone(),
                 )));
             }
         }
 
-        let first_buffer = if buffers.len() > 0 {
+        buffers.push(Buffer::Empty(buffer::empty::State::default()));
+
+        let first_buffer = if !buffers.is_empty() {
             buffers.remove(0)
         } else {
             Buffer::Empty(buffer::empty::State::default())
@@ -56,7 +59,7 @@ impl Dashboard {
 
         let (mut panes, pane) = pane_grid::State::new(Pane::new(first_buffer));
 
-        for buffer in buffers {
+        for buffer in buffers.into_iter().rev() {
             panes.split(pane_grid::Axis::Horizontal, &pane, Pane::new(buffer));
         }
 

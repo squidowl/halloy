@@ -53,7 +53,7 @@ impl Pane {
         let title_bar_text = match &self.buffer {
             Buffer::Empty(state) => state.to_string(),
             Buffer::Channel(state) => state.to_string(),
-            Buffer::Server => String::from("server"),
+            Buffer::Server(state) => state.to_string(),
             Buffer::Users(state) => state.to_string(),
         };
 

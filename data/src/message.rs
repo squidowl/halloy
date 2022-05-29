@@ -1,256 +1,74 @@
-use std::fmt::{self, Write};
-use std::str::FromStr;
+use irc::proto::{Command, Response};
 
 #[derive(Debug, Clone)]
-pub struct Message {
-    pub raw: irc::proto::Message,
-    pub command: Command,
+pub enum Message {
+    Sent {
+        nickname: String,
+        message: irc::proto::Message,
+    },
+    Received(irc::proto::Message),
 }
 
 impl Message {
-    pub fn command(&self) -> &Command {
-        &self.command
-    }
-
-    pub fn is_for_channel(&self, channel: &Channel) -> bool {
-        match &self.command {
-            Command::PrivMsg { msg_target, .. } | Command::Notice { msg_target, .. } => {
-                match msg_target {
-                    MsgTarget::Channel(c) => c == channel,
-                    MsgTarget::User(_) => false,
-                }
-            }
-            Command::Response { .. } | Command::Nick(_) | Command::Other(_) => false,
-        }
-    }
-
-    pub fn is_for_server(&self) -> bool {
-        matches!(
-            &self.command,
-            Command::Response { .. } | Command::Notice { .. } | Command::Nick(_)
-        )
-    }
-
-    pub fn nickname(&self) -> String {
-        if let Some(prefix) = self.raw.prefix.clone() {
-            return match prefix {
-                irc::proto::Prefix::ServerName(name) => name,
-                // TODO: How to get mods, like '@'
-                irc::proto::Prefix::Nickname(name, _, _) => name,
-            };
-        }
-
-        // TODO: When can this happen?
-        String::new()
-    }
-}
-
-impl From<irc::proto::Message> for Message {
-    fn from(raw: irc::proto::Message) -> Self {
-        let command = Command::from(raw.command.clone());
-
-        Self { raw, command }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Command {
-    PrivMsg {
-        msg_target: MsgTarget,
-        text: String,
-    },
-    Notice {
-        msg_target: MsgTarget,
-        text: String,
-    },
-    Response {
-        response: Response,
-        text: Vec<String>,
-    },
-    Nick(String),
-    Other(irc::proto::Command),
-}
-
-impl From<Command> for irc::proto::Command {
-    fn from(command: Command) -> Self {
-        match command {
-            Command::PrivMsg { msg_target, text } => {
-                irc::proto::Command::PRIVMSG(msg_target.to_string(), text)
-            }
-            Command::Notice { msg_target, text } => todo!(),
-            Command::Response { response, text } => todo!(),
-            Command::Nick(nickname) => irc::proto::Command::NICK(nickname),
-            Command::Other(_) => todo!(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Response {
-    Welcome,
-    MOTDStart,
-    MOTD,
-    MOTDEnd,
-    Other,
-}
-
-impl Response {
-    pub fn parse(&self, text: &[String]) -> Option<String> {
-        // TODO: This could be parsed better in many cases.
-        // Perhaps with `nom`.
+    fn inner(&self) -> &irc::proto::Message {
         match self {
-            Response::Welcome => text.get(1).cloned(),
-            Response::MOTDStart => text.get(1).cloned(),
-            Response::MOTD => text.get(1).cloned(),
-            Response::MOTDEnd => text.get(1).cloned(),
-            Response::Other => None,
+            Message::Sent { message, .. } => message,
+            Message::Received(message) => message,
         }
     }
-}
 
-impl From<irc::proto::Response> for Response {
-    fn from(response: irc::proto::Response) -> Self {
-        match response {
-            irc::proto::Response::RPL_WELCOME => Response::Welcome,
-            irc::proto::Response::RPL_MOTD => Response::MOTD,
-            irc::proto::Response::RPL_MOTDSTART => Response::MOTDStart,
-            irc::proto::Response::RPL_ENDOFMOTD => Response::MOTDEnd,
-            _ => Response::Other,
-        }
+    pub fn text(&self) -> Option<&str> {
+        text(self.inner())
     }
-}
 
-impl From<irc::proto::Command> for Command {
-    fn from(command: irc::proto::Command) -> Self {
-        match command {
-            irc::proto::Command::PRIVMSG(msg_target, text) => Command::PrivMsg {
-                msg_target: MsgTarget::from(msg_target),
-                text,
-            },
-            irc::proto::Command::NOTICE(msg_target, text) => Command::Notice {
-                msg_target: MsgTarget::from(msg_target),
-                text,
-            },
-            irc::proto::Command::Response(response, text) => Command::Response {
-                response: response.into(),
-                text,
-            },
-            _ => Command::Other(command),
-        }
+    pub fn is_for_channel(&self, channel: &str) -> bool {
+        is_for_channel(self.inner(), channel)
     }
-}
 
-#[derive(Debug, Clone)]
-pub enum MsgTarget {
-    Channel(Channel),
-    User(String),
-}
-
-impl fmt::Display for MsgTarget {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub fn is_server_message(&self, channels: &[String]) -> bool {
         match self {
-            MsgTarget::Channel(channel) => channel.fmt(f),
-            MsgTarget::User(user) => user.fmt(f),
+            Message::Sent { .. } => false,
+            Message::Received(message) => is_for_server(message, channels),
+        }
+    }
+
+    pub fn nickname(&self) -> Option<&str> {
+        match &self {
+            Message::Sent { nickname, .. } => Some(nickname.as_str()),
+            Message::Received(message) => message.prefix.as_ref().and_then(|prefix| match prefix {
+                irc::proto::Prefix::ServerName(_) => None,
+                irc::proto::Prefix::Nickname(nickname, _, _) => Some(nickname.as_str()),
+            }),
         }
     }
 }
 
-impl From<String> for MsgTarget {
-    fn from(msg_target: String) -> Self {
-        match msg_target.parse::<Channel>() {
-            Ok(channel) => MsgTarget::Channel(channel),
-            Err(_) => MsgTarget::User(msg_target),
-        }
+fn text(message: &irc::proto::Message) -> Option<&str> {
+    match &message.command {
+        Command::PRIVMSG(_, text) | Command::NOTICE(_, text) => Some(text),
+        Command::Response(_, responses) => responses.last().map(String::as_str),
+        _ => None,
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Target {
-    Nickname(String),
-    Server(String),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Channel {
-    first: char,
-    id: Option<String>,
-    name: String,
-    mask: Option<String>,
-}
-
-impl fmt::Display for Channel {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut s = String::default();
-
-        write!(s, "{}", self.first)?;
-
-        if let Some(id) = &self.id {
-            write!(s, "{}", id)?;
-        }
-
-        write!(s, "{}", self.name)?;
-
-        if let Some(mask) = &self.mask {
-            write!(s, ":{}", mask)?;
-        }
-
-        write!(f, "{}", s)
+fn is_for_channel(message: &irc::proto::Message, channel: &str) -> bool {
+    match &message.command {
+        Command::PRIVMSG(target, _) | Command::NOTICE(target, _) => target == channel,
+        _ => false,
     }
 }
 
-impl FromStr for Channel {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut chars = s.chars();
-
-        let first = match chars.next() {
-            Some(c) | Some(c) | Some(c) | Some(c) if ['#', '&', '+', '!'].contains(&c) => c,
-            _ => return Err(Error::InvalidChannel(s.to_string())),
-        };
-
-        let id = if first == '!' {
-            let id = (0..5)
-                .into_iter()
-                .filter_map(|_| chars.next())
-                .collect::<String>();
-
-            if id.len() != 5 {
-                return Err(Error::InvalidChannel(s.to_string()));
-            }
-
-            if !id
-                .chars()
-                .all(|c| (c.is_ascii_alphabetic() && c.is_ascii_uppercase()) || c.is_numeric())
-            {
-                return Err(Error::InvalidChannel(s.to_string()));
-            }
-
-            Some(id)
-        } else {
-            None
-        };
-
-        let rest = chars.collect::<String>();
-        let mut split = rest.split(':');
-
-        // TODO: Check if name is only valid chars
-        let name = split
-            .next()
-            .ok_or_else(|| Error::InvalidChannel(s.to_string()))?;
-        let mask = split.next();
-
-        Ok(Self {
-            first,
-            id,
-            name: name.to_string(),
-            mask: mask.map(String::from),
-        })
+fn is_for_server(message: &irc::proto::Message, channels: &[String]) -> bool {
+    match &message.command {
+        Command::NICK(_) => true,
+        Command::NOTICE(target, _) => !channels.contains(target),
+        Command::Response(response, _) => match response {
+            Response::RPL_WELCOME => true,
+            Response::RPL_MOTDSTART => true,
+            Response::RPL_MOTD => true,
+            Response::RPL_ENDOFMOTD => true,
+            _ => false, // TODO: Are there others we want to show??
+        },
+        _ => false,
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("invalid channel: {0}")]
-    InvalidChannel(String),
 }
