@@ -1,3 +1,4 @@
+use data::server;
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::BufReader, path::PathBuf};
 use thiserror::Error;
@@ -8,7 +9,7 @@ use crate::theme::Theme;
 pub struct Config {
     #[serde(default)]
     pub theme: Theme,
-    pub servers: Vec<irc::client::data::Config>,
+    pub servers: Vec<server::Config>,
 }
 
 impl Config {
