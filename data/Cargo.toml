@@ -4,10 +4,18 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-irc = "0.15.0"
+dirs-next = "2.0.0"
 futures = "0.3.21"
+irc = "0.15.0"
+log = "0.4.16"
+palette = "0.6.0"
+serde_yaml = "0.8.23"
 thiserror = "1.0.30"
 tokio = "1.0"
+
+[dependencies.iced_core]
+version = "0.5"
+features = ["palette"]
 
 [dependencies.serde]
 version = "1.0"

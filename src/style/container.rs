@@ -1,6 +1,5 @@
+use data::theme::Theme;
 use iced::{pure::widget::container, Background};
-
-use crate::theme::Theme;
 
 pub fn pane(theme: &Theme, is_focused: bool) -> Pane {
     Pane { theme, is_focused }
@@ -25,7 +24,7 @@ impl<'a> container::StyleSheet for Pane<'a> {
             background: Some(Background::Color(self.theme.background.into())),
             border_width: 2.0,
             border_color: if self.is_focused {
-                self.theme.background.lighten()
+                self.theme.background.lighten().into()
             } else {
                 self.theme.background.into()
             },
@@ -41,7 +40,7 @@ pub struct Header<'a> {
 impl<'a> container::StyleSheet for Header<'a> {
     fn style(&self) -> container::Style {
         container::Style {
-            background: Some(Background::Color(self.theme.background.lighten())),
+            background: Some(Background::Color(self.theme.background.lighten().into())),
             ..Default::default()
         }
     }
@@ -54,7 +53,7 @@ pub struct Primary<'a> {
 impl<'a> container::StyleSheet for Primary<'a> {
     fn style(&self) -> container::Style {
         container::Style {
-            background: Some(Background::Color(self.theme.background.darken())),
+            background: Some(Background::Color(self.theme.background.darken().into())),
             text_color: Some(self.theme.text.into()),
             ..Default::default()
         }

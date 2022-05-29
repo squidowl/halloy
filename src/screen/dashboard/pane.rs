@@ -1,4 +1,5 @@
 use data::server::Server;
+use data::theme::Theme;
 use iced::pane_grid::Axis;
 use iced::pure::widget::pane_grid::{self, Content};
 use iced::pure::{button, column, container, row, text};
@@ -6,7 +7,6 @@ use iced::Length;
 use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
-use crate::theme::Theme;
 use crate::{font, icon, style};
 
 #[derive(Debug, Clone)]

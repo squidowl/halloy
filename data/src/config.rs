@@ -1,8 +1,9 @@
-use data::server;
-use serde::{Deserialize, Serialize};
 use std::{fs::File, io::BufReader, path::PathBuf};
+
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::server;
 use crate::theme::Theme;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]

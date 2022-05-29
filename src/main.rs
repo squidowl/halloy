@@ -1,23 +1,21 @@
 mod buffer;
 mod client;
-mod config;
 mod font;
 mod icon;
 mod logger;
 mod screen;
 mod style;
-mod theme;
 mod widget;
 
-use config::Config;
+use data::config::Config;
 use data::stream;
+use data::theme::Theme;
 use iced::{
     executor,
     pure::{container, Application, Element},
     Command, Length, Subscription,
 };
 use screen::dashboard;
-use theme::Theme;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

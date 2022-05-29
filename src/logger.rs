@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::config::{self, Config};
+use data::config::{self, Config};
 
 #[derive(Debug, Error)]
 pub enum Error {

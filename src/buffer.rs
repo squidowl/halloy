@@ -1,6 +1,6 @@
 use iced::pure::Element;
 
-use crate::theme::Theme;
+use data::theme::Theme;
 
 pub mod channel;
 pub mod empty;
