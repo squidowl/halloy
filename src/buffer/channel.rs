@@ -62,17 +62,15 @@ pub fn view<'a>(
     // TODO: Maybe we should show it to the right instead of left.
     if state.is_showing_user_list {
         let users = clients.get_channel_users(&state.server, &state.channel);
-        let mut column = column().width(Length::Shrink).spacing(1);
+        let mut column = column().padding(4).width(Length::Shrink).spacing(1);
 
         for user in users {
             // TODO: Enable button pushes (interactions) on users.
             column = column.push(
-                button(
-                    row()
-                        .push(pure::text(user.highest_access_level().to_string()))
-                        .push(pure::text(user.nickname())),
-                )
-                .style(style::button::secondary(theme)),
+                row()
+                    .padding([0, 4])
+                    .push(pure::text(user.highest_access_level().to_string()))
+                    .push(pure::text(user.nickname())),
             );
         }
 
