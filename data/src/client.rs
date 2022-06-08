@@ -105,6 +105,21 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_channels(&self) -> HashMap<Server, Vec<String>> {
+        let mut hashmap = HashMap::new();
+
+        for (server, _) in self.0.iter() {
+            hashmap.insert(
+                server.clone(),
+                self.connection(server)
+                    .map(|connection| connection.channels())
+                    .unwrap_or_default(),
+            );
+        }
+
+        hashmap
+    }
+
     pub fn get_channel_messages(&self, server: &Server, channel: &str) -> Vec<&Message> {
         self.connection(server)
             .map(|connection| {

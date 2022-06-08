@@ -36,7 +36,7 @@ impl Buffer {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         match self {
-            Buffer::Empty(state) => empty::view(state, theme).map(Message::Empty),
+            Buffer::Empty(state) => empty::view(state, clients, theme).map(Message::Empty),
             Buffer::Channel(state) => {
                 channel::view(state, clients, is_focused, theme).map(Message::Channel)
             }
