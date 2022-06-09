@@ -1,5 +1,6 @@
 use core::fmt;
 
+use data::server::Server;
 use data::theme::Theme;
 use iced::{alignment, pure::Element, Length};
 use iced_pure::{button, column, container, horizontal_space, row, text, vertical_space};
@@ -8,8 +9,13 @@ use crate::{icon, style};
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Users, // TODO: Client has access to list_users: https://docs.rs/irc/0.15.0/irc/client/struct.Client.html#method.list_users.
+    SelectChannel((Server, String)),
     Noop,
+}
+
+#[derive(Debug, Clone)]
+pub enum Event {
+    SelectChannel((Server, String)),
 }
 
 pub fn view<'a>(
@@ -40,7 +46,7 @@ pub fn view<'a>(
                         .push(text(channel)),
                 )
                 .style(style::button::primary(theme))
-                .on_press(Message::Noop),
+                .on_press(Message::SelectChannel((server.clone(), channel.clone()))),
             );
         }
 
@@ -59,16 +65,16 @@ pub fn view<'a>(
 pub struct State {}
 
 impl State {
-    pub fn update(&mut self, message: Message) {
+    pub fn update(&mut self, message: Message) -> Option<Event> {
         match message {
-            Message::Noop => todo!(),
-            Message::Users => todo!(),
+            Message::SelectChannel(channel) => Some(Event::SelectChannel(channel)),
+            Message::Noop => None,
         }
     }
 }
 
 impl fmt::Display for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Dashboard")
+        write!(f, "Empty")
     }
 }

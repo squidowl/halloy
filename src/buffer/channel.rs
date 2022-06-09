@@ -18,6 +18,9 @@ pub enum Message {
     Users,
 }
 
+#[derive(Debug, Clone)]
+pub enum Event {}
+
 pub fn view<'a>(
     state: &State,
     clients: &data::client::Map,
@@ -103,15 +106,22 @@ impl State {
         }
     }
 
-    pub fn update(&mut self, message: Message, clients: &mut data::client::Map) {
+    pub fn update(&mut self, message: Message, clients: &mut data::client::Map) -> Option<Event> {
         match message {
             Message::Send => {
                 clients.send_privmsg(&self.server, &self.channel, &self.input);
                 self.input = String::new();
+
+                None
             }
-            Message::Input(input) => self.input = input,
+            Message::Input(input) => {
+                self.input = input;
+
+                None
+            }
             Message::Users => {
                 self.is_showing_user_list = !self.is_showing_user_list;
+                None
             }
         }
     }

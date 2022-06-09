@@ -107,18 +107,28 @@ impl Dashboard {
             }
             Message::Buffer(pane, message) => {
                 if let Some(pane) = self.panes.get_mut(&pane) {
-                    pane.buffer.update(message, clients);
+                    let event = pane.buffer.update(message, clients)?;
+                    match event {
+                        buffer::Event::Empty(event) => match event {
+                            buffer::empty::Event::SelectChannel((server, channel)) => {
+                                pane.buffer =
+                                    Buffer::Channel(buffer::channel::State::new(server, channel));
+                            }
+                        },
+                        buffer::Event::Channel(_event) => {}
+                    }
                 }
             }
             Message::Users => {
-                if let Some(pane) = self.focus {
-                    if let Some(pane) = self.panes.get_mut(&pane) {
-                        pane.buffer.update(
-                            buffer::Message::Channel(buffer::channel::Message::Users),
-                            clients,
-                        );
-                    }
-                }
+                // TODO: Refactor?
+                // if let Some(pane) = self.focus {
+                //     if let Some(pane) = self.panes.get_mut(&pane) {
+                //         pane.buffer.update(
+                //             buffer::Message::Channel(buffer::channel::Message::Users),
+                //             clients,
+                //         );
+                //     }
+                // }
             }
         }
 
