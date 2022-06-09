@@ -50,12 +50,12 @@ impl Dashboard {
             }
         }
 
-        buffers.push(Buffer::Empty(buffer::empty::State::default()));
+        buffers.push(Buffer::Empty(Default::default()));
 
         let first_buffer = if !buffers.is_empty() {
             buffers.remove(0)
         } else {
-            Buffer::Empty(buffer::empty::State::default())
+            Buffer::Empty(Default::default())
         };
 
         let (mut panes, pane) = pane_grid::State::new(Pane::new(first_buffer));
@@ -87,6 +87,10 @@ impl Dashboard {
                 if let Some(pane) = self.focus {
                     if let Some((_, sibling)) = self.panes.close(&pane) {
                         self.focus = Some(sibling);
+                    } else {
+                        if let Some(pane) = self.panes.get_mut(&pane) {
+                            pane.buffer = Buffer::Empty(Default::default());
+                        }
                     }
                 }
             }
@@ -120,15 +124,14 @@ impl Dashboard {
                 }
             }
             Message::Users => {
-                // TODO: Refactor?
-                // if let Some(pane) = self.focus {
-                //     if let Some(pane) = self.panes.get_mut(&pane) {
-                //         pane.buffer.update(
-                //             buffer::Message::Channel(buffer::channel::Message::Users),
-                //             clients,
-                //         );
-                //     }
-                // }
+                if let Some(pane) = self.focus {
+                    if let Some(pane) = self.panes.get_mut(&pane) {
+                        match &mut pane.buffer {
+                            Buffer::Channel(state) => state.show_users(),
+                            _ => (),
+                        }
+                    }
+                }
             }
         }
 

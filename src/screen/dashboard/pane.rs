@@ -112,11 +112,7 @@ impl TitleBar {
             controls = controls.push(users);
         }
 
-        controls = controls.push(split_h).push(split_v);
-
-        if panes > 1 {
-            controls = controls.push(delete);
-        }
+        controls = controls.push(split_h).push(split_v).push(delete);
 
         let title = column()
             .push(
