@@ -15,7 +15,6 @@ use crate::{style, widget::sticky_scrollable::scrollable};
 pub enum Message {
     Send,
     Input(String),
-    Users,
 }
 
 #[derive(Debug, Clone)]
@@ -63,7 +62,7 @@ pub fn view<'a>(
     let mut content = row();
 
     // TODO: Maybe we should show it to the right instead of left.
-    if state.is_showing_user_list {
+    if state.show_users {
         let users = clients.get_channel_users(&state.server, &state.channel);
         let mut column = column().padding(4).width(Length::Shrink).spacing(1);
 
@@ -93,7 +92,7 @@ pub struct State {
     server: Server,
     channel: String,
     input: String,
-    is_showing_user_list: bool,
+    show_users: bool,
 }
 
 impl State {
@@ -102,7 +101,7 @@ impl State {
             server,
             channel,
             input: String::new(),
-            is_showing_user_list: true,
+            show_users: true,
         }
     }
 
@@ -119,19 +118,11 @@ impl State {
 
                 None
             }
-            Message::Users => {
-                self.is_showing_user_list = !self.is_showing_user_list;
-                None
-            }
         }
     }
 
-    pub fn channel(&self) -> &str {
-        &self.channel
-    }
-
-    pub fn server(&self) -> &Server {
-        &self.server
+    pub(crate) fn show_users(&mut self) {
+        self.show_users = !self.show_users;
     }
 }
 
