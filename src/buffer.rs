@@ -20,12 +20,22 @@ pub enum Message {
     Server(server::Message),
 }
 
+#[derive(Debug, Clone)]
+pub enum Event {
+    Empty(empty::Event),
+    Channel(channel::Event),
+}
+
 impl Buffer {
-    pub fn update(&mut self, message: Message, clients: &mut data::client::Map) {
+    pub fn update(&mut self, message: Message, clients: &mut data::client::Map) -> Option<Event> {
         match (self, message) {
-            (Buffer::Empty(state), Message::Empty(message)) => state.update(message),
-            (Buffer::Channel(state), Message::Channel(message)) => state.update(message, clients),
-            _ => {}
+            (Buffer::Empty(state), Message::Empty(message)) => {
+                state.update(message).map(Event::Empty)
+            }
+            (Buffer::Channel(state), Message::Channel(message)) => {
+                state.update(message, clients).map(Event::Channel)
+            }
+            _ => None,
         }
     }
 
