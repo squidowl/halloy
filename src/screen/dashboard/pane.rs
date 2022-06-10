@@ -104,10 +104,14 @@ impl TitleBar {
 
         let mut controls = row().spacing(4).padding(4);
 
-        if let Buffer::Channel(_state) = &buffer {
+        if let Buffer::Channel(state) = &buffer {
             let users = button(icon::people())
                 .on_press(mapper.on_users.clone())
-                .style(style::button::primary(theme));
+                .style(if state.is_showing_users() {
+                    style::button::selected(theme)
+                } else {
+                    style::button::primary(theme)
+                });
 
             controls = controls.push(users);
         }

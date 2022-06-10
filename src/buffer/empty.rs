@@ -10,12 +10,13 @@ use crate::{icon, style};
 #[derive(Debug, Clone)]
 pub enum Message {
     SelectChannel((Server, String)),
-    Noop,
+    SelectServer(Server),
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     SelectChannel((Server, String)),
+    SelectServer(Server),
 }
 
 pub fn view<'a>(
@@ -34,7 +35,7 @@ pub fn view<'a>(
                     .push(text(server.to_string())),
             )
             .style(style::button::primary(theme))
-            .on_press(Message::Noop),
+            .on_press(Message::SelectServer(server.clone())),
         );
 
         for channel in channels {
@@ -67,8 +68,10 @@ pub struct State {}
 impl State {
     pub fn update(&mut self, message: Message) -> Option<Event> {
         match message {
-            Message::SelectChannel(channel) => Some(Event::SelectChannel(channel)),
-            Message::Noop => None,
+            Message::SelectChannel((server, channel)) => {
+                Some(Event::SelectChannel((server, channel)))
+            }
+            Message::SelectServer(server) => Some(Event::SelectServer(server)),
         }
     }
 }

@@ -118,6 +118,9 @@ impl Dashboard {
                                 pane.buffer =
                                     Buffer::Channel(buffer::channel::State::new(server, channel));
                             }
+                            buffer::empty::Event::SelectServer(server) => {
+                                pane.buffer = Buffer::Server(buffer::server::State::new(server));
+                            }
                         },
                         buffer::Event::Channel(_event) => {}
                     }
@@ -127,7 +130,7 @@ impl Dashboard {
                 if let Some(pane) = self.focus {
                     if let Some(pane) = self.panes.get_mut(&pane) {
                         match &mut pane.buffer {
-                            Buffer::Channel(state) => state.show_users(),
+                            Buffer::Channel(state) => state.toggle_show_users(),
                             _ => (),
                         }
                     }

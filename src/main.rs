@@ -79,7 +79,7 @@ impl Application for Halloy {
         (
             Halloy {
                 screen: Screen::Dashboard(screen),
-                theme: Theme::default(),
+                theme: config.theme,
                 config,
                 clients,
             },
