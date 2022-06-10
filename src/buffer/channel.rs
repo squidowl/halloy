@@ -121,8 +121,12 @@ impl State {
         }
     }
 
-    pub(crate) fn show_users(&mut self) {
+    pub(crate) fn toggle_show_users(&mut self) {
         self.show_users = !self.show_users;
+    }
+
+    pub(crate) fn is_showing_users(&self) -> bool {
+        self.show_users
     }
 }
 

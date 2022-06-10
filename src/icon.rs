@@ -25,10 +25,6 @@ pub fn chat() -> Text {
     to_text('\u{f255}')
 }
 
-pub fn person() -> Text {
-    to_text('\u{f48f}')
-}
-
 pub fn people() -> Text {
     to_text('\u{f47e}')
 }
