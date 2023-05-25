@@ -1,13 +1,12 @@
 use data::server::Server;
-use data::theme::Theme;
-use iced::pane_grid::Axis;
-use iced::pure::widget::pane_grid::{self, Content};
-use iced::pure::{button, column, container, row, text};
+use iced::widget::pane_grid::{self, Axis};
+use iced::widget::{button, column, container, row, text};
 use iced::Length;
 use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
-use crate::{font, icon, style};
+use crate::widget::{self};
+use crate::{font, icon, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {}
@@ -44,40 +43,28 @@ impl Pane {
 
     pub fn view<'a, M: 'static + Clone>(
         &'a self,
-        theme: &'a Theme,
         mapper: Mapper<M>,
         id: pane_grid::Pane,
         panes: usize,
         is_focused: bool,
         clients: &data::client::Map,
-    ) -> Content<'a, M> {
+    ) -> widget::Content<'a, M> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty(state) => state.to_string(),
             Buffer::Channel(state) => state.to_string(),
             Buffer::Server(state) => state.to_string(),
         };
 
-        let title_bar = self
-            .title_bar
-            .view(
-                &self.buffer,
-                title_bar_text,
-                theme,
-                &mapper,
-                id,
-                panes,
-                is_focused,
-            )
-            .style(style::container::header(theme));
+        let title_bar =
+            self.title_bar
+                .view(&self.buffer, title_bar_text, &mapper, id, panes, is_focused);
 
         let content = self
             .buffer
-            .view(clients, is_focused, theme)
+            .view(clients, is_focused)
             .map(move |msg| (mapper.buffer)(id, msg));
 
-        pane_grid::Content::new(content)
-            .title_bar(title_bar)
-            .style(style::container::pane(theme, is_focused))
+        widget::Content::new(content).title_bar(title_bar)
     }
 }
 
@@ -86,47 +73,50 @@ impl TitleBar {
         &'a self,
         buffer: &Buffer,
         value: String,
-        theme: &'a Theme,
         mapper: &Mapper<M>,
-        _id: iced::pane_grid::Pane,
+        _id: pane_grid::Pane,
         panes: usize,
         _is_focused: bool,
-    ) -> pane_grid::TitleBar<'a, M> {
-        let delete = button(icon::close())
-            .style(style::button::destruction(theme))
-            .on_press(mapper.on_close.clone());
-        let split_h = button(icon::box_arrow_right())
-            .on_press((mapper.on_split)(Axis::Horizontal))
-            .style(style::button::primary(theme));
-        let split_v = button(icon::box_arrow_down())
-            .on_press((mapper.on_split)(Axis::Vertical))
-            .style(style::button::primary(theme));
+    ) -> widget::TitleBar<'a, M> {
+        // Pane controls.
+        let mut controls = row![];
 
-        let mut controls = row().spacing(4).padding(4);
+        // If we have more than one pane open, show delete button.
+        if panes > 1 {
+            let delete = button(
+                container(icon::close())
+                    .padding([2, 0, 0, 0])
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x()
+                    .center_y(),
+            )
+            .width(28)
+            .height(28)
+            .on_press(mapper.on_close.clone())
+            .style(theme::Button::Primary);
 
-        if let Buffer::Channel(state) = &buffer {
-            let users = button(icon::people())
-                .on_press(mapper.on_users.clone())
-                .style(if state.is_showing_users() {
-                    style::button::selected(theme)
-                } else {
-                    style::button::primary(theme)
-                });
-
-            controls = controls.push(users);
+            controls = controls.push(delete);
         }
 
-        controls = controls.push(split_h).push(split_v).push(delete);
+        // TODO: Re-enable show users button.
+        // if let Buffer::Channel(state) = &buffer {
+        //     let users = button(icon::people())
+        //         .on_press(mapper.on_users.clone())
+        //         .style(theme::Button::Selectable {
+        //             selected: state.is_showing_users(),
+        //         });
 
-        let title = column()
-            .push(
-                container(text(value).font(font::BOLD).size(style::TEXT_SIZE))
-                    .padding([0, 8])
-                    .center_y()
-                    .height(Length::Units(35)),
-            )
-            .spacing(5);
+        //     controls = controls.push(users);
+        // }
 
-        pane_grid::TitleBar::new(title).controls(controls)
+        let title = container(text(value).font(font::MONO))
+            .height(35)
+            .style(theme::Container::Header);
+
+        widget::TitleBar::new(title)
+            .controls(controls)
+            .padding(6)
+            .style(theme::Container::Header)
     }
 }

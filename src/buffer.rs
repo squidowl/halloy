@@ -1,6 +1,4 @@
-use iced::pure::Element;
-
-use data::theme::Theme;
+use crate::widget::Element;
 
 pub mod channel;
 pub mod empty;
@@ -43,16 +41,13 @@ impl Buffer {
         &'a self,
         clients: &data::client::Map,
         is_focused: bool,
-        theme: &'a Theme,
     ) -> Element<'a, Message> {
         match self {
-            Buffer::Empty(state) => empty::view(state, clients, theme).map(Message::Empty),
+            Buffer::Empty(state) => empty::view(state, clients).map(Message::Empty),
             Buffer::Channel(state) => {
-                channel::view(state, clients, is_focused, theme).map(Message::Channel)
+                channel::view(state, clients, is_focused).map(Message::Channel)
             }
-            Buffer::Server(state) => {
-                server::view(state, clients, is_focused, theme).map(Message::Server)
-            }
+            Buffer::Server(state) => server::view(state, clients, is_focused).map(Message::Server),
         }
     }
 }

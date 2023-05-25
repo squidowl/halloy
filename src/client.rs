@@ -1,8 +1,8 @@
 use data::stream;
 use iced::futures::stream::BoxStream;
+use iced::widget::runtime::core::Hasher;
+use iced::widget::runtime::futures::subscription::{EventStream, Recipe};
 use iced::Subscription;
-use iced_native::subscription::Recipe;
-use iced_native::Hasher;
 
 pub fn run() -> Subscription<stream::Result> {
     Subscription::from_recipe(Client {})
@@ -10,7 +10,7 @@ pub fn run() -> Subscription<stream::Result> {
 
 pub struct Client {}
 
-impl<E> Recipe<iced_native::Hasher, E> for Client {
+impl Recipe for Client {
     type Output = stream::Result;
 
     fn hash(&self, state: &mut Hasher) {
@@ -20,7 +20,7 @@ impl<E> Recipe<iced_native::Hasher, E> for Client {
         std::any::TypeId::of::<Marker>().hash(state);
     }
 
-    fn stream(self: Box<Self>, _input: BoxStream<E>) -> BoxStream<Self::Output> {
+    fn stream(self: Box<Self>, _input: EventStream) -> BoxStream<'static, Self::Output> {
         stream::run()
     }
 }

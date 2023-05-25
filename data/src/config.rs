@@ -3,13 +3,13 @@ use std::{fs::File, io::BufReader, path::PathBuf};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::palette::Palette;
 use crate::server;
-use crate::theme::Theme;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Config {
     #[serde(default)]
-    pub theme: Theme,
+    pub palette: Palette,
     pub servers: Vec<server::Config>,
 }
 
@@ -19,8 +19,7 @@ impl Config {
         dir.push("halloy");
 
         if !dir.exists() {
-            let _ =
-                std::fs::create_dir(dir.as_path()).map_err(|_| Error::DirectoryCreationError)?;
+            std::fs::create_dir(dir.as_path()).map_err(|_| Error::DirectoryCreationError)?;
         }
 
         Ok(dir)
@@ -33,7 +32,7 @@ impl Config {
 
         let serialized = serde_yaml::to_string(&self).map_err(|_| Error::_SerializationError)?;
 
-        let _ = tokio::fs::write(config_dir, serialized)
+        tokio::fs::write(config_dir, serialized)
             .await
             .map_err(|_| Error::_WriteError)?;
 
@@ -43,7 +42,7 @@ impl Config {
     pub fn load() -> Option<Self> {
         let config_dir = Self::config_dir().ok()?;
 
-        let file = File::open(&config_dir.join("config.yaml")).ok()?;
+        let file = File::open(config_dir.join("config.yaml")).ok()?;
         let reader = BufReader::new(file);
 
         match serde_yaml::from_reader(reader) {

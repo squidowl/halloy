@@ -1,30 +1,25 @@
-use iced_pure::widget::scrollable::StyleSheet;
-use iced_pure::widget::tree::{self, Tree};
-use iced_pure::{Element, Widget};
+use iced::widget::runtime::core::widget::{tree, Tree};
+use iced::widget::runtime::core::{layout, renderer, Clipboard, Layout, Shell, Widget};
+use iced::widget::scrollable::{self};
 
-use iced_native::event::{self, Event};
-use iced_native::layout::{self, Layout};
-use iced_native::mouse;
-use iced_native::renderer;
-use iced_native::widget::scrollable;
-use iced_native::{Clipboard, Length, Point, Rectangle, Shell};
+use iced::event::{self, Event};
+use iced::{mouse, Element};
+use iced::{Length, Point, Rectangle};
+
+use super::Renderer;
 
 /// Same as the scrollable from iced, but sticks to the bottom like you see in most chat apps.
-pub fn scrollable<'a, Message: 'a, Renderer: iced_native::Renderer + 'a>(
-    content: impl Into<Element<'a, Message, Renderer>>,
-) -> Scrollable<'a, Message, Renderer> {
+pub fn scrollable<'a, Message: 'a>(
+    content: impl Into<Element<'a, Message>>,
+) -> Scrollable<'a, Message> {
     Scrollable::new(content)
 }
 
 #[allow(missing_debug_implementations)]
-pub struct Scrollable<'a, Message, Renderer> {
+pub struct Scrollable<'a, Message> {
     height: Length,
-    scrollbar_width: u16,
-    scrollbar_margin: u16,
-    scroller_width: u16,
     on_scroll: Option<Box<dyn Fn(f32) -> Ev<Message> + 'a>>,
-    style_sheet: Box<dyn StyleSheet + 'a>,
-    content: Element<'a, Ev<Message>, Renderer>,
+    content: Element<'a, Ev<Message>>,
 }
 
 enum Ev<Message> {
@@ -32,48 +27,19 @@ enum Ev<Message> {
     Propagate(Message),
 }
 
-impl<'a, Message: 'a, Renderer: iced_native::Renderer + 'a> Scrollable<'a, Message, Renderer> {
-    pub fn new(content: impl Into<Element<'a, Message, Renderer>>) -> Self {
+impl<'a, Message: 'a> Scrollable<'a, Message> {
+    pub fn new(content: impl Into<Element<'a, Message>>) -> Self {
         Scrollable {
             height: Length::Shrink,
-            scrollbar_width: 10,
-            scrollbar_margin: 0,
-            scroller_width: 10,
             on_scroll: Some(Box::new(Ev::Scroll)),
-            style_sheet: Default::default(),
             content: content.into().map(Ev::Propagate),
         }
     }
-
-    pub fn height(mut self, height: Length) -> Self {
-        self.height = height;
-        self
-    }
-
-    pub fn scrollbar_width(mut self, scrollbar_width: u16) -> Self {
-        self.scrollbar_width = scrollbar_width.max(1);
-        self
-    }
-
-    pub fn scrollbar_margin(mut self, scrollbar_margin: u16) -> Self {
-        self.scrollbar_margin = scrollbar_margin;
-        self
-    }
-
-    pub fn scroller_width(mut self, scroller_width: u16) -> Self {
-        self.scroller_width = scroller_width.max(1);
-        self
-    }
-
-    pub fn style(mut self, style_sheet: impl Into<Box<dyn StyleSheet + 'a>>) -> Self {
-        self.style_sheet = style_sheet.into();
-        self
-    }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer> for Scrollable<'a, Message, Renderer>
+impl<'a, Message> Widget<Message, Renderer> for Scrollable<'a, Message>
 where
-    Renderer: iced_native::Renderer,
+    Renderer: renderer::Renderer,
 {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<scrollable::State>()
@@ -108,6 +74,7 @@ where
             limits,
             Widget::<Message, Renderer>::width(self),
             self.height,
+            false,
             |renderer, limits| self.content.as_widget().layout(renderer, limits),
         )
     }
@@ -134,9 +101,8 @@ where
             cursor_position,
             clipboard,
             &mut local_shell,
-            self.scrollbar_width,
-            self.scrollbar_margin,
-            self.scroller_width,
+            Default::default(),
+            Default::default(),
             &self.on_scroll,
             |event, layout, cursor_position, clipboard, shell| {
                 self.content.as_widget_mut().on_event(
@@ -172,6 +138,7 @@ where
         &self,
         tree: &Tree,
         renderer: &mut Renderer,
+        theme: &<Renderer as renderer::Renderer>::Theme,
         style: &renderer::Style,
         layout: Layout<'_>,
         cursor_position: Point,
@@ -180,16 +147,17 @@ where
         scrollable::draw(
             tree.state.downcast_ref::<scrollable::State>(),
             renderer,
+            theme,
             layout,
             cursor_position,
-            self.scrollbar_width,
-            self.scrollbar_margin,
-            self.scroller_width,
+            Default::default(),
+            Default::default(),
             self.style_sheet.as_ref(),
             |renderer, layout, cursor_position, viewport| {
                 self.content.as_widget().draw(
                     &tree.children[0],
                     renderer,
+                    theme,
                     style,
                     layout,
                     cursor_position,
@@ -211,9 +179,8 @@ where
             tree.state.downcast_ref::<scrollable::State>(),
             layout,
             cursor_position,
-            self.scrollbar_width,
-            self.scrollbar_margin,
-            self.scroller_width,
+            Default::default(),
+            Default::default(),
             |layout, cursor_position, viewport| {
                 self.content.as_widget().mouse_interaction(
                     &tree.children[0],
@@ -227,13 +194,12 @@ where
     }
 }
 
-impl<'a, Message, Renderer> From<Scrollable<'a, Message, Renderer>>
-    for Element<'a, Message, Renderer>
+impl<'a, Message, Renderer> From<Scrollable<'a, Message>> for Element<'a, Message, Renderer>
 where
     Message: 'a + Clone,
-    Renderer: 'a + iced_native::Renderer,
+    Renderer: 'a + renderer::Renderer,
 {
-    fn from(text_input: Scrollable<'a, Message, Renderer>) -> Element<'a, Message, Renderer> {
+    fn from(text_input: Scrollable<'a, Message>) -> Element<'a, Message, Renderer> {
         Element::new(text_input)
     }
 }

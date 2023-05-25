@@ -1,13 +1,13 @@
 use std::fmt;
 
+use crate::widget::Element;
 use data::server::Server;
-use data::theme::Theme;
 use iced::{
-    pure::{self, container, widget::Column, Element},
+    widget::{container, text},
     Length,
 };
 
-use crate::{style, widget::sticky_scrollable::scrollable};
+// use crate::widget::sticky_scrollable::scrollable;
 
 #[derive(Debug, Clone)]
 pub enum Message {}
@@ -16,23 +16,22 @@ pub fn view<'a>(
     state: &'a State,
     clients: &data::client::Map,
     _is_focused: bool,
-    _theme: &'a Theme,
 ) -> Element<'a, Message> {
-    let messages: Vec<Element<'a, Message>> = clients
-        .get_server_messages(&state.server)
-        .into_iter()
-        .filter_map(|message| {
-            Some(container(pure::text(message.text()?).size(style::TEXT_SIZE)).into())
-        })
-        .collect();
+    // let messages: Vec<Element<'a, Message>> = clients
+    //     .get_server_messages(&state.server)
+    //     .into_iter()
+    //     .filter_map(|message| Some(container(text(message.text()?)).into()))
+    //     .collect();
 
-    container(scrollable(
-        Column::with_children(messages).width(Length::Fill),
-    ))
-    .width(Length::Fill)
-    .height(Length::Fill)
-    .padding([0, 8])
-    .into()
+    // container(scrollable(
+    //     Column::with_children(messages).width(Length::Fill),
+    // ))
+    // .width(Length::Fill)
+    // .height(Length::Fill)
+    // .padding([0, 8])
+    // .into()
+
+    container(iced::widget::text("buffer/server")).into()
 }
 
 #[derive(Debug, Clone)]

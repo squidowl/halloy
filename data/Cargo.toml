@@ -12,10 +12,7 @@ palette = "0.6.0"
 serde_yaml = "0.8.23"
 thiserror = "1.0.30"
 tokio = "1.0"
-
-[dependencies.iced_core]
-version = "0.5"
-features = ["palette"]
+iced = { git = "https://github.com/iced-rs/iced", rev = "6c6930b91df0d7637ed6c0f3f4e57a03c5e5896f", features = ["palette"] }
 
 [dependencies.serde]
 version = "1.0"
