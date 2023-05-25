@@ -1,15 +1,12 @@
 use std::fmt;
 
 use data::server::Server;
-use data::theme::Theme;
 use iced::{
-    pure::{
-        self, button, column, container, row, text_input, vertical_space, widget::Column, Element,
-    },
+    widget::{column, container, row, scrollable, text, text_input, vertical_space, Column},
     Length,
 };
 
-use crate::{style, widget::sticky_scrollable::scrollable};
+use crate::widget::Element;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -24,55 +21,48 @@ pub fn view<'a>(
     state: &State,
     clients: &data::client::Map,
     is_focused: bool,
-    theme: &'a Theme,
 ) -> Element<'a, Message> {
     let messages: Vec<Element<'a, Message>> = clients
         .get_channel_messages(&state.server, &state.channel)
         .into_iter()
         .filter_map(|message| {
             let nickname = message.nickname().unwrap_or_default();
-            let text = message.text()?;
+            let message = message.text()?;
 
-            Some(
-                container(pure::text(format!("<{}> {}", nickname, text)).size(style::TEXT_SIZE))
-                    .into(),
-            )
+            Some(container(text(format!("<{}> {}", nickname, message))).into())
         })
         .collect();
 
-    let mut messages = column().push(
-        container(scrollable(
-            Column::with_children(messages)
-                .width(Length::Fill)
-                .padding([0, 8]),
-        ))
-        .height(Length::Fill),
-    );
+    let mut messages = column![container(scrollable(
+        Column::with_children(messages)
+            .width(Length::Fill)
+            .padding([0, 8]),
+    ))
+    .height(Length::Fill)];
 
     if is_focused {
-        messages = messages.push(vertical_space(Length::Units(5))).push(
-            text_input("Send message...", &state.input, Message::Input)
+        messages = messages.push(vertical_space(5)).push(
+            text_input("Send message...", &state.input)
+                .on_input(Message::Input)
                 .on_submit(Message::Send)
-                .padding(8)
-                .style(style::text_input::primary(theme))
-                .size(style::TEXT_SIZE),
+                .padding(8),
         )
     }
 
-    let mut content = row();
+    let mut content = row![];
 
     // TODO: Maybe we should show it to the right instead of left.
     if state.show_users {
         let users = clients.get_channel_users(&state.server, &state.channel);
-        let mut column = column().padding(4).width(Length::Shrink).spacing(1);
+        let mut column = column![].padding(4).width(Length::Shrink).spacing(1);
 
         for user in users {
             // TODO: Enable button pushes (interactions) on users.
             column = column.push(
-                row()
+                row![]
                     .padding([0, 4])
-                    .push(pure::text(user.highest_access_level().to_string()))
-                    .push(pure::text(user.nickname())),
+                    .push(text(user.highest_access_level().to_string()))
+                    .push(text(user.nickname())),
             );
         }
 

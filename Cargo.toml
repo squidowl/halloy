@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["opengl"]
-opengl = ["iced/glow"]
+default = []
 
 [dependencies]
 data = { version = "0.1.0", path = "data" }
@@ -14,33 +13,11 @@ tokio = { version = "1.0", features = ["rt", "fs", "process"] }
 log = "0.4.16"
 fern = "0.6.1"
 chrono = { version = "0.4", features = ['serde'] }
+iced = { git = "https://github.com/iced-rs/iced", rev = "6c6930b91df0d7637ed6c0f3f4e57a03c5e5896f", features = ["tokio", "palette"] }
 
 [dependencies.uuid]
 version = "1.0"
 features = ["v4"]
 
-[dependencies.iced]
-version = "0.4"
-default-features = false
-features = ["tokio", "pure", "palette"]
-
-[dependencies.iced_native]
-version = "0.5"
-
-[dependencies.iced_lazy]
-version = "0.1"
-
-[dependencies.iced_pure]
-version = "0.2"
-
 [workspace]
 members = ["data"]
-
-[patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced.git", rev = "ba33e92818ec181508b4957d1eae5b2beb9ea221" }
-iced_core = { git = "https://github.com/iced-rs/iced.git", rev = "ba33e92818ec181508b4957d1eae5b2beb9ea221" }
-iced_futures = { git = "https://github.com/iced-rs/iced.git", rev = "ba33e92818ec181508b4957d1eae5b2beb9ea221" }
-iced_graphics = { git = "https://github.com/iced-rs/iced.git", rev = "ba33e92818ec181508b4957d1eae5b2beb9ea221" }
-iced_native = { git = "https://github.com/iced-rs/iced.git", rev = "ba33e92818ec181508b4957d1eae5b2beb9ea221" }
-iced_lazy = { git = "https://github.com/iced-rs/iced.git", rev = "ba33e92818ec181508b4957d1eae5b2beb9ea221" }
-iced_pure = { git = "https://github.com/iced-rs/iced.git", rev = "ba33e92818ec181508b4957d1eae5b2beb9ea221" }

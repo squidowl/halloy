@@ -4,18 +4,15 @@ mod font;
 mod icon;
 mod logger;
 mod screen;
-mod style;
+mod theme;
 mod widget;
 
 use data::config::Config;
 use data::stream;
-use data::theme::Theme;
-use iced::{
-    executor,
-    pure::{container, Application, Element},
-    Command, Length, Subscription,
-};
+use iced::{executor, widget::container, Application, Command, Length, Subscription};
 use screen::dashboard;
+use theme::Theme;
+use widget::Element;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -38,8 +35,8 @@ pub fn main() -> iced::Result {
 
 fn settings() -> iced::Settings<()> {
     iced::Settings {
-        default_font: Some(include_bytes!("../fonts/iosevka-term-regular.ttf")),
-        default_text_size: style::TEXT_SIZE,
+        default_font: font::MONO,
+        default_text_size: theme::TEXT_SIZE,
         ..Default::default()
     }
 }
@@ -59,12 +56,14 @@ enum Screen {
 enum Message {
     Dashboard(dashboard::Message),
     Stream(stream::Result),
+    FontsLoaded(Result<(), iced::font::Error>),
 }
 
 impl Application for Halloy {
     type Executor = executor::Default;
     type Message = Message;
     type Flags = ();
+    type Theme = theme::Theme;
 
     fn new(_flags: ()) -> (Halloy, Command<Self::Message>) {
         let config = Config::load().unwrap_or_default();
@@ -79,11 +78,11 @@ impl Application for Halloy {
         (
             Halloy {
                 screen: Screen::Dashboard(screen),
-                theme: config.theme,
+                theme: Theme::new_from_palette(config.palette),
                 config,
                 clients,
             },
-            Command::none(),
+            Command::batch(vec![font::load().map(Message::FontsLoaded)]),
         )
     }
 
@@ -98,6 +97,8 @@ impl Application for Halloy {
                     if let Some((_event, _command)) = dashboard.update(message, &mut self.clients) {
                         // Handle events and commands.
                     }
+
+                    Command::none()
                 }
             },
             Message::Stream(Ok(event)) => match event {
@@ -107,34 +108,43 @@ impl Application for Halloy {
                     for server in self.config.servers.clone() {
                         let _ = sender.blocking_send(stream::Message::Connect(server));
                     }
+
+                    Command::none()
                 }
                 stream::Event::Connected(server, client) => {
                     log::info!("connected to {:?}", server);
                     self.clients.ready(server, client);
+
+                    Command::none()
                 }
                 stream::Event::MessageReceived(server, message) => {
                     // log::debug!("Server {:?} message received: {:?}", &server, &message);
                     self.clients.add_message(&server, message);
+
+                    Command::none()
                 }
             },
             Message::Stream(Err(error)) => {
                 log::error!("{:?}", error);
+                Command::none()
+            }
+            Message::FontsLoaded(Ok(())) => Command::none(),
+            Message::FontsLoaded(Err(error)) => {
+                log::error!("fonts failed to load: {error:?}");
+                Command::none()
             }
         }
-
-        Command::none()
     }
 
     fn view(&self) -> Element<Message> {
         let content = match &self.screen {
-            Screen::Dashboard(dashboard) => dashboard
-                .view(&self.clients, &self.theme)
-                .map(Message::Dashboard),
+            Screen::Dashboard(dashboard) => dashboard.view(&self.clients).map(Message::Dashboard),
         };
 
         container(content)
             .width(Length::Fill)
             .height(Length::Fill)
+            .style(theme::Container::Primary)
             .into()
     }
 

@@ -1,51 +1,22 @@
-use iced::{pure::text, Font, Text};
+use iced::widget::text;
 
-use crate::style;
+use crate::{
+    font, theme,
+    widget::{Container, Text},
+};
 
 // Based off https://github.com/iced-rs/iced_aw/blob/main/src/graphics/icons/bootstrap.rs
 
-pub const FONT: Font = Font::External {
-    name: "Icons",
-    bytes: include_bytes!("../fonts/icons.ttf"),
-};
-
-pub fn close() -> Text {
-    to_text('\u{f5ae}')
+pub fn close<'a>() -> Text<'a> {
+    to_text('\u{f659}')
 }
 
-pub fn box_arrow_down() -> Text {
-    to_text('\u{f1b1}')
+pub fn people<'a>() -> Text<'a> {
+    to_text('\u{f826}')
 }
 
-pub fn box_arrow_right() -> Text {
-    to_text('\u{f1a7}')
-}
-
-pub fn chat() -> Text {
-    to_text('\u{f255}')
-}
-
-pub fn people() -> Text {
-    to_text('\u{f47e}')
-}
-
-pub fn door() -> Text {
-    to_text('\u{f2d4}')
-}
-
-pub fn lightning() -> Text {
-    to_text('\u{f42b}')
-}
-
-pub fn house() -> Text {
-    to_text('\u{f3e8}')
-}
-
-#[allow(dead_code)]
-pub fn raw(unicode: char) -> Text {
-    to_text(unicode)
-}
-
-fn to_text(unicode: char) -> Text {
-    text(unicode.to_string()).size(style::TEXT_SIZE).font(FONT)
+fn to_text<'a>(unicode: char) -> Text<'a> {
+    text(unicode.to_string())
+        .size(theme::TEXT_SIZE)
+        .font(font::ICON)
 }

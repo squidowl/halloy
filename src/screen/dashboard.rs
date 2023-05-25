@@ -4,15 +4,14 @@ use data::server::Server;
 use pane::Pane;
 
 use data::config::Config;
-use data::theme::Theme;
-use iced::pure::widget::pane_grid::{self, PaneGrid};
-use iced::pure::Element;
-use iced::pure::{column, container};
+use iced::widget::pane_grid::{self, PaneGrid};
+use iced::widget::{column, container};
 use iced::Command;
 use iced::Length;
 
 use crate::buffer::{self, Buffer};
-use crate::style;
+use crate::theme;
+use crate::widget::Element;
 
 pub struct Dashboard {
     panes: pane_grid::State<Pane>,
@@ -37,26 +36,28 @@ impl Dashboard {
     pub fn new(config: &Config) -> Self {
         let mut buffers = vec![];
 
-        for server_config in config.servers.iter() {
-            buffers.push(Buffer::Server(buffer::server::State::new(
-                server_config.server.clone().unwrap_or_default().into(),
-            )));
+        // for server_config in config.servers.iter() {
+        //     buffers.push(Buffer::Server(buffer::server::State::new(
+        //         server_config.server.clone().unwrap_or_default().into(),
+        //     )));
 
-            for channel in server_config.channels() {
-                buffers.push(Buffer::Channel(buffer::channel::State::new(
-                    server_config.server.clone().unwrap_or_default().into(),
-                    channel.clone(),
-                )));
-            }
-        }
+        //     for channel in server_config.channels() {
+        //         buffers.push(Buffer::Channel(buffer::channel::State::new(
+        //             server_config.server.clone().unwrap_or_default().into(),
+        //             channel.clone(),
+        //         )));
+        //     }
+        // }
 
-        buffers.push(Buffer::Empty(Default::default()));
+        // buffers.push(Buffer::Empty(Default::default()));
 
-        let first_buffer = if !buffers.is_empty() {
-            buffers.remove(0)
-        } else {
-            Buffer::Empty(Default::default())
-        };
+        // let first_buffer = if !buffers.is_empty() {
+        //     buffers.remove(0)
+        // } else {
+        //     Buffer::Empty(Default::default())
+        // };
+
+        let first_buffer = Buffer::Empty(Default::default());
 
         let (mut panes, pane) = pane_grid::State::new(Pane::new(first_buffer));
 
@@ -79,7 +80,11 @@ impl Dashboard {
             Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
                 self.panes.resize(&split, ratio);
             }
-            Message::PaneDragged(pane_grid::DragEvent::Dropped { pane, target }) => {
+            Message::PaneDragged(pane_grid::DragEvent::Dropped {
+                pane,
+                target,
+                region,
+            }) => {
                 self.panes.swap(&pane, &target);
             }
             Message::PaneDragged(_) => {}
@@ -87,10 +92,8 @@ impl Dashboard {
                 if let Some(pane) = self.focus {
                     if let Some((_, sibling)) = self.panes.close(&pane) {
                         self.focus = Some(sibling);
-                    } else {
-                        if let Some(pane) = self.panes.get_mut(&pane) {
-                            pane.buffer = Buffer::Empty(Default::default());
-                        }
+                    } else if let Some(pane) = self.panes.get_mut(&pane) {
+                        pane.buffer = Buffer::Empty(Default::default());
                     }
                 }
             }
@@ -141,18 +144,13 @@ impl Dashboard {
         None
     }
 
-    pub fn view<'a>(
-        &'a self,
-        clients: &data::client::Map,
-        theme: &'a Theme,
-    ) -> Element<'a, Message> {
+    pub fn view<'a>(&'a self, clients: &data::client::Map) -> Element<'a, Message> {
         let focus = self.focus;
 
-        let pane_grid = PaneGrid::new(&self.panes, |id, pane| {
+        let pane_grid = PaneGrid::new(&self.panes, |id, pane, _maximized| {
             let is_focused = focus == Some(id);
             let panes = self.panes.len();
             pane.view(
-                theme,
                 pane::Mapper {
                     pane: Message::Pane,
                     buffer: Message::Buffer,
@@ -174,13 +172,11 @@ impl Dashboard {
         let pane_grid = container(pane_grid)
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(style::container::primary(theme))
             .padding(8);
 
-        column()
+        column![pane_grid]
             .width(Length::Fill)
             .height(Length::Fill)
-            .push(pane_grid)
             .into()
     }
 }
