@@ -79,8 +79,8 @@ pub fn view<'a>(
 
 #[derive(Debug, Clone)]
 pub struct State {
-    server: Server,
-    channel: String,
+    pub server: Server,
+    pub channel: String,
     input: String,
     show_users: bool,
 }

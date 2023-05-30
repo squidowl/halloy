@@ -5,11 +5,11 @@ use data::config::{self, Config};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("config error")]
-    ConfigError(config::Error),
+    Config(config::Error),
     #[error("io error")]
-    IoError(std::io::Error),
+    Io(std::io::Error),
     #[error("logger error")]
-    LogError(log::SetLoggerError),
+    Log(log::SetLoggerError),
 }
 
 pub fn setup(is_debug: bool) -> Result<(), Error> {
@@ -32,7 +32,7 @@ pub fn setup(is_debug: bool) -> Result<(), Error> {
     } else {
         use std::fs::OpenOptions;
 
-        let config_dir = Config::config_dir().map_err(|e| Error::ConfigError(e))?;
+        let config_dir = Config::config_dir().map_err(Error::Config)?;
 
         let log_file = OpenOptions::new()
             .write(true)
@@ -40,11 +40,11 @@ pub fn setup(is_debug: bool) -> Result<(), Error> {
             .append(false)
             .truncate(true)
             .open(config_dir.join("halloy.log"))
-            .map_err(|e| Error::IoError(e))?;
+            .map_err(Error::Io)?;
 
         logger = logger.chain(log_file);
     }
 
-    logger.apply().map_err(|e| Error::LogError(e))?;
+    logger.apply().map_err(Error::Log)?;
     Ok(())
 }

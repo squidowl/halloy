@@ -1,6 +1,5 @@
-use data::server::Server;
 use iced::widget::pane_grid::{self, Axis};
-use iced::widget::{button, column, container, row, text};
+use iced::widget::{button, container, row, text};
 use iced::Length;
 use uuid::Uuid;
 
@@ -17,6 +16,7 @@ pub struct Mapper<Message> {
     pub buffer: fn(pane_grid::Pane, buffer::Message) -> Message,
     pub on_close: Message,
     pub on_split: fn(Axis) -> Message,
+    pub on_maximize: Message,
     pub on_users: Message,
 }
 
@@ -47,6 +47,7 @@ impl Pane {
         id: pane_grid::Pane,
         panes: usize,
         is_focused: bool,
+        maximized: bool,
         clients: &data::client::Map,
     ) -> widget::Content<'a, M> {
         let title_bar_text = match &self.buffer {
@@ -55,9 +56,15 @@ impl Pane {
             Buffer::Server(state) => state.to_string(),
         };
 
-        let title_bar =
-            self.title_bar
-                .view(&self.buffer, title_bar_text, &mapper, id, panes, is_focused);
+        let title_bar = self.title_bar.view(
+            &self.buffer,
+            title_bar_text,
+            &mapper,
+            id,
+            panes,
+            is_focused,
+            maximized,
+        );
 
         let content = self
             .buffer
@@ -71,15 +78,16 @@ impl Pane {
 impl TitleBar {
     fn view<'a, M: 'static + Clone>(
         &'a self,
-        buffer: &Buffer,
+        _buffer: &Buffer,
         value: String,
         mapper: &Mapper<M>,
         _id: pane_grid::Pane,
         panes: usize,
         _is_focused: bool,
+        maximized: bool,
     ) -> widget::TitleBar<'a, M> {
         // Pane controls.
-        let mut controls = row![];
+        let mut controls = row![].spacing(2);
 
         // If we have more than one pane open, show delete button.
         if panes > 1 {
@@ -97,6 +105,25 @@ impl TitleBar {
             .style(theme::Button::Primary);
 
             controls = controls.push(delete);
+
+            let maximize = button(
+                container(if maximized {
+                    icon::minimize()
+                } else {
+                    icon::maximize()
+                })
+                .padding([2, 0, 0, 0])
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x()
+                .center_y(),
+            )
+            .width(28)
+            .height(28)
+            .on_press(mapper.on_maximize.clone())
+            .style(theme::Button::Primary);
+
+            controls = controls.push(maximize);
         }
 
         // TODO: Re-enable show users button.
