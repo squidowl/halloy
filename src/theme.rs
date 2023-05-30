@@ -1,5 +1,5 @@
 use data::palette::{self, Palette};
-use iced::widget::{button, container, pane_grid, row, scrollable, text, text_input};
+use iced::widget::{button, container, pane_grid, scrollable, text, text_input};
 use iced::{application, Background, Color};
 
 pub const TEXT_SIZE: f32 = 13.0;
@@ -167,10 +167,11 @@ impl container::StyleSheet for Theme {
 pub enum Button {
     #[default]
     Primary,
+    Secondary,
+    Tertiary,
     Selectable {
         selected: bool,
     },
-    Negative,
 }
 
 impl button::StyleSheet for Theme {
@@ -183,13 +184,16 @@ impl button::StyleSheet for Theme {
                 border_radius: 4.0.into(),
                 ..Default::default()
             },
-            Button::Selectable { selected } => button::Appearance {
+            Button::Secondary => button::Appearance {
                 text_color: self.colors.text.base,
                 border_width: 1.0,
                 border_color: self.colors.action.base,
                 ..Default::default()
             },
-            Button::Negative => button::Appearance {
+            Button::Tertiary => button::Appearance {
+                ..Default::default()
+            },
+            Button::Selectable { selected: _ } => button::Appearance {
                 text_color: self.colors.text.base,
                 border_width: 1.0,
                 border_color: self.colors.action.base,
@@ -202,8 +206,9 @@ impl button::StyleSheet for Theme {
         let active = self.active(style);
         match style {
             Button::Primary => button::Appearance { ..active },
-            Button::Selectable { selected } => button::Appearance { ..active },
-            Button::Negative => button::Appearance { ..active },
+            Button::Secondary => button::Appearance { ..active },
+            Button::Tertiary => button::Appearance { ..active },
+            Button::Selectable { selected: _ } => button::Appearance { ..active },
         }
     }
 
@@ -214,15 +219,19 @@ impl button::StyleSheet for Theme {
                 border_radius: 4.0.into(),
                 ..Default::default()
             },
-            Button::Selectable { selected } => button::Appearance {
+            Button::Secondary => button::Appearance {
                 text_color: self.colors.action.base,
                 background: Some(Background::Color(self.colors.action.base)),
                 border_width: 1.0,
                 border_color: self.colors.action.base,
                 ..Default::default()
             },
-
-            Button::Negative => button::Appearance {
+            Button::Tertiary => button::Appearance {
+                background: Some(Background::Color(self.colors.background.mute_03)),
+                border_radius: 4.0.into(),
+                ..Default::default()
+            },
+            Button::Selectable { selected: _ } => button::Appearance {
                 text_color: self.colors.action.base,
                 background: Some(Background::Color(self.colors.action.base)),
                 border_width: 1.0,
@@ -275,7 +284,11 @@ impl scrollable::StyleSheet for Theme {
         }
     }
 
-    fn hovered(&self, style: &Self::Style, is_mouse_over_scrollbar: bool) -> scrollable::Scrollbar {
+    fn hovered(
+        &self,
+        style: &Self::Style,
+        _is_mouse_over_scrollbar: bool,
+    ) -> scrollable::Scrollbar {
         match style {
             Scrollable::Default => scrollable::Scrollbar {
                 background: Some(Background::Color(self.colors.alert.base)),
