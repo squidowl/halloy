@@ -3,7 +3,9 @@ use iced::widget::{button, container, pane_grid, scrollable, text, text_input};
 use iced::{application, Background, Color};
 
 pub const TEXT_SIZE: f32 = 13.0;
+pub const ICON_SIZE: f32 = 11.0;
 
+#[derive(Clone)]
 pub struct Theme {
     pub palette: Palette,
     pub colors: Colors,
@@ -79,30 +81,82 @@ impl Colors {
 #[derive(Debug, Clone)]
 pub struct Subpalette {
     pub base: Color,
-    pub lighten_03: Color,
-    pub lighten_06: Color,
-    pub lighten_12: Color,
-    pub darken_03: Color,
-    pub darken_06: Color,
-    pub darken_12: Color,
+    pub base_50: Color,
+    pub base_100: Color,
+    pub base_200: Color,
+    pub base_300: Color,
+    pub base_400: Color,
+    pub base_500: Color,
+    pub base_600: Color,
+    pub base_700: Color,
+    pub base_800: Color,
+    pub base_900: Color,
+    pub base_950: Color,
     pub mute_03: Color,
     pub mute_06: Color,
+    pub mute_09: Color,
     pub mute_12: Color,
+    pub mute_15: Color,
+    pub mute_18: Color,
+    pub intensify_03: Color,
+    pub intensify_06: Color,
+    pub intensify_09: Color,
+    pub intensify_12: Color,
+    pub intensify_15: Color,
+    pub intensify_18: Color,
+    pub lighten_03: Color,
+    pub lighten_06: Color,
+    pub lighten_09: Color,
+    pub lighten_12: Color,
+    pub lighten_15: Color,
+    pub lighten_18: Color,
+    pub darken_03: Color,
+    pub darken_06: Color,
+    pub darken_09: Color,
+    pub darken_12: Color,
+    pub darken_15: Color,
+    pub darken_18: Color,
 }
 
 impl Subpalette {
     pub fn from_color(color: Color) -> Subpalette {
         Subpalette {
             base: color,
-            lighten_03: palette::lighten(color, 0.03),
-            lighten_06: palette::lighten(color, 0.06),
-            lighten_12: palette::lighten(color, 0.12),
-            darken_03: palette::darken(color, 0.03),
-            darken_06: palette::darken(color, 0.06),
-            darken_12: palette::darken(color, 0.12),
+            base_50: palette::lighten(color, 0.95),
+            base_100: palette::lighten(color, 0.90),
+            base_200: palette::lighten(color, 0.80),
+            base_300: palette::lighten(color, 0.70),
+            base_400: palette::lighten(color, 0.60),
+            base_500: palette::lighten(color, 0.50),
+            base_600: palette::lighten(color, 0.40),
+            base_700: palette::lighten(color, 0.30),
+            base_800: palette::lighten(color, 0.20),
+            base_900: palette::lighten(color, 0.10),
+            base_950: palette::lighten(color, 0.05),
             mute_03: palette::mute(color, 0.03),
             mute_06: palette::mute(color, 0.06),
+            mute_09: palette::mute(color, 0.09),
             mute_12: palette::mute(color, 0.12),
+            mute_15: palette::mute(color, 0.15),
+            mute_18: palette::mute(color, 0.18),
+            intensify_03: palette::intensify(color, 0.03),
+            intensify_06: palette::intensify(color, 0.06),
+            intensify_09: palette::intensify(color, 0.09),
+            intensify_12: palette::intensify(color, 0.12),
+            intensify_15: palette::intensify(color, 0.15),
+            intensify_18: palette::intensify(color, 0.18),
+            lighten_03: palette::lighten(color, 0.03),
+            lighten_06: palette::lighten(color, 0.06),
+            lighten_09: palette::lighten(color, 0.09),
+            lighten_12: palette::lighten(color, 0.12),
+            lighten_15: palette::lighten(color, 0.15),
+            lighten_18: palette::lighten(color, 0.1),
+            darken_03: palette::darken(color, 0.03),
+            darken_06: palette::darken(color, 0.06),
+            darken_09: palette::darken(color, 0.09),
+            darken_12: palette::darken(color, 0.12),
+            darken_15: palette::darken(color, 0.15),
+            darken_18: palette::darken(color, 0.18),
         }
     }
 }
@@ -149,14 +203,22 @@ impl container::StyleSheet for Theme {
                 text_color: Some(self.colors.text.base),
                 ..Default::default()
             },
-            Container::Pane { selected: _ } => container::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_03)),
-                border_radius: [0.0, 0.0, 4.0, 4.0].into(),
+            Container::Pane { selected } => container::Appearance {
+                background: Some(Background::Color(self.colors.background.darken_03)),
+                border_radius: 4.0.into(),
+                border_width: 1.0,
+                border_color: if *selected {
+                    self.colors.action.mute_15
+                } else {
+                    Color::TRANSPARENT
+                },
                 ..Default::default()
             },
             Container::Header => container::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_03)),
+                background: Some(Background::Color(self.colors.background.darken_06)),
                 border_radius: [4.0, 4.0, 0.0, 0.0].into(),
+                border_width: 1.0,
+                border_color: Color::TRANSPARENT,
                 ..Default::default()
             },
         }
@@ -180,23 +242,33 @@ impl button::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> button::Appearance {
         match style {
             Button::Primary => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_06)),
-                border_radius: 4.0.into(),
+                background: Some(Background::Color(self.colors.background.darken_09)),
+                border_color: self.colors.background.mute_03,
+                border_width: 1.0,
+                border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::Secondary => button::Appearance {
                 text_color: self.colors.text.base,
                 border_width: 1.0,
-                border_color: self.colors.action.base,
+                // border_color: self.colors.action.base,
                 ..Default::default()
             },
             Button::Tertiary => button::Appearance {
                 ..Default::default()
             },
-            Button::Selectable { selected: _ } => button::Appearance {
-                text_color: self.colors.text.base,
+            Button::Selectable { selected } if *selected => button::Appearance {
+                background: Some(Background::Color(self.colors.background.mute_03)),
+                border_color: self.colors.action.mute_06,
                 border_width: 1.0,
-                border_color: self.colors.action.base,
+                border_radius: 3.0.into(),
+                ..Default::default()
+            },
+            Button::Selectable { .. } => button::Appearance {
+                background: Some(Background::Color(self.colors.background.darken_09)),
+                border_color: self.colors.background.mute_03,
+                border_width: 1.0,
+                border_radius: 3.0.into(),
                 ..Default::default()
             },
         }
@@ -213,9 +285,11 @@ impl button::StyleSheet for Theme {
     }
 
     fn hovered(&self, style: &Self::Style) -> button::Appearance {
+        let active = self.active(style);
+
         match style {
             Button::Primary => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_12)),
+                background: Some(Background::Color(self.colors.background.mute_06)),
                 border_radius: 4.0.into(),
                 ..Default::default()
             },
@@ -227,16 +301,18 @@ impl button::StyleSheet for Theme {
                 ..Default::default()
             },
             Button::Tertiary => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_03)),
+                background: Some(Background::Color(self.colors.background.mute_06)),
                 border_radius: 4.0.into(),
                 ..Default::default()
             },
-            Button::Selectable { selected: _ } => button::Appearance {
-                text_color: self.colors.action.base,
-                background: Some(Background::Color(self.colors.action.base)),
-                border_width: 1.0,
-                border_color: self.colors.action.base,
-                ..Default::default()
+            Button::Selectable { selected } if *selected => button::Appearance {
+                background: Some(Background::Color(self.colors.background.mute_12)),
+                ..active
+            },
+            Button::Selectable { .. } => button::Appearance {
+                background: Some(Background::Color(self.colors.background.mute_06)),
+                border_color: self.colors.background.mute_06,
+                ..active
             },
         }
     }
@@ -275,7 +351,7 @@ impl scrollable::StyleSheet for Theme {
                 border_width: 2.0,
                 border_color: self.colors.info.base,
                 scroller: scrollable::Scroller {
-                    color: self.colors.action.darken_12,
+                    color: self.colors.action.base,
                     border_radius: 4.0.into(),
                     border_width: 1.0,
                     border_color: self.colors.accent.base,
@@ -296,7 +372,7 @@ impl scrollable::StyleSheet for Theme {
                 border_width: 2.0,
                 border_color: self.colors.info.base,
                 scroller: scrollable::Scroller {
-                    color: self.colors.action.darken_12,
+                    color: self.colors.action.base,
                     border_radius: 4.0.into(),
                     border_width: 1.0,
                     border_color: self.colors.accent.base,
@@ -318,9 +394,12 @@ impl pane_grid::StyleSheet for Theme {
     fn hovered_region(&self, style: &Self::Style) -> pane_grid::Appearance {
         match style {
             PaneGrid::Default => pane_grid::Appearance {
-                background: Background::Color(self.colors.action.lighten_06),
+                background: Background::Color(Color {
+                    // a: 0.8,
+                    ..self.colors.background.mute_03
+                }),
                 border_width: 1.0,
-                border_color: self.colors.action.lighten_06,
+                border_color: self.colors.accent.base,
                 border_radius: 4.0.into(),
             },
         }
@@ -329,7 +408,7 @@ impl pane_grid::StyleSheet for Theme {
     fn picked_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
         match style {
             PaneGrid::Default => Some(pane_grid::Line {
-                color: self.colors.accent.base,
+                color: self.colors.background.mute_03,
                 width: 2.0,
             }),
         }
@@ -338,7 +417,7 @@ impl pane_grid::StyleSheet for Theme {
     fn hovered_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
         match style {
             PaneGrid::Default => Some(pane_grid::Line {
-                color: self.colors.accent.base,
+                color: self.colors.background.mute_03,
                 width: 2.0,
             }),
         }
@@ -357,11 +436,11 @@ impl text_input::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> text_input::Appearance {
         match style {
             TextInput::Default => text_input::Appearance {
-                background: Background::Color(self.colors.background.lighten_03),
+                background: Background::Color(self.colors.background.lighten_18),
                 border_radius: 0.0.into(),
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
-                icon_color: self.colors.action.mute_06,
+                icon_color: self.colors.action.mute_03,
             },
         }
     }
@@ -395,7 +474,7 @@ impl text_input::StyleSheet for Theme {
 
     fn placeholder_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default => self.colors.text.darken_06,
+            TextInput::Default => self.colors.text.darken_03,
         }
     }
 
@@ -418,7 +497,7 @@ impl text_input::StyleSheet for Theme {
                 border_radius: 0.0.into(),
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
-                icon_color: self.colors.action.mute_06,
+                icon_color: self.colors.action.mute_03,
             },
         }
     }

@@ -1,5 +1,5 @@
 use iced::Color;
-use palette::{FromColor, Hsl, Srgb};
+use palette::{rgb::Rgb, DarkenAssign, FromColor, LightenAssign, Okhsl, Srgb};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Palette {
@@ -53,22 +53,35 @@ pub fn is_dark(color: Color) -> bool {
     to_hsl(color).lightness < 0.5
 }
 
-pub fn to_hsl(color: Color) -> Hsl {
-    Hsl::from_color(Srgb::from(color))
+pub fn to_hsl(color: Color) -> Okhsl {
+    let mut hsl = Okhsl::from_color(Rgb::from(color));
+    if hsl.saturation.is_nan() {
+        hsl.saturation = Okhsl::max_saturation();
+    }
+
+    hsl
 }
 
-pub fn from_hsl(hsl: Hsl) -> Color {
+pub fn from_hsl(hsl: Okhsl) -> Color {
     Srgb::from_color(hsl).into()
+}
+
+pub fn alpha(color: Color, alpha: f32) -> Color {
+    Color { a: alpha, ..color }
+}
+
+pub fn lightness(color: Color, amount: f32) -> Color {
+    let mut hsl = to_hsl(color);
+
+    hsl.lightness = amount;
+
+    from_hsl(hsl)
 }
 
 pub fn lighten(color: Color, amount: f32) -> Color {
     let mut hsl = to_hsl(color);
 
-    hsl.lightness = if hsl.lightness + amount > 1.0 {
-        1.0
-    } else {
-        hsl.lightness + amount
-    };
+    hsl.lighten_fixed_assign(amount);
 
     from_hsl(hsl)
 }
@@ -76,11 +89,7 @@ pub fn lighten(color: Color, amount: f32) -> Color {
 pub fn darken(color: Color, amount: f32) -> Color {
     let mut hsl = to_hsl(color);
 
-    hsl.lightness = if hsl.lightness - amount < 0.0 {
-        1.0
-    } else {
-        hsl.lightness - amount
-    };
+    hsl.darken_fixed_assign(amount);
 
     from_hsl(hsl)
 }
@@ -88,10 +97,22 @@ pub fn darken(color: Color, amount: f32) -> Color {
 pub fn mute(color: Color, amount: f32) -> Color {
     let mut hsl = to_hsl(color);
 
-    hsl.lightness = if is_dark(color) {
-        hsl.lightness + amount
+    if is_dark(color) {
+        hsl.lighten_fixed_assign(amount)
     } else {
-        hsl.lightness - amount
+        hsl.darken_fixed_assign(amount)
+    };
+
+    from_hsl(hsl)
+}
+
+pub fn intensify(color: Color, amount: f32) -> Color {
+    let mut hsl = to_hsl(color);
+
+    if is_dark(color) {
+        hsl.darken_fixed_assign(amount)
+    } else {
+        hsl.lighten_fixed_assign(amount)
     };
 
     from_hsl(hsl)

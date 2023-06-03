@@ -2,10 +2,7 @@ use std::fmt;
 
 use crate::widget::Element;
 use data::server::Server;
-use iced::{
-    widget::{container, text},
-    Length,
-};
+use iced::widget::container;
 
 // use crate::widget::sticky_scrollable::scrollable;
 

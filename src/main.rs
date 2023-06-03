@@ -11,7 +11,9 @@ mod widget;
 
 use data::config::Config;
 use data::stream;
-use iced::{executor, widget::container, Application, Command, Length, Subscription};
+use iced::{
+    executor, keyboard, subscription, widget::container, Application, Command, Length, Subscription,
+};
 use screen::dashboard;
 use theme::Theme;
 use widget::Element;
@@ -58,6 +60,7 @@ enum Screen {
 enum Message {
     Dashboard(dashboard::Message),
     Stream(stream::Result),
+    Event(iced::Event),
     FontsLoaded(Result<(), iced::font::Error>),
 }
 
@@ -114,7 +117,7 @@ impl Application for Halloy {
                     Command::none()
                 }
                 stream::Event::Connected(server, client) => {
-                    log::info!("connected to {:?}", server);
+                    log::info!("Connected to {:?}", server);
                     self.clients.ready(server, client);
 
                     Command::none()
@@ -135,6 +138,30 @@ impl Application for Halloy {
                 log::error!("fonts failed to load: {error:?}");
                 Command::none()
             }
+            Message::Event(event) => {
+                let message = match event {
+                    iced::Event::Keyboard(keyboard) => match keyboard {
+                        keyboard::Event::KeyPressed {
+                            key_code,
+                            modifiers,
+                        } => match &self.screen {
+                            Screen::Dashboard(state) => state
+                                .handle_keypress(key_code, modifiers)
+                                .map(Message::Dashboard),
+                        },
+                        keyboard::Event::KeyReleased { .. } => None,
+                        keyboard::Event::CharacterReceived(_) => None,
+                        keyboard::Event::ModifiersChanged(_) => None,
+                    },
+                    _ => None,
+                };
+
+                if let Some(message) = message {
+                    return self.update(message);
+                }
+
+                Command::none()
+            }
         }
     }
 
@@ -150,7 +177,14 @@ impl Application for Halloy {
             .into()
     }
 
+    fn theme(&self) -> Theme {
+        self.theme.clone()
+    }
+
     fn subscription(&self) -> Subscription<Message> {
-        client::run().map(Message::Stream)
+        Subscription::batch(vec![
+            client::run().map(Message::Stream),
+            subscription::events().map(Message::Event),
+        ])
     }
 }

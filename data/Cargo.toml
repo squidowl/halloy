@@ -8,11 +8,11 @@ dirs-next = "2.0.0"
 futures = "0.3.21"
 irc = "0.15.0"
 log = "0.4.16"
-palette = "0.6.0"
+palette = "=0.7.2"
 serde_yaml = "0.8.23"
 thiserror = "1.0.30"
 tokio = "1.0"
-iced = { git = "https://github.com/iced-rs/iced", rev = "6c6930b91df0d7637ed6c0f3f4e57a03c5e5896f", features = ["palette"] }
+iced = { git = "https://github.com/iced-rs/iced", rev = "b353767d2d9703aae35f10ebf8a9ee1490c3ae37", features = [] }
 
 [dependencies.serde]
 version = "1.0"

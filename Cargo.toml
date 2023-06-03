@@ -13,7 +13,8 @@ tokio = { version = "1.0", features = ["rt", "fs", "process"] }
 log = "0.4.16"
 fern = "0.6.1"
 chrono = { version = "0.4", features = ['serde'] }
-iced = { git = "https://github.com/iced-rs/iced", rev = "6c6930b91df0d7637ed6c0f3f4e57a03c5e5896f", features = ["tokio", "palette"] }
+palette = "=0.7.2"
+iced = { git = "https://github.com/iced-rs/iced", rev = "b353767d2d9703aae35f10ebf8a9ee1490c3ae37", features = ["tokio"] }
 
 [dependencies.uuid]
 version = "1.0"

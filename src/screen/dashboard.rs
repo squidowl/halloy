@@ -7,8 +7,8 @@ use side_menu::SideMenu;
 use data::config::Config;
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
-use iced::Command;
 use iced::Length;
+use iced::{keyboard, Command};
 
 use crate::buffer::{self, Buffer};
 use crate::widget::Element;
@@ -23,6 +23,7 @@ pub struct Dashboard {
 pub enum Message {
     Pane(pane::Message),
     Buffer(pane_grid::Pane, buffer::Message),
+    PaneDeselected,
     PaneClicked(pane_grid::Pane),
     PaneResized(pane_grid::ResizeEvent),
     PaneDragged(pane_grid::DragEvent),
@@ -33,7 +34,9 @@ pub enum Message {
     Users,
 }
 
-pub enum Event {}
+pub enum Event {
+    None,
+}
 
 impl Dashboard {
     pub fn new(config: &Config) -> Self {
@@ -83,18 +86,29 @@ impl Dashboard {
         match message {
             Message::PaneClicked(pane) => {
                 self.focus = Some(pane);
+
+                None
+            }
+            Message::PaneDeselected => {
+                self.focus = None;
+
+                None
             }
             Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
                 self.panes.resize(&split, ratio);
+
+                None
             }
             Message::PaneDragged(pane_grid::DragEvent::Dropped {
                 pane,
                 target,
-                region: _,
+                region,
             }) => {
-                self.panes.swap(&pane, &target);
+                self.panes.split_with(&target, &pane, region);
+
+                None
             }
-            Message::PaneDragged(_) => {}
+            Message::PaneDragged(_) => None,
             Message::ClosePane => {
                 if let Some(pane) = self.focus {
                     if let Some((_, sibling)) = self.panes.close(&pane) {
@@ -103,6 +117,8 @@ impl Dashboard {
                         pane.buffer = Buffer::Empty(Default::default());
                     }
                 }
+
+                None
             }
             Message::SplitPane(axis) => {
                 if let Some(pane) = self.focus {
@@ -115,9 +131,19 @@ impl Dashboard {
                         self.focus = Some(pane);
                     }
                 }
+
+                None
             }
             Message::Pane(message) => {
-                println!("pane message: {:?}", message);
+                if let Some(pane) = self.focus {
+                    if let Some(pane) = self.panes.get_mut(&pane) {
+                        let command = pane.update(message);
+
+                        return Some((Event::None, command.map(Message::Pane)));
+                    }
+                }
+
+                None
             }
             Message::Buffer(pane, message) => {
                 if let Some(pane) = self.panes.get_mut(&pane) {
@@ -127,6 +153,8 @@ impl Dashboard {
                         buffer::Event::Channel(event) => match event {},
                     }
                 }
+
+                None
             }
             Message::Users => {
                 if let Some(pane) = self.focus {
@@ -138,75 +166,85 @@ impl Dashboard {
                         }
                     }
                 }
+
+                None
             }
-            Message::SideMenu(message) => match message {
-                side_menu::Message::SelectChannel((server, channel)) => {
-                    let panes = self.panes.clone();
+            Message::SideMenu(message) => {
+                if let Some(event) = self.side_menu.update(message) {
+                    match event {
+                        side_menu::Event::SelectChannel((server, channel)) => {
+                            let panes = self.panes.clone();
 
-                    // If channel already is open, we focus it.
-                    for (id, pane) in panes.iter() {
-                        if let Buffer::Channel(state) = &pane.buffer {
-                            if state.server == server && state.channel == channel {
-                                self.focus = Some(*id);
+                            // If channel already is open, we focus it.
+                            for (id, pane) in panes.iter() {
+                                if let Buffer::Channel(state) = &pane.buffer {
+                                    if state.server == server && state.channel == channel {
+                                        self.focus = Some(*id);
 
-                                return None;
+                                        return None;
+                                    }
+                                }
+                            }
+
+                            // If we only have one pane, and its empty, we replace it.
+                            if self.panes.len() == 1 {
+                                for (id, pane) in panes.iter() {
+                                    if let Buffer::Empty(_) = &pane.buffer {
+                                        self.panes.panes.entry(*id).and_modify(|p| {
+                                            *p = Pane::new(Buffer::Channel(
+                                                buffer::channel::State::new(
+                                                    server.clone(),
+                                                    channel.clone(),
+                                                ),
+                                            ))
+                                        });
+
+                                        return None;
+                                    }
+                                }
+                            }
+
+                            // Default split could be a config option.
+                            let axis = pane_grid::Axis::Horizontal;
+                            let pane_to_split = {
+                                if let Some(pane) = self.focus {
+                                    pane
+                                } else if let Some(pane) = self.panes.panes.keys().last() {
+                                    *pane
+                                } else {
+                                    log::error!("Didn't find any panes");
+                                    return None;
+                                }
+                            };
+
+                            let result = self.panes.split(
+                                axis,
+                                &pane_to_split,
+                                Pane::new(Buffer::Channel(buffer::channel::State::new(
+                                    server, channel,
+                                ))),
+                            );
+
+                            if let Some((pane, _)) = result {
+                                self.focus = Some(pane);
                             }
                         }
-                    }
-
-                    // If we only have one pane, and its empty, we replace it.
-                    if self.panes.len() == 1 {
-                        for (id, pane) in panes.iter() {
-                            if let Buffer::Empty(_) = &pane.buffer {
-                                self.panes.panes.entry(*id).and_modify(|p| {
-                                    *p = Pane::new(Buffer::Channel(buffer::channel::State::new(
-                                        server.clone(),
-                                        channel.clone(),
-                                    )))
-                                });
-
-                                return None;
-                            }
-                        }
-                    }
-
-                    // Default split could be a config option.
-                    let axis = pane_grid::Axis::Horizontal;
-                    let pane_to_split = {
-                        if let Some(pane) = self.focus {
-                            pane
-                        } else if let Some(pane) = self.panes.panes.keys().last() {
-                            *pane
-                        } else {
-                            log::error!("Didn't find any panes");
-                            return None;
-                        }
-                    };
-
-                    let result = self.panes.split(
-                        axis,
-                        &pane_to_split,
-                        Pane::new(Buffer::Channel(buffer::channel::State::new(
-                            server, channel,
-                        ))),
-                    );
-
-                    if let Some((pane, _)) = result {
-                        self.focus = Some(pane);
+                        side_menu::Event::SelectServer(_) => todo!(),
                     }
                 }
-                side_menu::Message::SelectServer(_) => todo!(),
-            },
+
+                None
+            }
             Message::MaximizePane => {
                 if self.panes.maximized().is_some() {
                     self.panes.restore();
                 } else if let Some(pane) = self.focus {
                     self.panes.maximize(&pane);
                 }
+
+                None
             }
         }
-
-        None
     }
 
     pub fn view<'a>(&'a self, clients: &data::client::Map) -> Element<'a, Message> {
@@ -247,5 +285,23 @@ impl Dashboard {
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
+    }
+
+    pub fn handle_keypress(
+        &self,
+        key_code: keyboard::KeyCode,
+        modifiers: keyboard::Modifiers,
+    ) -> Option<Message> {
+        match key_code {
+            keyboard::KeyCode::Escape => {
+                // Deselect pane if we have one selected.
+                if self.focus.is_some() {
+                    return Some(Message::PaneDeselected);
+                }
+
+                None
+            }
+            _ => None,
+        }
     }
 }
