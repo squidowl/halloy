@@ -69,7 +69,7 @@ pub fn view<'a>(
         content = content.push(container(scrollable(column).height(Length::Fill)))
     }
 
-    content = content.push(messages);
+    // content = content.push(messages);
 
     container(content)
         .width(Length::Fill)

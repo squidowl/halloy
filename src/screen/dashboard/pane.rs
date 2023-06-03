@@ -1,6 +1,6 @@
 use iced::widget::pane_grid::{self, Axis};
 use iced::widget::{button, container, row, text};
-use iced::Length;
+use iced::{Command, Length};
 use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
@@ -39,7 +39,9 @@ impl Pane {
         }
     }
 
-    pub fn _update(&mut self, _message: Message) {}
+    pub fn update(&mut self, _message: Message) -> Command<Message> {
+        Command::none()
+    }
 
     pub fn view<'a, M: 'static + Clone>(
         &'a self,
@@ -71,14 +73,18 @@ impl Pane {
             .view(clients, is_focused)
             .map(move |msg| (mapper.buffer)(id, msg));
 
-        widget::Content::new(content).title_bar(title_bar)
+        widget::Content::new(content)
+            .style(theme::Container::Pane {
+                selected: is_focused,
+            })
+            .title_bar(title_bar.style(theme::Container::Header))
     }
 }
 
 impl TitleBar {
     fn view<'a, M: 'static + Clone>(
         &'a self,
-        _buffer: &Buffer,
+        buffer: &Buffer,
         value: String,
         mapper: &Mapper<M>,
         _id: pane_grid::Pane,
@@ -89,61 +95,66 @@ impl TitleBar {
         // Pane controls.
         let mut controls = row![].spacing(2);
 
-        // If we have more than one pane open, show delete button.
-        if panes > 1 {
-            let delete = button(
-                container(icon::close())
-                    .padding([2, 0, 0, 0])
+        if let Buffer::Channel(state) = &buffer {
+            let users = button(
+                container(icon::people())
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .center_x()
                     .center_y(),
             )
-            .width(28)
-            .height(28)
-            .on_press(mapper.on_close.clone())
-            .style(theme::Button::Primary);
+            .width(22)
+            .height(22)
+            .on_press(mapper.on_users.clone())
+            .style(theme::Button::Selectable {
+                selected: state.is_showing_users(),
+            });
 
-            controls = controls.push(delete);
+            controls = controls.push(users);
 
-            let maximize = button(
-                container(if maximized {
-                    icon::minimize()
-                } else {
-                    icon::maximize()
-                })
-                .padding([2, 0, 0, 0])
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .center_x()
-                .center_y(),
-            )
-            .width(28)
-            .height(28)
-            .on_press(mapper.on_maximize.clone())
-            .style(theme::Button::Primary);
+            // If we have more than one pane open, show delete button.
+            if panes > 1 {
+                let maximize = button(
+                    container(if maximized {
+                        icon::minimize()
+                    } else {
+                        icon::maximize()
+                    })
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x()
+                    .center_y(),
+                )
+                .width(22)
+                .height(22)
+                .on_press(mapper.on_maximize.clone())
+                .style(theme::Button::Selectable {
+                    selected: maximized,
+                });
 
-            controls = controls.push(maximize);
+                controls = controls.push(maximize);
+
+                let delete = button(
+                    container(icon::close())
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .center_x()
+                        .center_y(),
+                )
+                .width(22)
+                .height(22)
+                .on_press(mapper.on_close.clone())
+                .style(theme::Button::Selectable { selected: false });
+
+                controls = controls.push(delete);
+            }
         }
 
-        // TODO: Re-enable show users button.
-        // if let Buffer::Channel(state) = &buffer {
-        //     let users = button(icon::people())
-        //         .on_press(mapper.on_users.clone())
-        //         .style(theme::Button::Selectable {
-        //             selected: state.is_showing_users(),
-        //         });
+        let title = container(text(value))
+            .height(22)
+            .padding([0, 4])
+            .align_y(iced::alignment::Vertical::Center);
 
-        //     controls = controls.push(users);
-        // }
-
-        let title = container(text(value).font(font::MONO))
-            .height(35)
-            .style(theme::Container::Header);
-
-        widget::TitleBar::new(title)
-            .controls(controls)
-            .padding(6)
-            .style(theme::Container::Header)
+        widget::TitleBar::new(title).controls(controls).padding(6)
     }
 }

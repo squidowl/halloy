@@ -17,11 +17,11 @@ pub fn minimize<'a>() -> Text<'a> {
 }
 
 pub fn people<'a>() -> Text<'a> {
-    to_text('\u{f826}')
+    to_text('\u{f4db}')
 }
 
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
-        .size(theme::TEXT_SIZE)
+        .size(theme::ICON_SIZE)
         .font(font::ICON)
 }
