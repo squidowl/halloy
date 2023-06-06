@@ -12,7 +12,7 @@ pub fn maximize<'a>() -> Text<'a> {
     to_text('\u{f14a}')
 }
 
-pub fn minimize<'a>() -> Text<'a> {
+pub fn restore<'a>() -> Text<'a> {
     to_text('\u{f149}')
 }
 

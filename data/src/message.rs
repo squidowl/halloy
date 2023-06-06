@@ -53,7 +53,9 @@ fn text(message: &irc::proto::Message) -> Option<&str> {
 
 fn is_for_channel(message: &irc::proto::Message, channel: &str) -> bool {
     match &message.command {
-        Command::PRIVMSG(target, _) | Command::NOTICE(target, _) => target == channel,
+        Command::PRIVMSG(target, _) | Command::NOTICE(target, _) | Command::TOPIC(target, _) => {
+            target == channel
+        }
         _ => false,
     }
 }

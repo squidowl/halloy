@@ -87,7 +87,6 @@ impl Map {
     }
 
     pub fn add_message(&mut self, server: &Server, message: Message) {
-        println!("{:?}", &message);
         if let Some(State::Ready(connection)) = self.0.get_mut(server) {
             connection.messages.push(message);
         }

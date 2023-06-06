@@ -10,7 +10,7 @@ use iced::widget::{container, row};
 use iced::Length;
 use iced::{keyboard, Command};
 
-use crate::buffer::{self, Buffer};
+use crate::buffer::{self, channel, Buffer};
 use crate::widget::Element;
 
 pub struct Dashboard {
@@ -125,7 +125,7 @@ impl Dashboard {
                     let result = self.panes.split(
                         axis,
                         &pane,
-                        Pane::new(Buffer::Empty(buffer::empty::State::default())),
+                        Pane::new(Buffer::Empty(buffer::empty::Empty::default())),
                     );
                     if let Some((pane, _)) = result {
                         self.focus = Some(pane);
@@ -151,6 +151,7 @@ impl Dashboard {
                     match event {
                         buffer::Event::Empty(event) => match event {},
                         buffer::Event::Channel(event) => match event {},
+                        buffer::Event::Server(event) => match event {},
                     }
                 }
 
@@ -171,10 +172,10 @@ impl Dashboard {
             }
             Message::SideMenu(message) => {
                 if let Some(event) = self.side_menu.update(message) {
+                    let panes = self.panes.clone();
+
                     match event {
                         side_menu::Event::SelectChannel((server, channel)) => {
-                            let panes = self.panes.clone();
-
                             // If channel already is open, we focus it.
                             for (id, pane) in panes.iter() {
                                 if let Buffer::Channel(state) = &pane.buffer {
@@ -191,11 +192,59 @@ impl Dashboard {
                                 for (id, pane) in panes.iter() {
                                     if let Buffer::Empty(_) = &pane.buffer {
                                         self.panes.panes.entry(*id).and_modify(|p| {
-                                            *p = Pane::new(Buffer::Channel(
-                                                buffer::channel::State::new(
-                                                    server.clone(),
-                                                    channel.clone(),
-                                                ),
+                                            *p = Pane::new(Buffer::Channel(channel::Channel::new(
+                                                server.clone(),
+                                                channel.clone(),
+                                            )))
+                                        });
+
+                                        return None;
+                                    }
+                                }
+                            }
+
+                            // Default split could be a config option.
+                            let axis = pane_grid::Axis::Horizontal;
+                            let pane_to_split = {
+                                if let Some(pane) = self.focus {
+                                    pane
+                                } else if let Some(pane) = self.panes.panes.keys().last() {
+                                    *pane
+                                } else {
+                                    log::error!("Didn't find any panes");
+                                    return None;
+                                }
+                            };
+
+                            let result = self.panes.split(
+                                axis,
+                                &pane_to_split,
+                                Pane::new(Buffer::Channel(channel::Channel::new(server, channel))),
+                            );
+
+                            if let Some((pane, _)) = result {
+                                self.focus = Some(pane);
+                            }
+                        }
+                        side_menu::Event::SelectServer(server) => {
+                            // If server already is open, we focus it.
+                            for (id, pane) in panes.iter() {
+                                if let Buffer::Server(state) = &pane.buffer {
+                                    if state.server == server {
+                                        self.focus = Some(*id);
+
+                                        return None;
+                                    }
+                                }
+                            }
+
+                            // If we only have one pane, and its empty, we replace it.
+                            if self.panes.len() == 1 {
+                                for (id, pane) in panes.iter() {
+                                    if let Buffer::Empty(_) = &pane.buffer {
+                                        self.panes.panes.entry(*id).and_modify(|p| {
+                                            *p = Pane::new(Buffer::Server(
+                                                buffer::server::Server::new(server.clone()),
                                             ))
                                         });
 
@@ -220,16 +269,13 @@ impl Dashboard {
                             let result = self.panes.split(
                                 axis,
                                 &pane_to_split,
-                                Pane::new(Buffer::Channel(buffer::channel::State::new(
-                                    server, channel,
-                                ))),
+                                Pane::new(Buffer::Server(buffer::server::Server::new(server))),
                             );
 
                             if let Some((pane, _)) = result {
                                 self.focus = Some(pane);
                             }
                         }
-                        side_menu::Event::SelectServer(_) => todo!(),
                     }
                 }
 
@@ -290,7 +336,7 @@ impl Dashboard {
     pub fn handle_keypress(
         &self,
         key_code: keyboard::KeyCode,
-        modifiers: keyboard::Modifiers,
+        _modifiers: keyboard::Modifiers,
     ) -> Option<Message> {
         match key_code {
             keyboard::KeyCode::Escape => {

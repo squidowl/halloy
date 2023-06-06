@@ -4,8 +4,8 @@ use iced::{Command, Length};
 use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
-use crate::widget::{self};
-use crate::{font, icon, theme};
+use crate::widget;
+use crate::{icon, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {}
@@ -111,43 +111,43 @@ impl TitleBar {
             });
 
             controls = controls.push(users);
+        }
 
-            // If we have more than one pane open, show delete button.
-            if panes > 1 {
-                let maximize = button(
-                    container(if maximized {
-                        icon::minimize()
-                    } else {
-                        icon::maximize()
-                    })
+        // If we have more than one pane open, show delete and maximize button.
+        if panes > 1 {
+            let maximize = button(
+                container(if maximized {
+                    icon::restore()
+                } else {
+                    icon::maximize()
+                })
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x()
+                .center_y(),
+            )
+            .width(22)
+            .height(22)
+            .on_press(mapper.on_maximize.clone())
+            .style(theme::Button::Selectable {
+                selected: maximized,
+            });
+
+            controls = controls.push(maximize);
+
+            let delete = button(
+                container(icon::close())
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .center_x()
                     .center_y(),
-                )
-                .width(22)
-                .height(22)
-                .on_press(mapper.on_maximize.clone())
-                .style(theme::Button::Selectable {
-                    selected: maximized,
-                });
+            )
+            .width(22)
+            .height(22)
+            .on_press(mapper.on_close.clone())
+            .style(theme::Button::Selectable { selected: false });
 
-                controls = controls.push(maximize);
-
-                let delete = button(
-                    container(icon::close())
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .center_x()
-                        .center_y(),
-                )
-                .width(22)
-                .height(22)
-                .on_press(mapper.on_close.clone())
-                .style(theme::Button::Selectable { selected: false });
-
-                controls = controls.push(delete);
-            }
+            controls = controls.push(delete);
         }
 
         let title = container(text(value))

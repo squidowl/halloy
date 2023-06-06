@@ -1,15 +1,14 @@
 use iced::widget::runtime::core::widget::{tree, Tree};
 use iced::widget::runtime::core::{layout, renderer, Clipboard, Layout, Shell, Widget};
-use iced::widget::scrollable::{self};
 
 use iced::event::{self, Event};
-use iced::{mouse, Element};
+use iced::{mouse, widget};
 use iced::{Length, Point, Rectangle};
 
-use super::Renderer;
+use super::{Element, Renderer};
 
 /// Same as the scrollable from iced, but sticks to the bottom like you see in most chat apps.
-pub fn scrollable<'a, Message: 'a>(
+pub fn sticky_scrollable<'a, Message: 'a>(
     content: impl Into<Element<'a, Message>>,
 ) -> Scrollable<'a, Message> {
     Scrollable::new(content)
@@ -18,12 +17,12 @@ pub fn scrollable<'a, Message: 'a>(
 #[allow(missing_debug_implementations)]
 pub struct Scrollable<'a, Message> {
     height: Length,
-    on_scroll: Option<Box<dyn Fn(f32) -> Ev<Message> + 'a>>,
+    on_scroll: Option<Box<dyn Fn(widget::scrollable::Viewport) -> Ev<Message> + 'a>>,
     content: Element<'a, Ev<Message>>,
 }
 
 enum Ev<Message> {
-    Scroll(f32),
+    Scroll(widget::scrollable::Viewport),
     Propagate(Message),
 }
 
@@ -42,12 +41,12 @@ where
     Renderer: renderer::Renderer,
 {
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<scrollable::State>()
+        tree::Tag::of::<widget::scrollable::State>()
     }
 
     fn state(&self) -> tree::State {
-        let mut state = scrollable::State::new();
-        state.snap_to(1.0);
+        let mut state = widget::scrollable::State::new();
+        state.snap_to(widget::scrollable::RelativeOffset { x: 0.0, y: 1.0 });
 
         tree::State::new(state)
     }
@@ -69,7 +68,7 @@ where
     }
 
     fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        scrollable::layout(
+        widget::scrollable::layout(
             renderer,
             limits,
             Widget::<Message, Renderer>::width(self),
@@ -89,19 +88,19 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) -> event::Status {
-        let state = tree.state.downcast_mut::<scrollable::State>();
+        let state = tree.state.downcast_mut::<widget::scrollable::State>();
 
         let mut local_messages = Vec::new();
         let mut local_shell = Shell::new(&mut local_messages);
 
-        let status = scrollable::update(
+        let status = widget::scrollable::update(
             state,
             event,
             layout,
             cursor_position,
             clipboard,
             &mut local_shell,
-            Default::default(),
+            &Default::default(),
             Default::default(),
             &self.on_scroll,
             |event, layout, cursor_position, clipboard, shell| {
@@ -117,18 +116,18 @@ where
             },
         );
 
-        let mut offset = 0.0;
+        let mut offset = widget::scrollable::RelativeOffset::default();
         for message in local_messages {
             match message {
                 Ev::Scroll(f) => {
-                    offset = f;
+                    offset = f.relative_offset();
                 }
                 Ev::Propagate(message) => shell.publish(message),
             }
         }
 
-        if offset == 1.0 {
-            state.snap_to(1.0);
+        if offset.y == 1.0 {
+            state.snap_to(offset);
         }
 
         status
@@ -144,15 +143,15 @@ where
         cursor_position: Point,
         _viewport: &Rectangle,
     ) {
-        scrollable::draw(
-            tree.state.downcast_ref::<scrollable::State>(),
+        widget::scrollable::draw(
+            tree.state.downcast_ref::<widget::scrollable::State>(),
             renderer,
             theme,
             layout,
             cursor_position,
+            &Default::default(),
             Default::default(),
-            Default::default(),
-            self.style_sheet.as_ref(),
+            &Default::default(),
             |renderer, layout, cursor_position, viewport| {
                 self.content.as_widget().draw(
                     &tree.children[0],
@@ -175,11 +174,11 @@ where
         _viewport: &Rectangle,
         renderer: &Renderer,
     ) -> mouse::Interaction {
-        scrollable::mouse_interaction(
-            tree.state.downcast_ref::<scrollable::State>(),
+        widget::scrollable::mouse_interaction(
+            tree.state.downcast_ref::<widget::scrollable::State>(),
             layout,
             cursor_position,
-            Default::default(),
+            &Default::default(),
             Default::default(),
             |layout, cursor_position, viewport| {
                 self.content.as_widget().mouse_interaction(
@@ -194,12 +193,12 @@ where
     }
 }
 
-impl<'a, Message, Renderer> From<Scrollable<'a, Message>> for Element<'a, Message, Renderer>
+impl<'a, Message> From<Scrollable<'a, Message>> for Element<'a, Message>
 where
     Message: 'a + Clone,
     Renderer: 'a + renderer::Renderer,
 {
-    fn from(text_input: Scrollable<'a, Message>) -> Element<'a, Message, Renderer> {
+    fn from(text_input: Scrollable<'a, Message>) -> Element<'a, Message> {
         Element::new(text_input)
     }
 }
