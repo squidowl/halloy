@@ -1,7 +1,7 @@
 <div align="center">
   
 # Halloy
-![halloy banner](https://github.com/casperstorm/halloy/assets/2248455/4e748126-bf8d-405e-92af-aee5ebd95a8e)
+![halloy boje](https://github.com/casperstorm/halloy/assets/2248455/414d4466-b9ca-446b-901c-68acfcdff5e8)
 
 </div>
 
