@@ -1,5 +1,5 @@
 use data::palette::{self, Palette};
-use iced::widget::{button, container, pane_grid, scrollable, text, text_input};
+use iced::widget::{button, container, pane_grid, rule, scrollable, text, text_input};
 use iced::{application, Background, Color};
 
 pub const TEXT_SIZE: f32 = 13.0;
@@ -157,6 +157,27 @@ impl Subpalette {
             darken_12: palette::darken(color, 0.12),
             darken_15: palette::darken(color, 0.15),
             darken_18: palette::darken(color, 0.18),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum Rule {
+    #[default]
+    Default,
+}
+
+impl rule::StyleSheet for Theme {
+    type Style = Rule;
+
+    fn appearance(&self, style: &Self::Style) -> rule::Appearance {
+        match style {
+            Rule::Default => rule::Appearance {
+                color: self.colors.background.lighten_03,
+                width: 1,
+                radius: 0.0.into(),
+                fill_mode: rule::FillMode::Full,
+            },
         }
     }
 }
@@ -338,6 +359,7 @@ impl button::StyleSheet for Theme {
 pub enum Scrollable {
     #[default]
     Default,
+    Hidden,
 }
 
 impl scrollable::StyleSheet for Theme {
@@ -346,15 +368,27 @@ impl scrollable::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> scrollable::Scrollbar {
         match style {
             Scrollable::Default => scrollable::Scrollbar {
-                background: Some(Background::Color(self.colors.alert.base)),
-                border_radius: 4.0.into(),
-                border_width: 2.0,
-                border_color: self.colors.info.base,
+                background: Some(Background::Color(self.colors.background.mute_06)),
+                border_radius: 8.0.into(),
+                border_width: 1.0,
+                border_color: Color::TRANSPARENT,
                 scroller: scrollable::Scroller {
-                    color: self.colors.action.base,
-                    border_radius: 4.0.into(),
-                    border_width: 1.0,
-                    border_color: self.colors.accent.base,
+                    color: self.colors.background.lighten_03,
+                    border_radius: 8.0.into(),
+                    border_width: 0.0,
+                    border_color: Color::TRANSPARENT,
+                },
+            },
+            Scrollable::Hidden => scrollable::Scrollbar {
+                background: Some(Background::Color(Color::TRANSPARENT)),
+                border_radius: 8.0.into(),
+                border_width: 1.0,
+                border_color: Color::TRANSPARENT,
+                scroller: scrollable::Scroller {
+                    color: Color::TRANSPARENT,
+                    border_radius: 8.0.into(),
+                    border_width: 0.0,
+                    border_color: Color::TRANSPARENT,
                 },
             },
         }
@@ -365,19 +399,10 @@ impl scrollable::StyleSheet for Theme {
         style: &Self::Style,
         _is_mouse_over_scrollbar: bool,
     ) -> scrollable::Scrollbar {
+        let active = self.active(style);
         match style {
-            Scrollable::Default => scrollable::Scrollbar {
-                background: Some(Background::Color(self.colors.alert.base)),
-                border_radius: 4.0.into(),
-                border_width: 2.0,
-                border_color: self.colors.info.base,
-                scroller: scrollable::Scroller {
-                    color: self.colors.action.base,
-                    border_radius: 4.0.into(),
-                    border_width: 1.0,
-                    border_color: self.colors.accent.base,
-                },
-            },
+            Scrollable::Default => scrollable::Scrollbar { ..active },
+            Scrollable::Hidden => scrollable::Scrollbar { ..active },
         }
     }
 }
@@ -394,10 +419,7 @@ impl pane_grid::StyleSheet for Theme {
     fn hovered_region(&self, style: &Self::Style) -> pane_grid::Appearance {
         match style {
             PaneGrid::Default => pane_grid::Appearance {
-                background: Background::Color(Color {
-                    // a: 0.8,
-                    ..self.colors.background.mute_03
-                }),
+                background: Background::Color(self.colors.background.mute_03),
                 border_width: 1.0,
                 border_color: self.colors.accent.base,
                 border_radius: 4.0.into(),
@@ -436,8 +458,8 @@ impl text_input::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> text_input::Appearance {
         match style {
             TextInput::Default => text_input::Appearance {
-                background: Background::Color(self.colors.background.lighten_18),
-                border_radius: 0.0.into(),
+                background: Background::Color(self.colors.background.lighten_03),
+                border_radius: 4.0.into(),
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
                 icon_color: self.colors.action.mute_03,
@@ -448,11 +470,7 @@ impl text_input::StyleSheet for Theme {
     fn focused(&self, style: &Self::Style) -> text_input::Appearance {
         match style {
             TextInput::Default => text_input::Appearance {
-                background: Background::Color(self.colors.background.lighten_03),
-                border_radius: 0.0.into(),
-                border_width: 0.0,
-                border_color: Color::TRANSPARENT,
-                icon_color: self.colors.action.mute_06,
+                ..self.active(style)
             },
         }
     }
@@ -460,7 +478,6 @@ impl text_input::StyleSheet for Theme {
     fn hovered(&self, style: &Self::Style) -> text_input::Appearance {
         match style {
             TextInput::Default => text_input::Appearance {
-                border_color: self.colors.action.base,
                 ..self.active(style)
             },
         }
@@ -474,7 +491,10 @@ impl text_input::StyleSheet for Theme {
 
     fn placeholder_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default => self.colors.text.darken_03,
+            TextInput::Default => Color {
+                a: 0.4,
+                ..self.colors.text.base
+            },
         }
     }
 

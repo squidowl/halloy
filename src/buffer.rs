@@ -6,9 +6,9 @@ pub mod server;
 
 #[derive(Clone)]
 pub enum Buffer {
-    Empty(empty::State),
-    Channel(channel::State),
-    Server(server::State),
+    Empty(empty::Empty),
+    Channel(channel::Channel),
+    Server(server::Server),
 }
 
 #[derive(Debug, Clone)]
@@ -22,6 +22,7 @@ pub enum Message {
 pub enum Event {
     Empty(empty::Event),
     Channel(channel::Event),
+    Server(server::Event),
 }
 
 impl Buffer {
@@ -32,6 +33,9 @@ impl Buffer {
             }
             (Buffer::Channel(state), Message::Channel(message)) => {
                 state.update(message, clients).map(Event::Channel)
+            }
+            (Buffer::Server(state), Message::Server(message)) => {
+                state.update(message, clients).map(Event::Server)
             }
             _ => None,
         }

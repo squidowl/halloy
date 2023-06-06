@@ -2,11 +2,13 @@ use std::fmt;
 
 use data::server::Server;
 use iced::{
-    widget::{column, container, row, scrollable, text, text_input, vertical_space, Column},
+    widget::{column, container, row, scrollable, text, text_input, vertical_space, Rule},
     Length,
 };
 
-use crate::widget::Element;
+use crate::theme;
+use crate::widget::Collection;
+use crate::widget::{sticky_scrollable, Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -18,7 +20,7 @@ pub enum Message {
 pub enum Event {}
 
 pub fn view<'a>(
-    state: &State,
+    state: &Channel,
     clients: &data::client::Map,
     is_focused: bool,
 ) -> Element<'a, Message> {
@@ -33,26 +35,23 @@ pub fn view<'a>(
         })
         .collect();
 
-    let mut messages = column![container(scrollable(
+    let messages = container(sticky_scrollable(
         Column::with_children(messages)
             .width(Length::Fill)
             .padding([0, 8]),
     ))
-    .height(Length::Fill)];
+    .height(Length::Fill);
 
-    if is_focused {
-        messages = messages.push(vertical_space(5)).push(
-            text_input("Send message...", &state.input)
-                .on_input(Message::Input)
-                .on_submit(Message::Send)
-                .padding(8),
-        )
-    }
-
-    let mut content = row![];
+    let spacing = is_focused.then_some(vertical_space(4));
+    let text_input = is_focused.then_some(
+        text_input("Send message...", &state.input)
+            .on_input(Message::Input)
+            .on_submit(Message::Send)
+            .padding(8),
+    );
 
     // TODO: Maybe we should show it to the right instead of left.
-    if state.show_users {
+    let users = if state.show_users {
         let users = clients.get_channel_users(&state.server, &state.channel);
         let mut column = column![].padding(4).width(Length::Shrink).spacing(1);
 
@@ -66,30 +65,54 @@ pub fn view<'a>(
             );
         }
 
-        content = content.push(container(scrollable(column).height(Length::Fill)))
-    }
+        let users = container(
+            row![
+                scrollable(column)
+                    .vertical_scroll(
+                        iced::widget::scrollable::Properties::new()
+                            .width(1)
+                            .scroller_width(1)
+                    )
+                    .style(theme::Scrollable::Hidden),
+                Rule::vertical(1)
+            ]
+            .spacing(4)
+            .height(Length::Fill),
+        );
 
-    // content = content.push(messages);
+        Some(container(users))
+    } else {
+        None
+    };
 
-    container(content)
+    let scrollable =
+        column![container(row![].push_maybe(users).push(messages)).height(Length::Fill)]
+            .push_maybe(spacing)
+            .push_maybe(text_input)
+            .height(Length::Fill);
+
+    container(scrollable)
         .width(Length::Fill)
         .height(Length::Fill)
+        .padding(8)
         .into()
 }
 
 #[derive(Debug, Clone)]
-pub struct State {
+pub struct Channel {
     pub server: Server,
     pub channel: String,
+    pub topic: Option<String>,
     input: String,
     show_users: bool,
 }
 
-impl State {
+impl Channel {
     pub fn new(server: Server, channel: String) -> Self {
         Self {
             server,
             channel,
+            topic: None,
             input: String::new(),
             show_users: true,
         }
@@ -120,7 +143,7 @@ impl State {
     }
 }
 
-impl fmt::Display for State {
+impl fmt::Display for Channel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let channel = self.channel.to_string();
 
