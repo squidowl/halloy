@@ -1,14 +1,11 @@
 use std::fmt;
 
 use data::server::Server;
-use iced::{
-    widget::{column, container, row, scrollable, text, text_input, vertical_space, Rule},
-    Command, Length,
-};
+use iced::widget::{column, container, row, scrollable, text, text_input, vertical_space, Rule};
+use iced::{Command, Length};
 
 use crate::theme;
-use crate::widget::Collection;
-use crate::widget::{Column, Element};
+use crate::widget::{Collection, Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {

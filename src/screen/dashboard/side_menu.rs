@@ -1,12 +1,10 @@
 use data::server::Server;
-use iced::{
-    widget::{button, column, container, pane_grid, row, text},
-    Length,
-};
-
-use crate::{buffer, icon, theme, widget::Element};
+use iced::widget::{button, column, container, pane_grid, row, text};
+use iced::Length;
 
 use super::pane::Pane;
+use crate::widget::Element;
+use crate::{buffer, icon, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {

@@ -1,6 +1,5 @@
-use thiserror::Error;
-
 use data::config::{self, Config};
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {

@@ -11,9 +11,8 @@ mod widget;
 
 use data::config::Config;
 use data::stream;
-use iced::{
-    executor, keyboard, subscription, widget::container, Application, Command, Length, Subscription,
-};
+use iced::widget::container;
+use iced::{executor, keyboard, subscription, Application, Command, Length, Subscription};
 use screen::dashboard;
 use theme::Theme;
 use widget::Element;

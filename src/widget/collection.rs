@@ -1,7 +1,5 @@
-use iced::{
-    widget::{Column, Row},
-    Element,
-};
+use iced::widget::{Column, Row};
+use iced::Element;
 
 pub trait Collection<'a, Message, Theme>: Sized {
     fn push(self, element: impl Into<Element<'a, Message, Theme>>) -> Self;
