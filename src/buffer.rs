@@ -1,3 +1,8 @@
+use iced::Command;
+
+use self::channel::Channel;
+use self::empty::Empty;
+use self::server::Server;
 use crate::widget::Element;
 
 pub mod channel;
@@ -6,9 +11,9 @@ pub mod server;
 
 #[derive(Clone)]
 pub enum Buffer {
-    Empty(empty::Empty),
-    Channel(channel::Channel),
-    Server(server::Server),
+    Empty(Empty),
+    Channel(Channel),
+    Server(Server),
 }
 
 #[derive(Debug, Clone)]
@@ -26,18 +31,25 @@ pub enum Event {
 }
 
 impl Buffer {
-    pub fn update(&mut self, message: Message, clients: &mut data::client::Map) -> Option<Event> {
+    pub fn update(
+        &mut self,
+        message: Message,
+        clients: &mut data::client::Map,
+    ) -> (Command<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Empty(state), Message::Empty(message)) => {
-                state.update(message).map(Event::Empty)
+                (Command::none(), state.update(message).map(Event::Empty))
             }
             (Buffer::Channel(state), Message::Channel(message)) => {
-                state.update(message, clients).map(Event::Channel)
+                let (command, event) = state.update(message, clients);
+
+                (command.map(Message::Channel), event.map(Event::Channel))
             }
-            (Buffer::Server(state), Message::Server(message)) => {
-                state.update(message, clients).map(Event::Server)
-            }
-            _ => None,
+            (Buffer::Server(state), Message::Server(message)) => (
+                Command::none(),
+                state.update(message, clients).map(Event::Server),
+            ),
+            _ => (Command::none(), None),
         }
     }
 
@@ -52,6 +64,22 @@ impl Buffer {
                 channel::view(state, clients, is_focused).map(Message::Channel)
             }
             Buffer::Server(state) => server::view(state, clients, is_focused).map(Message::Server),
+        }
+    }
+
+    pub fn get_server(&self, server: &data::Server) -> Option<&Server> {
+        if let Buffer::Server(state) = self {
+            (&state.server == server).then_some(state)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_channel(&self, server: &data::Server, channel: &str) -> Option<&Channel> {
+        if let Buffer::Channel(state) = self {
+            (&state.server == server && state.channel.as_str() == channel).then_some(state)
+        } else {
+            None
         }
     }
 }

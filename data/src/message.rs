@@ -1,5 +1,10 @@
 use irc::proto::{Command, Response};
 
+pub enum Source {
+    Server,
+    Channel(String),
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
     Sent {
@@ -19,6 +24,16 @@ impl Message {
 
     pub fn text(&self) -> Option<&str> {
         text(self.inner())
+    }
+
+    pub fn source(&self, channels: &[String]) -> Option<Source> {
+        if self.is_server_message(channels) {
+            Some(Source::Server)
+        } else {
+            channels.iter().find_map(|channel| {
+                is_for_channel(self.inner(), channel).then(|| Source::Channel(channel.to_string()))
+            })
+        }
     }
 
     pub fn is_for_channel(&self, channel: &str) -> bool {

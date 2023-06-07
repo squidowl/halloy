@@ -99,11 +99,14 @@ impl Application for Halloy {
         match message {
             Message::Dashboard(message) => match &mut self.screen {
                 Screen::Dashboard(dashboard) => {
-                    if let Some((_event, _command)) = dashboard.update(message, &mut self.clients) {
-                        // Handle events and commands.
+                    let (command, event) = dashboard.update(message, &mut self.clients);
+
+                    match event {
+                        Some(event) => match event {},
+                        None => {}
                     }
 
-                    Command::none()
+                    command.map(Message::Dashboard)
                 }
             },
             Message::Stream(Ok(event)) => match event {
@@ -123,10 +126,15 @@ impl Application for Halloy {
                     Command::none()
                 }
                 stream::Event::MessageReceived(server, message) => {
-                    // log::debug!("Server {:?} message received: {:?}", &server, &message);
-                    self.clients.add_message(&server, message);
+                    //log::debug!("Server {:?} message received: {:?}", &server, &message);
+                    let Some(source) = self.clients.add_message(&server, message) else {
+                        return Command::none();
+                    };
+                    let Screen::Dashboard(dashboard) = &self.screen;
 
-                    Command::none()
+                    dashboard
+                        .message_received(&server, source)
+                        .map(Message::Dashboard)
                 }
             },
             Message::Stream(Err(error)) => {
