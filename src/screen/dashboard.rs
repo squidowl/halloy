@@ -1,12 +1,13 @@
 pub mod pane;
 pub mod side_menu;
 
+use data::message;
 use pane::Pane;
 use side_menu::SideMenu;
 
 use data::config::Config;
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{container, row};
+use iced::widget::{container, row, scrollable};
 use iced::Length;
 use iced::{keyboard, Command};
 
@@ -34,9 +35,7 @@ pub enum Message {
     Users,
 }
 
-pub enum Event {
-    None,
-}
+pub enum Event {}
 
 impl Dashboard {
     pub fn new(_config: &Config) -> Self {
@@ -61,22 +60,16 @@ impl Dashboard {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
-    ) -> Option<(Event, Command<Message>)> {
+    ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::PaneClicked(pane) => {
                 self.focus = Some(pane);
-
-                None
             }
             Message::PaneDeselected => {
                 self.focus = None;
-
-                None
             }
             Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
                 self.panes.resize(&split, ratio);
-
-                None
             }
             Message::PaneDragged(pane_grid::DragEvent::Dropped {
                 pane,
@@ -84,10 +77,8 @@ impl Dashboard {
                 region,
             }) => {
                 self.panes.split_with(&target, &pane, region);
-
-                None
             }
-            Message::PaneDragged(_) => None,
+            Message::PaneDragged(_) => {}
             Message::ClosePane => {
                 if let Some(pane) = self.focus {
                     if let Some((_, sibling)) = self.panes.close(&pane) {
@@ -96,8 +87,6 @@ impl Dashboard {
                         pane.buffer = Buffer::Empty(Default::default());
                     }
                 }
-
-                None
             }
             Message::SplitPane(axis) => {
                 if let Some(pane) = self.focus {
@@ -110,31 +99,32 @@ impl Dashboard {
                         self.focus = Some(pane);
                     }
                 }
-
-                None
             }
             Message::Pane(message) => {
                 if let Some(pane) = self.focus {
                     if let Some(pane) = self.panes.get_mut(&pane) {
                         let command = pane.update(message);
 
-                        return Some((Event::None, command.map(Message::Pane)));
+                        return (command.map(Message::Pane), None);
                     }
                 }
-
-                None
             }
-            Message::Buffer(pane, message) => {
-                if let Some(pane) = self.panes.get_mut(&pane) {
-                    let event = pane.buffer.update(message, clients)?;
-                    match event {
-                        buffer::Event::Empty(event) => match event {},
-                        buffer::Event::Channel(event) => match event {},
-                        buffer::Event::Server(event) => match event {},
-                    }
-                }
+            Message::Buffer(id, message) => {
+                if let Some(pane) = self.panes.get_mut(&id) {
+                    let (command, event) = pane.buffer.update(message, clients);
 
-                None
+                    match event {
+                        Some(buffer::Event::Empty(event)) => match event {},
+                        Some(buffer::Event::Channel(event)) => match event {},
+                        Some(buffer::Event::Server(event)) => match event {},
+                        None => {}
+                    }
+
+                    return (
+                        command.map(move |message| Message::Buffer(id, message)),
+                        None,
+                    );
+                }
             }
             Message::Users => {
                 if let Some(pane) = self.focus {
@@ -146,8 +136,6 @@ impl Dashboard {
                         }
                     }
                 }
-
-                None
             }
             Message::SideMenu(message) => {
                 if let Some(event) = self.side_menu.update(message) {
@@ -162,7 +150,7 @@ impl Dashboard {
                                     if state.server == server && state.channel == channel {
                                         self.focus = Some(*id);
 
-                                        return None;
+                                        return (Command::none(), None);
                                     }
                                 }
                             }
@@ -178,7 +166,7 @@ impl Dashboard {
                                             )))
                                         });
 
-                                        return None;
+                                        return (Command::none(), None);
                                     }
                                 }
                             }
@@ -192,7 +180,7 @@ impl Dashboard {
                                     *pane
                                 } else {
                                     log::error!("Didn't find any panes");
-                                    return None;
+                                    return (Command::none(), None);
                                 }
                             };
 
@@ -213,7 +201,7 @@ impl Dashboard {
                                     if state.server == server {
                                         self.focus = Some(*id);
 
-                                        return None;
+                                        return (Command::none(), None);
                                     }
                                 }
                             }
@@ -228,7 +216,7 @@ impl Dashboard {
                                             ))
                                         });
 
-                                        return None;
+                                        return (Command::none(), None);
                                     }
                                 }
                             }
@@ -242,7 +230,7 @@ impl Dashboard {
                                     *pane
                                 } else {
                                     log::error!("Didn't find any panes");
-                                    return None;
+                                    return (Command::none(), None);
                                 }
                             };
 
@@ -258,8 +246,6 @@ impl Dashboard {
                         }
                     }
                 }
-
-                None
             }
             Message::MaximizePane => {
                 if self.panes.maximized().is_some() {
@@ -267,10 +253,10 @@ impl Dashboard {
                 } else if let Some(pane) = self.focus {
                     self.panes.maximize(&pane);
                 }
-
-                None
             }
         }
+
+        (Command::none(), None)
     }
 
     pub fn view<'a>(&'a self, clients: &data::client::Map) -> Element<'a, Message> {
@@ -332,5 +318,40 @@ impl Dashboard {
             }
             _ => None,
         }
+    }
+
+    pub fn message_received(
+        &self,
+        server: &data::Server,
+        source: message::Source,
+    ) -> Command<Message> {
+        match &source {
+            message::Source::Server => {
+                if let Some(server) = self
+                    .panes
+                    .iter()
+                    .find_map(|(_, pane)| pane.buffer.get_server(server))
+                {
+                    return scrollable::snap_to(
+                        server.scrollable.clone(),
+                        scrollable::RelativeOffset::END,
+                    );
+                }
+            }
+            message::Source::Channel(channel) => {
+                if let Some(channel) = self
+                    .panes
+                    .iter()
+                    .find_map(|(_, pane)| pane.buffer.get_channel(server, channel))
+                {
+                    return scrollable::snap_to(
+                        channel.scrollable.clone(),
+                        scrollable::RelativeOffset::END,
+                    );
+                }
+            }
+        }
+
+        Command::none()
     }
 }

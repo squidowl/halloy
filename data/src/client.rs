@@ -3,6 +3,7 @@ use std::{collections::HashMap, fmt};
 use irc::client::Client;
 use irc::proto::Command;
 
+use crate::message;
 use crate::user::User;
 use crate::{message::Message, server::Server};
 
@@ -86,9 +87,15 @@ impl Map {
         }
     }
 
-    pub fn add_message(&mut self, server: &Server, message: Message) {
+    pub fn add_message(&mut self, server: &Server, message: Message) -> Option<message::Source> {
         if let Some(State::Ready(connection)) = self.0.get_mut(server) {
+            let source = message.source(&connection.channels());
+
             connection.messages.push(message);
+
+            source
+        } else {
+            None
         }
     }
 
