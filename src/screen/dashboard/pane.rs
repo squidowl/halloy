@@ -74,10 +74,10 @@ impl Pane {
             .map(move |msg| (mapper.buffer)(id, msg));
 
         widget::Content::new(content)
-            .style(theme::Container::Pane {
+            .style(theme::Container::PaneBody {
                 selected: is_focused,
             })
-            .title_bar(title_bar.style(theme::Container::Header))
+            .title_bar(title_bar.style(theme::Container::PaneHeader))
     }
 }
 
@@ -106,7 +106,7 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(mapper.on_users.clone())
-            .style(theme::Button::Selectable {
+            .style(theme::Button::Pane {
                 selected: state.is_showing_users(),
             });
 
@@ -129,7 +129,7 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(mapper.on_maximize.clone())
-            .style(theme::Button::Selectable {
+            .style(theme::Button::Pane {
                 selected: maximized,
             });
 
@@ -145,7 +145,7 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(mapper.on_close.clone())
-            .style(theme::Button::Selectable { selected: false });
+            .style(theme::Button::Pane { selected: false });
 
             controls = controls.push(delete);
         }

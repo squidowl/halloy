@@ -39,29 +39,8 @@ pub enum Event {
 }
 
 impl Dashboard {
-    pub fn new(config: &Config) -> Self {
-        let mut buffers = vec![];
-
-        // for server_config in config.servers.iter() {
-        //     buffers.push(Buffer::Server(buffer::server::State::new(
-        //         server_config.server.clone().unwrap_or_default().into(),
-        //     )));
-
-        //     for channel in server_config.channels() {
-        //         buffers.push(Buffer::Channel(buffer::channel::State::new(
-        //             server_config.server.clone().unwrap_or_default().into(),
-        //             channel.clone(),
-        //         )));
-        //     }
-        // }
-
-        // buffers.push(Buffer::Empty(Default::default()));
-
-        // let first_buffer = if !buffers.is_empty() {
-        //     buffers.remove(0)
-        // } else {
-        //     Buffer::Empty(Default::default())
-        // };
+    pub fn new(_config: &Config) -> Self {
+        let buffers = vec![];
 
         let first_buffer = Buffer::Empty(Default::default());
 
@@ -174,6 +153,7 @@ impl Dashboard {
                 if let Some(event) = self.side_menu.update(message) {
                     let panes = self.panes.clone();
 
+                    // TODO: Repetitive code below. Should be combined into one.
                     match event {
                         side_menu::Event::SelectChannel((server, channel)) => {
                             // If channel already is open, we focus it.
@@ -325,7 +305,10 @@ impl Dashboard {
             .height(Length::Fill)
             .padding(8);
 
-        let side_menu = self.side_menu.view(clients).map(Message::SideMenu);
+        let side_menu = self
+            .side_menu
+            .view(clients, &self.panes)
+            .map(Message::SideMenu);
 
         row![side_menu, pane_grid]
             .width(Length::Fill)

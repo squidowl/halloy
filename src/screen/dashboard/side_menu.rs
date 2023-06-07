@@ -1,10 +1,12 @@
 use data::server::Server;
 use iced::{
-    widget::{button, column, container, horizontal_space, row, text},
+    widget::{button, column, container, pane_grid, row, text},
     Length,
 };
 
-use crate::{theme, widget::Element};
+use crate::{buffer, icon, theme, widget::Element};
+
+use super::pane::Pane;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -35,21 +37,55 @@ impl SideMenu {
         }
     }
 
-    pub fn view<'a>(&'a self, clients: &data::client::Map) -> Element<'a, Message> {
-        let mut column = column![];
+    pub fn view<'a>(
+        &'a self,
+        clients: &data::client::Map,
+        panes: &pane_grid::State<Pane>,
+    ) -> Element<'a, Message> {
+        let mut column = column![].spacing(1);
 
         for (server, channels) in clients.get_channels().iter() {
+            let is_channel_open = |server: &data::server::Server, channel: Option<&str>| -> bool {
+                panes.iter().any(|(_, pane)| match &pane.buffer {
+                    buffer::Buffer::Channel(state) => channel
+                        .map(|channel| &state.server == server && state.channel == channel)
+                        .unwrap_or_default(),
+                    _ => false,
+                })
+            };
+
+            let is_server_open = |server: &data::server::Server| -> bool {
+                panes.iter().any(|(_, pane)| match &pane.buffer {
+                    buffer::Buffer::Server(state) => &state.server == server,
+                    _ => false,
+                })
+            };
+
             column = column.push(
-                button(text(server.to_string()))
-                    .style(theme::Button::Tertiary)
-                    .on_press(Message::SelectServer(server.clone())),
+                button(
+                    row![icon::globe(), text(server.to_string())]
+                        .spacing(8)
+                        .align_items(iced::Alignment::Center),
+                )
+                .width(Length::Fill)
+                .style(theme::Button::SideMenu {
+                    selected: is_server_open(server),
+                })
+                .on_press(Message::SelectServer(server.clone())),
             );
 
             for channel in channels {
                 column = column.push(
-                    button(row![horizontal_space(Length::Fill), text(channel)])
-                        .style(theme::Button::Tertiary)
-                        .on_press(Message::SelectChannel((server.clone(), channel.clone()))),
+                    button(
+                        row![icon::chat(), text(channel)]
+                            .spacing(8)
+                            .align_items(iced::Alignment::Center),
+                    )
+                    .width(Length::Fill)
+                    .style(theme::Button::SideMenu {
+                        selected: is_channel_open(server, Some(channel)),
+                    })
+                    .on_press(Message::SelectChannel((server.clone(), channel.clone()))),
                 );
             }
         }

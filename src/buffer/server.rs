@@ -65,7 +65,7 @@ impl Server {
         }
     }
 
-    pub fn update(&mut self, message: Message, clients: &data::client::Map) -> Option<Event> {
+    pub fn update(&mut self, message: Message, _clients: &data::client::Map) -> Option<Event> {
         match message {
             Message::Send => {
                 // TODO: You can't send messages to a server,
