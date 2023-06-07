@@ -31,7 +31,16 @@ pub fn view<'a>(
             let nickname = message.nickname().unwrap_or_default();
             let message = message.text()?;
 
-            Some(container(text(format!("<{}> {}", nickname, message))).into())
+            Some(
+                container(
+                    row![
+                        text(format!("<{nickname}>")).style(theme::Text::Accent),
+                        text(message)
+                    ]
+                    .spacing(4),
+                )
+                .into(),
+            )
         })
         .collect();
 

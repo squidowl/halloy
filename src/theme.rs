@@ -186,6 +186,7 @@ impl rule::StyleSheet for Theme {
 pub enum Text {
     #[default]
     Default,
+    Accent,
 }
 
 impl text::StyleSheet for Theme {
@@ -195,6 +196,9 @@ impl text::StyleSheet for Theme {
         match style {
             Text::Default => text::Appearance {
                 color: Some(self.colors.text.base),
+            },
+            Text::Accent => text::Appearance {
+                color: Some(self.colors.accent.base),
             },
         }
     }
