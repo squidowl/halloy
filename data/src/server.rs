@@ -3,7 +3,7 @@ use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Server(String);
 
 impl From<String> for Server {
