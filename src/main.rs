@@ -191,7 +191,22 @@ impl Application for Halloy {
     fn subscription(&self) -> Subscription<Message> {
         Subscription::batch(vec![
             client::run().map(Message::Stream),
-            subscription::events().map(Message::Event),
+            subscription::events_with(filtered_events),
         ])
+    }
+}
+
+// Always capture ESC to unfocus pane right away
+fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Message> {
+    use iced::event;
+
+    if let iced::Event::Keyboard(keyboard::Event::KeyPressed {
+        key_code: keyboard::KeyCode::Escape,
+        ..
+    }) = &event
+    {
+        Some(Message::Event(event))
+    } else {
+        matches!(status, event::Status::Ignored).then_some(Message::Event(event))
     }
 }
