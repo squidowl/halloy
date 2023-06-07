@@ -63,7 +63,7 @@ impl Dashboard {
     ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::PaneClicked(pane) => {
-                self.focus = Some(pane);
+                return (self.focus_pane(pane), None);
             }
             Message::PaneDeselected => {
                 self.focus = None;
@@ -82,7 +82,7 @@ impl Dashboard {
             Message::ClosePane => {
                 if let Some(pane) = self.focus {
                     if let Some((_, sibling)) = self.panes.close(&pane) {
-                        self.focus = Some(sibling);
+                        return (self.focus_pane(sibling), None);
                     } else if let Some(pane) = self.panes.get_mut(&pane) {
                         pane.buffer = Buffer::Empty(Default::default());
                     }
@@ -96,7 +96,7 @@ impl Dashboard {
                         Pane::new(Buffer::Empty(buffer::empty::Empty::default())),
                     );
                     if let Some((pane, _)) = result {
-                        self.focus = Some(pane);
+                        return (self.focus_pane(pane), None);
                     }
                 }
             }
@@ -150,7 +150,7 @@ impl Dashboard {
                                     if state.server == server && state.channel == channel {
                                         self.focus = Some(*id);
 
-                                        return (Command::none(), None);
+                                        return (self.focus_pane(*id), None);
                                     }
                                 }
                             }
@@ -166,7 +166,7 @@ impl Dashboard {
                                             )))
                                         });
 
-                                        return (Command::none(), None);
+                                        return (self.focus_pane(*id), None);
                                     }
                                 }
                             }
@@ -191,7 +191,7 @@ impl Dashboard {
                             );
 
                             if let Some((pane, _)) = result {
-                                self.focus = Some(pane);
+                                return (self.focus_pane(pane), None);
                             }
                         }
                         side_menu::Event::SelectServer(server) => {
@@ -199,9 +199,7 @@ impl Dashboard {
                             for (id, pane) in panes.iter() {
                                 if let Buffer::Server(state) = &pane.buffer {
                                     if state.server == server {
-                                        self.focus = Some(*id);
-
-                                        return (Command::none(), None);
+                                        return (self.focus_pane(*id), None);
                                     }
                                 }
                             }
@@ -216,7 +214,7 @@ impl Dashboard {
                                             ))
                                         });
 
-                                        return (Command::none(), None);
+                                        return (self.focus_pane(*id), None);
                                     }
                                 }
                             }
@@ -241,7 +239,7 @@ impl Dashboard {
                             );
 
                             if let Some((pane, _)) = result {
-                                self.focus = Some(pane);
+                                return (self.focus_pane(pane), None);
                             }
                         }
                     }
@@ -353,5 +351,21 @@ impl Dashboard {
         }
 
         Command::none()
+    }
+
+    fn focus_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
+        self.focus = Some(pane);
+
+        self.panes
+            .iter()
+            .find_map(|(p, state)| {
+                (*p == pane).then(|| {
+                    state
+                        .buffer
+                        .focus()
+                        .map(move |message| Message::Buffer(pane, message))
+                })
+            })
+            .unwrap_or(Command::none())
     }
 }
