@@ -7,6 +7,8 @@
 
 IRC client written in Rust. Early stage in development.  
 
+![halloy](https://github.com/casperstorm/halloy/assets/2248455/8a1f5105-7760-48fd-b7dd-17da146cd25f)
+
 <a href="https://github.com/iced-rs/iced">
   <img src="https://gist.githubusercontent.com/hecrj/ad7ecd38f6e47ff3688a38c79fd108f0/raw/74384875ecbad02ae2a926425e9bcafd0695bade/color.svg" width="160px">
 </a>
