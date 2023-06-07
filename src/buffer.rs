@@ -82,4 +82,12 @@ impl Buffer {
             None
         }
     }
+
+    pub fn focus(&self) -> Command<Message> {
+        match self {
+            Buffer::Empty(_) => Command::none(),
+            Buffer::Channel(channel) => channel.focus().map(Message::Channel),
+            Buffer::Server(server) => server.focus().map(Message::Server),
+        }
+    }
 }

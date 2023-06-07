@@ -59,6 +59,7 @@ pub fn view<'a>(
         text_input("Send message...", &state.input)
             .on_input(Message::Input)
             .on_submit(Message::Send)
+            .id(state.text_input.clone())
             .padding(8),
     );
 
@@ -116,6 +117,7 @@ pub struct Channel {
     pub channel: String,
     pub topic: Option<String>,
     pub scrollable: scrollable::Id,
+    text_input: text_input::Id,
     input: String,
     show_users: bool,
 }
@@ -128,6 +130,7 @@ impl Channel {
             topic: None,
             input: String::new(),
             show_users: true,
+            text_input: text_input::Id::unique(),
             scrollable: scrollable::Id::unique(),
         }
     }
@@ -153,6 +156,10 @@ impl Channel {
         }
 
         (Command::none(), None)
+    }
+
+    pub fn focus(&self) -> Command<Message> {
+        text_input::focus(self.text_input.clone())
     }
 
     pub(crate) fn toggle_show_users(&mut self) {
