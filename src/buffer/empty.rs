@@ -13,7 +13,7 @@ pub enum Event {}
 
 pub fn view<'a>(_state: &Empty, _clients: &data::client::Map) -> Element<'a, Message> {
     container(text("Welcome to Halloy"))
-        .style(theme::Container::Pane { selected: false })
+        .style(theme::Container::PaneBody { selected: false })
         .align_x(alignment::Horizontal::Center)
         .align_y(alignment::Vertical::Center)
         .width(Length::Fill)

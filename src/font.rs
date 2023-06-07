@@ -8,7 +8,7 @@ pub const MONO: Font = Font {
     ..Font::with_name("Iosevka Term")
 };
 
-pub const MONO_BOLD: Font = Font {
+pub const _MONO_BOLD: Font = Font {
     monospaced: true,
     weight: font::Weight::Bold,
     ..Font::with_name("Iosevka Term")

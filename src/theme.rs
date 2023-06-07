@@ -205,10 +205,10 @@ pub enum Container {
     #[default]
     Default,
     Primary,
-    Pane {
+    PaneBody {
         selected: bool,
     },
-    Header,
+    PaneHeader,
 }
 
 impl container::StyleSheet for Theme {
@@ -224,7 +224,7 @@ impl container::StyleSheet for Theme {
                 text_color: Some(self.colors.text.base),
                 ..Default::default()
             },
-            Container::Pane { selected } => container::Appearance {
+            Container::PaneBody { selected } => container::Appearance {
                 background: Some(Background::Color(self.colors.background.darken_03)),
                 border_radius: 4.0.into(),
                 border_width: 1.0,
@@ -235,7 +235,7 @@ impl container::StyleSheet for Theme {
                 },
                 ..Default::default()
             },
-            Container::Header => container::Appearance {
+            Container::PaneHeader => container::Appearance {
                 background: Some(Background::Color(self.colors.background.darken_06)),
                 border_radius: [4.0, 4.0, 0.0, 0.0].into(),
                 border_width: 1.0,
@@ -249,10 +249,11 @@ impl container::StyleSheet for Theme {
 #[derive(Debug, Clone, Default)]
 pub enum Button {
     #[default]
-    Primary,
-    Secondary,
-    Tertiary,
-    Selectable {
+    Default,
+    SideMenu {
+        selected: bool,
+    },
+    Pane {
         selected: bool,
     },
 }
@@ -262,30 +263,30 @@ impl button::StyleSheet for Theme {
 
     fn active(&self, style: &Self::Style) -> button::Appearance {
         match style {
-            Button::Primary => button::Appearance {
+            Button::Default => button::Appearance {
                 background: Some(Background::Color(self.colors.background.darken_09)),
                 border_color: self.colors.background.mute_03,
                 border_width: 1.0,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
-            Button::Secondary => button::Appearance {
-                text_color: self.colors.text.base,
-                border_width: 1.0,
-                // border_color: self.colors.action.base,
+            Button::SideMenu { selected } if *selected => button::Appearance {
+                background: Some(Background::Color(self.colors.background.mute_06)),
+                border_radius: 3.0.into(),
                 ..Default::default()
             },
-            Button::Tertiary => button::Appearance {
+            Button::SideMenu { .. } => button::Appearance {
+                background: None,
                 ..Default::default()
             },
-            Button::Selectable { selected } if *selected => button::Appearance {
+            Button::Pane { selected } if *selected => button::Appearance {
                 background: Some(Background::Color(self.colors.background.mute_03)),
                 border_color: self.colors.action.mute_06,
                 border_width: 1.0,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
-            Button::Selectable { .. } => button::Appearance {
+            Button::Pane { .. } => button::Appearance {
                 background: Some(Background::Color(self.colors.background.darken_09)),
                 border_color: self.colors.background.mute_03,
                 border_width: 1.0,
@@ -298,10 +299,9 @@ impl button::StyleSheet for Theme {
     fn pressed(&self, style: &Self::Style) -> button::Appearance {
         let active = self.active(style);
         match style {
-            Button::Primary => button::Appearance { ..active },
-            Button::Secondary => button::Appearance { ..active },
-            Button::Tertiary => button::Appearance { ..active },
-            Button::Selectable { selected: _ } => button::Appearance { ..active },
+            Button::Default => button::Appearance { ..active },
+            Button::SideMenu { selected: _ } => button::Appearance { ..active },
+            Button::Pane { selected: _ } => button::Appearance { ..active },
         }
     }
 
@@ -309,28 +309,25 @@ impl button::StyleSheet for Theme {
         let active = self.active(style);
 
         match style {
-            Button::Primary => button::Appearance {
+            Button::Default => button::Appearance {
                 background: Some(Background::Color(self.colors.background.mute_06)),
                 border_radius: 4.0.into(),
                 ..Default::default()
             },
-            Button::Secondary => button::Appearance {
-                text_color: self.colors.action.base,
-                background: Some(Background::Color(self.colors.action.base)),
-                border_width: 1.0,
-                border_color: self.colors.action.base,
-                ..Default::default()
-            },
-            Button::Tertiary => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_06)),
-                border_radius: 4.0.into(),
-                ..Default::default()
-            },
-            Button::Selectable { selected } if *selected => button::Appearance {
+            Button::SideMenu { selected } if *selected => button::Appearance {
                 background: Some(Background::Color(self.colors.background.mute_12)),
                 ..active
             },
-            Button::Selectable { .. } => button::Appearance {
+            Button::SideMenu { .. } => button::Appearance {
+                background: Some(Background::Color(self.colors.background.mute_06)),
+                border_radius: 3.0.into(),
+                ..active
+            },
+            Button::Pane { selected } if *selected => button::Appearance {
+                background: Some(Background::Color(self.colors.background.mute_12)),
+                ..active
+            },
+            Button::Pane { .. } => button::Appearance {
                 background: Some(Background::Color(self.colors.background.mute_06)),
                 border_color: self.colors.background.mute_06,
                 ..active
