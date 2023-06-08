@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::widget::Collection;
 use crate::widget::{Column, Element};
+use iced::Command;
 use iced::{
     widget::{column, container, scrollable, text, text_input, vertical_space},
     Length,
@@ -37,6 +38,7 @@ pub fn view<'a>(
         text_input("Send message...", &state.input)
             .on_input(Message::Input)
             .on_submit(Message::Send)
+            .id(state.text_input.clone())
             .padding(8),
     );
 
@@ -56,6 +58,7 @@ pub fn view<'a>(
 pub struct Server {
     pub server: data::server::Server,
     pub scrollable: scrollable::Id,
+    text_input: text_input::Id,
     input: String,
 }
 
@@ -64,6 +67,7 @@ impl Server {
         Self {
             server,
             input: String::new(),
+            text_input: text_input::Id::unique(),
             scrollable: scrollable::Id::unique(),
         }
     }
@@ -83,6 +87,10 @@ impl Server {
                 None
             }
         }
+    }
+
+    pub fn focus(&self) -> Command<Message> {
+        text_input::focus(self.text_input.clone())
     }
 }
 
