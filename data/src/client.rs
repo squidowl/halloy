@@ -2,12 +2,9 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use irc::client::Client;
-use irc::proto::Command;
+use irc::proto;
 
-use crate::message;
-use crate::message::Message;
-use crate::server::Server;
-use crate::user::User;
+use crate::{message, Command, Message, Server, User};
 
 #[derive(Debug)]
 pub enum State {
@@ -19,6 +16,8 @@ pub enum State {
 pub struct Connection {
     client: Client,
     messages: Vec<Message>,
+    // TODO: Is there a better way to handle this?
+    nick_change: Option<String>,
 }
 
 impl Connection {
@@ -26,16 +25,37 @@ impl Connection {
         Self {
             client,
             messages: vec![],
+            nick_change: None,
         }
     }
 
     fn send_privmsg(&mut self, target: String, text: impl fmt::Display) {
-        let command = Command::PRIVMSG(target, text.to_string());
+        let command = proto::Command::PRIVMSG(target, text.to_string());
 
         let proto_message = irc::proto::Message::from(command);
 
         let message = Message::Sent {
-            nickname: self.client.current_nickname().to_string(),
+            nickname: self.nickname().to_string(),
+            message: proto_message.clone(),
+        };
+
+        // TODO: Handle error
+        if let Err(e) = self.client.send(proto_message) {
+            dbg!(&e);
+        }
+
+        self.messages.push(message);
+    }
+
+    fn send_command(&mut self, command: Command) {
+        self.handle_command(&command);
+
+        let command = proto::Command::from(command);
+
+        let proto_message = irc::proto::Message::from(command);
+
+        let message = Message::Sent {
+            nickname: self.nickname().to_string(),
             message: proto_message.clone(),
         };
 
@@ -58,6 +78,21 @@ impl Connection {
             .into_iter()
             .map(User::from)
             .collect()
+    }
+
+    fn nickname(&self) -> &str {
+        self.nick_change
+            .as_deref()
+            .unwrap_or_else(|| self.client.current_nickname())
+    }
+
+    fn handle_command(&mut self, command: &Command) {
+        match command {
+            Command::Nick(nick) => {
+                self.nick_change = Some(nick.clone());
+            }
+            Command::Join(_) | Command::Motd | Command::Quit => {}
+        }
     }
 }
 
@@ -104,6 +139,12 @@ impl Map {
     pub fn send_privmsg(&mut self, server: &Server, channel: &str, text: impl fmt::Display) {
         if let Some(connection) = self.connection_mut(server) {
             connection.send_privmsg(channel.to_string(), text);
+        }
+    }
+
+    pub fn send_command(&mut self, server: &Server, command: Command) {
+        if let Some(connection) = self.connection_mut(server) {
+            connection.send_command(command);
         }
     }
 

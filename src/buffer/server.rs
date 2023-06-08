@@ -7,7 +7,7 @@ use crate::widget::{input, Collection, Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Send(String),
+    Send(input::Content),
 }
 
 #[derive(Debug, Clone)]
@@ -62,7 +62,7 @@ impl Server {
 
     pub fn update(&mut self, message: Message, _clients: &data::client::Map) -> Option<Event> {
         match message {
-            Message::Send(_message) => {
+            Message::Send(_content) => {
                 // TODO: You can't send messages to a server,
                 // however I would make sense to allow slash (`/`) commands.
                 // Eg. /auth.
