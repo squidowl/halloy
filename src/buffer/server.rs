@@ -1,14 +1,13 @@
 use std::fmt;
 
-use iced::widget::{column, container, scrollable, text, text_input, vertical_space};
+use iced::widget::{column, container, scrollable, text, vertical_space};
 use iced::{Command, Length};
 
-use crate::widget::{Collection, Column, Element};
+use crate::widget::{input, Collection, Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Send,
-    Input(String),
+    Send(input::Content),
 }
 
 #[derive(Debug, Clone)]
@@ -31,13 +30,7 @@ pub fn view<'a>(
     )
     .height(Length::Fill);
     let spacing = is_focused.then_some(vertical_space(4));
-    let text_input = is_focused.then_some(
-        text_input("Send message...", &state.input)
-            .on_input(Message::Input)
-            .on_submit(Message::Send)
-            .id(state.text_input.clone())
-            .padding(8),
-    );
+    let text_input = is_focused.then(|| input(state.input_id.clone(), Message::Send));
 
     let scrollable = column![messages]
         .push_maybe(spacing)
@@ -55,31 +48,24 @@ pub fn view<'a>(
 pub struct Server {
     pub server: data::server::Server,
     pub scrollable: scrollable::Id,
-    text_input: text_input::Id,
-    input: String,
+    input_id: input::Id,
 }
 
 impl Server {
     pub fn new(server: data::server::Server) -> Self {
         Self {
             server,
-            input: String::new(),
-            text_input: text_input::Id::unique(),
+            input_id: input::Id::unique(),
             scrollable: scrollable::Id::unique(),
         }
     }
 
     pub fn update(&mut self, message: Message, _clients: &data::client::Map) -> Option<Event> {
         match message {
-            Message::Send => {
+            Message::Send(_content) => {
                 // TODO: You can't send messages to a server,
                 // however I would make sense to allow slash (`/`) commands.
                 // Eg. /auth.
-
-                None
-            }
-            Message::Input(input) => {
-                self.input = input;
 
                 None
             }
@@ -87,7 +73,7 @@ impl Server {
     }
 
     pub fn focus(&self) -> Command<Message> {
-        text_input::focus(self.text_input.clone())
+        input::focus(self.input_id.clone())
     }
 }
 

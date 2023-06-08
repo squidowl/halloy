@@ -1,9 +1,10 @@
 #![allow(dead_code)]
+pub use self::collection::Collection;
+pub use self::input::input;
 use crate::Theme;
 
 pub mod collection;
-
-pub use collection::Collection;
+pub mod input;
 
 pub type Renderer = iced::Renderer<Theme>;
 pub type Element<'a, Message> = iced::Element<'a, Message, Renderer>;

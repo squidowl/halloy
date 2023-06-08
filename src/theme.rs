@@ -451,6 +451,7 @@ impl pane_grid::StyleSheet for Theme {
 pub enum TextInput {
     #[default]
     Default,
+    Error,
 }
 
 impl text_input::StyleSheet for Theme {
@@ -465,34 +466,31 @@ impl text_input::StyleSheet for Theme {
                 border_color: Color::TRANSPARENT,
                 icon_color: self.colors.action.mute_03,
             },
+            TextInput::Error => text_input::Appearance {
+                border_width: 1.0,
+                border_color: self.colors.error.base,
+                ..self.active(&TextInput::Default)
+            },
         }
     }
 
     fn focused(&self, style: &Self::Style) -> text_input::Appearance {
-        match style {
-            TextInput::Default => text_input::Appearance {
-                ..self.active(style)
-            },
-        }
+        self.active(style)
     }
 
     fn hovered(&self, style: &Self::Style) -> text_input::Appearance {
-        match style {
-            TextInput::Default => text_input::Appearance {
-                ..self.active(style)
-            },
-        }
+        self.active(style)
     }
 
     fn selection_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default => self.colors.action.base,
+            TextInput::Default | TextInput::Error => self.colors.action.base,
         }
     }
 
     fn placeholder_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default => Color {
+            TextInput::Default | TextInput::Error => Color {
                 a: 0.4,
                 ..self.colors.text.base
             },
@@ -502,18 +500,19 @@ impl text_input::StyleSheet for Theme {
     fn value_color(&self, style: &Self::Style) -> Color {
         match style {
             TextInput::Default => self.colors.text.base,
+            TextInput::Error => self.colors.error.mute_03,
         }
     }
 
     fn disabled_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default => self.colors.text.base,
+            TextInput::Default | TextInput::Error => self.colors.text.base,
         }
     }
 
     fn disabled(&self, style: &Self::Style) -> text_input::Appearance {
         match style {
-            TextInput::Default => text_input::Appearance {
+            TextInput::Default | TextInput::Error => text_input::Appearance {
                 background: Background::Color(self.colors.background.lighten_03),
                 border_radius: 0.0.into(),
                 border_width: 0.0,
