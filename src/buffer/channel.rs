@@ -1,16 +1,15 @@
 use std::fmt;
 
 use data::server::Server;
-use iced::widget::{column, container, row, scrollable, text, text_input, vertical_space, Rule};
+use iced::widget::{column, container, row, scrollable, text, vertical_space, Rule};
 use iced::{Command, Length};
 
 use crate::theme;
-use crate::widget::{Collection, Column, Element};
+use crate::widget::{input, Collection, Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Send,
-    Input(String),
+    Send(String),
 }
 
 #[derive(Debug, Clone)]
@@ -52,13 +51,7 @@ pub fn view<'a>(
     .height(Length::Fill);
 
     let spacing = is_focused.then_some(vertical_space(4));
-    let text_input = is_focused.then_some(
-        text_input("Send message...", &state.input)
-            .on_input(Message::Input)
-            .on_submit(Message::Send)
-            .id(state.text_input.clone())
-            .padding(8),
-    );
+    let text_input = is_focused.then(|| input(state.input_id.clone(), Message::Send));
 
     // TODO: Maybe we should show it to the right instead of left.
     let users = if state.show_users {
@@ -114,8 +107,7 @@ pub struct Channel {
     pub channel: String,
     pub topic: Option<String>,
     pub scrollable: scrollable::Id,
-    text_input: text_input::Id,
-    input: String,
+    input_id: input::Id,
     show_users: bool,
 }
 
@@ -125,10 +117,9 @@ impl Channel {
             server,
             channel,
             topic: None,
-            input: String::new(),
-            show_users: true,
-            text_input: text_input::Id::unique(),
             scrollable: scrollable::Id::unique(),
+            input_id: input::Id::unique(),
+            show_users: true,
         }
     }
 
@@ -138,25 +129,19 @@ impl Channel {
         clients: &mut data::client::Map,
     ) -> (Command<Message>, Option<Event>) {
         match message {
-            Message::Send => {
-                clients.send_privmsg(&self.server, &self.channel, &self.input);
-                self.input = String::new();
+            Message::Send(message) => {
+                clients.send_privmsg(&self.server, &self.channel, &message);
 
                 return (
                     scrollable::snap_to(self.scrollable.clone(), scrollable::RelativeOffset::END),
                     None,
                 );
             }
-            Message::Input(input) => {
-                self.input = input;
-            }
         }
-
-        (Command::none(), None)
     }
 
     pub fn focus(&self) -> Command<Message> {
-        text_input::focus(self.text_input.clone())
+        input::focus(self.input_id.clone())
     }
 
     pub(crate) fn toggle_show_users(&mut self) {
