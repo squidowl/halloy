@@ -50,7 +50,9 @@ impl Connection {
     fn send_command(&mut self, command: Command) {
         self.handle_command(&command);
 
-        let command = proto::Command::from(command);
+        let Ok(command) = proto::Command::try_from(command) else {
+            return;
+        };
 
         let proto_message = irc::proto::Message::from(command);
 
@@ -91,7 +93,7 @@ impl Connection {
             Command::Nick(nick) => {
                 self.nick_change = Some(nick.clone());
             }
-            Command::Join(_) | Command::Motd | Command::Quit => {}
+            Command::Join(_) | Command::Motd | Command::Quit | Command::Unknown(..) => {}
         }
     }
 }
