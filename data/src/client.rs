@@ -1,4 +1,5 @@
-use std::{collections::HashMap, fmt};
+use std::collections::BTreeMap;
+use std::fmt;
 
 use irc::client::Client;
 use irc::proto::Command;
@@ -60,7 +61,7 @@ impl Connection {
 }
 
 #[derive(Debug, Default)]
-pub struct Map(HashMap<Server, State>);
+pub struct Map(BTreeMap<Server, State>);
 
 impl Map {
     pub fn disconnected(&mut self, server: Server) {
@@ -111,11 +112,11 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_channels(&self) -> HashMap<Server, Vec<String>> {
-        let mut hashmap = HashMap::new();
+    pub fn get_channels(&self) -> BTreeMap<Server, Vec<String>> {
+        let mut map = BTreeMap::new();
 
         for (server, _) in self.0.iter() {
-            hashmap.insert(
+            map.insert(
                 server.clone(),
                 self.connection(server)
                     .map(|connection| connection.channels())
@@ -123,7 +124,7 @@ impl Map {
             );
         }
 
-        hashmap
+        map
     }
 
     pub fn get_channel_messages(&self, server: &Server, channel: &str) -> Vec<&Message> {
