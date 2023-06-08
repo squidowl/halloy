@@ -1,8 +1,10 @@
 #![allow(dead_code)]
+pub use self::anchored_overlay::anchored_overlay;
 pub use self::collection::Collection;
 pub use self::input::input;
 use crate::Theme;
 
+pub mod anchored_overlay;
 pub mod collection;
 pub mod input;
 
