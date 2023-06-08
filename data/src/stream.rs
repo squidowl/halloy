@@ -81,9 +81,9 @@ pub fn run() -> BoxStream<'static, Result> {
             } => loop {
                 let input = {
                     let mut select = stream::select(
-                        stream::select_all(servers.iter_mut().map(|server| &mut server.stream))
-                            .enumerate()
-                            .map(|(idx, result)| Input::IrcMessage(idx, result)),
+                        stream::select_all(servers.iter_mut().enumerate().map(|(idx, server)| {
+                            (&mut server.stream).map(move |result| Input::IrcMessage(idx, result))
+                        })),
                         receiver.recv().map(Input::Message).into_stream().boxed(),
                     );
 
