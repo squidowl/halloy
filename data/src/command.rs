@@ -26,10 +26,10 @@ impl FromStr for Kind {
 
 #[derive(Debug, Clone)]
 pub enum Command {
-    Join(String),
-    Motd,
+    Join(String, Option<String>, Option<String>),
+    Motd(Option<String>),
     Nick(String),
-    Quit,
+    Quit(Option<String>),
     Unknown(String, Vec<String>),
 }
 
@@ -43,26 +43,14 @@ impl FromStr for Command {
         let command_str = split.next().ok_or(Error::MissingCommand)?;
         let args = split.collect::<Vec<_>>();
 
-        fn validated<const N: usize>(
-            args: Vec<&str>,
-            f: impl Fn([&str; N]) -> Command,
-        ) -> Result<Command, Error> {
-            if args.len() == N {
-                Ok((f)(args.try_into().unwrap()))
-            } else {
-                Err(Error::IncorrectArgCount {
-                    expected: N,
-                    actual: args.len(),
-                })
-            }
-        }
-
         match command_str.parse::<Kind>() {
             Ok(command) => match command {
-                Kind::Join => validated::<1>(args, |[channel]| Command::Join(channel.to_string())),
-                Kind::Motd => validated::<0>(args, |[]| Command::Motd),
-                Kind::Nick => validated::<1>(args, |[nick]| Command::Nick(nick.to_string())),
-                Kind::Quit => validated::<0>(args, |_| Command::Quit),
+                Kind::Join => validated::<1, 2>(args, |[chanlist], [chankeys, real_name]| {
+                    Command::Join(chanlist.to_string(), chankeys, real_name)
+                }),
+                Kind::Motd => validated::<0, 1>(args, |_, [target]| Command::Motd(target)),
+                Kind::Nick => validated::<1, 0>(args, |[nick], _| Command::Nick(nick)),
+                Kind::Quit => validated::<0, 1>(args, |_, [comment]| Command::Quit(comment)),
             },
             Err(_) => Ok(Command::Unknown(
                 command_str.to_string(),
@@ -72,17 +60,67 @@ impl FromStr for Command {
     }
 }
 
+fn validated<const EXACT: usize, const OPT: usize>(
+    args: Vec<&str>,
+    f: impl Fn([String; EXACT], [Option<String>; OPT]) -> Command,
+) -> Result<Command, Error> {
+    let max = EXACT + OPT;
+
+    if args.len() == EXACT {
+        let empty = (0..OPT)
+            .into_iter()
+            .map(|_| None)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        Ok((f)(
+            args[0..EXACT]
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+            empty,
+        ))
+    } else if args.len() > EXACT && args.len() <= max {
+        let opt_args = args[EXACT..args.len()]
+            .into_iter()
+            .map(|s| Some(s.to_string()))
+            .chain((args.len()..max).into_iter().map(|_| None))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        Ok((f)(
+            args[0..EXACT]
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+            opt_args,
+        ))
+    } else {
+        Err(Error::IncorrectArgCount {
+            min: EXACT,
+            max,
+            actual: args.len(),
+        })
+    }
+}
+
 impl TryFrom<Command> for proto::Command {
     type Error = proto::error::MessageParseError;
 
     fn try_from(command: Command) -> Result<Self, Self::Error> {
         Ok(match command {
-            // TODO: Support chankeys & realname
-            Command::Join(channel) => proto::Command::JOIN(channel, None, None),
-            Command::Motd => proto::Command::MOTD(None),
+            Command::Join(chanlist, chankeys, real_name) => {
+                proto::Command::JOIN(chanlist, chankeys, real_name)
+            }
+            Command::Motd(target) => proto::Command::MOTD(target),
             Command::Nick(nick) => proto::Command::NICK(nick),
-            // TODO: Support comment?
-            Command::Quit => proto::Command::QUIT(None),
+            Command::Quit(comment) => proto::Command::QUIT(comment),
             Command::Unknown(command, args) => {
                 let args = args.iter().map(|arg| arg.as_str()).collect();
 
@@ -94,10 +132,24 @@ impl TryFrom<Command> for proto::Command {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("expected {expected} {}, received {actual}", if *expected == 1 { "argument" } else { "arguments" })]
-    IncorrectArgCount { expected: usize, actual: usize },
+    #[error("{}", fmt_incorrect_arg_count(*min, *max, *actual))]
+    IncorrectArgCount {
+        min: usize,
+        max: usize,
+        actual: usize,
+    },
     #[error("missing slash")]
     MissingSlash,
     #[error("missing command")]
     MissingCommand,
+}
+
+fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
+    if min == max {
+        let s = if min == 1 { "" } else { "s" };
+
+        format!("expected {min} argument{s}, received {actual}")
+    } else {
+        format!("expected {min} to {max} arguments, recevied {actual}")
+    }
 }

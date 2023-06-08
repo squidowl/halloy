@@ -93,7 +93,7 @@ impl Connection {
             Command::Nick(nick) => {
                 self.nick_change = Some(nick.clone());
             }
-            Command::Join(_) | Command::Motd | Command::Quit | Command::Unknown(..) => {}
+            Command::Join(..) | Command::Motd(..) | Command::Quit(..) | Command::Unknown(..) => {}
         }
     }
 }
