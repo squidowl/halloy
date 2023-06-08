@@ -4,8 +4,7 @@ use iced::{Command, Length};
 use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
-use crate::widget;
-use crate::{icon, theme};
+use crate::{icon, theme, widget};
 
 #[derive(Debug, Clone)]
 pub enum Message {}

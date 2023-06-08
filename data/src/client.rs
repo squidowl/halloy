@@ -5,8 +5,9 @@ use irc::client::Client;
 use irc::proto::Command;
 
 use crate::message;
+use crate::message::Message;
+use crate::server::Server;
 use crate::user::User;
-use crate::{message::Message, server::Server};
 
 #[derive(Debug)]
 pub enum State {

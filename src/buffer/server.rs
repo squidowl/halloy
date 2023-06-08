@@ -1,12 +1,9 @@
 use std::fmt;
 
-use crate::widget::Collection;
-use crate::widget::{Column, Element};
-use iced::Command;
-use iced::{
-    widget::{column, container, scrollable, text, text_input, vertical_space},
-    Length,
-};
+use iced::widget::{column, container, scrollable, text, text_input, vertical_space};
+use iced::{Command, Length};
+
+use crate::widget::{Collection, Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {

@@ -1,7 +1,5 @@
-use iced::{
-    font::{self, Error},
-    Command, Font,
-};
+use iced::font::{self, Error};
+use iced::{Command, Font};
 
 pub const MONO: Font = Font {
     monospaced: true,

@@ -1,5 +1,6 @@
 use iced::Color;
-use palette::{rgb::Rgb, DarkenAssign, FromColor, LightenAssign, Okhsl, Srgb};
+use palette::rgb::Rgb;
+use palette::{DarkenAssign, FromColor, LightenAssign, Okhsl, Srgb};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Palette {
@@ -119,9 +120,10 @@ pub fn intensify(color: Color, amount: f32) -> Color {
 }
 
 pub mod palette_serde {
-    use super::{hex_to_color, Palette};
     use iced::Color;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::{hex_to_color, Palette};
 
     #[derive(Debug, Clone, Default, Deserialize, Serialize)]
     struct HexPalette {
