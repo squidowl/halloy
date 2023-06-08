@@ -3,9 +3,8 @@ use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 
 use crate::client::Connection;
-use crate::message;
-use crate::server;
 use crate::server::Server;
+use crate::{message, server};
 
 pub type Result<T = Event, E = Error> = std::result::Result<T, E>;
 

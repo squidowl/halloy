@@ -1,15 +1,13 @@
 pub mod pane;
 pub mod side_menu;
 
-use data::message;
-use pane::Pane;
-use side_menu::SideMenu;
-
 use data::config::Config;
+use data::message;
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row, scrollable};
-use iced::Length;
-use iced::{keyboard, Command};
+use iced::{keyboard, Command, Length};
+use pane::Pane;
+use side_menu::SideMenu;
 
 use crate::buffer::{self, channel, Buffer};
 use crate::widget::Element;

@@ -1,6 +1,7 @@
 use iced::widget::text;
 
-use crate::{font, theme, widget::Text};
+use crate::widget::Text;
+use crate::{font, theme};
 
 // Based off https://github.com/iced-rs/iced_aw/blob/main/src/graphics/icons/bootstrap.rs
 
