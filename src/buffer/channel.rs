@@ -3,12 +3,12 @@ use std::fmt;
 use data::server::Server;
 use iced::{
     widget::{column, container, row, scrollable, text, text_input, vertical_space, Rule},
-    Length,
+    Command, Length,
 };
 
 use crate::theme;
 use crate::widget::Collection;
-use crate::widget::{sticky_scrollable, Column, Element};
+use crate::widget::{Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -44,11 +44,14 @@ pub fn view<'a>(
         })
         .collect();
 
-    let messages = container(sticky_scrollable(
-        Column::with_children(messages)
-            .width(Length::Fill)
-            .padding([0, 8]),
-    ))
+    let messages = container(
+        scrollable(
+            Column::with_children(messages)
+                .width(Length::Fill)
+                .padding([0, 8]),
+        )
+        .id(state.scrollable.clone()),
+    )
     .height(Length::Fill);
 
     let spacing = is_focused.then_some(vertical_space(4));
@@ -112,6 +115,7 @@ pub struct Channel {
     pub server: Server,
     pub channel: String,
     pub topic: Option<String>,
+    pub scrollable: scrollable::Id,
     input: String,
     show_users: bool,
 }
@@ -124,23 +128,31 @@ impl Channel {
             topic: None,
             input: String::new(),
             show_users: true,
+            scrollable: scrollable::Id::unique(),
         }
     }
 
-    pub fn update(&mut self, message: Message, clients: &mut data::client::Map) -> Option<Event> {
+    pub fn update(
+        &mut self,
+        message: Message,
+        clients: &mut data::client::Map,
+    ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::Send => {
                 clients.send_privmsg(&self.server, &self.channel, &self.input);
                 self.input = String::new();
 
-                None
+                return (
+                    scrollable::snap_to(self.scrollable.clone(), scrollable::RelativeOffset::END),
+                    None,
+                );
             }
             Message::Input(input) => {
                 self.input = input;
-
-                None
             }
         }
+
+        (Command::none(), None)
     }
 
     pub(crate) fn toggle_show_users(&mut self) {

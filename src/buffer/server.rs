@@ -1,9 +1,9 @@
 use std::fmt;
 
 use crate::widget::Collection;
-use crate::widget::{sticky_scrollable, Column, Element};
+use crate::widget::{Column, Element};
 use iced::{
-    widget::{column, container, text, text_input, vertical_space},
+    widget::{column, container, scrollable, text, text_input, vertical_space},
     Length,
 };
 
@@ -27,9 +27,10 @@ pub fn view<'a>(
         .filter_map(|message| Some(container(text(message.text()?)).into()))
         .collect();
 
-    let messages = container(sticky_scrollable(
-        Column::with_children(messages).width(Length::Fill),
-    ))
+    let messages = container(
+        scrollable(Column::with_children(messages).width(Length::Fill))
+            .id(state.scrollable.clone()),
+    )
     .height(Length::Fill);
     let spacing = is_focused.then_some(vertical_space(4));
     let text_input = is_focused.then_some(
@@ -54,6 +55,7 @@ pub fn view<'a>(
 #[derive(Debug, Clone)]
 pub struct Server {
     pub server: data::server::Server,
+    pub scrollable: scrollable::Id,
     input: String,
 }
 
@@ -62,6 +64,7 @@ impl Server {
         Self {
             server,
             input: String::new(),
+            scrollable: scrollable::Id::unique(),
         }
     }
 
