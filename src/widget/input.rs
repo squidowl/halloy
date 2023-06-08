@@ -1,10 +1,9 @@
 use data::{command, Command};
 pub use iced::widget::text_input::focus;
-use iced::widget::{component, text_input, Component};
+use iced::widget::{component, container, row, text, text_input, Component};
 
+use super::{anchored_overlay, Element, Renderer};
 use crate::theme;
-
-use super::{Element, Renderer};
 
 pub type Id = text_input::Id;
 
@@ -64,7 +63,6 @@ impl<'a, Message> Component<Message, Renderer> for Input<'a, Message> {
                 let content = match state.input.parse::<Command>() {
                     Ok(command) => Content::Command(command),
                     Err(command::Error::MissingSlash) => Content::Text(state.input.clone()),
-                    // TODO: Implement error handling
                     Err(error) => {
                         state.error = Some(error.to_string());
                         return None;
@@ -86,14 +84,29 @@ impl<'a, Message> Component<Message, Renderer> for Input<'a, Message> {
             theme::TextInput::Default
         };
 
-        text_input("Send message...", &state.input)
+        let input = text_input("Send message...", &state.input)
             .on_input(Event::Input)
             .on_submit(Event::Send)
             .id(self.id.clone())
             .padding(8)
-            .style(style)
-            .into()
+            .style(style);
+
+        let error = state
+            .error
+            .as_ref()
+            .map(error)
+            .unwrap_or_else(|| row![].into());
+
+        anchored_overlay(input, error)
     }
+}
+
+fn error<'a, Message: 'a>(error: impl ToString) -> Element<'a, Message> {
+    container(text(error).style(theme::Text::Error))
+        .center_y()
+        .padding(8)
+        .style(theme::Container::Primary)
+        .into()
 }
 
 impl<'a, Message> From<Input<'a, Message>> for Element<'a, Message>

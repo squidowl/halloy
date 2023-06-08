@@ -187,6 +187,7 @@ pub enum Text {
     #[default]
     Default,
     Accent,
+    Error,
 }
 
 impl text::StyleSheet for Theme {
@@ -199,6 +200,9 @@ impl text::StyleSheet for Theme {
             },
             Text::Accent => text::Appearance {
                 color: Some(self.colors.accent.base),
+            },
+            Text::Error => text::Appearance {
+                color: Some(self.colors.error.base),
             },
         }
     }
@@ -499,8 +503,7 @@ impl text_input::StyleSheet for Theme {
 
     fn value_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default => self.colors.text.base,
-            TextInput::Error => self.colors.error.mute_03,
+            TextInput::Default | TextInput::Error => self.colors.text.base,
         }
     }
 

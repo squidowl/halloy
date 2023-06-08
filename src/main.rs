@@ -13,9 +13,10 @@ use data::config::Config;
 use data::stream;
 use iced::widget::container;
 use iced::{executor, keyboard, subscription, Application, Command, Length, Subscription};
-use screen::dashboard;
-use theme::Theme;
-use widget::Element;
+
+use self::screen::dashboard;
+pub use self::theme::Theme;
+use self::widget::Element;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
