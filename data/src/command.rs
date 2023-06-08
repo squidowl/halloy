@@ -11,7 +11,7 @@ pub enum Kind {
 }
 
 impl FromStr for Kind {
-    type Err = Error;
+    type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
@@ -19,7 +19,7 @@ impl FromStr for Kind {
             "motd" => Ok(Kind::Motd),
             "nick" => Ok(Kind::Nick),
             "quit" => Ok(Kind::Quit),
-            _ => Err(Error::ParseCommand(s.to_string())),
+            _ => Err(()),
         }
     }
 }
@@ -30,6 +30,7 @@ pub enum Command {
     Motd,
     Nick(String),
     Quit,
+    Unknown(String, Vec<String>),
 }
 
 impl FromStr for Command {
@@ -39,7 +40,7 @@ impl FromStr for Command {
         let (_, rest) = s.split_once('/').ok_or(Error::MissingSlash)?;
         let mut split = rest.split_ascii_whitespace();
 
-        let command = split.next().unwrap_or("").parse::<Kind>()?;
+        let command_str = split.next().ok_or(Error::MissingCommand)?;
         let args = split.collect::<Vec<_>>();
 
         fn validated<const N: usize>(
@@ -56,25 +57,38 @@ impl FromStr for Command {
             }
         }
 
-        match command {
-            Kind::Join => validated::<1>(args, |[channel]| Command::Join(channel.to_string())),
-            Kind::Motd => validated::<0>(args, |[]| Command::Motd),
-            Kind::Nick => validated::<1>(args, |[nick]| Command::Nick(nick.to_string())),
-            Kind::Quit => validated::<0>(args, |_| Command::Quit),
+        match command_str.parse::<Kind>() {
+            Ok(command) => match command {
+                Kind::Join => validated::<1>(args, |[channel]| Command::Join(channel.to_string())),
+                Kind::Motd => validated::<0>(args, |[]| Command::Motd),
+                Kind::Nick => validated::<1>(args, |[nick]| Command::Nick(nick.to_string())),
+                Kind::Quit => validated::<0>(args, |_| Command::Quit),
+            },
+            Err(_) => Ok(Command::Unknown(
+                command_str.to_string(),
+                args.into_iter().map(String::from).collect(),
+            )),
         }
     }
 }
 
-impl From<Command> for proto::Command {
-    fn from(command: Command) -> Self {
-        match command {
+impl TryFrom<Command> for proto::Command {
+    type Error = proto::error::MessageParseError;
+
+    fn try_from(command: Command) -> Result<Self, Self::Error> {
+        Ok(match command {
             // TODO: Support chankeys & realname
             Command::Join(channel) => proto::Command::JOIN(channel, None, None),
             Command::Motd => proto::Command::MOTD(None),
             Command::Nick(nick) => proto::Command::NICK(nick),
             // TODO: Support comment?
             Command::Quit => proto::Command::QUIT(None),
-        }
+            Command::Unknown(command, args) => {
+                let args = args.iter().map(|arg| arg.as_str()).collect();
+
+                return proto::Command::new(command.as_str(), args);
+            }
+        })
     }
 }
 
@@ -82,8 +96,8 @@ impl From<Command> for proto::Command {
 pub enum Error {
     #[error("expected {expected} {}, received {actual}", if *expected == 1 { "argument" } else { "arguments" })]
     IncorrectArgCount { expected: usize, actual: usize },
-    #[error("invalid command: {0}")]
-    ParseCommand(String),
     #[error("missing slash")]
     MissingSlash,
+    #[error("missing command")]
+    MissingCommand,
 }
