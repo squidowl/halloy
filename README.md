@@ -36,6 +36,14 @@ cargo build --release
 cargo run --release
 ```
 
+## Why?
+<div align="center">
+  <a href="https://xkcd.com/1782/">
+    <img src="https://imgs.xkcd.com/comics/team_chat.png" alt="2078: He announces that he's finally making the jump from screen+irssi to tmux+weechat.">
+  </a>
+</div>
+
+
 ## License
 
 Halloy is released under the GPL-3.0 License. For more details, see the [LICENSE](LICENSE) file.
