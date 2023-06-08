@@ -9,7 +9,7 @@ use crate::widget::{input, Collection, Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Send(String),
+    Send(input::Content),
 }
 
 #[derive(Debug, Clone)]
@@ -129,9 +129,15 @@ impl Channel {
         clients: &mut data::client::Map,
     ) -> (Command<Message>, Option<Event>) {
         match message {
-            Message::Send(message) => {
-                clients.send_privmsg(&self.server, &self.channel, &message);
-
+            Message::Send(content) => {
+                match content {
+                    input::Content::Text(message) => {
+                        clients.send_privmsg(&self.server, &self.channel, &message);
+                    }
+                    input::Content::Command(command) => {
+                        clients.send_command(&self.server, command);
+                    }
+                }
                 return (
                     scrollable::snap_to(self.scrollable.clone(), scrollable::RelativeOffset::END),
                     None,
