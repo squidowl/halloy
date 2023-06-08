@@ -66,25 +66,14 @@ fn validated<const EXACT: usize, const OPT: usize>(
 ) -> Result<Command, Error> {
     let max = EXACT + OPT;
 
-    if args.len() == EXACT {
-        let empty = (0..OPT)
+    if args.len() >= EXACT && args.len() <= max {
+        let exact = args[0..EXACT]
             .into_iter()
-            .map(|_| None)
+            .map(|s| s.to_string())
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
-
-        Ok((f)(
-            args[0..EXACT]
-                .into_iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap(),
-            empty,
-        ))
-    } else if args.len() > EXACT && args.len() <= max {
-        let opt_args = args[EXACT..args.len()]
+        let opt = args[EXACT..args.len()]
             .into_iter()
             .map(|s| Some(s.to_string()))
             .chain((args.len()..max).into_iter().map(|_| None))
@@ -92,15 +81,7 @@ fn validated<const EXACT: usize, const OPT: usize>(
             .try_into()
             .unwrap();
 
-        Ok((f)(
-            args[0..EXACT]
-                .into_iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap(),
-            opt_args,
-        ))
+        Ok((f)(exact, opt))
     } else {
         Err(Error::IncorrectArgCount {
             min: EXACT,
