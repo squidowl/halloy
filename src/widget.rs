@@ -2,10 +2,8 @@
 use crate::Theme;
 
 pub mod collection;
-pub mod sticky_scrollable;
 
 pub use collection::Collection;
-pub use sticky_scrollable::sticky_scrollable;
 
 pub type Renderer = iced::Renderer<Theme>;
 pub type Element<'a, Message> = iced::Element<'a, Message, Renderer>;
