@@ -5,6 +5,10 @@ use crate::{font, theme};
 
 // Based off https://github.com/iced-rs/iced_aw/blob/main/src/graphics/icons/bootstrap.rs
 
+pub fn palette<'a>() -> Text<'a> {
+    to_text('\u{f4b1}')
+}
+
 pub fn globe<'a>() -> Text<'a> {
     to_text('\u{f3ef}')
 }
