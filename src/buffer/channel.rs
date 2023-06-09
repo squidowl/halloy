@@ -24,9 +24,7 @@ pub fn view<'a>(
         .get_channel_messages(&state.server, &state.channel)
         .into_iter()
         .filter_map(|message| {
-            let Some(user) = message.user() else {
-                return None
-            };
+            let user = message.user()?;
             let message = message.text()?;
 
             Some(
@@ -35,7 +33,7 @@ pub fn view<'a>(
                         text(format!("<{}>", user.nickname())).style(theme::Text::Nickname(
                             state
                                 .unique_user_colors
-                                .then_some(user.color_seed().to_string())
+                                .then(|| user.color_seed().to_string())
                         )),
                         text(message)
                     ]

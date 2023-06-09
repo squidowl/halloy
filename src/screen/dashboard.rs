@@ -100,12 +100,10 @@ impl Dashboard {
                 }
             }
             Message::Pane(message) => {
-                if let Some(pane) = self.focus {
-                    if let Some(pane) = self.panes.get_mut(&pane) {
-                        let command = pane.update(message);
+                if let Some(pane) = self.get_focused_mut() {
+                    let command = pane.update(message);
 
-                        return (command.map(Message::Pane), None);
-                    }
+                    return (command.map(Message::Pane), None);
                 }
             }
             Message::Buffer(id, message) => {
@@ -126,13 +124,11 @@ impl Dashboard {
                 }
             }
             Message::Users => {
-                if let Some(pane) = self.focus {
-                    if let Some(pane) = self.panes.get_mut(&pane) {
-                        match &mut pane.buffer {
-                            Buffer::Channel(state) => state.toggle_show_users(),
-                            Buffer::Empty(_) => {}
-                            Buffer::Server(_) => {}
-                        }
+                if let Some(pane) = self.get_focused_mut() {
+                    match &mut pane.buffer {
+                        Buffer::Channel(state) => state.toggle_show_users(),
+                        Buffer::Empty(_) => {}
+                        Buffer::Server(_) => {}
                     }
                 }
             }
@@ -252,13 +248,11 @@ impl Dashboard {
                 }
             }
             Message::UniqueUserColors => {
-                if let Some(pane) = self.focus {
-                    if let Some(pane) = self.panes.get_mut(&pane) {
-                        match &mut pane.buffer {
-                            Buffer::Channel(state) => state.toggle_unique_user_colors(),
-                            Buffer::Empty(_) => {}
-                            Buffer::Server(_) => {}
-                        }
+                if let Some(pane) = self.get_focused_mut() {
+                    match &mut pane.buffer {
+                        Buffer::Channel(state) => state.toggle_unique_user_colors(),
+                        Buffer::Empty(_) => {}
+                        Buffer::Server(_) => {}
                     }
                 }
             }
@@ -362,6 +356,11 @@ impl Dashboard {
         }
 
         Command::none()
+    }
+
+    fn get_focused_mut(&mut self) -> Option<&mut Pane> {
+        let pane = self.focus?;
+        self.panes.get_mut(&pane)
     }
 
     fn focus_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
