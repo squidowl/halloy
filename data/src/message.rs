@@ -26,41 +26,6 @@ pub struct Message {
 }
 
 impl Message {
-    // pub fn text(&self) -> String {
-    //     match self {}
-    // }
-
-    // pub fn source(&self, channels: &[String]) -> Option<Source> {
-    //     if self.is_server_message(channels) {
-    //         Some(Source::Server)
-    //     } else {
-    //         channels.iter().find_map(|channel| {
-    //             is_for_channel(self.inner(), channel).then(|| Source::Channel(channel.to_string()))
-    //         })
-    //     }
-    // }
-
-    // pub fn is_for_channel(&self, channel: &str) -> bool {
-    //     is_for_channel(self.inner(), channel)
-    // }
-
-    // pub fn is_server_message(&self, channels: &[String]) -> bool {
-    //     match self {
-    //         Message::Sent { .. } => false,
-    //         Message::Received(message) => is_for_server(message),
-    //     }
-    // }
-
-    // pub fn user(&self) -> Option<User> {
-    //     match &self {
-    //         Message::Sent { nickname, .. } => Some(User::new(nickname)),
-    //         Message::Received(message) => message
-    //             .prefix
-    //             .as_ref()
-    //             .and_then(|prefix| User::try_from(prefix).ok()),
-    //     }
-    // }
-
     pub fn is_server(&self) -> bool {
         matches!(self.source, Source::Server)
     }
