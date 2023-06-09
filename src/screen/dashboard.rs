@@ -31,6 +31,7 @@ pub enum Message {
     SplitPane(pane_grid::Axis),
     MaximizePane,
     Users,
+    UniqueUserColors,
 }
 
 pub enum Event {}
@@ -250,6 +251,17 @@ impl Dashboard {
                     self.panes.maximize(&pane);
                 }
             }
+            Message::UniqueUserColors => {
+                if let Some(pane) = self.focus {
+                    if let Some(pane) = self.panes.get_mut(&pane) {
+                        match &mut pane.buffer {
+                            Buffer::Channel(state) => state.toggle_unique_user_colors(),
+                            Buffer::Empty(_) => {}
+                            Buffer::Server(_) => {}
+                        }
+                    }
+                }
+            }
         }
 
         (Command::none(), None)
@@ -269,6 +281,7 @@ impl Dashboard {
                     on_split: Message::SplitPane,
                     on_maximize: Message::MaximizePane,
                     on_users: Message::Users,
+                    on_unique_user_colors: Message::UniqueUserColors,
                 },
                 id,
                 panes,

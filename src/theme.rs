@@ -188,6 +188,7 @@ pub enum Text {
     Default,
     Accent,
     Error,
+    Nickname(Option<String>),
 }
 
 impl text::StyleSheet for Theme {
@@ -204,6 +205,14 @@ impl text::StyleSheet for Theme {
             Text::Error => text::Appearance {
                 color: Some(self.colors.error.base),
             },
+            Text::Nickname(seed) => {
+                let original_color = self.colors.accent.base;
+                let color = seed
+                    .map(|seed| palette::randomize_color(original_color, seed.as_str()))
+                    .unwrap_or_else(|| original_color);
+
+                text::Appearance { color: Some(color) }
+            }
         }
     }
 }

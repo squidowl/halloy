@@ -2,12 +2,41 @@
 pub struct User(irc::client::data::User);
 
 impl User {
+    pub fn new(nickname: &str) -> Self {
+        User(irc::client::data::User::new(nickname))
+    }
+
+    pub fn color_seed(&self) -> &str {
+        self.hostname().unwrap_or_else(|| self.nickname())
+    }
+
     pub fn nickname(&self) -> &str {
         self.0.get_nickname()
     }
 
+    pub fn hostname(&self) -> Option<&str> {
+        self.0.get_hostname()
+    }
+
     pub fn highest_access_level(&self) -> AccessLevel {
         AccessLevel(self.0.highest_access_level())
+    }
+}
+
+impl TryFrom<&irc::proto::Prefix> for User {
+    type Error = ();
+
+    fn try_from(prefix: &irc::proto::Prefix) -> Result<Self, Self::Error> {
+        use irc::client::data;
+        use irc::proto::Prefix;
+
+        match prefix {
+            Prefix::ServerName(_) => Err(()),
+            Prefix::Nickname(nickname, username, host) => {
+                let user = format!("{}!{}@{}", nickname, username, host);
+                Ok(User(data::User::new(&user)))
+            }
+        }
     }
 }
 
