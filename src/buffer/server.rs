@@ -8,6 +8,7 @@ use crate::widget::{input, Collection, Column, Element};
 #[derive(Debug, Clone)]
 pub enum Message {
     Send(input::Content),
+    CompletionSelected,
 }
 
 #[derive(Debug, Clone)]
@@ -30,7 +31,13 @@ pub fn view<'a>(
     )
     .height(Length::Fill);
     let spacing = is_focused.then_some(vertical_space(4));
-    let text_input = is_focused.then(|| input(state.input_id.clone(), Message::Send));
+    let text_input = is_focused.then(|| {
+        input(
+            state.input_id.clone(),
+            Message::Send,
+            Message::CompletionSelected,
+        )
+    });
 
     let scrollable = column![messages]
         .push_maybe(spacing)
@@ -60,14 +67,28 @@ impl Server {
         }
     }
 
-    pub fn update(&mut self, message: Message, _clients: &data::client::Map) -> Option<Event> {
+    pub fn update(
+        &mut self,
+        message: Message,
+        clients: &mut data::client::Map,
+    ) -> (Command<Message>, Option<Event>) {
         match message {
-            Message::Send(_content) => {
-                // TODO: You can't send messages to a server,
-                // however I would make sense to allow slash (`/`) commands.
-                // Eg. /auth.
-
-                None
+            Message::Send(content) => {
+                if let input::Content::Command(command) = content {
+                    clients.send_command(&self.server, command);
+                    (
+                        scrollable::snap_to(
+                            self.scrollable.clone(),
+                            scrollable::RelativeOffset::END,
+                        ),
+                        None,
+                    )
+                } else {
+                    (Command::none(), None)
+                }
+            }
+            Message::CompletionSelected => {
+                return (input::move_cursor_to_end(self.input_id.clone()), None);
             }
         }
     }
