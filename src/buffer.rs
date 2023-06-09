@@ -45,10 +45,11 @@ impl Buffer {
 
                 (command.map(Message::Channel), event.map(Event::Channel))
             }
-            (Buffer::Server(state), Message::Server(message)) => (
-                Command::none(),
-                state.update(message, clients).map(Event::Server),
-            ),
+            (Buffer::Server(state), Message::Server(message)) => {
+                let (command, event) = state.update(message, clients);
+
+                (command.map(Message::Server), event.map(Event::Server))
+            }
             _ => (Command::none(), None),
         }
     }

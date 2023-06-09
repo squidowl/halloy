@@ -1,9 +1,9 @@
 use data::{command, Command};
-pub use iced::widget::text_input::focus;
+pub use iced::widget::text_input::{focus, move_cursor_to_end};
 use iced::widget::{component, container, row, text, text_input, Component};
 
 use self::completion::Completion;
-use super::{anchored_overlay, Element, Renderer};
+use super::{anchored_overlay, key_press, Element, Renderer};
 use crate::theme;
 
 mod completion;
@@ -13,13 +13,15 @@ pub type Id = text_input::Id;
 pub fn input<'a, Message>(
     id: Id,
     on_submit: impl Fn(Content) -> Message + 'a,
+    on_completion: Message,
 ) -> Element<'a, Message>
 where
-    Message: 'a,
+    Message: 'a + Clone,
 {
     Input {
         id,
         on_submit: Box::new(on_submit),
+        on_completion,
     }
     .into()
 }
@@ -34,11 +36,13 @@ pub enum Content {
 pub enum Event {
     Input(String),
     Send,
+    Tab,
 }
 
 pub struct Input<'a, Message> {
     id: Id,
     on_submit: Box<dyn Fn(Content) -> Message + 'a>,
+    on_completion: Message,
 }
 
 #[derive(Default)]
@@ -48,7 +52,10 @@ pub struct State {
     completion: Completion,
 }
 
-impl<'a, Message> Component<Message, Renderer> for Input<'a, Message> {
+impl<'a, Message> Component<Message, Renderer> for Input<'a, Message>
+where
+    Message: Clone,
+{
     type State = State;
     type Event = Event;
 
@@ -65,22 +72,32 @@ impl<'a, Message> Component<Message, Renderer> for Input<'a, Message> {
             Event::Send => {
                 // Reset error state
                 state.error = None;
-                state.completion.reset();
 
-                // Parse message
-                let content = match state.input.parse::<Command>() {
-                    Ok(command) => Content::Command(command),
-                    Err(command::Error::MissingSlash) => Content::Text(state.input.clone()),
-                    Err(error) => {
-                        state.error = Some(error.to_string());
-                        return None;
-                    }
-                };
+                if let Some(command) = state.completion.select() {
+                    state.input = command;
+                    Some(self.on_completion.clone())
+                } else {
+                    state.completion.reset();
 
-                // Clear message, we parsed it succesfully
-                state.input = String::new();
+                    // Parse message
+                    let content = match state.input.parse::<Command>() {
+                        Ok(command) => Content::Command(command),
+                        Err(command::Error::MissingSlash) => Content::Text(state.input.clone()),
+                        Err(error) => {
+                            state.error = Some(error.to_string());
+                            return None;
+                        }
+                    };
 
-                Some((self.on_submit)(content))
+                    // Clear message, we parsed it succesfully
+                    state.input = String::new();
+
+                    Some((self.on_submit)(content))
+                }
+            }
+            Event::Tab => {
+                state.completion.tab();
+                None
             }
         }
     }
@@ -92,12 +109,24 @@ impl<'a, Message> Component<Message, Renderer> for Input<'a, Message> {
             theme::TextInput::Default
         };
 
-        let input = text_input("Send message...", &state.input)
+        let text_input = text_input("Send message...", &state.input)
             .on_input(Event::Input)
             .on_submit(Event::Send)
             .id(self.id.clone())
             .padding(8)
-            .style(style);
+            .style(style)
+            .into();
+
+        let input = if state.completion.is_selecting() {
+            key_press(
+                text_input,
+                key_press::KeyCode::Tab,
+                key_press::Modifiers::default(),
+                Event::Tab,
+            )
+        } else {
+            text_input
+        };
 
         let overlay = state
             .error
@@ -120,7 +149,7 @@ fn error<'a, Message: 'a>(error: impl ToString) -> Element<'a, Message> {
 
 impl<'a, Message> From<Input<'a, Message>> for Element<'a, Message>
 where
-    Message: 'a,
+    Message: 'a + Clone,
 {
     fn from(input: Input<'a, Message>) -> Self {
         component(input)

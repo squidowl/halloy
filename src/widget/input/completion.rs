@@ -103,26 +103,36 @@ impl Completion {
         }
     }
 
-    pub fn is_active(&self) -> bool {
+    pub fn is_selecting(&self) -> bool {
+        match self.selection {
+            Selection::None | Selection::Highlighted(_) => !self.filtered_entries.is_empty(),
+            Selection::Selected(_) => false,
+        }
+    }
+
+    fn is_active(&self) -> bool {
         match self.selection {
             Selection::None | Selection::Highlighted(_) => !self.filtered_entries.is_empty(),
             Selection::Selected(_) => true,
         }
     }
 
-    pub fn select(&mut self) {
+    pub fn select(&mut self) -> Option<String> {
         match self.selection {
             Selection::None => {
                 self.filtered_entries = vec![];
             }
             Selection::Highlighted(index) => {
                 if let Some(entry) = self.filtered_entries.get(index).cloned() {
+                    let command = format!("/{}", entry.title);
                     self.filtered_entries = vec![];
                     self.selection = Selection::Selected(entry);
+                    return Some(command);
                 }
             }
             Selection::Selected(_) => {}
         }
+        None
     }
 
     pub fn tab(&mut self) {
