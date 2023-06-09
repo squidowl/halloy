@@ -37,14 +37,19 @@ impl FromStr for Command {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (_, rest) = s.split_once('/').ok_or(Error::MissingSlash)?;
+        let (head, rest) = s.split_once('/').ok_or(Error::MissingSlash)?;
+        // Don't allow leading whitespace before slash
+        if !head.is_empty() {
+            return Err(Error::MissingSlash);
+        }
+
         let mut split = rest.split_ascii_whitespace();
 
-        let command_str = split.next().ok_or(Error::MissingCommand)?;
+        let cmd = split.next().ok_or(Error::MissingCommand)?;
         let args = split.collect::<Vec<_>>();
 
-        match command_str.parse::<Kind>() {
-            Ok(command) => match command {
+        match cmd.parse::<Kind>() {
+            Ok(kind) => match kind {
                 Kind::Join => validated::<1, 2>(args, |[chanlist], [chankeys, real_name]| {
                     Command::Join(chanlist.to_string(), chankeys, real_name)
                 }),
@@ -53,7 +58,7 @@ impl FromStr for Command {
                 Kind::Quit => validated::<0, 1>(args, |_, [comment]| Command::Quit(comment)),
             },
             Err(_) => Ok(Command::Unknown(
-                command_str.to_string(),
+                cmd.to_string(),
                 args.into_iter().map(String::from).collect(),
             )),
         }

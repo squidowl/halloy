@@ -10,6 +10,7 @@ use crate::widget::{input, Collection, Column, Element};
 #[derive(Debug, Clone)]
 pub enum Message {
     Send(input::Content),
+    CompletionSelected,
 }
 
 #[derive(Debug, Clone)]
@@ -51,7 +52,13 @@ pub fn view<'a>(
     .height(Length::Fill);
 
     let spacing = is_focused.then_some(vertical_space(4));
-    let text_input = is_focused.then(|| input(state.input_id.clone(), Message::Send));
+    let text_input = is_focused.then(|| {
+        input(
+            state.input_id.clone(),
+            Message::Send,
+            Message::CompletionSelected,
+        )
+    });
 
     // TODO: Maybe we should show it to the right instead of left.
     let users = if state.show_users {
@@ -142,6 +149,9 @@ impl Channel {
                     scrollable::snap_to(self.scrollable.clone(), scrollable::RelativeOffset::END),
                     None,
                 );
+            }
+            Message::CompletionSelected => {
+                return (input::move_cursor_to_end(self.input_id.clone()), None);
             }
         }
     }

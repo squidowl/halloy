@@ -2,11 +2,13 @@
 pub use self::anchored_overlay::anchored_overlay;
 pub use self::collection::Collection;
 pub use self::input::input;
+pub use self::key_press::key_press;
 use crate::Theme;
 
 pub mod anchored_overlay;
 pub mod collection;
 pub mod input;
+pub mod key_press;
 
 pub type Renderer = iced::Renderer<Theme>;
 pub type Element<'a, Message> = iced::Element<'a, Message, Renderer>;
