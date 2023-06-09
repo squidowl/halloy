@@ -478,6 +478,9 @@ dependencies = [
  "irc",
  "log",
  "palette",
+ "rand",
+ "rand_chacha",
+ "seahash",
  "serde",
  "serde_yaml",
  "thiserror",
@@ -2229,6 +2232,12 @@ dependencies = [
  "smithay-client-toolkit",
  "tiny-skia 0.8.4",
 ]
+
+[[package]]
+name = "seahash"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
 
 [[package]]
 name = "security-framework"

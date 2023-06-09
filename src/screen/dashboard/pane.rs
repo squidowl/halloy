@@ -17,6 +17,7 @@ pub struct Mapper<Message> {
     pub on_split: fn(Axis) -> Message,
     pub on_maximize: Message,
     pub on_users: Message,
+    pub on_unique_user_colors: Message,
 }
 
 #[derive(Clone)]
@@ -110,6 +111,22 @@ impl TitleBar {
             });
 
             controls = controls.push(users);
+
+            let unique_user_colors = button(
+                container(icon::palette())
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x()
+                    .center_y(),
+            )
+            .width(22)
+            .height(22)
+            .on_press(mapper.on_unique_user_colors.clone())
+            .style(theme::Button::Pane {
+                selected: state.is_showing_unique_user_colors(),
+            });
+
+            controls = controls.push(unique_user_colors);
         }
 
         // If we have more than one pane open, show delete and maximize button.

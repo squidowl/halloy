@@ -1,5 +1,7 @@
 use irc::proto::{Command, Response};
 
+use crate::User;
+
 pub enum Source {
     Server,
     Channel(String),
@@ -47,13 +49,13 @@ impl Message {
         }
     }
 
-    pub fn nickname(&self) -> Option<&str> {
+    pub fn user(&self) -> Option<User> {
         match &self {
-            Message::Sent { nickname, .. } => Some(nickname.as_str()),
-            Message::Received(message) => message.prefix.as_ref().and_then(|prefix| match prefix {
-                irc::proto::Prefix::ServerName(_) => None,
-                irc::proto::Prefix::Nickname(nickname, _, _) => Some(nickname.as_str()),
-            }),
+            Message::Sent { nickname, .. } => Some(User::new(nickname)),
+            Message::Received(message) => message
+                .prefix
+                .as_ref()
+                .and_then(|prefix| User::try_from(prefix).ok()),
         }
     }
 }

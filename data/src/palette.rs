@@ -1,6 +1,8 @@
 use iced::Color;
 use palette::rgb::Rgb;
 use palette::{DarkenAssign, FromColor, LightenAssign, Okhsl, Srgb};
+use rand::prelude::*;
+use rand_chacha::ChaChaRng;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Palette {
@@ -48,6 +50,29 @@ fn hex_to_color(hex: &str) -> Option<Color> {
     }
 
     None
+}
+
+/// Randomizes the hue value of an `iced::Color` based on a seed.
+pub fn randomize_color(original_color: Color, seed: &str) -> Color {
+    // Generate a 64-bit hash from the seed string
+    let seed_hash = seahash::hash(seed.as_bytes());
+
+    // Create a random number generator from the seed
+    let mut rng = ChaChaRng::seed_from_u64(seed_hash);
+
+    // Convert the original color to HSL
+    let original_hsl = to_hsl(original_color);
+
+    // Randomize the hue value using the random number generator
+    let randomized_hue: f32 = rng.gen_range(0.0..=360.0);
+    let randomized_hsl = Okhsl::new(
+        randomized_hue,
+        original_hsl.saturation,
+        original_hsl.lightness,
+    );
+
+    // Convert the randomized HSL color back to Color
+    from_hsl(randomized_hsl)
 }
 
 pub fn is_dark(color: Color) -> bool {
