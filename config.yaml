@@ -18,7 +18,8 @@ palette:
 # For fields under server, please refer to: https://docs.rs/irc/0.15.0/irc/client/data/config/struct.Config.html#fields
 
 servers:
-  - nickname: halloy
+  liberachat:
+    nickname: halloy
     server: irc.libera.chat
     port: 6697
     use_tls: true
