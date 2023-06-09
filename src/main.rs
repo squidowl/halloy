@@ -13,6 +13,7 @@ use data::config::Config;
 use data::stream;
 use iced::widget::container;
 use iced::{executor, keyboard, subscription, Application, Command, Length, Subscription};
+use tokio::sync::mpsc;
 
 use self::screen::dashboard;
 pub use self::theme::Theme;
@@ -50,6 +51,7 @@ struct Halloy {
     theme: Theme,
     config: Config,
     clients: data::client::Map,
+    stream: Option<mpsc::Sender<stream::Message>>,
 }
 
 enum Screen {
@@ -86,6 +88,7 @@ impl Application for Halloy {
                 theme: Theme::new_from_palette(config.palette),
                 config,
                 clients,
+                stream: None,
             },
             Command::batch(vec![font::load().map(Message::FontsLoaded)]),
         )
@@ -116,6 +119,10 @@ impl Application for Halloy {
                     for server in self.config.servers.clone() {
                         let _ = sender.blocking_send(stream::Message::Connect(server));
                     }
+
+                    // Hold this to prevent the channel from closing and
+                    // putting stream into a loop
+                    self.stream = Some(sender);
 
                     Command::none()
                 }
