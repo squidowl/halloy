@@ -2,8 +2,11 @@ use data::{command, Command};
 pub use iced::widget::text_input::focus;
 use iced::widget::{component, container, row, text, text_input, Component};
 
+use self::completion::Completion;
 use super::{anchored_overlay, Element, Renderer};
 use crate::theme;
+
+mod completion;
 
 pub type Id = text_input::Id;
 
@@ -42,6 +45,7 @@ pub struct Input<'a, Message> {
 pub struct State {
     input: String,
     error: Option<String>,
+    completion: Completion,
 }
 
 impl<'a, Message> Component<Message, Renderer> for Input<'a, Message> {
@@ -53,11 +57,15 @@ impl<'a, Message> Component<Message, Renderer> for Input<'a, Message> {
             Event::Input(input) => {
                 state.error = None;
                 state.input = input;
+
+                state.completion.process(&state.input);
+
                 None
             }
             Event::Send => {
                 // Reset error state
                 state.error = None;
+                state.completion.reset();
 
                 // Parse message
                 let content = match state.input.parse::<Command>() {
@@ -91,13 +99,14 @@ impl<'a, Message> Component<Message, Renderer> for Input<'a, Message> {
             .padding(8)
             .style(style);
 
-        let error = state
+        let overlay = state
             .error
             .as_ref()
             .map(error)
+            .or_else(|| state.completion.view(&state.input))
             .unwrap_or_else(|| row![].into());
 
-        anchored_overlay(input, error)
+        anchored_overlay(input, overlay)
     }
 }
 

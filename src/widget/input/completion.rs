@@ -1,0 +1,236 @@
+use std::fmt;
+
+use iced::widget::{column, container, row, text};
+
+use crate::{theme, widget::Element};
+
+#[derive(Debug, Clone)]
+pub struct Completion {
+    selection: Selection,
+    entries: Vec<Entry>,
+    filtered_entries: Vec<Entry>,
+}
+
+impl Default for Completion {
+    fn default() -> Self {
+        Self {
+            selection: Selection::None,
+            // TODO: Macro magic all commands as entries or manually add them all :(
+            entries: vec![
+                Entry {
+                    title: "JOIN".into(),
+                    args: vec![
+                        Arg {
+                            text: "channels".into(),
+                            optional: false,
+                        },
+                        Arg {
+                            text: "keys".into(),
+                            optional: true,
+                        },
+                    ],
+                },
+                Entry {
+                    title: "NICK".into(),
+                    args: vec![Arg {
+                        text: "nickname".into(),
+                        optional: false,
+                    }],
+                },
+                Entry {
+                    title: "MOTD".into(),
+                    args: vec![Arg {
+                        text: "server".into(),
+                        optional: true,
+                    }],
+                },
+            ],
+            filtered_entries: vec![],
+        }
+    }
+}
+
+impl Completion {
+    pub fn reset(&mut self) {
+        self.filtered_entries = vec![];
+        self.selection = Selection::None;
+    }
+
+    pub fn process(&mut self, input: &str) {
+        let Some((head, rest)) = input.split_once('/') else {
+            self.reset();
+            return;
+        };
+        // Don't allow leading whitespace before slash
+        if !head.is_empty() {
+            self.reset();
+            return;
+        }
+
+        let (cmd, has_space) = if let Some(index) = rest.find(' ') {
+            (&rest[0..index], true)
+        } else {
+            (rest, false)
+        };
+
+        match self.selection {
+            // Command not fully typed, show filtered entries
+            _ if !has_space => {
+                self.selection = Selection::None;
+                self.filtered_entries = self
+                    .entries
+                    .iter()
+                    .filter(|entry| entry.title.to_lowercase().starts_with(&cmd.to_lowercase()))
+                    .cloned()
+                    .collect();
+            }
+            // Command fully typed, transition to showing known entry
+            Selection::None | Selection::Highlighted(_) => {
+                self.filtered_entries = vec![];
+                if let Some(entry) = self
+                    .entries
+                    .iter()
+                    .find(|entry| entry.title.to_lowercase() == cmd.to_lowercase())
+                    .cloned()
+                {
+                    self.selection = Selection::Selected(entry);
+                } else {
+                    self.selection = Selection::None;
+                }
+            }
+            // Command fully typed & already selected, do nothing
+            Selection::Selected(_) => {}
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        match self.selection {
+            Selection::None | Selection::Highlighted(_) => !self.filtered_entries.is_empty(),
+            Selection::Selected(_) => true,
+        }
+    }
+
+    pub fn select(&mut self) {
+        match self.selection {
+            Selection::None => {
+                self.filtered_entries = vec![];
+            }
+            Selection::Highlighted(index) => {
+                if let Some(entry) = self.filtered_entries.get(index).cloned() {
+                    self.filtered_entries = vec![];
+                    self.selection = Selection::Selected(entry);
+                }
+            }
+            Selection::Selected(_) => {}
+        }
+    }
+
+    pub fn tab(&mut self) {
+        if let Selection::Highlighted(index) = &mut self.selection {
+            *index = (*index + 1) % self.filtered_entries.len();
+        } else if matches!(self.selection, Selection::None) {
+            self.selection = Selection::Highlighted(0);
+        }
+    }
+
+    pub fn view<'a, Message: 'a>(&self, input: &str) -> Option<Element<'a, Message>> {
+        if self.is_active() {
+            match &self.selection {
+                Selection::None | Selection::Highlighted(_) => {
+                    let entries = self
+                        .filtered_entries
+                        .iter()
+                        .enumerate()
+                        .map(|(index, entry)| {
+                            // TODO: New styles
+                            let style = if Some(index) == self.selection.highlighted() {
+                                theme::Container::PaneBody { selected: true }
+                            } else {
+                                theme::Container::Primary
+                            };
+
+                            Element::from(
+                                container(text(format!("/{}", entry.title)))
+                                    .padding(8)
+                                    .style(style)
+                                    .center_y(),
+                            )
+                        })
+                        .collect();
+
+                    Some(column(entries).into())
+                }
+                Selection::Selected(entry) => Some(entry.view(input)),
+            }
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Selection {
+    None,
+    Highlighted(usize),
+    Selected(Entry),
+}
+
+impl Selection {
+    fn highlighted(&self) -> Option<usize> {
+        if let Self::Highlighted(index) = self {
+            Some(*index)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Entry {
+    title: String,
+    args: Vec<Arg>,
+}
+
+impl Entry {
+    pub fn view<'a, Message: 'a>(&self, input: &str) -> Element<'a, Message> {
+        let active_arg = [input, "_"]
+            .concat()
+            .split_ascii_whitespace()
+            .count()
+            .saturating_sub(2);
+
+        let title = Some(Element::from(text(&self.title)));
+
+        let args = self.args.iter().enumerate().map(|(index, arg)| {
+            let style = if index == active_arg {
+                theme::Text::Accent
+            } else {
+                theme::Text::Default
+            };
+
+            Element::from(text(format!(" {arg}")).style(style))
+        });
+
+        container(row(title.into_iter().chain(args).collect()))
+            .style(theme::Container::Primary)
+            .padding(8)
+            .center_y()
+            .into()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Arg {
+    text: String,
+    optional: bool,
+}
+
+impl fmt::Display for Arg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.optional {
+            write!(f, "[<{}>]", self.text)
+        } else {
+            write!(f, "<{}>", self.text)
+        }
+    }
+}
