@@ -25,13 +25,17 @@ pub fn view<'a>(
         .get_channel_messages(&state.server, &state.channel)
         .into_iter()
         .filter_map(|message| {
-            let nickname = message.nickname().unwrap_or_default();
+            let user = message.user()?;
             let message = message.text()?;
 
             Some(
                 container(
                     row![
-                        text(format!("<{nickname}>")).style(theme::Text::Accent),
+                        text(format!("<{}>", user.nickname())).style(theme::Text::Nickname(
+                            state
+                                .unique_user_colors
+                                .then(|| user.color_seed().to_string())
+                        )),
                         text(message)
                     ]
                     .spacing(4),
@@ -116,6 +120,7 @@ pub struct Channel {
     pub scrollable: scrollable::Id,
     input_id: input::Id,
     show_users: bool,
+    unique_user_colors: bool,
 }
 
 impl Channel {
@@ -127,6 +132,7 @@ impl Channel {
             scrollable: scrollable::Id::unique(),
             input_id: input::Id::unique(),
             show_users: true,
+            unique_user_colors: true,
         }
     }
 
@@ -164,8 +170,16 @@ impl Channel {
         self.show_users = !self.show_users;
     }
 
+    pub(crate) fn toggle_unique_user_colors(&mut self) {
+        self.unique_user_colors = !self.unique_user_colors;
+    }
+
     pub(crate) fn is_showing_users(&self) -> bool {
         self.show_users
+    }
+
+    pub(crate) fn is_showing_unique_user_colors(&self) -> bool {
+        self.unique_user_colors
     }
 }
 

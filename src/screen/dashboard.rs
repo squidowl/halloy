@@ -31,6 +31,7 @@ pub enum Message {
     SplitPane(pane_grid::Axis),
     MaximizePane,
     Users,
+    UniqueUserColors,
 }
 
 pub enum Event {}
@@ -99,12 +100,10 @@ impl Dashboard {
                 }
             }
             Message::Pane(message) => {
-                if let Some(pane) = self.focus {
-                    if let Some(pane) = self.panes.get_mut(&pane) {
-                        let command = pane.update(message);
+                if let Some(pane) = self.get_focused_mut() {
+                    let command = pane.update(message);
 
-                        return (command.map(Message::Pane), None);
-                    }
+                    return (command.map(Message::Pane), None);
                 }
             }
             Message::Buffer(id, message) => {
@@ -125,13 +124,11 @@ impl Dashboard {
                 }
             }
             Message::Users => {
-                if let Some(pane) = self.focus {
-                    if let Some(pane) = self.panes.get_mut(&pane) {
-                        match &mut pane.buffer {
-                            Buffer::Channel(state) => state.toggle_show_users(),
-                            Buffer::Empty(_) => {}
-                            Buffer::Server(_) => {}
-                        }
+                if let Some(pane) = self.get_focused_mut() {
+                    match &mut pane.buffer {
+                        Buffer::Channel(state) => state.toggle_show_users(),
+                        Buffer::Empty(_) => {}
+                        Buffer::Server(_) => {}
                     }
                 }
             }
@@ -250,6 +247,15 @@ impl Dashboard {
                     self.panes.maximize(&pane);
                 }
             }
+            Message::UniqueUserColors => {
+                if let Some(pane) = self.get_focused_mut() {
+                    match &mut pane.buffer {
+                        Buffer::Channel(state) => state.toggle_unique_user_colors(),
+                        Buffer::Empty(_) => {}
+                        Buffer::Server(_) => {}
+                    }
+                }
+            }
         }
 
         (Command::none(), None)
@@ -269,6 +275,7 @@ impl Dashboard {
                     on_split: Message::SplitPane,
                     on_maximize: Message::MaximizePane,
                     on_users: Message::Users,
+                    on_unique_user_colors: Message::UniqueUserColors,
                 },
                 id,
                 panes,
@@ -349,6 +356,11 @@ impl Dashboard {
         }
 
         Command::none()
+    }
+
+    fn get_focused_mut(&mut self) -> Option<&mut Pane> {
+        let pane = self.focus?;
+        self.panes.get_mut(&pane)
     }
 
     fn focus_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
