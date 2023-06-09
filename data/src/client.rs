@@ -29,10 +29,10 @@ impl Connection {
         }
     }
 
-    fn send_privmsg(&mut self, target: String, text: impl fmt::Display) {
+    fn send_channel_message(&mut self, channel: String, text: impl fmt::Display) {
         let text = text.to_string();
 
-        let command = proto::Command::PRIVMSG(target.clone(), text.clone());
+        let command = proto::Command::PRIVMSG(channel.clone(), text.clone());
         let proto_message = irc::proto::Message::from(command);
         // TODO: Handle error
         if let Err(e) = self.client.send(proto_message) {
@@ -42,7 +42,29 @@ impl Connection {
         self.messages.push(Message {
             timestamp: 0,
             direction: message::Direction::Sent,
-            source: message::Source::Channel(target, User::new(self.nickname(), None, None)),
+            source: message::Source::Channel(channel, User::new(self.nickname(), None, None)),
+            text,
+        });
+    }
+
+    fn send_user_message(&mut self, user: User, text: impl fmt::Display) {
+        let text = text.to_string();
+
+        let target = user
+            .hostname()
+            .unwrap_or_else(|| user.nickname())
+            .to_string();
+        let command = proto::Command::PRIVMSG(target, text.clone());
+        let proto_message = irc::proto::Message::from(command);
+        // TODO: Handle error
+        if let Err(e) = self.client.send(proto_message) {
+            dbg!(&e);
+        }
+
+        self.messages.push(Message {
+            timestamp: 0,
+            direction: message::Direction::Sent,
+            source: message::Source::Private(user),
             text,
         });
     }
@@ -138,7 +160,7 @@ impl Map {
 
     pub fn send_privmsg(&mut self, server: &Server, channel: &str, text: impl fmt::Display) {
         if let Some(connection) = self.connection_mut(server) {
-            connection.send_privmsg(channel.to_string(), text);
+            connection.send_channel_message(channel.to_string(), text);
         }
     }
 
