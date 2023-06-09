@@ -26,7 +26,6 @@ pub fn view<'a>(
         .into_iter()
         .filter_map(|message| {
             let user = message.user()?;
-            let message = message.text()?;
 
             Some(
                 container(
@@ -36,7 +35,7 @@ pub fn view<'a>(
                                 .unique_user_colors
                                 .then(|| user.color_seed().to_string())
                         )),
-                        text(message)
+                        text(&message.text)
                     ]
                     .spacing(4),
                 )

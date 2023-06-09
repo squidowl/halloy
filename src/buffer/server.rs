@@ -22,7 +22,7 @@ pub fn view<'a>(
     let messages: Vec<Element<'a, Message>> = clients
         .get_server_messages(&state.server)
         .into_iter()
-        .filter_map(|message| Some(container(text(message.text()?)).into()))
+        .filter_map(|message| Some(container(text(&message.text)).into()))
         .collect();
 
     let messages = container(

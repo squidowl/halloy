@@ -137,6 +137,7 @@ impl Application for Halloy {
                     Command::none()
                 }
                 stream::Event::MessageReceived(server, message) => {
+                    // log::debug!("Message received: {message:?}");
                     let Some(source) = self.clients.add_message(&server, message) else {
                         return Command::none();
                     };

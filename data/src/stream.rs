@@ -3,8 +3,8 @@ use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 
 use crate::client::Connection;
+use crate::server;
 use crate::server::Server;
-use crate::{message, server};
 
 pub type Result<T = Event, E = Error> = std::result::Result<T, E>;
 
@@ -17,7 +17,7 @@ pub enum Error {
 pub enum Event {
     Ready(mpsc::Sender<Message>),
     Connected(Server, Connection),
-    MessageReceived(Server, message::Message),
+    MessageReceived(Server, irc::proto::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -127,10 +127,7 @@ pub fn run() -> BoxStream<'static, Result> {
                         );
 
                         return Some((
-                            Ok(Event::MessageReceived(
-                                server,
-                                message::Message::Received(message),
-                            )),
+                            Ok(Event::MessageReceived(server, message)),
                             State::Connected { receiver, servers },
                         ));
                     }

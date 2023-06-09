@@ -341,7 +341,7 @@ impl Dashboard {
                     );
                 }
             }
-            message::Source::Channel(channel) => {
+            message::Source::Channel(channel, _) => {
                 if let Some(channel) = self
                     .panes
                     .iter()
@@ -353,6 +353,8 @@ impl Dashboard {
                     );
                 }
             }
+            // TODO:
+            message::Source::Private(_) => {}
         }
 
         Command::none()

@@ -30,21 +30,21 @@ impl Connection {
     }
 
     fn send_privmsg(&mut self, target: String, text: impl fmt::Display) {
-        let command = proto::Command::PRIVMSG(target, text.to_string());
+        let text = text.to_string();
 
+        let command = proto::Command::PRIVMSG(target.clone(), text.clone());
         let proto_message = irc::proto::Message::from(command);
-
-        let message = Message::Sent {
-            nickname: self.nickname().to_string(),
-            message: proto_message.clone(),
-        };
-
         // TODO: Handle error
         if let Err(e) = self.client.send(proto_message) {
             dbg!(&e);
         }
 
-        self.messages.push(message);
+        self.messages.push(Message {
+            timestamp: 0,
+            direction: message::Direction::Sent,
+            source: message::Source::Channel(target, User::new(self.nickname(), None, None)),
+            text,
+        });
     }
 
     fn send_command(&mut self, command: Command) {
@@ -53,20 +53,12 @@ impl Connection {
         let Ok(command) = proto::Command::try_from(command) else {
             return;
         };
-
         let proto_message = irc::proto::Message::from(command);
-
-        let message = Message::Sent {
-            nickname: self.nickname().to_string(),
-            message: proto_message.clone(),
-        };
 
         // TODO: Handle error
         if let Err(e) = self.client.send(proto_message) {
             dbg!(&e);
         }
-
-        self.messages.push(message);
     }
 
     fn channels(&self) -> Vec<String> {
@@ -126,16 +118,22 @@ impl Map {
         }
     }
 
-    pub fn add_message(&mut self, server: &Server, message: Message) -> Option<message::Source> {
+    pub fn add_message(
+        &mut self,
+        server: &Server,
+        message: irc::proto::Message,
+    ) -> Option<message::Source> {
         if let Some(State::Ready(connection)) = self.0.get_mut(server) {
-            let source = message.source(&connection.channels());
+            if let Some(message) = Message::received(message) {
+                let source = message.source.clone();
 
-            connection.messages.push(message);
+                connection.messages.push(message);
 
-            source
-        } else {
-            None
+                return Some(source);
+            }
         }
+
+        None
     }
 
     pub fn send_privmsg(&mut self, server: &Server, channel: &str, text: impl fmt::Display) {
@@ -177,7 +175,7 @@ impl Map {
                 connection
                     .messages
                     .iter()
-                    .filter(|message| message.is_for_channel(channel))
+                    .filter(|message| message.channel() == Some(channel))
                     .collect()
             })
             .unwrap_or_default()
@@ -189,7 +187,7 @@ impl Map {
                 connection
                     .messages
                     .iter()
-                    .filter(|message| message.is_server_message(&connection.channels()))
+                    .filter(|message| message.is_server())
                     .collect()
             })
             .unwrap_or_default()
