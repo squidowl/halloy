@@ -76,8 +76,12 @@ impl Application for Halloy {
 
         let mut clients = data::client::Map::default();
 
-        for server in &config.servers {
-            clients.disconnected(server.server.clone().expect("config server").into());
+        for (server, server_config) in &config.servers {
+            let server = data::Server::new(
+                server,
+                server_config.server.as_ref().expect("server hostname"),
+            );
+            clients.disconnected(server);
         }
 
         (
@@ -113,8 +117,8 @@ impl Application for Halloy {
                 stream::Event::Ready(sender) => {
                     log::debug!("Client ready to receive connections");
 
-                    for server in self.config.servers.clone() {
-                        let _ = sender.blocking_send(stream::Message::Connect(server));
+                    for (name, config) in self.config.servers.clone() {
+                        let _ = sender.blocking_send(stream::Message::Connect(name, config));
                     }
 
                     Command::none()

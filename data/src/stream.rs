@@ -22,7 +22,7 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Connect(server::Config),
+    Connect(String, server::Config),
 }
 
 enum State {
@@ -37,6 +37,7 @@ enum State {
 }
 
 struct ServerData {
+    name: String,
     config: server::Config,
     stream: irc::client::ClientStream,
 }
@@ -54,14 +55,16 @@ pub fn run() -> BoxStream<'static, Result> {
                 Some((Ok(Event::Ready(sender)), State::Ready { receiver }))
             }
             State::Ready { mut receiver } => loop {
-                if let Some(Message::Connect(config)) = receiver.recv().await {
+                if let Some(Message::Connect(name, config)) = receiver.recv().await {
                     match connect(config.clone()).await {
                         Ok((stream, connection)) => {
                             let servers = vec![ServerData {
+                                name: name.clone(),
                                 config: config.clone(),
                                 stream,
                             }];
-                            let server = config.server.clone().expect("expected server").into();
+                            let server =
+                                Server::new(name, config.server.as_ref().expect("server hostname"));
 
                             return Some((
                                 Ok(Event::Connected(server, connection)),
@@ -91,13 +94,17 @@ pub fn run() -> BoxStream<'static, Result> {
 
                 match input {
                     Input::Message(Some(message)) => match message {
-                        Message::Connect(config) => match connect(config.clone()).await {
+                        Message::Connect(name, config) => match connect(config.clone()).await {
                             Ok((stream, connection)) => {
                                 servers.push(ServerData {
+                                    name: name.clone(),
                                     config: config.clone(),
                                     stream,
                                 });
-                                let server = config.server.clone().expect("expected server").into();
+                                let server = Server::new(
+                                    name,
+                                    config.server.as_ref().expect("server hostname"),
+                                );
 
                                 return Some((
                                     Ok(Event::Connected(server, connection)),
@@ -114,15 +121,14 @@ pub fn run() -> BoxStream<'static, Result> {
                     },
                     Input::IrcMessage(idx, Ok(message)) => {
                         let server = &servers[idx];
+                        let server = Server::new(
+                            &server.name,
+                            server.config.server.as_ref().expect("server hostname"),
+                        );
 
                         return Some((
                             Ok(Event::MessageReceived(
-                                server
-                                    .config
-                                    .server
-                                    .clone()
-                                    .expect("expected server")
-                                    .into(),
+                                server,
                                 message::Message::Received(message),
                             )),
                             State::Connected { receiver, servers },
