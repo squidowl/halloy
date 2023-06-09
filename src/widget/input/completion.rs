@@ -2,7 +2,8 @@ use std::fmt;
 
 use iced::widget::{column, container, row, text};
 
-use crate::{theme, widget::Element};
+use crate::theme;
+use crate::widget::Element;
 
 #[derive(Debug, Clone)]
 pub struct Completion {
