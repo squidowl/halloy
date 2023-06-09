@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -12,7 +13,7 @@ use crate::server;
 pub struct Config {
     #[serde(default)]
     pub palette: Palette,
-    pub servers: Vec<server::Config>,
+    pub servers: BTreeMap<String, server::Config>,
 }
 
 impl Config {
