@@ -19,6 +19,8 @@ pub enum Event {}
 pub fn view<'a>(
     state: &Channel,
     clients: &data::client::Map,
+    config: &data::channel::Config,
+    user_colors: &data::config::UserColor,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let messages: Vec<Element<'a, Message>> = clients
@@ -30,11 +32,8 @@ pub fn view<'a>(
             Some(
                 container(
                     row![
-                        text(format!("<{}>", user.nickname())).style(theme::Text::Nickname(
-                            state
-                                .unique_user_colors
-                                .then(|| user.color_seed().to_string())
-                        )),
+                        text(format!("<{}>", user.nickname()))
+                            .style(theme::Text::Nickname(user.color_seed(user_colors))),
                         text(&message.text)
                     ]
                     .spacing(4),
@@ -64,7 +63,7 @@ pub fn view<'a>(
     });
 
     // TODO: Maybe we should show it to the right instead of left.
-    let users = if state.show_users {
+    let users = if config.users.visible {
         let users = clients.get_channel_users(&state.server, &state.channel);
         let mut column = column![].padding(4).width(Length::Shrink).spacing(1);
 
@@ -118,8 +117,6 @@ pub struct Channel {
     pub topic: Option<String>,
     pub scrollable: scrollable::Id,
     input_id: input::Id,
-    show_users: bool,
-    unique_user_colors: bool,
 }
 
 impl Channel {
@@ -130,8 +127,6 @@ impl Channel {
             topic: None,
             scrollable: scrollable::Id::unique(),
             input_id: input::Id::unique(),
-            show_users: true,
-            unique_user_colors: true,
         }
     }
 
@@ -163,22 +158,6 @@ impl Channel {
 
     pub fn focus(&self) -> Command<Message> {
         input::focus(self.input_id.clone())
-    }
-
-    pub(crate) fn toggle_show_users(&mut self) {
-        self.show_users = !self.show_users;
-    }
-
-    pub(crate) fn toggle_unique_user_colors(&mut self) {
-        self.unique_user_colors = !self.unique_user_colors;
-    }
-
-    pub(crate) fn is_showing_users(&self) -> bool {
-        self.show_users
-    }
-
-    pub(crate) fn is_showing_unique_user_colors(&self) -> bool {
-        self.unique_user_colors
     }
 }
 

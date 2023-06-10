@@ -7,6 +7,7 @@ pub use self::palette::Palette;
 pub use self::server::Server;
 pub use self::user::User;
 
+pub mod channel;
 pub mod client;
 pub mod command;
 pub mod config;

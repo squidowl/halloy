@@ -17,7 +17,6 @@ pub struct Mapper<Message> {
     pub on_split: fn(Axis) -> Message,
     pub on_maximize: Message,
     pub on_users: Message,
-    pub on_unique_user_colors: Message,
 }
 
 #[derive(Clone)]
@@ -51,6 +50,7 @@ impl Pane {
         is_focused: bool,
         maximized: bool,
         clients: &data::client::Map,
+        config: &data::config::Config,
     ) -> widget::Content<'a, M> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty(state) => state.to_string(),
@@ -66,11 +66,12 @@ impl Pane {
             panes,
             is_focused,
             maximized,
+            config,
         );
 
         let content = self
             .buffer
-            .view(clients, is_focused)
+            .view(clients, config, is_focused)
             .map(move |msg| (mapper.buffer)(id, msg));
 
         widget::Content::new(content)
@@ -91,11 +92,14 @@ impl TitleBar {
         panes: usize,
         _is_focused: bool,
         maximized: bool,
+        config: &data::config::Config,
     ) -> widget::TitleBar<'a, M> {
         // Pane controls.
         let mut controls = row![].spacing(2);
 
         if let Buffer::Channel(state) = &buffer {
+            let config = config.channel_config(&state.server.name, &state.channel);
+
             let users = button(
                 container(icon::people())
                     .width(Length::Fill)
@@ -107,26 +111,10 @@ impl TitleBar {
             .height(22)
             .on_press(mapper.on_users.clone())
             .style(theme::Button::Pane {
-                selected: state.is_showing_users(),
+                selected: config.users.visible,
             });
 
             controls = controls.push(users);
-
-            let unique_user_colors = button(
-                container(icon::palette())
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .center_x()
-                    .center_y(),
-            )
-            .width(22)
-            .height(22)
-            .on_press(mapper.on_unique_user_colors.clone())
-            .style(theme::Button::Pane {
-                selected: state.is_showing_unique_user_colors(),
-            });
-
-            controls = controls.push(unique_user_colors);
         }
 
         // If we have more than one pane open, show delete and maximize button.

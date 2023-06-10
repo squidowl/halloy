@@ -54,6 +54,17 @@ struct Halloy {
     stream: Option<mpsc::Sender<stream::Message>>,
 }
 
+impl Halloy {
+    fn config(&self) -> Config {
+        Config {
+            palette: self.config.palette,
+            servers: self.config.servers.clone(),
+            channels: self.config.channels.clone(),
+            user_colors: self.config.user_colors.clone(),
+        }
+    }
+}
+
 enum Screen {
     Dashboard(screen::Dashboard),
 }
@@ -64,6 +75,7 @@ enum Message {
     Stream(stream::Result),
     Event(iced::Event),
     FontsLoaded(Result<(), iced::font::Error>),
+    ConfigSaved(Result<(), data::config::Error>),
 }
 
 impl Application for Halloy {
@@ -106,11 +118,18 @@ impl Application for Halloy {
         match message {
             Message::Dashboard(message) => match &mut self.screen {
                 Screen::Dashboard(dashboard) => {
-                    let (command, event) = dashboard.update(message, &mut self.clients);
+                    let (command, event) =
+                        dashboard.update(message, &mut self.clients, &mut self.config);
 
-                    match event {
-                        Some(event) => match event {},
-                        None => {}
+                    if let Some(event) = event {
+                        match event {
+                            dashboard::Event::SaveSettings => {
+                                return Command::perform(
+                                    self.config().save(),
+                                    Message::ConfigSaved,
+                                );
+                            }
+                        }
                     }
 
                     command.map(Message::Dashboard)
@@ -137,7 +156,6 @@ impl Application for Halloy {
                     Command::none()
                 }
                 stream::Event::MessageReceived(server, message) => {
-                    // log::debug!("Message received: {message:?}");
                     let Some(source) = self.clients.add_message(&server, message) else {
                         return Command::none();
                     };
@@ -181,12 +199,19 @@ impl Application for Halloy {
 
                 Command::none()
             }
+            Message::ConfigSaved(Ok(_)) => Command::none(),
+            Message::ConfigSaved(Err(error)) => {
+                log::error!("config saved failed: {error:?}");
+                Command::none()
+            }
         }
     }
 
     fn view(&self) -> Element<Message> {
         let content = match &self.screen {
-            Screen::Dashboard(dashboard) => dashboard.view(&self.clients).map(Message::Dashboard),
+            Screen::Dashboard(dashboard) => dashboard
+                .view(&self.clients, &self.config)
+                .map(Message::Dashboard),
         };
 
         container(content)

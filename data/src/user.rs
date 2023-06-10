@@ -1,5 +1,7 @@
 use irc::client::data;
 
+use crate::config;
+
 #[derive(Debug, Clone)]
 pub struct User(data::User);
 
@@ -15,8 +17,17 @@ impl User {
         Self(data::User::new(&formatted))
     }
 
-    pub fn color_seed(&self) -> &str {
-        self.hostname().unwrap_or_else(|| self.nickname())
+    pub fn color_seed(&self, user_colors: &config::UserColor) -> Option<String> {
+        match user_colors {
+            config::UserColor::Solid => None,
+            config::UserColor::Unique => {
+                Some(self.hostname().unwrap_or(self.nickname()).to_string())
+            }
+        }
+    }
+
+    pub fn username(&self) -> Option<&str> {
+        self.0.get_username()
     }
 
     pub fn nickname(&self) -> &str {
