@@ -7,13 +7,33 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::palette::Palette;
-use crate::server;
+use crate::{channel, server};
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Config {
     #[serde(default)]
     pub palette: Palette,
     pub servers: BTreeMap<String, server::Config>,
+    #[serde(default)]
+    pub channels: BTreeMap<String, BTreeMap<String, channel::Config>>,
+    #[serde(default)]
+    pub user_colors: UserColor,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub enum UserColor {
+    Solid,
+    #[default]
+    Unique,
+}
+
+impl UserColor {
+    pub fn unique_colors(&self) -> bool {
+        match self {
+            UserColor::Solid => false,
+            UserColor::Unique => true,
+        }
+    }
 }
 
 impl Config {
@@ -28,8 +48,7 @@ impl Config {
         Ok(dir)
     }
 
-    // TODO: Futher down the road it make sense to make changes to config and then save.
-    pub async fn _save(self) -> Result<(), Error> {
+    pub async fn save(self) -> Result<(), Error> {
         let mut config_dir = Self::config_dir()?;
         config_dir.push("config.yaml");
 
@@ -58,6 +77,27 @@ impl Config {
                 None
             }
         }
+    }
+
+    pub fn channel_config(&self, server: &str, channel: &str) -> channel::Config {
+        self.channels
+            .get(server)
+            .and_then(|channels| channels.get(channel))
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub fn channel_config_mut(&mut self, server: &str, channel: &str) -> &mut channel::Config {
+        let servers = self
+            .channels
+            .entry(server.to_string())
+            .or_insert(BTreeMap::new());
+
+        let config = servers
+            .entry(channel.to_string())
+            .or_insert_with_key(|_| Default::default());
+
+        config
     }
 }
 

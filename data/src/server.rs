@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Server {
-    name: String,
-    hostname: String,
+    pub name: String,
+    pub hostname: String,
 }
 
 impl Server {

@@ -57,12 +57,17 @@ impl Buffer {
     pub fn view<'a>(
         &'a self,
         clients: &data::client::Map,
+        config: &data::config::Config,
         is_focused: bool,
     ) -> Element<'a, Message> {
         match self {
             Buffer::Empty(state) => empty::view(state, clients).map(Message::Empty),
             Buffer::Channel(state) => {
-                channel::view(state, clients, is_focused).map(Message::Channel)
+                let user_colors = config.user_colors.clone();
+                let config = config.channel_config(&state.server.name, &state.channel);
+
+                channel::view(state, clients, &config, &user_colors, is_focused)
+                    .map(Message::Channel)
             }
             Buffer::Server(state) => server::view(state, clients, is_focused).map(Message::Server),
         }
