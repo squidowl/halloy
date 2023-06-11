@@ -177,15 +177,19 @@ impl Map {
     }
 
     pub fn get_channels(&self) -> BTreeMap<Server, Vec<String>> {
+        let mut servers = Vec::from_iter(self.0.iter());
+        servers.sort_by(|(s1, _), (s2, _)| s2.name.cmp(&s1.name));
+
         let mut map = BTreeMap::new();
 
-        for (server, _) in self.0.iter() {
-            map.insert(
-                server.clone(),
-                self.connection(server)
-                    .map(|connection| connection.channels())
-                    .unwrap_or_default(),
-            );
+        for (server, _) in servers.into_iter() {
+            let mut channels = self
+                .connection(server)
+                .map(|connection| connection.channels())
+                .unwrap_or_default();
+            channels.sort();
+
+            map.insert(server.clone(), channels);
         }
 
         map

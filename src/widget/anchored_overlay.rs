@@ -184,7 +184,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
         .height(Length::Fill);
 
         let mut node = self.content.as_widget().layout(renderer, &limits);
-        node.move_to(position - Vector::new(0.0, node.size().height));
+        node.move_to(position - Vector::new(0.0, node.size().height + 4.0));
 
         node
     }
