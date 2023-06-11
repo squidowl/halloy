@@ -41,7 +41,7 @@ impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
         theme: &Theme,
         style: &renderer::Style,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
         self.base.as_widget().draw(
@@ -50,7 +50,7 @@ impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
             theme,
             style,
             layout,
-            cursor_position,
+            cursor,
             viewport,
         )
     }
@@ -92,7 +92,7 @@ impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
         tree: &mut widget::Tree,
         event: Event,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
@@ -101,7 +101,7 @@ impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
             &mut tree.children[0],
             event,
             layout,
-            cursor_position,
+            cursor,
             renderer,
             clipboard,
             shell,
@@ -112,14 +112,14 @@ impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
         &self,
         tree: &widget::Tree,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         viewport: &Rectangle,
         renderer: &Renderer,
     ) -> mouse::Interaction {
         self.base.as_widget().mouse_interaction(
             &tree.children[0],
             layout,
-            cursor_position,
+            cursor,
             viewport,
             renderer,
         )
@@ -195,7 +195,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
         theme: &Theme,
         style: &renderer::Style,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
     ) {
         self.content.as_widget().draw(
             &self.tree,
@@ -203,7 +203,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
             theme,
             style,
             layout,
-            cursor_position,
+            cursor,
             &layout.bounds(),
         );
     }
@@ -223,7 +223,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
         &mut self,
         event: Event,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
@@ -232,7 +232,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
             &mut self.tree,
             event,
             layout,
-            cursor_position,
+            cursor,
             renderer,
             clipboard,
             shell,
@@ -242,17 +242,13 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
     fn mouse_interaction(
         &self,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         viewport: &Rectangle,
         renderer: &Renderer,
     ) -> iced::advanced::mouse::Interaction {
-        self.content.as_widget().mouse_interaction(
-            &self.tree,
-            layout,
-            cursor_position,
-            viewport,
-            renderer,
-        )
+        self.content
+            .as_widget()
+            .mouse_interaction(&self.tree, layout, cursor, viewport, renderer)
     }
 
     fn is_over(&self, layout: Layout<'_>, cursor_position: Point) -> bool {

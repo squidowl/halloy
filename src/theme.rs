@@ -2,6 +2,8 @@ use data::palette::{self, Palette};
 use iced::widget::{button, container, pane_grid, rule, scrollable, text, text_input};
 use iced::{application, Background, Color};
 
+use crate::widget::selectable_text;
+
 pub const TEXT_SIZE: f32 = 13.0;
 pub const ICON_SIZE: f32 = 12.0;
 
@@ -554,6 +556,19 @@ impl text_input::StyleSheet for Theme {
                 border_color: Color::TRANSPARENT,
                 icon_color: self.colors.action.mute_03,
             },
+        }
+    }
+}
+
+impl selectable_text::StyleSheet for Theme {
+    type Style = Text;
+
+    fn appearance(&self, style: &Self::Style) -> selectable_text::Appearance {
+        let color = <Theme as text::StyleSheet>::appearance(self, style.clone()).color;
+
+        selectable_text::Appearance {
+            color,
+            selection_color: self.colors.action.base,
         }
     }
 }

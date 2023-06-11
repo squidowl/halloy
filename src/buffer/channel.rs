@@ -5,7 +5,7 @@ use iced::widget::{column, container, row, scrollable, text, vertical_space};
 use iced::{Command, Length};
 
 use crate::theme;
-use crate::widget::{input, Collection, Column, Element};
+use crate::widget::{input, selectable_text, Collection, Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -30,14 +30,11 @@ pub fn view<'a>(
             let user = message.user()?;
 
             Some(
-                container(
-                    row![
-                        text(format!("<{}>", user.nickname()))
-                            .style(theme::Text::Nickname(user.color_seed(user_colors))),
-                        text(&message.text)
-                    ]
-                    .spacing(4),
-                )
+                container(row![
+                    selectable_text(format!("<{}> ", user.nickname()))
+                        .style(theme::Text::Nickname(user.color_seed(user_colors))),
+                    selectable_text(&message.text)
+                ])
                 .into(),
             )
         })
