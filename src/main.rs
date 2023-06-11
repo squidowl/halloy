@@ -175,30 +175,22 @@ impl Application for Halloy {
                 log::error!("fonts failed to load: {error:?}");
                 Command::none()
             }
-            Message::Event(event) => {
-                let message = match event {
-                    iced::Event::Keyboard(keyboard) => match keyboard {
-                        keyboard::Event::KeyPressed {
-                            key_code,
-                            modifiers,
-                        } => match &self.screen {
-                            Screen::Dashboard(state) => state
-                                .handle_keypress(key_code, modifiers)
-                                .map(Message::Dashboard),
-                        },
-                        keyboard::Event::KeyReleased { .. } => None,
-                        keyboard::Event::CharacterReceived(_) => None,
-                        keyboard::Event::ModifiersChanged(_) => None,
+            Message::Event(event) => match event {
+                iced::Event::Keyboard(keyboard) => match keyboard {
+                    keyboard::Event::KeyPressed {
+                        key_code,
+                        modifiers,
+                    } => match &mut self.screen {
+                        Screen::Dashboard(state) => state
+                            .handle_keypress(key_code, modifiers)
+                            .map(Message::Dashboard),
                     },
-                    _ => None,
-                };
-
-                if let Some(message) = message {
-                    return self.update(message);
-                }
-
-                Command::none()
-            }
+                    keyboard::Event::KeyReleased { .. } => Command::none(),
+                    keyboard::Event::CharacterReceived(_) => Command::none(),
+                    keyboard::Event::ModifiersChanged(_) => Command::none(),
+                },
+                _ => Command::none(),
+            },
             Message::ConfigSaved(Ok(_)) => Command::none(),
             Message::ConfigSaved(Err(error)) => {
                 log::error!("config saved failed: {error:?}");
@@ -237,13 +229,15 @@ impl Application for Halloy {
 fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Message> {
     use iced::event;
 
-    if let iced::Event::Keyboard(keyboard::Event::KeyPressed {
-        key_code: keyboard::KeyCode::Escape,
-        ..
-    }) = &event
-    {
-        Some(Message::Event(event))
-    } else {
-        matches!(status, event::Status::Ignored).then_some(Message::Event(event))
+    match &event {
+        iced::Event::Keyboard(keyboard::Event::KeyPressed {
+            key_code: keyboard::KeyCode::Escape,
+            ..
+        }) => Some(Message::Event(event)),
+        iced::Event::Keyboard(keyboard::Event::KeyPressed {
+            key_code: keyboard::KeyCode::C,
+            modifiers,
+        }) if modifiers.command() => Some(Message::Event(event)),
+        _ => matches!(status, event::Status::Ignored).then_some(Message::Event(event)),
     }
 }

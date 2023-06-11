@@ -1,9 +1,9 @@
 use std::fmt;
 
-use iced::widget::{column, container, scrollable, text, vertical_space};
+use iced::widget::{column, container, scrollable, vertical_space};
 use iced::{Command, Length};
 
-use crate::widget::{input, Collection, Column, Element};
+use crate::widget::{input, selectable_text, Collection, Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -22,7 +22,7 @@ pub fn view<'a>(
     let messages: Vec<Element<'a, Message>> = clients
         .get_server_messages(&state.server)
         .into_iter()
-        .filter_map(|message| Some(container(text(&message.text)).into()))
+        .filter_map(|message| Some(container(selectable_text(&message.text)).into()))
         .collect();
 
     let messages = container(

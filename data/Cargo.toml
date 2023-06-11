@@ -15,7 +15,7 @@ tokio = "1.0"
 rand = "0.8.4"
 rand_chacha = "0.3.0"
 seahash = "4.1.0"
-iced = { git = "https://github.com/iced-rs/iced", rev = "b353767d2d9703aae35f10ebf8a9ee1490c3ae37", features = [] }
+iced = { git = "https://github.com/iced-rs/iced", rev = "60cd864d43be877a5eaee4f5ca32f41b9fb70b79", features = [] }
 
 [dependencies.serde]
 version = "1.0"
