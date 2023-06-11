@@ -7,8 +7,8 @@ pub struct Config {
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 pub enum Position {
-    #[default]
     Left,
+    #[default]
     Right,
 }
 
@@ -23,7 +23,7 @@ impl Default for Users {
     fn default() -> Self {
         Self {
             visible: true,
-            position: Position::Left,
+            position: Position::default(),
         }
     }
 }
