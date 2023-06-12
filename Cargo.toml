@@ -15,7 +15,7 @@ fern = "0.6.1"
 chrono = { version = "0.4", features = ['serde'] }
 palette = "=0.7.2"
 unicode-segmentation = "1.6"
-iced = { git = "https://github.com/iced-rs/iced", rev = "60cd864d43be877a5eaee4f5ca32f41b9fb70b79", features = ["tokio", "lazy", "advanced"] }
+iced = { version = "0.9", features = ["tokio", "lazy", "advanced"] }
 
 [dependencies.uuid]
 version = "1.0"
@@ -23,3 +23,6 @@ features = ["v4"]
 
 [workspace]
 members = ["data"]
+
+[patch.crates-io]
+iced = { git = "https://github.com/tarkah/iced", rev = "38da9535831d4371cac0bf21282d4c1a6a82c209" }
