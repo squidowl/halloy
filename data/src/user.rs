@@ -1,9 +1,21 @@
+use std::hash::Hash;
+
 use irc::client::data;
 
 use crate::config;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct User(data::User);
+
+impl Eq for User {}
+
+impl Hash for User {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.get_nickname().hash(state);
+        self.0.get_username().hash(state);
+        self.0.get_hostname().hash(state);
+    }
+}
 
 impl User {
     pub fn new(nick: &str, user: Option<&str>, host: Option<&str>) -> Self {

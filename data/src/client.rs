@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 
 use irc::client::Client;
@@ -141,22 +141,26 @@ impl Map {
         }
     }
 
-    pub fn add_message(
+    pub fn add_messages(
         &mut self,
-        server: &Server,
-        message: irc::proto::Message,
-    ) -> Option<message::Source> {
-        if let Some(State::Ready(connection)) = self.0.get_mut(server) {
-            if let Some(message) = Message::received(message) {
+        messages: Vec<(Server, irc::proto::Message)>,
+    ) -> HashSet<(Server, message::Source)> {
+        messages
+            .into_iter()
+            .filter_map(|(server, message)| {
+                let Some(State::Ready(connection)) = self.0.get_mut(&server) else {
+                    return None;
+                };
+
+                let message = Message::received(message)?;
+
                 let source = message.source.clone();
 
                 connection.messages.push(message);
 
-                return Some(source);
-            }
-        }
-
-        None
+                Some((server, source))
+            })
+            .collect()
     }
 
     pub fn send_privmsg(&mut self, server: &Server, channel: &str, text: impl fmt::Display) {
