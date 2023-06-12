@@ -278,8 +278,8 @@ impl Dashboard {
 
     pub fn view<'a>(
         &'a self,
-        clients: &data::client::Map,
-        config: &data::config::Config,
+        clients: &'a data::client::Map,
+        config: &'a data::config::Config,
     ) -> Element<'a, Message> {
         let focus = self.focus;
 
@@ -358,7 +358,7 @@ impl Dashboard {
                     .find_map(|(_, pane)| pane.buffer.get_server(server))
                 {
                     return scrollable::snap_to(
-                        server.scrollable.clone(),
+                        server.messages.scrollable.clone(),
                         scrollable::RelativeOffset::END,
                     );
                 }
@@ -370,7 +370,7 @@ impl Dashboard {
                     .find_map(|(_, pane)| pane.buffer.get_channel(server, channel))
                 {
                     return scrollable::snap_to(
-                        channel.scrollable.clone(),
+                        channel.messages.scrollable.clone(),
                         scrollable::RelativeOffset::END,
                     );
                 }

@@ -93,3 +93,37 @@ fn text(message: &irc::proto::Message) -> Option<String> {
         _ => None,
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum Limit {
+    Top(usize),
+    Bottom(usize),
+}
+
+impl Default for Limit {
+    fn default() -> Self {
+        Self::Bottom(500)
+    }
+}
+
+impl Limit {
+    pub const DEFAULT_STEP: usize = 50;
+
+    pub fn value(self) -> usize {
+        match self {
+            Limit::Top(i) => i,
+            Limit::Bottom(i) => i,
+        }
+    }
+
+    fn value_mut(&mut self) -> &mut usize {
+        match self {
+            Limit::Top(i) => i,
+            Limit::Bottom(i) => i,
+        }
+    }
+
+    pub fn increase(&mut self, n: usize) {
+        *self.value_mut() += n;
+    }
+}

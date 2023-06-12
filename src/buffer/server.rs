@@ -3,12 +3,14 @@ use std::fmt;
 use iced::widget::{column, container, scrollable, vertical_space};
 use iced::{Command, Length};
 
-use crate::widget::{input, selectable_text, Collection, Column, Element};
+use super::scroll_view;
+use crate::widget::{input, selectable_text, Collection, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Send(input::Content),
     CompletionSelected,
+    ScrollView(scroll_view::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -16,18 +18,17 @@ pub enum Event {}
 
 pub fn view<'a>(
     state: &'a Server,
-    clients: &data::client::Map,
+    clients: &'a data::client::Map,
     is_focused: bool,
 ) -> Element<'a, Message> {
-    let messages: Vec<Element<'a, Message>> = clients
-        .get_server_messages(&state.server)
-        .into_iter()
-        .filter_map(|message| Some(container(selectable_text(&message.text)).into()))
-        .collect();
-
     let messages = container(
-        scrollable(Column::with_children(messages).width(Length::Fill))
-            .id(state.scrollable.clone()),
+        scroll_view::view(
+            &state.messages,
+            scroll_view::Kind::Server(&state.server),
+            clients,
+            |message| Some(container(selectable_text(&message.text)).into()),
+        )
+        .map(Message::ScrollView),
     )
     .height(Length::Fill);
     let spacing = is_focused.then_some(vertical_space(4));
@@ -54,7 +55,7 @@ pub fn view<'a>(
 #[derive(Debug, Clone)]
 pub struct Server {
     pub server: data::server::Server,
-    pub scrollable: scrollable::Id,
+    pub messages: scroll_view::State,
     input_id: input::Id,
 }
 
@@ -62,8 +63,8 @@ impl Server {
     pub fn new(server: data::server::Server) -> Self {
         Self {
             server,
+            messages: scroll_view::State::new(),
             input_id: input::Id::unique(),
-            scrollable: scrollable::Id::unique(),
         }
     }
 
@@ -78,7 +79,7 @@ impl Server {
                     clients.send_command(&self.server, command);
                     (
                         scrollable::snap_to(
-                            self.scrollable.clone(),
+                            self.messages.scrollable.clone(),
                             scrollable::RelativeOffset::END,
                         ),
                         None,
@@ -89,6 +90,10 @@ impl Server {
             }
             Message::CompletionSelected => {
                 return (input::move_cursor_to_end(self.input_id.clone()), None);
+            }
+            Message::ScrollView(message) => {
+                let command = self.messages.update(message);
+                (command.map(Message::ScrollView), None)
             }
         }
     }
