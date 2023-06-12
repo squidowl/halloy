@@ -1,7 +1,7 @@
 use std::fmt;
 
 use data::server::Server;
-use iced::widget::{column, container, row, scrollable, text, vertical_space, Rule};
+use iced::widget::{column, container, row, scrollable, text, vertical_space};
 use iced::{Command, Length};
 
 use crate::theme;
@@ -19,6 +19,8 @@ pub enum Event {}
 pub fn view<'a>(
     state: &Channel,
     clients: &data::client::Map,
+    config: &data::channel::Config,
+    user_colors: &data::config::UserColor,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let messages: Vec<Element<'a, Message>> = clients
@@ -30,11 +32,8 @@ pub fn view<'a>(
             Some(
                 container(
                     row![
-                        text(format!("<{}>", user.nickname())).style(theme::Text::Nickname(
-                            state
-                                .unique_user_colors
-                                .then(|| user.color_seed().to_string())
-                        )),
+                        text(format!("<{}>", user.nickname()))
+                            .style(theme::Text::Nickname(user.color_seed(user_colors))),
                         text(&message.text)
                     ]
                     .spacing(4),
@@ -52,6 +51,7 @@ pub fn view<'a>(
         )
         .id(state.scrollable.clone()),
     )
+    .width(Length::FillPortion(2))
     .height(Length::Fill);
 
     let spacing = is_focused.then_some(vertical_space(4));
@@ -63,46 +63,53 @@ pub fn view<'a>(
         )
     });
 
-    // TODO: Maybe we should show it to the right instead of left.
-    let users = if state.show_users {
+    let user_column = {
         let users = clients.get_channel_users(&state.server, &state.channel);
-        let mut column = column![].padding(4).width(Length::Shrink).spacing(1);
-
-        for user in users {
-            // TODO: Enable button pushes (interactions) on users.
-            column = column.push(
-                row![]
-                    .padding([0, 4])
-                    .push(text(user.highest_access_level().to_string()))
-                    .push(text(user.nickname())),
-            );
-        }
-
-        let users = container(
-            row![
-                scrollable(column)
-                    .vertical_scroll(
-                        iced::widget::scrollable::Properties::new()
-                            .width(1)
-                            .scroller_width(1)
+        let column = Column::with_children(
+            users
+                .iter()
+                .map(|user| {
+                    container(
+                        row![]
+                            .padding([0, 4])
+                            .push(text(user.highest_access_level().to_string()))
+                            .push(text(user.nickname())),
                     )
-                    .style(theme::Scrollable::Hidden),
-                Rule::vertical(1)
-            ]
-            .spacing(4)
-            .height(Length::Fill),
-        );
+                    .into()
+                })
+                .collect(),
+        )
+        .padding(4)
+        .spacing(1);
 
-        Some(container(users))
-    } else {
-        None
+        container(
+            scrollable(column)
+                .vertical_scroll(
+                    iced::widget::scrollable::Properties::new()
+                        .width(1)
+                        .scroller_width(1),
+                )
+                .style(theme::Scrollable::Hidden),
+        )
+        .width(Length::Shrink)
+        .max_width(120)
+        .height(Length::Fill)
     };
 
-    let scrollable =
-        column![container(row![].push_maybe(users).push(messages)).height(Length::Fill)]
-            .push_maybe(spacing)
-            .push_maybe(text_input)
-            .height(Length::Fill);
+    let content = match (config.users.visible, config.users.position) {
+        (true, data::channel::Position::Left) => {
+            row![user_column, messages]
+        }
+        (true, data::channel::Position::Right) => {
+            row![messages, user_column]
+        }
+        (false, _) => { row![messages] }.height(Length::Fill),
+    };
+
+    let scrollable = column![container(content).height(Length::Fill)]
+        .push_maybe(spacing)
+        .push_maybe(text_input)
+        .height(Length::Fill);
 
     container(scrollable)
         .width(Length::Fill)
@@ -118,8 +125,6 @@ pub struct Channel {
     pub topic: Option<String>,
     pub scrollable: scrollable::Id,
     input_id: input::Id,
-    show_users: bool,
-    unique_user_colors: bool,
 }
 
 impl Channel {
@@ -130,8 +135,6 @@ impl Channel {
             topic: None,
             scrollable: scrollable::Id::unique(),
             input_id: input::Id::unique(),
-            show_users: true,
-            unique_user_colors: true,
         }
     }
 
@@ -163,22 +166,6 @@ impl Channel {
 
     pub fn focus(&self) -> Command<Message> {
         input::focus(self.input_id.clone())
-    }
-
-    pub(crate) fn toggle_show_users(&mut self) {
-        self.show_users = !self.show_users;
-    }
-
-    pub(crate) fn toggle_unique_user_colors(&mut self) {
-        self.unique_user_colors = !self.unique_user_colors;
-    }
-
-    pub(crate) fn is_showing_users(&self) -> bool {
-        self.show_users
-    }
-
-    pub(crate) fn is_showing_unique_user_colors(&self) -> bool {
-        self.unique_user_colors
     }
 }
 

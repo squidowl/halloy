@@ -3,7 +3,7 @@ use iced::widget::{button, container, pane_grid, rule, scrollable, text, text_in
 use iced::{application, Background, Color};
 
 pub const TEXT_SIZE: f32 = 13.0;
-pub const ICON_SIZE: f32 = 11.0;
+pub const ICON_SIZE: f32 = 12.0;
 
 #[derive(Clone)]
 pub struct Theme {
@@ -186,6 +186,7 @@ impl rule::StyleSheet for Theme {
 pub enum Text {
     #[default]
     Default,
+    Action,
     Accent,
     Error,
     Nickname(Option<String>),
@@ -198,6 +199,9 @@ impl text::StyleSheet for Theme {
         match style {
             Text::Default => text::Appearance {
                 color: Some(self.colors.text.base),
+            },
+            Text::Action => text::Appearance {
+                color: Some(self.colors.action.base),
             },
             Text::Accent => text::Appearance {
                 color: Some(self.colors.accent.base),
@@ -226,6 +230,10 @@ pub enum Container {
         selected: bool,
     },
     PaneHeader,
+    Commands,
+    Command {
+        selected: bool,
+    },
 }
 
 impl container::StyleSheet for Theme {
@@ -257,6 +265,21 @@ impl container::StyleSheet for Theme {
                 border_radius: [4.0, 4.0, 0.0, 0.0].into(),
                 border_width: 1.0,
                 border_color: Color::TRANSPARENT,
+                ..Default::default()
+            },
+            Container::Commands => container::Appearance {
+                background: Some(Background::Color(self.colors.background.base)),
+                text_color: Some(self.colors.text.base),
+                border_radius: 4.0.into(),
+                ..Default::default()
+            },
+            Container::Command { selected } if *selected => container::Appearance {
+                background: Some(Background::Color(self.colors.background.mute_06)),
+                border_radius: 3.0.into(),
+                ..Default::default()
+            },
+            Container::Command { .. } => container::Appearance {
+                background: None,
                 ..Default::default()
             },
         }
