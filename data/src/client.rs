@@ -4,6 +4,7 @@ use std::fmt;
 use irc::client::Client;
 use irc::proto;
 
+use crate::message::Limit;
 use crate::{message, Command, Message, Server, User};
 
 #[derive(Debug)]
@@ -195,27 +196,51 @@ impl Map {
         map
     }
 
-    pub fn get_channel_messages(&self, server: &Server, channel: &str) -> Vec<&Message> {
+    pub fn get_channel_messages(
+        &self,
+        server: &Server,
+        channel: &str,
+        limit: Option<Limit>,
+    ) -> Vec<&Message> {
         self.connection(server)
             .map(|connection| {
-                connection
-                    .messages
-                    .iter()
-                    .filter(|message| message.channel() == Some(channel))
-                    .collect()
+                with_limit(
+                    limit,
+                    connection
+                        .messages
+                        .iter()
+                        .filter(|message| message.channel() == Some(channel)),
+                )
             })
             .unwrap_or_default()
     }
 
-    pub fn get_server_messages(&self, server: &Server) -> Vec<&Message> {
+    pub fn get_server_messages(&self, server: &Server, limit: Option<Limit>) -> Vec<&Message> {
         self.connection(server)
             .map(|connection| {
-                connection
-                    .messages
-                    .iter()
-                    .filter(|message| message.is_server())
-                    .collect()
+                with_limit(
+                    limit,
+                    connection
+                        .messages
+                        .iter()
+                        .filter(|message| message.is_server()),
+                )
             })
             .unwrap_or_default()
+    }
+}
+
+fn with_limit<'a>(
+    limit: Option<Limit>,
+    messages: impl Iterator<Item = &'a Message>,
+) -> Vec<&'a Message> {
+    match limit {
+        Some(Limit::Top(n)) => messages.take(n).collect(),
+        Some(Limit::Bottom(n)) => {
+            let collected = messages.collect::<Vec<_>>();
+            let length = collected.len();
+            collected[length.saturating_sub(n)..length].to_vec()
+        }
+        None => messages.collect(),
     }
 }

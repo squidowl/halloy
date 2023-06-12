@@ -49,8 +49,8 @@ impl Pane {
         panes: usize,
         is_focused: bool,
         maximized: bool,
-        clients: &data::client::Map,
-        config: &data::config::Config,
+        clients: &'a data::client::Map,
+        config: &'a data::config::Config,
     ) -> widget::Content<'a, M> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty(state) => state.to_string(),
