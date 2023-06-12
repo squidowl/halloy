@@ -30,11 +30,12 @@ pub enum Message {
     ClosePane,
     SplitPane(pane_grid::Axis),
     MaximizePane,
-    Users,
-    UniqueUserColors,
+    ToggleShowUserList,
 }
 
-pub enum Event {}
+pub enum Event {
+    SaveSettings,
+}
 
 impl Dashboard {
     pub fn new(_config: &Config) -> Self {
@@ -59,6 +60,7 @@ impl Dashboard {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
+        config: &mut data::config::Config,
     ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::PaneClicked(pane) => {
@@ -123,10 +125,16 @@ impl Dashboard {
                     );
                 }
             }
-            Message::Users => {
+            Message::ToggleShowUserList => {
                 if let Some(pane) = self.get_focused_mut() {
                     match &mut pane.buffer {
-                        Buffer::Channel(state) => state.toggle_show_users(),
+                        Buffer::Channel(state) => {
+                            let config =
+                                config.channel_config_mut(&state.server.name, &state.channel);
+
+                            config.users.toggle_visibility();
+                            return (Command::none(), Some(Event::SaveSettings));
+                        }
                         Buffer::Empty(_) => {}
                         Buffer::Server(_) => {}
                     }
@@ -247,21 +255,16 @@ impl Dashboard {
                     self.panes.maximize(&pane);
                 }
             }
-            Message::UniqueUserColors => {
-                if let Some(pane) = self.get_focused_mut() {
-                    match &mut pane.buffer {
-                        Buffer::Channel(state) => state.toggle_unique_user_colors(),
-                        Buffer::Empty(_) => {}
-                        Buffer::Server(_) => {}
-                    }
-                }
-            }
         }
 
         (Command::none(), None)
     }
 
-    pub fn view<'a>(&'a self, clients: &data::client::Map) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        clients: &data::client::Map,
+        config: &data::config::Config,
+    ) -> Element<'a, Message> {
         let focus = self.focus;
 
         let pane_grid = PaneGrid::new(&self.panes, |id, pane, maximized| {
@@ -274,14 +277,14 @@ impl Dashboard {
                     on_close: Message::ClosePane,
                     on_split: Message::SplitPane,
                     on_maximize: Message::MaximizePane,
-                    on_users: Message::Users,
-                    on_unique_user_colors: Message::UniqueUserColors,
+                    on_users: Message::ToggleShowUserList,
                 },
                 id,
                 panes,
                 is_focused,
                 maximized,
                 clients,
+                config,
             )
         })
         .on_click(Message::PaneClicked)
