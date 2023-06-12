@@ -457,9 +457,7 @@ where
     let size = size.unwrap_or_else(|| renderer.default_size());
     let font = font.unwrap_or_else(|| renderer.default_font());
 
-    let text_before_cursor = value.to_string();
-
-    renderer.measure_width(&text_before_cursor, size, font, text::Shaping::Advanced)
+    renderer.measure_width(&value.to_string(), size, font, text::Shaping::Advanced)
 }
 
 pub fn selected<Message: 'static>(f: fn(Vec<(f32, String)>) -> Message) -> Command<Message> {
