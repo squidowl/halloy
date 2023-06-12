@@ -3,7 +3,7 @@ use iced::widget::{button, container, pane_grid, rule, scrollable, text, text_in
 use iced::{application, Background, Color};
 
 pub const TEXT_SIZE: f32 = 13.0;
-pub const ICON_SIZE: f32 = 11.0;
+pub const ICON_SIZE: f32 = 12.0;
 
 #[derive(Clone)]
 pub struct Theme {
