@@ -14,7 +14,8 @@ log = "0.4.16"
 fern = "0.6.1"
 chrono = { version = "0.4", features = ['serde'] }
 palette = "=0.7.2"
-iced = { git = "https://github.com/iced-rs/iced", rev = "b353767d2d9703aae35f10ebf8a9ee1490c3ae37", features = ["tokio", "lazy", "advanced"] }
+unicode-segmentation = "1.6"
+iced = { version = "0.9", features = ["tokio", "lazy", "advanced"] }
 
 [dependencies.uuid]
 version = "1.0"
@@ -22,3 +23,6 @@ features = ["v4"]
 
 [workspace]
 members = ["data"]
+
+[patch.crates-io]
+iced = { git = "https://github.com/tarkah/iced", rev = "38da9535831d4371cac0bf21282d4c1a6a82c209" }

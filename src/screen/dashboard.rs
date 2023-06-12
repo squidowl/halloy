@@ -5,12 +5,12 @@ use data::config::Config;
 use data::message;
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row, scrollable};
-use iced::{keyboard, Command, Length};
+use iced::{clipboard, keyboard, Command, Length};
 use pane::Pane;
 use side_menu::SideMenu;
 
 use crate::buffer::{self, channel, Buffer};
-use crate::widget::Element;
+use crate::widget::{selectable_text, Element};
 
 pub struct Dashboard {
     panes: pane_grid::State<Pane>,
@@ -22,7 +22,6 @@ pub struct Dashboard {
 pub enum Message {
     Pane(pane::Message),
     Buffer(pane_grid::Pane, buffer::Message),
-    PaneDeselected,
     PaneClicked(pane_grid::Pane),
     PaneResized(pane_grid::ResizeEvent),
     PaneDragged(pane_grid::DragEvent),
@@ -31,6 +30,7 @@ pub enum Message {
     SplitPane(pane_grid::Axis),
     MaximizePane,
     ToggleShowUserList,
+    SelectedText(Vec<(f32, String)>),
 }
 
 pub enum Event {
@@ -65,9 +65,6 @@ impl Dashboard {
         match message {
             Message::PaneClicked(pane) => {
                 return (self.focus_pane(pane), None);
-            }
-            Message::PaneDeselected => {
-                self.focus = None;
             }
             Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
                 self.panes.resize(&split, ratio);
@@ -255,6 +252,25 @@ impl Dashboard {
                     self.panes.maximize(&pane);
                 }
             }
+            Message::SelectedText(contents) => {
+                let mut last_y = None;
+                let contents = contents
+                    .into_iter()
+                    .fold(String::new(), |acc, (y, content)| {
+                        if let Some(_y) = last_y {
+                            let new_line = if y == _y { "" } else { "\n" };
+                            last_y = Some(y);
+
+                            format!("{acc}{new_line}{content}")
+                        } else {
+                            last_y = Some(y);
+
+                            content
+                        }
+                    });
+
+                return (clipboard::write(contents), None);
+            }
         }
 
         (Command::none(), None)
@@ -309,20 +325,23 @@ impl Dashboard {
     }
 
     pub fn handle_keypress(
-        &self,
+        &mut self,
         key_code: keyboard::KeyCode,
-        _modifiers: keyboard::Modifiers,
-    ) -> Option<Message> {
+        modifiers: keyboard::Modifiers,
+    ) -> Command<Message> {
         match key_code {
             keyboard::KeyCode::Escape => {
                 // Deselect pane if we have one selected.
                 if self.focus.is_some() {
-                    return Some(Message::PaneDeselected);
+                    self.focus = None;
                 }
 
-                None
+                Command::none()
             }
-            _ => None,
+            keyboard::KeyCode::C if modifiers.command() => {
+                selectable_text::selected(Message::SelectedText)
+            }
+            _ => Command::none(),
         }
     }
 

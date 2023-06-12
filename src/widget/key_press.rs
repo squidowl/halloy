@@ -1,7 +1,7 @@
 use iced::advanced::widget::tree;
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
 pub use iced::keyboard::{KeyCode, Modifiers};
-use iced::{event, keyboard, mouse, Event, Length, Point, Rectangle};
+use iced::{event, keyboard, mouse, Event, Length, Rectangle};
 
 use super::{Element, Renderer};
 use crate::Theme;
@@ -54,18 +54,12 @@ where
         theme: &Theme,
         style: &renderer::Style,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
-        self.content.as_widget().draw(
-            tree,
-            renderer,
-            theme,
-            style,
-            layout,
-            cursor_position,
-            viewport,
-        )
+        self.content
+            .as_widget()
+            .draw(tree, renderer, theme, style, layout, cursor, viewport)
     }
 
     fn tag(&self) -> tree::Tag {
@@ -101,7 +95,7 @@ where
         tree: &mut widget::Tree,
         event: Event,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
@@ -117,32 +111,22 @@ where
             }
         }
 
-        self.content.as_widget_mut().on_event(
-            tree,
-            event,
-            layout,
-            cursor_position,
-            renderer,
-            clipboard,
-            shell,
-        )
+        self.content
+            .as_widget_mut()
+            .on_event(tree, event, layout, cursor, renderer, clipboard, shell)
     }
 
     fn mouse_interaction(
         &self,
         tree: &widget::Tree,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         viewport: &Rectangle,
         renderer: &Renderer,
     ) -> mouse::Interaction {
-        self.content.as_widget().mouse_interaction(
-            tree,
-            layout,
-            cursor_position,
-            viewport,
-            renderer,
-        )
+        self.content
+            .as_widget()
+            .mouse_interaction(tree, layout, cursor, viewport, renderer)
     }
 
     fn overlay<'b>(
