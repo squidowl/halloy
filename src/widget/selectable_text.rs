@@ -1,24 +1,12 @@
 use std::borrow::Cow;
 
-use iced::advanced::layout;
-use iced::advanced::mouse;
-use iced::advanced::renderer;
 use iced::advanced::renderer::Quad;
-use iced::advanced::text;
-use iced::advanced::widget;
-use iced::advanced::widget::operation;
-use iced::advanced::widget::tree;
-use iced::advanced::widget::Operation;
-use iced::advanced::widget::Tree;
-use iced::advanced::{Layout, Widget};
-use iced::alignment;
-use iced::event;
-use iced::touch;
+use iced::advanced::widget::{operation, tree, Operation, Tree};
+use iced::advanced::{layout, mouse, renderer, text, widget, Layout, Widget};
 use iced::widget::text_input::Value;
-use iced::Color;
-use iced::Command;
-use iced::Point;
-use iced::{Element, Length, Pixels, Rectangle, Size};
+use iced::{
+    alignment, event, touch, Color, Command, Element, Length, Pixels, Point, Rectangle, Size,
+};
 
 use self::selection::selection;
 pub use self::text::{LineHeight, Shaping};
