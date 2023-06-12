@@ -2,8 +2,8 @@ use std::fmt;
 
 use iced::widget::{column, container, row, text};
 
-use crate::theme;
 use crate::widget::Element;
+use crate::{font, theme};
 
 #[derive(Debug, Clone)]
 pub struct Completion {
@@ -153,23 +153,24 @@ impl Completion {
                         .iter()
                         .enumerate()
                         .map(|(index, entry)| {
-                            // TODO: New styles
-                            let style = if Some(index) == self.selection.highlighted() {
-                                theme::Container::PaneBody { selected: true }
-                            } else {
-                                theme::Container::Primary
-                            };
+                            let selected = Some(index) == self.selection.highlighted();
+                            let content = text(format!("/{}", entry.title));
 
                             Element::from(
-                                container(text(format!("/{}", entry.title)))
-                                    .padding(8)
-                                    .style(style)
+                                container(content)
+                                    .style(theme::Container::Command { selected })
+                                    .padding(6)
                                     .center_y(),
                             )
                         })
                         .collect();
 
-                    Some(column(entries).into())
+                    Some(
+                        container(column(entries))
+                            .padding(4)
+                            .style(theme::Container::Commands)
+                            .into(),
+                    )
                 }
                 Selection::Selected(entry) => Some(entry.view(input)),
             }
@@ -223,7 +224,7 @@ impl Entry {
         });
 
         container(row(title.into_iter().chain(args).collect()))
-            .style(theme::Container::Primary)
+            .style(theme::Container::Commands)
             .padding(8)
             .center_y()
             .into()

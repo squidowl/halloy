@@ -1,5 +1,5 @@
 use data::server::Server;
-use iced::widget::{button, column, container, pane_grid, row, text};
+use iced::widget::{button, column, container, horizontal_space, pane_grid, row, text};
 use iced::Length;
 
 use super::pane::Pane;
@@ -75,7 +75,7 @@ impl SideMenu {
             for channel in channels {
                 column = column.push(
                     button(
-                        row![icon::chat(), text(channel)]
+                        row![horizontal_space(10), text(channel)]
                             .spacing(8)
                             .align_items(iced::Alignment::Center),
                     )

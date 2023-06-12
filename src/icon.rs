@@ -1,4 +1,5 @@
 use iced::widget::text;
+use iced::widget::text::LineHeight;
 
 use crate::widget::Text;
 use crate::{font, theme};
@@ -9,7 +10,7 @@ pub fn globe<'a>() -> Text<'a> {
     to_text('\u{f3ef}')
 }
 
-pub fn chat<'a>() -> Text<'a> {
+pub fn _chat<'a>() -> Text<'a> {
     to_text('\u{f267}')
 }
 
@@ -35,7 +36,7 @@ pub fn people<'a>() -> Text<'a> {
 
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
-        .line_height(1.1)
+        .line_height(LineHeight::Relative(1.0))
         .size(theme::ICON_SIZE)
         .font(font::ICON)
 }
