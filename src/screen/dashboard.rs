@@ -4,7 +4,7 @@ pub mod side_menu;
 use data::config::Config;
 use data::message;
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{container, row, scrollable};
+use iced::widget::{container, row};
 use iced::{clipboard, keyboard, Command, Length};
 use pane::Pane;
 use side_menu::SideMenu;
@@ -347,9 +347,10 @@ impl Dashboard {
 
     pub fn message_received(
         &self,
-        server: &data::Server,
-        source: message::Source,
+        _server: &data::Server,
+        _source: message::Source,
     ) -> Command<Message> {
+        // TODO: Placeholder for message related hooks
         Command::none()
     }
 

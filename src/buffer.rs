@@ -74,6 +74,8 @@ impl Buffer {
         }
     }
 
+    // TODO: Placeholder in case we need
+    #[allow(unused)]
     pub fn get_server(&self, server: &data::Server) -> Option<&Server> {
         if let Buffer::Server(state) = self {
             (&state.server == server).then_some(state)
@@ -82,6 +84,8 @@ impl Buffer {
         }
     }
 
+    // TODO: Placeholder in case we need
+    #[allow(unused)]
     pub fn get_channel(&self, server: &data::Server, channel: &str) -> Option<&Channel> {
         if let Buffer::Channel(state) = self {
             (&state.server == server && state.channel.as_str() == channel).then_some(state)

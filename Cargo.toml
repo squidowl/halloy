@@ -25,4 +25,4 @@ features = ["v4"]
 members = ["data"]
 
 [patch.crates-io]
-iced = { git = "https://github.com/tarkah/iced", rev = "a10ef7908db941452c662616b492f0a52c853e5f" }
+iced = { git = "https://github.com/tarkah/iced", rev = "bcd8fda9a6e9c5fb1e1c6d1fa38d807c931bfebc" }
