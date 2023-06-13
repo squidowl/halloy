@@ -1,22 +1,25 @@
 use irc::proto;
 use irc::proto::ChannelExt;
+use serde::{Deserialize, Serialize};
 
 use crate::{time, User};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub type Raw = irc::proto::Message;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Source {
     Server,
     Channel(String, User),
     Private(User),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Direction {
     Sent,
     Received,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub timestamp: time::Posix,
     pub direction: Direction,

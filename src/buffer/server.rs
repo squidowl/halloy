@@ -1,5 +1,6 @@
 use std::fmt;
 
+use data::history;
 use iced::widget::{column, container, vertical_space};
 use iced::{Command, Length};
 
@@ -18,14 +19,14 @@ pub enum Event {}
 
 pub fn view<'a>(
     state: &'a Server,
-    clients: &'a data::client::Map,
+    history: &'a history::Manager,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
             scroll_view::Kind::Server(&state.server),
-            clients,
+            history,
             |message| Some(container(selectable_text(&message.text)).into()),
         )
         .map(Message::ScrollView),
