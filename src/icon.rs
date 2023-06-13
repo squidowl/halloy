@@ -10,11 +10,11 @@ pub fn globe<'a>() -> Text<'a> {
     to_text('\u{f3ef}')
 }
 
-pub fn _chat<'a>() -> Text<'a> {
+pub fn chat<'a>() -> Text<'a> {
     to_text('\u{f267}')
 }
 
-pub fn _person<'a>() -> Text<'a> {
+pub fn person<'a>() -> Text<'a> {
     to_text('\u{f4e1}')
 }
 
@@ -36,7 +36,7 @@ pub fn people<'a>() -> Text<'a> {
 
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
-        .line_height(LineHeight::Relative(1.0))
+        .line_height(LineHeight::Relative(1.1))
         .size(theme::ICON_SIZE)
         .font(font::ICON)
 }

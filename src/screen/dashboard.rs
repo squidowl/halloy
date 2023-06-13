@@ -147,7 +147,7 @@ impl Dashboard {
 
                     // TODO: Repetitive code below. Should be combined into one.
                     match event {
-                        side_menu::Event::SelectChannel((server, channel)) => {
+                        side_menu::Event::Channel((server, channel)) => {
                             // If channel already is open, we focus it.
                             for (id, pane) in panes.iter() {
                                 if let Buffer::Channel(state) = &pane.buffer {
@@ -198,7 +198,7 @@ impl Dashboard {
                                 return (self.focus_pane(pane), None);
                             }
                         }
-                        side_menu::Event::SelectServer(server) => {
+                        side_menu::Event::Server(server) => {
                             // If server already is open, we focus it.
                             for (id, pane) in panes.iter() {
                                 if let Buffer::Server(state) = &pane.buffer {
@@ -240,6 +240,56 @@ impl Dashboard {
                                 axis,
                                 &pane_to_split,
                                 Pane::new(Buffer::Server(buffer::server::Server::new(server))),
+                            );
+
+                            if let Some((pane, _)) = result {
+                                return (self.focus_pane(pane), None);
+                            }
+                        }
+                        side_menu::Event::Query((server, user)) => {
+                            // If query already is open, we focus it.
+                            for (id, pane) in panes.iter() {
+                                if let Buffer::Query(state) = &pane.buffer {
+                                    if state.server == server && state.user == user {
+                                        return (self.focus_pane(*id), None);
+                                    }
+                                }
+                            }
+
+                            // If we only have one pane, and its empty, we replace it.
+                            if self.panes.len() == 1 {
+                                for (id, pane) in panes.iter() {
+                                    if let Buffer::Query(_) = &pane.buffer {
+                                        self.panes.panes.entry(*id).and_modify(|p| {
+                                            *p =
+                                                Pane::new(Buffer::Query(buffer::query::Query::new(
+                                                    server.clone(),
+                                                    user.clone(),
+                                                )))
+                                        });
+
+                                        return (self.focus_pane(*id), None);
+                                    }
+                                }
+                            }
+
+                            // Default split could be a config option.
+                            let axis = pane_grid::Axis::Horizontal;
+                            let pane_to_split = {
+                                if let Some(pane) = self.focus {
+                                    pane
+                                } else if let Some(pane) = self.panes.panes.keys().last() {
+                                    *pane
+                                } else {
+                                    log::error!("Didn't find any panes");
+                                    return (Command::none(), None);
+                                }
+                            };
+
+                            let result = self.panes.split(
+                                axis,
+                                &pane_to_split,
+                                Pane::new(Buffer::Query(buffer::query::Query::new(server, user))),
                             );
 
                             if let Some((pane, _)) = result {

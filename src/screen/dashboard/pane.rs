@@ -52,6 +52,7 @@ impl Pane {
             Buffer::Empty(state) => state.to_string(),
             Buffer::Channel(state) => state.to_string(),
             Buffer::Server(state) => state.to_string(),
+            Buffer::Query(state) => state.to_string(),
         };
 
         let title_bar = self.title_bar.view(
