@@ -1,6 +1,6 @@
 use std::fmt;
 
-use iced::widget::{column, container, scrollable, vertical_space};
+use iced::widget::{column, container, vertical_space};
 use iced::{Command, Length};
 
 use super::scroll_view;
@@ -23,7 +23,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let messages = container(
         scroll_view::view(
-            &state.messages,
+            &state.scroll_view,
             scroll_view::Kind::Server(&state.server),
             clients,
             |message| Some(container(selectable_text(&message.text)).into()),
@@ -55,7 +55,7 @@ pub fn view<'a>(
 #[derive(Debug, Clone)]
 pub struct Server {
     pub server: data::server::Server,
-    pub messages: scroll_view::State,
+    pub scroll_view: scroll_view::State,
     input_id: input::Id,
 }
 
@@ -63,7 +63,7 @@ impl Server {
     pub fn new(server: data::server::Server) -> Self {
         Self {
             server,
-            messages: scroll_view::State::new(),
+            scroll_view: scroll_view::State::new(),
             input_id: input::Id::unique(),
         }
     }
@@ -77,7 +77,10 @@ impl Server {
             Message::Send(content) => {
                 if let input::Content::Command(command) = content {
                     clients.send_command(&self.server, command);
-                    (Command::none(), None)
+                    (
+                        self.scroll_view.scroll_to_end().map(Message::ScrollView),
+                        None,
+                    )
                 } else {
                     (Command::none(), None)
                 }
@@ -86,7 +89,7 @@ impl Server {
                 return (input::move_cursor_to_end(self.input_id.clone()), None);
             }
             Message::ScrollView(message) => {
-                let command = self.messages.update(message);
+                let command = self.scroll_view.update(message);
                 (command.map(Message::ScrollView), None)
             }
         }

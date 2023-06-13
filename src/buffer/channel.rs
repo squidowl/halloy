@@ -27,7 +27,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let messages = container(
         scroll_view::view(
-            &state.messages,
+            &state.scroll_view,
             scroll_view::Kind::Channel(&state.server, &state.channel),
             clients,
             |message| {
@@ -117,7 +117,7 @@ pub struct Channel {
     pub server: Server,
     pub channel: String,
     pub topic: Option<String>,
-    pub messages: scroll_view::State,
+    pub scroll_view: scroll_view::State,
     input_id: input::Id,
 }
 
@@ -127,7 +127,7 @@ impl Channel {
             server,
             channel,
             topic: None,
-            messages: scroll_view::State::new(),
+            scroll_view: scroll_view::State::new(),
             input_id: input::Id::unique(),
         }
     }
@@ -147,13 +147,16 @@ impl Channel {
                         clients.send_command(&self.server, command);
                     }
                 }
-                return (Command::none(), None);
+                return (
+                    self.scroll_view.scroll_to_end().map(Message::ScrollView),
+                    None,
+                );
             }
             Message::CompletionSelected => {
                 return (input::move_cursor_to_end(self.input_id.clone()), None);
             }
             Message::ScrollView(message) => {
-                let command = self.messages.update(message);
+                let command = self.scroll_view.update(message);
                 (command.map(Message::ScrollView), None)
             }
         }

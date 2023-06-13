@@ -5,7 +5,7 @@ use irc::client::Client;
 use irc::proto;
 
 use crate::message::Limit;
-use crate::{message, Command, Message, Server, User};
+use crate::{message, time, Command, Message, Server, User};
 
 #[derive(Debug)]
 pub enum State {
@@ -41,7 +41,7 @@ impl Connection {
         }
 
         self.messages.push(Message {
-            timestamp: 0,
+            timestamp: time::Posix::now(),
             direction: message::Direction::Sent,
             source: message::Source::Channel(channel, User::new(self.nickname(), None, None)),
             text,
@@ -63,7 +63,7 @@ impl Connection {
         }
 
         self.messages.push(Message {
-            timestamp: 0,
+            timestamp: time::Posix::now(),
             direction: message::Direction::Sent,
             source: message::Source::Private(user),
             text,
@@ -205,32 +205,38 @@ impl Map {
         server: &Server,
         channel: &str,
         limit: Option<Limit>,
-    ) -> Vec<&Message> {
+    ) -> (usize, Vec<&Message>) {
         self.connection(server)
             .map(|connection| {
-                with_limit(
-                    limit,
-                    connection
-                        .messages
-                        .iter()
-                        .filter(|message| message.channel() == Some(channel)),
-                )
+                let messages = connection
+                    .messages
+                    .iter()
+                    .filter(|message| message.channel() == Some(channel))
+                    .collect::<Vec<_>>();
+                let total = messages.len();
+
+                (total, with_limit(limit, messages.into_iter()))
             })
-            .unwrap_or_default()
+            .unwrap_or_else(|| (0, vec![]))
     }
 
-    pub fn get_server_messages(&self, server: &Server, limit: Option<Limit>) -> Vec<&Message> {
+    pub fn get_server_messages(
+        &self,
+        server: &Server,
+        limit: Option<Limit>,
+    ) -> (usize, Vec<&Message>) {
         self.connection(server)
             .map(|connection| {
-                with_limit(
-                    limit,
-                    connection
-                        .messages
-                        .iter()
-                        .filter(|message| message.is_server()),
-                )
+                let messages = connection
+                    .messages
+                    .iter()
+                    .filter(|message| message.is_server())
+                    .collect::<Vec<_>>();
+                let total = messages.len();
+
+                (total, with_limit(limit, messages.into_iter()))
             })
-            .unwrap_or_default()
+            .unwrap_or_else(|| (0, vec![]))
     }
 }
 
@@ -245,6 +251,9 @@ fn with_limit<'a>(
             let length = collected.len();
             collected[length.saturating_sub(n)..length].to_vec()
         }
+        Some(Limit::Since(timestamp)) => messages
+            .skip_while(|message| message.timestamp < timestamp)
+            .collect(),
         None => messages.collect(),
     }
 }
