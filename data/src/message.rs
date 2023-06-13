@@ -40,6 +40,14 @@ impl Message {
         }
     }
 
+    pub fn query(&self) -> Option<&User> {
+        if let Source::Private(user) = &self.source {
+            Some(user)
+        } else {
+            None
+        }
+    }
+
     pub fn user(&self) -> Option<&User> {
         match &self.source {
             Source::Server => None,

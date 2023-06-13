@@ -5,6 +5,7 @@ use irc::client::Client;
 use irc::proto;
 
 use crate::{message, time, Command, Message, Server, User};
+use itertools::Itertools;
 
 #[derive(Debug)]
 pub enum State {
@@ -161,6 +162,24 @@ impl Map {
         self.connection(server)
             .map(|connection| connection.users(channel))
             .unwrap_or_default()
+    }
+
+    pub fn get_unique_queries(&self, server: &Server) -> Vec<&User> {
+        let Some(connection) = self.connection(server) else {
+            return vec![]
+        };
+
+        let queries = connection
+            .messages
+            .iter()
+            .filter_map(|message| match &message.source {
+                message::Source::Private(user) => Some(user),
+                _ => None,
+            })
+            .unique()
+            .collect::<Vec<_>>();
+
+        queries
     }
 
     pub fn get_channels(&self) -> BTreeMap<Server, Vec<String>> {
