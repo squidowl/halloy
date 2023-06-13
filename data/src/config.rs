@@ -79,18 +79,22 @@ impl Config {
         }
     }
 
-    pub fn channel_config(&self, server: &str, channel: &str) -> channel::Config {
+    pub fn channel_config(&self, server: impl AsRef<str>, channel: &str) -> channel::Config {
         self.channels
-            .get(server)
+            .get(server.as_ref())
             .and_then(|channels| channels.get(channel))
             .cloned()
             .unwrap_or_default()
     }
 
-    pub fn channel_config_mut(&mut self, server: &str, channel: &str) -> &mut channel::Config {
+    pub fn channel_config_mut(
+        &mut self,
+        server: impl AsRef<str>,
+        channel: &str,
+    ) -> &mut channel::Config {
         let servers = self
             .channels
-            .entry(server.to_string())
+            .entry(server.as_ref().to_string())
             .or_insert(BTreeMap::new());
 
         let config = servers
