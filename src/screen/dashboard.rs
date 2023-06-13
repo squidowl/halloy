@@ -350,35 +350,6 @@ impl Dashboard {
         server: &data::Server,
         source: message::Source,
     ) -> Command<Message> {
-        match &source {
-            message::Source::Server => {
-                if let Some(server) = self
-                    .panes
-                    .iter()
-                    .find_map(|(_, pane)| pane.buffer.get_server(server))
-                {
-                    return scrollable::snap_to(
-                        server.messages.scrollable.clone(),
-                        scrollable::RelativeOffset::END,
-                    );
-                }
-            }
-            message::Source::Channel(channel, _) => {
-                if let Some(channel) = self
-                    .panes
-                    .iter()
-                    .find_map(|(_, pane)| pane.buffer.get_channel(server, channel))
-                {
-                    return scrollable::snap_to(
-                        channel.messages.scrollable.clone(),
-                        scrollable::RelativeOffset::END,
-                    );
-                }
-            }
-            // TODO:
-            message::Source::Private(_) => {}
-        }
-
         Command::none()
     }
 

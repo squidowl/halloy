@@ -147,13 +147,7 @@ impl Channel {
                         clients.send_command(&self.server, command);
                     }
                 }
-                return (
-                    scrollable::snap_to(
-                        self.messages.scrollable.clone(),
-                        scrollable::RelativeOffset::END,
-                    ),
-                    None,
-                );
+                return (Command::none(), None);
             }
             Message::CompletionSelected => {
                 return (input::move_cursor_to_end(self.input_id.clone()), None);

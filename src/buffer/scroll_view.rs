@@ -38,6 +38,7 @@ pub fn view<'a>(
             .width(Length::Fill)
             .padding([0, 8]),
     )
+    .vertical_scroll(scrollable::Properties::default().alignment(scrollable::Alignment::End))
     .id(state.scrollable.clone());
 
     if at_limit {

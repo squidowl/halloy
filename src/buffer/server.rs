@@ -77,13 +77,7 @@ impl Server {
             Message::Send(content) => {
                 if let input::Content::Command(command) = content {
                     clients.send_command(&self.server, command);
-                    (
-                        scrollable::snap_to(
-                            self.messages.scrollable.clone(),
-                            scrollable::RelativeOffset::END,
-                        ),
-                        None,
-                    )
+                    (Command::none(), None)
                 } else {
                     (Command::none(), None)
                 }
