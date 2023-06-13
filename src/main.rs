@@ -38,10 +38,30 @@ pub fn main() -> iced::Result {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
+fn window_settings() -> iced::window::Settings {
+    Default::default()
+}
+
+#[cfg(target_os = "macos")]
+fn window_settings() -> iced::window::Settings {
+    iced::window::Settings {
+        platform_specific: iced::window::PlatformSpecific {
+            title_hidden: true,
+            titlebar_transparent: true,
+            fullsize_content_view: true,
+        },
+        ..Default::default()
+    }
+}
+
 fn settings() -> iced::Settings<()> {
     iced::Settings {
         default_font: font::MONO,
         default_text_size: theme::TEXT_SIZE,
+        window: iced::window::Settings {
+            ..window_settings()
+        },
         ..Default::default()
     }
 }
