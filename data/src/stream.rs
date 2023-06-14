@@ -1,6 +1,9 @@
+use std::time::Duration;
+
 use futures::stream::{self, BoxStream};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
+use tokio::time::{self, Instant, Interval};
 
 use crate::client::Connection;
 use crate::server;
@@ -17,7 +20,7 @@ pub enum Error {
 pub enum Event {
     Ready(mpsc::Sender<Message>),
     Connected(Server, Connection),
-    MessageReceived(Server, irc::proto::Message),
+    MessagesReceived(Vec<(Server, irc::proto::Message)>),
 }
 
 #[derive(Debug, Clone)]
@@ -31,6 +34,7 @@ enum State {
         receiver: mpsc::Receiver<Message>,
     },
     Connected {
+        batch: Batch,
         receiver: mpsc::Receiver<Message>,
         servers: Vec<ServerData>,
     },
@@ -44,6 +48,7 @@ struct ServerData {
 enum Input {
     Message(Option<Message>),
     IrcMessage(usize, Result<irc::proto::Message, irc::error::Error>),
+    Batch(Vec<(Server, irc::proto::Message)>),
 }
 
 pub fn run() -> BoxStream<'static, Result> {
@@ -68,7 +73,11 @@ pub fn run() -> BoxStream<'static, Result> {
 
                             return Some((
                                 Ok(Event::Connected(server, connection)),
-                                State::Connected { receiver, servers },
+                                State::Connected {
+                                    batch: Batch::new(),
+                                    receiver,
+                                    servers,
+                                },
                             ));
                         }
                         Err(e) => {
@@ -78,15 +87,22 @@ pub fn run() -> BoxStream<'static, Result> {
                 }
             },
             State::Connected {
+                mut batch,
                 mut receiver,
                 mut servers,
             } => loop {
                 let input = {
                     let mut select = stream::select(
-                        stream::select_all(servers.iter_mut().enumerate().map(|(idx, server)| {
-                            (&mut server.stream).map(move |result| Input::IrcMessage(idx, result))
-                        })),
-                        receiver.recv().map(Input::Message).into_stream().boxed(),
+                        stream::select(
+                            stream::select_all(servers.iter_mut().enumerate().map(
+                                |(idx, server)| {
+                                    (&mut server.stream)
+                                        .map(move |result| Input::IrcMessage(idx, result))
+                                },
+                            )),
+                            receiver.recv().map(Input::Message).into_stream().boxed(),
+                        ),
+                        (&mut batch).map(Input::Batch),
                     );
 
                     select.next().await.expect("Await stream input")
@@ -108,7 +124,11 @@ pub fn run() -> BoxStream<'static, Result> {
 
                                 return Some((
                                     Ok(Event::Connected(server, connection)),
-                                    State::Connected { receiver, servers },
+                                    State::Connected {
+                                        batch,
+                                        receiver,
+                                        servers,
+                                    },
                                 ));
                             }
                             Err(e) => {
@@ -125,14 +145,20 @@ pub fn run() -> BoxStream<'static, Result> {
                             &server.name,
                             server.config.server.as_ref().expect("server hostname"),
                         );
-
-                        return Some((
-                            Ok(Event::MessageReceived(server, message)),
-                            State::Connected { receiver, servers },
-                        ));
+                        batch.messages.push((server, message));
                     }
                     Input::Message(None) => {}
                     Input::IrcMessage(_, Err(_)) => {} // TODO: Handle?
+                    Input::Batch(messages) => {
+                        return Some((
+                            Ok(Event::MessagesReceived(messages)),
+                            State::Connected {
+                                batch,
+                                receiver,
+                                servers,
+                            },
+                        ));
+                    }
                 }
             },
         }
@@ -147,4 +173,47 @@ async fn connect(
     client.identify()?;
 
     Ok((client.stream()?, Connection::new(client)))
+}
+
+struct Batch {
+    interval: Interval,
+    messages: Vec<(Server, irc::proto::Message)>,
+}
+
+impl Batch {
+    const INTERVAL_MILLIS: u64 = 50;
+
+    fn new() -> Self {
+        Self {
+            interval: time::interval_at(
+                Instant::now() + Duration::from_millis(Self::INTERVAL_MILLIS),
+                Duration::from_millis(Self::INTERVAL_MILLIS),
+            ),
+            messages: vec![],
+        }
+    }
+}
+
+impl futures::Stream for Batch {
+    type Item = Vec<(Server, irc::proto::Message)>;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        let batch = self.get_mut();
+
+        match batch.interval.poll_tick(cx) {
+            std::task::Poll::Ready(_) => {
+                let messages = std::mem::take(&mut batch.messages);
+
+                if messages.is_empty() {
+                    std::task::Poll::Pending
+                } else {
+                    std::task::Poll::Ready(Some(messages))
+                }
+            }
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
 }

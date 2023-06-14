@@ -4,7 +4,7 @@ pub mod side_menu;
 use data::config::Config;
 use data::message;
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{container, row, scrollable};
+use iced::widget::{container, row};
 use iced::{clipboard, keyboard, Command, Length};
 use pane::Pane;
 use side_menu::SideMenu;
@@ -278,8 +278,8 @@ impl Dashboard {
 
     pub fn view<'a>(
         &'a self,
-        clients: &data::client::Map,
-        config: &data::config::Config,
+        clients: &'a data::client::Map,
+        config: &'a data::config::Config,
     ) -> Element<'a, Message> {
         let focus = self.focus;
 
@@ -347,38 +347,10 @@ impl Dashboard {
 
     pub fn message_received(
         &self,
-        server: &data::Server,
-        source: message::Source,
+        _server: &data::Server,
+        _source: message::Source,
     ) -> Command<Message> {
-        match &source {
-            message::Source::Server => {
-                if let Some(server) = self
-                    .panes
-                    .iter()
-                    .find_map(|(_, pane)| pane.buffer.get_server(server))
-                {
-                    return scrollable::snap_to(
-                        server.scrollable.clone(),
-                        scrollable::RelativeOffset::END,
-                    );
-                }
-            }
-            message::Source::Channel(channel, _) => {
-                if let Some(channel) = self
-                    .panes
-                    .iter()
-                    .find_map(|(_, pane)| pane.buffer.get_channel(server, channel))
-                {
-                    return scrollable::snap_to(
-                        channel.scrollable.clone(),
-                        scrollable::RelativeOffset::END,
-                    );
-                }
-            }
-            // TODO:
-            message::Source::Private(_) => {}
-        }
-
+        // TODO: Placeholder for message related hooks
         Command::none()
     }
 

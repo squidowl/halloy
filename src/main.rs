@@ -175,16 +175,18 @@ impl Application for Halloy {
 
                     Command::none()
                 }
-                stream::Event::MessageReceived(server, message) => {
-                    let Some(source) = self.clients.add_message(&server, message) else {
-                        return Command::none();
-                    };
-                    let Screen::Dashboard(dashboard) = &self.screen;
-
-                    dashboard
-                        .message_received(&server, source)
-                        .map(Message::Dashboard)
-                }
+                stream::Event::MessagesReceived(messages) => Command::batch(
+                    self.clients
+                        .add_messages(messages)
+                        .into_iter()
+                        .map(|(server, source)| {
+                            let Screen::Dashboard(dashboard) = &self.screen;
+                            dashboard
+                                .message_received(&server, source)
+                                .map(Message::Dashboard)
+                        })
+                        .collect::<Vec<_>>(),
+                ),
             },
             Message::Stream(Err(error)) => {
                 log::error!("{:?}", error);

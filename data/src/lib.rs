@@ -15,4 +15,5 @@ pub mod message;
 pub mod palette;
 pub mod server;
 pub mod stream;
+pub mod time;
 pub mod user;
