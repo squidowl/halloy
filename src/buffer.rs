@@ -7,6 +7,7 @@ use crate::widget::Element;
 
 pub mod channel;
 pub mod empty;
+mod scroll_view;
 pub mod server;
 
 #[derive(Clone)]
@@ -56,23 +57,25 @@ impl Buffer {
 
     pub fn view<'a>(
         &'a self,
-        clients: &data::client::Map,
-        config: &data::config::Config,
+        clients: &'a data::client::Map,
+        config: &'a data::config::Config,
         is_focused: bool,
     ) -> Element<'a, Message> {
         match self {
             Buffer::Empty(state) => empty::view(state, clients).map(Message::Empty),
             Buffer::Channel(state) => {
-                let user_colors = config.user_colors.clone();
+                let user_colors = &config.user_colors;
                 let config = config.channel_config(&state.server.name, &state.channel);
 
-                channel::view(state, clients, &config, &user_colors, is_focused)
+                channel::view(state, clients, &config, user_colors, is_focused)
                     .map(Message::Channel)
             }
             Buffer::Server(state) => server::view(state, clients, is_focused).map(Message::Server),
         }
     }
 
+    // TODO: Placeholder in case we need
+    #[allow(unused)]
     pub fn get_server(&self, server: &data::Server) -> Option<&Server> {
         if let Buffer::Server(state) = self {
             (&state.server == server).then_some(state)
@@ -81,6 +84,8 @@ impl Buffer {
         }
     }
 
+    // TODO: Placeholder in case we need
+    #[allow(unused)]
     pub fn get_channel(&self, server: &data::Server, channel: &str) -> Option<&Channel> {
         if let Buffer::Channel(state) = self {
             (&state.server == server && state.channel.as_str() == channel).then_some(state)

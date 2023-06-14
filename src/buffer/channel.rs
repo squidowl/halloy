@@ -4,6 +4,7 @@ use data::server::Server;
 use iced::widget::{column, container, row, scrollable, text, vertical_space};
 use iced::{Command, Length};
 
+use super::scroll_view;
 use crate::theme;
 use crate::widget::{input, selectable_text, Collection, Column, Element};
 
@@ -11,42 +12,38 @@ use crate::widget::{input, selectable_text, Collection, Column, Element};
 pub enum Message {
     Send(input::Content),
     CompletionSelected,
+    ScrollView(scroll_view::Message),
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {}
 
 pub fn view<'a>(
-    state: &Channel,
-    clients: &data::client::Map,
+    state: &'a Channel,
+    clients: &'a data::client::Map,
     config: &data::channel::Config,
-    user_colors: &data::config::UserColor,
+    user_colors: &'a data::config::UserColor,
     is_focused: bool,
 ) -> Element<'a, Message> {
-    let messages: Vec<Element<'a, Message>> = clients
-        .get_channel_messages(&state.server, &state.channel)
-        .into_iter()
-        .filter_map(|message| {
-            let user = message.user()?;
-
-            Some(
-                container(row![
-                    selectable_text(format!("<{}> ", user.nickname()))
-                        .style(theme::Text::Nickname(user.color_seed(user_colors))),
-                    selectable_text(&message.text)
-                ])
-                .into(),
-            )
-        })
-        .collect();
-
     let messages = container(
-        scrollable(
-            Column::with_children(messages)
-                .width(Length::Fill)
-                .padding([0, 8]),
+        scroll_view::view(
+            &state.scroll_view,
+            scroll_view::Kind::Channel(&state.server, &state.channel),
+            clients,
+            |message| {
+                let user = message.user()?;
+
+                Some(
+                    container(row![
+                        selectable_text(format!("<{}> ", user.nickname()))
+                            .style(theme::Text::Nickname(user.color_seed(user_colors))),
+                        selectable_text(&message.text)
+                    ])
+                    .into(),
+                )
+            },
         )
-        .id(state.scrollable.clone()),
+        .map(Message::ScrollView),
     )
     .width(Length::FillPortion(2))
     .height(Length::Fill);
@@ -120,7 +117,7 @@ pub struct Channel {
     pub server: Server,
     pub channel: String,
     pub topic: Option<String>,
-    pub scrollable: scrollable::Id,
+    pub scroll_view: scroll_view::State,
     input_id: input::Id,
 }
 
@@ -130,7 +127,7 @@ impl Channel {
             server,
             channel,
             topic: None,
-            scrollable: scrollable::Id::unique(),
+            scroll_view: scroll_view::State::new(),
             input_id: input::Id::unique(),
         }
     }
@@ -151,12 +148,16 @@ impl Channel {
                     }
                 }
                 return (
-                    scrollable::snap_to(self.scrollable.clone(), scrollable::RelativeOffset::END),
+                    self.scroll_view.scroll_to_end().map(Message::ScrollView),
                     None,
                 );
             }
             Message::CompletionSelected => {
                 return (input::move_cursor_to_end(self.input_id.clone()), None);
+            }
+            Message::ScrollView(message) => {
+                let command = self.scroll_view.update(message);
+                (command.map(Message::ScrollView), None)
             }
         }
     }

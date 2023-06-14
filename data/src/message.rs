@@ -1,9 +1,9 @@
 use irc::proto;
 use irc::proto::ChannelExt;
 
-use crate::User;
+use crate::{time, User};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Source {
     Server,
     Channel(String, User),
@@ -18,8 +18,7 @@ pub enum Direction {
 
 #[derive(Debug, Clone)]
 pub struct Message {
-    // TODO: Add timestamp
-    pub timestamp: u64,
+    pub timestamp: time::Posix,
     pub direction: Direction,
     pub source: Source,
     pub text: String,
@@ -71,7 +70,7 @@ impl Message {
         };
 
         Some(Message {
-            timestamp: 0,
+            timestamp: time::Posix::now(),
             direction: Direction::Received,
             source,
             text,
@@ -91,5 +90,36 @@ fn text(message: &irc::proto::Message) -> Option<String> {
                 .join(" "),
         ),
         _ => None,
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Limit {
+    Top(usize),
+    Bottom(usize),
+    Since(time::Posix),
+}
+
+impl Default for Limit {
+    fn default() -> Self {
+        Self::Bottom(500)
+    }
+}
+
+impl Limit {
+    pub const DEFAULT_STEP: usize = 50;
+
+    fn value_mut(&mut self) -> Option<&mut usize> {
+        match self {
+            Limit::Top(i) => Some(i),
+            Limit::Bottom(i) => Some(i),
+            Limit::Since(_) => None,
+        }
+    }
+
+    pub fn increase(&mut self, n: usize) {
+        if let Some(value) = self.value_mut() {
+            *value += n;
+        }
     }
 }
