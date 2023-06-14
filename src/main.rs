@@ -62,6 +62,7 @@ fn settings() -> iced::Settings<()> {
         window: iced::window::Settings {
             ..window_settings()
         },
+        exit_on_close_request: false,
         ..Default::default()
     }
 }
@@ -96,6 +97,7 @@ enum Message {
     Event(iced::Event),
     FontsLoaded(Result<(), iced::font::Error>),
     ConfigSaved(Result<(), data::config::Error>),
+    Exit,
 }
 
 impl Application for Halloy {
@@ -106,7 +108,7 @@ impl Application for Halloy {
 
     fn new(_flags: ()) -> (Halloy, Command<Self::Message>) {
         let config = Config::load().unwrap_or_default();
-        let screen = screen::Dashboard::new(&config);
+        let (screen, command) = screen::Dashboard::new(&config);
 
         let mut clients = data::client::Map::default();
 
@@ -126,7 +128,10 @@ impl Application for Halloy {
                 clients,
                 stream: None,
             },
-            Command::batch(vec![font::load().map(Message::FontsLoaded)]),
+            Command::batch(vec![
+                font::load().map(Message::FontsLoaded),
+                command.map(Message::Dashboard),
+            ]),
         )
     }
 
@@ -140,6 +145,8 @@ impl Application for Halloy {
                 Screen::Dashboard(dashboard) => {
                     let (command, event) =
                         dashboard.update(message, &mut self.clients, &mut self.config);
+                    // Retrack after dashboard state changes
+                    let track = dashboard.track();
 
                     if let Some(event) = event {
                         match event {
@@ -152,7 +159,10 @@ impl Application for Halloy {
                         }
                     }
 
-                    command.map(Message::Dashboard)
+                    Command::batch(vec![
+                        command.map(Message::Dashboard),
+                        track.map(Message::Dashboard),
+                    ])
                 }
             },
             Message::Stream(Ok(event)) => match event {
@@ -175,18 +185,12 @@ impl Application for Halloy {
 
                     Command::none()
                 }
-                stream::Event::MessagesReceived(messages) => Command::batch(
-                    self.clients
-                        .add_messages(messages)
-                        .into_iter()
-                        .map(|(server, source)| {
-                            let Screen::Dashboard(dashboard) = &self.screen;
-                            dashboard
-                                .message_received(&server, source)
-                                .map(Message::Dashboard)
-                        })
-                        .collect::<Vec<_>>(),
-                ),
+                stream::Event::MessagesReceived(messages) => {
+                    let Screen::Dashboard(dashboard) = &mut self.screen;
+                    dashboard
+                        .messages_received(messages)
+                        .map(Message::Dashboard)
+                }
             },
             Message::Stream(Err(error)) => {
                 log::error!("{:?}", error);
@@ -211,6 +215,10 @@ impl Application for Halloy {
                     keyboard::Event::CharacterReceived(_) => Command::none(),
                     keyboard::Event::ModifiersChanged(_) => Command::none(),
                 },
+                iced::Event::Window(window::Event::CloseRequested) => {
+                    let Screen::Dashboard(dashboard) = &mut self.screen;
+                    dashboard.exit().map(|_| Message::Exit)
+                }
                 _ => Command::none(),
             },
             Message::ConfigSaved(Ok(_)) => Command::none(),
@@ -218,6 +226,7 @@ impl Application for Halloy {
                 log::error!("config saved failed: {error:?}");
                 Command::none()
             }
+            Message::Exit => window::close(),
         }
     }
 
@@ -240,9 +249,12 @@ impl Application for Halloy {
     }
 
     fn subscription(&self) -> Subscription<Message> {
+        let Screen::Dashboard(dashboard) = &self.screen;
+
         Subscription::batch(vec![
             client::run().map(Message::Stream),
             subscription::events_with(filtered_events),
+            dashboard.subscription().map(Message::Dashboard),
         ])
     }
 }

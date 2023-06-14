@@ -2,10 +2,10 @@ pub mod pane;
 pub mod side_menu;
 
 use data::config::Config;
-use data::message;
+use data::{history, message, Server};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
-use iced::{clipboard, keyboard, Command, Length};
+use iced::{clipboard, keyboard, subscription, Command, Length, Subscription};
 use pane::Pane;
 use side_menu::SideMenu;
 
@@ -16,21 +16,15 @@ pub struct Dashboard {
     panes: pane_grid::State<Pane>,
     focus: Option<pane_grid::Pane>,
     side_menu: SideMenu,
+    history: history::Manager,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Message {
     Pane(pane::Message),
-    Buffer(pane_grid::Pane, buffer::Message),
-    PaneClicked(pane_grid::Pane),
-    PaneResized(pane_grid::ResizeEvent),
-    PaneDragged(pane_grid::DragEvent),
     SideMenu(side_menu::Message),
-    ClosePane,
-    SplitPane(pane_grid::Axis),
-    MaximizePane,
-    ToggleShowUserList,
     SelectedText(Vec<(f32, String)>),
+    History(history::manager::Message),
 }
 
 pub enum Event {
@@ -38,7 +32,7 @@ pub enum Event {
 }
 
 impl Dashboard {
-    pub fn new(_config: &Config) -> Self {
+    pub fn new(_config: &Config) -> (Self, Command<Message>) {
         let buffers = vec![];
 
         let first_buffer = Buffer::Empty(Default::default());
@@ -49,11 +43,16 @@ impl Dashboard {
             panes.split(pane_grid::Axis::Horizontal, &pane, Pane::new(buffer));
         }
 
-        Dashboard {
+        let mut dashboard = Dashboard {
             panes,
             focus: None,
             side_menu: SideMenu::new(),
-        }
+            history: history::Manager::default(),
+        };
+
+        let command = dashboard.track();
+
+        (dashboard, command)
     }
 
     pub fn update(
@@ -63,80 +62,85 @@ impl Dashboard {
         config: &mut data::config::Config,
     ) -> (Command<Message>, Option<Event>) {
         match message {
-            Message::PaneClicked(pane) => {
-                return (self.focus_pane(pane), None);
-            }
-            Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
-                self.panes.resize(&split, ratio);
-            }
-            Message::PaneDragged(pane_grid::DragEvent::Dropped {
-                pane,
-                target,
-                region,
-            }) => {
-                self.panes.split_with(&target, &pane, region);
-            }
-            Message::PaneDragged(_) => {}
-            Message::ClosePane => {
-                if let Some(pane) = self.focus {
-                    if let Some((_, sibling)) = self.panes.close(&pane) {
-                        return (self.focus_pane(sibling), None);
-                    } else if let Some(pane) = self.panes.get_mut(&pane) {
-                        pane.buffer = Buffer::Empty(Default::default());
-                    }
+            Message::Pane(message) => match message {
+                pane::Message::PaneClicked(pane) => {
+                    return (self.focus_pane(pane), None);
                 }
-            }
-            Message::SplitPane(axis) => {
-                if let Some(pane) = self.focus {
-                    let result = self.panes.split(
-                        axis,
-                        &pane,
-                        Pane::new(Buffer::Empty(buffer::empty::Empty::default())),
-                    );
-                    if let Some((pane, _)) = result {
-                        return (self.focus_pane(pane), None);
-                    }
+                pane::Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
+                    self.panes.resize(&split, ratio);
                 }
-            }
-            Message::Pane(message) => {
-                if let Some(pane) = self.get_focused_mut() {
-                    let command = pane.update(message);
-
-                    return (command.map(Message::Pane), None);
+                pane::Message::PaneDragged(pane_grid::DragEvent::Dropped {
+                    pane,
+                    target,
+                    region,
+                }) => {
+                    self.panes.split_with(&target, &pane, region);
                 }
-            }
-            Message::Buffer(id, message) => {
-                if let Some(pane) = self.panes.get_mut(&id) {
-                    let (command, event) = pane.buffer.update(message, clients);
-
-                    match event {
-                        Some(buffer::Event::Empty(event)) => match event {},
-                        Some(buffer::Event::Channel(event)) => match event {},
-                        Some(buffer::Event::Server(event)) => match event {},
-                        None => {}
-                    }
-
-                    return (
-                        command.map(move |message| Message::Buffer(id, message)),
-                        None,
-                    );
-                }
-            }
-            Message::ToggleShowUserList => {
-                if let Some(pane) = self.get_focused_mut() {
-                    match &mut pane.buffer {
-                        Buffer::Channel(state) => {
-                            let config =
-                                config.channel_config_mut(&state.server.name, &state.channel);
-
-                            config.users.toggle_visibility();
-                            return (Command::none(), Some(Event::SaveSettings));
+                pane::Message::PaneDragged(_) => {}
+                pane::Message::ClosePane => {
+                    if let Some(pane) = self.focus {
+                        if let Some((_, sibling)) = self.panes.close(&pane) {
+                            return (self.focus_pane(sibling), None);
+                        } else if let Some(pane) = self.panes.get_mut(&pane) {
+                            pane.buffer = Buffer::Empty(Default::default());
                         }
-                        Buffer::Empty(_) => {}
-                        Buffer::Server(_) => {}
                     }
                 }
-            }
+                pane::Message::SplitPane(axis) => {
+                    if let Some(pane) = self.focus {
+                        let result = self.panes.split(
+                            axis,
+                            &pane,
+                            Pane::new(Buffer::Empty(buffer::empty::Empty::default())),
+                        );
+                        if let Some((pane, _)) = result {
+                            return (self.focus_pane(pane), None);
+                        }
+                    }
+                }
+                pane::Message::Buffer(id, message) => {
+                    if let Some(pane) = self.panes.get_mut(&id) {
+                        let (command, event) =
+                            pane.buffer.update(message, clients, &mut self.history);
+
+                        match event {
+                            Some(buffer::Event::Empty(event)) => match event {},
+                            Some(buffer::Event::Channel(event)) => match event {},
+                            Some(buffer::Event::Server(event)) => match event {},
+                            None => {}
+                        }
+
+                        return (
+                            command.map(move |message| {
+                                Message::Pane(pane::Message::Buffer(id, message))
+                            }),
+                            None,
+                        );
+                    }
+                }
+                pane::Message::ToggleShowUserList => {
+                    if let Some(pane) = self.get_focused_mut() {
+                        match &mut pane.buffer {
+                            Buffer::Channel(state) => {
+                                let config =
+                                    config.channel_config_mut(&state.server.name, &state.channel);
+
+                                config.users.toggle_visibility();
+                                return (Command::none(), Some(Event::SaveSettings));
+                            }
+                            Buffer::Empty(_) => {}
+                            Buffer::Server(_) => {}
+                        }
+                    }
+                }
+                pane::Message::MaximizePane => {
+                    if self.panes.maximized().is_some() {
+                        self.panes.restore();
+                    } else if let Some(pane) = self.focus {
+                        self.panes.maximize(&pane);
+                    }
+                }
+            },
             Message::SideMenu(message) => {
                 if let Some(event) = self.side_menu.update(message) {
                     let panes = self.panes.clone();
@@ -245,13 +249,6 @@ impl Dashboard {
                     }
                 }
             }
-            Message::MaximizePane => {
-                if self.panes.maximized().is_some() {
-                    self.panes.restore();
-                } else if let Some(pane) = self.focus {
-                    self.panes.maximize(&pane);
-                }
-            }
             Message::SelectedText(contents) => {
                 let mut last_y = None;
                 let contents = contents
@@ -271,6 +268,17 @@ impl Dashboard {
 
                 return (clipboard::write(contents), None);
             }
+            Message::History(message) => {
+                let command = Command::batch(
+                    self.history
+                        .update(message)
+                        .into_iter()
+                        .map(|task| Command::perform(task, Message::History))
+                        .collect::<Vec<_>>(),
+                );
+
+                return (command, None);
+            }
         }
 
         (Command::none(), None)
@@ -283,32 +291,26 @@ impl Dashboard {
     ) -> Element<'a, Message> {
         let focus = self.focus;
 
-        let pane_grid = PaneGrid::new(&self.panes, |id, pane, maximized| {
+        let pane_grid: Element<_> = PaneGrid::new(&self.panes, |id, pane, maximized| {
             let is_focused = focus == Some(id);
             let panes = self.panes.len();
             pane.view(
-                pane::Mapper {
-                    pane: Message::Pane,
-                    buffer: Message::Buffer,
-                    on_close: Message::ClosePane,
-                    on_split: Message::SplitPane,
-                    on_maximize: Message::MaximizePane,
-                    on_users: Message::ToggleShowUserList,
-                },
                 id,
                 panes,
                 is_focused,
                 maximized,
                 clients,
+                &self.history,
                 config,
             )
         })
-        .on_click(Message::PaneClicked)
-        .on_resize(6, Message::PaneResized)
-        .on_drag(Message::PaneDragged)
-        .spacing(4);
+        .on_click(pane::Message::PaneClicked)
+        .on_resize(6, pane::Message::PaneResized)
+        .on_drag(pane::Message::PaneDragged)
+        .spacing(4)
+        .into();
 
-        let pane_grid = container(pane_grid)
+        let pane_grid = container(pane_grid.map(Message::Pane))
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(8);
@@ -345,12 +347,8 @@ impl Dashboard {
         }
     }
 
-    pub fn message_received(
-        &self,
-        _server: &data::Server,
-        _source: message::Source,
-    ) -> Command<Message> {
-        // TODO: Placeholder for message related hooks
+    pub fn messages_received(&mut self, messages: Vec<(Server, message::Raw)>) -> Command<Message> {
+        let _ = self.history.add_raw_messages(messages);
         Command::none()
     }
 
@@ -369,9 +367,33 @@ impl Dashboard {
                     state
                         .buffer
                         .focus()
-                        .map(move |message| Message::Buffer(pane, message))
+                        .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
                 })
             })
             .unwrap_or(Command::none())
+    }
+
+    pub fn track(&mut self) -> Command<Message> {
+        let resources = self
+            .panes
+            .iter()
+            .filter_map(|(_, pane)| pane.resource())
+            .collect();
+
+        Command::batch(
+            self.history
+                .track(resources)
+                .into_iter()
+                .map(|fut| Command::perform(fut, Message::History))
+                .collect::<Vec<_>>(),
+        )
+    }
+
+    pub fn exit(&mut self) -> Command<()> {
+        Command::perform(self.history.exit(), std::convert::identity)
+    }
+
+    pub fn subscription(&self) -> Subscription<Message> {
+        subscription::run(history::manager::tick).map(Message::History)
     }
 }

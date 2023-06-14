@@ -1,3 +1,4 @@
+use data::history;
 use iced::Command;
 
 use self::channel::Channel;
@@ -36,13 +37,14 @@ impl Buffer {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
+        history: &mut history::Manager,
     ) -> (Command<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Empty(state), Message::Empty(message)) => {
                 (Command::none(), state.update(message).map(Event::Empty))
             }
             (Buffer::Channel(state), Message::Channel(message)) => {
-                let (command, event) = state.update(message, clients);
+                let (command, event) = state.update(message, clients, history);
 
                 (command.map(Message::Channel), event.map(Event::Channel))
             }
@@ -58,6 +60,7 @@ impl Buffer {
     pub fn view<'a>(
         &'a self,
         clients: &'a data::client::Map,
+        history: &'a history::Manager,
         config: &'a data::config::Config,
         is_focused: bool,
     ) -> Element<'a, Message> {
@@ -67,10 +70,10 @@ impl Buffer {
                 let user_colors = &config.user_colors;
                 let config = config.channel_config(&state.server.name, &state.channel);
 
-                channel::view(state, clients, &config, user_colors, is_focused)
+                channel::view(state, clients, history, &config, user_colors, is_focused)
                     .map(Message::Channel)
             }
-            Buffer::Server(state) => server::view(state, clients, is_focused).map(Message::Server),
+            Buffer::Server(state) => server::view(state, history, is_focused).map(Message::Server),
         }
     }
 

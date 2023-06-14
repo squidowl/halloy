@@ -4,15 +4,30 @@ use std::ops::Deref;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Name(String);
+
+impl fmt::Display for Name {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl AsRef<str> for Name {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Server {
-    pub name: String,
+    pub name: Name,
     pub hostname: String,
 }
 
 impl Server {
     pub fn new(name: impl ToString, hostname: impl ToString) -> Self {
         Self {
-            name: name.to_string(),
+            name: Name(name.to_string()),
             hostname: hostname.to_string(),
         }
     }
@@ -20,7 +35,7 @@ impl Server {
 
 impl fmt::Display for Server {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.name.fmt(f)
+        self.name.0.fmt(f)
     }
 }
 

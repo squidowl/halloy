@@ -4,18 +4,21 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bincode = "1.0"
 dirs-next = "2.0.0"
+flate2 = "1.0"
 futures = "0.3.21"
+iced = { version = "0.9", features = [] }
 irc = "0.15.0"
 log = "0.4.16"
 palette = "=0.7.2"
-serde_yaml = "0.8.23"
-thiserror = "1.0.30"
-tokio = "1.0"
 rand = "0.8.4"
 rand_chacha = "0.3.0"
 seahash = "4.1.0"
-iced = { version = "0.9", features = [] }
+serde_yaml = "0.8.23"
+thiserror = "1.0.30"
+tokio = { version = "1.0", features = ["io-util"] }
+tokio-stream = { version = "0.1", features = ["time"] }
 
 [dependencies.serde]
 version = "1.0"

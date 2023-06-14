@@ -1,10 +1,9 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::fmt;
 
 use irc::client::Client;
 use irc::proto;
 
-use crate::message::Limit;
 use crate::{message, time, Command, Message, Server, User};
 
 #[derive(Debug)]
@@ -16,7 +15,6 @@ pub enum State {
 #[derive(Debug)]
 pub struct Connection {
     client: Client,
-    messages: Vec<Message>,
     // TODO: Is there a better way to handle this?
     nick_change: Option<String>,
 }
@@ -25,12 +23,11 @@ impl Connection {
     pub fn new(client: Client) -> Self {
         Self {
             client,
-            messages: vec![],
             nick_change: None,
         }
     }
 
-    fn send_channel_message(&mut self, channel: String, text: impl fmt::Display) {
+    fn send_channel_message(&mut self, channel: String, text: impl fmt::Display) -> Message {
         let text = text.to_string();
 
         let command = proto::Command::PRIVMSG(channel.clone(), text.clone());
@@ -40,15 +37,15 @@ impl Connection {
             dbg!(&e);
         }
 
-        self.messages.push(Message {
+        Message {
             timestamp: time::Posix::now(),
             direction: message::Direction::Sent,
             source: message::Source::Channel(channel, User::new(self.nickname(), None, None)),
             text,
-        });
+        }
     }
 
-    fn send_user_message(&mut self, user: User, text: impl fmt::Display) {
+    fn send_user_message(&mut self, user: User, text: impl fmt::Display) -> Message {
         let text = text.to_string();
 
         let target = user
@@ -62,12 +59,12 @@ impl Connection {
             dbg!(&e);
         }
 
-        self.messages.push(Message {
+        Message {
             timestamp: time::Posix::now(),
             direction: message::Direction::Sent,
             source: message::Source::Private(user),
             text,
-        });
+        }
     }
 
     fn send_command(&mut self, command: Command) {
@@ -141,31 +138,16 @@ impl Map {
         }
     }
 
-    pub fn add_messages(
+    pub fn send_privmsg(
         &mut self,
-        messages: Vec<(Server, irc::proto::Message)>,
-    ) -> HashSet<(Server, message::Source)> {
-        messages
-            .into_iter()
-            .filter_map(|(server, message)| {
-                let Some(State::Ready(connection)) = self.0.get_mut(&server) else {
-                    return None;
-                };
-
-                let message = Message::received(message)?;
-
-                let source = message.source.clone();
-
-                connection.messages.push(message);
-
-                Some((server, source))
-            })
-            .collect()
-    }
-
-    pub fn send_privmsg(&mut self, server: &Server, channel: &str, text: impl fmt::Display) {
+        server: &Server,
+        channel: &str,
+        text: impl fmt::Display,
+    ) -> Option<Message> {
         if let Some(connection) = self.connection_mut(server) {
-            connection.send_channel_message(channel.to_string(), text);
+            Some(connection.send_channel_message(channel.to_string(), text))
+        } else {
+            None
         }
     }
 
@@ -198,62 +180,5 @@ impl Map {
         }
 
         map
-    }
-
-    pub fn get_channel_messages(
-        &self,
-        server: &Server,
-        channel: &str,
-        limit: Option<Limit>,
-    ) -> (usize, Vec<&Message>) {
-        self.connection(server)
-            .map(|connection| {
-                let messages = connection
-                    .messages
-                    .iter()
-                    .filter(|message| message.channel() == Some(channel))
-                    .collect::<Vec<_>>();
-                let total = messages.len();
-
-                (total, with_limit(limit, messages.into_iter()))
-            })
-            .unwrap_or_else(|| (0, vec![]))
-    }
-
-    pub fn get_server_messages(
-        &self,
-        server: &Server,
-        limit: Option<Limit>,
-    ) -> (usize, Vec<&Message>) {
-        self.connection(server)
-            .map(|connection| {
-                let messages = connection
-                    .messages
-                    .iter()
-                    .filter(|message| message.is_server())
-                    .collect::<Vec<_>>();
-                let total = messages.len();
-
-                (total, with_limit(limit, messages.into_iter()))
-            })
-            .unwrap_or_else(|| (0, vec![]))
-    }
-}
-
-fn with_limit<'a>(
-    limit: Option<Limit>,
-    messages: impl Iterator<Item = &'a Message>,
-) -> Vec<&'a Message> {
-    match limit {
-        Some(Limit::Top(n)) => messages.take(n).collect(),
-        Some(Limit::Bottom(n)) => {
-            let collected = messages.collect::<Vec<_>>();
-            let length = collected.len();
-            collected[length.saturating_sub(n)..length].to_vec()
-        }
-        Some(Limit::Since(timestamp)) => messages
-            .skip_while(|message| message.timestamp < timestamp)
-            .collect(),
-        None => messages.collect(),
     }
 }
