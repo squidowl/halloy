@@ -107,6 +107,7 @@ impl Dashboard {
                             Some(buffer::Event::Empty(event)) => match event {},
                             Some(buffer::Event::Channel(event)) => match event {},
                             Some(buffer::Event::Server(event)) => match event {},
+                            Some(buffer::Event::Query(event)) => match event {},
                             None => {}
                         }
 
@@ -130,6 +131,7 @@ impl Dashboard {
                             }
                             Buffer::Empty(_) => {}
                             Buffer::Server(_) => {}
+                            Buffer::Query(_) => {}
                         }
                     }
                 }

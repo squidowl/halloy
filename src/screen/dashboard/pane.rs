@@ -88,6 +88,10 @@ impl Pane {
                 server: server.server.name.clone(),
                 kind: history::Kind::Server,
             }),
+            Buffer::Query(query) => Some(history::Resource {
+                server: query.server.name.clone(),
+                kind: history::Kind::Private(query.user.clone()),
+            }),
         }
     }
 }
