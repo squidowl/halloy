@@ -165,21 +165,22 @@ impl Map {
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&User> {
-        let Some(connection) = self.connection(server) else {
-            return vec![]
-        };
+        // let Some(connection) = self.connection(server) else {
+        //     return vec![]
+        // };
 
-        let queries = connection
-            .messages
-            .iter()
-            .filter_map(|message| match &message.source {
-                message::Source::Private(user) => Some(user),
-                _ => None,
-            })
-            .unique()
-            .collect::<Vec<_>>();
+        // let queries = connection
+        //     .messages
+        //     .iter()
+        //     .filter_map(|message| match &message.source {
+        //         message::Source::Private(user) => Some(user),
+        //         _ => None,
+        //     })
+        //     .unique()
+        //     .collect::<Vec<_>>();
 
-        queries
+        // queries
+        vec![]
     }
 
     pub fn get_channels(&self) -> BTreeMap<Server, Vec<String>> {
