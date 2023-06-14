@@ -12,7 +12,7 @@ mod widget;
 use data::config::Config;
 use data::stream;
 use iced::widget::container;
-use iced::{executor, keyboard, subscription, Application, Command, Length, Subscription};
+use iced::{executor, keyboard, subscription, window, Application, Command, Length, Subscription};
 use tokio::sync::mpsc;
 
 use self::screen::dashboard;
@@ -260,6 +260,10 @@ fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Me
             key_code: keyboard::KeyCode::C,
             modifiers,
         }) if modifiers.command() => Some(Message::Event(event)),
-        _ => matches!(status, event::Status::Ignored).then_some(Message::Event(event)),
+        iced::Event::Keyboard(_) if matches!(status, event::Status::Ignored) => {
+            Some(Message::Event(event))
+        }
+        iced::Event::Window(window::Event::CloseRequested) => Some(Message::Event(event)),
+        _ => None,
     }
 }
