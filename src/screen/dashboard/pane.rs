@@ -1,22 +1,22 @@
-use iced::widget::pane_grid::{self, Axis};
-use iced::widget::{button, container, row, text};
-use iced::{Command, Length};
+use data::history;
+use iced::widget::{button, container, pane_grid, row, text};
+use iced::Length;
 use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
 use crate::{icon, theme, widget};
 
 #[derive(Debug, Clone)]
-pub enum Message {}
-
-#[derive(Clone, Copy)]
-pub struct Mapper<Message> {
-    pub pane: fn(self::Message) -> Message,
-    pub buffer: fn(pane_grid::Pane, buffer::Message) -> Message,
-    pub on_close: Message,
-    pub on_split: fn(Axis) -> Message,
-    pub on_maximize: Message,
-    pub on_users: Message,
+pub enum Message {
+    PaneClicked(pane_grid::Pane),
+    PaneResized(pane_grid::ResizeEvent),
+    PaneDragged(pane_grid::DragEvent),
+    Buffer(pane_grid::Pane, buffer::Message),
+    ClosePane,
+    #[allow(unused)]
+    SplitPane(pane_grid::Axis),
+    MaximizePane,
+    ToggleShowUserList,
 }
 
 #[derive(Clone)]
@@ -38,20 +38,16 @@ impl Pane {
         }
     }
 
-    pub fn update(&mut self, _message: Message) -> Command<Message> {
-        Command::none()
-    }
-
-    pub fn view<'a, M: 'static + Clone>(
+    pub fn view<'a>(
         &'a self,
-        mapper: Mapper<M>,
         id: pane_grid::Pane,
         panes: usize,
         is_focused: bool,
         maximized: bool,
         clients: &'a data::client::Map,
+        history: &'a history::Manager,
         config: &'a data::config::Config,
-    ) -> widget::Content<'a, M> {
+    ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty(state) => state.to_string(),
             Buffer::Channel(state) => state.to_string(),
@@ -61,7 +57,6 @@ impl Pane {
         let title_bar = self.title_bar.view(
             &self.buffer,
             title_bar_text,
-            &mapper,
             id,
             panes,
             is_focused,
@@ -71,8 +66,8 @@ impl Pane {
 
         let content = self
             .buffer
-            .view(clients, config, is_focused)
-            .map(move |msg| (mapper.buffer)(id, msg));
+            .view(clients, history, config, is_focused)
+            .map(move |msg| Message::Buffer(id, msg));
 
         widget::Content::new(content)
             .style(theme::Container::PaneBody {
@@ -80,20 +75,33 @@ impl Pane {
             })
             .title_bar(title_bar.style(theme::Container::PaneHeader))
     }
+
+    pub fn resource(&self) -> Option<history::Resource> {
+        match &self.buffer {
+            Buffer::Empty(_) => None,
+            Buffer::Channel(channel) => Some(history::Resource {
+                server: channel.server.name.clone(),
+                kind: history::Kind::Channel(channel.channel.clone()),
+            }),
+            Buffer::Server(server) => Some(history::Resource {
+                server: server.server.name.clone(),
+                kind: history::Kind::Server,
+            }),
+        }
+    }
 }
 
 impl TitleBar {
-    fn view<'a, M: 'static + Clone>(
+    fn view<'a>(
         &'a self,
         buffer: &Buffer,
         value: String,
-        mapper: &Mapper<M>,
         _id: pane_grid::Pane,
         panes: usize,
         _is_focused: bool,
         maximized: bool,
         config: &data::config::Config,
-    ) -> widget::TitleBar<'a, M> {
+    ) -> widget::TitleBar<'a, Message> {
         // Pane controls.
         let mut controls = row![].spacing(2);
 
@@ -109,7 +117,7 @@ impl TitleBar {
             )
             .width(22)
             .height(22)
-            .on_press(mapper.on_users.clone())
+            .on_press(Message::ToggleShowUserList)
             .style(theme::Button::Pane {
                 selected: config.users.visible,
             });
@@ -132,7 +140,7 @@ impl TitleBar {
             )
             .width(22)
             .height(22)
-            .on_press(mapper.on_maximize.clone())
+            .on_press(Message::MaximizePane)
             .style(theme::Button::Pane {
                 selected: maximized,
             });
@@ -148,7 +156,7 @@ impl TitleBar {
             )
             .width(22)
             .height(22)
-            .on_press(mapper.on_close.clone())
+            .on_press(Message::ClosePane)
             .style(theme::Button::Pane { selected: false });
 
             controls = controls.push(delete);

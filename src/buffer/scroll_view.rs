@@ -1,6 +1,6 @@
 use data::message::Limit;
 use data::server::Server;
-use data::{client, time};
+use data::{history, time};
 use iced::widget::scrollable;
 use iced::{Command, Length};
 
@@ -25,13 +25,13 @@ pub enum Kind<'a> {
 pub fn view<'a>(
     state: &State,
     kind: Kind,
-    clients: &'a client::Map,
+    history: &'a history::Manager,
     format: impl Fn(&'a data::Message) -> Option<Element<'a, Message>> + 'a,
 ) -> Element<'a, Message> {
     let (total, messages) = match kind {
-        Kind::Server(server) => clients.get_server_messages(server, Some(state.limit)),
+        Kind::Server(server) => history.get_server_messages(server, Some(state.limit)),
         Kind::Channel(server, channel) => {
-            clients.get_channel_messages(server, channel, Some(state.limit))
+            history.get_channel_messages(server, channel, Some(state.limit))
         }
     };
 

@@ -1,5 +1,6 @@
 use std::fmt;
 
+use data::history;
 use data::server::Server;
 use iced::widget::{column, container, row, scrollable, text, vertical_space};
 use iced::{Command, Length};
@@ -21,6 +22,7 @@ pub enum Event {}
 pub fn view<'a>(
     state: &'a Channel,
     clients: &'a data::client::Map,
+    history: &'a history::Manager,
     config: &data::channel::Config,
     user_colors: &'a data::config::UserColor,
     is_focused: bool,
@@ -29,7 +31,7 @@ pub fn view<'a>(
         scroll_view::view(
             &state.scroll_view,
             scroll_view::Kind::Channel(&state.server, &state.channel),
-            clients,
+            history,
             |message| {
                 let user = message.user()?;
 
@@ -136,12 +138,17 @@ impl Channel {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
+        history: &mut history::Manager,
     ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::Send(content) => {
                 match content {
                     input::Content::Text(message) => {
-                        clients.send_privmsg(&self.server, &self.channel, &message);
+                        if let Some(message) =
+                            clients.send_privmsg(&self.server, &self.channel, &message)
+                        {
+                            history.add_message(&self.server, message);
+                        }
                     }
                     input::Content::Command(command) => {
                         clients.send_command(&self.server, command);
