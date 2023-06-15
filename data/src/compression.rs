@@ -11,7 +11,7 @@ pub fn compress<T: Serialize>(value: &T) -> Result<Vec<u8>, Error> {
     let bytes = bincode::serialize(&value).map_err(Error::Encode)?;
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
     encoder.write_all(&bytes).map_err(Error::Compression)?;
-    Ok(encoder.finish().map_err(Error::Compression)?)
+    encoder.finish().map_err(Error::Compression)
 }
 
 pub fn decompress<T: DeserializeOwned>(data: &[u8]) -> Result<T, Error> {
@@ -20,7 +20,7 @@ pub fn decompress<T: DeserializeOwned>(data: &[u8]) -> Result<T, Error> {
     encoder
         .read_to_end(&mut bytes)
         .map_err(Error::Decompression)?;
-    Ok(bincode::deserialize(&bytes).map_err(Error::Decode)?)
+    bincode::deserialize(&bytes).map_err(Error::Decode)
 }
 
 #[derive(Debug, thiserror::Error)]

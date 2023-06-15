@@ -154,14 +154,13 @@ impl Channel {
                         clients.send_command(&self.server, command);
                     }
                 }
-                return (
+
+                (
                     self.scroll_view.scroll_to_end().map(Message::ScrollView),
                     None,
-                );
+                )
             }
-            Message::CompletionSelected => {
-                return (input::move_cursor_to_end(self.input_id.clone()), None);
-            }
+            Message::CompletionSelected => (input::move_cursor_to_end(self.input_id.clone()), None),
             Message::ScrollView(message) => {
                 let command = self.scroll_view.update(message);
                 (command.map(Message::ScrollView), None)

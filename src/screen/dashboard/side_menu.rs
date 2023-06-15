@@ -1,5 +1,5 @@
 use data::server::Server;
-use data::User;
+use data::{history, User};
 use iced::widget::{button, column, container, horizontal_space, pane_grid, row, text};
 use iced::Length;
 
@@ -40,6 +40,7 @@ impl SideMenu {
     pub fn view<'a>(
         &'a self,
         clients: &data::client::Map,
+        history: &'a history::Manager,
         panes: &pane_grid::State<Pane>,
     ) -> Element<'a, Message> {
         let mut column = column![].spacing(1);
@@ -98,7 +99,7 @@ impl SideMenu {
                 );
             }
 
-            let queries = clients.get_unique_queries(server);
+            let queries = history.get_unique_queries(server);
             for user in queries {
                 column = column.push(
                     button(

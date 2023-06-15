@@ -75,8 +75,8 @@ where
     let start_pos = relative(resolved.start, bounds);
     let end_pos = relative(resolved.end, bounds);
 
-    let start = find_cursor_position(renderer, font, size, line_height, bounds, &value, start_pos)?;
-    let end = find_cursor_position(renderer, font, size, line_height, bounds, &value, end_pos)?;
+    let start = find_cursor_position(renderer, font, size, line_height, bounds, value, start_pos)?;
+    let end = find_cursor_position(renderer, font, size, line_height, bounds, value, end_pos)?;
 
     (start != end).then(|| Selection {
         start: start.min(end),
