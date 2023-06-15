@@ -86,9 +86,7 @@ impl Server {
                     (Command::none(), None)
                 }
             }
-            Message::CompletionSelected => {
-                return (input::move_cursor_to_end(self.input_id.clone()), None);
-            }
+            Message::CompletionSelected => (input::move_cursor_to_end(self.input_id.clone()), None),
             Message::ScrollView(message) => {
                 let command = self.scroll_view.update(message);
                 (command.map(Message::ScrollView), None)

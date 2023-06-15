@@ -3,10 +3,11 @@ use std::time::Duration;
 
 use futures::future::BoxFuture;
 use futures::{future, Future, FutureExt, Stream, StreamExt};
+use itertools::Itertools;
 use tokio::time::Instant;
 
 use crate::message::{self, Limit};
-use crate::{history, server, Server};
+use crate::{history, server, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -175,6 +176,39 @@ impl Manager {
                 (total, with_limit(limit, messages.iter()))
             })
             .unwrap_or_else(|| (0, vec![]))
+    }
+
+    pub fn get_query_messages(
+        &self,
+        server: &Server,
+        user: &User,
+        limit: Option<Limit>,
+    ) -> (usize, Vec<&crate::Message>) {
+        self.data
+            .messages(&server.name, &history::Kind::Query(user.clone()))
+            .map(|messages| {
+                let total = messages.len();
+
+                (total, with_limit(limit, messages.iter()))
+            })
+            .unwrap_or_else(|| (0, vec![]))
+    }
+
+    pub fn get_unique_queries(&self, server: &Server) -> Vec<&User> {
+        let Some(map) = self.data.map.get(&server.name) else {
+            return vec![]
+        };
+
+        let queries = map
+            .keys()
+            .filter_map(|kind| match kind {
+                history::Kind::Query(user) => Some(user),
+                _ => None,
+            })
+            .unique()
+            .collect::<Vec<_>>();
+
+        queries
     }
 }
 

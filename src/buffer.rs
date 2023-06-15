@@ -84,7 +84,10 @@ impl Buffer {
                     .map(Message::Channel)
             }
             Buffer::Server(state) => server::view(state, history, is_focused).map(Message::Server),
-            Buffer::Query(state) => query::view(state, clients).map(Message::Query),
+            Buffer::Query(state) => {
+                let user_colors = &config.user_colors;
+                query::view(state, history, user_colors, is_focused).map(Message::Query)
+            }
         }
     }
 

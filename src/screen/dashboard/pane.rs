@@ -90,7 +90,7 @@ impl Pane {
             }),
             Buffer::Query(query) => Some(history::Resource {
                 server: query.server.name.clone(),
-                kind: history::Kind::Private(query.user.clone()),
+                kind: history::Kind::Query(query.user.clone()),
             }),
         }
     }

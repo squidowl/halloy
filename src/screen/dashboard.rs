@@ -369,7 +369,7 @@ impl Dashboard {
 
         let side_menu = self
             .side_menu
-            .view(clients, &self.panes)
+            .view(clients, &self.history, &self.panes)
             .map(Message::SideMenu);
 
         row![side_menu, pane_grid]

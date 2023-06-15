@@ -10,7 +10,7 @@ pub type Raw = irc::proto::Message;
 pub enum Source {
     Server,
     Channel(String, User),
-    Private(User),
+    Query(User),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -41,7 +41,7 @@ impl Message {
     }
 
     pub fn query(&self) -> Option<&User> {
-        if let Source::Private(user) = &self.source {
+        if let Source::Query(user) = &self.source {
             Some(user)
         } else {
             None
@@ -52,7 +52,7 @@ impl Message {
         match &self.source {
             Source::Server => None,
             Source::Channel(_, user) => Some(user),
-            Source::Private(user) => Some(user),
+            Source::Query(user) => Some(user),
         }
     }
 
@@ -64,7 +64,7 @@ impl Message {
             proto::Prefix::ServerName(_) => Source::Server,
             proto::Prefix::Nickname(nick, user, host) => match proto.command {
                 proto::Command::PRIVMSG(target, _) | proto::Command::NOTICE(target, _) => {
-                    fn not_empty<'a>(s: &'a str) -> Option<&'a str> {
+                    fn not_empty(s: &str) -> Option<&str> {
                         (!s.is_empty()).then_some(s)
                     }
 
@@ -73,7 +73,7 @@ impl Message {
                     if target.is_channel_name() {
                         Source::Channel(target, user)
                     } else {
-                        Source::Private(user)
+                        Source::Query(user)
                     }
                 }
                 _ => return None,
