@@ -51,7 +51,7 @@ impl FromStr for Command {
         match cmd.parse::<Kind>() {
             Ok(kind) => match kind {
                 Kind::Join => validated::<1, 2>(args, |[chanlist], [chankeys, real_name]| {
-                    Command::Join(chanlist.to_string(), chankeys, real_name)
+                    Command::Join(chanlist, chankeys, real_name)
                 }),
                 Kind::Motd => validated::<0, 1>(args, |_, [target]| Command::Motd(target)),
                 Kind::Nick => validated::<1, 0>(args, |[nick], _| Command::Nick(nick)),
@@ -73,15 +73,15 @@ fn validated<const EXACT: usize, const OPT: usize>(
 
     if args.len() >= EXACT && args.len() <= max {
         let exact = args[0..EXACT]
-            .into_iter()
+            .iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
         let opt = args[EXACT..args.len()]
-            .into_iter()
+            .iter()
             .map(|s| Some(s.to_string()))
-            .chain((args.len()..max).into_iter().map(|_| None))
+            .chain((args.len()..max).map(|_| None))
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();

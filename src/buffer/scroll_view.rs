@@ -1,6 +1,6 @@
 use data::message::Limit;
 use data::server::Server;
-use data::{history, time};
+use data::{history, time, User};
 use iced::widget::scrollable;
 use iced::{Command, Length};
 
@@ -20,6 +20,7 @@ pub enum Message {
 pub enum Kind<'a> {
     Server(&'a Server),
     Channel(&'a Server, &'a str),
+    Query(&'a Server, &'a User),
 }
 
 pub fn view<'a>(
@@ -33,6 +34,7 @@ pub fn view<'a>(
         Kind::Channel(server, channel) => {
             history.get_channel_messages(server, channel, Some(state.limit))
         }
+        Kind::Query(server, user) => history.get_query_messages(server, user, Some(state.limit)),
     };
 
     let count = messages.len();
@@ -40,7 +42,7 @@ pub fn view<'a>(
     let oldest = messages
         .first()
         .map(|message| message.timestamp)
-        .unwrap_or_else(|| time::Posix::now());
+        .unwrap_or_else(time::Posix::now);
 
     scrollable(
         Column::with_children(messages.into_iter().filter_map(format).collect())

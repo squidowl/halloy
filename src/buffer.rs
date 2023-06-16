@@ -3,11 +3,13 @@ use iced::Command;
 
 use self::channel::Channel;
 use self::empty::Empty;
+use self::query::Query;
 use self::server::Server;
 use crate::widget::Element;
 
 pub mod channel;
 pub mod empty;
+pub mod query;
 mod scroll_view;
 pub mod server;
 
@@ -16,6 +18,7 @@ pub enum Buffer {
     Empty(Empty),
     Channel(Channel),
     Server(Server),
+    Query(Query),
 }
 
 #[derive(Debug, Clone)]
@@ -23,6 +26,7 @@ pub enum Message {
     Empty(empty::Message),
     Channel(channel::Message),
     Server(server::Message),
+    Query(query::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +34,7 @@ pub enum Event {
     Empty(empty::Event),
     Channel(channel::Event),
     Server(server::Event),
+    Query(query::Event),
 }
 
 impl Buffer {
@@ -53,6 +58,11 @@ impl Buffer {
 
                 (command.map(Message::Server), event.map(Event::Server))
             }
+            (Buffer::Query(state), Message::Query(message)) => {
+                let (command, event) = state.update(message, clients);
+
+                (command.map(Message::Query), event.map(Event::Query))
+            }
             _ => (Command::none(), None),
         }
     }
@@ -74,6 +84,10 @@ impl Buffer {
                     .map(Message::Channel)
             }
             Buffer::Server(state) => server::view(state, history, is_focused).map(Message::Server),
+            Buffer::Query(state) => {
+                let user_colors = &config.user_colors;
+                query::view(state, history, user_colors, is_focused).map(Message::Query)
+            }
         }
     }
 
@@ -102,6 +116,7 @@ impl Buffer {
             Buffer::Empty(_) => Command::none(),
             Buffer::Channel(channel) => channel.focus().map(Message::Channel),
             Buffer::Server(server) => server.focus().map(Message::Server),
+            Buffer::Query(query) => query.focus().map(Message::Query),
         }
     }
 }
