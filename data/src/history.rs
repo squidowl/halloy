@@ -1,6 +1,5 @@
-use std::fmt;
-use std::io;
 use std::path::PathBuf;
+use std::{fmt, io};
 
 use tokio::fs;
 
@@ -13,7 +12,7 @@ pub mod manager;
 pub enum Kind {
     Server,
     Channel(String),
-    Private(User),
+    Query(User),
 }
 
 impl fmt::Display for Kind {
@@ -21,7 +20,7 @@ impl fmt::Display for Kind {
         match self {
             Kind::Server => write!(f, "server"),
             Kind::Channel(channel) => write!(f, "channel {channel}"),
-            Kind::Private(user) => write!(f, "user {}", user.nickname()),
+            Kind::Query(user) => write!(f, "user {}", user.nickname()),
         }
     }
 }
@@ -31,7 +30,7 @@ impl From<message::Source> for Kind {
         match source {
             message::Source::Server => Kind::Server,
             message::Source::Channel(channel, _) => Kind::Channel(channel),
-            message::Source::Private(user) => Kind::Private(user),
+            message::Source::Query(user) => Kind::Query(user),
         }
     }
 }
@@ -51,7 +50,7 @@ pub async fn overwrite(
         return Ok(());
     }
 
-    let path = path(&server, &kind).await?;
+    let path = path(server, kind).await?;
     let compressed = compression::compress(&messages)?;
 
     fs::write(path, &compressed).await?;
@@ -86,7 +85,7 @@ async fn path(server: &server::Name, kind: &Kind) -> Result<PathBuf, Error> {
     let name = match kind {
         Kind::Server => format!("{server}"),
         Kind::Channel(channel) => format!("{server}channel{channel}"),
-        Kind::Private(user) => format!("{server}nickname{}", user.nickname()),
+        Kind::Query(user) => format!("{server}nickname{}", user.nickname()),
     };
     let hashed_name = seahash::hash(name.as_bytes());
 

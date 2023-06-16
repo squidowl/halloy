@@ -1,10 +1,11 @@
-use std::fmt;
+use core::fmt;
 
-use data::history;
-use iced::widget::{column, container, vertical_space};
+use data::{history, Server, User};
+use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
 use super::scroll_view;
+use crate::theme;
 use crate::widget::{input, selectable_text, Collection, Element};
 
 #[derive(Debug, Clone)]
@@ -18,16 +19,28 @@ pub enum Message {
 pub enum Event {}
 
 pub fn view<'a>(
-    state: &'a Server,
+    state: &'a Query,
     history: &'a history::Manager,
+    user_colors: &'a data::config::UserColor,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Server(&state.server),
+            scroll_view::Kind::Query(&state.server, &state.user),
             history,
-            |message| Some(container(selectable_text(&message.text)).into()),
+            |message| {
+                let user = message.user()?;
+
+                Some(
+                    container(row![
+                        selectable_text(format!("<{}> ", user.nickname()))
+                            .style(theme::Text::Nickname(user.color_seed(user_colors))),
+                        selectable_text(&message.text)
+                    ])
+                    .into(),
+                )
+            },
         )
         .map(Message::ScrollView),
     )
@@ -54,16 +67,18 @@ pub fn view<'a>(
 }
 
 #[derive(Debug, Clone)]
-pub struct Server {
-    pub server: data::server::Server,
+pub struct Query {
+    pub server: Server,
+    pub user: User,
     pub scroll_view: scroll_view::State,
     input_id: input::Id,
 }
 
-impl Server {
-    pub fn new(server: data::server::Server) -> Self {
+impl Query {
+    pub fn new(server: Server, user: User) -> Self {
         Self {
             server,
+            user,
             scroll_view: scroll_view::State::new(),
             input_id: input::Id::unique(),
         }
@@ -99,8 +114,8 @@ impl Server {
     }
 }
 
-impl fmt::Display for Server {
+impl fmt::Display for Query {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.server)
+        write!(f, "{}", self.user.formatted())
     }
 }

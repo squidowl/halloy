@@ -77,6 +77,19 @@ impl User {
     pub fn highest_access_level(&self) -> AccessLevel {
         AccessLevel(self.0.highest_access_level())
     }
+
+    pub fn formatted(&self) -> String {
+        let user = self.username();
+        let host = self.hostname();
+        let nick = self.nickname();
+
+        match (user, host) {
+            (None, None) => nick.to_string(),
+            (None, Some(host)) => format!("{nick} ({host})"),
+            (Some(user), None) => format!("{nick} ({user})"),
+            (Some(user), Some(host)) => format!("{nick} ({user}@{host})"),
+        }
+    }
 }
 
 impl From<data::User> for User {

@@ -45,6 +45,7 @@ impl Connection {
         }
     }
 
+    #[allow(unused)]
     fn send_user_message(&mut self, user: User, text: impl fmt::Display) -> Message {
         let text = text.to_string();
 
@@ -62,7 +63,7 @@ impl Connection {
         Message {
             timestamp: time::Posix::now(),
             direction: message::Direction::Sent,
-            source: message::Source::Private(user),
+            source: message::Source::Query(user),
             text,
         }
     }
@@ -144,11 +145,8 @@ impl Map {
         channel: &str,
         text: impl fmt::Display,
     ) -> Option<Message> {
-        if let Some(connection) = self.connection_mut(server) {
-            Some(connection.send_channel_message(channel.to_string(), text))
-        } else {
-            None
-        }
+        self.connection_mut(server)
+            .map(|connection| connection.send_channel_message(channel.to_string(), text))
     }
 
     pub fn send_command(&mut self, server: &Server, command: Command) {

@@ -52,6 +52,7 @@ impl Pane {
             Buffer::Empty(state) => state.to_string(),
             Buffer::Channel(state) => state.to_string(),
             Buffer::Server(state) => state.to_string(),
+            Buffer::Query(state) => state.to_string(),
         };
 
         let title_bar = self.title_bar.view(
@@ -86,6 +87,10 @@ impl Pane {
             Buffer::Server(server) => Some(history::Resource {
                 server: server.server.name.clone(),
                 kind: history::Kind::Server,
+            }),
+            Buffer::Query(query) => Some(history::Resource {
+                server: query.server.name.clone(),
+                kind: history::Kind::Query(query.user.clone()),
             }),
         }
     }

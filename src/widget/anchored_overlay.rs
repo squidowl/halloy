@@ -198,7 +198,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
         cursor: mouse::Cursor,
     ) {
         self.content.as_widget().draw(
-            &self.tree,
+            self.tree,
             renderer,
             theme,
             style,
@@ -216,7 +216,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
     ) {
         self.content
             .as_widget_mut()
-            .operate(&mut self.tree, layout, renderer, operation);
+            .operate(self.tree, layout, renderer, operation);
     }
 
     fn on_event(
@@ -228,15 +228,9 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) -> event::Status {
-        self.content.as_widget_mut().on_event(
-            &mut self.tree,
-            event,
-            layout,
-            cursor,
-            renderer,
-            clipboard,
-            shell,
-        )
+        self.content
+            .as_widget_mut()
+            .on_event(self.tree, event, layout, cursor, renderer, clipboard, shell)
     }
 
     fn mouse_interaction(
@@ -248,7 +242,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
     ) -> iced::advanced::mouse::Interaction {
         self.content
             .as_widget()
-            .mouse_interaction(&self.tree, layout, cursor, viewport, renderer)
+            .mouse_interaction(self.tree, layout, cursor, viewport, renderer)
     }
 
     fn is_over(&self, layout: Layout<'_>, cursor_position: Point) -> bool {
