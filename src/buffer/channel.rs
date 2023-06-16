@@ -35,11 +35,13 @@ pub fn view<'a>(
             |message| match &message.source {
                 data::message::Source::Channel(_, kind) => match kind {
                     data::message::ChannelSender::User(user) => {
+                        let datetime =
+                            selectable_text(format!("[{}] ", &message.datetime("%H:%M")));
                         let message = selectable_text(&message.content);
                         let user = selectable_text(format!("<{user}> "))
                             .style(theme::Text::Nickname(user.color_seed(user_colors)));
 
-                        Some(container(row![user, message]).into())
+                        Some(container(row![].push(datetime).push(user).push(message)).into())
                     }
                     data::message::ChannelSender::Server => Some(
                         container(selectable_text(&message.content).style(theme::Text::Server))

@@ -1,7 +1,7 @@
 use std::fmt;
 
 use data::history;
-use iced::widget::{column, container, vertical_space};
+use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
 use super::scroll_view;
@@ -27,7 +27,12 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Server(&state.server),
             history,
-            |message| Some(container(selectable_text(&message.content)).into()),
+            |message| {
+                let datetime = selectable_text(format!("[{}] ", &message.datetime("%H:%M")));
+                let message = selectable_text(&message.content);
+
+                Some(container(row![datetime, message]).into())
+            },
         )
         .map(Message::ScrollView),
     )
