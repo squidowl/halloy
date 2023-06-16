@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use futures::stream::{self, BoxStream};
 use futures::{FutureExt, StreamExt};
+use irc::proto::Capability;
 use tokio::sync::mpsc;
 use tokio::time::{self, Instant, Interval};
 
@@ -170,6 +171,15 @@ async fn connect(
     config: server::Config,
 ) -> Result<(irc::client::ClientStream, Connection), irc::error::Error> {
     let mut client = irc::client::Client::from_config((*config).clone()).await?;
+
+    // Negotiate capbilities
+    if client
+        .send_cap_ls(irc::proto::NegotiationVersion::V302)
+        .is_ok()
+    {
+        let _ = client.send_cap_req(&[Capability::ServerTime]);
+    }
+
     client.identify()?;
 
     Ok((client.stream()?, Connection::new(client)))

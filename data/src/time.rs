@@ -28,3 +28,11 @@ impl Posix {
             .map(|datetime| DateTime::from_utc(datetime, Utc))
     }
 }
+
+impl From<DateTime<Utc>> for Posix {
+    fn from(datetime: DateTime<Utc>) -> Self {
+        let seconds = datetime.timestamp();
+
+        Self::from_seconds(seconds as u64)
+    }
+}

@@ -32,15 +32,12 @@ pub fn view<'a>(
             history,
             |message| {
                 let user = message.sent_by()?;
+                let nick = selectable_text(format!("<{}> ", user.nickname()))
+                    .style(theme::Text::Nickname(user.color_seed(user_colors)));
+                let datetime = selectable_text(format!("[{}] ", &message.datetime("%H:%M")));
+                let message = selectable_text(&message.content);
 
-                Some(
-                    container(row![
-                        selectable_text(format!("<{}> ", user.nickname()))
-                            .style(theme::Text::Nickname(user.color_seed(user_colors))),
-                        selectable_text(&message.content)
-                    ])
-                    .into(),
-                )
+                Some(container(row![datetime, nick, message]).into())
             },
         )
         .map(Message::ScrollView),
