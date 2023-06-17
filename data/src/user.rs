@@ -20,6 +20,22 @@ impl Hash for User {
     }
 }
 
+impl Ord for User {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other
+            .highest_access_level()
+            .cmp(&self.highest_access_level())
+    }
+}
+
+impl PartialOrd for User {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        other
+            .highest_access_level()
+            .partial_cmp(&self.highest_access_level())
+    }
+}
+
 impl TryFrom<String> for User {
     type Error = &'static str;
 
@@ -119,5 +135,64 @@ impl std::fmt::Display for AccessLevel {
 impl From<data::AccessLevel> for AccessLevel {
     fn from(access_level: data::AccessLevel) -> Self {
         Self(access_level)
+    }
+}
+
+impl PartialEq for AccessLevel {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
+    }
+}
+
+impl Eq for AccessLevel {}
+
+impl Ord for AccessLevel {
+    fn cmp(&self, other: &AccessLevel) -> std::cmp::Ordering {
+        use irc::client::data::AccessLevel::{Admin, HalfOp, Member, Oper, Owner, Voice};
+        use std::cmp::Ordering::{Equal, Greater, Less};
+
+        if self == other {
+            return Equal;
+        }
+
+        let other = other.0;
+        match self.0 {
+            Owner => Greater,
+            Admin => {
+                if other == Owner {
+                    Less
+                } else {
+                    Greater
+                }
+            }
+            Oper => {
+                if other == Owner || other == Admin {
+                    Less
+                } else {
+                    Greater
+                }
+            }
+            HalfOp => {
+                if other == Voice || other == Member {
+                    Greater
+                } else {
+                    Less
+                }
+            }
+            Voice => {
+                if other == Member {
+                    Greater
+                } else {
+                    Less
+                }
+            }
+            Member => Less,
+        }
+    }
+}
+
+impl PartialOrd for AccessLevel {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
     }
 }

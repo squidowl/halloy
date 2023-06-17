@@ -156,9 +156,13 @@ impl Map {
     }
 
     pub fn get_channel_users(&self, server: &Server, channel: &str) -> Vec<User> {
-        self.connection(server)
+        let mut users = self
+            .connection(server)
             .map(|connection| connection.users(channel))
-            .unwrap_or_default()
+            .unwrap_or_default();
+        users.sort();
+
+        users
     }
 
     pub fn get_channels(&self) -> BTreeMap<Server, Vec<String>> {
