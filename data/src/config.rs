@@ -18,6 +18,8 @@ pub struct Config {
     pub channels: BTreeMap<String, BTreeMap<String, channel::Config>>,
     #[serde(default)]
     pub user_colors: UserColor,
+    #[serde(skip)]
+    pub error: Option<Error>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -42,7 +44,7 @@ impl Config {
         dir.push("halloy");
 
         if !dir.exists() {
-            std::fs::create_dir(dir.as_path()).map_err(|_| Error::DirectoryCreationError)?;
+            std::fs::create_dir(dir.as_path()).map_err(|_| Error::DirectoryCreation)?;
         }
 
         Ok(dir)
@@ -52,30 +54,42 @@ impl Config {
         let mut config_dir = Self::config_dir()?;
         config_dir.push("config.yaml");
 
-        let serialized = serde_yaml::to_string(&self).map_err(|_| Error::_SerializationError)?;
-
+        let serialized =
+            serde_yaml::to_string(&self).map_err(|error| Error::Serialize(error.to_string()))?;
         tokio::fs::write(config_dir, serialized)
             .await
-            .map_err(|_| Error::_WriteError)?;
+            .map_err(|error| Error::Write(error.to_string()))?;
 
         Ok(())
     }
 
-    pub fn load() -> Option<Self> {
-        let config_dir = Self::config_dir().ok()?;
-
-        let file = File::open(config_dir.join("config.yaml")).ok()?;
-        let reader = BufReader::new(file);
-
-        match serde_yaml::from_reader(reader) {
-            Ok::<Self, _>(config) => {
-                log::info!("loaded config file from: {:?}", &config_dir);
-                Some(config)
-            }
+    pub fn load() -> Self {
+        let config_dir = match Self::config_dir() {
+            Ok(dir) => dir,
             Err(error) => {
-                log::error!("config: {}", error.to_string());
-                None
+                return Self {
+                    error: Some(error),
+                    ..Self::default()
+                }
             }
+        };
+
+        let file = match File::open(config_dir.join("config.yaml")) {
+            Ok(file) => file,
+            Err(error) => {
+                return Self {
+                    error: Some(Error::Read(error.to_string())),
+                    ..Self::default()
+                }
+            }
+        };
+
+        match serde_yaml::from_reader(BufReader::new(file)) {
+            Ok::<Self, _>(config) => config,
+            Err(error) => Self {
+                error: Some(Error::Parse(error.to_string())),
+                ..Self::default()
+            },
         }
     }
 
@@ -105,14 +119,18 @@ impl Config {
     }
 }
 
-#[derive(Debug, Clone, Copy, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum Error {
     #[error("config directory could not be found")]
     DirectoryNotFound,
     #[error("config directory could not be created")]
-    DirectoryCreationError,
-    #[error("config could not be serialized")]
-    _SerializationError,
-    #[error("config file could not be written")]
-    _WriteError,
+    DirectoryCreation,
+    #[error("config could not be serialized: {0}")]
+    Serialize(String),
+    #[error("config could not be written: {0}")]
+    Write(String),
+    #[error("config could not be read: {0}")]
+    Read(String),
+    #[error("config could not be parsed: {0}")]
+    Parse(String),
 }

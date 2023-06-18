@@ -306,8 +306,11 @@ impl button::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> button::Appearance {
         match style {
             Button::Default => button::Appearance {
-                background: Some(Background::Color(self.colors.background.darken_09)),
-                border_color: self.colors.background.mute_03,
+                background: Some(Background::Color(Color {
+                    a: 0.3,
+                    ..self.colors.action.base
+                })),
+                border_color: self.colors.action.base,
                 border_width: 1.0,
                 border_radius: 3.0.into(),
                 ..Default::default()
@@ -352,8 +355,13 @@ impl button::StyleSheet for Theme {
 
         match style {
             Button::Default => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_06)),
-                border_radius: 4.0.into(),
+                background: Some(Background::Color(Color {
+                    a: 0.5,
+                    ..self.colors.action.base
+                })),
+                border_color: self.colors.action.base,
+                border_width: 1.0,
+                border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {

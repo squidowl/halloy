@@ -75,7 +75,7 @@ impl Buffer {
         is_focused: bool,
     ) -> Element<'a, Message> {
         match self {
-            Buffer::Empty(state) => empty::view(state, clients).map(Message::Empty),
+            Buffer::Empty(state) => empty::view(state, clients, config).map(Message::Empty),
             Buffer::Channel(state) => {
                 let user_colors = &config.user_colors;
                 let config = config.channel_config(&state.server.name, &state.channel);

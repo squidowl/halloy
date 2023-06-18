@@ -123,6 +123,10 @@ impl Map {
         self.0.insert(server, State::Ready(client));
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     fn connection(&self, server: &Server) -> Option<&Connection> {
         if let Some(State::Ready(client)) = self.0.get(server) {
             Some(client)
