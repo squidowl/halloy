@@ -371,9 +371,15 @@ impl Dashboard {
             .view(clients, &self.history, &self.panes)
             .map(Message::SideMenu);
 
+        // The height margin varies across different operating systems due to design differences.
+        // For instance, on macOS, the menubar is hidden, resulting in a need for additional padding to accommodate the
+        // space occupied by the traffic light buttons.
+        let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
+
         row![side_menu, pane_grid]
             .width(Length::Fill)
             .height(Length::Fill)
+            .padding([height_margin, 0, 0, 0])
             .into()
     }
 
