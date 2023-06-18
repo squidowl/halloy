@@ -1,7 +1,6 @@
 pub mod pane;
 pub mod side_menu;
 
-use data::config::Config;
 use data::{history, message, Server};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
@@ -32,7 +31,7 @@ pub enum Event {
 }
 
 impl Dashboard {
-    pub fn new(_config: &Config) -> (Self, Command<Message>) {
+    pub fn new() -> (Self, Command<Message>) {
         let buffers = vec![];
 
         let first_buffer = Buffer::Empty(Default::default());

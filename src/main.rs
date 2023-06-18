@@ -82,6 +82,7 @@ impl Halloy {
             servers: self.config.servers.clone(),
             channels: self.config.channels.clone(),
             user_colors: self.config.user_colors.clone(),
+            error: self.config.error.clone(),
         }
     }
 }
@@ -107,8 +108,8 @@ impl Application for Halloy {
     type Theme = theme::Theme;
 
     fn new(_flags: ()) -> (Halloy, Command<Self::Message>) {
-        let config = Config::load().unwrap_or_default();
-        let (screen, command) = screen::Dashboard::new(&config);
+        let config = Config::load();
+        let (screen, command) = screen::Dashboard::new();
 
         let mut clients = data::client::Map::default();
 
