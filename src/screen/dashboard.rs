@@ -446,8 +446,8 @@ impl Dashboard {
         )
     }
 
-    pub fn exit(&mut self) -> Command<()> {
-        Command::perform(self.history.exit(), std::convert::identity)
+    pub fn close(&mut self) -> Command<()> {
+        Command::perform(self.history.close(), std::convert::identity)
     }
 
     pub fn subscription(&self) -> Subscription<Message> {

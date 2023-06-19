@@ -12,6 +12,10 @@ use crate::{compression, message, server, Message, User};
 
 pub mod manager;
 
+// TODO: Make this configurable?
+const MAX_MESSAGES: usize = 10_000;
+const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
     Server,
@@ -54,8 +58,10 @@ pub async fn overwrite(
         return Ok(());
     }
 
+    let latest = &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
+
     let path = path(server, kind).await?;
-    let compressed = compression::compress(&messages)?;
+    let compressed = compression::compress(&latest)?;
 
     fs::write(path, &compressed).await?;
 
@@ -157,8 +163,6 @@ impl History {
     }
 
     fn flush(&mut self, now: Instant) -> Option<BoxFuture<'static, Result<(), Error>>> {
-        const FLUSH_DURATION: Duration = Duration::from_secs(3);
-
         match self {
             History::Partial {
                 server,
@@ -169,7 +173,7 @@ impl History {
                 if let Some(last_received) = *last_received_at {
                     let since = now.duration_since(last_received);
 
-                    if since >= FLUSH_DURATION && !messages.is_empty() {
+                    if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
                         let server = server.clone();
                         let kind = kind.clone();
                         let messages = std::mem::take(messages);
@@ -190,7 +194,7 @@ impl History {
                 if let Some(last_received) = *last_received_at {
                     let since = now.duration_since(last_received);
 
-                    if since >= FLUSH_DURATION && !messages.is_empty() {
+                    if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
                         let server = server.clone();
                         let kind = kind.clone();
                         let messages = messages.clone();
@@ -207,7 +211,7 @@ impl History {
         }
     }
 
-    fn close(&mut self) -> Option<impl Future<Output = Result<(), Error>>> {
+    fn to_partial(&mut self) -> Option<impl Future<Output = Result<(), Error>>> {
         match self {
             History::Partial { .. } => None,
             History::Full {
@@ -220,14 +224,14 @@ impl History {
                 let kind = kind.clone();
                 let messages = std::mem::take(messages);
 
-                *self = History::partial(server.clone(), kind.clone());
+                *self = Self::partial(server.clone(), kind.clone());
 
                 Some(async move { overwrite(&server, &kind, &messages).await })
             }
         }
     }
 
-    async fn exit(self) -> Result<(), Error> {
+    async fn close(self) -> Result<(), Error> {
         match self {
             History::Partial {
                 server,

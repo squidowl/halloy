@@ -50,7 +50,7 @@ impl Manager {
 
         let removed = removed.into_iter().filter_map(|resource| {
             self.data
-                .close(resource.server.clone(), resource.kind.clone())
+                .untrack(&resource.server, &resource.kind)
                 .map(|task| {
                     task.map(|result| Message::Closed(resource.server, resource.kind, result))
                         .boxed()
@@ -96,14 +96,14 @@ impl Manager {
         vec![]
     }
 
-    pub fn exit(&mut self) -> impl Future<Output = ()> {
+    pub fn close(&mut self) -> impl Future<Output = ()> {
         let map = std::mem::take(&mut self.data).map;
 
         async move {
             let tasks = map.into_iter().flat_map(|(server, map)| {
                 map.into_iter().map(move |(kind, state)| {
                     let server = server.clone();
-                    state.exit().map(move |result| (server, kind, result))
+                    state.close().map(move |result| (server, kind, result))
                 })
             });
 
@@ -313,14 +313,14 @@ impl Data {
             .add_message(message)
     }
 
-    fn close(
+    fn untrack(
         &mut self,
-        server: server::Name,
-        kind: history::Kind,
+        server: &server::Name,
+        kind: &history::Kind,
     ) -> Option<impl Future<Output = Result<(), history::Error>>> {
         self.map
-            .get_mut(&server)
-            .and_then(|map| map.get_mut(&kind).and_then(History::close))
+            .get_mut(server)
+            .and_then(|map| map.get_mut(kind).and_then(History::to_partial))
     }
 
     fn flush_all(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
