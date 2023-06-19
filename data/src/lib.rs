@@ -1,5 +1,6 @@
 #![allow(clippy::large_enum_variant, clippy::too_many_arguments)]
 
+pub use self::buffer::Buffer;
 pub use self::command::Command;
 pub use self::config::Config;
 pub use self::message::Message;
@@ -7,6 +8,7 @@ pub use self::palette::Palette;
 pub use self::server::Server;
 pub use self::user::User;
 
+pub mod buffer;
 pub mod channel;
 pub mod client;
 pub mod command;
