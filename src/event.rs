@@ -13,7 +13,9 @@ pub fn events() -> Subscription<Event> {
     subscription::events_with(filtered_events)
 }
 
-fn filtered_events(event: iced::Event, _status: iced::event::Status) -> Option<Event> {
+fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Event> {
+    let ignored = |status| matches!(status, iced::event::Status::Ignored);
+
     match &event {
         iced::Event::Keyboard(keyboard::Event::KeyPressed {
             key_code: keyboard::KeyCode::Escape,
@@ -25,12 +27,12 @@ fn filtered_events(event: iced::Event, _status: iced::event::Status) -> Option<E
         }) if modifiers.command() => Some(Event::Copy),
         iced::Event::Keyboard(keyboard::Event::KeyPressed {
             key_code: keyboard::KeyCode::Home,
-            modifiers,
-        }) if modifiers.command() => Some(Event::Home),
+            ..
+        }) if ignored(status) => Some(Event::Home),
         iced::Event::Keyboard(keyboard::Event::KeyPressed {
             key_code: keyboard::KeyCode::End,
-            modifiers,
-        }) if modifiers.command() => Some(Event::End),
+            ..
+        }) if ignored(status) => Some(Event::End),
         iced::Event::Window(window::Event::CloseRequested) => Some(Event::CloseRequested),
         _ => None,
     }
