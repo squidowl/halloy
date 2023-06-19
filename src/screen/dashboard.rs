@@ -120,7 +120,7 @@ impl Dashboard {
                     }
                 }
                 pane::Message::ToggleShowUserList => {
-                    if let Some(pane) = self.get_focused_mut() {
+                    if let Some((_, pane)) = self.get_focused_mut() {
                         match &mut pane.buffer {
                             Buffer::Channel(state) => {
                                 let config =
@@ -392,16 +392,27 @@ impl Dashboard {
 
         match event {
             Escape => {
-                // Deselect pane if we have one selected.
-                if self.focus.is_some() {
-                    self.focus = None;
-                }
-
+                self.focus = None;
                 Command::none()
             }
             Copy => selectable_text::selected(Message::SelectedText),
-            Home => todo!(),
-            End => todo!(),
+            Home => self
+                .get_focused_mut()
+                .map(|(id, pane)| {
+                    pane.buffer
+                        .scroll_to_start()
+                        .map(move |message| Message::Pane(pane::Message::Buffer(id, message)))
+                })
+                .unwrap_or_else(Command::none),
+            End => self
+                .get_focused_mut()
+                .map(|(pane, state)| {
+                    state
+                        .buffer
+                        .scroll_to_end()
+                        .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
+                })
+                .unwrap_or_else(Command::none),
             CloseRequested => Command::perform(self.history.close(), |_| Message::Close),
         }
     }
@@ -411,9 +422,9 @@ impl Dashboard {
         Command::none()
     }
 
-    fn get_focused_mut(&mut self) -> Option<&mut Pane> {
+    fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {
         let pane = self.focus?;
-        self.panes.get_mut(&pane)
+        self.panes.get_mut(&pane).map(|state| (pane, state))
     }
 
     fn focus_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
