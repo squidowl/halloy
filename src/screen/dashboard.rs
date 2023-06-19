@@ -4,7 +4,7 @@ pub mod side_menu;
 use data::{history, message, Server};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
-use iced::{clipboard, keyboard, subscription, Command, Length, Subscription};
+use iced::{clipboard, subscription, window, Command, Length, Subscription};
 use pane::Pane;
 use side_menu::SideMenu;
 
@@ -24,6 +24,7 @@ pub enum Message {
     SideMenu(side_menu::Message),
     SelectedText(Vec<(f32, String)>),
     History(history::manager::Message),
+    Close,
 }
 
 pub enum Event {
@@ -330,6 +331,9 @@ impl Dashboard {
 
                 return (command, None);
             }
+            Message::Close => {
+                return (window::close(), None);
+            }
         }
 
         (Command::none(), None)
@@ -383,13 +387,11 @@ impl Dashboard {
             .into()
     }
 
-    pub fn handle_keypress(
-        &mut self,
-        key_code: keyboard::KeyCode,
-        modifiers: keyboard::Modifiers,
-    ) -> Command<Message> {
-        match key_code {
-            keyboard::KeyCode::Escape => {
+    pub fn handle_event(&mut self, event: crate::event::Event) -> Command<Message> {
+        use crate::event::Event::*;
+
+        match event {
+            Escape => {
                 // Deselect pane if we have one selected.
                 if self.focus.is_some() {
                     self.focus = None;
@@ -397,10 +399,10 @@ impl Dashboard {
 
                 Command::none()
             }
-            keyboard::KeyCode::C if modifiers.command() => {
-                selectable_text::selected(Message::SelectedText)
-            }
-            _ => Command::none(),
+            Copy => selectable_text::selected(Message::SelectedText),
+            Home => todo!(),
+            End => todo!(),
+            CloseRequested => Command::perform(self.history.close(), |_| Message::Close),
         }
     }
 
@@ -444,10 +446,6 @@ impl Dashboard {
                 .map(|fut| Command::perform(fut, Message::History))
                 .collect::<Vec<_>>(),
         )
-    }
-
-    pub fn close(&mut self) -> Command<()> {
-        Command::perform(self.history.close(), std::convert::identity)
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
