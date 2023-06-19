@@ -2,6 +2,7 @@
 
 mod buffer;
 mod client;
+mod event;
 mod font;
 mod icon;
 mod logger;
@@ -12,9 +13,10 @@ mod widget;
 use data::config::Config;
 use data::stream;
 use iced::widget::container;
-use iced::{executor, keyboard, subscription, window, Application, Command, Length, Subscription};
+use iced::{executor, Application, Command, Length, Subscription};
 use tokio::sync::mpsc;
 
+use self::event::{events, Event};
 use self::screen::dashboard;
 pub use self::theme::Theme;
 use self::widget::Element;
@@ -95,10 +97,9 @@ enum Screen {
 enum Message {
     Dashboard(dashboard::Message),
     Stream(stream::Result),
-    Event(iced::Event),
+    Event(Event),
     FontsLoaded(Result<(), iced::font::Error>),
     ConfigSaved(Result<(), data::config::Error>),
-    Exit,
 }
 
 impl Application for Halloy {
@@ -202,32 +203,15 @@ impl Application for Halloy {
                 log::error!("fonts failed to load: {error:?}");
                 Command::none()
             }
-            Message::Event(event) => match event {
-                iced::Event::Keyboard(keyboard) => match keyboard {
-                    keyboard::Event::KeyPressed {
-                        key_code,
-                        modifiers,
-                    } => match &mut self.screen {
-                        Screen::Dashboard(state) => state
-                            .handle_keypress(key_code, modifiers)
-                            .map(Message::Dashboard),
-                    },
-                    keyboard::Event::KeyReleased { .. } => Command::none(),
-                    keyboard::Event::CharacterReceived(_) => Command::none(),
-                    keyboard::Event::ModifiersChanged(_) => Command::none(),
-                },
-                iced::Event::Window(window::Event::CloseRequested) => {
-                    let Screen::Dashboard(dashboard) = &mut self.screen;
-                    dashboard.exit().map(|_| Message::Exit)
-                }
-                _ => Command::none(),
-            },
+            Message::Event(event) => {
+                let Screen::Dashboard(dashboard) = &mut self.screen;
+                dashboard.handle_event(event).map(Message::Dashboard)
+            }
             Message::ConfigSaved(Ok(_)) => Command::none(),
             Message::ConfigSaved(Err(error)) => {
                 log::error!("config saved failed: {error:?}");
                 Command::none()
             }
-            Message::Exit => window::close(),
         }
     }
 
@@ -253,30 +237,9 @@ impl Application for Halloy {
         let Screen::Dashboard(dashboard) = &self.screen;
 
         Subscription::batch(vec![
+            events().map(Message::Event),
             client::run().map(Message::Stream),
-            subscription::events_with(filtered_events),
             dashboard.subscription().map(Message::Dashboard),
         ])
-    }
-}
-
-// Always capture ESC to unfocus pane right away
-fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Message> {
-    use iced::event;
-
-    match &event {
-        iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key_code: keyboard::KeyCode::Escape,
-            ..
-        }) => Some(Message::Event(event)),
-        iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key_code: keyboard::KeyCode::C,
-            modifiers,
-        }) if modifiers.command() => Some(Message::Event(event)),
-        iced::Event::Keyboard(_) if matches!(status, event::Status::Ignored) => {
-            Some(Message::Event(event))
-        }
-        iced::Event::Window(window::Event::CloseRequested) => Some(Message::Event(event)),
-        _ => None,
     }
 }

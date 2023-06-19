@@ -111,14 +111,17 @@ pub enum Limit {
     Since(time::Posix),
 }
 
-impl Default for Limit {
-    fn default() -> Self {
-        Self::Bottom(500)
-    }
-}
-
 impl Limit {
     pub const DEFAULT_STEP: usize = 50;
+    const DEFAULT_COUNT: usize = 500;
+
+    pub fn top() -> Self {
+        Self::Top(Self::DEFAULT_COUNT)
+    }
+
+    pub fn bottom() -> Self {
+        Self::Bottom(Self::DEFAULT_COUNT)
+    }
 
     fn value_mut(&mut self) -> Option<&mut usize> {
         match self {
