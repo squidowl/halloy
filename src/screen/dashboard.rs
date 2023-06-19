@@ -149,7 +149,7 @@ impl Dashboard {
 
                     // TODO: Repetitive code below. Should be combined into one.
                     match event {
-                        side_menu::Event::Channel((server, channel)) => {
+                        side_menu::Event::Channel(server, channel) => {
                             // If channel already is open, we focus it.
                             for (id, pane) in panes.iter() {
                                 if let Buffer::Channel(state) = &pane.buffer {
@@ -248,7 +248,7 @@ impl Dashboard {
                                 return (self.focus_pane(pane), None);
                             }
                         }
-                        side_menu::Event::Query((server, user)) => {
+                        side_menu::Event::Query(server, user) => {
                             // If query already is open, we focus it.
                             for (id, pane) in panes.iter() {
                                 if let Buffer::Query(state) = &pane.buffer {
@@ -372,7 +372,7 @@ impl Dashboard {
 
         let side_menu = self
             .side_menu
-            .view(clients, &self.history, &self.panes)
+            .view(clients, &self.history, &self.panes, self.focus)
             .map(Message::SideMenu);
 
         // The height margin varies across different operating systems due to design differences.
