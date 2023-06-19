@@ -428,19 +428,23 @@ impl Dashboard {
     }
 
     fn focus_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
-        self.focus = Some(pane);
+        if self.focus != Some(pane) {
+            self.focus = Some(pane);
 
-        self.panes
-            .iter()
-            .find_map(|(p, state)| {
-                (*p == pane).then(|| {
-                    state
-                        .buffer
-                        .focus()
-                        .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
+            self.panes
+                .iter()
+                .find_map(|(p, state)| {
+                    (*p == pane).then(|| {
+                        state
+                            .buffer
+                            .focus()
+                            .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
+                    })
                 })
-            })
-            .unwrap_or(Command::none())
+                .unwrap_or(Command::none())
+        } else {
+            Command::none()
+        }
     }
 
     pub fn track(&mut self) -> Command<Message> {
