@@ -98,7 +98,7 @@ enum Message {
     Event(iced::Event),
     FontsLoaded(Result<(), iced::font::Error>),
     ConfigSaved(Result<(), data::config::Error>),
-    Exit,
+    Close,
 }
 
 impl Application for Halloy {
@@ -218,7 +218,7 @@ impl Application for Halloy {
                 },
                 iced::Event::Window(window::Event::CloseRequested) => {
                     let Screen::Dashboard(dashboard) = &mut self.screen;
-                    dashboard.exit().map(|_| Message::Exit)
+                    dashboard.close().map(|_| Message::Close)
                 }
                 _ => Command::none(),
             },
@@ -227,7 +227,7 @@ impl Application for Halloy {
                 log::error!("config saved failed: {error:?}");
                 Command::none()
             }
-            Message::Exit => window::close(),
+            Message::Close => window::close(),
         }
     }
 
