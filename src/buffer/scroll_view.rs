@@ -100,16 +100,14 @@ impl State {
                             }
                         }
                     }
-                    _ if old_status.is_idle_zone(relative_offset) => match old_status.anchor() {
-                        Anchor::Top => {
-                            self.status = Status::Idle(Anchor::Top);
-                            self.limit = Limit::top();
-                        }
-                        Anchor::Bottom => {
-                            self.status = Status::Idle(Anchor::Bottom);
-                            self.limit = Limit::bottom();
-                        }
-                    },
+                    _ if old_status.is_bottom_of_scrollable(relative_offset) => {
+                        self.status = Status::Idle(Anchor::Bottom);
+                        self.limit = Limit::bottom();
+                    }
+                    _ if old_status.is_top_of_scrollable(relative_offset) => {
+                        self.status = Status::Idle(Anchor::Top);
+                        self.limit = Limit::top();
+                    }
                     Status::Idle(anchor) if !old_status.is_idle_zone(relative_offset) => {
                         self.status = Status::Unlocked(anchor);
 
