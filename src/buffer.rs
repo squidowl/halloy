@@ -119,4 +119,40 @@ impl Buffer {
             Buffer::Query(query) => query.focus().map(Message::Query),
         }
     }
+
+    pub fn scroll_to_start(&mut self) -> Command<Message> {
+        match self {
+            Buffer::Empty(_) => Command::none(),
+            Buffer::Channel(channel) => channel
+                .scroll_view
+                .scroll_to_start()
+                .map(|message| Message::Channel(channel::Message::ScrollView(message))),
+            Buffer::Server(server) => server
+                .scroll_view
+                .scroll_to_start()
+                .map(|message| Message::Server(server::Message::ScrollView(message))),
+            Buffer::Query(query) => query
+                .scroll_view
+                .scroll_to_start()
+                .map(|message| Message::Query(query::Message::ScrollView(message))),
+        }
+    }
+
+    pub fn scroll_to_end(&mut self) -> Command<Message> {
+        match self {
+            Buffer::Empty(_) => Command::none(),
+            Buffer::Channel(channel) => channel
+                .scroll_view
+                .scroll_to_end()
+                .map(|message| Message::Channel(channel::Message::ScrollView(message))),
+            Buffer::Server(server) => server
+                .scroll_view
+                .scroll_to_end()
+                .map(|message| Message::Server(server::Message::ScrollView(message))),
+            Buffer::Query(query) => query
+                .scroll_view
+                .scroll_to_end()
+                .map(|message| Message::Query(query::Message::ScrollView(message))),
+        }
+    }
 }

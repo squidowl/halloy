@@ -4,7 +4,7 @@ pub mod side_menu;
 use data::{history, message, Server};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
-use iced::{clipboard, keyboard, subscription, Command, Length, Subscription};
+use iced::{clipboard, subscription, window, Command, Length, Subscription};
 use pane::Pane;
 use side_menu::SideMenu;
 
@@ -24,6 +24,7 @@ pub enum Message {
     SideMenu(side_menu::Message),
     SelectedText(Vec<(f32, String)>),
     History(history::manager::Message),
+    Close,
 }
 
 pub enum Event {
@@ -119,7 +120,7 @@ impl Dashboard {
                     }
                 }
                 pane::Message::ToggleShowUserList => {
-                    if let Some(pane) = self.get_focused_mut() {
+                    if let Some((_, pane)) = self.get_focused_mut() {
                         match &mut pane.buffer {
                             Buffer::Channel(state) => {
                                 let config =
@@ -330,6 +331,9 @@ impl Dashboard {
 
                 return (command, None);
             }
+            Message::Close => {
+                return (window::close(), None);
+            }
         }
 
         (Command::none(), None)
@@ -383,24 +387,33 @@ impl Dashboard {
             .into()
     }
 
-    pub fn handle_keypress(
-        &mut self,
-        key_code: keyboard::KeyCode,
-        modifiers: keyboard::Modifiers,
-    ) -> Command<Message> {
-        match key_code {
-            keyboard::KeyCode::Escape => {
-                // Deselect pane if we have one selected.
-                if self.focus.is_some() {
-                    self.focus = None;
-                }
+    pub fn handle_event(&mut self, event: crate::event::Event) -> Command<Message> {
+        use crate::event::Event::*;
 
+        match event {
+            Escape => {
+                self.focus = None;
                 Command::none()
             }
-            keyboard::KeyCode::C if modifiers.command() => {
-                selectable_text::selected(Message::SelectedText)
-            }
-            _ => Command::none(),
+            Copy => selectable_text::selected(Message::SelectedText),
+            Home => self
+                .get_focused_mut()
+                .map(|(id, pane)| {
+                    pane.buffer
+                        .scroll_to_start()
+                        .map(move |message| Message::Pane(pane::Message::Buffer(id, message)))
+                })
+                .unwrap_or_else(Command::none),
+            End => self
+                .get_focused_mut()
+                .map(|(pane, state)| {
+                    state
+                        .buffer
+                        .scroll_to_end()
+                        .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
+                })
+                .unwrap_or_else(Command::none),
+            CloseRequested => Command::perform(self.history.close(), |_| Message::Close),
         }
     }
 
@@ -409,25 +422,29 @@ impl Dashboard {
         Command::none()
     }
 
-    fn get_focused_mut(&mut self) -> Option<&mut Pane> {
+    fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {
         let pane = self.focus?;
-        self.panes.get_mut(&pane)
+        self.panes.get_mut(&pane).map(|state| (pane, state))
     }
 
     fn focus_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
-        self.focus = Some(pane);
+        if self.focus != Some(pane) {
+            self.focus = Some(pane);
 
-        self.panes
-            .iter()
-            .find_map(|(p, state)| {
-                (*p == pane).then(|| {
-                    state
-                        .buffer
-                        .focus()
-                        .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
+            self.panes
+                .iter()
+                .find_map(|(p, state)| {
+                    (*p == pane).then(|| {
+                        state
+                            .buffer
+                            .focus()
+                            .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
+                    })
                 })
-            })
-            .unwrap_or(Command::none())
+                .unwrap_or(Command::none())
+        } else {
+            Command::none()
+        }
     }
 
     pub fn track(&mut self) -> Command<Message> {
@@ -444,10 +461,6 @@ impl Dashboard {
                 .map(|fut| Command::perform(fut, Message::History))
                 .collect::<Vec<_>>(),
         )
-    }
-
-    pub fn exit(&mut self) -> Command<()> {
-        Command::perform(self.history.exit(), std::convert::identity)
     }
 
     pub fn subscription(&self) -> Subscription<Message> {

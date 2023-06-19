@@ -49,7 +49,7 @@ pub fn view<'a>(
             .width(Length::Fill)
             .padding([0, 8]),
     )
-    .vertical_scroll(scrollable::Properties::default().alignment(state.anchor.alignment()))
+    .vertical_scroll(scrollable::Properties::default().alignment(state.status.alignment()))
     .on_scroll(move |viewport| Message::Scrolled {
         count,
         remaining,
@@ -64,15 +64,15 @@ pub fn view<'a>(
 pub struct State {
     pub scrollable: scrollable::Id,
     limit: Limit,
-    anchor: Anchor,
+    status: Status,
 }
 
 impl State {
     pub fn new() -> Self {
         Self {
             scrollable: scrollable::Id::unique(),
-            limit: Limit::default(),
-            anchor: Anchor::default(),
+            limit: Limit::bottom(),
+            status: Status::default(),
         }
     }
 
@@ -84,30 +84,48 @@ impl State {
                 oldest,
                 viewport,
             } => {
-                let old_anchor = self.anchor;
+                let old_status = self.status;
                 let relative_offset = viewport.relative_offset().y;
 
-                match old_anchor {
-                    _ if old_anchor.is_top(relative_offset) && remaining => {
-                        self.anchor = Anchor::Loading;
-                        self.limit = Limit::Bottom(count + Limit::DEFAULT_STEP);
+                match old_status {
+                    _ if old_status.is_loading_zone(relative_offset) && remaining => {
+                        match old_status.anchor() {
+                            Anchor::Top => {
+                                self.status = Status::Loading(Anchor::Top);
+                                self.limit = Limit::Top(count + Limit::DEFAULT_STEP);
+                            }
+                            Anchor::Bottom => {
+                                self.status = Status::Loading(Anchor::Bottom);
+                                self.limit = Limit::Bottom(count + Limit::DEFAULT_STEP);
+                            }
+                        }
                     }
-                    _ if old_anchor.is_bottom(relative_offset) => {
-                        self.anchor = Anchor::Bottom;
-                        self.limit = Limit::default();
+                    _ if old_status.is_bottom_of_scrollable(relative_offset) => {
+                        self.status = Status::Idle(Anchor::Bottom);
+                        self.limit = Limit::bottom();
                     }
-                    Anchor::Bottom if !old_anchor.is_bottom(relative_offset) => {
-                        self.anchor = Anchor::Unlocked;
-                        self.limit = Limit::Since(oldest);
+                    _ if old_status.is_top_of_scrollable(relative_offset) => {
+                        self.status = Status::Idle(Anchor::Top);
+                        self.limit = Limit::top();
                     }
-                    Anchor::Loading => {
-                        self.anchor = Anchor::Unlocked;
-                        self.limit = Limit::Since(oldest);
+                    Status::Idle(anchor) if !old_status.is_idle_zone(relative_offset) => {
+                        self.status = Status::Unlocked(anchor);
+
+                        if matches!(anchor, Anchor::Bottom) {
+                            self.limit = Limit::Since(oldest);
+                        }
                     }
-                    Anchor::Unlocked | Anchor::Bottom => {}
+                    Status::Loading(anchor) => {
+                        self.status = Status::Unlocked(anchor);
+
+                        if matches!(anchor, Anchor::Bottom) {
+                            self.limit = Limit::Since(oldest);
+                        }
+                    }
+                    Status::Unlocked(_) | Status::Idle(_) => {}
                 }
 
-                if let Some(new_offset) = self.anchor.new_offset(old_anchor, viewport) {
+                if let Some(new_offset) = self.status.new_offset(old_status, viewport) {
                     return scrollable::scroll_to(self.scrollable.clone(), new_offset);
                 }
             }
@@ -116,9 +134,18 @@ impl State {
         Command::none()
     }
 
+    pub fn scroll_to_start(&mut self) -> Command<Message> {
+        self.status = Status::Idle(Anchor::Top);
+        self.limit = Limit::top();
+        scrollable::scroll_to(
+            self.scrollable.clone(),
+            scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
+        )
+    }
+
     pub fn scroll_to_end(&mut self) -> Command<Message> {
-        self.anchor = Anchor::Bottom;
-        self.limit = Limit::default();
+        self.status = Status::Idle(Anchor::Bottom);
+        self.limit = Limit::bottom();
         scrollable::scroll_to(
             self.scrollable.clone(),
             scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
@@ -127,30 +154,63 @@ impl State {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Anchor {
-    // TODO: Add top anchor (cmd + home behavior)
-    Bottom,
-    Unlocked,
-    Loading,
+enum Status {
+    Idle(Anchor),
+    Unlocked(Anchor),
+    Loading(Anchor),
 }
 
-impl Anchor {
-    fn alignment(self) -> scrollable::Alignment {
+#[derive(Debug, Clone, Copy)]
+enum Anchor {
+    Top,
+    Bottom,
+}
+
+impl Status {
+    fn anchor(self) -> Anchor {
         match self {
-            Anchor::Bottom => scrollable::Alignment::End,
-            Anchor::Unlocked => scrollable::Alignment::Start,
-            Anchor::Loading => scrollable::Alignment::End,
+            Status::Idle(anchor) => anchor,
+            Status::Unlocked(anchor) => anchor,
+            Status::Loading(anchor) => anchor,
         }
     }
 
-    fn is_top(self, relative_offset: f32) -> bool {
+    fn alignment(self) -> scrollable::Alignment {
+        match self {
+            Status::Idle(anchor) => match anchor {
+                Anchor::Top => scrollable::Alignment::Start,
+                Anchor::Bottom => scrollable::Alignment::End,
+            },
+            Status::Unlocked(_) => scrollable::Alignment::Start,
+            Status::Loading(anchor) => match anchor {
+                Anchor::Top => scrollable::Alignment::Start,
+                Anchor::Bottom => scrollable::Alignment::End,
+            },
+        }
+    }
+
+    fn is_loading_zone(self, relative_offset: f32) -> bool {
+        match self.anchor() {
+            Anchor::Top => self.is_bottom_of_scrollable(relative_offset),
+            Anchor::Bottom => self.is_top_of_scrollable(relative_offset),
+        }
+    }
+
+    fn is_idle_zone(self, relative_offset: f32) -> bool {
+        match self.anchor() {
+            Anchor::Top => self.is_top_of_scrollable(relative_offset),
+            Anchor::Bottom => self.is_bottom_of_scrollable(relative_offset),
+        }
+    }
+
+    fn is_top_of_scrollable(self, relative_offset: f32) -> bool {
         match self.alignment() {
             scrollable::Alignment::Start => relative_offset == 0.0,
             scrollable::Alignment::End => relative_offset == 1.0,
         }
     }
 
-    fn is_bottom(self, relative_offset: f32) -> bool {
+    fn is_bottom_of_scrollable(self, relative_offset: f32) -> bool {
         match self.alignment() {
             scrollable::Alignment::Start => relative_offset == 1.0,
             scrollable::Alignment::End => relative_offset == 0.0,
@@ -182,8 +242,8 @@ impl Anchor {
     }
 }
 
-impl Default for Anchor {
+impl Default for Status {
     fn default() -> Self {
-        Self::Bottom
+        Self::Idle(Anchor::Bottom)
     }
 }
