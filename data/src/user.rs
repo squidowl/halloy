@@ -148,8 +148,9 @@ impl Eq for AccessLevel {}
 
 impl Ord for AccessLevel {
     fn cmp(&self, other: &AccessLevel) -> std::cmp::Ordering {
-        use irc::client::data::AccessLevel::{Admin, HalfOp, Member, Oper, Owner, Voice};
         use std::cmp::Ordering::{Equal, Greater, Less};
+
+        use irc::client::data::AccessLevel::{Admin, HalfOp, Member, Oper, Owner, Voice};
 
         if self == other {
             return Equal;

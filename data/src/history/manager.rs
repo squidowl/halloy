@@ -6,8 +6,9 @@ use futures::{future, Future, FutureExt, Stream, StreamExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
+use crate::history::{self, History};
 use crate::message::{self, Limit};
-use crate::{history, server, Server, User};
+use crate::{server, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -243,7 +244,7 @@ fn with_limit<'a>(
 
 #[derive(Debug, Default)]
 struct Data {
-    map: HashMap<server::Name, HashMap<history::Kind, State>>,
+    map: HashMap<server::Name, HashMap<history::Kind, History>>,
 }
 
 impl Data {
@@ -262,14 +263,14 @@ impl Data {
             .entry(kind.clone())
         {
             hash_map::Entry::Occupied(mut entry) => match entry.get_mut() {
-                State::Partial {
+                History::Partial {
                     messages: new_messages,
                     last_received_at,
                     ..
                 } => {
                     let last_received_at = *last_received_at;
                     messages.extend(std::mem::take(new_messages));
-                    entry.insert(State::Full {
+                    entry.insert(History::Full {
                         server,
                         kind,
                         messages,
@@ -277,7 +278,7 @@ impl Data {
                     });
                 }
                 _ => {
-                    entry.insert(State::Full {
+                    entry.insert(History::Full {
                         server,
                         kind,
                         messages,
@@ -286,7 +287,7 @@ impl Data {
                 }
             },
             hash_map::Entry::Vacant(entry) => {
-                entry.insert(State::Full {
+                entry.insert(History::Full {
                     server,
                     kind,
                     messages,
@@ -300,7 +301,7 @@ impl Data {
         self.map
             .get(server)
             .and_then(|map| map.get(kind))
-            .map(State::messages)
+            .map(History::messages)
     }
 
     fn add_message(&mut self, server: server::Name, kind: history::Kind, message: crate::Message) {
@@ -308,7 +309,7 @@ impl Data {
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| State::partial(server, kind))
+            .or_insert_with(|| History::partial(server, kind))
             .add_message(message)
     }
 
@@ -319,7 +320,7 @@ impl Data {
     ) -> Option<impl Future<Output = Result<(), history::Error>>> {
         self.map
             .get_mut(&server)
-            .and_then(|map| map.get_mut(&kind).and_then(State::close))
+            .and_then(|map| map.get_mut(&kind).and_then(History::close))
     }
 
     fn flush_all(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
@@ -337,151 +338,5 @@ impl Data {
                 })
             })
             .collect()
-    }
-}
-
-#[derive(Debug)]
-pub enum State {
-    Partial {
-        server: server::Name,
-        kind: history::Kind,
-        messages: Vec<crate::Message>,
-        last_received_at: Option<Instant>,
-    },
-    Full {
-        server: server::Name,
-        kind: history::Kind,
-        messages: Vec<crate::Message>,
-        last_received_at: Option<Instant>,
-    },
-}
-
-impl State {
-    fn partial(server: server::Name, kind: history::Kind) -> Self {
-        Self::Partial {
-            server,
-            kind,
-            messages: vec![],
-            last_received_at: None,
-        }
-    }
-
-    fn messages(&self) -> &[crate::Message] {
-        match self {
-            State::Partial { messages, .. } => messages,
-            State::Full { messages, .. } => messages,
-        }
-    }
-
-    fn add_message(&mut self, message: crate::Message) {
-        match self {
-            State::Partial {
-                messages,
-                last_received_at,
-                ..
-            } => {
-                messages.push(message);
-                *last_received_at = Some(Instant::now());
-            }
-            State::Full {
-                messages,
-                last_received_at,
-                ..
-            } => {
-                messages.push(message);
-                *last_received_at = Some(Instant::now());
-            }
-        }
-    }
-
-    fn flush(&mut self, now: Instant) -> Option<BoxFuture<'static, Result<(), history::Error>>> {
-        const FLUSH_DURATION: Duration = Duration::from_secs(3);
-
-        match self {
-            State::Partial {
-                server,
-                kind,
-                messages,
-                last_received_at,
-            } => {
-                if let Some(last_received) = *last_received_at {
-                    let since = now.duration_since(last_received);
-
-                    if since >= FLUSH_DURATION && !messages.is_empty() {
-                        let server = server.clone();
-                        let kind = kind.clone();
-                        let messages = std::mem::take(messages);
-                        *last_received_at = None;
-
-                        return Some(
-                            async move { history::append(&server, &kind, messages).await }.boxed(),
-                        );
-                    }
-                }
-
-                None
-            }
-            State::Full {
-                server,
-                kind,
-                messages,
-                last_received_at,
-            } => {
-                if let Some(last_received) = *last_received_at {
-                    let since = now.duration_since(last_received);
-
-                    if since >= FLUSH_DURATION && !messages.is_empty() {
-                        let server = server.clone();
-                        let kind = kind.clone();
-                        let messages = messages.clone();
-                        *last_received_at = None;
-
-                        return Some(
-                            async move { history::overwrite(&server, &kind, &messages).await }
-                                .boxed(),
-                        );
-                    }
-                }
-
-                None
-            }
-        }
-    }
-
-    fn close(&mut self) -> Option<impl Future<Output = Result<(), history::Error>>> {
-        match self {
-            State::Partial { .. } => None,
-            State::Full {
-                server,
-                kind,
-                messages,
-                ..
-            } => {
-                let server = server.clone();
-                let kind = kind.clone();
-                let messages = std::mem::take(messages);
-
-                *self = State::partial(server.clone(), kind.clone());
-
-                Some(async move { history::overwrite(&server, &kind, &messages).await })
-            }
-        }
-    }
-
-    async fn exit(self) -> Result<(), history::Error> {
-        match self {
-            State::Partial {
-                server,
-                kind,
-                messages,
-                ..
-            } => history::append(&server, &kind, messages).await,
-            State::Full {
-                server,
-                kind,
-                messages,
-                ..
-            } => history::overwrite(&server, &kind, &messages).await,
-        }
     }
 }

@@ -1,7 +1,11 @@
 use std::path::PathBuf;
+use std::time::Duration;
 use std::{fmt, io};
 
+use futures::future::BoxFuture;
+use futures::{Future, FutureExt};
 use tokio::fs;
+use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
 use crate::{compression, message, server, Message, User};
@@ -98,6 +102,148 @@ async fn path(server: &server::Name, kind: &Kind) -> Result<PathBuf, Error> {
     Ok(parent.join(format!("{hashed_name}")))
 }
 
+#[derive(Debug)]
+pub enum History {
+    Partial {
+        server: server::Name,
+        kind: Kind,
+        messages: Vec<Message>,
+        last_received_at: Option<Instant>,
+    },
+    Full {
+        server: server::Name,
+        kind: Kind,
+        messages: Vec<Message>,
+        last_received_at: Option<Instant>,
+    },
+}
+
+impl History {
+    fn partial(server: server::Name, kind: Kind) -> Self {
+        Self::Partial {
+            server,
+            kind,
+            messages: vec![],
+            last_received_at: None,
+        }
+    }
+
+    fn messages(&self) -> &[Message] {
+        match self {
+            History::Partial { messages, .. } => messages,
+            History::Full { messages, .. } => messages,
+        }
+    }
+
+    fn add_message(&mut self, message: Message) {
+        match self {
+            History::Partial {
+                messages,
+                last_received_at,
+                ..
+            } => {
+                messages.push(message);
+                *last_received_at = Some(Instant::now());
+            }
+            History::Full {
+                messages,
+                last_received_at,
+                ..
+            } => {
+                messages.push(message);
+                *last_received_at = Some(Instant::now());
+            }
+        }
+    }
+
+    fn flush(&mut self, now: Instant) -> Option<BoxFuture<'static, Result<(), Error>>> {
+        const FLUSH_DURATION: Duration = Duration::from_secs(3);
+
+        match self {
+            History::Partial {
+                server,
+                kind,
+                messages,
+                last_received_at,
+            } => {
+                if let Some(last_received) = *last_received_at {
+                    let since = now.duration_since(last_received);
+
+                    if since >= FLUSH_DURATION && !messages.is_empty() {
+                        let server = server.clone();
+                        let kind = kind.clone();
+                        let messages = std::mem::take(messages);
+                        *last_received_at = None;
+
+                        return Some(async move { append(&server, &kind, messages).await }.boxed());
+                    }
+                }
+
+                None
+            }
+            History::Full {
+                server,
+                kind,
+                messages,
+                last_received_at,
+            } => {
+                if let Some(last_received) = *last_received_at {
+                    let since = now.duration_since(last_received);
+
+                    if since >= FLUSH_DURATION && !messages.is_empty() {
+                        let server = server.clone();
+                        let kind = kind.clone();
+                        let messages = messages.clone();
+                        *last_received_at = None;
+
+                        return Some(
+                            async move { overwrite(&server, &kind, &messages).await }.boxed(),
+                        );
+                    }
+                }
+
+                None
+            }
+        }
+    }
+
+    fn close(&mut self) -> Option<impl Future<Output = Result<(), Error>>> {
+        match self {
+            History::Partial { .. } => None,
+            History::Full {
+                server,
+                kind,
+                messages,
+                ..
+            } => {
+                let server = server.clone();
+                let kind = kind.clone();
+                let messages = std::mem::take(messages);
+
+                *self = History::partial(server.clone(), kind.clone());
+
+                Some(async move { overwrite(&server, &kind, &messages).await })
+            }
+        }
+    }
+
+    async fn exit(self) -> Result<(), Error> {
+        match self {
+            History::Partial {
+                server,
+                kind,
+                messages,
+                ..
+            } => append(&server, &kind, messages).await,
+            History::Full {
+                server,
+                kind,
+                messages,
+                ..
+            } => overwrite(&server, &kind, &messages).await,
+        }
+    }
+}
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("can't resolve data directory")]
