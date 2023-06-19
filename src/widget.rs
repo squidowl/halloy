@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 pub use self::anchored_overlay::anchored_overlay;
 pub use self::collection::Collection;
+pub use self::hover::hover;
 pub use self::input::input;
 pub use self::key_press::key_press;
 pub use self::selectable_text::selectable_text;
@@ -8,6 +9,7 @@ use crate::Theme;
 
 pub mod anchored_overlay;
 pub mod collection;
+pub mod hover;
 pub mod input;
 pub mod key_press;
 pub mod selectable_text;
