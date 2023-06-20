@@ -2,6 +2,7 @@ use irc::proto;
 use irc::proto::ChannelExt;
 use serde::{Deserialize, Serialize};
 
+use crate::user::Nick;
 use crate::{time, User};
 
 pub type Raw = irc::proto::Message;
@@ -11,7 +12,7 @@ pub type Channel = String;
 pub enum Source {
     Server,
     Channel(Channel, ChannelSender),
-    Query(User),
+    Query(Nick, User),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -58,23 +59,15 @@ impl Message {
         }
     }
 
-    pub fn query(&self) -> Option<&User> {
-        if let Source::Query(user) = &self.source {
-            Some(user)
-        } else {
-            None
-        }
-    }
-
-    pub fn user(&self) -> Option<&User> {
+    pub fn sent_by(&self) -> Option<&User> {
         match &self.source {
             Source::Server => None,
             Source::Channel(_, kind) => kind.user(),
-            Source::Query(user) => Some(user),
+            Source::Query(_, user) => Some(user),
         }
     }
 
-    pub fn received(proto: proto::Message) -> Option<Message> {
+    pub fn received(proto: proto::Message, our_nick: &Nick) -> Option<Message> {
         let text = text(&proto)?;
         let source = match &proto.command {
             // Channel
@@ -93,7 +86,17 @@ impl Message {
                     (true, Some(user)) => {
                         Source::Channel(target.clone(), ChannelSender::User(user))
                     }
-                    (false, Some(user)) => Source::Query(user),
+                    (false, Some(user)) => {
+                        if let Ok(target) = User::try_from(target.as_str()) {
+                            if &target.nickname() == our_nick {
+                                Source::Query(user.nickname(), user)
+                            } else {
+                                return None;
+                            }
+                        } else {
+                            return None;
+                        }
+                    }
                     _ => {
                         return None;
                     }
@@ -178,7 +181,7 @@ fn user(proto: &proto::Message) -> Option<User> {
     let prefix = proto.clone().prefix?;
     match prefix {
         proto::Prefix::Nickname(nickname, username, hostname) => Some(User::new(
-            &nickname,
+            Nick::from(nickname.as_str()),
             not_empty(&username),
             not_empty(&hostname),
         )),

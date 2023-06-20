@@ -8,6 +8,7 @@ pub enum Kind {
     Motd,
     Nick,
     Quit,
+    PrivMsg,
 }
 
 impl FromStr for Kind {
@@ -19,6 +20,7 @@ impl FromStr for Kind {
             "motd" => Ok(Kind::Motd),
             "nick" => Ok(Kind::Nick),
             "quit" => Ok(Kind::Quit),
+            "privmsg" => Ok(Kind::PrivMsg),
             _ => Err(()),
         }
     }
@@ -30,6 +32,7 @@ pub enum Command {
     Motd(Option<String>),
     Nick(String),
     Quit(Option<String>),
+    PrivMsg(String, String),
     Unknown(String, Vec<String>),
 }
 
@@ -56,6 +59,9 @@ impl FromStr for Command {
                 Kind::Motd => validated::<0, 1>(args, |_, [target]| Command::Motd(target)),
                 Kind::Nick => validated::<1, 0>(args, |[nick], _| Command::Nick(nick)),
                 Kind::Quit => validated::<0, 1>(args, |_, [comment]| Command::Quit(comment)),
+                Kind::PrivMsg => {
+                    validated::<2, 0>(args, |[target, msg], []| Command::PrivMsg(target, msg))
+                }
             },
             Err(_) => Ok(Command::Unknown(
                 cmd.to_string(),
@@ -107,6 +113,7 @@ impl TryFrom<Command> for proto::Command {
             Command::Motd(target) => proto::Command::MOTD(target),
             Command::Nick(nick) => proto::Command::NICK(nick),
             Command::Quit(comment) => proto::Command::QUIT(comment),
+            Command::PrivMsg(target, msg) => proto::Command::PRIVMSG(target, msg),
             Command::Unknown(command, args) => {
                 let args = args.iter().map(|arg| arg.as_str()).collect();
 

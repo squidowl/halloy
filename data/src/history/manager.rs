@@ -8,7 +8,8 @@ use tokio::time::Instant;
 
 use crate::history::{self, History};
 use crate::message::{self, Limit};
-use crate::{server, Server, User};
+use crate::user::Nick;
+use crate::{client, server, Server};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -133,11 +134,19 @@ impl Manager {
     pub fn add_raw_messages(
         &mut self,
         messages: Vec<(Server, irc::proto::Message)>,
+        clients: &mut client::Map,
     ) -> HashSet<(Server, message::Source)> {
         messages
             .into_iter()
             .filter_map(|(server, message)| {
-                let message = crate::Message::received(message)?;
+                log::debug!("Message received => {message:?}");
+
+                let connection = clients.connection_mut(&server)?;
+                connection.handle_message(&message);
+
+                let nick = connection.nickname();
+
+                let message = crate::Message::received(message, &nick)?;
                 let source = message.source.clone();
                 let kind = history::Kind::from(source.clone());
 
@@ -182,11 +191,11 @@ impl Manager {
     pub fn get_query_messages(
         &self,
         server: &Server,
-        user: &User,
+        nick: &Nick,
         limit: Option<Limit>,
     ) -> (usize, Vec<&crate::Message>) {
         self.data
-            .messages(&server.name, &history::Kind::Query(user.clone()))
+            .messages(&server.name, &history::Kind::Query(nick.clone()))
             .map(|messages| {
                 let total = messages.len();
 
@@ -195,7 +204,7 @@ impl Manager {
             .unwrap_or_else(|| (0, vec![]))
     }
 
-    pub fn get_unique_queries(&self, server: &Server) -> Vec<&User> {
+    pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
         let Some(map) = self.data.map.get(&server.name) else {
             return vec![]
         };
