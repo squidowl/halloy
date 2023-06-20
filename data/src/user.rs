@@ -1,3 +1,4 @@
+use core::fmt;
 use std::hash::Hash;
 
 use irc::client::data;
@@ -111,6 +112,12 @@ impl User {
 impl From<data::User> for User {
     fn from(user: data::User) -> Self {
         Self(user)
+    }
+}
+
+impl fmt::Display for User {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.nickname())
     }
 }
 
