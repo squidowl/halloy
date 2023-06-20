@@ -34,14 +34,14 @@ pub fn view<'a>(
             history,
             |message| match &message.source {
                 data::message::Source::Channel(_, kind) => match kind {
-                    data::message::Kind::User(user) => {
+                    data::message::ChannelSender::User(user) => {
                         let message = selectable_text(&message.text);
                         let user = selectable_text(format!("<{user}> "))
                             .style(theme::Text::Nickname(user.color_seed(user_colors)));
 
                         Some(container(row![user, message]).into())
                     }
-                    data::message::Kind::Server => Some(
+                    data::message::ChannelSender::Server => Some(
                         container(selectable_text(&message.text).style(theme::Text::Server)).into(),
                     ),
                 },

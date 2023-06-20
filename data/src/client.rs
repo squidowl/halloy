@@ -41,7 +41,7 @@ impl Connection {
         Message {
             timestamp: time::Posix::now(),
             direction: message::Direction::Sent,
-            source: message::Source::Channel(channel, message::Kind::User(user)),
+            source: message::Source::Channel(channel, message::ChannelSender::User(user)),
             text,
         }
     }

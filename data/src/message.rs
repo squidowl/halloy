@@ -10,23 +10,23 @@ pub type Channel = String;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Source {
     Server,
-    Channel(Channel, Kind),
+    Channel(Channel, ChannelSender),
     Query(User),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Kind {
-    /// `Kind::User(_)` is coming from another client.
+pub enum ChannelSender {
+    /// `ChannelSender::User(_)` is coming from another client.
     User(User),
-    /// `Kind::Server()` is from the server, targeting a channel.
+    /// `ChannelSender::Server()` is from the server, targeting a channel.
     Server,
 }
 
-impl Kind {
+impl ChannelSender {
     pub fn user(&self) -> Option<&User> {
         match self {
-            Kind::User(user) => Some(user),
-            Kind::Server => None,
+            ChannelSender::User(user) => Some(user),
+            ChannelSender::Server => None,
         }
     }
 }
@@ -83,13 +83,17 @@ impl Message {
             | proto::Command::ChannelMODE(channel, _)
             | proto::Command::KICK(channel, _, _)
             | proto::Command::SAJOIN(_, channel)
-            | proto::Command::JOIN(channel, _, _) => Source::Channel(channel.clone(), Kind::Server),
+            | proto::Command::JOIN(channel, _, _) => {
+                Source::Channel(channel.clone(), ChannelSender::Server)
+            }
             proto::Command::PRIVMSG(target, _) | proto::Command::NOTICE(target, _) => {
                 let user = user(&proto);
 
-                match (target.is_channel_name(), &user) {
-                    (true, Some(user)) => Source::Channel(target.clone(), Kind::User(user.clone())),
-                    (false, Some(user)) => Source::Query(user.clone()),
+                match (target.is_channel_name(), user) {
+                    (true, Some(user)) => {
+                        Source::Channel(target.clone(), ChannelSender::User(user))
+                    }
+                    (false, Some(user)) => Source::Query(user),
                     _ => {
                         return None;
                     }
