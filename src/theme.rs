@@ -236,6 +236,7 @@ pub enum Container {
     Command {
         selected: bool,
     },
+    Context,
 }
 
 impl container::StyleSheet for Theme {
@@ -284,6 +285,14 @@ impl container::StyleSheet for Theme {
                 background: None,
                 ..Default::default()
             },
+            Container::Context => container::Appearance {
+                //TODO: Blur background when possible?
+                background: Some(Background::Color(self.colors.background.base)),
+                border_radius: 4.0.into(),
+                border_width: 1.0,
+                border_color: self.colors.accent.base,
+                ..Default::default()
+            },
         }
     }
 }
@@ -298,6 +307,7 @@ pub enum Button {
     Pane {
         selected: bool,
     },
+    Context,
 }
 
 impl button::StyleSheet for Theme {
@@ -338,6 +348,11 @@ impl button::StyleSheet for Theme {
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
+            Button::Context => button::Appearance {
+                background: Some(Background::Color(Color::TRANSPARENT)),
+                border_radius: 4.0.into(),
+                ..Default::default()
+            },
         }
     }
 
@@ -347,6 +362,7 @@ impl button::StyleSheet for Theme {
             Button::Default => button::Appearance { ..active },
             Button::SideMenu { selected: _ } => button::Appearance { ..active },
             Button::Pane { selected: _ } => button::Appearance { ..active },
+            Button::Context => button::Appearance { ..active },
         }
     }
 
@@ -380,6 +396,10 @@ impl button::StyleSheet for Theme {
             Button::Pane { .. } => button::Appearance {
                 background: Some(Background::Color(self.colors.background.mute_06)),
                 border_color: self.colors.background.mute_06,
+                ..active
+            },
+            Button::Context => button::Appearance {
+                background: Some(Background::Color(self.colors.background.mute_06)),
                 ..active
             },
         }

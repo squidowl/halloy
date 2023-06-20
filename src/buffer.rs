@@ -38,6 +38,21 @@ pub enum Event {
 }
 
 impl Buffer {
+    pub fn kind(&self) -> Option<data::Buffer> {
+        match self {
+            Buffer::Empty(_) => None,
+            Buffer::Channel(state) => Some(data::Buffer::Channel(
+                state.server.clone(),
+                state.channel.clone(),
+            )),
+            Buffer::Server(state) => Some(data::Buffer::Server(state.server.clone())),
+            Buffer::Query(state) => Some(data::Buffer::Query(
+                state.server.clone(),
+                state.user.clone(),
+            )),
+        }
+    }
+
     pub fn update(
         &mut self,
         message: Message,
@@ -153,6 +168,16 @@ impl Buffer {
                 .scroll_view
                 .scroll_to_end()
                 .map(|message| Message::Query(query::Message::ScrollView(message))),
+        }
+    }
+}
+
+impl From<data::Buffer> for Buffer {
+    fn from(kind: data::Buffer) -> Self {
+        match kind {
+            data::Buffer::Server(server) => Self::Server(Server::new(server)),
+            data::Buffer::Channel(server, channel) => Self::Channel(Channel::new(server, channel)),
+            data::Buffer::Query(server, user) => Self::Query(Query::new(server, user)),
         }
     }
 }
