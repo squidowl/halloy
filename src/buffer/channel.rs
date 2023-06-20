@@ -148,13 +148,15 @@ impl Channel {
                 match content {
                     input::Content::Text(message) => {
                         if let Some(message) =
-                            clients.send_privmsg(&self.server, &self.channel, &message)
+                            clients.send_channel_message(&self.server, &self.channel, &message)
                         {
                             history.add_message(&self.server, message);
                         }
                     }
                     input::Content::Command(command) => {
-                        clients.send_command(&self.server, command);
+                        if let Some(message) = clients.send_command(&self.server, command) {
+                            history.add_message(&self.server, message);
+                        }
                     }
                 }
 

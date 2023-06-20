@@ -331,8 +331,12 @@ impl Dashboard {
         }
     }
 
-    pub fn messages_received(&mut self, messages: Vec<(Server, message::Raw)>) -> Command<Message> {
-        let _ = self.history.add_raw_messages(messages);
+    pub fn messages_received(
+        &mut self,
+        messages: Vec<(Server, message::Raw)>,
+        clients: &mut data::client::Map,
+    ) -> Command<Message> {
+        let _ = self.history.add_raw_messages(messages, clients);
         Command::none()
     }
 

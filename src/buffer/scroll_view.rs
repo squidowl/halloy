@@ -1,6 +1,7 @@
 use data::message::Limit;
 use data::server::Server;
-use data::{history, time, User};
+use data::user::Nick;
+use data::{history, time};
 use iced::widget::scrollable;
 use iced::{Command, Length};
 
@@ -20,7 +21,7 @@ pub enum Message {
 pub enum Kind<'a> {
     Server(&'a Server),
     Channel(&'a Server, &'a str),
-    Query(&'a Server, &'a User),
+    Query(&'a Server, &'a Nick),
 }
 
 pub fn view<'a>(

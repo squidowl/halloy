@@ -190,7 +190,7 @@ impl Application for Halloy {
                 stream::Event::MessagesReceived(messages) => {
                     let Screen::Dashboard(dashboard) = &mut self.screen;
                     dashboard
-                        .messages_received(messages)
+                        .messages_received(messages, &mut self.clients)
                         .map(Message::Dashboard)
                 }
             },

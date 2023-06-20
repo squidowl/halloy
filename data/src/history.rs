@@ -8,7 +8,8 @@ use tokio::fs;
 use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
-use crate::{compression, message, server, Message, User};
+use crate::user::Nick;
+use crate::{compression, message, server, Message};
 
 pub mod manager;
 
@@ -20,7 +21,7 @@ const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
 pub enum Kind {
     Server,
     Channel(String),
-    Query(User),
+    Query(Nick),
 }
 
 impl fmt::Display for Kind {
@@ -28,7 +29,7 @@ impl fmt::Display for Kind {
         match self {
             Kind::Server => write!(f, "server"),
             Kind::Channel(channel) => write!(f, "channel {channel}"),
-            Kind::Query(user) => write!(f, "user {}", user.nickname()),
+            Kind::Query(nick) => write!(f, "user {}", nick),
         }
     }
 }
@@ -38,7 +39,7 @@ impl From<message::Source> for Kind {
         match source {
             message::Source::Server => Kind::Server,
             message::Source::Channel(channel, _) => Kind::Channel(channel),
-            message::Source::Query(user) => Kind::Query(user),
+            message::Source::Query(user, _) => Kind::Query(user),
         }
     }
 }
@@ -95,7 +96,7 @@ async fn path(server: &server::Name, kind: &Kind) -> Result<PathBuf, Error> {
     let name = match kind {
         Kind::Server => format!("{server}"),
         Kind::Channel(channel) => format!("{server}channel{channel}"),
-        Kind::Query(user) => format!("{server}nickname{}", user.nickname()),
+        Kind::Query(nick) => format!("{server}nickname{}", nick),
     };
     let hashed_name = seahash::hash(name.as_bytes());
 
