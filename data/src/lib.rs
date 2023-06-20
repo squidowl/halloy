@@ -15,6 +15,7 @@ pub mod command;
 mod compression;
 pub mod config;
 pub mod history;
+pub mod log;
 pub mod message;
 pub mod palette;
 pub mod server;
