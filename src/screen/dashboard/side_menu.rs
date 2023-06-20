@@ -4,7 +4,7 @@ use iced::Length;
 
 use super::pane::Pane;
 use crate::widget::{context_menu, Element};
-use crate::{buffer, icon, theme};
+use crate::{icon, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -114,18 +114,7 @@ fn buffer_button<'a>(
 ) -> Element<'a, Message> {
     let open = panes
         .iter()
-        .find_map(|(pane, state)| match (&state.buffer, &buffer) {
-            (buffer::Buffer::Server(state), Buffer::Server(server)) => {
-                (&state.server == server).then_some(*pane)
-            }
-            (buffer::Buffer::Channel(state), Buffer::Channel(server, channel)) => {
-                (&state.server == server && &state.channel == channel).then_some(*pane)
-            }
-            (buffer::Buffer::Query(state), Buffer::Query(server, user)) => {
-                (&state.server == server && &state.user == user).then_some(*pane)
-            }
-            _ => None,
-        });
+        .find_map(|(pane, state)| (state.buffer.kind().as_ref() == Some(&buffer)).then_some(*pane));
 
     let row = match &buffer {
         Buffer::Server(server) => row![icon::globe(), text(server.to_string())]
