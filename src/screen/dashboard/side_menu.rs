@@ -151,7 +151,7 @@ fn buffer_button<'a>(
     if entries.is_empty() {
         base.into()
     } else {
-        context_menu(base, entries, move |entry, hovered| {
+        context_menu(base, entries, move |entry, _hovered| {
             let (content, message) = match entry {
                 Entry::NewPane => ("Open in new pane", Message::Open(buffer.clone())),
                 Entry::Replace(pane) => (
@@ -165,11 +165,9 @@ fn buffer_button<'a>(
             button(text(content))
                 // Based off longest entry text
                 .width(175)
-                // TODO: Better styling
-                .style(theme::Button::SideMenu { selected: hovered })
+                .style(theme::Button::Context)
                 .on_press(message)
                 .into()
         })
-        .into()
     }
 }

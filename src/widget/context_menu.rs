@@ -24,9 +24,8 @@ where
             })
             .collect(),
     ))
-    .padding(1)
-    // TODO: Better styling
-    .style(theme::Container::PaneBody { selected: true });
+    .padding(4)
+    .style(theme::Container::Context);
 
     ContextMenu {
         base: base.into(),
