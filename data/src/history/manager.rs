@@ -139,7 +139,7 @@ impl Manager {
         messages
             .into_iter()
             .filter_map(|(server, message)| {
-                // log::debug!("Message received => {message:?}");
+                log::trace!("Message received => {message:?}");
 
                 let connection = clients.connection_mut(&server)?;
                 connection.handle_message(&message);

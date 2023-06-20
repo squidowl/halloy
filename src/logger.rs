@@ -1,17 +1,16 @@
-use data::config::{self, Config};
-use thiserror::Error;
+use std::env;
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("config error")]
-    Config(config::Error),
-    #[error("io error")]
-    Io(std::io::Error),
-    #[error("logger error")]
-    Log(log::SetLoggerError),
-}
+use data::log;
 
-pub fn setup(is_debug: bool) -> Result<(), Error> {
+pub fn setup(is_debug: bool) -> Result<(), log::Error> {
+    let level_filter = env::var("RUST_LOG")
+        .ok()
+        .as_deref()
+        .map(str::parse::<log::Level>)
+        .transpose()?
+        .unwrap_or(log::Level::Debug)
+        .to_level_filter();
+
     let mut logger = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
@@ -23,27 +22,17 @@ pub fn setup(is_debug: bool) -> Result<(), Error> {
         })
         .level(log::LevelFilter::Off)
         .level_for("panic", log::LevelFilter::Error)
-        .level_for("data", log::LevelFilter::Trace)
-        .level_for("halloy", log::LevelFilter::Trace);
+        .level_for("data", level_filter)
+        .level_for("halloy", level_filter);
 
     if is_debug {
         logger = logger.chain(std::io::stdout());
     } else {
-        use std::fs::OpenOptions;
-
-        let config_dir = Config::config_dir().map_err(Error::Config)?;
-
-        let log_file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .append(false)
-            .truncate(true)
-            .open(config_dir.join("halloy.log"))
-            .map_err(Error::Io)?;
+        let log_file = log::file()?;
 
         logger = logger.chain(log_file);
     }
 
-    logger.apply().map_err(Error::Log)?;
+    logger.apply()?;
     Ok(())
 }
