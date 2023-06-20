@@ -3,7 +3,9 @@ use std::fmt;
 
 use irc::client::Client;
 use irc::proto;
+use irc::proto::ChannelExt;
 
+use crate::user::Nick;
 use crate::{message, time, Command, Message, Server, User};
 
 #[derive(Debug)]
@@ -15,15 +17,14 @@ pub enum State {
 #[derive(Debug)]
 pub struct Connection {
     client: Client,
-    // TODO: Is there a better way to handle this?
-    nick_change: Option<String>,
+    resolved_nick: Option<String>,
 }
 
 impl Connection {
     pub fn new(client: Client) -> Self {
         Self {
             client,
-            nick_change: None,
+            resolved_nick: None,
         }
     }
 
@@ -46,14 +47,10 @@ impl Connection {
         }
     }
 
-    #[allow(unused)]
-    fn send_user_message(&mut self, user: User, text: impl fmt::Display) -> Message {
+    fn send_user_message(&mut self, nick: &Nick, text: impl fmt::Display) -> Message {
         let text = text.to_string();
 
-        let target = user
-            .hostname()
-            .unwrap_or_else(|| user.nickname())
-            .to_string();
+        let target = nick.to_string();
         let command = proto::Command::PRIVMSG(target, text.clone());
         let proto_message = irc::proto::Message::from(command);
         // TODO: Handle error
@@ -64,16 +61,22 @@ impl Connection {
         Message {
             timestamp: time::Posix::now(),
             direction: message::Direction::Sent,
-            source: message::Source::Query(user),
+            source: message::Source::Query(nick.clone(), User::new(self.nickname(), None, None)),
             text,
         }
     }
 
-    fn send_command(&mut self, command: Command) {
-        self.handle_command(&command);
+    fn send_command(&mut self, command: Command) -> Option<Message> {
+        if let Command::PrivMsg(target, message) = &command {
+            if target.is_channel_name() {
+                return Some(self.send_channel_message(target.clone(), message));
+            } else if let Ok(user) = User::try_from(target.clone()) {
+                return Some(self.send_user_message(&user.nickname(), message));
+            }
+        }
 
         let Ok(command) = proto::Command::try_from(command) else {
-            return;
+            return None;
         };
         let proto_message = irc::proto::Message::from(command);
 
@@ -81,6 +84,8 @@ impl Connection {
         if let Err(e) = self.client.send(proto_message) {
             dbg!(&e);
         }
+
+        None
     }
 
     fn channels(&self) -> Vec<String> {
@@ -96,18 +101,28 @@ impl Connection {
             .collect()
     }
 
-    fn nickname(&self) -> &str {
-        self.nick_change
-            .as_deref()
-            .unwrap_or_else(|| self.client.current_nickname())
+    pub fn nickname(&self) -> Nick {
+        Nick::from(
+            self.resolved_nick
+                .as_deref()
+                .unwrap_or_else(|| self.client.current_nickname()),
+        )
     }
 
-    fn handle_command(&mut self, command: &Command) {
-        match command {
-            Command::Nick(nick) => {
-                self.nick_change = Some(nick.clone());
-            }
-            Command::Join(..) | Command::Motd(..) | Command::Quit(..) | Command::Unknown(..) => {}
+    pub fn handle_message(&mut self, message: &irc::proto::Message) {
+        use irc::proto::{Command, Response};
+
+        match &message.command {
+            Command::NICK(nick) => self.resolved_nick = Some(nick.to_string()),
+            Command::Response(response, args) => match response {
+                Response::RPL_WELCOME => {
+                    if let Some(nick) = args.first() {
+                        self.resolved_nick = Some(nick.to_string());
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
         }
     }
 }
@@ -128,7 +143,7 @@ impl Map {
         self.0.is_empty()
     }
 
-    fn connection(&self, server: &Server) -> Option<&Connection> {
+    pub fn connection(&self, server: &Server) -> Option<&Connection> {
         if let Some(State::Ready(client)) = self.0.get(server) {
             Some(client)
         } else {
@@ -136,7 +151,7 @@ impl Map {
         }
     }
 
-    fn connection_mut(&mut self, server: &Server) -> Option<&mut Connection> {
+    pub fn connection_mut(&mut self, server: &Server) -> Option<&mut Connection> {
         if let Some(State::Ready(client)) = self.0.get_mut(server) {
             Some(client)
         } else {
@@ -144,7 +159,7 @@ impl Map {
         }
     }
 
-    pub fn send_privmsg(
+    pub fn send_channel_message(
         &mut self,
         server: &Server,
         channel: &str,
@@ -154,9 +169,21 @@ impl Map {
             .map(|connection| connection.send_channel_message(channel.to_string(), text))
     }
 
-    pub fn send_command(&mut self, server: &Server, command: Command) {
+    pub fn send_user_message(
+        &mut self,
+        server: &Server,
+        nick: &Nick,
+        text: impl fmt::Display,
+    ) -> Option<Message> {
+        self.connection_mut(server)
+            .map(|connection| connection.send_user_message(nick, text))
+    }
+
+    pub fn send_command(&mut self, server: &Server, command: Command) -> Option<Message> {
         if let Some(connection) = self.connection_mut(server) {
-            connection.send_command(command);
+            connection.send_command(command)
+        } else {
+            None
         }
     }
 

@@ -123,7 +123,7 @@ fn buffer_button<'a>(
         Buffer::Channel(_, channel) => row![horizontal_space(4), icon::chat(), text(channel)]
             .spacing(8)
             .align_items(iced::Alignment::Center),
-        Buffer::Query(_, user) => row![horizontal_space(4), icon::person(), text(user.nickname())]
+        Buffer::Query(_, nick) => row![horizontal_space(4), icon::person(), text(nick)]
             .spacing(8)
             .align_items(iced::Alignment::Center),
     };

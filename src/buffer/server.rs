@@ -73,11 +73,15 @@ impl Server {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
+        history: &mut history::Manager,
     ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::Send(content) => {
                 if let input::Content::Command(command) = content {
-                    clients.send_command(&self.server, command);
+                    if let Some(message) = clients.send_command(&self.server, command) {
+                        history.add_message(&self.server, message);
+                    }
+
                     (
                         self.scroll_view.scroll_to_end().map(Message::ScrollView),
                         None,
