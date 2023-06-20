@@ -2,6 +2,7 @@ use irc::proto;
 use irc::proto::ChannelExt;
 use serde::{Deserialize, Serialize};
 
+use crate::time::Posix;
 use crate::user::Nick;
 use crate::{time, User};
 
@@ -69,101 +70,7 @@ impl Message {
 
     pub fn received(proto: proto::Message, our_nick: &Nick) -> Option<Message> {
         let text = text(&proto)?;
-        let source = match &proto.command {
-            // Channel
-            proto::Command::TOPIC(channel, _)
-            | proto::Command::PART(channel, _)
-            | proto::Command::ChannelMODE(channel, _)
-            | proto::Command::KICK(channel, _, _)
-            | proto::Command::SAJOIN(_, channel)
-            | proto::Command::JOIN(channel, _, _) => {
-                Source::Channel(channel.clone(), ChannelSender::Server)
-            }
-            proto::Command::PRIVMSG(target, _) | proto::Command::NOTICE(target, _) => {
-                let user = user(&proto);
-
-                match (target.is_channel_name(), user) {
-                    (true, Some(user)) => {
-                        Source::Channel(target.clone(), ChannelSender::User(user))
-                    }
-                    (false, Some(user)) => {
-                        if let Ok(target) = User::try_from(target.as_str()) {
-                            if &target.nickname() == our_nick {
-                                Source::Query(user.nickname(), user)
-                            } else {
-                                return None;
-                            }
-                        } else {
-                            return None;
-                        }
-                    }
-                    _ => {
-                        return None;
-                    }
-                }
-            }
-
-            // Server
-            proto::Command::SANICK(_, _)
-            | proto::Command::SAMODE(_, _, _)
-            | proto::Command::PASS(_)
-            | proto::Command::NICK(_)
-            | proto::Command::USER(_, _, _)
-            | proto::Command::OPER(_, _)
-            | proto::Command::UserMODE(_, _)
-            | proto::Command::SERVICE(_, _, _, _, _, _)
-            | proto::Command::QUIT(_)
-            | proto::Command::SQUIT(_, _)
-            | proto::Command::NAMES(_, _)
-            | proto::Command::LIST(_, _)
-            | proto::Command::INVITE(_, _)
-            | proto::Command::MOTD(_)
-            | proto::Command::LUSERS(_, _)
-            | proto::Command::VERSION(_)
-            | proto::Command::STATS(_, _)
-            | proto::Command::LINKS(_, _)
-            | proto::Command::TIME(_)
-            | proto::Command::CONNECT(_, _, _)
-            | proto::Command::TRACE(_)
-            | proto::Command::ADMIN(_)
-            | proto::Command::INFO(_)
-            | proto::Command::SERVLIST(_, _)
-            | proto::Command::SQUERY(_, _)
-            | proto::Command::WHO(_, _)
-            | proto::Command::WHOIS(_, _)
-            | proto::Command::WHOWAS(_, _, _)
-            | proto::Command::KILL(_, _)
-            | proto::Command::PING(_, _)
-            | proto::Command::PONG(_, _)
-            | proto::Command::ERROR(_)
-            | proto::Command::AWAY(_)
-            | proto::Command::REHASH
-            | proto::Command::DIE
-            | proto::Command::RESTART
-            | proto::Command::SUMMON(_, _, _)
-            | proto::Command::USERS(_)
-            | proto::Command::WALLOPS(_)
-            | proto::Command::USERHOST(_)
-            | proto::Command::ISON(_)
-            | proto::Command::SAPART(_, _)
-            | proto::Command::NICKSERV(_)
-            | proto::Command::CHANSERV(_)
-            | proto::Command::OPERSERV(_)
-            | proto::Command::BOTSERV(_)
-            | proto::Command::HOSTSERV(_)
-            | proto::Command::MEMOSERV(_)
-            | proto::Command::CAP(_, _, _, _)
-            | proto::Command::AUTHENTICATE(_)
-            | proto::Command::ACCOUNT(_)
-            | proto::Command::METADATA(_, _, _)
-            | proto::Command::MONITOR(_, _)
-            | proto::Command::BATCH(_, _, _)
-            | proto::Command::CHGHOST(_, _)
-            | proto::Command::Response(_, _)
-            | proto::Command::Raw(_, _)
-            | proto::Command::SAQUIT(_, _) => Source::Server,
-        };
-
+        let source = source(proto, our_nick)?;
         Some(Message {
             timestamp: time::Posix::now(),
             direction: Direction::Received,
@@ -186,6 +93,100 @@ fn user(proto: &proto::Message) -> Option<User> {
             not_empty(&hostname),
         )),
         _ => None,
+    }
+}
+
+fn source(message: irc::proto::Message, our_nick: &Nick) -> Option<Source> {
+    let user = user(&message);
+
+    match message.command {
+        // Channel
+        proto::Command::TOPIC(channel, _)
+        | proto::Command::PART(channel, _)
+        | proto::Command::ChannelMODE(channel, _)
+        | proto::Command::KICK(channel, _, _)
+        | proto::Command::SAJOIN(_, channel)
+        | proto::Command::JOIN(channel, _, _) => {
+            Some(Source::Channel(channel, ChannelSender::Server))
+        }
+        proto::Command::Response(
+            proto::Response::RPL_TOPIC | proto::Response::RPL_TOPICWHOTIME,
+            params,
+        ) => {
+            let channel = params.get(1)?.clone();
+            Some(Source::Channel(channel, ChannelSender::Server))
+        }
+        proto::Command::PRIVMSG(target, _) | proto::Command::NOTICE(target, _) => {
+            match (target.is_channel_name(), user) {
+                (true, Some(user)) => Some(Source::Channel(target, ChannelSender::User(user))),
+                (false, Some(user)) => {
+                    let target = User::try_from(target.as_str()).ok()?.nickname();
+
+                    (&target == our_nick).then(|| Source::Query(user.nickname(), user))
+                }
+                _ => None,
+            }
+        }
+
+        // Server
+        proto::Command::SANICK(_, _)
+        | proto::Command::SAMODE(_, _, _)
+        | proto::Command::PASS(_)
+        | proto::Command::NICK(_)
+        | proto::Command::USER(_, _, _)
+        | proto::Command::OPER(_, _)
+        | proto::Command::UserMODE(_, _)
+        | proto::Command::SERVICE(_, _, _, _, _, _)
+        | proto::Command::QUIT(_)
+        | proto::Command::SQUIT(_, _)
+        | proto::Command::NAMES(_, _)
+        | proto::Command::LIST(_, _)
+        | proto::Command::INVITE(_, _)
+        | proto::Command::MOTD(_)
+        | proto::Command::LUSERS(_, _)
+        | proto::Command::VERSION(_)
+        | proto::Command::STATS(_, _)
+        | proto::Command::LINKS(_, _)
+        | proto::Command::TIME(_)
+        | proto::Command::CONNECT(_, _, _)
+        | proto::Command::TRACE(_)
+        | proto::Command::ADMIN(_)
+        | proto::Command::INFO(_)
+        | proto::Command::SERVLIST(_, _)
+        | proto::Command::SQUERY(_, _)
+        | proto::Command::WHO(_, _)
+        | proto::Command::WHOIS(_, _)
+        | proto::Command::WHOWAS(_, _, _)
+        | proto::Command::KILL(_, _)
+        | proto::Command::PING(_, _)
+        | proto::Command::PONG(_, _)
+        | proto::Command::ERROR(_)
+        | proto::Command::AWAY(_)
+        | proto::Command::REHASH
+        | proto::Command::DIE
+        | proto::Command::RESTART
+        | proto::Command::SUMMON(_, _, _)
+        | proto::Command::USERS(_)
+        | proto::Command::WALLOPS(_)
+        | proto::Command::USERHOST(_)
+        | proto::Command::ISON(_)
+        | proto::Command::SAPART(_, _)
+        | proto::Command::NICKSERV(_)
+        | proto::Command::CHANSERV(_)
+        | proto::Command::OPERSERV(_)
+        | proto::Command::BOTSERV(_)
+        | proto::Command::HOSTSERV(_)
+        | proto::Command::MEMOSERV(_)
+        | proto::Command::CAP(_, _, _, _)
+        | proto::Command::AUTHENTICATE(_)
+        | proto::Command::ACCOUNT(_)
+        | proto::Command::METADATA(_, _, _)
+        | proto::Command::MONITOR(_, _)
+        | proto::Command::BATCH(_, _, _)
+        | proto::Command::CHGHOST(_, _)
+        | proto::Command::Response(_, _)
+        | proto::Command::Raw(_, _)
+        | proto::Command::SAQUIT(_, _) => Some(Source::Server),
     }
 }
 
@@ -223,6 +224,24 @@ fn text(message: &irc::proto::Message) -> Option<String> {
             Some(format!(" ∙ {user} sets mode {modes}"))
         }
         proto::Command::PRIVMSG(_, text) | proto::Command::NOTICE(_, text) => Some(text.clone()),
+        proto::Command::Response(proto::Response::RPL_TOPIC, params) => {
+            let topic = params.get(2)?;
+
+            Some(format!(" ∙ topic is {topic}"))
+        }
+        proto::Command::Response(proto::Response::RPL_TOPICWHOTIME, params) => {
+            let nick = params.get(2)?;
+            let datetime = params
+                .get(3)?
+                .parse::<u64>()
+                .ok()
+                .map(Posix::from_seconds)
+                .as_ref()
+                .and_then(Posix::datetime)?
+                .to_rfc2822();
+
+            Some(format!(" ∙ topic set by {nick} at {datetime}"))
+        }
         proto::Command::Response(_, responses) => Some(
             responses
                 .iter()
