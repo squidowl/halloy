@@ -190,6 +190,7 @@ pub enum Text {
     Default,
     Action,
     Accent,
+    Server,
     Error,
     Nickname(Option<String>),
 }
@@ -219,6 +220,9 @@ impl text::StyleSheet for Theme {
 
                 text::Appearance { color: Some(color) }
             }
+            Text::Server => text::Appearance {
+                color: Some(self.colors.info.base),
+            },
         }
     }
 }
