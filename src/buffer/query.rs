@@ -1,6 +1,7 @@
 use core::fmt;
 
-use data::{history, Server, User};
+use data::user::Nick;
+use data::{history, Server};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -27,10 +28,10 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Query(&state.server, &state.user),
+            scroll_view::Kind::Query(&state.server, &state.nick),
             history,
             |message| {
-                let user = message.user()?;
+                let user = message.sent_by()?;
 
                 Some(
                     container(row![
@@ -69,16 +70,16 @@ pub fn view<'a>(
 #[derive(Debug, Clone)]
 pub struct Query {
     pub server: Server,
-    pub user: User,
+    pub nick: Nick,
     pub scroll_view: scroll_view::State,
     input_id: input::Id,
 }
 
 impl Query {
-    pub fn new(server: Server, user: User) -> Self {
+    pub fn new(server: Server, nick: Nick) -> Self {
         Self {
             server,
-            user,
+            nick,
             scroll_view: scroll_view::State::new(),
             input_id: input::Id::unique(),
         }
@@ -88,18 +89,29 @@ impl Query {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
+        history: &mut history::Manager,
     ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::Send(content) => {
-                if let input::Content::Command(command) = content {
-                    clients.send_command(&self.server, command);
-                    (
-                        self.scroll_view.scroll_to_end().map(Message::ScrollView),
-                        None,
-                    )
-                } else {
-                    (Command::none(), None)
+                match content {
+                    input::Content::Text(message) => {
+                        if let Some(message) =
+                            clients.send_user_message(&self.server, &self.nick, &message)
+                        {
+                            history.add_message(&self.server, message);
+                        }
+                    }
+                    input::Content::Command(command) => {
+                        if let Some(message) = clients.send_command(&self.server, command) {
+                            history.add_message(&self.server, message);
+                        }
+                    }
                 }
+
+                (
+                    self.scroll_view.scroll_to_end().map(Message::ScrollView),
+                    None,
+                )
             }
             Message::CompletionSelected => (input::move_cursor_to_end(self.input_id.clone()), None),
             Message::ScrollView(message) => {
@@ -116,6 +128,6 @@ impl Query {
 
 impl fmt::Display for Query {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.user.formatted())
+        write!(f, "{}", self.nick)
     }
 }
