@@ -1,3 +1,6 @@
+use std::fmt;
+
+use chrono::{DateTime, Utc};
 use irc::proto;
 use irc::proto::ChannelExt;
 use serde::{Deserialize, Serialize};
@@ -40,11 +43,44 @@ pub enum Direction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Content {
+    Text(String),
+    Topic(String),
+    TopicWho(Nick, DateTime<Utc>),
+    TopicChange(User, String),
+}
+
+impl Content {
+    pub fn topic(&self) -> Option<&str> {
+        match self {
+            Content::Topic(topic) | Content::TopicChange(_, topic) => Some(topic),
+            Content::Text(_) | Content::TopicWho(_, _) => None,
+        }
+    }
+}
+
+impl fmt::Display for Content {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Content::Text(text) => text.fmt(f),
+            Content::Topic(topic) => write!(f, " ∙ topic is {topic}"),
+            Content::TopicWho(nick, datetime) => {
+                let datetime = datetime.to_rfc2822();
+                write!(f, " ∙ topic set by {nick} at {datetime}")
+            }
+            Content::TopicChange(user, topic) => {
+                write!(f, " ∙ {user} changed topic to {topic}")
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub timestamp: time::Posix,
     pub direction: Direction,
     pub source: Source,
-    pub text: String,
+    pub content: Content,
 }
 
 impl Message {
@@ -69,13 +105,13 @@ impl Message {
     }
 
     pub fn received(proto: proto::Message, our_nick: &Nick) -> Option<Message> {
-        let text = text(&proto, our_nick)?;
+        let content = content(&proto, our_nick)?;
         let source = source(proto, our_nick)?;
         Some(Message {
             timestamp: time::Posix::now(),
             direction: Direction::Received,
             source,
-            text,
+            content,
         })
     }
 }
@@ -190,14 +226,14 @@ fn source(message: irc::proto::Message, our_nick: &Nick) -> Option<Source> {
     }
 }
 
-fn text(message: &irc::proto::Message, our_nick: &Nick) -> Option<String> {
+fn content(message: &irc::proto::Message, our_nick: &Nick) -> Option<Content> {
     let user = user(message);
     match &message.command {
         proto::Command::TOPIC(_, topic) => {
             let user = user?;
-            let topic = topic.as_ref()?;
+            let topic = topic.as_ref()?.clone();
 
-            Some(format!(" ∙ {user} changed topic to {topic}"))
+            Some(Content::TopicChange(user, topic))
         }
         proto::Command::PART(_, text) => {
             let user = user?;
@@ -206,12 +242,15 @@ fn text(message: &irc::proto::Message, our_nick: &Nick) -> Option<String> {
                 .map(|text| format!(" ({text})"))
                 .unwrap_or_default();
 
-            Some(format!("⟵ {user}{text} has left the channel"))
+            Some(Content::Text(format!(
+                "⟵ {user}{text} has left the channel"
+            )))
         }
         proto::Command::JOIN(_, _, _) | proto::Command::SAJOIN(_, _) => {
             let user = user?;
 
-            (&user.nickname() != our_nick).then(|| format!("⟶ {user} has joined the channel"))
+            (&user.nickname() != our_nick)
+                .then(|| Content::Text(format!("⟶ {user} has joined the channel")))
         }
         proto::Command::ChannelMODE(_, modes) => {
             let user = user?;
@@ -221,35 +260,36 @@ fn text(message: &irc::proto::Message, our_nick: &Nick) -> Option<String> {
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(format!(" ∙ {user} sets mode {modes}"))
+            Some(Content::Text(format!(" ∙ {user} sets mode {modes}")))
         }
-        proto::Command::PRIVMSG(_, text) | proto::Command::NOTICE(_, text) => Some(text.clone()),
+        proto::Command::PRIVMSG(_, text) | proto::Command::NOTICE(_, text) => {
+            Some(Content::Text(text.clone()))
+        }
         proto::Command::Response(proto::Response::RPL_TOPIC, params) => {
-            let topic = params.get(2)?;
+            let topic = params.get(2)?.clone();
 
-            Some(format!(" ∙ topic is {topic}"))
+            Some(Content::Topic(topic))
         }
         proto::Command::Response(proto::Response::RPL_TOPICWHOTIME, params) => {
-            let nick = params.get(2)?;
+            let nick = params.get(2)?.as_str().into();
             let datetime = params
                 .get(3)?
                 .parse::<u64>()
                 .ok()
                 .map(Posix::from_seconds)
                 .as_ref()
-                .and_then(Posix::datetime)?
-                .to_rfc2822();
+                .and_then(Posix::datetime)?;
 
-            Some(format!(" ∙ topic set by {nick} at {datetime}"))
+            Some(Content::TopicWho(nick, datetime))
         }
-        proto::Command::Response(_, responses) => Some(
+        proto::Command::Response(_, responses) => Some(Content::Text(
             responses
                 .iter()
                 .map(|s| s.as_str())
                 .skip(1)
                 .collect::<Vec<_>>()
                 .join(" "),
-        ),
+        )),
         _ => None,
     }
 }

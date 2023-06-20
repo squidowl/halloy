@@ -27,7 +27,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Server(&state.server),
             history,
-            |message| Some(container(selectable_text(&message.text)).into()),
+            |message| Some(container(selectable_text(&message.content)).into()),
         )
         .map(Message::ScrollView),
     )

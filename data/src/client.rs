@@ -43,7 +43,7 @@ impl Connection {
             timestamp: time::Posix::now(),
             direction: message::Direction::Sent,
             source: message::Source::Channel(channel, message::ChannelSender::User(user)),
-            text,
+            content: message::Content::Text(text.to_string()),
         }
     }
 
@@ -62,7 +62,7 @@ impl Connection {
             timestamp: time::Posix::now(),
             direction: message::Direction::Sent,
             source: message::Source::Query(nick.clone(), User::new(self.nickname(), None, None)),
-            text,
+            content: message::Content::Text(text.to_string()),
         }
     }
 
