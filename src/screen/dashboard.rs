@@ -203,6 +203,10 @@ impl Dashboard {
                         }
                         side_menu::Event::Close(pane) => {
                             self.panes.close(&pane);
+
+                            if self.focus == Some(pane) {
+                                self.focus = None;
+                            }
                         }
                         side_menu::Event::Swap(from, to) => {
                             self.panes.swap(&from, &to);
