@@ -76,7 +76,7 @@ where
                 if let Some(command) = state.completion.select() {
                     state.input = command;
                     Some(self.on_completion.clone())
-                } else {
+                } else if !state.input.is_empty() {
                     state.completion.reset();
 
                     // Parse message
@@ -93,6 +93,8 @@ where
                     state.input = String::new();
 
                     Some((self.on_submit)(content))
+                } else {
+                    None
                 }
             }
             Event::Tab => {
