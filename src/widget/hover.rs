@@ -7,8 +7,9 @@ pub fn hover<'a, Message: 'a>(
 }
 
 mod component {
-    use crate::widget::{Element, Renderer};
     use iced::widget::{component, Component};
+
+    use crate::widget::{Element, Renderer};
 
     pub enum Event<M> {
         Change(super::widget::Cursor),
@@ -61,10 +62,11 @@ mod component {
 }
 
 mod widget {
-    use crate::widget::{Element, Renderer};
-    use crate::Theme;
     use iced::advanced::widget::{self, tree};
     use iced::advanced::{layout, mouse, overlay, renderer, Clipboard, Layout, Shell, Widget};
+
+    use crate::widget::{Element, Renderer};
+    use crate::Theme;
 
     pub enum Cursor {
         Entered,
