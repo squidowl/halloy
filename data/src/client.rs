@@ -29,6 +29,7 @@ impl Connection {
 
     fn send_channel_message(&mut self, channel: String, text: impl fmt::Display) -> Message {
         let text = text.to_string();
+        let user = User::new(self.nickname(), None, None);
 
         let command = proto::Command::PRIVMSG(channel.clone(), text.clone());
         let proto_message = irc::proto::Message::from(command);
@@ -40,7 +41,7 @@ impl Connection {
         Message {
             timestamp: time::Posix::now(),
             direction: message::Direction::Sent,
-            source: message::Source::Channel(channel, User::new(self.nickname(), None, None)),
+            source: message::Source::Channel(channel, message::ChannelSender::User(user)),
             text,
         }
     }

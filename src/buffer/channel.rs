@@ -32,17 +32,20 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Channel(&state.server, &state.channel),
             history,
-            |message| {
-                let user = message.user()?;
+            |message| match &message.source {
+                data::message::Source::Channel(_, kind) => match kind {
+                    data::message::ChannelSender::User(user) => {
+                        let message = selectable_text(&message.text);
+                        let user = selectable_text(format!("<{user}> "))
+                            .style(theme::Text::Nickname(user.color_seed(user_colors)));
 
-                Some(
-                    container(row![
-                        selectable_text(format!("<{}> ", user.nickname()))
-                            .style(theme::Text::Nickname(user.color_seed(user_colors))),
-                        selectable_text(&message.text)
-                    ])
-                    .into(),
-                )
+                        Some(container(row![user, message]).into())
+                    }
+                    data::message::ChannelSender::Server => Some(
+                        container(selectable_text(&message.text).style(theme::Text::Server)).into(),
+                    ),
+                },
+                _ => None,
             },
         )
         .map(Message::ScrollView),
