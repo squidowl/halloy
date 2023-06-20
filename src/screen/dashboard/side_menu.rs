@@ -151,7 +151,7 @@ fn buffer_button<'a>(
     if entries.is_empty() {
         base.into()
     } else {
-        context_menu(base, entries, move |entry, _hovered| {
+        context_menu(base, entries, move |entry| {
             let (content, message) = match entry {
                 Entry::NewPane => ("Open in new pane", Message::Open(buffer.clone())),
                 Entry::Replace(pane) => (
