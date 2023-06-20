@@ -69,7 +69,7 @@ impl Message {
     }
 
     pub fn received(proto: proto::Message, our_nick: &Nick) -> Option<Message> {
-        let text = text(&proto)?;
+        let text = text(&proto, our_nick)?;
         let source = source(proto, our_nick)?;
         Some(Message {
             timestamp: time::Posix::now(),
@@ -190,7 +190,7 @@ fn source(message: irc::proto::Message, our_nick: &Nick) -> Option<Source> {
     }
 }
 
-fn text(message: &irc::proto::Message) -> Option<String> {
+fn text(message: &irc::proto::Message, our_nick: &Nick) -> Option<String> {
     let user = user(message);
     match &message.command {
         proto::Command::TOPIC(_, topic) => {
@@ -211,7 +211,7 @@ fn text(message: &irc::proto::Message) -> Option<String> {
         proto::Command::JOIN(_, _, _) | proto::Command::SAJOIN(_, _) => {
             let user = user?;
 
-            Some(format!("⟶ {user} has joined the channel"))
+            (&user.nickname() != our_nick).then(|| format!("⟶ {user} has joined the channel"))
         }
         proto::Command::ChannelMODE(_, modes) => {
             let user = user?;
