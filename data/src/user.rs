@@ -1,4 +1,4 @@
-use core::fmt;
+use std::fmt;
 use std::hash::Hash;
 
 use irc::client::data;
@@ -41,7 +41,15 @@ impl TryFrom<String> for User {
     type Error = &'static str;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        Ok(Self(data::User::new(&value)))
+        Self::try_from(value.as_str())
+    }
+}
+
+impl<'a> TryFrom<&'a str> for User {
+    type Error = &'static str;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        Ok(Self(data::User::new(value)))
     }
 }
 
@@ -59,7 +67,7 @@ impl From<User> for String {
 }
 
 impl User {
-    pub fn new(nick: &str, user: Option<&str>, host: Option<&str>) -> Self {
+    pub fn new(nick: Nick, user: Option<&str>, host: Option<&str>) -> Self {
         let formatted = match (user, host) {
             (None, None) => nick.to_string(),
             (None, Some(host)) => format!("{nick}@{host}"),
@@ -73,9 +81,11 @@ impl User {
     pub fn color_seed(&self, user_colors: &config::UserColor) -> Option<String> {
         match user_colors {
             config::UserColor::Solid => None,
-            config::UserColor::Unique => {
-                Some(self.hostname().unwrap_or(self.nickname()).to_string())
-            }
+            config::UserColor::Unique => Some(
+                self.hostname()
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| self.nickname().to_string()),
+            ),
         }
     }
 
@@ -83,8 +93,8 @@ impl User {
         self.0.get_username()
     }
 
-    pub fn nickname(&self) -> &str {
-        self.0.get_nickname()
+    pub fn nickname(&self) -> Nick {
+        self.0.get_nickname().into()
     }
 
     pub fn hostname(&self) -> Option<&str> {
@@ -118,6 +128,21 @@ impl From<data::User> for User {
 impl fmt::Display for User {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.nickname())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Nick(String);
+
+impl fmt::Display for Nick {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<'a> From<&'a str> for Nick {
+    fn from(nick: &'a str) -> Self {
+        Nick(nick.to_string())
     }
 }
 

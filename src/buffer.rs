@@ -48,7 +48,7 @@ impl Buffer {
             Buffer::Server(state) => Some(data::Buffer::Server(state.server.clone())),
             Buffer::Query(state) => Some(data::Buffer::Query(
                 state.server.clone(),
-                state.user.clone(),
+                state.nick.clone(),
             )),
         }
     }
@@ -69,12 +69,12 @@ impl Buffer {
                 (command.map(Message::Channel), event.map(Event::Channel))
             }
             (Buffer::Server(state), Message::Server(message)) => {
-                let (command, event) = state.update(message, clients);
+                let (command, event) = state.update(message, clients, history);
 
                 (command.map(Message::Server), event.map(Event::Server))
             }
             (Buffer::Query(state), Message::Query(message)) => {
-                let (command, event) = state.update(message, clients);
+                let (command, event) = state.update(message, clients, history);
 
                 (command.map(Message::Query), event.map(Event::Query))
             }
