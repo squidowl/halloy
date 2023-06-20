@@ -145,6 +145,13 @@ impl History {
         }
     }
 
+    fn topic(&self) -> Option<&str> {
+        match self {
+            History::Partial { topic, .. } => topic.as_deref(),
+            History::Full { topic, .. } => topic.as_deref(),
+        }
+    }
+
     fn add_message(&mut self, message: Message) {
         match self {
             History::Partial {

@@ -50,7 +50,15 @@ impl Pane {
     ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty(state) => state.to_string(),
-            Buffer::Channel(state) => state.to_string(),
+            Buffer::Channel(state) => {
+                let name = state.to_string();
+                let topic = history
+                    .get_channel_topic(&state.server, &state.channel)
+                    .map(|topic| format!(" - {topic}"))
+                    .unwrap_or_default();
+
+                format!("{name}{topic}")
+            }
             Buffer::Server(state) => state.to_string(),
             Buffer::Query(state) => state.to_string(),
         };
