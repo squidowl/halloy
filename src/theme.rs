@@ -286,7 +286,7 @@ impl button::StyleSheet for Theme {
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.action.alpha_02)),
+                background: Some(Background::Color(self.colors.accent.alpha_02)),
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
@@ -338,7 +338,7 @@ impl button::StyleSheet for Theme {
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_09)),
+                background: Some(Background::Color(self.colors.accent.alpha_04)),
                 ..active
             },
             Button::SideMenu { .. } => button::Appearance {
