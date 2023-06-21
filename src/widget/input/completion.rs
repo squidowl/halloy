@@ -168,7 +168,7 @@ impl Completion {
                     Some(
                         container(column(entries))
                             .padding(4)
-                            .style(theme::Container::Commands)
+                            .style(theme::Container::Context)
                             .into(),
                     )
                 }
@@ -224,7 +224,7 @@ impl Entry {
         });
 
         container(row(title.into_iter().chain(args).collect()))
-            .style(theme::Container::Commands)
+            .style(theme::Container::Context)
             .padding(8)
             .center_y()
             .into()
