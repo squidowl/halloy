@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 bincode = "1.0"
+chrono = { version = "0.4", features = ['serde'] }
 dirs-next = "2.0.0"
 flate2 = "1.0"
 futures = "0.3.21"

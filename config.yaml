@@ -4,7 +4,6 @@
 # Linux: `$HOME`/.config/halloy
 # macOS: `$HOME`/Library/Application Support/halloy
 # Windows: `{FOLDERID_RoamingAppData}`\halloy
-
 palette:
   background: "#2b292d"
   text: "#fecdb2"
@@ -15,13 +14,51 @@ palette:
   info: "#f5d76e"
   success: "#b1b695"
 
-# For fields under server, please refer to: https://docs.rs/irc/0.15.0/irc/client/data/config/struct.Config.html#fields
-
+# For more fields under server, please refer to:
+# https://docs.rs/irc/0.15.0/irc/client/data/config/struct.Config.html#fields
 servers:
+  # Configuration for Libera server
   liberachat:
+    # Nickname to be used on the server
     nickname: halloy
+    
+    # Server address
     server: irc.libera.chat
+    
+    # Server port number
     port: 6697
+    
+    # Whether to use TLS
     use_tls: true
+    
+    # Channels to join upon connecting to the server
     channels:
       - "##rust"
+      
+# Buffer settings
+buffer:
+  # Nickname settings
+  nickname:
+    # User color settings:
+    # - Unique: Unique user colors [default]
+    # - Solid: Solid user colors
+    color: Unique
+    
+    # Nickname brackets:
+    # - Default is empty ""
+    brackets:
+      left: "<"
+      right: ">"
+      
+  # Timestamp settings
+  timestamp: 
+    # Timestamp format:
+    # - Use `strftime` format (see documentation for details):
+    #   https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html
+    format: "%T"
+    
+    # Timestamp brackets:
+    # - Default is empty ""
+    brackets:
+      left: "["
+      right: "]"

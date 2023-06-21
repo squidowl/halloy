@@ -83,7 +83,7 @@ impl Halloy {
             palette: self.config.palette,
             servers: self.config.servers.clone(),
             channels: self.config.channels.clone(),
-            user_colors: self.config.user_colors.clone(),
+            buffer: self.config.buffer.clone(),
             error: self.config.error.clone(),
         }
     }

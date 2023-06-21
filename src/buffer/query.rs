@@ -22,7 +22,7 @@ pub enum Event {}
 pub fn view<'a>(
     state: &'a Query,
     history: &'a history::Manager,
-    user_colors: &'a data::config::UserColor,
+    buffer_config: &'a data::config::Buffer,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let messages = container(
@@ -32,15 +32,22 @@ pub fn view<'a>(
             history,
             |message| {
                 let user = message.sent_by()?;
+                let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
+                    let content = &message.formatted_datetime(timestamp.format.as_str());
+                    selectable_text(content_with_brackets(content, &timestamp.brackets))
+                        .style(theme::Text::Alpha04)
+                });
+                let nick = selectable_text(content_with_brackets(
+                    user,
+                    &buffer_config.nickname.brackets,
+                ))
+                .style(theme::Text::Nickname(
+                    user.color_seed(&buffer_config.nickname.color),
+                ));
 
-                Some(
-                    container(row![
-                        selectable_text(format!("<{}> ", user.nickname()))
-                            .style(theme::Text::Nickname(user.color_seed(user_colors))),
-                        selectable_text(&message.text)
-                    ])
-                    .into(),
-                )
+                let message = selectable_text(&message.text);
+
+                Some(container(row![].push_maybe(timestamp).push(nick).push(message)).into())
             },
         )
         .map(Message::ScrollView),
@@ -124,6 +131,13 @@ impl Query {
     pub fn focus(&self) -> Command<Message> {
         input::focus(self.input_id.clone())
     }
+}
+
+fn content_with_brackets(
+    content: impl std::fmt::Display,
+    brackets: &data::config::Brackets,
+) -> String {
+    format!("{}{}{} ", brackets.left, content, brackets.right)
 }
 
 impl fmt::Display for Query {

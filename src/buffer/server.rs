@@ -1,10 +1,11 @@
 use std::fmt;
 
 use data::history;
-use iced::widget::{column, container, vertical_space};
+use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
 use super::scroll_view;
+use crate::theme;
 use crate::widget::{input, selectable_text, Collection, Element};
 
 #[derive(Debug, Clone)]
@@ -20,6 +21,7 @@ pub enum Event {}
 pub fn view<'a>(
     state: &'a Server,
     history: &'a history::Manager,
+    buffer_config: &'a data::config::Buffer,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let messages = container(
@@ -27,7 +29,16 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Server(&state.server),
             history,
-            |message| Some(container(selectable_text(&message.text)).into()),
+            |message| {
+                let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
+                    let content = &message.formatted_datetime(timestamp.format.as_str());
+                    selectable_text(content_with_brackets(content, &timestamp.brackets))
+                        .style(theme::Text::Alpha04)
+                });
+                let message = selectable_text(&message.text).style(theme::Text::Alpha04);
+
+                Some(container(row![].push_maybe(timestamp).push(message)).into())
+            },
         )
         .map(Message::ScrollView),
     )
@@ -101,6 +112,13 @@ impl Server {
     pub fn focus(&self) -> Command<Message> {
         input::focus(self.input_id.clone())
     }
+}
+
+fn content_with_brackets(
+    content: impl std::fmt::Display,
+    brackets: &data::config::Brackets,
+) -> String {
+    format!("{}{}{} ", brackets.left, content, brackets.right)
 }
 
 impl fmt::Display for Server {
