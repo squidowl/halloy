@@ -116,25 +116,22 @@ pub enum History {
         kind: Kind,
         messages: Vec<Message>,
         last_received_at: Option<Instant>,
-        topic: Option<String>,
     },
     Full {
         server: server::Name,
         kind: Kind,
         messages: Vec<Message>,
         last_received_at: Option<Instant>,
-        topic: Option<String>,
     },
 }
 
 impl History {
-    fn partial(server: server::Name, kind: Kind, topic: Option<String>) -> Self {
+    fn partial(server: server::Name, kind: Kind) -> Self {
         Self::Partial {
             server,
             kind,
             messages: vec![],
             last_received_at: None,
-            topic,
         }
     }
 
@@ -157,26 +154,16 @@ impl History {
             History::Partial {
                 messages,
                 last_received_at,
-                topic,
                 ..
             } => {
-                if let Some(_topic) = message.content.topic() {
-                    *topic = Some(_topic.to_string());
-                }
-
                 messages.push(message);
                 *last_received_at = Some(Instant::now());
             }
             History::Full {
                 messages,
                 last_received_at,
-                topic,
                 ..
             } => {
-                if let Some(_topic) = message.content.topic() {
-                    *topic = Some(_topic.to_string());
-                }
-
                 messages.push(message);
                 *last_received_at = Some(Instant::now());
             }
@@ -190,7 +177,6 @@ impl History {
                 kind,
                 messages,
                 last_received_at,
-                ..
             } => {
                 if let Some(last_received) = *last_received_at {
                     let since = now.duration_since(last_received);
@@ -212,7 +198,6 @@ impl History {
                 kind,
                 messages,
                 last_received_at,
-                ..
             } => {
                 if let Some(last_received) = *last_received_at {
                     let since = now.duration_since(last_received);
@@ -241,14 +226,13 @@ impl History {
                 server,
                 kind,
                 messages,
-                topic,
                 ..
             } => {
                 let server = server.clone();
                 let kind = kind.clone();
                 let messages = std::mem::take(messages);
 
-                *self = Self::partial(server.clone(), kind.clone(), topic.clone());
+                *self = Self::partial(server.clone(), kind.clone());
 
                 Some(async move { overwrite(&server, &kind, &messages).await })
             }

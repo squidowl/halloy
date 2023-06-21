@@ -45,7 +45,7 @@ pub fn view<'a>(
                     user.color_seed(&buffer_config.nickname.color),
                 ));
 
-                let message = selectable_text(&message.content);
+                let message = selectable_text(&message.text);
 
                 Some(container(row![].push_maybe(timestamp).push(nick).push(message)).into())
             },
