@@ -40,14 +40,14 @@ impl Theme {
         Theme {
             palette,
             colors: Colors {
-                background: Subpalette::from_color(palette.background),
-                text: Subpalette::from_color(palette.text),
-                action: Subpalette::from_color(palette.action),
-                accent: Subpalette::from_color(palette.accent),
-                alert: Subpalette::from_color(palette.alert),
-                error: Subpalette::from_color(palette.error),
-                info: Subpalette::from_color(palette.info),
-                success: Subpalette::from_color(palette.success),
+                background: Subpalette::from_color(palette.background, &palette),
+                text: Subpalette::from_color(palette.text, &palette),
+                action: Subpalette::from_color(palette.action, &palette),
+                accent: Subpalette::from_color(palette.accent, &palette),
+                alert: Subpalette::from_color(palette.alert, &palette),
+                error: Subpalette::from_color(palette.error, &palette),
+                info: Subpalette::from_color(palette.info, &palette),
+                success: Subpalette::from_color(palette.success, &palette),
             },
         }
     }
@@ -68,14 +68,14 @@ pub struct Colors {
 impl Colors {
     pub fn colors_from_palette(palette: &Palette) -> Self {
         Colors {
-            background: Subpalette::from_color(palette.background),
-            text: Subpalette::from_color(palette.text),
-            action: Subpalette::from_color(palette.action),
-            accent: Subpalette::from_color(palette.accent),
-            alert: Subpalette::from_color(palette.alert),
-            error: Subpalette::from_color(palette.error),
-            info: Subpalette::from_color(palette.info),
-            success: Subpalette::from_color(palette.success),
+            background: Subpalette::from_color(palette.background, palette),
+            text: Subpalette::from_color(palette.text, palette),
+            action: Subpalette::from_color(palette.action, palette),
+            accent: Subpalette::from_color(palette.accent, palette),
+            alert: Subpalette::from_color(palette.alert, palette),
+            error: Subpalette::from_color(palette.error, palette),
+            info: Subpalette::from_color(palette.info, palette),
+            success: Subpalette::from_color(palette.success, palette),
         }
     }
 }
@@ -83,82 +83,44 @@ impl Colors {
 #[derive(Debug, Clone)]
 pub struct Subpalette {
     pub base: Color,
-    pub base_50: Color,
-    pub base_100: Color,
-    pub base_200: Color,
-    pub base_300: Color,
-    pub base_400: Color,
-    pub base_500: Color,
-    pub base_600: Color,
-    pub base_700: Color,
-    pub base_800: Color,
-    pub base_900: Color,
-    pub base_950: Color,
+    pub weak: Color,
+    pub alpha_02: Color,
+    pub alpha_04: Color,
+    pub alpha_06: Color,
     pub mute_03: Color,
     pub mute_06: Color,
     pub mute_09: Color,
-    pub mute_12: Color,
-    pub mute_15: Color,
-    pub mute_18: Color,
     pub intensify_03: Color,
     pub intensify_06: Color,
     pub intensify_09: Color,
-    pub intensify_12: Color,
-    pub intensify_15: Color,
-    pub intensify_18: Color,
     pub lighten_03: Color,
     pub lighten_06: Color,
     pub lighten_09: Color,
-    pub lighten_12: Color,
-    pub lighten_15: Color,
-    pub lighten_18: Color,
     pub darken_03: Color,
     pub darken_06: Color,
     pub darken_09: Color,
-    pub darken_12: Color,
-    pub darken_15: Color,
-    pub darken_18: Color,
 }
 
 impl Subpalette {
-    pub fn from_color(color: Color) -> Subpalette {
+    pub fn from_color(color: Color, palette: &data::palette::Palette) -> Subpalette {
         Subpalette {
             base: color,
-            base_50: palette::lighten(color, 0.95),
-            base_100: palette::lighten(color, 0.90),
-            base_200: palette::lighten(color, 0.80),
-            base_300: palette::lighten(color, 0.70),
-            base_400: palette::lighten(color, 0.60),
-            base_500: palette::lighten(color, 0.50),
-            base_600: palette::lighten(color, 0.40),
-            base_700: palette::lighten(color, 0.30),
-            base_800: palette::lighten(color, 0.20),
-            base_900: palette::lighten(color, 0.10),
-            base_950: palette::lighten(color, 0.05),
+            weak: palette::mix(palette.background, color, 0.8),
+            alpha_02: palette::alpha(color, 0.2),
+            alpha_04: palette::alpha(color, 0.4),
+            alpha_06: palette::alpha(color, 0.6),
             mute_03: palette::mute(color, 0.03),
             mute_06: palette::mute(color, 0.06),
             mute_09: palette::mute(color, 0.09),
-            mute_12: palette::mute(color, 0.12),
-            mute_15: palette::mute(color, 0.15),
-            mute_18: palette::mute(color, 0.18),
             intensify_03: palette::intensify(color, 0.03),
             intensify_06: palette::intensify(color, 0.06),
             intensify_09: palette::intensify(color, 0.09),
-            intensify_12: palette::intensify(color, 0.12),
-            intensify_15: palette::intensify(color, 0.15),
-            intensify_18: palette::intensify(color, 0.18),
             lighten_03: palette::lighten(color, 0.03),
             lighten_06: palette::lighten(color, 0.06),
             lighten_09: palette::lighten(color, 0.09),
-            lighten_12: palette::lighten(color, 0.12),
-            lighten_15: palette::lighten(color, 0.15),
-            lighten_18: palette::lighten(color, 0.1),
             darken_03: palette::darken(color, 0.03),
             darken_06: palette::darken(color, 0.06),
             darken_09: palette::darken(color, 0.09),
-            darken_12: palette::darken(color, 0.12),
-            darken_15: palette::darken(color, 0.15),
-            darken_18: palette::darken(color, 0.18),
         }
     }
 }
@@ -188,6 +150,7 @@ impl rule::StyleSheet for Theme {
 pub enum Text {
     #[default]
     Default,
+    Timestamp,
     Action,
     Accent,
     Server,
@@ -202,6 +165,9 @@ impl text::StyleSheet for Theme {
         match style {
             Text::Default => text::Appearance {
                 color: Some(self.colors.text.base),
+            },
+            Text::Timestamp => text::Appearance {
+                color: Some(self.colors.text.alpha_04),
             },
             Text::Action => text::Appearance {
                 color: Some(self.colors.action.base),
@@ -261,7 +227,7 @@ impl container::StyleSheet for Theme {
                 border_radius: 4.0.into(),
                 border_width: 1.0,
                 border_color: if *selected {
-                    self.colors.action.mute_15
+                    self.colors.action.base
                 } else {
                     Color::TRANSPARENT
                 },
@@ -320,10 +286,7 @@ impl button::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> button::Appearance {
         match style {
             Button::Default => button::Appearance {
-                background: Some(Background::Color(Color {
-                    a: 0.3,
-                    ..self.colors.action.base
-                })),
+                background: Some(Background::Color(self.colors.action.alpha_02)),
                 border_color: self.colors.action.base,
                 border_width: 1.0,
                 border_radius: 3.0.into(),
@@ -375,17 +338,14 @@ impl button::StyleSheet for Theme {
 
         match style {
             Button::Default => button::Appearance {
-                background: Some(Background::Color(Color {
-                    a: 0.5,
-                    ..self.colors.action.base
-                })),
+                background: Some(Background::Color(self.colors.action.alpha_06)),
                 border_color: self.colors.action.base,
                 border_width: 1.0,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_12)),
+                background: Some(Background::Color(self.colors.background.mute_09)),
                 ..active
             },
             Button::SideMenu { .. } => button::Appearance {
@@ -394,7 +354,7 @@ impl button::StyleSheet for Theme {
                 ..active
             },
             Button::Pane { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_12)),
+                background: Some(Background::Color(self.colors.background.mute_09)),
                 ..active
             },
             Button::Pane { .. } => button::Appearance {
@@ -444,7 +404,7 @@ impl scrollable::StyleSheet for Theme {
                 border_width: 1.0,
                 border_color: Color::TRANSPARENT,
                 scroller: scrollable::Scroller {
-                    color: self.colors.background.lighten_03,
+                    color: self.colors.action.alpha_06,
                     border_radius: 8.0.into(),
                     border_width: 0.0,
                     border_color: Color::TRANSPARENT,
@@ -530,7 +490,7 @@ impl text_input::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> text_input::Appearance {
         match style {
             TextInput::Default => text_input::Appearance {
-                background: Background::Color(self.colors.background.lighten_03),
+                background: Background::Color(self.colors.background.darken_06),
                 border_radius: 4.0.into(),
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
@@ -560,10 +520,7 @@ impl text_input::StyleSheet for Theme {
 
     fn placeholder_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default | TextInput::Error => Color {
-                a: 0.4,
-                ..self.colors.text.base
-            },
+            TextInput::Default | TextInput::Error => self.colors.text.alpha_04,
         }
     }
 

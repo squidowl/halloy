@@ -38,6 +38,7 @@ pub fn view<'a>(
                         let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
                             let content = &message.formatted_datetime(timestamp.format.as_str());
                             selectable_text(content_with_brackets(content, &timestamp.brackets))
+                                .style(theme::Text::Timestamp)
                         });
                         let nick = selectable_text(content_with_brackets(
                             user,
@@ -80,12 +81,11 @@ pub fn view<'a>(
             users
                 .iter()
                 .map(|user| {
-                    container(
-                        row![]
-                            .padding([0, 4])
-                            .push(text(user.highest_access_level().to_string()))
-                            .push(text(user.nickname())),
-                    )
+                    container(row![].padding([0, 4]).push(text(format!(
+                        "{}{}",
+                        user.highest_access_level(),
+                        user.nickname()
+                    ))))
                     .into()
                 })
                 .collect(),
