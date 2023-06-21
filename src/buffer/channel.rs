@@ -38,7 +38,7 @@ pub fn view<'a>(
                         let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
                             let content = &message.formatted_datetime(timestamp.format.as_str());
                             selectable_text(content_with_brackets(content, &timestamp.brackets))
-                                .style(theme::Text::Timestamp)
+                                .style(theme::Text::Alpha04)
                         });
                         let nick = selectable_text(content_with_brackets(
                             user,

@@ -5,6 +5,7 @@ use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
 use super::scroll_view;
+use crate::theme;
 use crate::widget::{input, selectable_text, Collection, Element};
 
 #[derive(Debug, Clone)]
@@ -32,8 +33,9 @@ pub fn view<'a>(
                 let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
                     let content = &message.formatted_datetime(timestamp.format.as_str());
                     selectable_text(content_with_brackets(content, &timestamp.brackets))
+                        .style(theme::Text::Alpha04)
                 });
-                let message = selectable_text(&message.content);
+                let message = selectable_text(&message.content).style(theme::Text::Alpha04);
 
                 Some(container(row![].push_maybe(timestamp).push(message)).into())
             },
