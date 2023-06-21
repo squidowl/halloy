@@ -202,7 +202,6 @@ pub enum Container {
         selected: bool,
     },
     PaneHeader,
-    Commands,
     Command {
         selected: bool,
     },
@@ -238,12 +237,6 @@ impl container::StyleSheet for Theme {
                 border_radius: [4.0, 4.0, 0.0, 0.0].into(),
                 border_width: 1.0,
                 border_color: Color::TRANSPARENT,
-                ..Default::default()
-            },
-            Container::Commands => container::Appearance {
-                background: Some(Background::Color(self.colors.background.base)),
-                text_color: Some(self.colors.text.base),
-                border_radius: 4.0.into(),
                 ..Default::default()
             },
             Container::Command { selected } if *selected => container::Appearance {
@@ -557,7 +550,7 @@ impl selectable_text::StyleSheet for Theme {
 
         selectable_text::Appearance {
             color,
-            selection_color: self.colors.action.base,
+            selection_color: self.colors.accent.alpha_02,
         }
     }
 }
