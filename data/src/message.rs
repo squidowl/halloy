@@ -240,7 +240,7 @@ fn datetime(message: &irc::proto::Message) -> DateTime<Utc> {
         .and_then(|tag| tag.1.clone())
         .and_then(|rfc3339| DateTime::parse_from_rfc3339(&rfc3339).ok())
         .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or(Utc::now())
+        .unwrap_or_else(Utc::now)
 }
 
 fn content(message: &irc::proto::Message, our_nick: &Nick) -> Option<Content> {
