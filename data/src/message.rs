@@ -1,13 +1,13 @@
 use std::fmt;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
 use irc::proto;
 use irc::proto::ChannelExt;
 use serde::{Deserialize, Serialize};
 
-use crate::time::Posix;
+use crate::time::{self, Posix};
 use crate::user::Nick;
-use crate::{time, User};
+use crate::User;
 
 pub type Raw = irc::proto::Message;
 pub type Channel = String;
@@ -77,7 +77,7 @@ impl fmt::Display for Content {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
-    pub timestamp: time::Posix,
+    pub datetime: DateTime<Utc>,
     pub direction: Direction,
     pub source: Source,
     pub content: Content,
@@ -86,6 +86,10 @@ pub struct Message {
 impl Message {
     pub fn is_server(&self) -> bool {
         matches!(self.source, Source::Server)
+    }
+
+    pub fn formatted_datetime(&self, fmt: &str) -> String {
+        self.datetime.with_timezone(&Local).format(fmt).to_string()
     }
 
     pub fn channel(&self) -> Option<&str> {
@@ -106,9 +110,11 @@ impl Message {
 
     pub fn received(proto: proto::Message, our_nick: &Nick) -> Option<Message> {
         let content = content(&proto, our_nick)?;
+        let datetime = datetime(&proto);
         let source = source(proto, our_nick)?;
+
         Some(Message {
-            timestamp: time::Posix::now(),
+            datetime,
             direction: Direction::Received,
             source,
             content,
@@ -224,6 +230,17 @@ fn source(message: irc::proto::Message, our_nick: &Nick) -> Option<Source> {
         | proto::Command::Raw(_, _)
         | proto::Command::SAQUIT(_, _) => Some(Source::Server),
     }
+}
+
+fn datetime(message: &irc::proto::Message) -> DateTime<Utc> {
+    message
+        .tags
+        .as_ref()
+        .and_then(|tags| tags.iter().find(|tag| tag.0 == "time"))
+        .and_then(|tag| tag.1.clone())
+        .and_then(|rfc3339| DateTime::parse_from_rfc3339(&rfc3339).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+        .unwrap_or_else(Utc::now)
 }
 
 fn content(message: &irc::proto::Message, our_nick: &Nick) -> Option<Content> {

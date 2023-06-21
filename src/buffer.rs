@@ -89,19 +89,28 @@ impl Buffer {
         config: &'a data::config::Config,
         is_focused: bool,
     ) -> Element<'a, Message> {
+        let buffer_config = &config.buffer;
+
         match self {
             Buffer::Empty(state) => empty::view(state, clients, config).map(Message::Empty),
             Buffer::Channel(state) => {
-                let user_colors = &config.user_colors;
-                let config = config.channel_config(&state.server.name, &state.channel);
+                let channel_config = config.channel_config(&state.server.name, &state.channel);
 
-                channel::view(state, clients, history, &config, user_colors, is_focused)
-                    .map(Message::Channel)
+                channel::view(
+                    state,
+                    clients,
+                    history,
+                    &channel_config,
+                    buffer_config,
+                    is_focused,
+                )
+                .map(Message::Channel)
             }
-            Buffer::Server(state) => server::view(state, history, is_focused).map(Message::Server),
+            Buffer::Server(state) => {
+                server::view(state, history, buffer_config, is_focused).map(Message::Server)
+            }
             Buffer::Query(state) => {
-                let user_colors = &config.user_colors;
-                query::view(state, history, user_colors, is_focused).map(Message::Query)
+                query::view(state, history, buffer_config, is_focused).map(Message::Query)
             }
         }
     }

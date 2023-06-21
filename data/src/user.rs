@@ -78,10 +78,10 @@ impl User {
         Self(data::User::new(&formatted))
     }
 
-    pub fn color_seed(&self, user_colors: &config::UserColor) -> Option<String> {
-        match user_colors {
-            config::UserColor::Solid => None,
-            config::UserColor::Unique => Some(
+    pub fn color_seed(&self, color: &config::Color) -> Option<String> {
+        match color {
+            config::Color::Solid => None,
+            config::Color::Unique => Some(
                 self.hostname()
                     .map(ToString::to_string)
                     .unwrap_or_else(|| self.nickname().to_string()),
