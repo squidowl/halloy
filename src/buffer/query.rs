@@ -33,7 +33,7 @@ pub fn view<'a>(
             |message| {
                 let user = message.sent_by()?;
                 let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
-                    let content = &message.datetime(timestamp.format.as_str());
+                    let content = &message.formatted_datetime(timestamp.format.as_str());
                     selectable_text(content_with_brackets(content, &timestamp.brackets))
                 });
                 let nick = selectable_text(content_with_brackets(
