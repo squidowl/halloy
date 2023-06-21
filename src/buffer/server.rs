@@ -35,7 +35,7 @@ pub fn view<'a>(
                     selectable_text(content_with_brackets(content, &timestamp.brackets))
                         .style(theme::Text::Alpha04)
                 });
-                let message = selectable_text(&message.content).style(theme::Text::Alpha04);
+                let message = selectable_text(&message.text).style(theme::Text::Alpha04);
 
                 Some(container(row![].push_maybe(timestamp).push(message)).into())
             },

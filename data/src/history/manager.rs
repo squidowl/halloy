@@ -280,10 +280,8 @@ impl Data {
                 History::Partial {
                     messages: new_messages,
                     last_received_at,
-                    topic,
                     ..
                 } => {
-                    let topic = topic.clone();
                     let last_received_at = *last_received_at;
                     messages.extend(std::mem::take(new_messages));
                     entry.insert(History::Full {
@@ -291,17 +289,14 @@ impl Data {
                         kind,
                         messages,
                         last_received_at,
-                        topic,
                     });
                 }
-                History::Full { topic, .. } => {
-                    let topic = topic.clone();
+                _ => {
                     entry.insert(History::Full {
                         server,
                         kind,
                         messages,
                         last_received_at: None,
-                        topic,
                     });
                 }
             },
@@ -311,7 +306,6 @@ impl Data {
                     kind,
                     messages,
                     last_received_at: None,
-                    topic: None,
                 });
             }
         }
@@ -336,7 +330,7 @@ impl Data {
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| History::partial(server, kind, None))
+            .or_insert_with(|| History::partial(server, kind))
             .add_message(message)
     }
 

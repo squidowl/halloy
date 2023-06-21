@@ -1,4 +1,4 @@
-use std::fmt::{self};
+use std::fmt;
 
 use data::history;
 use data::server::Server;
@@ -47,15 +47,14 @@ pub fn view<'a>(
                         .style(theme::Text::Nickname(
                             user.color_seed(&buffer_config.nickname.color),
                         ));
-                        let message = selectable_text(&message.content);
+                        let message = selectable_text(&message.text);
 
                         Some(
                             container(row![].push_maybe(timestamp).push(nick).push(message)).into(),
                         )
                     }
                     data::message::ChannelSender::Server => Some(
-                        container(selectable_text(&message.content).style(theme::Text::Server))
-                            .into(),
+                        container(selectable_text(&message.text).style(theme::Text::Server)).into(),
                     ),
                 },
                 _ => None,

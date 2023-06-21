@@ -44,7 +44,7 @@ impl Connection {
             datetime: Utc::now(),
             direction: message::Direction::Sent,
             source: message::Source::Channel(channel, message::ChannelSender::User(user)),
-            content: message::Content::Text(text),
+            text,
         }
     }
 
@@ -63,7 +63,7 @@ impl Connection {
             datetime: Utc::now(),
             direction: message::Direction::Sent,
             source: message::Source::Query(nick.clone(), User::new(self.nickname(), None, None)),
-            content: message::Content::Text(text),
+            text,
         }
     }
 
