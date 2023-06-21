@@ -150,7 +150,7 @@ impl rule::StyleSheet for Theme {
 pub enum Text {
     #[default]
     Default,
-    Timestamp,
+    Alpha04,
     Action,
     Accent,
     Server,
@@ -166,7 +166,7 @@ impl text::StyleSheet for Theme {
             Text::Default => text::Appearance {
                 color: Some(self.colors.text.base),
             },
-            Text::Timestamp => text::Appearance {
+            Text::Alpha04 => text::Appearance {
                 color: Some(self.colors.text.alpha_04),
             },
             Text::Action => text::Appearance {
@@ -293,7 +293,7 @@ impl button::StyleSheet for Theme {
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_06)),
+                background: Some(Background::Color(self.colors.action.alpha_02)),
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
@@ -302,7 +302,7 @@ impl button::StyleSheet for Theme {
                 ..Default::default()
             },
             Button::Pane { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_03)),
+                background: Some(Background::Color(self.colors.action.alpha_02)),
                 border_color: self.colors.action.mute_06,
                 border_width: 1.0,
                 border_radius: 3.0.into(),
