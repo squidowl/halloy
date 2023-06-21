@@ -50,7 +50,12 @@ pub fn view<'a>(
             .width(Length::Fill)
             .padding([0, 8]),
     )
-    .vertical_scroll(scrollable::Properties::default().alignment(state.status.alignment()))
+    .vertical_scroll(
+        scrollable::Properties::default()
+            .alignment(state.status.alignment())
+            .width(5)
+            .scroller_width(5),
+    )
     .on_scroll(move |viewport| Message::Scrolled {
         count,
         remaining,

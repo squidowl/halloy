@@ -1,6 +1,6 @@
 use iced::Color;
 use palette::rgb::Rgb;
-use palette::{DarkenAssign, FromColor, LightenAssign, Okhsl, Srgb};
+use palette::{DarkenAssign, FromColor, LightenAssign, Mix, Okhsl, Srgb};
 use rand::prelude::*;
 use rand_chacha::ChaChaRng;
 
@@ -102,6 +102,14 @@ pub fn lightness(color: Color, amount: f32) -> Color {
     hsl.lightness = amount;
 
     from_hsl(hsl)
+}
+
+pub fn mix(a: Color, b: Color, factor: f32) -> Color {
+    let a_hsl = to_hsl(a);
+    let b_hsl = to_hsl(b);
+
+    let mixed = a_hsl.mix(b_hsl, factor);
+    from_hsl(mixed)
 }
 
 pub fn lighten(color: Color, amount: f32) -> Color {
