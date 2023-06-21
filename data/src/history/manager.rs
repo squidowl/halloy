@@ -174,10 +174,6 @@ impl Manager {
             .unwrap_or_else(|| (0, vec![]))
     }
 
-    pub fn get_channel_topic(&self, server: &Server, channel: &str) -> Option<&str> {
-        self.data.topic(&server.name, channel.to_string())
-    }
-
     pub fn get_server_messages(
         &self,
         server: &Server,
@@ -316,13 +312,6 @@ impl Data {
             .get(server)
             .and_then(|map| map.get(kind))
             .map(History::messages)
-    }
-
-    fn topic(&self, server: &server::Name, channel: String) -> Option<&str> {
-        self.map
-            .get(server)
-            .and_then(|map| map.get(&history::Kind::Channel(channel)))
-            .and_then(History::topic)
     }
 
     fn add_message(&mut self, server: server::Name, kind: history::Kind, message: crate::Message) {
