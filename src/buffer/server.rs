@@ -30,7 +30,7 @@ pub fn view<'a>(
             history,
             |message| {
                 let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
-                    let content = &message.datetime(timestamp.format.as_str());
+                    let content = &message.formatted_datetime(timestamp.format.as_str());
                     selectable_text(content_with_brackets(content, &timestamp.brackets))
                 });
                 let message = selectable_text(&message.content);

@@ -88,7 +88,7 @@ impl Message {
         matches!(self.source, Source::Server)
     }
 
-    pub fn datetime(&self, fmt: &str) -> String {
+    pub fn formatted_datetime(&self, fmt: &str) -> String {
         self.datetime.with_timezone(&Local).format(fmt).to_string()
     }
 

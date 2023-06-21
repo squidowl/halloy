@@ -57,7 +57,7 @@ impl Timestamp {
         format!(
             "{}{}{} ",
             self.brackets.left,
-            &message.datetime(self.format.as_str()),
+            &message.formatted_datetime(self.format.as_str()),
             self.brackets.right,
         )
     }
@@ -82,15 +82,6 @@ pub enum Color {
     #[default]
     Unique,
 }
-
-// impl NicknameColor {
-//     pub fn unique_colors(&self) -> bool {
-//         match self {
-//             Nickname::Solid => false,
-//             Nickname::Unique => true,
-//         }
-//     }
-// }
 
 impl Config {
     pub fn config_dir() -> Result<PathBuf, Error> {

@@ -36,7 +36,7 @@ pub fn view<'a>(
                 data::message::Source::Channel(_, kind) => match kind {
                     data::message::ChannelSender::User(user) => {
                         let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
-                            let content = &message.datetime(timestamp.format.as_str());
+                            let content = &message.formatted_datetime(timestamp.format.as_str());
                             selectable_text(content_with_brackets(content, &timestamp.brackets))
                         });
                         let nick = selectable_text(content_with_brackets(
