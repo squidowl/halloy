@@ -19,30 +19,62 @@ impl Default for Completion {
             // TODO: Macro magic all commands as entries or manually add them all :(
             entries: vec![
                 Entry {
-                    title: "JOIN".into(),
+                    title: "PRIVMSG",
                     args: vec![
                         Arg {
-                            text: "channels".into(),
+                            text: "target",
                             optional: false,
+                            uses_colon: false,
                         },
                         Arg {
-                            text: "keys".into(),
-                            optional: true,
+                            text: "message",
+                            optional: false,
+                            uses_colon: true,
                         },
                     ],
                 },
                 Entry {
-                    title: "NICK".into(),
+                    title: "JOIN",
+                    args: vec![
+                        Arg {
+                            text: "channels",
+                            optional: false,
+                            uses_colon: false,
+                        },
+                        Arg {
+                            text: "keys",
+                            optional: true,
+                            uses_colon: false,
+                        },
+                        Arg {
+                            text: "realname",
+                            optional: true,
+                            uses_colon: true,
+                        },
+                    ],
+                },
+                Entry {
+                    title: "NICK",
                     args: vec![Arg {
-                        text: "nickname".into(),
+                        text: "nickname",
                         optional: false,
+                        uses_colon: false,
                     }],
                 },
                 Entry {
-                    title: "MOTD".into(),
+                    title: "MOTD",
                     args: vec![Arg {
-                        text: "server".into(),
+                        text: "server",
                         optional: true,
+                        uses_colon: false,
+                    }],
+                },
+                Entry {
+                    title: "QUIT",
+                    args: vec![Arg {
+                        text: "reason",
+                        optional: true,
+                        uses_colon: true,
                     }],
                 },
             ],
@@ -199,17 +231,27 @@ impl Selection {
 
 #[derive(Debug, Clone)]
 pub struct Entry {
-    title: String,
+    title: &'static str,
     args: Vec<Arg>,
 }
 
 impl Entry {
     pub fn view<'a, Message: 'a>(&self, input: &str) -> Element<'a, Message> {
-        let active_arg = [input, "_"]
-            .concat()
-            .split_ascii_whitespace()
-            .count()
-            .saturating_sub(2);
+        let has_colon_arg = self
+            .args
+            .last()
+            .map(|arg| arg.uses_colon)
+            .unwrap_or_default();
+
+        let active_arg = if input.contains(':') && has_colon_arg {
+            self.args.len() - 1
+        } else {
+            [input, "_"]
+                .concat()
+                .split_ascii_whitespace()
+                .count()
+                .saturating_sub(2)
+        };
 
         let title = Some(Element::from(text(&self.title)));
 
@@ -233,16 +275,19 @@ impl Entry {
 
 #[derive(Debug, Clone)]
 pub struct Arg {
-    text: String,
+    text: &'static str,
     optional: bool,
+    uses_colon: bool,
 }
 
 impl fmt::Display for Arg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let colon = self.uses_colon.then_some(":").unwrap_or_default();
+
         if self.optional {
-            write!(f, "[<{}>]", self.text)
+            write!(f, "[{colon}<{}>]", self.text)
         } else {
-            write!(f, "<{}>", self.text)
+            write!(f, "{colon}<{}>", self.text)
         }
     }
 }
