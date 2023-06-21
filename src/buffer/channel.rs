@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self};
 
 use data::history;
 use data::server::Server;
@@ -23,8 +23,8 @@ pub fn view<'a>(
     state: &'a Channel,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
-    config: &data::channel::Config,
-    user_colors: &'a data::config::UserColor,
+    channel_config: &data::channel::Config,
+    buffer_config: &'a data::config::Buffer,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let messages = container(
@@ -35,11 +35,22 @@ pub fn view<'a>(
             |message| match &message.source {
                 data::message::Source::Channel(_, kind) => match kind {
                     data::message::ChannelSender::User(user) => {
+                        let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
+                            let content = &message.formatted_datetime(timestamp.format.as_str());
+                            selectable_text(content_with_brackets(content, &timestamp.brackets))
+                        });
+                        let nick = selectable_text(content_with_brackets(
+                            user,
+                            &buffer_config.nickname.brackets,
+                        ))
+                        .style(theme::Text::Nickname(
+                            user.color_seed(&buffer_config.nickname.color),
+                        ));
                         let message = selectable_text(&message.content);
-                        let user = selectable_text(format!("<{user}> "))
-                            .style(theme::Text::Nickname(user.color_seed(user_colors)));
 
-                        Some(container(row![user, message]).into())
+                        Some(
+                            container(row![].push_maybe(timestamp).push(nick).push(message)).into(),
+                        )
                     }
                     data::message::ChannelSender::Server => Some(
                         container(selectable_text(&message.content).style(theme::Text::Server))
@@ -96,7 +107,7 @@ pub fn view<'a>(
         .height(Length::Fill)
     };
 
-    let content = match (config.users.visible, config.users.position) {
+    let content = match (channel_config.users.visible, channel_config.users.position) {
         (true, data::channel::Position::Left) => {
             row![user_column, messages]
         }
@@ -177,6 +188,13 @@ impl Channel {
     pub fn focus(&self) -> Command<Message> {
         input::focus(self.input_id.clone())
     }
+}
+
+fn content_with_brackets(
+    content: impl std::fmt::Display,
+    brackets: &data::config::Brackets,
+) -> String {
+    format!("{}{}{} ", brackets.left, content, brackets.right)
 }
 
 impl fmt::Display for Channel {

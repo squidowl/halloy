@@ -42,7 +42,7 @@ pub fn view<'a>(
     let remaining = count < total;
     let oldest = messages
         .first()
-        .map(|message| message.timestamp)
+        .map(|message| message.datetime.into())
         .unwrap_or_else(time::Posix::now);
 
     scrollable(
