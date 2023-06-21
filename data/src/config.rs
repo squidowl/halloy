@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::palette::Palette;
-use crate::{channel, server};
+use crate::{channel, server, Message};
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Config {
@@ -17,25 +17,70 @@ pub struct Config {
     #[serde(default)]
     pub channels: BTreeMap<String, BTreeMap<String, channel::Config>>,
     #[serde(default)]
-    pub user_colors: UserColor,
+    pub buffer: Buffer,
     #[serde(skip)]
     pub error: Option<Error>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Buffer {
+    #[serde(default)]
+    pub timestamp: Option<Timestamp>,
+    #[serde(default)]
+    pub nickname: Nickname,
+}
+
+impl Default for Buffer {
+    fn default() -> Self {
+        Buffer {
+            timestamp: Some(Timestamp {
+                format: "%T".into(),
+                brackets: Default::default(),
+            }),
+            nickname: Nickname {
+                color: Color::Unique,
+                brackets: Default::default(),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Timestamp {
+    pub format: String,
+    #[serde(default)]
+    pub brackets: Brackets,
+}
+
+impl Timestamp {
+    pub fn format_message_with_timestamp(&self, message: &Message) -> String {
+        format!(
+            "{}{}{} ",
+            self.brackets.left,
+            &message.formatted_datetime(self.format.as_str()),
+            self.brackets.right,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub enum UserColor {
+pub struct Nickname {
+    pub color: Color,
+    #[serde(default)]
+    pub brackets: Brackets,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct Brackets {
+    pub left: String,
+    pub right: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub enum Color {
     Solid,
     #[default]
     Unique,
-}
-
-impl UserColor {
-    pub fn unique_colors(&self) -> bool {
-        match self {
-            UserColor::Solid => false,
-            UserColor::Unique => true,
-        }
-    }
 }
 
 impl Config {

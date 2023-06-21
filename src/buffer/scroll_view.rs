@@ -42,7 +42,7 @@ pub fn view<'a>(
     let remaining = count < total;
     let oldest = messages
         .first()
-        .map(|message| message.timestamp)
+        .map(|message| message.datetime.into())
         .unwrap_or_else(time::Posix::now);
 
     scrollable(
@@ -50,7 +50,12 @@ pub fn view<'a>(
             .width(Length::Fill)
             .padding([0, 8]),
     )
-    .vertical_scroll(scrollable::Properties::default().alignment(state.status.alignment()))
+    .vertical_scroll(
+        scrollable::Properties::default()
+            .alignment(state.status.alignment())
+            .width(5)
+            .scroller_width(5),
+    )
     .on_scroll(move |viewport| Message::Scrolled {
         count,
         remaining,

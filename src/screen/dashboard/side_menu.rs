@@ -1,5 +1,7 @@
 use data::{history, Buffer};
-use iced::widget::{button, column, container, horizontal_space, pane_grid, row, text};
+use iced::widget::{
+    button, column, container, horizontal_space, pane_grid, row, scrollable, text, vertical_space,
+};
 use iced::Length;
 
 use super::pane::Pane;
@@ -67,13 +69,21 @@ impl SideMenu {
                     Buffer::Query(server.clone(), user.clone()),
                 ));
             }
+
+            column = column.push(vertical_space(12));
         }
 
-        container(column)
-            .padding([8, 0, 6, 6])
-            .center_x()
-            .max_width(120)
-            .into()
+        container(
+            scrollable(column).vertical_scroll(
+                iced::widget::scrollable::Properties::default()
+                    .width(0)
+                    .scroller_width(0),
+            ),
+        )
+        .padding([8, 0, 6, 6])
+        .center_x()
+        .max_width(120)
+        .into()
     }
 }
 

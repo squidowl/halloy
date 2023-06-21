@@ -167,7 +167,7 @@ impl TitleBar {
             controls = controls.push(delete);
         }
 
-        let title = container(text(value))
+        let title = container(text(value).style(theme::Text::Alpha04))
             .height(22)
             .padding([0, 4])
             .align_y(iced::alignment::Vertical::Center);

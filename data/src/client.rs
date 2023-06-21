@@ -1,12 +1,13 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use chrono::Utc;
 use irc::client::Client;
 use irc::proto;
 use irc::proto::ChannelExt;
 
 use crate::user::Nick;
-use crate::{message, time, Command, Message, Server, User};
+use crate::{message, Command, Message, Server, User};
 
 #[derive(Debug)]
 pub enum State {
@@ -40,7 +41,7 @@ impl Connection {
         }
 
         Message {
-            timestamp: time::Posix::now(),
+            datetime: Utc::now(),
             direction: message::Direction::Sent,
             source: message::Source::Channel(channel, message::ChannelSender::User(user)),
             text,
@@ -59,7 +60,7 @@ impl Connection {
         }
 
         Message {
-            timestamp: time::Posix::now(),
+            datetime: Utc::now(),
             direction: message::Direction::Sent,
             source: message::Source::Query(nick.clone(), User::new(self.nickname(), None, None)),
             text,
