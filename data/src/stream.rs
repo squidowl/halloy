@@ -7,8 +7,8 @@ use tokio::sync::mpsc;
 use tokio::time::{self, Instant, Interval};
 
 use crate::client::Connection;
-use crate::server;
 use crate::server::Server;
+use crate::{message, server};
 
 pub type Result<T = Event, E = Error> = std::result::Result<T, E>;
 
@@ -21,7 +21,7 @@ pub enum Error {
 pub enum Event {
     Ready(mpsc::Sender<Message>),
     Connected(Server, Connection),
-    MessagesReceived(Vec<(Server, irc::proto::Message)>),
+    MessagesReceived(Vec<(Server, message::Encoded)>),
 }
 
 #[derive(Debug, Clone)]
@@ -49,7 +49,7 @@ struct ServerData {
 enum Input {
     Message(Option<Message>),
     IrcMessage(usize, Result<irc::proto::Message, irc::error::Error>),
-    Batch(Vec<(Server, irc::proto::Message)>),
+    Batch(Vec<(Server, message::Encoded)>),
 }
 
 pub fn run() -> BoxStream<'static, Result> {
@@ -146,7 +146,7 @@ pub fn run() -> BoxStream<'static, Result> {
                             &server.name,
                             server.config.server.as_ref().expect("server hostname"),
                         );
-                        batch.messages.push((server, message));
+                        batch.messages.push((server, message.into()));
                     }
                     Input::Message(None) => {}
                     Input::IrcMessage(_, Err(_)) => {} // TODO: Handle?
@@ -187,7 +187,7 @@ async fn connect(
 
 struct Batch {
     interval: Interval,
-    messages: Vec<(Server, irc::proto::Message)>,
+    messages: Vec<(Server, message::Encoded)>,
 }
 
 impl Batch {
@@ -205,7 +205,7 @@ impl Batch {
 }
 
 impl futures::Stream for Batch {
-    type Item = Vec<(Server, irc::proto::Message)>;
+    type Item = Vec<(Server, message::Encoded)>;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,

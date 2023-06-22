@@ -5,15 +5,14 @@ use data::server::Server;
 use iced::widget::{column, container, row, scrollable, text, vertical_space};
 use iced::{Command, Length};
 
-use super::scroll_view;
+use super::{input_view, scroll_view};
 use crate::theme;
-use crate::widget::{input, selectable_text, Collection, Column, Element};
+use crate::widget::{selectable_text, Collection, Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Send(input::Content),
-    CompletionSelected,
     ScrollView(scroll_view::Message),
+    InputView(input_view::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -70,12 +69,11 @@ pub fn view<'a>(
 
     let spacing = is_focused.then_some(vertical_space(4));
     let text_input = is_focused.then(|| {
-        input(
-            state.input_id.clone(),
+        input_view::view(
+            &state.input_view,
             data::Buffer::Channel(state.server.clone(), state.channel.clone()),
-            Message::Send,
-            Message::CompletionSelected,
         )
+        .map(Message::InputView)
     });
 
     let user_column = {
@@ -138,7 +136,7 @@ pub struct Channel {
     pub channel: String,
     pub topic: Option<String>,
     pub scroll_view: scroll_view::State,
-    input_id: input::Id,
+    input_view: input_view::State,
 }
 
 impl Channel {
@@ -148,7 +146,7 @@ impl Channel {
             channel,
             topic: None,
             scroll_view: scroll_view::State::new(),
-            input_id: input::Id::unique(),
+            input_view: input_view::State::new(),
         }
     }
 
@@ -159,37 +157,33 @@ impl Channel {
         history: &mut history::Manager,
     ) -> (Command<Message>, Option<Event>) {
         match message {
-            Message::Send(content) => {
-                match content {
-                    input::Content::Text(message) => {
-                        if let Some(message) =
-                            clients.send_channel_message(&self.server, &self.channel, &message)
-                        {
-                            history.add_message(&self.server, message);
-                        }
-                    }
-                    input::Content::Command(command) => {
-                        if let Some(message) = clients.send_command(&self.server, command) {
-                            history.add_message(&self.server, message);
-                        }
-                    }
-                }
-
-                (
-                    self.scroll_view.scroll_to_end().map(Message::ScrollView),
-                    None,
-                )
-            }
-            Message::CompletionSelected => (input::move_cursor_to_end(self.input_id.clone()), None),
             Message::ScrollView(message) => {
                 let command = self.scroll_view.update(message);
                 (command.map(Message::ScrollView), None)
+            }
+            Message::InputView(message) => {
+                let (command, event) =
+                    self.input_view
+                        .update(message, &self.server, clients, history);
+                let command = command.map(Message::InputView);
+
+                match event {
+                    Some(input_view::Event::InputSent) => {
+                        let command = Command::batch(vec![
+                            command,
+                            self.scroll_view.scroll_to_end().map(Message::ScrollView),
+                        ]);
+
+                        (command, None)
+                    }
+                    None => (command, None),
+                }
             }
         }
     }
 
     pub fn focus(&self) -> Command<Message> {
-        input::focus(self.input_id.clone())
+        self.input_view.focus().map(Message::InputView)
     }
 }
 

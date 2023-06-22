@@ -7,10 +7,10 @@ use itertools::Itertools;
 use tokio::time::Instant;
 
 use crate::history::{self, History};
-use crate::message::{self, Limit};
+use crate::message::Limit;
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::{client, server, Server};
+use crate::{server, Server};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -124,38 +124,12 @@ impl Manager {
         }
     }
 
-    pub fn add_message(&mut self, server: &Server, message: crate::Message) {
+    pub fn record_message(&mut self, server: &Server, message: crate::Message) {
         self.data.add_message(
             server.name.clone(),
             history::Kind::from(message.source.clone()),
             message,
         );
-    }
-
-    pub fn add_raw_messages(
-        &mut self,
-        messages: Vec<(Server, irc::proto::Message)>,
-        clients: &mut client::Map,
-    ) -> HashSet<(Server, message::Source)> {
-        messages
-            .into_iter()
-            .filter_map(|(server, message)| {
-                log::trace!("Message received => {message:?}");
-
-                let connection = clients.connection_mut(&server)?;
-                connection.handle_message(&message);
-
-                let nick = connection.nickname();
-
-                let message = crate::Message::received(message, &nick)?;
-                let source = message.source.clone();
-                let kind = history::Kind::from(source.clone());
-
-                self.data.add_message(server.name.clone(), kind, message);
-
-                Some((server, source))
-            })
-            .collect()
     }
 
     pub fn get_channel_messages(

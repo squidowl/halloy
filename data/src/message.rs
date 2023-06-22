@@ -7,8 +7,30 @@ use crate::time::{self, Posix};
 use crate::user::Nick;
 use crate::User;
 
-pub type Raw = irc::proto::Message;
 pub type Channel = String;
+
+#[derive(Debug, Clone)]
+pub struct Encoded(proto::Message);
+
+impl std::ops::Deref for Encoded {
+    type Target = proto::Message;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<proto::Message> for Encoded {
+    fn from(proto: proto::Message) -> Self {
+        Self(proto)
+    }
+}
+
+impl From<Encoded> for proto::Message {
+    fn from(encoded: Encoded) -> Self {
+        encoded.0
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Source {
@@ -73,10 +95,10 @@ impl Message {
         }
     }
 
-    pub fn received(proto: proto::Message, our_nick: &Nick) -> Option<Message> {
-        let datetime = datetime(&proto);
-        let text = text(&proto, our_nick)?;
-        let source = source(proto, our_nick)?;
+    pub fn received(encoded: Encoded, our_nick: &Nick) -> Option<Message> {
+        let datetime = datetime(&encoded);
+        let text = text(&encoded, our_nick)?;
+        let source = source(encoded, our_nick)?;
 
         Some(Message {
             datetime,
@@ -87,26 +109,26 @@ impl Message {
     }
 }
 
-fn user(proto: &proto::Message) -> Option<User> {
+fn user(message: &Encoded) -> Option<User> {
     fn not_empty(s: &str) -> Option<&str> {
         (!s.is_empty()).then_some(s)
     }
 
-    let prefix = proto.clone().prefix?;
+    let prefix = message.prefix.as_ref()?;
     match prefix {
         proto::Prefix::Nickname(nickname, username, hostname) => Some(User::new(
             Nick::from(nickname.as_str()),
-            not_empty(&username),
-            not_empty(&hostname),
+            not_empty(username),
+            not_empty(hostname),
         )),
         _ => None,
     }
 }
 
-fn source(message: irc::proto::Message, our_nick: &Nick) -> Option<Source> {
+fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
     let user = user(&message);
 
-    match message.command {
+    match message.0.command {
         // Channel
         proto::Command::TOPIC(channel, _)
         | proto::Command::PART(channel, _)
@@ -204,7 +226,7 @@ fn source(message: irc::proto::Message, our_nick: &Nick) -> Option<Source> {
     }
 }
 
-fn datetime(message: &irc::proto::Message) -> DateTime<Utc> {
+fn datetime(message: &Encoded) -> DateTime<Utc> {
     message
         .tags
         .as_ref()
@@ -215,7 +237,7 @@ fn datetime(message: &irc::proto::Message) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
-fn text(message: &irc::proto::Message, our_nick: &Nick) -> Option<String> {
+fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
     let user = user(message);
     match &message.command {
         proto::Command::TOPIC(_, topic) => {
@@ -251,7 +273,7 @@ fn text(message: &irc::proto::Message, our_nick: &Nick) -> Option<String> {
         proto::Command::PRIVMSG(_, text) => {
             // Check if a synthetic action message
             if let Some(nick) = user.as_ref().map(User::nickname) {
-                if let Some(action) = action_text(&nick, text) {
+                if let Some(action) = parse_action(&nick, text) {
                     return Some(action);
                 }
             }
@@ -327,7 +349,11 @@ fn is_action(text: &str) -> bool {
     text.starts_with("\u{1}ACTION ") && text.ends_with('\u{1}')
 }
 
-pub fn action_text(nick: &Nick, text: &str) -> Option<String> {
+pub fn parse_action(nick: &Nick, text: &str) -> Option<String> {
     let action = text.strip_prefix("\u{1}ACTION ")?.strip_suffix('\u{1}')?;
-    Some(format!(" ∙ {nick} {action}"))
+    Some(action_text(nick, action))
+}
+
+pub fn action_text(nick: &Nick, action: &str) -> String {
+    format!(" ∙ {nick} {action}")
 }

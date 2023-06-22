@@ -9,6 +9,14 @@ pub enum Buffer {
 }
 
 impl Buffer {
+    pub fn server(&self) -> &Server {
+        match self {
+            Buffer::Server(server) | Buffer::Channel(server, _) | Buffer::Query(server, _) => {
+                server
+            }
+        }
+    }
+
     pub fn target(&self) -> Option<String> {
         match self {
             Buffer::Server(_) => None,
