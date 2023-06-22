@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use irc::proto;
+use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Kind {
@@ -8,7 +9,7 @@ pub enum Kind {
     Motd,
     Nick,
     Quit,
-    PrivMsg,
+    Msg,
 }
 
 impl FromStr for Kind {
@@ -20,7 +21,7 @@ impl FromStr for Kind {
             "motd" => Ok(Kind::Motd),
             "nick" => Ok(Kind::Nick),
             "quit" => Ok(Kind::Quit),
-            "privmsg" => Ok(Kind::PrivMsg),
+            "msg" => Ok(Kind::Msg),
             _ => Err(()),
         }
     }
@@ -28,11 +29,11 @@ impl FromStr for Kind {
 
 #[derive(Debug, Clone)]
 pub enum Command {
-    Join(String, Option<String>, Option<String>),
+    Join(String, Option<String>),
     Motd(Option<String>),
     Nick(String),
     Quit(Option<String>),
-    PrivMsg(String, String),
+    Msg(String, String),
     Unknown(String, Vec<String>),
 }
 
@@ -53,14 +54,14 @@ impl FromStr for Command {
 
         match cmd.parse::<Kind>() {
             Ok(kind) => match kind {
-                Kind::Join => validated::<1, 2>(args, |[chanlist], [chankeys, real_name]| {
-                    Command::Join(chanlist, chankeys, real_name)
+                Kind::Join => validated::<1, 1, false>(args, |[chanlist], [chankeys]| {
+                    Command::Join(chanlist, chankeys)
                 }),
-                Kind::Motd => validated::<0, 1>(args, |_, [target]| Command::Motd(target)),
-                Kind::Nick => validated::<1, 0>(args, |[nick], _| Command::Nick(nick)),
-                Kind::Quit => validated::<0, 1>(args, |_, [comment]| Command::Quit(comment)),
-                Kind::PrivMsg => {
-                    validated::<2, 0>(args, |[target, msg], []| Command::PrivMsg(target, msg))
+                Kind::Motd => validated::<0, 1, false>(args, |_, [target]| Command::Motd(target)),
+                Kind::Nick => validated::<1, 0, false>(args, |[nick], _| Command::Nick(nick)),
+                Kind::Quit => validated::<0, 1, true>(args, |_, [comment]| Command::Quit(comment)),
+                Kind::Msg => {
+                    validated::<2, 0, true>(args, |[target, msg], []| Command::Msg(target, msg))
                 }
             },
             Err(_) => Ok(Command::Unknown(
@@ -71,22 +72,28 @@ impl FromStr for Command {
     }
 }
 
-fn validated<const EXACT: usize, const OPT: usize>(
+fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
     args: Vec<&str>,
     f: impl Fn([String; EXACT], [Option<String>; OPT]) -> Command,
 ) -> Result<Command, Error> {
     let max = EXACT + OPT;
 
-    if args.len() >= EXACT && args.len() <= max {
-        let exact = args[0..EXACT]
-            .iter()
+    let args: Vec<String> = if TEXT {
+        // Combine everything from last arg on
+        args.iter()
+            .take(max.saturating_sub(1))
             .map(|s| s.to_string())
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
+            .chain(Some(args.iter().skip(max.saturating_sub(1)).join(" ")))
+            .collect()
+    } else {
+        args.into_iter().map(String::from).collect()
+    };
+
+    if args.len() >= EXACT && args.len() <= max {
+        let exact = args[0..EXACT].to_vec().try_into().unwrap();
         let opt = args[EXACT..args.len()]
             .iter()
-            .map(|s| Some(s.to_string()))
+            .map(|s| Some(s.clone()))
             .chain((args.len()..max).map(|_| None))
             .collect::<Vec<_>>()
             .try_into()
@@ -107,13 +114,11 @@ impl TryFrom<Command> for proto::Command {
 
     fn try_from(command: Command) -> Result<Self, Self::Error> {
         Ok(match command {
-            Command::Join(chanlist, chankeys, real_name) => {
-                proto::Command::JOIN(chanlist, chankeys, real_name)
-            }
+            Command::Join(chanlist, chankeys) => proto::Command::JOIN(chanlist, chankeys, None),
             Command::Motd(target) => proto::Command::MOTD(target),
             Command::Nick(nick) => proto::Command::NICK(nick),
             Command::Quit(comment) => proto::Command::QUIT(comment),
-            Command::PrivMsg(target, msg) => proto::Command::PRIVMSG(target, msg),
+            Command::Msg(target, msg) => proto::Command::PRIVMSG(target, msg),
             Command::Unknown(command, args) => {
                 let args = args.iter().map(|arg| arg.as_str()).collect();
 
