@@ -125,7 +125,7 @@ impl Connection {
         )
     }
 
-    pub fn handle_message(&mut self, message: &irc::proto::Message) {
+    pub fn handle_message(&mut self, message: &message::Encoded) {
         use irc::proto::{Command, Response};
 
         match &message.command {

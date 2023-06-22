@@ -333,10 +333,10 @@ impl Dashboard {
 
     pub fn messages_received(
         &mut self,
-        messages: Vec<(Server, message::Raw)>,
+        messages: Vec<(Server, message::Encoded)>,
         clients: &mut data::client::Map,
     ) -> Command<Message> {
-        let _ = self.history.add_raw_messages(messages, clients);
+        let _ = self.history.add_encoded_messages(messages, clients);
         Command::none()
     }
 
