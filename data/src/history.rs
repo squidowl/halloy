@@ -212,7 +212,7 @@ impl History {
         }
     }
 
-    fn to_partial(&mut self) -> Option<impl Future<Output = Result<(), Error>>> {
+    fn make_partial(&mut self) -> Option<impl Future<Output = Result<(), Error>>> {
         match self {
             History::Partial { .. } => None,
             History::Full {

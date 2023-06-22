@@ -304,7 +304,7 @@ impl Data {
     ) -> Option<impl Future<Output = Result<(), history::Error>>> {
         self.map
             .get_mut(server)
-            .and_then(|map| map.get_mut(kind).and_then(History::to_partial))
+            .and_then(|map| map.get_mut(kind).and_then(History::make_partial))
     }
 
     fn flush_all(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
