@@ -1,12 +1,9 @@
 use std::collections::BTreeMap;
 
-use chrono::Utc;
 use irc::client::Client;
-use irc::proto;
-use irc::proto::ChannelExt;
 
 use crate::user::Nick;
-use crate::{message, Command, Message, Server, User};
+use crate::{message, Message, Server, User};
 
 #[derive(Debug)]
 pub enum State {
@@ -28,80 +25,35 @@ impl Connection {
         }
     }
 
-    fn send_channel_message(&mut self, channel: String, text: impl ToString) -> Message {
-        let text = text.to_string();
-
-        let command = proto::Command::PRIVMSG(channel.clone(), text.clone());
-        let proto_message = irc::proto::Message::from(command);
-
-        if let Err(e) = self.client.send(proto_message) {
-            dbg!(&e);
-        }
-
-        let our_user = User::new(self.nickname(), None, None);
-
-        let (text, sender) = if let Some(action) = message::action_text(&self.nickname(), &text) {
-            (action, message::Sender::Action)
-        } else {
-            (text, message::Sender::User(our_user))
-        };
-
-        Message {
-            datetime: Utc::now(),
-            direction: message::Direction::Sent,
-            source: message::Source::Channel(channel, sender),
-            text,
+    fn send(&mut self, message: message::Encoded) {
+        if let Err(e) = self.client.send(message) {
+            log::warn!("Error sending message: {e}");
         }
     }
 
-    fn send_user_message(&mut self, nick: &Nick, text: impl ToString) -> Message {
-        let text = text.to_string();
-        let target = nick.to_string();
+    fn receive(&mut self, message: message::Encoded) -> Option<Message> {
+        log::trace!("Message received => {:?}", *message);
 
-        let command = proto::Command::PRIVMSG(target, text.clone());
-        let proto_message = irc::proto::Message::from(command);
+        self.handle(&message);
 
-        if let Err(e) = self.client.send(proto_message) {
-            dbg!(&e);
-        }
-
-        let our_user = User::new(self.nickname(), None, None);
-
-        let (text, sender) = if let Some(action) = message::action_text(&self.nickname(), &text) {
-            (action, message::Sender::Server)
-        } else {
-            (text, message::Sender::User(our_user))
-        };
-
-        Message {
-            datetime: Utc::now(),
-            direction: message::Direction::Sent,
-            source: message::Source::Query(nick.clone(), sender),
-            text,
-        }
+        Message::received(message, &self.nickname())
     }
 
-    fn send_command(&mut self, command: Command) -> Option<Message> {
-        let Ok(command) = proto::Command::try_from(command) else {
-            return None;
-        };
+    fn handle(&mut self, message: &message::Encoded) {
+        use irc::proto::{Command, Response};
 
-        if let proto::Command::PRIVMSG(target, message) = &command {
-            if target.is_channel_name() {
-                return Some(self.send_channel_message(target.clone(), message));
-            } else if let Ok(user) = User::try_from(target.clone()) {
-                return Some(self.send_user_message(&user.nickname(), message));
-            }
+        match &message.command {
+            Command::NICK(nick) => self.resolved_nick = Some(nick.to_string()),
+            Command::Response(response, args) => match response {
+                Response::RPL_WELCOME => {
+                    if let Some(nick) = args.first() {
+                        self.resolved_nick = Some(nick.to_string());
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
         }
-
-        let proto_message = irc::proto::Message::from(command);
-
-        // TODO: Handle error
-        if let Err(e) = self.client.send(proto_message) {
-            dbg!(&e);
-        }
-
-        None
     }
 
     fn channels(&self) -> Vec<String> {
@@ -117,29 +69,12 @@ impl Connection {
             .collect()
     }
 
-    pub fn nickname(&self) -> Nick {
+    fn nickname(&self) -> Nick {
         Nick::from(
             self.resolved_nick
                 .as_deref()
                 .unwrap_or_else(|| self.client.current_nickname()),
         )
-    }
-
-    pub fn handle_message(&mut self, message: &irc::proto::Message) {
-        use irc::proto::{Command, Response};
-
-        match &message.command {
-            Command::NICK(nick) => self.resolved_nick = Some(nick.to_string()),
-            Command::Response(response, args) => match response {
-                Response::RPL_WELCOME => {
-                    if let Some(nick) = args.first() {
-                        self.resolved_nick = Some(nick.to_string());
-                    }
-                }
-                _ => {}
-            },
-            _ => {}
-        }
     }
 }
 
@@ -175,31 +110,18 @@ impl Map {
         }
     }
 
-    pub fn send_channel_message(
-        &mut self,
-        server: &Server,
-        channel: &str,
-        text: impl ToString,
-    ) -> Option<Message> {
-        self.connection_mut(server)
-            .map(|connection| connection.send_channel_message(channel.to_string(), text))
+    pub fn nickname(&self, server: &Server) -> Option<Nick> {
+        self.connection(server).map(Connection::nickname)
     }
 
-    pub fn send_user_message(
-        &mut self,
-        server: &Server,
-        nick: &Nick,
-        text: impl ToString,
-    ) -> Option<Message> {
+    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Option<Message> {
         self.connection_mut(server)
-            .map(|connection| connection.send_user_message(nick, text))
+            .and_then(|connection| connection.receive(message))
     }
 
-    pub fn send_command(&mut self, server: &Server, command: Command) -> Option<Message> {
+    pub fn send(&mut self, server: &Server, message: message::Encoded) {
         if let Some(connection) = self.connection_mut(server) {
-            connection.send_command(command)
-        } else {
-            None
+            connection.send(message);
         }
     }
 
