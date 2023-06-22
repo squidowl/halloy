@@ -1,6 +1,6 @@
 use core::fmt;
 
-use data::Config;
+use data::{config, Config};
 use iced::widget::{button, column, container, text, vertical_space};
 use iced::{alignment, Length};
 
@@ -18,7 +18,9 @@ pub enum Event {}
 pub fn view<'a>(
     _state: &Empty,
     clients: &data::client::Map,
-    config: &'a data::config::Config,
+    // TODO: Make error a separate screen so we don't
+    // have to pass this all the way down
+    load_config_error: &'a Option<config::Error>,
 ) -> Element<'a, Message> {
     let is_empty = clients.get_channels().is_empty();
     let config_dir = is_empty
@@ -29,8 +31,7 @@ pub fn view<'a>(
         })
         .flatten();
 
-    let error = config
-        .error
+    let error = load_config_error
         .as_ref()
         .map(|error| text(error.to_string()).style(theme::Text::Error));
     let title = if is_empty {
