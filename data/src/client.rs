@@ -68,7 +68,7 @@ impl Connection {
     }
 
     fn send_command(&mut self, command: Command) -> Option<Message> {
-        if let Command::PrivMsg(target, message) = &command {
+        if let Command::Msg(target, message) = &command {
             if target.is_channel_name() {
                 return Some(self.send_channel_message(target.clone(), message));
             } else if let Ok(user) = User::try_from(target.clone()) {

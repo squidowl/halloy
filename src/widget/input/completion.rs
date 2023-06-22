@@ -19,31 +19,51 @@ impl Default for Completion {
             // TODO: Macro magic all commands as entries or manually add them all :(
             entries: vec![
                 Entry {
-                    title: "JOIN".into(),
+                    title: "JOIN",
                     args: vec![
                         Arg {
-                            text: "channels".into(),
+                            text: "channels",
                             optional: false,
                         },
                         Arg {
-                            text: "keys".into(),
+                            text: "keys",
                             optional: true,
                         },
                     ],
                 },
                 Entry {
-                    title: "NICK".into(),
+                    title: "MOTD",
                     args: vec![Arg {
-                        text: "nickname".into(),
+                        text: "server",
+                        optional: true,
+                    }],
+                },
+                Entry {
+                    title: "NICK",
+                    args: vec![Arg {
+                        text: "nickname",
                         optional: false,
                     }],
                 },
                 Entry {
-                    title: "MOTD".into(),
+                    title: "QUIT",
                     args: vec![Arg {
-                        text: "server".into(),
+                        text: "reason",
                         optional: true,
                     }],
+                },
+                Entry {
+                    title: "MSG",
+                    args: vec![
+                        Arg {
+                            text: "target",
+                            optional: false,
+                        },
+                        Arg {
+                            text: "text",
+                            optional: false,
+                        },
+                    ],
                 },
             ],
             filtered_entries: vec![],
@@ -199,7 +219,7 @@ impl Selection {
 
 #[derive(Debug, Clone)]
 pub struct Entry {
-    title: String,
+    title: &'static str,
     args: Vec<Arg>,
 }
 
@@ -209,7 +229,8 @@ impl Entry {
             .concat()
             .split_ascii_whitespace()
             .count()
-            .saturating_sub(2);
+            .saturating_sub(2)
+            .min(self.args.len().saturating_sub(1));
 
         let title = Some(Element::from(text(&self.title)));
 
@@ -233,7 +254,7 @@ impl Entry {
 
 #[derive(Debug, Clone)]
 pub struct Arg {
-    text: String,
+    text: &'static str,
     optional: bool,
 }
 
