@@ -10,7 +10,7 @@ mod screen;
 mod theme;
 mod widget;
 
-use data::config::Config;
+use data::config::{self, Config};
 use data::stream;
 use iced::widget::container;
 use iced::{executor, Application, Command, Length, Subscription};
@@ -75,18 +75,8 @@ struct Halloy {
     config: Config,
     clients: data::client::Map,
     stream: Option<mpsc::Sender<stream::Message>>,
-}
-
-impl Halloy {
-    fn config(&self) -> Config {
-        Config {
-            palette: self.config.palette,
-            servers: self.config.servers.clone(),
-            channels: self.config.channels.clone(),
-            buffer: self.config.buffer.clone(),
-            error: self.config.error.clone(),
-        }
-    }
+    // TODO: Make this a different screen?
+    load_config_error: Option<config::Error>,
 }
 
 enum Screen {
@@ -99,7 +89,6 @@ enum Message {
     Stream(stream::Result),
     Event(Event),
     FontsLoaded(Result<(), iced::font::Error>),
-    ConfigSaved(Result<(), data::config::Error>),
 }
 
 impl Application for Halloy {
@@ -109,8 +98,11 @@ impl Application for Halloy {
     type Theme = theme::Theme;
 
     fn new(_flags: ()) -> (Halloy, Command<Self::Message>) {
-        let config = Config::load();
-        let (screen, command) = screen::Dashboard::new();
+        let (config, load_config_error) = match Config::load() {
+            Ok(config) => (config, None),
+            Err(error) => (Config::default(), Some(error)),
+        };
+        let (screen, command) = screen::Dashboard::new(&config);
 
         let mut clients = data::client::Map::default();
 
@@ -129,6 +121,7 @@ impl Application for Halloy {
                 config,
                 clients,
                 stream: None,
+                load_config_error,
             },
             Command::batch(vec![
                 font::load().map(Message::FontsLoaded),
@@ -145,21 +138,9 @@ impl Application for Halloy {
         match message {
             Message::Dashboard(message) => match &mut self.screen {
                 Screen::Dashboard(dashboard) => {
-                    let (command, event) =
-                        dashboard.update(message, &mut self.clients, &mut self.config);
+                    let command = dashboard.update(message, &mut self.clients, &mut self.config);
                     // Retrack after dashboard state changes
                     let track = dashboard.track();
-
-                    if let Some(event) = event {
-                        match event {
-                            dashboard::Event::SaveSettings => {
-                                return Command::perform(
-                                    self.config().save(),
-                                    Message::ConfigSaved,
-                                );
-                            }
-                        }
-                    }
 
                     Command::batch(vec![
                         command.map(Message::Dashboard),
@@ -212,18 +193,13 @@ impl Application for Halloy {
                 let Screen::Dashboard(dashboard) = &mut self.screen;
                 dashboard.handle_event(event).map(Message::Dashboard)
             }
-            Message::ConfigSaved(Ok(_)) => Command::none(),
-            Message::ConfigSaved(Err(error)) => {
-                log::error!("config saved failed: {error:?}");
-                Command::none()
-            }
         }
     }
 
     fn view(&self) -> Element<Message> {
         let content = match &self.screen {
             Screen::Dashboard(dashboard) => dashboard
-                .view(&self.clients, &self.config)
+                .view(&self.clients, &self.load_config_error)
                 .map(Message::Dashboard),
         };
 

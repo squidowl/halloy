@@ -1,7 +1,7 @@
 pub mod pane;
 pub mod side_menu;
 
-use data::{history, Server};
+use data::{config, history, Config, Server};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
 use iced::{clipboard, subscription, window, Command, Length, Subscription};
@@ -27,20 +27,21 @@ pub enum Message {
     Close,
 }
 
-pub enum Event {
-    SaveSettings,
-}
-
 impl Dashboard {
-    pub fn new() -> (Self, Command<Message>) {
+    pub fn new(config: &Config) -> (Self, Command<Message>) {
         let buffers = vec![];
 
         let first_buffer = Buffer::Empty(Default::default());
 
-        let (mut panes, pane) = pane_grid::State::new(Pane::new(first_buffer));
+        let (mut panes, pane) =
+            pane_grid::State::new(Pane::new(first_buffer, config.new_pane.clone()));
 
         for buffer in buffers.into_iter().rev() {
-            panes.split(pane_grid::Axis::Horizontal, &pane, Pane::new(buffer));
+            panes.split(
+                pane_grid::Axis::Horizontal,
+                &pane,
+                Pane::new(buffer, config.new_pane.clone()),
+            );
         }
 
         let mut dashboard = Dashboard {
@@ -59,12 +60,12 @@ impl Dashboard {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
-        config: &mut data::config::Config,
-    ) -> (Command<Message>, Option<Event>) {
+        config: &Config,
+    ) -> Command<Message> {
         match message {
             Message::Pane(message) => match message {
                 pane::Message::PaneClicked(pane) => {
-                    return (self.focus_pane(pane), None);
+                    return self.focus_pane(pane);
                 }
                 pane::Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
                     self.panes.resize(&split, ratio);
@@ -80,7 +81,7 @@ impl Dashboard {
                 pane::Message::ClosePane => {
                     if let Some(pane) = self.focus {
                         if let Some((_, sibling)) = self.panes.close(&pane) {
-                            return (self.focus_pane(sibling), None);
+                            return self.focus_pane(sibling);
                         } else if let Some(pane) = self.panes.get_mut(&pane) {
                             pane.buffer = Buffer::Empty(Default::default());
                         }
@@ -91,10 +92,13 @@ impl Dashboard {
                         let result = self.panes.split(
                             axis,
                             &pane,
-                            Pane::new(Buffer::Empty(buffer::empty::Empty::default())),
+                            Pane::new(
+                                Buffer::Empty(buffer::empty::Empty::default()),
+                                config.new_pane.clone(),
+                            ),
                         );
                         if let Some((pane, _)) = result {
-                            return (self.focus_pane(pane), None);
+                            return self.focus_pane(pane);
                         }
                     }
                 }
@@ -111,28 +115,15 @@ impl Dashboard {
                             None => {}
                         }
 
-                        return (
-                            command.map(move |message| {
-                                Message::Pane(pane::Message::Buffer(id, message))
-                            }),
-                            None,
-                        );
+                        return command
+                            .map(move |message| Message::Pane(pane::Message::Buffer(id, message)));
                     }
                 }
                 pane::Message::ToggleShowUserList => {
                     if let Some((_, pane)) = self.get_focused_mut() {
-                        match &mut pane.buffer {
-                            Buffer::Channel(state) => {
-                                let config =
-                                    config.channel_config_mut(&state.server.name, &state.channel);
-
-                                config.users.toggle_visibility();
-                                return (Command::none(), Some(Event::SaveSettings));
-                            }
-                            Buffer::Empty(_) => {}
-                            Buffer::Server(_) => {}
-                            Buffer::Query(_) => {}
-                        }
+                        pane.update_settings(|settings| {
+                            settings.buffer.channel.users.toggle_visibility()
+                        });
                     }
                 }
                 pane::Message::MaximizePane => {
@@ -154,7 +145,7 @@ impl Dashboard {
                                 if pane.buffer.kind().as_ref() == Some(&kind) {
                                     self.focus = Some(*id);
 
-                                    return (self.focus_pane(*id), None);
+                                    return self.focus_pane(*id);
                                 }
                             }
 
@@ -162,12 +153,14 @@ impl Dashboard {
                             if self.panes.len() == 1 {
                                 for (id, pane) in panes.iter() {
                                     if let Buffer::Empty(_) = &pane.buffer {
-                                        self.panes
-                                            .panes
-                                            .entry(*id)
-                                            .and_modify(|p| *p = Pane::new(Buffer::from(kind)));
+                                        self.panes.panes.entry(*id).and_modify(|p| {
+                                            *p = Pane::new(
+                                                Buffer::from(kind),
+                                                config.new_pane.clone(),
+                                            )
+                                        });
 
-                                        return (self.focus_pane(*id), None);
+                                        return self.focus_pane(*id);
                                     }
                                 }
                             }
@@ -181,24 +174,24 @@ impl Dashboard {
                                     *pane
                                 } else {
                                     log::error!("Didn't find any panes");
-                                    return (Command::none(), None);
+                                    return Command::none();
                                 }
                             };
 
                             let result = self.panes.split(
                                 axis,
                                 &pane_to_split,
-                                Pane::new(Buffer::from(kind)),
+                                Pane::new(Buffer::from(kind), config.new_pane.clone()),
                             );
 
                             if let Some((pane, _)) = result {
-                                return (self.focus_pane(pane), None);
+                                return self.focus_pane(pane);
                             }
                         }
                         side_menu::Event::Replace(kind, pane) => {
                             if let Some(state) = self.panes.get_mut(&pane) {
                                 state.buffer = Buffer::from(kind);
-                                return (self.focus_pane(pane), None);
+                                return self.focus_pane(pane);
                             }
                         }
                         side_menu::Event::Close(pane) => {
@@ -210,7 +203,7 @@ impl Dashboard {
                         }
                         side_menu::Event::Swap(from, to) => {
                             self.panes.swap(&from, &to);
-                            return (self.focus_pane(from), None);
+                            return self.focus_pane(from);
                         }
                     }
                 }
@@ -232,7 +225,7 @@ impl Dashboard {
                         }
                     });
 
-                return (clipboard::write(contents), None);
+                return clipboard::write(contents);
             }
             Message::History(message) => {
                 let command = Command::batch(
@@ -243,20 +236,20 @@ impl Dashboard {
                         .collect::<Vec<_>>(),
                 );
 
-                return (command, None);
+                return command;
             }
             Message::Close => {
-                return (window::close(), None);
+                return window::close();
             }
         }
 
-        (Command::none(), None)
+        Command::none()
     }
 
     pub fn view<'a>(
         &'a self,
         clients: &'a data::client::Map,
-        config: &'a data::config::Config,
+        load_config_error: &'a Option<config::Error>,
     ) -> Element<'a, Message> {
         let focus = self.focus;
 
@@ -270,7 +263,7 @@ impl Dashboard {
                 maximized,
                 clients,
                 &self.history,
-                config,
+                load_config_error,
             )
         })
         .on_click(pane::Message::PaneClicked)

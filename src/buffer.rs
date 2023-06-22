@@ -1,4 +1,4 @@
-use data::history;
+use data::{buffer, config, history};
 use iced::Command;
 
 use self::channel::Channel;
@@ -87,31 +87,22 @@ impl Buffer {
         &'a self,
         clients: &'a data::client::Map,
         history: &'a history::Manager,
-        config: &'a data::config::Config,
+        settings: &'a buffer::Settings,
         is_focused: bool,
+        load_config_error: &'a Option<config::Error>,
     ) -> Element<'a, Message> {
-        let buffer_config = &config.buffer;
-
         match self {
-            Buffer::Empty(state) => empty::view(state, clients, config).map(Message::Empty),
+            Buffer::Empty(state) => {
+                empty::view(state, clients, load_config_error).map(Message::Empty)
+            }
             Buffer::Channel(state) => {
-                let channel_config = config.channel_config(&state.server.name, &state.channel);
-
-                channel::view(
-                    state,
-                    clients,
-                    history,
-                    &channel_config,
-                    buffer_config,
-                    is_focused,
-                )
-                .map(Message::Channel)
+                channel::view(state, clients, history, settings, is_focused).map(Message::Channel)
             }
             Buffer::Server(state) => {
-                server::view(state, history, buffer_config, is_focused).map(Message::Server)
+                server::view(state, history, settings, is_focused).map(Message::Server)
             }
             Buffer::Query(state) => {
-                query::view(state, history, buffer_config, is_focused).map(Message::Query)
+                query::view(state, history, settings, is_focused).map(Message::Query)
             }
         }
     }

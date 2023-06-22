@@ -1,6 +1,6 @@
 use std::fmt;
 
-use data::history;
+use data::{buffer, history};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -20,7 +20,7 @@ pub enum Event {}
 pub fn view<'a>(
     state: &'a Server,
     history: &'a history::Manager,
-    buffer_config: &'a data::config::Buffer,
+    settings: &'a buffer::Settings,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let messages = container(
@@ -29,11 +29,9 @@ pub fn view<'a>(
             scroll_view::Kind::Server(&state.server),
             history,
             |message| {
-                let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
-                    let content = &message.formatted_datetime(timestamp.format.as_str());
-                    selectable_text(content_with_brackets(content, &timestamp.brackets))
-                        .style(theme::Text::Alpha04)
-                });
+                let timestamp = settings
+                    .format_timestamp(&message.datetime)
+                    .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
                 let message = selectable_text(&message.text).style(theme::Text::Alpha04);
 
                 Some(container(row![].push_maybe(timestamp).push(message)).into())
@@ -114,13 +112,6 @@ impl Server {
     pub fn focus(&self) -> Command<Message> {
         self.input_view.focus().map(Message::InputView)
     }
-}
-
-fn content_with_brackets(
-    content: impl std::fmt::Display,
-    brackets: &data::config::Brackets,
-) -> String {
-    format!("{}{}{} ", brackets.left, content, brackets.right)
 }
 
 impl fmt::Display for Server {
