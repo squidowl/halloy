@@ -46,7 +46,7 @@ impl Input {
                     target,
                     message::Sender::User(User::new(our_nick.clone(), None, None)),
                 )?,
-                text: text.clone(),
+                text,
             }),
             Command::Me(target, action) => Some(Message {
                 datetime: Utc::now(),
