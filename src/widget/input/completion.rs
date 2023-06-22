@@ -65,6 +65,13 @@ impl Default for Completion {
                         },
                     ],
                 },
+                Entry {
+                    title: "ME",
+                    args: vec![Arg {
+                        text: "action",
+                        optional: false,
+                    }],
+                },
             ],
             filtered_entries: vec![],
         }
@@ -232,7 +239,7 @@ impl Entry {
             .saturating_sub(2)
             .min(self.args.len().saturating_sub(1));
 
-        let title = Some(Element::from(text(&self.title)));
+        let title = Some(Element::from(text(self.title)));
 
         let args = self.args.iter().enumerate().map(|(index, arg)| {
             let style = if index == active_arg {

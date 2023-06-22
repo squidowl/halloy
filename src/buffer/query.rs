@@ -1,7 +1,7 @@
 use core::fmt;
 
 use data::user::Nick;
-use data::{history, Server};
+use data::{history, message, Server};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -31,23 +31,38 @@ pub fn view<'a>(
             scroll_view::Kind::Query(&state.server, &state.nick),
             history,
             |message| {
-                let user = message.sent_by()?;
-                let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
-                    let content = &message.formatted_datetime(timestamp.format.as_str());
-                    selectable_text(content_with_brackets(content, &timestamp.brackets))
-                        .style(theme::Text::Alpha04)
-                });
-                let nick = selectable_text(content_with_brackets(
-                    user,
-                    &buffer_config.nickname.brackets,
-                ))
-                .style(theme::Text::Nickname(
-                    user.color_seed(&buffer_config.nickname.color),
-                ));
+                let message::Source::Query(_, sender) = &message.source else {
+                    return None;
+                };
 
-                let message = selectable_text(&message.text);
+                match sender {
+                    message::Sender::User(user) => {
+                        let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
+                            let content = &message.formatted_datetime(timestamp.format.as_str());
+                            selectable_text(content_with_brackets(content, &timestamp.brackets))
+                                .style(theme::Text::Alpha04)
+                        });
+                        let nick = selectable_text(content_with_brackets(
+                            user,
+                            &buffer_config.nickname.brackets,
+                        ))
+                        .style(theme::Text::Nickname(
+                            user.color_seed(&buffer_config.nickname.color),
+                        ));
 
-                Some(container(row![].push_maybe(timestamp).push(nick).push(message)).into())
+                        let message = selectable_text(&message.text);
+
+                        Some(
+                            container(row![].push_maybe(timestamp).push(nick).push(message)).into(),
+                        )
+                    }
+                    message::Sender::Server => Some(
+                        container(selectable_text(&message.text).style(theme::Text::Server)).into(),
+                    ),
+                    message::Sender::Action => Some(
+                        container(selectable_text(&message.text).style(theme::Text::Accent)).into(),
+                    ),
+                }
             },
         )
         .map(Message::ScrollView),
@@ -57,6 +72,7 @@ pub fn view<'a>(
     let text_input = is_focused.then(|| {
         input(
             state.input_id.clone(),
+            data::Buffer::Query(state.server.clone(), state.nick.clone()),
             Message::Send,
             Message::CompletionSelected,
         )
