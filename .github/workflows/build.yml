@@ -20,4 +20,4 @@ jobs:
     - name: Check
       run: cargo check
     - name: Clippy
-      run: ccargo clippy --workspace --all-targets -- -D warnings
+      run: cargo clippy --workspace --all-targets -- -D warnings
