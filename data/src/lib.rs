@@ -20,6 +20,7 @@ pub mod input;
 pub mod log;
 pub mod message;
 pub mod palette;
+pub mod pane;
 pub mod server;
 pub mod stream;
 pub mod time;

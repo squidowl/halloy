@@ -4,7 +4,7 @@ use std::hash::Hash;
 use irc::client::data;
 use serde::{Deserialize, Serialize};
 
-use crate::config;
+use crate::buffer;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(into = "String")]
@@ -78,10 +78,10 @@ impl User {
         Self(data::User::new(&formatted))
     }
 
-    pub fn color_seed(&self, color: &config::Color) -> Option<String> {
+    pub fn color_seed(&self, color: &buffer::Color) -> Option<String> {
         match color {
-            config::Color::Solid => None,
-            config::Color::Unique => Some(
+            buffer::Color::Solid => None,
+            buffer::Color::Unique => Some(
                 self.hostname()
                     .map(ToString::to_string)
                     .unwrap_or_else(|| self.nickname().to_string()),

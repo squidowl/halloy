@@ -1,7 +1,7 @@
 use std::fmt;
 
-use data::history;
 use data::server::Server;
+use data::{buffer, history};
 use iced::widget::{column, container, row, scrollable, text, vertical_space};
 use iced::{Command, Length};
 
@@ -22,8 +22,7 @@ pub fn view<'a>(
     state: &'a Channel,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
-    channel_config: &data::channel::Config,
-    buffer_config: &'a data::config::Buffer,
+    settings: &'a buffer::Settings,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let messages = container(
@@ -34,18 +33,15 @@ pub fn view<'a>(
             |message| match &message.source {
                 data::message::Source::Channel(_, kind) => match kind {
                     data::message::Sender::User(user) => {
-                        let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
-                            let content = &message.formatted_datetime(timestamp.format.as_str());
-                            selectable_text(content_with_brackets(content, &timestamp.brackets))
-                                .style(theme::Text::Alpha04)
-                        });
-                        let nick = selectable_text(content_with_brackets(
-                            user,
-                            &buffer_config.nickname.brackets,
-                        ))
-                        .style(theme::Text::Nickname(
-                            user.color_seed(&buffer_config.nickname.color),
-                        ));
+                        let timestamp =
+                            settings
+                                .format_timestamp(&message.datetime)
+                                .map(|timestamp| {
+                                    selectable_text(timestamp).style(theme::Text::Alpha04)
+                                });
+                        let nick = selectable_text(settings.nickname.brackets.format(user)).style(
+                            theme::Text::Nickname(user.color_seed(&settings.nickname.color)),
+                        );
                         let message = selectable_text(&message.text);
 
                         Some(
@@ -108,7 +104,10 @@ pub fn view<'a>(
         .height(Length::Fill)
     };
 
-    let content = match (channel_config.users.visible, channel_config.users.position) {
+    let content = match (
+        settings.channel.users.visible,
+        settings.channel.users.position,
+    ) {
         (true, data::channel::Position::Left) => {
             row![user_column, messages]
         }
@@ -185,13 +184,6 @@ impl Channel {
     pub fn focus(&self) -> Command<Message> {
         self.input_view.focus().map(Message::InputView)
     }
-}
-
-fn content_with_brackets(
-    content: impl std::fmt::Display,
-    brackets: &data::config::Brackets,
-) -> String {
-    format!("{}{}{} ", brackets.left, content, brackets.right)
 }
 
 impl fmt::Display for Channel {
