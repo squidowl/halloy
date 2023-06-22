@@ -132,9 +132,9 @@ impl Manager {
         );
     }
 
-    pub fn add_raw_messages(
+    pub fn add_encoded_messages(
         &mut self,
-        messages: Vec<(Server, irc::proto::Message)>,
+        messages: Vec<(Server, message::Encoded)>,
         clients: &mut client::Map,
     ) -> HashSet<(Server, message::Source)> {
         messages
