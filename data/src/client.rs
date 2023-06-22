@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::fmt;
 
 use chrono::Utc;
 use irc::client::Client;
@@ -29,46 +28,65 @@ impl Connection {
         }
     }
 
-    fn send_channel_message(&mut self, channel: String, text: impl fmt::Display) -> Message {
+    fn send_channel_message(&mut self, channel: String, text: impl ToString) -> Message {
         let text = text.to_string();
-        let user = User::new(self.nickname(), None, None);
 
         let command = proto::Command::PRIVMSG(channel.clone(), text.clone());
         let proto_message = irc::proto::Message::from(command);
-        // TODO: Handle error
+
         if let Err(e) = self.client.send(proto_message) {
             dbg!(&e);
         }
 
+        let our_user = User::new(self.nickname(), None, None);
+
+        let (text, sender) = if let Some(action) = message::action_text(&self.nickname(), &text) {
+            (action, message::Sender::Server)
+        } else {
+            (text, message::Sender::User(our_user))
+        };
+
         Message {
             datetime: Utc::now(),
             direction: message::Direction::Sent,
-            source: message::Source::Channel(channel, message::ChannelSender::User(user)),
+            source: message::Source::Channel(channel, sender),
             text,
         }
     }
 
-    fn send_user_message(&mut self, nick: &Nick, text: impl fmt::Display) -> Message {
+    fn send_user_message(&mut self, nick: &Nick, text: impl ToString) -> Message {
         let text = text.to_string();
-
         let target = nick.to_string();
+
         let command = proto::Command::PRIVMSG(target, text.clone());
         let proto_message = irc::proto::Message::from(command);
-        // TODO: Handle error
+
         if let Err(e) = self.client.send(proto_message) {
             dbg!(&e);
         }
 
+        let our_user = User::new(self.nickname(), None, None);
+
+        let (text, sender) = if let Some(action) = message::action_text(&self.nickname(), &text) {
+            (action, message::Sender::Server)
+        } else {
+            (text, message::Sender::User(our_user))
+        };
+
         Message {
             datetime: Utc::now(),
             direction: message::Direction::Sent,
-            source: message::Source::Query(nick.clone(), User::new(self.nickname(), None, None)),
+            source: message::Source::Query(nick.clone(), sender),
             text,
         }
     }
 
     fn send_command(&mut self, command: Command) -> Option<Message> {
-        if let Command::Msg(target, message) = &command {
+        let Ok(command) = proto::Command::try_from(command) else {
+            return None;
+        };
+
+        if let proto::Command::PRIVMSG(target, message) = &command {
             if target.is_channel_name() {
                 return Some(self.send_channel_message(target.clone(), message));
             } else if let Ok(user) = User::try_from(target.clone()) {
@@ -76,9 +94,6 @@ impl Connection {
             }
         }
 
-        let Ok(command) = proto::Command::try_from(command) else {
-            return None;
-        };
         let proto_message = irc::proto::Message::from(command);
 
         // TODO: Handle error
@@ -164,7 +179,7 @@ impl Map {
         &mut self,
         server: &Server,
         channel: &str,
-        text: impl fmt::Display,
+        text: impl ToString,
     ) -> Option<Message> {
         self.connection_mut(server)
             .map(|connection| connection.send_channel_message(channel.to_string(), text))
@@ -174,7 +189,7 @@ impl Map {
         &mut self,
         server: &Server,
         nick: &Nick,
-        text: impl fmt::Display,
+        text: impl ToString,
     ) -> Option<Message> {
         self.connection_mut(server)
             .map(|connection| connection.send_user_message(nick, text))

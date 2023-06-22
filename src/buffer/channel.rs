@@ -34,7 +34,7 @@ pub fn view<'a>(
             history,
             |message| match &message.source {
                 data::message::Source::Channel(_, kind) => match kind {
-                    data::message::ChannelSender::User(user) => {
+                    data::message::Sender::User(user) => {
                         let timestamp = buffer_config.timestamp.clone().map(|timestamp| {
                             let content = &message.formatted_datetime(timestamp.format.as_str());
                             selectable_text(content_with_brackets(content, &timestamp.brackets))
@@ -53,7 +53,7 @@ pub fn view<'a>(
                             container(row![].push_maybe(timestamp).push(nick).push(message)).into(),
                         )
                     }
-                    data::message::ChannelSender::Server => Some(
+                    data::message::Sender::Server => Some(
                         container(selectable_text(&message.text).style(theme::Text::Server)).into(),
                     ),
                 },
@@ -69,6 +69,7 @@ pub fn view<'a>(
     let text_input = is_focused.then(|| {
         input(
             state.input_id.clone(),
+            data::Buffer::Channel(state.server.clone(), state.channel.clone()),
             Message::Send,
             Message::CompletionSelected,
         )
