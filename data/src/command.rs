@@ -80,10 +80,11 @@ fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
 
     let args: Vec<String> = if TEXT {
         // Combine everything from last arg on
+        let combined = args.iter().skip(max.saturating_sub(1)).join(" ");
         args.iter()
             .take(max.saturating_sub(1))
             .map(|s| s.to_string())
-            .chain(Some(args.iter().skip(max.saturating_sub(1)).join(" ")))
+            .chain((!combined.is_empty()).then_some(combined))
             .collect()
     } else {
         args.into_iter().map(String::from).collect()
