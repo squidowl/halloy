@@ -72,7 +72,7 @@ new_pane:
         # Visible by default
         # - Default is true
         visible: true
-        # Position of the list in the buffer
-        # - Left
-        # - Right (default)
+        # List position
+        # - Left: Left side of pane
+        # - Right: Right side of pane [default]
         position: Right  
