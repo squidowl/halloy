@@ -44,14 +44,11 @@ impl Connection {
 
         match &message.command {
             Command::NICK(nick) => self.resolved_nick = Some(nick.to_string()),
-            Command::Response(response, args) => match response {
-                Response::RPL_WELCOME => {
-                    if let Some(nick) = args.first() {
-                        self.resolved_nick = Some(nick.to_string());
-                    }
+            Command::Response(Response::RPL_WELCOME, args) => {
+                if let Some(nick) = args.first() {
+                    self.resolved_nick = Some(nick.to_string());
                 }
-                _ => {}
-            },
+            }
             _ => {}
         }
     }
