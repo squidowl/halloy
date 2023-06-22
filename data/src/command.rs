@@ -33,7 +33,7 @@ pub enum Command {
     Nick(String),
     Quit(Option<String>),
     PrivMsg(String, String),
-    Unknown(String, Vec<String>, Option<String>),
+    Unknown(String, Vec<String>),
 }
 
 impl FromStr for Command {
@@ -46,52 +46,36 @@ impl FromStr for Command {
             return Err(Error::MissingSlash);
         }
 
-        // Text must be prepended by a colon, treat it as a single arg
-        let (leading, text) = rest.split_once(':').unwrap_or((rest, ""));
-        let mut split = leading.split_ascii_whitespace();
+        let mut split = rest.split_ascii_whitespace();
 
         let cmd = split.next().ok_or(Error::MissingCommand)?;
         let args = split.collect::<Vec<_>>();
 
         match cmd.parse::<Kind>() {
             Ok(kind) => match kind {
-                Kind::Join => {
-                    validated::<1, 1, false>(args, text, |[chanlist], [chankeys], real_name| {
-                        Command::Join(chanlist, chankeys, real_name)
-                    })
-                }
-                Kind::Motd => {
-                    validated::<0, 1, false>(args, text, |_, [target], _| Command::Motd(target))
-                }
-                Kind::Nick => {
-                    validated::<1, 0, false>(args, text, |[nick], _, _| Command::Nick(nick))
-                }
-                Kind::Quit => {
-                    validated::<0, 0, false>(args, text, |_, _, text| Command::Quit(text))
-                }
-                Kind::PrivMsg => validated::<1, 0, true>(args, text, |[target], _, text| {
-                    Command::PrivMsg(target, text.unwrap_or_default())
+                Kind::Join => validated::<1, 2>(args, |[chanlist], [chankeys, real_name]| {
+                    Command::Join(chanlist, chankeys, real_name)
                 }),
+                Kind::Motd => validated::<0, 1>(args, |_, [target]| Command::Motd(target)),
+                Kind::Nick => validated::<1, 0>(args, |[nick], _| Command::Nick(nick)),
+                Kind::Quit => validated::<0, 1>(args, |_, [comment]| Command::Quit(comment)),
+                Kind::PrivMsg => {
+                    validated::<2, 0>(args, |[target, msg], []| Command::PrivMsg(target, msg))
+                }
             },
             Err(_) => Ok(Command::Unknown(
                 cmd.to_string(),
                 args.into_iter().map(String::from).collect(),
-                (!text.is_empty()).then(|| text.to_string()),
             )),
         }
     }
 }
 
-fn validated<const EXACT: usize, const OPT: usize, const TEXT_REQUIRED: bool>(
+fn validated<const EXACT: usize, const OPT: usize>(
     args: Vec<&str>,
-    text: &str,
-    f: impl Fn([String; EXACT], [Option<String>; OPT], Option<String>) -> Command,
+    f: impl Fn([String; EXACT], [Option<String>; OPT]) -> Command,
 ) -> Result<Command, Error> {
     let max = EXACT + OPT;
-
-    if TEXT_REQUIRED && text.is_empty() {
-        return Err(Error::MissingColon);
-    }
 
     if args.len() >= EXACT && args.len() <= max {
         let exact = args[0..EXACT]
@@ -107,11 +91,14 @@ fn validated<const EXACT: usize, const OPT: usize, const TEXT_REQUIRED: bool>(
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
-        let last = (!text.is_empty()).then(|| text.to_string());
 
-        Ok((f)(exact, opt, last))
+        Ok((f)(exact, opt))
     } else {
-        Err(Error::InvalidUsage)
+        Err(Error::IncorrectArgCount {
+            min: EXACT,
+            max,
+            actual: args.len(),
+        })
     }
 }
 
@@ -127,12 +114,8 @@ impl TryFrom<Command> for proto::Command {
             Command::Nick(nick) => proto::Command::NICK(nick),
             Command::Quit(comment) => proto::Command::QUIT(comment),
             Command::PrivMsg(target, msg) => proto::Command::PRIVMSG(target, msg),
-            Command::Unknown(command, args, text) => {
-                let args = args
-                    .iter()
-                    .map(|arg| arg.as_str())
-                    .chain(text.as_deref())
-                    .collect();
+            Command::Unknown(command, args) => {
+                let args = args.iter().map(|arg| arg.as_str()).collect();
 
                 return proto::Command::new(command.as_str(), args);
             }
@@ -142,12 +125,24 @@ impl TryFrom<Command> for proto::Command {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("wrong # of arguments or missing ':' before text")]
-    InvalidUsage,
-    #[error("':' must prepend text argument")]
-    MissingColon,
+    #[error("{}", fmt_incorrect_arg_count(*min, *max, *actual))]
+    IncorrectArgCount {
+        min: usize,
+        max: usize,
+        actual: usize,
+    },
     #[error("missing slash")]
     MissingSlash,
     #[error("missing command")]
     MissingCommand,
+}
+
+fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
+    if min == max {
+        let s = if min == 1 { "" } else { "s" };
+
+        format!("expected {min} argument{s}, received {actual}")
+    } else {
+        format!("expected {min} to {max} arguments, recevied {actual}")
+    }
 }
