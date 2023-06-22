@@ -1,0 +1,23 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  merge_group:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Check
+      run: cargo check
+    - name: Clippy
+      run: ccargo clippy --workspace --all-targets -- -D warnings
