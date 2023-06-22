@@ -1,7 +1,7 @@
 pub mod pane;
 pub mod side_menu;
 
-use data::{history, message, Server};
+use data::{history, Server};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
 use iced::{clipboard, subscription, window, Command, Length, Subscription};
@@ -331,13 +331,8 @@ impl Dashboard {
         }
     }
 
-    pub fn messages_received(
-        &mut self,
-        messages: Vec<(Server, message::Encoded)>,
-        clients: &mut data::client::Map,
-    ) -> Command<Message> {
-        let _ = self.history.add_encoded_messages(messages, clients);
-        Command::none()
+    pub fn record_message(&mut self, server: &Server, message: data::Message) {
+        self.history.record_message(server, message);
     }
 
     fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {

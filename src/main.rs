@@ -189,9 +189,14 @@ impl Application for Halloy {
                 }
                 stream::Event::MessagesReceived(messages) => {
                     let Screen::Dashboard(dashboard) = &mut self.screen;
-                    dashboard
-                        .messages_received(messages, &mut self.clients)
-                        .map(Message::Dashboard)
+
+                    messages.into_iter().for_each(|(server, encoded)| {
+                        if let Some(message) = self.clients.receive(&server, encoded) {
+                            dashboard.record_message(&server, message);
+                        }
+                    });
+
+                    Command::none()
                 }
             },
             Message::Stream(Err(error)) => {

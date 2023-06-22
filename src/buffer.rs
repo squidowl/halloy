@@ -9,6 +9,7 @@ use crate::widget::Element;
 
 pub mod channel;
 pub mod empty;
+mod input_view;
 pub mod query;
 mod scroll_view;
 pub mod server;

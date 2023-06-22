@@ -26,6 +26,12 @@ impl From<proto::Message> for Encoded {
     }
 }
 
+impl From<Encoded> for proto::Message {
+    fn from(encoded: Encoded) -> Self {
+        encoded.0
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Source {
     Server,
@@ -267,7 +273,7 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
         proto::Command::PRIVMSG(_, text) => {
             // Check if a synthetic action message
             if let Some(nick) = user.as_ref().map(User::nickname) {
-                if let Some(action) = action_text(&nick, text) {
+                if let Some(action) = parse_action(&nick, text) {
                     return Some(action);
                 }
             }
@@ -343,7 +349,11 @@ fn is_action(text: &str) -> bool {
     text.starts_with("\u{1}ACTION ") && text.ends_with('\u{1}')
 }
 
-pub fn action_text(nick: &Nick, text: &str) -> Option<String> {
+pub fn parse_action(nick: &Nick, text: &str) -> Option<String> {
     let action = text.strip_prefix("\u{1}ACTION ")?.strip_suffix('\u{1}')?;
-    Some(format!(" ∙ {nick} {action}"))
+    Some(action_text(nick, action))
+}
+
+pub fn action_text(nick: &Nick, action: &str) -> String {
+    format!(" ∙ {nick} {action}")
 }
