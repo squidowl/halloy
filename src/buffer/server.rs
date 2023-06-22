@@ -47,6 +47,7 @@ pub fn view<'a>(
     let text_input = is_focused.then(|| {
         input(
             state.input_id.clone(),
+            data::Buffer::Server(state.server.clone()),
             Message::Send,
             Message::CompletionSelected,
         )

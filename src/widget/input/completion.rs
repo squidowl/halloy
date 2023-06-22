@@ -65,6 +65,13 @@ impl Default for Completion {
                         },
                     ],
                 },
+                Entry {
+                    title: "ME",
+                    args: vec![Arg {
+                        text: "action",
+                        optional: false,
+                    }],
+                },
             ],
             filtered_entries: vec![],
         }

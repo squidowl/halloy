@@ -7,3 +7,13 @@ pub enum Buffer {
     Channel(Server, String),
     Query(Server, Nick),
 }
+
+impl Buffer {
+    pub fn target(&self) -> Option<String> {
+        match self {
+            Buffer::Server(_) => None,
+            Buffer::Channel(_, channel) => Some(channel.clone()),
+            Buffer::Query(_, nick) => Some(nick.to_string()),
+        }
+    }
+}
