@@ -21,6 +21,7 @@ pub enum Source {
 pub enum Sender {
     User(User),
     Server,
+    Action,
 }
 
 impl Sender {
@@ -28,6 +29,7 @@ impl Sender {
         match self {
             Sender::User(user) => Some(user),
             Sender::Server => None,
+            Sender::Action => None,
         }
     }
 }
@@ -123,7 +125,7 @@ fn source(message: irc::proto::Message, our_nick: &Nick) -> Option<Source> {
             let is_action = is_action(&text);
             let sender = |user| {
                 if is_action {
-                    Sender::Server
+                    Sender::Action
                 } else {
                     Sender::User(user)
                 }
@@ -322,10 +324,10 @@ impl Limit {
 }
 
 fn is_action(text: &str) -> bool {
-    text.starts_with("\u{1}ACTION ") && text.ends_with("\u{1}")
+    text.starts_with("\u{1}ACTION ") && text.ends_with('\u{1}')
 }
 
 pub fn action_text(nick: &Nick, text: &str) -> Option<String> {
-    let action = text.strip_prefix("\u{1}ACTION ")?.strip_suffix("\u{1}")?;
+    let action = text.strip_prefix("\u{1}ACTION ")?.strip_suffix('\u{1}')?;
     Some(format!(" ∙ {nick} {action}"))
 }
