@@ -41,7 +41,7 @@ impl Connection {
         let our_user = User::new(self.nickname(), None, None);
 
         let (text, sender) = if let Some(action) = message::action_text(&self.nickname(), &text) {
-            (action, message::Sender::Server)
+            (action, message::Sender::Action)
         } else {
             (text, message::Sender::User(our_user))
         };

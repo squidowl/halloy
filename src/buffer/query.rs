@@ -59,6 +59,9 @@ pub fn view<'a>(
                     message::Sender::Server => Some(
                         container(selectable_text(&message.text).style(theme::Text::Server)).into(),
                     ),
+                    message::Sender::Action => Some(
+                        container(selectable_text(&message.text).style(theme::Text::Accent)).into(),
+                    ),
                 }
             },
         )
