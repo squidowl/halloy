@@ -1,4 +1,4 @@
-use data::{command, Command};
+use data::{command, Buffer, Command};
 pub use iced::widget::text_input::{focus, move_cursor_to_end};
 use iced::widget::{component, container, row, text, text_input, Component};
 
@@ -12,6 +12,7 @@ pub type Id = text_input::Id;
 
 pub fn input<'a, Message>(
     id: Id,
+    buffer: Buffer,
     on_submit: impl Fn(Content) -> Message + 'a,
     on_completion: Message,
 ) -> Element<'a, Message>
@@ -20,6 +21,7 @@ where
 {
     Input {
         id,
+        buffer,
         on_submit: Box::new(on_submit),
         on_completion,
     }
@@ -41,6 +43,7 @@ pub enum Event {
 
 pub struct Input<'a, Message> {
     id: Id,
+    buffer: Buffer,
     on_submit: Box<dyn Fn(Content) -> Message + 'a>,
     on_completion: Message,
 }
@@ -80,7 +83,7 @@ where
                     state.completion.reset();
 
                     // Parse message
-                    let content = match state.input.parse::<Command>() {
+                    let content = match command::parse(&state.input, &self.buffer) {
                         Ok(command) => Content::Command(command),
                         Err(command::Error::MissingSlash) => Content::Text(state.input.clone()),
                         Err(error) => {

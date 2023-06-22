@@ -13,23 +13,23 @@ pub type Channel = String;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Source {
     Server,
-    Channel(Channel, ChannelSender),
-    Query(Nick, User),
+    Channel(Channel, Sender),
+    Query(Nick, Sender),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ChannelSender {
-    /// `ChannelSender::User(_)` is coming from another client.
+pub enum Sender {
     User(User),
-    /// `ChannelSender::Server()` is from the server, targeting a channel.
     Server,
+    Action,
 }
 
-impl ChannelSender {
+impl Sender {
     pub fn user(&self) -> Option<&User> {
         match self {
-            ChannelSender::User(user) => Some(user),
-            ChannelSender::Server => None,
+            Sender::User(user) => Some(user),
+            Sender::Server => None,
+            Sender::Action => None,
         }
     }
 }
@@ -69,7 +69,7 @@ impl Message {
         match &self.source {
             Source::Server => None,
             Source::Channel(_, kind) => kind.user(),
-            Source::Query(_, user) => Some(user),
+            Source::Query(_, kind) => kind.user(),
         }
     }
 
@@ -113,23 +113,30 @@ fn source(message: irc::proto::Message, our_nick: &Nick) -> Option<Source> {
         | proto::Command::ChannelMODE(channel, _)
         | proto::Command::KICK(channel, _, _)
         | proto::Command::SAJOIN(_, channel)
-        | proto::Command::JOIN(channel, _, _) => {
-            Some(Source::Channel(channel, ChannelSender::Server))
-        }
+        | proto::Command::JOIN(channel, _, _) => Some(Source::Channel(channel, Sender::Server)),
         proto::Command::Response(
             proto::Response::RPL_TOPIC | proto::Response::RPL_TOPICWHOTIME,
             params,
         ) => {
             let channel = params.get(1)?.clone();
-            Some(Source::Channel(channel, ChannelSender::Server))
+            Some(Source::Channel(channel, Sender::Server))
         }
-        proto::Command::PRIVMSG(target, _) | proto::Command::NOTICE(target, _) => {
+        proto::Command::PRIVMSG(target, text) | proto::Command::NOTICE(target, text) => {
+            let is_action = is_action(&text);
+            let sender = |user| {
+                if is_action {
+                    Sender::Action
+                } else {
+                    Sender::User(user)
+                }
+            };
+
             match (target.is_channel_name(), user) {
-                (true, Some(user)) => Some(Source::Channel(target, ChannelSender::User(user))),
+                (true, Some(user)) => Some(Source::Channel(target, sender(user))),
                 (false, Some(user)) => {
                     let target = User::try_from(target.as_str()).ok()?.nickname();
 
-                    (&target == our_nick).then(|| Source::Query(user.nickname(), user))
+                    (&target == our_nick).then(|| Source::Query(user.nickname(), sender(user)))
                 }
                 _ => None,
             }
@@ -241,7 +248,17 @@ fn text(message: &irc::proto::Message, our_nick: &Nick) -> Option<String> {
 
             Some(format!(" ∙ {user} sets mode {modes}"))
         }
-        proto::Command::PRIVMSG(_, text) | proto::Command::NOTICE(_, text) => Some(text.clone()),
+        proto::Command::PRIVMSG(_, text) => {
+            // Check if a synthetic action message
+            if let Some(nick) = user.as_ref().map(User::nickname) {
+                if let Some(action) = action_text(&nick, text) {
+                    return Some(action);
+                }
+            }
+
+            Some(text.clone())
+        }
+        proto::Command::NOTICE(_, text) => Some(text.clone()),
         proto::Command::Response(proto::Response::RPL_TOPIC, params) => {
             let topic = params.get(2)?;
 
@@ -304,4 +321,13 @@ impl Limit {
             *value += n;
         }
     }
+}
+
+fn is_action(text: &str) -> bool {
+    text.starts_with("\u{1}ACTION ") && text.ends_with('\u{1}')
+}
+
+pub fn action_text(nick: &Nick, text: &str) -> Option<String> {
+    let action = text.strip_prefix("\u{1}ACTION ")?.strip_suffix('\u{1}')?;
+    Some(format!(" ∙ {nick} {action}"))
 }

@@ -397,7 +397,7 @@ impl scrollable::StyleSheet for Theme {
                 border_width: 1.0,
                 border_color: Color::TRANSPARENT,
                 scroller: scrollable::Scroller {
-                    color: self.colors.action.alpha_06,
+                    color: self.colors.accent.alpha_06,
                     border_radius: 8.0.into(),
                     border_width: 0.0,
                     border_color: Color::TRANSPARENT,
