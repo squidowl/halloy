@@ -1,4 +1,4 @@
-use data::history;
+use data::{config, history, pane};
 use iced::widget::{button, container, pane_grid, row, text};
 use iced::Length;
 use uuid::Uuid;
@@ -24,17 +24,19 @@ pub struct Pane {
     pub id: Uuid,
     pub buffer: Buffer,
     title_bar: TitleBar,
+    settings: pane::Settings,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TitleBar {}
 
 impl Pane {
-    pub fn new(buffer: Buffer) -> Self {
+    pub fn new(buffer: Buffer, settings: pane::Settings) -> Self {
         Self {
             id: Uuid::new_v4(),
             buffer,
             title_bar: TitleBar::default(),
+            settings,
         }
     }
 
@@ -46,7 +48,7 @@ impl Pane {
         maximized: bool,
         clients: &'a data::client::Map,
         history: &'a history::Manager,
-        config: &'a data::config::Config,
+        load_config_error: &'a Option<config::Error>,
     ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty(state) => state.to_string(),
@@ -62,12 +64,18 @@ impl Pane {
             panes,
             is_focused,
             maximized,
-            config,
+            &self.settings,
         );
 
         let content = self
             .buffer
-            .view(clients, history, config, is_focused)
+            .view(
+                clients,
+                history,
+                &self.settings.buffer,
+                is_focused,
+                load_config_error,
+            )
             .map(move |msg| Message::Buffer(id, msg));
 
         widget::Content::new(content)
@@ -94,6 +102,10 @@ impl Pane {
             }),
         }
     }
+
+    pub fn update_settings(&mut self, f: impl FnOnce(&mut pane::Settings)) {
+        f(&mut self.settings);
+    }
 }
 
 impl TitleBar {
@@ -105,14 +117,12 @@ impl TitleBar {
         panes: usize,
         _is_focused: bool,
         maximized: bool,
-        config: &data::config::Config,
+        settings: &'a pane::Settings,
     ) -> widget::TitleBar<'a, Message> {
         // Pane controls.
         let mut controls = row![].spacing(2);
 
-        if let Buffer::Channel(state) = &buffer {
-            let config = config.channel_config(&state.server.name, &state.channel);
-
+        if let Buffer::Channel(_) = &buffer {
             let users = button(
                 container(icon::people())
                     .width(Length::Fill)
@@ -124,7 +134,7 @@ impl TitleBar {
             .height(22)
             .on_press(Message::ToggleShowUserList)
             .style(theme::Button::Pane {
-                selected: config.users.visible,
+                selected: settings.buffer.channel.users.visible,
             });
 
             controls = controls.push(users);

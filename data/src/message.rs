@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use irc::proto;
 use irc::proto::ChannelExt;
 use serde::{Deserialize, Serialize};
@@ -73,10 +73,6 @@ pub struct Message {
 impl Message {
     pub fn is_server(&self) -> bool {
         matches!(self.source, Source::Server)
-    }
-
-    pub fn formatted_datetime(&self, fmt: &str) -> String {
-        self.datetime.with_timezone(&Local).format(fmt).to_string()
     }
 
     pub fn channel(&self) -> Option<&str> {
