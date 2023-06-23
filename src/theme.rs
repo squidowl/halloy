@@ -507,7 +507,7 @@ impl text_input::StyleSheet for Theme {
 
     fn selection_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default | TextInput::Error => self.colors.action.base,
+            TextInput::Default | TextInput::Error => self.colors.accent.alpha_02,
         }
     }
 
