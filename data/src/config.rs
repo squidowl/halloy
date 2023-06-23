@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::palette::Palette;
-use crate::{pane, server};
+use crate::{environment, pane, server};
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Config {
@@ -21,7 +21,7 @@ pub struct Config {
 
 impl Config {
     pub fn config_dir() -> Result<PathBuf, Error> {
-        let dir = dirs_next::config_dir()
+        let dir = environment::config_dir()
             .ok_or(Error::DirectoryNotFound)?
             .join("halloy");
 
