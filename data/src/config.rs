@@ -1,19 +1,18 @@
-use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use thiserror::Error;
 
 use crate::palette::Palette;
 use crate::{environment, pane, server};
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub palette: Palette,
-    pub servers: BTreeMap<String, server::Config>,
+    pub servers: server::Map,
     /// Default settings when creating a new pane
     #[serde(default)]
     pub new_pane: pane::Settings,

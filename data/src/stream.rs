@@ -1,16 +1,17 @@
 use std::time::Duration;
 
-use futures::stream::{self, BoxStream};
-use futures::{FutureExt, StreamExt};
+use futures::channel::mpsc;
+use futures::never::Never;
+use futures::stream;
+use futures::{SinkExt, StreamExt};
 use irc::proto::Capability;
-use tokio::sync::mpsc;
 use tokio::time::{self, Instant, Interval};
 
 use crate::client::Connection;
 use crate::server::Server;
 use crate::{message, server};
 
-pub type Result<T = Event, E = Error> = std::result::Result<T, E>;
+pub type Result<T = Update, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug)]
 pub enum Error {
@@ -18,153 +19,90 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub enum Event {
-    Ready(mpsc::Sender<Message>),
+pub enum Update {
     Connected(Server, Connection),
-    MessagesReceived(Vec<(Server, message::Encoded)>),
-}
-
-#[derive(Debug, Clone)]
-pub enum Message {
-    Connect(String, server::Config),
+    Disconnected(Server),
+    MessagesReceived(Server, Vec<message::Encoded>),
 }
 
 enum State {
-    Disconnected,
-    Ready {
-        receiver: mpsc::Receiver<Message>,
+    Disconnected {
+        last_retry: Option<Instant>,
     },
     Connected {
+        stream: irc::client::ClientStream,
         batch: Batch,
-        receiver: mpsc::Receiver<Message>,
-        servers: Vec<ServerData>,
     },
 }
 
-struct ServerData {
-    name: String,
-    config: server::Config,
-    stream: irc::client::ClientStream,
-}
 enum Input {
-    Message(Option<Message>),
-    IrcMessage(usize, Result<irc::proto::Message, irc::error::Error>),
-    Batch(Vec<(Server, message::Encoded)>),
+    IrcMessage(Result<irc::proto::Message, irc::error::Error>),
+    Batch(Vec<message::Encoded>),
 }
 
-pub fn run() -> BoxStream<'static, Result> {
-    stream::unfold(State::Disconnected, move |state| async move {
-        match state {
-            State::Disconnected => {
-                let (sender, receiver) = mpsc::channel(20);
+pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Never {
+    const RECONNECT_DELAY: Duration = Duration::from_secs(10);
 
-                Some((Ok(Event::Ready(sender)), State::Ready { receiver }))
-            }
-            State::Ready { mut receiver } => loop {
-                if let Some(Message::Connect(name, config)) = receiver.recv().await {
-                    match connect(config.clone()).await {
-                        Ok((stream, connection)) => {
-                            let servers = vec![ServerData {
-                                name: name.clone(),
-                                config: config.clone(),
-                                stream,
-                            }];
-                            let server =
-                                Server::new(name, config.server.as_ref().expect("server hostname"));
+    let server::Entry { server, config } = server;
 
-                            return Some((
-                                Ok(Event::Connected(server, connection)),
-                                State::Connected {
-                                    batch: Batch::new(),
-                                    receiver,
-                                    servers,
-                                },
-                            ));
-                        }
-                        Err(e) => {
-                            return Some((Err(Error::Connection(e)), State::Ready { receiver }));
-                        }
+    let mut state = State::Disconnected { last_retry: None };
+
+    loop {
+        match &mut state {
+            State::Disconnected { last_retry } => {
+                let _ = sender.send(Update::Disconnected(server.clone())).await;
+
+                if let Some(last_retry) = last_retry.as_ref() {
+                    let remaining = RECONNECT_DELAY.saturating_sub(last_retry.elapsed());
+
+                    if !remaining.is_zero() {
+                        time::sleep(remaining).await;
                     }
                 }
-            },
-            State::Connected {
-                mut batch,
-                mut receiver,
-                mut servers,
-            } => loop {
-                let input = {
-                    let mut select = stream::select(
-                        stream::select(
-                            stream::select_all(servers.iter_mut().enumerate().map(
-                                |(idx, server)| {
-                                    (&mut server.stream)
-                                        .map(move |result| Input::IrcMessage(idx, result))
-                                },
-                            )),
-                            receiver.recv().map(Input::Message).into_stream().boxed(),
-                        ),
-                        (&mut batch).map(Input::Batch),
-                    );
 
-                    select.next().await.expect("Await stream input")
-                };
+                match connect(config.clone()).await {
+                    Ok((stream, connection)) => {
+                        log::info!("[{server}] connected");
+
+                        let _ = sender
+                            .send(Update::Connected(server.clone(), connection))
+                            .await;
+
+                        state = State::Connected {
+                            stream,
+                            batch: Batch::new(),
+                        };
+                    }
+                    Err(e) => {
+                        log::warn!("[{server}] connection failed: {e}");
+
+                        *last_retry = Some(Instant::now());
+                    }
+                }
+            }
+            State::Connected { stream, batch } => {
+                let input = stream::select(stream.map(Input::IrcMessage), batch.map(Input::Batch))
+                    .next()
+                    .await
+                    .expect("stream input");
 
                 match input {
-                    Input::Message(Some(message)) => match message {
-                        Message::Connect(name, config) => match connect(config.clone()).await {
-                            Ok((stream, connection)) => {
-                                servers.push(ServerData {
-                                    name: name.clone(),
-                                    config: config.clone(),
-                                    stream,
-                                });
-                                let server = Server::new(
-                                    name,
-                                    config.server.as_ref().expect("server hostname"),
-                                );
-
-                                return Some((
-                                    Ok(Event::Connected(server, connection)),
-                                    State::Connected {
-                                        batch,
-                                        receiver,
-                                        servers,
-                                    },
-                                ));
-                            }
-                            Err(e) => {
-                                return Some((
-                                    Err(Error::Connection(e)),
-                                    State::Ready { receiver },
-                                ));
-                            }
-                        },
-                    },
-                    Input::IrcMessage(idx, Ok(message)) => {
-                        let server = &servers[idx];
-                        let server = Server::new(
-                            &server.name,
-                            server.config.server.as_ref().expect("server hostname"),
-                        );
-                        batch.messages.push((server, message.into()));
+                    Input::IrcMessage(Ok(message)) => {
+                        batch.messages.push(message.into());
                     }
-                    Input::Message(None) => {}
-                    Input::IrcMessage(_, Err(_)) => {} // TODO: Handle?
+                    Input::IrcMessage(Err(e)) => {
+                        log::warn!("[{server}] disconnected: {e}");
+                        state = State::Disconnected { last_retry: None };
+                    }
                     Input::Batch(messages) => {
-                        return Some((
-                            Ok(Event::MessagesReceived(messages)),
-                            State::Connected {
-                                batch,
-                                receiver,
-                                servers,
-                            },
-                        ));
+                        let _ = sender
+                            .send(Update::MessagesReceived(server.clone(), messages))
+                            .await;
                     }
                 }
-            },
+            }
         }
-    })
-    .boxed()
+    }
 }
 
 async fn connect(
@@ -187,7 +125,7 @@ async fn connect(
 
 struct Batch {
     interval: Interval,
-    messages: Vec<(Server, message::Encoded)>,
+    messages: Vec<message::Encoded>,
 }
 
 impl Batch {
@@ -205,7 +143,7 @@ impl Batch {
 }
 
 impl futures::Stream for Batch {
-    type Item = Vec<(Server, message::Encoded)>;
+    type Item = Vec<message::Encoded>;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,

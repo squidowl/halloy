@@ -14,19 +14,19 @@ use crate::{server, Server};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
-    pub server: server::Name,
+    pub server: server::Server,
     pub kind: history::Kind,
 }
 
 #[derive(Debug)]
 pub enum Message {
     Loaded(
-        server::Name,
+        server::Server,
         history::Kind,
         Result<Vec<crate::Message>, history::Error>,
     ),
-    Closed(server::Name, history::Kind, Result<(), history::Error>),
-    Flushed(server::Name, history::Kind, Result<(), history::Error>),
+    Closed(server::Server, history::Kind, Result<(), history::Error>),
+    Flushed(server::Server, history::Kind, Result<(), history::Error>),
     Tick(Instant),
 }
 
@@ -126,7 +126,7 @@ impl Manager {
 
     pub fn record_message(&mut self, server: &Server, message: crate::Message) {
         self.data.add_message(
-            server.name.clone(),
+            server.clone(),
             history::Kind::from(message.source.clone()),
             message,
         );
@@ -139,7 +139,7 @@ impl Manager {
         limit: Option<Limit>,
     ) -> (usize, Vec<&crate::Message>) {
         self.data
-            .messages(&server.name, &history::Kind::Channel(channel.to_string()))
+            .messages(server, &history::Kind::Channel(channel.to_string()))
             .map(|messages| {
                 let total = messages.len();
 
@@ -154,7 +154,7 @@ impl Manager {
         limit: Option<Limit>,
     ) -> (usize, Vec<&crate::Message>) {
         self.data
-            .messages(&server.name, &history::Kind::Server)
+            .messages(server, &history::Kind::Server)
             .map(|messages| {
                 let total = messages.len();
 
@@ -170,7 +170,7 @@ impl Manager {
         limit: Option<Limit>,
     ) -> (usize, Vec<&crate::Message>) {
         self.data
-            .messages(&server.name, &history::Kind::Query(nick.clone()))
+            .messages(server, &history::Kind::Query(nick.clone()))
             .map(|messages| {
                 let total = messages.len();
 
@@ -180,7 +180,7 @@ impl Manager {
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
-        let Some(map) = self.data.map.get(&server.name) else {
+        let Some(map) = self.data.map.get(server) else {
             return vec![]
         };
 
@@ -228,13 +228,13 @@ fn with_limit<'a>(
 
 #[derive(Debug, Default)]
 struct Data {
-    map: HashMap<server::Name, HashMap<history::Kind, History>>,
+    map: HashMap<server::Server, HashMap<history::Kind, History>>,
 }
 
 impl Data {
     fn loaded(
         &mut self,
-        server: server::Name,
+        server: server::Server,
         kind: history::Kind,
         mut messages: Vec<crate::Message>,
     ) {
@@ -281,14 +281,19 @@ impl Data {
         }
     }
 
-    fn messages(&self, server: &server::Name, kind: &history::Kind) -> Option<&[crate::Message]> {
+    fn messages(&self, server: &server::Server, kind: &history::Kind) -> Option<&[crate::Message]> {
         self.map
             .get(server)
             .and_then(|map| map.get(kind))
             .map(History::messages)
     }
 
-    fn add_message(&mut self, server: server::Name, kind: history::Kind, message: crate::Message) {
+    fn add_message(
+        &mut self,
+        server: server::Server,
+        kind: history::Kind,
+        message: crate::Message,
+    ) {
         self.map
             .entry(server.clone())
             .or_default()
@@ -299,7 +304,7 @@ impl Data {
 
     fn untrack(
         &mut self,
-        server: &server::Name,
+        server: &server::Server,
         kind: &history::Kind,
     ) -> Option<impl Future<Output = Result<(), history::Error>>> {
         self.map

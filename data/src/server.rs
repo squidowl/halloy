@@ -1,45 +1,25 @@
+use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::Deref;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Name(String);
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+pub struct Server(String);
 
-impl fmt::Display for Name {
+impl fmt::Display for Server {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl AsRef<str> for Name {
+impl AsRef<str> for Server {
     fn as_ref(&self) -> &str {
         &self.0
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Server {
-    pub name: Name,
-    pub hostname: String,
-}
-
-impl Server {
-    pub fn new(name: impl ToString, hostname: impl ToString) -> Self {
-        Self {
-            name: Name(name.to_string()),
-            hostname: hostname.to_string(),
-        }
-    }
-}
-
-impl fmt::Display for Server {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.name.0.fmt(f)
-    }
-}
-
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Config(irc::client::data::Config);
 
 impl From<irc::client::data::Config> for Config {
@@ -53,5 +33,29 @@ impl Deref for Config {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Entry {
+    pub server: Server,
+    pub config: Config,
+}
+
+impl<'a> From<(&'a Server, &'a Config)> for Entry {
+    fn from((server, config): (&'a Server, &'a Config)) -> Self {
+        Self {
+            server: server.clone(),
+            config: config.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Map(BTreeMap<Server, Config>);
+
+impl Map {
+    pub fn entries(&self) -> impl Iterator<Item = Entry> + '_ {
+        self.0.iter().map(Entry::from)
     }
 }
