@@ -226,6 +226,9 @@ impl Manager {
             Broadcast::Disconnected => {
                 message::broadcast::disconnected(channels, queries).collect::<Vec<_>>()
             }
+            Broadcast::Reconnected => {
+                message::broadcast::reconnected(channels, queries).collect::<Vec<_>>()
+            }
         };
 
         messages.into_iter().for_each(|message| {
@@ -370,4 +373,5 @@ impl Data {
 #[derive(Debug, Clone, Copy)]
 pub enum Broadcast {
     Disconnected,
+    Reconnected,
 }
