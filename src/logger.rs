@@ -22,6 +22,7 @@ pub fn setup(is_debug: bool) -> Result<(), log::Error> {
         })
         .level(log::LevelFilter::Off)
         .level_for("panic", log::LevelFilter::Error)
+        .level_for("iced_wgpu", log::LevelFilter::Info)
         .level_for("data", level_filter)
         .level_for("halloy", level_filter);
 

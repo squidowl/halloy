@@ -18,3 +18,6 @@
 .idea/
 .vscode/
 .helix/
+
+/assets/flatpak/generated-sources.json
+/assets/logo_*.png

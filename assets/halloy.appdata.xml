@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <content_rating type="oars-1.0" />
+  <id>org.squidowl.halloy</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>GPL-3.0+</project_license>
+  <name>halloy</name>
+  <summary>IRC client written in Rust</summary>
+  <description>
+    <p>
+      Halloy is an open-source IRC client written in Rust, with the Iced GUI library. 
+      It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">org.squidowl.halloy.desktop</launchable>
+
+  <url type="homepage">https://github.com/squidowl/halloy</url>
+  <url type="bugtracker">https://github.com/squidowl/halloy/issues</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>halloy logo</caption>
+      <image>https://user-images.githubusercontent.com/2248455/243701325-414d4466-b9ca-446b-901c-68acfcdff5e8.png</image>
+    </screenshot>
+  </screenshots>
+
+  <developer_name>The Squidowl Development Team</developer_name>
+
+  <releases>
+    <release version="0.1.0-9025433" date="2023-06-23" />
+  </releases>
+</component>

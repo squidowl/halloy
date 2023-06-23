@@ -138,7 +138,7 @@ impl Application for Halloy {
         match message {
             Message::Dashboard(message) => match &mut self.screen {
                 Screen::Dashboard(dashboard) => {
-                    let command = dashboard.update(message, &mut self.clients, &mut self.config);
+                    let command = dashboard.update(message, &mut self.clients, &self.config);
                     // Retrack after dashboard state changes
                     let track = dashboard.track();
 
