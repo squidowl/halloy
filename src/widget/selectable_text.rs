@@ -53,7 +53,10 @@ where
             height: Length::Shrink,
             horizontal_alignment: alignment::Horizontal::Left,
             vertical_alignment: alignment::Vertical::Top,
+            #[cfg(debug_assertions)]
             shaping: Shaping::Basic,
+            #[cfg(not(debug_assertions))]
+            shaping: Shaping::Advanced,
             style: Default::default(),
         }
     }
