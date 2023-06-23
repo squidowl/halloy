@@ -31,13 +31,13 @@ jobs:
       - name: Assign version to .app
         if: ${{ matrix.target.os == 'macos-latest' }}
         run: |
-          VERSION=$(cat Cargo.toml | grep version | head -n 1 | sed 's/."(.)"/\1/g')
+          VERSION=$(cat VERSION)
           sed -i '' -e "s/{{ VERSION }}/$VERSION/g" "assets/macos/Halloy.app/Contents/Info.plist"
 
       - name: Assign build to .app
         if: ${{ matrix.target.os == 'macos-latest' }}
         run: |
-          BUILD=${GITHUB_SHA::6}
+          BUILD=${GITHUB_SHA::7}
           sed -i '' -e "s/{{ BUILD }}/$BUILD/g" "assets/macos/Halloy.app/Contents/Info.plist"
 
       - name: Build
