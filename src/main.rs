@@ -10,6 +10,8 @@ mod screen;
 mod theme;
 mod widget;
 
+use std::env;
+
 use data::config::{self, Config};
 use data::stream;
 use iced::widget::container;
@@ -21,16 +23,31 @@ use self::screen::dashboard;
 pub use self::theme::Theme;
 use self::widget::Element;
 
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
 pub fn main() -> iced::Result {
+    let mut args = env::args();
+    args.next();
+
+    let version = args
+        .next()
+        .map(|s| s == "--version" || s == "-V")
+        .unwrap_or_default();
+
+    if version {
+        println!("halloy {}", data::environment::formatted_version());
+
+        return Ok(());
+    }
+
     #[cfg(debug_assertions)]
     let is_debug = true;
     #[cfg(not(debug_assertions))]
     let is_debug = false;
 
     logger::setup(is_debug).expect("setup logging");
-    log::info!("application ({}) has started", VERSION);
+    log::info!(
+        "halloy {} has started",
+        data::environment::formatted_version()
+    );
 
     if let Err(error) = Halloy::run(settings()) {
         log::error!("{}", error.to_string());
