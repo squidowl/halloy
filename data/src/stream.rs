@@ -20,8 +20,15 @@ pub enum Error {
 
 #[derive(Debug)]
 pub enum Update {
-    Connected(Server, Connection),
-    Disconnected(Server),
+    Connected {
+        server: Server,
+        connection: Connection,
+        is_initial: bool,
+    },
+    Disconnected {
+        server: Server,
+        is_initial: bool,
+    },
     MessagesReceived(Server, Vec<message::Encoded>),
 }
 
@@ -45,9 +52,15 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
 
     let server::Entry { server, config } = server;
 
+    let mut is_initial = true;
     let mut state = State::Disconnected { last_retry: None };
     // Notify app of initial disconnected state
-    let _ = sender.send(Update::Disconnected(server.clone())).await;
+    let _ = sender
+        .send(Update::Disconnected {
+            server: server.clone(),
+            is_initial,
+        })
+        .await;
 
     loop {
         match &mut state {
@@ -65,8 +78,14 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                         log::info!("[{server}] connected");
 
                         let _ = sender
-                            .send(Update::Connected(server.clone(), connection))
+                            .send(Update::Connected {
+                                server: server.clone(),
+                                connection,
+                                is_initial,
+                            })
                             .await;
+
+                        is_initial = false;
 
                         state = State::Connected {
                             stream,
@@ -92,7 +111,12 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                     }
                     Input::IrcMessage(Err(e)) => {
                         log::warn!("[{server}] disconnected: {e}");
-                        let _ = sender.send(Update::Disconnected(server.clone())).await;
+                        let _ = sender
+                            .send(Update::Disconnected {
+                                server: server.clone(),
+                                is_initial,
+                            })
+                            .await;
                         state = State::Disconnected {
                             last_retry: Some(Instant::now()),
                         };

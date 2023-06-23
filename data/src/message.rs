@@ -362,6 +362,22 @@ pub(crate) mod broadcast {
 
     use super::{Direction, Message, Sender, Source};
 
+    fn expand(
+        channels: impl IntoIterator<Item = String>,
+        queries: impl IntoIterator<Item = Nick>,
+        f: fn(source: Source) -> Message,
+    ) -> impl Iterator<Item = Message> {
+        channels
+            .into_iter()
+            .map(move |channel| f(Source::Channel(channel, Sender::Server)))
+            .chain(
+                queries
+                    .into_iter()
+                    .map(move |nick| f(Source::Query(nick, Sender::Server))),
+            )
+            .chain(Some(f(Source::Server)))
+    }
+
     pub fn disconnected(
         channels: impl IntoIterator<Item = String>,
         queries: impl IntoIterator<Item = Nick>,
@@ -375,14 +391,22 @@ pub(crate) mod broadcast {
             }
         }
 
-        channels
-            .into_iter()
-            .map(|channel| message(Source::Channel(channel, Sender::Server)))
-            .chain(
-                queries
-                    .into_iter()
-                    .map(|nick| message(Source::Query(nick, Sender::Server))),
-            )
-            .chain(Some(message(Source::Server)))
+        expand(channels, queries, message)
+    }
+
+    pub fn reconnected(
+        channels: impl IntoIterator<Item = String>,
+        queries: impl IntoIterator<Item = Nick>,
+    ) -> impl Iterator<Item = Message> {
+        fn message(source: Source) -> Message {
+            Message {
+                datetime: Utc::now(),
+                direction: Direction::Received,
+                source,
+                text: " ∙ connection to server restored".into(),
+            }
+        }
+
+        expand(channels, queries, message)
     }
 }
