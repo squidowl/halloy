@@ -1,7 +1,18 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-pub fn config_dir() -> Option<PathBuf> {
+pub const VERSION: &str = env!("VERSION");
+pub const GIT_HASH: Option<&str> = option_env!("GIT_HASH");
+
+pub fn formatted_version() -> String {
+    let hash = GIT_HASH
+        .map(|hash| format!(" ({hash})"))
+        .unwrap_or_default();
+
+    format!("{}{hash}", VERSION)
+}
+
+pub(crate) fn config_dir() -> Option<PathBuf> {
     // HOST_* checked first for flatpak
     #[cfg(target_os = "linux")]
     {
@@ -18,7 +29,7 @@ pub fn config_dir() -> Option<PathBuf> {
     }
 }
 
-pub fn data_dir() -> Option<PathBuf> {
+pub(crate) fn data_dir() -> Option<PathBuf> {
     // HOST_* checked first for flatpak
     #[cfg(target_os = "linux")]
     {
