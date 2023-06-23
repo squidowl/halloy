@@ -92,7 +92,9 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                     }
                     Input::IrcMessage(Err(e)) => {
                         log::warn!("[{server}] disconnected: {e}");
-                        state = State::Disconnected { last_retry: None };
+                        state = State::Disconnected {
+                            last_retry: Some(Instant::now()),
+                        };
                     }
                     Input::Batch(messages) => {
                         let _ = sender
