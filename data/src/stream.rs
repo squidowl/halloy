@@ -46,12 +46,12 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
     let server::Entry { server, config } = server;
 
     let mut state = State::Disconnected { last_retry: None };
+    // Notify app of initial disconnected state
+    let _ = sender.send(Update::Disconnected(server.clone())).await;
 
     loop {
         match &mut state {
             State::Disconnected { last_retry } => {
-                let _ = sender.send(Update::Disconnected(server.clone())).await;
-
                 if let Some(last_retry) = last_retry.as_ref() {
                     let remaining = RECONNECT_DELAY.saturating_sub(last_retry.elapsed());
 
@@ -92,6 +92,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                     }
                     Input::IrcMessage(Err(e)) => {
                         log::warn!("[{server}] disconnected: {e}");
+                        let _ = sender.send(Update::Disconnected(server.clone())).await;
                         state = State::Disconnected {
                             last_retry: Some(Instant::now()),
                         };

@@ -10,6 +10,7 @@ mod stream;
 mod theme;
 mod widget;
 
+use data::client;
 use data::config::{self, Config};
 use iced::widget::container;
 use iced::{executor, Application, Command, Length, Subscription};
@@ -136,7 +137,12 @@ impl Application for Halloy {
             },
             Message::Stream(update) => match update {
                 stream::Update::Disconnected(server) => {
-                    self.clients.disconnected(server);
+                    if let Some(client::State::Ready(_)) = self.clients.disconnected(server.clone())
+                    // Previously connected but now disconnected
+                    {
+                        let Screen::Dashboard(dashboard) = &mut self.screen;
+                        dashboard.disconnected(&server);
+                    }
 
                     Command::none()
                 }

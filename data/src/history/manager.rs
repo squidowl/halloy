@@ -7,7 +7,7 @@ use itertools::Itertools;
 use tokio::time::Instant;
 
 use crate::history::{self, History};
-use crate::message::Limit;
+use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::Nick;
 use crate::{server, Server};
@@ -195,6 +195,43 @@ impl Manager {
 
         queries
     }
+
+    pub fn broadcast(&mut self, server: &Server, broadcast: Broadcast) {
+        let Some(map) = self.data.map.get(server) else {
+            return;
+        };
+
+        let channels = map
+            .keys()
+            .filter_map(|kind| {
+                if let history::Kind::Channel(channel) = kind {
+                    Some(channel)
+                } else {
+                    None
+                }
+            })
+            .cloned();
+        let queries = map
+            .keys()
+            .filter_map(|kind| {
+                if let history::Kind::Query(nick) = kind {
+                    Some(nick)
+                } else {
+                    None
+                }
+            })
+            .cloned();
+
+        let messages = match broadcast {
+            Broadcast::Disconnected => {
+                message::broadcast::disconnected(channels, queries).collect::<Vec<_>>()
+            }
+        };
+
+        messages.into_iter().for_each(|message| {
+            self.record_message(server, message);
+        });
+    }
 }
 
 pub fn tick() -> impl Stream<Item = Message> {
@@ -328,4 +365,9 @@ impl Data {
             })
             .collect()
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Broadcast {
+    Disconnected,
 }

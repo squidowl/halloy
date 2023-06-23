@@ -353,3 +353,36 @@ pub fn parse_action(nick: &Nick, text: &str) -> Option<String> {
 pub fn action_text(nick: &Nick, action: &str) -> String {
     format!(" ∙ {nick} {action}")
 }
+
+pub(crate) mod broadcast {
+    //! Generate messages that can be broadcast into every buffer
+    use chrono::Utc;
+
+    use crate::user::Nick;
+
+    use super::{Direction, Message, Sender, Source};
+
+    pub fn disconnected(
+        channels: impl IntoIterator<Item = String>,
+        queries: impl IntoIterator<Item = Nick>,
+    ) -> impl Iterator<Item = Message> {
+        fn message(source: Source) -> Message {
+            Message {
+                datetime: Utc::now(),
+                direction: Direction::Received,
+                source,
+                text: " ∙ connection to server lost".into(),
+            }
+        }
+
+        channels
+            .into_iter()
+            .map(|channel| message(Source::Channel(channel, Sender::Server)))
+            .chain(
+                queries
+                    .into_iter()
+                    .map(|nick| message(Source::Query(nick, Sender::Server))),
+            )
+            .chain(Some(message(Source::Server)))
+    }
+}

@@ -96,13 +96,20 @@ impl Buffer {
                 empty::view(state, clients, load_config_error).map(Message::Empty)
             }
             Buffer::Channel(state) => {
-                channel::view(state, clients, history, settings, is_focused).map(Message::Channel)
+                let status = clients.status(&state.server);
+
+                channel::view(state, status, clients, history, settings, is_focused)
+                    .map(Message::Channel)
             }
             Buffer::Server(state) => {
-                server::view(state, history, settings, is_focused).map(Message::Server)
+                let status = clients.status(&state.server);
+
+                server::view(state, status, history, settings, is_focused).map(Message::Server)
             }
             Buffer::Query(state) => {
-                query::view(state, history, settings, is_focused).map(Message::Query)
+                let status = clients.status(&state.server);
+
+                query::view(state, status, history, settings, is_focused).map(Message::Query)
             }
         }
     }
