@@ -1,5 +1,5 @@
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub fn config_dir() -> Option<PathBuf> {
     // HOST_* checked first for flatpak
@@ -8,7 +8,7 @@ pub fn config_dir() -> Option<PathBuf> {
         env::var("HOST_XDG_CONFIG_HOME")
             .ok()
             .map(PathBuf::from)
-            .filter(is_absolute)
+            .filter(|p| is_absolute(p))
             .or_else(dirs_next::config_dir)
     }
 
@@ -25,7 +25,7 @@ pub fn data_dir() -> Option<PathBuf> {
         env::var("HOST_XDG_DATA_HOME")
             .ok()
             .map(PathBuf::from)
-            .filter(is_absolute)
+            .filter(|p| is_absolute(p))
             .or_else(dirs_next::data_dir)
     }
 
@@ -35,6 +35,6 @@ pub fn data_dir() -> Option<PathBuf> {
     }
 }
 
-fn is_absolute(path: &PathBuf) -> bool {
+fn is_absolute(path: &Path) -> bool {
     path.is_absolute()
 }
