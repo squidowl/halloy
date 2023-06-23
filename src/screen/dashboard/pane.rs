@@ -89,15 +89,15 @@ impl Pane {
         match &self.buffer {
             Buffer::Empty(_) => None,
             Buffer::Channel(channel) => Some(history::Resource {
-                server: channel.server.name.clone(),
+                server: channel.server.clone(),
                 kind: history::Kind::Channel(channel.channel.clone()),
             }),
             Buffer::Server(server) => Some(history::Resource {
-                server: server.server.name.clone(),
+                server: server.server.clone(),
                 kind: history::Kind::Server,
             }),
             Buffer::Query(query) => Some(history::Resource {
-                server: query.server.name.clone(),
+                server: query.server.clone(),
                 kind: history::Kind::Query(query.nick.clone()),
             }),
         }
