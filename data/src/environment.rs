@@ -46,6 +46,7 @@ pub(crate) fn data_dir() -> Option<PathBuf> {
     }
 }
 
+#[allow(dead_code)]
 fn is_absolute(path: &Path) -> bool {
     path.is_absolute()
 }

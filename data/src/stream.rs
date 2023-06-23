@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use futures::channel::mpsc;
 use futures::never::Never;
-use futures::stream;
-use futures::{SinkExt, StreamExt};
+use futures::{stream, SinkExt, StreamExt};
 use irc::proto::Capability;
 use tokio::time::{self, Instant, Interval};
 

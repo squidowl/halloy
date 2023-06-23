@@ -51,6 +51,6 @@ pub enum Error {
     DirectoryCreation,
     #[error("config could not be read: {0}")]
     Read(String),
-    #[error("config could not be parsed: {0}")]
+    #[error("{0}")]
     Parse(String),
 }
