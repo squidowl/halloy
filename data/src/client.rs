@@ -53,7 +53,7 @@ impl Connection {
         }
     }
 
-    fn channels(&self) -> Vec<String> {
+    pub fn channels(&self) -> Vec<String> {
         self.client.list_channels().unwrap_or_default()
     }
 
@@ -140,5 +140,9 @@ impl Map {
                 State::Ready(connection) => Some((server.clone(), connection.channels())),
             })
             .collect()
+    }
+
+    pub fn iter(&self) -> std::collections::btree_map::Iter<Server, State> {
+        self.0.iter()
     }
 }

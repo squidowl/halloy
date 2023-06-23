@@ -10,6 +10,10 @@ pub fn globe<'a>() -> Text<'a> {
     to_text('\u{f3ef}')
 }
 
+pub fn wifi_off<'a>() -> Text<'a> {
+    to_text('\u{f61b}')
+}
+
 pub fn chat<'a>() -> Text<'a> {
     to_text('\u{f267}')
 }
