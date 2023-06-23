@@ -5,6 +5,19 @@ use irc::client::Client;
 use crate::user::Nick;
 use crate::{message, Message, Server, User};
 
+#[derive(Debug, Clone, Copy)]
+pub enum Status {
+    Unavailable,
+    Connected,
+    Disconnected,
+}
+
+impl Status {
+    pub fn connected(&self) -> bool {
+        matches!(self, Status::Connected)
+    }
+}
+
 #[derive(Debug)]
 pub enum State {
     Disconnected,
@@ -79,8 +92,8 @@ impl Connection {
 pub struct Map(BTreeMap<Server, State>);
 
 impl Map {
-    pub fn disconnected(&mut self, server: Server) {
-        self.0.insert(server, State::Disconnected);
+    pub fn disconnected(&mut self, server: Server) -> Option<State> {
+        self.0.insert(server, State::Disconnected)
     }
 
     pub fn ready(&mut self, server: Server, client: Connection) {
@@ -144,5 +157,15 @@ impl Map {
 
     pub fn iter(&self) -> std::collections::btree_map::Iter<Server, State> {
         self.0.iter()
+    }
+
+    pub fn status(&self, server: &Server) -> Status {
+        self.0
+            .get(server)
+            .map(|s| match s {
+                State::Disconnected => Status::Disconnected,
+                State::Ready(_) => Status::Connected,
+            })
+            .unwrap_or(Status::Unavailable)
     }
 }

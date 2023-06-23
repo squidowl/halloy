@@ -1,7 +1,7 @@
 use core::fmt;
 
 use data::user::Nick;
-use data::{buffer, history, message, Server};
+use data::{buffer, client, history, message, Server};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -20,6 +20,7 @@ pub enum Event {}
 
 pub fn view<'a>(
     state: &'a Query,
+    status: client::Status,
     history: &'a history::Manager,
     settings: &'a buffer::Settings,
     is_focused: bool,
@@ -65,7 +66,7 @@ pub fn view<'a>(
     )
     .height(Length::Fill);
     let spacing = is_focused.then_some(vertical_space(4));
-    let text_input = is_focused.then(|| {
+    let text_input = (is_focused && status.connected()).then(|| {
         input_view::view(
             &state.input_view,
             data::Buffer::Query(state.server.clone(), state.nick.clone()),

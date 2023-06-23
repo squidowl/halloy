@@ -1,6 +1,7 @@
 pub mod pane;
 pub mod side_menu;
 
+use data::history::manager::Broadcast;
 use data::{config, history, Config, Server};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
@@ -326,6 +327,10 @@ impl Dashboard {
 
     pub fn record_message(&mut self, server: &Server, message: data::Message) {
         self.history.record_message(server, message);
+    }
+
+    pub fn disconnected(&mut self, server: &Server) {
+        self.history.broadcast(server, Broadcast::Disconnected);
     }
 
     fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {
