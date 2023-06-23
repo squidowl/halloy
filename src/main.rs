@@ -1,22 +1,20 @@
 #![allow(clippy::large_enum_variant, clippy::too_many_arguments)]
 
 mod buffer;
-mod client;
 mod event;
 mod font;
 mod icon;
 mod logger;
 mod screen;
+mod stream;
 mod theme;
 mod widget;
 
 use std::env;
 
 use data::config::{self, Config};
-use data::stream;
 use iced::widget::container;
 use iced::{executor, Application, Command, Length, Subscription};
-use tokio::sync::mpsc;
 
 use self::event::{events, Event};
 use self::screen::dashboard;
@@ -91,7 +89,6 @@ struct Halloy {
     theme: Theme,
     config: Config,
     clients: data::client::Map,
-    stream: Option<mpsc::Sender<stream::Message>>,
     // TODO: Make this a different screen?
     load_config_error: Option<config::Error>,
 }
@@ -103,7 +100,7 @@ enum Screen {
 #[derive(Debug)]
 enum Message {
     Dashboard(dashboard::Message),
-    Stream(stream::Result),
+    Stream(stream::Update),
     Event(Event),
     FontsLoaded(Result<(), iced::font::Error>),
 }
@@ -121,23 +118,12 @@ impl Application for Halloy {
         };
         let (screen, command) = screen::Dashboard::new(&config);
 
-        let mut clients = data::client::Map::default();
-
-        for (server, server_config) in &config.servers {
-            let server = data::Server::new(
-                server,
-                server_config.server.as_ref().expect("server hostname"),
-            );
-            clients.disconnected(server);
-        }
-
         (
             Halloy {
                 screen: Screen::Dashboard(screen),
                 theme: Theme::new_from_palette(config.palette),
                 config,
-                clients,
-                stream: None,
+                clients: Default::default(),
                 load_config_error,
             },
             Command::batch(vec![
@@ -165,30 +151,35 @@ impl Application for Halloy {
                     ])
                 }
             },
-            Message::Stream(Ok(event)) => match event {
-                stream::Event::Ready(sender) => {
-                    log::debug!("Client ready to receive connections");
+            Message::Stream(update) => match update {
+                stream::Update::Disconnected { server, is_initial } => {
+                    self.clients.disconnected(server.clone());
 
-                    for (name, config) in self.config.servers.clone() {
-                        let _ = sender.blocking_send(stream::Message::Connect(name, config));
+                    if !is_initial {
+                        let Screen::Dashboard(dashboard) = &mut self.screen;
+                        dashboard.disconnected(&server);
                     }
 
-                    // Hold this to prevent the channel from closing and
-                    // putting stream into a loop
-                    self.stream = Some(sender);
+                    Command::none()
+                }
+                stream::Update::Connected {
+                    server,
+                    connection,
+                    is_initial,
+                } => {
+                    self.clients.ready(server.clone(), connection);
+
+                    if !is_initial {
+                        let Screen::Dashboard(dashboard) = &mut self.screen;
+                        dashboard.reconnected(&server);
+                    }
 
                     Command::none()
                 }
-                stream::Event::Connected(server, client) => {
-                    log::info!("Connected to {:?}", server);
-                    self.clients.ready(server, client);
-
-                    Command::none()
-                }
-                stream::Event::MessagesReceived(messages) => {
+                stream::Update::MessagesReceived(server, messages) => {
                     let Screen::Dashboard(dashboard) = &mut self.screen;
 
-                    messages.into_iter().for_each(|(server, encoded)| {
+                    messages.into_iter().for_each(|encoded| {
                         if let Some(message) = self.clients.receive(&server, encoded) {
                             dashboard.record_message(&server, message);
                         }
@@ -197,10 +188,6 @@ impl Application for Halloy {
                     Command::none()
                 }
             },
-            Message::Stream(Err(error)) => {
-                log::error!("{:?}", error);
-                Command::none()
-            }
             Message::FontsLoaded(Ok(())) => Command::none(),
             Message::FontsLoaded(Err(error)) => {
                 log::error!("fonts failed to load: {error:?}");
@@ -234,9 +221,12 @@ impl Application for Halloy {
     fn subscription(&self) -> Subscription<Message> {
         let Screen::Dashboard(dashboard) = &self.screen;
 
+        let streams = Subscription::batch(self.config.servers.entries().map(stream::run))
+            .map(Message::Stream);
+
         Subscription::batch(vec![
+            streams,
             events().map(Message::Event),
-            client::run().map(Message::Stream),
             dashboard.subscription().map(Message::Dashboard),
         ])
     }

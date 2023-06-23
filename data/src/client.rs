@@ -5,6 +5,19 @@ use irc::client::Client;
 use crate::user::Nick;
 use crate::{message, Message, Server, User};
 
+#[derive(Debug, Clone, Copy)]
+pub enum Status {
+    Unavailable,
+    Connected,
+    Disconnected,
+}
+
+impl Status {
+    pub fn connected(&self) -> bool {
+        matches!(self, Status::Connected)
+    }
+}
+
 #[derive(Debug)]
 pub enum State {
     Disconnected,
@@ -53,7 +66,7 @@ impl Connection {
         }
     }
 
-    fn channels(&self) -> Vec<String> {
+    pub fn channels(&self) -> Vec<String> {
         self.client.list_channels().unwrap_or_default()
     }
 
@@ -133,21 +146,26 @@ impl Map {
     }
 
     pub fn get_channels(&self) -> BTreeMap<Server, Vec<String>> {
-        let mut servers = Vec::from_iter(self.0.iter());
-        servers.sort_by(|(s1, _), (s2, _)| s2.name.cmp(&s1.name));
+        self.0
+            .iter()
+            .filter_map(|(server, state)| match state {
+                State::Disconnected => None,
+                State::Ready(connection) => Some((server.clone(), connection.channels())),
+            })
+            .collect()
+    }
 
-        let mut map = BTreeMap::new();
+    pub fn iter(&self) -> std::collections::btree_map::Iter<Server, State> {
+        self.0.iter()
+    }
 
-        for (server, _) in servers.into_iter() {
-            let mut channels = self
-                .connection(server)
-                .map(|connection| connection.channels())
-                .unwrap_or_default();
-            channels.sort();
-
-            map.insert(server.clone(), channels);
-        }
-
-        map
+    pub fn status(&self, server: &Server) -> Status {
+        self.0
+            .get(server)
+            .map(|s| match s {
+                State::Disconnected => Status::Disconnected,
+                State::Ready(_) => Status::Connected,
+            })
+            .unwrap_or(Status::Unavailable)
     }
 }

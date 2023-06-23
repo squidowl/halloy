@@ -1,7 +1,7 @@
 use std::fmt;
 
 use data::server::Server;
-use data::{buffer, history};
+use data::{buffer, client, history};
 use iced::widget::{column, container, row, scrollable, text, vertical_space};
 use iced::{Command, Length};
 
@@ -20,6 +20,7 @@ pub enum Event {}
 
 pub fn view<'a>(
     state: &'a Channel,
+    status: client::Status,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
     settings: &'a buffer::Settings,
@@ -64,7 +65,7 @@ pub fn view<'a>(
     .height(Length::Fill);
 
     let spacing = is_focused.then_some(vertical_space(4));
-    let text_input = is_focused.then(|| {
+    let text_input = (is_focused && status.connected()).then(|| {
         input_view::view(
             &state.input_view,
             data::Buffer::Channel(state.server.clone(), state.channel.clone()),

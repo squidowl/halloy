@@ -44,14 +44,14 @@ impl From<message::Source> for Kind {
     }
 }
 
-pub async fn load(server: &server::Name, kind: &Kind) -> Result<Vec<Message>, Error> {
+pub async fn load(server: &server::Server, kind: &Kind) -> Result<Vec<Message>, Error> {
     let path = path(server, kind).await?;
 
     Ok(read_all(&path).await.unwrap_or_default())
 }
 
 pub async fn overwrite(
-    server: &server::Name,
+    server: &server::Server,
     kind: &Kind,
     messages: &[Message],
 ) -> Result<(), Error> {
@@ -70,7 +70,7 @@ pub async fn overwrite(
 }
 
 pub async fn append(
-    server: &server::Name,
+    server: &server::Server,
     kind: &Kind,
     messages: Vec<Message>,
 ) -> Result<(), Error> {
@@ -89,7 +89,7 @@ async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
     Ok(compression::decompress(&bytes)?)
 }
 
-async fn path(server: &server::Name, kind: &Kind) -> Result<PathBuf, Error> {
+async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
     let data_dir = environment::data_dir().ok_or(Error::ResolvableDataDir)?;
 
     // TODO: Is this stable enough? What if user's nickname changes
@@ -112,13 +112,13 @@ async fn path(server: &server::Name, kind: &Kind) -> Result<PathBuf, Error> {
 #[derive(Debug)]
 pub enum History {
     Partial {
-        server: server::Name,
+        server: server::Server,
         kind: Kind,
         messages: Vec<Message>,
         last_received_at: Option<Instant>,
     },
     Full {
-        server: server::Name,
+        server: server::Server,
         kind: Kind,
         messages: Vec<Message>,
         last_received_at: Option<Instant>,
@@ -126,7 +126,7 @@ pub enum History {
 }
 
 impl History {
-    fn partial(server: server::Name, kind: Kind) -> Self {
+    fn partial(server: server::Server, kind: Kind) -> Self {
         Self::Partial {
             server,
             kind,
