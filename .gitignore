@@ -18,3 +18,5 @@
 .idea/
 .vscode/
 .helix/
+
+/release/flatpak/generated-sources.json

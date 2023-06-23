@@ -9,7 +9,7 @@ use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
 use crate::user::Nick;
-use crate::{compression, message, server, Message};
+use crate::{compression, environment, message, server, Message};
 
 pub mod manager;
 
@@ -90,7 +90,7 @@ async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
 }
 
 async fn path(server: &server::Name, kind: &Kind) -> Result<PathBuf, Error> {
-    let data_dir = dirs_next::data_dir().ok_or(Error::ResolvableDataDir)?;
+    let data_dir = environment::data_dir().ok_or(Error::ResolvableDataDir)?;
 
     // TODO: Is this stable enough? What if user's nickname changes
     let name = match kind {

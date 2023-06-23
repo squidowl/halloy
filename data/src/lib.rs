@@ -15,6 +15,7 @@ pub mod client;
 pub mod command;
 mod compression;
 pub mod config;
+mod environment;
 pub mod history;
 pub mod input;
 pub mod log;
