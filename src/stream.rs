@@ -1,8 +1,6 @@
 use data::server;
-use iced::subscription;
-use iced::Subscription;
-
 pub use data::stream::{self, *};
+use iced::{subscription, Subscription};
 
 pub fn run(entry: server::Entry) -> Subscription<stream::Update> {
     // Channel messages are batched every 50ms so channel size 10 ~= 500ms which

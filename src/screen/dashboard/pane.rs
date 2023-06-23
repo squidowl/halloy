@@ -1,4 +1,4 @@
-use data::{config, history, pane};
+use data::{history, pane};
 use iced::widget::{button, container, pane_grid, row, text};
 use iced::Length;
 use uuid::Uuid;
@@ -48,7 +48,6 @@ impl Pane {
         maximized: bool,
         clients: &'a data::client::Map,
         history: &'a history::Manager,
-        load_config_error: &'a Option<config::Error>,
     ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty(state) => state.to_string(),
@@ -69,13 +68,7 @@ impl Pane {
 
         let content = self
             .buffer
-            .view(
-                clients,
-                history,
-                &self.settings.buffer,
-                is_focused,
-                load_config_error,
-            )
+            .view(clients, history, &self.settings.buffer, is_focused)
             .map(move |msg| Message::Buffer(id, msg));
 
         widget::Content::new(content)
