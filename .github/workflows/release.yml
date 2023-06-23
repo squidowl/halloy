@@ -1,0 +1,100 @@
+name: "Release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Specify tag to create"
+        required: true
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      matrix:
+        target:
+          - target: macos
+            os: macos-latest
+            make: bash scripts/build-macos.sh dmg
+            binary_path: target/release/macos/halloy.dmg
+
+    runs-on: ${{ matrix.target.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Assign version to .app
+        if: ${{ matrix.target.os == 'macos-latest' }}
+        run: |
+          VERSION=$(cat Cargo.toml | grep version | head -n 1 | sed 's/."(.)"/\1/g')
+          sed -i '' -e "s/{{ VERSION }}/$VERSION/g" "assets/macos/Halloy.app/Contents/Info.plist"
+
+      - name: Assign build to .app
+        if: ${{ matrix.target.os == 'macos-latest' }}
+        run: |
+          BUILD=${GITHUB_SHA::6}
+          sed -i '' -e "s/{{ BUILD }}/$BUILD/g" "assets/macos/Halloy.app/Contents/Info.plist"
+
+      - name: Build
+        run: ${{ matrix.target.make }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.target.target }}
+          path: ${{ matrix.target.binary_path }}
+
+  create-release:
+    needs: build
+    name: Create Release
+    outputs:
+      upload_url: ${{ steps.create-release.outputs.upload_url }}
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Create Release
+        id: create-release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          release_name: ${{ github.event.inputs.tag }}
+          draft: true
+          prerelease: false
+
+  add-assets:
+    needs: create-release
+    name: Add Assets
+
+    strategy:
+      matrix:
+        target:
+          - artifact: macos
+            artifact_name: halloy.dmg
+            asset_name: halloy.dmg
+            asset_type: application/octet-stream
+
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ matrix.target.artifact }}
+          path: ${{ matrix.target.artifact }}
+
+      - name: Upload asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./${{ matrix.target.artifact }}/${{ matrix.target.artifact_name }}
+          asset_name: ${{ matrix.target.asset_name }}
+          asset_content_type: ${{ matrix.target.asset_type }}
