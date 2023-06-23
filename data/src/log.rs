@@ -3,6 +3,8 @@ use std::{fs, io};
 
 pub use log::*;
 
+use crate::environment;
+
 pub fn file() -> Result<fs::File, Error> {
     let path = path()?;
 
@@ -15,7 +17,7 @@ pub fn file() -> Result<fs::File, Error> {
 }
 
 fn path() -> Result<PathBuf, Error> {
-    let data_dir = dirs_next::data_dir().ok_or(Error::ResolvableDataDir)?;
+    let data_dir = environment::data_dir().ok_or(Error::ResolvableDataDir)?;
 
     let parent = data_dir.join("halloy");
 
