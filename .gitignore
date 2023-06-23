@@ -19,4 +19,5 @@
 .vscode/
 .helix/
 
-/release/flatpak/generated-sources.json
+/assets/flatpak/generated-sources.json
+/assets/logo_*.png
