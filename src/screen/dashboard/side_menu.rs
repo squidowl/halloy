@@ -50,27 +50,46 @@ impl SideMenu {
     ) -> Element<'a, Message> {
         let mut column = column![].spacing(1);
 
-        for (server, channels) in clients.get_channels().iter() {
-            column = column.push(buffer_button(panes, focus, Buffer::Server(server.clone())));
+        for (server, state) in clients.iter() {
+            match state {
+                data::client::State::Disconnected => {
+                    column = column.push(buffer_button(
+                        panes,
+                        focus,
+                        Buffer::Server(server.clone()),
+                        false,
+                    ));
+                }
+                data::client::State::Ready(connection) => {
+                    column = column.push(buffer_button(
+                        panes,
+                        focus,
+                        Buffer::Server(server.clone()),
+                        true,
+                    ));
 
-            for channel in channels {
-                column = column.push(buffer_button(
-                    panes,
-                    focus,
-                    Buffer::Channel(server.clone(), channel.clone()),
-                ));
+                    for channel in connection.channels() {
+                        column = column.push(buffer_button(
+                            panes,
+                            focus,
+                            Buffer::Channel(server.clone(), channel.clone()),
+                            true,
+                        ));
+                    }
+
+                    let queries = history.get_unique_queries(server);
+                    for user in queries {
+                        column = column.push(buffer_button(
+                            panes,
+                            focus,
+                            Buffer::Query(server.clone(), user.clone()),
+                            true,
+                        ));
+                    }
+
+                    column = column.push(vertical_space(12));
+                }
             }
-
-            let queries = history.get_unique_queries(server);
-            for user in queries {
-                column = column.push(buffer_button(
-                    panes,
-                    focus,
-                    Buffer::Query(server.clone(), user.clone()),
-                ));
-            }
-
-            column = column.push(vertical_space(12));
         }
 
         container(
@@ -121,15 +140,23 @@ fn buffer_button<'a>(
     panes: &pane_grid::State<Pane>,
     focus: Option<pane_grid::Pane>,
     buffer: Buffer,
+    connected: bool,
 ) -> Element<'a, Message> {
     let open = panes
         .iter()
         .find_map(|(pane, state)| (state.buffer.kind().as_ref() == Some(&buffer)).then_some(*pane));
 
     let row = match &buffer {
-        Buffer::Server(server) => row![icon::globe(), text(server.to_string())]
-            .spacing(8)
-            .align_items(iced::Alignment::Center),
+        Buffer::Server(server) => row![
+            if connected {
+                icon::globe()
+            } else {
+                icon::wifi_off()
+            },
+            text(server.to_string())
+        ]
+        .spacing(8)
+        .align_items(iced::Alignment::Center),
         Buffer::Channel(_, channel) => row![horizontal_space(4), icon::chat(), text(channel)]
             .spacing(8)
             .align_items(iced::Alignment::Center),
@@ -147,7 +174,7 @@ fn buffer_button<'a>(
 
     let entries = Entry::list(panes.len(), open, focus);
 
-    if entries.is_empty() {
+    if entries.is_empty() || !connected {
         base.into()
     } else {
         context_menu(base, entries, move |entry| {
