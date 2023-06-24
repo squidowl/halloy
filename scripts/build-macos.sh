@@ -15,7 +15,7 @@ DMG_NAME="halloy.dmg"
 DMG_DIR="$RELEASE_DIR/macos"
 
 VERSION=$(cat VERSION)
-BUILD=$(git rev-parse HEAD | cut -c 1-7)
+BUILD=$(git describe --always --dirty --exclude='*')
 
 # update version and build
 sed -i '' -e "s/{{ VERSION }}/$VERSION/g" "$APP_TEMPLATE_PLIST"
