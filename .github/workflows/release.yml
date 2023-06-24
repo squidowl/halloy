@@ -15,7 +15,7 @@ jobs:
         target:
           - target: macos
             os: macos-latest
-            make: bash scripts/build-macos.sh dmg
+            make: bash scripts/build-macos.sh
             binary_path: target/release/macos/halloy.dmg
 
     runs-on: ${{ matrix.target.os }}
@@ -27,18 +27,6 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-
-      - name: Assign version to .app
-        if: ${{ matrix.target.os == 'macos-latest' }}
-        run: |
-          VERSION=$(cat VERSION)
-          sed -i '' -e "s/{{ VERSION }}/$VERSION/g" "assets/macos/Halloy.app/Contents/Info.plist"
-
-      - name: Assign build to .app
-        if: ${{ matrix.target.os == 'macos-latest' }}
-        run: |
-          BUILD=${GITHUB_SHA::7}
-          sed -i '' -e "s/{{ BUILD }}/$BUILD/g" "assets/macos/Halloy.app/Contents/Info.plist"
 
       - name: Build
         run: ${{ matrix.target.make }}
