@@ -1063,6 +1063,7 @@ dependencies = [
  "fern",
  "iced",
  "log",
+ "once_cell",
  "open",
  "palette",
  "thiserror",

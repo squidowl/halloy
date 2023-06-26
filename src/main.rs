@@ -47,7 +47,13 @@ pub fn main() -> iced::Result {
         data::environment::formatted_version()
     );
 
-    if let Err(error) = Halloy::run(settings()) {
+    let config_load = Config::load();
+
+    // DANGER ZONE - font must be set using config
+    // before we do any iced related stuff w/ it
+    font::set(config_load.as_ref().ok());
+
+    if let Err(error) = Halloy::run(settings(config_load)) {
         log::error!("{}", error.to_string());
         Err(error)
     } else {
@@ -72,15 +78,19 @@ fn window_settings() -> iced::window::Settings {
     }
 }
 
-fn settings() -> iced::Settings<()> {
+fn settings(
+    config_load: Result<Config, config::Error>,
+) -> iced::Settings<Result<Config, config::Error>> {
     iced::Settings {
-        default_font: font::MONO,
+        default_font: font::MONO.clone().into(),
         default_text_size: theme::TEXT_SIZE,
         window: iced::window::Settings {
             ..window_settings()
         },
         exit_on_close_request: false,
-        ..Default::default()
+        flags: config_load,
+        id: None,
+        antialiasing: false,
     }
 }
 
@@ -92,7 +102,9 @@ struct Halloy {
 }
 
 impl Halloy {
-    pub fn load_from_state() -> (Halloy, Command<Message>) {
+    pub fn load_from_state(
+        config_load: Result<Config, config::Error>,
+    ) -> (Halloy, Command<Message>) {
         let load_dashboard = |config| match data::Dashboard::load() {
             Ok(dashboard) => screen::Dashboard::restore(dashboard),
             Err(error) => {
@@ -104,7 +116,7 @@ impl Halloy {
             }
         };
 
-        let (screen, config, command) = match Config::load() {
+        let (screen, config, command) = match config_load {
             Ok(config) => {
                 let (screen, command) = load_dashboard(&config);
 
@@ -160,10 +172,10 @@ impl Application for Halloy {
     type Executor = executor::Default;
     type Message = Message;
     type Theme = theme::Theme;
-    type Flags = ();
+    type Flags = Result<Config, config::Error>;
 
-    fn new(_flags: ()) -> (Halloy, Command<Self::Message>) {
-        let (halloy, command) = Halloy::load_from_state();
+    fn new(config_load: Self::Flags) -> (Halloy, Command<Self::Message>) {
+        let (halloy, command) = Halloy::load_from_state(config_load);
 
         (
             halloy,
@@ -199,7 +211,7 @@ impl Application for Halloy {
                 if let Some(event) = help.update(message) {
                     match event {
                         help::Event::RefreshConfiguration => {
-                            let (halloy, command) = Halloy::load_from_state();
+                            let (halloy, command) = Halloy::load_from_state(Config::load());
                             *self = halloy;
 
                             return command;
@@ -217,7 +229,7 @@ impl Application for Halloy {
                 if let Some(event) = welcome.update(message) {
                     match event {
                         welcome::Event::RefreshConfiguration => {
-                            let (halloy, command) = Halloy::load_from_state();
+                            let (halloy, command) = Halloy::load_from_state(Config::load());
                             *self = halloy;
 
                             return command;

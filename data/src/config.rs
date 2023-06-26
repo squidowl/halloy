@@ -15,9 +15,17 @@ pub struct Config {
     #[serde(default)]
     pub palette: Palette,
     pub servers: server::Map,
+    #[serde(default)]
+    pub font: Font,
     /// Default settings when creating a new buffer
     #[serde(default)]
     pub new_buffer: buffer::Settings,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Font {
+    pub family: Option<String>,
+    // TODO: Do we make size, etc configurable and pass to Theme?
 }
 
 impl Config {
