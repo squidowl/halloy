@@ -2,7 +2,7 @@ use data::Config;
 use iced::widget::{button, column, container, image, row, text, vertical_space};
 use iced::{alignment, Length};
 
-use crate::widget::{Collection, Element};
+use crate::widget::Element;
 use crate::{font, theme};
 
 #[derive(Debug, Clone)]
@@ -28,11 +28,11 @@ impl Welcome {
         match message {
             Message::RefreshConfiguration => Some(Event::RefreshConfiguration),
             Message::OpenConfigurationDirectory => {
-                let Ok(config) = Config::config_dir() else {
-                    return None
-                };
+                // Create template config file.
+                Config::create_template_config();
 
-                let _ = open::that(config);
+                // Open config directory.
+                let _ = open::that(Config::config_dir());
 
                 None
             }
@@ -40,20 +40,16 @@ impl Welcome {
     }
 
     pub fn view<'a>(&self) -> Element<'a, Message> {
-        let config_dir = Config::config_dir()
-            .map(|path| String::from(path.to_string_lossy()))
-            .expect("welcome screen expects valid config dir");
+        let config_dir = String::from(Config::config_dir().to_string_lossy());
 
-        let config_button = Config::config_dir().ok().map(|_| {
-            button(
-                container(text("Open Directory"))
-                    .align_x(alignment::Horizontal::Center)
-                    .width(Length::Fill),
-            )
-            .width(Length::Fill)
-            .style(theme::Button::Secondary)
-            .on_press(Message::OpenConfigurationDirectory)
-        });
+        let config_button = button(
+            container(text("Open Directory"))
+                .align_x(alignment::Horizontal::Center)
+                .width(Length::Fill),
+        )
+        .width(Length::Fill)
+        .style(theme::Button::Secondary)
+        .on_press(Message::OpenConfigurationDirectory);
 
         let refresh_button = button(
             container(text("Refresh"))
@@ -83,9 +79,11 @@ impl Welcome {
                     ])
                     .push(row![
                         text("2. ").style(theme::Text::Accent),
-                        text("Create a "),
-                        text("config.yml").style(theme::Text::Info),
-                        text(" file, which will serve as your configuration file"),
+                        text("Create "),
+                        text("config.yaml").style(theme::Text::Info),
+                        text(" - you can use "),
+                        text("config.template.yaml").style(theme::Text::Info),
+                        text(" as a starting point"),
                     ])
                     .push(row![
                         text("3. ").style(theme::Text::Accent),
@@ -104,12 +102,12 @@ impl Welcome {
                 row![]
                     .width(250)
                     .spacing(4)
-                    .push_maybe(config_button)
+                    .push(config_button)
                     .push(refresh_button),
             )
             .align_items(iced::Alignment::Center);
 
-        container(container(content).width(475))
+        container(container(content).width(510))
             .align_x(alignment::Horizontal::Center)
             .align_y(alignment::Vertical::Center)
             .width(Length::Fill)
