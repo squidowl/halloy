@@ -17,9 +17,9 @@ use iced::widget::container;
 use iced::{executor, Application, Command, Length, Subscription};
 
 use self::event::{events, Event};
-use self::screen::dashboard;
 pub use self::theme::Theme;
 use self::widget::Element;
+use screen::{dashboard, help, welcome};
 
 pub fn main() -> iced::Result {
     let mut args = env::args();
@@ -89,18 +89,57 @@ struct Halloy {
     theme: Theme,
     config: Config,
     clients: data::client::Map,
-    // TODO: Make this a different screen?
-    load_config_error: Option<config::Error>,
 }
 
-enum Screen {
+impl Halloy {
+    pub fn load_from_configuration() -> (Halloy, Command<Message>) {
+        let (screen, config, command) = match Config::load() {
+            Ok(config) => {
+                let (screen, command) = screen::Dashboard::new(&config);
+                (
+                    Screen::Dashboard(screen),
+                    config,
+                    command.map(Message::Dashboard),
+                )
+            }
+            Err(error) => match &error {
+                config::Error::Parse(_) => (
+                    Screen::Help(screen::Help::new(error)),
+                    Config::default(),
+                    Command::none(),
+                ),
+                _ => (
+                    Screen::Welcome(screen::Welcome::new()),
+                    Config::default(),
+                    Command::none(),
+                ),
+            },
+        };
+
+        (
+            Halloy {
+                screen,
+                theme: Theme::new_from_palette(config.palette),
+                config,
+                clients: Default::default(),
+            },
+            command,
+        )
+    }
+}
+
+pub enum Screen {
     Dashboard(screen::Dashboard),
+    Help(screen::Help),
+    Welcome(screen::Welcome),
 }
 
 #[derive(Debug)]
-enum Message {
+pub enum Message {
     Dashboard(dashboard::Message),
     Stream(stream::Update),
+    Help(help::Message),
+    Welcome(welcome::Message),
     Event(Event),
     FontsLoaded(Result<(), iced::font::Error>),
 }
@@ -108,28 +147,15 @@ enum Message {
 impl Application for Halloy {
     type Executor = executor::Default;
     type Message = Message;
-    type Flags = ();
     type Theme = theme::Theme;
+    type Flags = ();
 
     fn new(_flags: ()) -> (Halloy, Command<Self::Message>) {
-        let (config, load_config_error) = match Config::load() {
-            Ok(config) => (config, None),
-            Err(error) => (Config::default(), Some(error)),
-        };
-        let (screen, command) = screen::Dashboard::new(&config);
+        let (halloy, command) = Halloy::load_from_configuration();
 
         (
-            Halloy {
-                screen: Screen::Dashboard(screen),
-                theme: Theme::new_from_palette(config.palette),
-                config,
-                clients: Default::default(),
-                load_config_error,
-            },
-            Command::batch(vec![
-                font::load().map(Message::FontsLoaded),
-                command.map(Message::Dashboard),
-            ]),
+            halloy,
+            Command::batch(vec![font::load().map(Message::FontsLoaded), command]),
         )
     }
 
@@ -139,24 +165,65 @@ impl Application for Halloy {
 
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
-            Message::Dashboard(message) => match &mut self.screen {
-                Screen::Dashboard(dashboard) => {
-                    let command = dashboard.update(message, &mut self.clients, &self.config);
-                    // Retrack after dashboard state changes
-                    let track = dashboard.track();
+            Message::Dashboard(message) => {
+                let Screen::Dashboard(dashboard) = &mut self.screen else {
+                    return Command::none()
+                };
 
-                    Command::batch(vec![
-                        command.map(Message::Dashboard),
-                        track.map(Message::Dashboard),
-                    ])
+                let command = dashboard.update(message, &mut self.clients, &self.config);
+                // Retrack after dashboard state changes
+                let track = dashboard.track();
+
+                Command::batch(vec![
+                    command.map(Message::Dashboard),
+                    track.map(Message::Dashboard),
+                ])
+            }
+            Message::Help(message) => {
+                let Screen::Help(help) = &mut self.screen else {
+                    return Command::none();
+                };
+
+                if let Some(event) = help.update(message) {
+                    match event {
+                        help::Event::RefreshConfiguration => {
+                            let (halloy, command) = Halloy::load_from_configuration();
+                            *self = halloy;
+
+                            return command;
+                        }
+                    }
                 }
-            },
+
+                Command::none()
+            }
+            Message::Welcome(message) => {
+                let Screen::Welcome(welcome) = &mut self.screen else {
+                    return Command::none();
+                };
+
+                if let Some(event) = welcome.update(message) {
+                    match event {
+                        welcome::Event::RefreshConfiguration => {
+                            let (halloy, command) = Halloy::load_from_configuration();
+                            *self = halloy;
+
+                            return command;
+                        }
+                    }
+                }
+
+                Command::none()
+            }
             Message::Stream(update) => match update {
                 stream::Update::Disconnected { server, is_initial } => {
                     self.clients.disconnected(server.clone());
 
                     if !is_initial {
-                        let Screen::Dashboard(dashboard) = &mut self.screen;
+                        let Screen::Dashboard(dashboard) = &mut self.screen else {
+                            return Command::none()
+                        };
+
                         dashboard.disconnected(&server);
                     }
 
@@ -170,14 +237,19 @@ impl Application for Halloy {
                     self.clients.ready(server.clone(), connection);
 
                     if !is_initial {
-                        let Screen::Dashboard(dashboard) = &mut self.screen;
+                        let Screen::Dashboard(dashboard) = &mut self.screen else {
+                            return Command::none()
+                        };
+
                         dashboard.reconnected(&server);
                     }
 
                     Command::none()
                 }
                 stream::Update::MessagesReceived(server, messages) => {
-                    let Screen::Dashboard(dashboard) = &mut self.screen;
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
+                        return Command::none()
+                    };
 
                     messages.into_iter().for_each(|encoded| {
                         if let Some(message) = self.clients.receive(&server, encoded) {
@@ -194,17 +266,20 @@ impl Application for Halloy {
                 Command::none()
             }
             Message::Event(event) => {
-                let Screen::Dashboard(dashboard) = &mut self.screen;
-                dashboard.handle_event(event).map(Message::Dashboard)
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    dashboard.handle_event(event).map(Message::Dashboard)
+                } else {
+                    Command::none()
+                }
             }
         }
     }
 
     fn view(&self) -> Element<Message> {
         let content = match &self.screen {
-            Screen::Dashboard(dashboard) => dashboard
-                .view(&self.clients, &self.load_config_error)
-                .map(Message::Dashboard),
+            Screen::Dashboard(dashboard) => dashboard.view(&self.clients).map(Message::Dashboard),
+            Screen::Help(help) => help.view().map(Message::Help),
+            Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
         };
 
         container(content)
@@ -219,7 +294,11 @@ impl Application for Halloy {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        let Screen::Dashboard(dashboard) = &self.screen;
+        let screen_subscription = match &self.screen {
+            Screen::Dashboard(dashboard) => dashboard.subscription().map(Message::Dashboard),
+            Screen::Help(_) => Subscription::none(),
+            Screen::Welcome(_) => Subscription::none(),
+        };
 
         let streams = Subscription::batch(self.config.servers.entries().map(stream::run))
             .map(Message::Stream);
@@ -227,7 +306,7 @@ impl Application for Halloy {
         Subscription::batch(vec![
             streams,
             events().map(Message::Event),
-            dashboard.subscription().map(Message::Dashboard),
+            screen_subscription,
         ])
     }
 }

@@ -358,9 +358,8 @@ pub(crate) mod broadcast {
     //! Generate messages that can be broadcast into every buffer
     use chrono::Utc;
 
-    use crate::user::Nick;
-
     use super::{Direction, Message, Sender, Source};
+    use crate::user::Nick;
 
     fn expand(
         channels: impl IntoIterator<Item = String>,

@@ -153,16 +153,24 @@ fn buffer_button<'a>(
             } else {
                 icon::wifi_off()
             },
-            text(server.to_string())
+            text(server.to_string()).style(theme::Text::Primary)
         ]
         .spacing(8)
         .align_items(iced::Alignment::Center),
-        Buffer::Channel(_, channel) => row![horizontal_space(4), icon::chat(), text(channel)]
-            .spacing(8)
-            .align_items(iced::Alignment::Center),
-        Buffer::Query(_, nick) => row![horizontal_space(4), icon::person(), text(nick)]
-            .spacing(8)
-            .align_items(iced::Alignment::Center),
+        Buffer::Channel(_, channel) => row![
+            horizontal_space(4),
+            icon::chat(),
+            text(channel).style(theme::Text::Primary)
+        ]
+        .spacing(8)
+        .align_items(iced::Alignment::Center),
+        Buffer::Query(_, nick) => row![
+            horizontal_space(4),
+            icon::person(),
+            text(nick).style(theme::Text::Primary)
+        ]
+        .spacing(8)
+        .align_items(iced::Alignment::Center),
     };
 
     let base = button(row)
@@ -188,7 +196,7 @@ fn buffer_button<'a>(
                 Entry::Swap(from, to) => ("Swap with current pane", Message::Swap(from, to)),
             };
 
-            button(text(content))
+            button(text(content).style(theme::Text::Primary))
                 // Based off longest entry text
                 .width(175)
                 .style(theme::Button::Context)

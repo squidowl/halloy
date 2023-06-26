@@ -12,7 +12,7 @@ pub fn formatted_version() -> String {
     format!("{}{hash}", VERSION)
 }
 
-pub(crate) fn config_dir() -> Option<PathBuf> {
+pub(crate) fn config_dir() -> PathBuf {
     // HOST_* checked first for flatpak
     #[cfg(target_os = "linux")]
     {
@@ -21,11 +21,12 @@ pub(crate) fn config_dir() -> Option<PathBuf> {
             .map(PathBuf::from)
             .filter(|p| is_absolute(p))
             .or_else(dirs_next::config_dir)
+            .expect("expected valid config dir")
     }
 
     #[cfg(not(target_os = "linux"))]
     {
-        dirs_next::config_dir()
+        dirs_next::config_dir().expect("expected valid config dir")
     }
 }
 
@@ -46,6 +47,7 @@ pub(crate) fn data_dir() -> Option<PathBuf> {
     }
 }
 
+#[allow(dead_code)]
 fn is_absolute(path: &Path) -> bool {
     path.is_absolute()
 }

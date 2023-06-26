@@ -12,7 +12,7 @@ data = { version = "0.1.0", path = "data" }
 
 chrono = { version = "0.4", features = ['serde'] }
 fern = "0.6.1"
-iced = { version = "0.9", features = ["tokio", "lazy", "advanced"] }
+iced = { version = "0.9", features = ["tokio", "lazy", "advanced", "image"] }
 log = "0.4.16"
 palette = "=0.7.2"
 thiserror = "1.0.30"
