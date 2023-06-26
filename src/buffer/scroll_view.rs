@@ -73,13 +73,19 @@ pub struct State {
     status: Status,
 }
 
-impl State {
-    pub fn new() -> Self {
+impl Default for State {
+    fn default() -> Self {
         Self {
             scrollable: scrollable::Id::unique(),
             limit: Limit::bottom(),
             status: Status::default(),
         }
+    }
+}
+
+impl State {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn update(&mut self, message: Message) -> Command<Message> {

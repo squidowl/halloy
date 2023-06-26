@@ -1,4 +1,4 @@
-use data::{history, pane};
+use data::history;
 use iced::widget::{button, container, pane_grid, row, text};
 use iced::Length;
 use uuid::Uuid;
@@ -13,7 +13,6 @@ pub enum Message {
     PaneDragged(pane_grid::DragEvent),
     Buffer(pane_grid::Pane, buffer::Message),
     ClosePane,
-    #[allow(unused)]
     SplitPane(pane_grid::Axis),
     MaximizePane,
     ToggleShowUserList,
@@ -24,14 +23,14 @@ pub struct Pane {
     pub id: Uuid,
     pub buffer: Buffer,
     title_bar: TitleBar,
-    settings: pane::Settings,
+    settings: buffer::Settings,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TitleBar {}
 
 impl Pane {
-    pub fn new(buffer: Buffer, settings: pane::Settings) -> Self {
+    pub fn new(buffer: Buffer, settings: buffer::Settings) -> Self {
         Self {
             id: Uuid::new_v4(),
             buffer,
@@ -68,7 +67,7 @@ impl Pane {
 
         let content = self
             .buffer
-            .view(clients, history, &self.settings.buffer, is_focused)
+            .view(clients, history, &self.settings, is_focused)
             .map(move |msg| Message::Buffer(id, msg));
 
         widget::Content::new(content)
@@ -96,7 +95,7 @@ impl Pane {
         }
     }
 
-    pub fn update_settings(&mut self, f: impl FnOnce(&mut pane::Settings)) {
+    pub fn update_settings(&mut self, f: impl FnOnce(&mut buffer::Settings)) {
         f(&mut self.settings);
     }
 }
@@ -110,7 +109,7 @@ impl TitleBar {
         panes: usize,
         _is_focused: bool,
         maximized: bool,
-        settings: &'a pane::Settings,
+        settings: &'a buffer::Settings,
     ) -> widget::TitleBar<'a, Message> {
         // Pane controls.
         let mut controls = row![].spacing(2);
@@ -127,7 +126,7 @@ impl TitleBar {
             .height(22)
             .on_press(Message::ToggleShowUserList)
             .style(theme::Button::Pane {
-                selected: settings.buffer.channel.users.visible,
+                selected: settings.channel.users.visible,
             });
 
             controls = controls.push(users);
@@ -176,5 +175,21 @@ impl TitleBar {
             .align_y(iced::alignment::Vertical::Center);
 
         widget::TitleBar::new(title).controls(controls).padding(6)
+    }
+}
+
+impl From<Pane> for data::Pane {
+    fn from(pane: Pane) -> Self {
+        let buffer = match pane.buffer {
+            Buffer::Empty(_) => return data::Pane::Empty,
+            Buffer::Channel(state) => data::Buffer::Channel(state.server, state.channel),
+            Buffer::Server(state) => data::Buffer::Server(state.server),
+            Buffer::Query(state) => data::Buffer::Query(state.server, state.nick),
+        };
+
+        data::Pane::Buffer {
+            buffer,
+            settings: pane.settings,
+        }
     }
 }
