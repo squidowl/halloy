@@ -15,7 +15,7 @@ pub struct Config {
     #[serde(default)]
     pub palette: Palette,
     pub servers: server::Map,
-    /// Default settings when creating a new pane
+    /// Default settings when creating a new buffer
     #[serde(default)]
     pub new_buffer: buffer::Settings,
 }
