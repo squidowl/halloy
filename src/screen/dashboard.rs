@@ -325,7 +325,16 @@ impl Dashboard {
 
         match event {
             Escape => {
-                self.focus = None;
+                // Order of operations
+                //
+                // - Restore maximized pane
+                // - Unfocus
+                if self.panes.maximized().is_some() {
+                    self.panes.restore();
+                } else {
+                    self.focus = None;
+                }
+
                 Command::none()
             }
             Copy => selectable_text::selected(Message::SelectedText),
