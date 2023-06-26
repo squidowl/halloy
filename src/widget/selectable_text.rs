@@ -204,13 +204,17 @@ where
         style: &renderer::Style,
         layout: Layout<'_>,
         _cursor_position: mouse::Cursor,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
     ) {
+        let bounds = layout.bounds();
+
+        if viewport.intersection(&bounds).is_none() {
+            return;
+        }
+
         let appearance = theme.appearance(&self.style);
 
         let state = tree.state.downcast_ref::<State>();
-
-        let bounds = layout.bounds();
 
         if let Some(selection) = state.selection().and_then(|raw| raw.resolve(bounds)) {
             let line_height = f32::from(

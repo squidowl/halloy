@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 default = []
+debug = ["iced/debug"]
 
 [dependencies]
 data = { version = "0.1.0", path = "data" }
