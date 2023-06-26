@@ -9,7 +9,7 @@ chrono = { version = "0.4", features = ['serde'] }
 dirs-next = "2.0.0"
 flate2 = "1.0"
 futures = "0.3.21"
-iced = { version = "0.9", features = [] }
+iced_core = "0.9"
 irc = { git = "https://github.com/aatxe/irc.git", rev = "8eef9c56881670aa614782ab4321fb8ae3975fa0" }
 log = "0.4.16"
 palette = "=0.7.2"

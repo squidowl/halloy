@@ -1,4 +1,4 @@
-use iced::Color;
+use iced_core::Color;
 use palette::rgb::Rgb;
 use palette::{DarkenAssign, FromColor, LightenAssign, Mix, Okhsl, Srgb};
 use rand::prelude::*;
@@ -153,7 +153,7 @@ pub fn intensify(color: Color, amount: f32) -> Color {
 }
 
 pub mod palette_serde {
-    use iced::Color;
+    use iced_core::Color;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     use super::{hex_to_color, Palette};
