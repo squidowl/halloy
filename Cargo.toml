@@ -20,6 +20,9 @@ tokio = { version = "1.0", features = ["rt", "fs", "process"] }
 unicode-segmentation = "1.6"
 open = "4.1.0"
 
+[build-dependencies]
+embed-resource = "2.1.1"
+
 [dependencies.uuid]
 version = "1.0"
 features = ["v4"]
