@@ -64,7 +64,7 @@ impl Welcome {
             .spacing(1)
             .push(image(format!("{}/assets/logo.png", env!("CARGO_MANIFEST_DIR"))).width(150))
             .push(vertical_space(10))
-            .push(text("Welcome to Halloy!").font(font::MONO_BOLD))
+            .push(text("Welcome to Halloy!").font(font::MONO_BOLD.clone()))
             .push(vertical_space(4))
             .push(text(
                 "No configuration file found. Please follow the steps below to proceed",

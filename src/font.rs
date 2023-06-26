@@ -1,21 +1,60 @@
+use data::Config;
+use once_cell::sync::OnceCell;
+
 use iced::font::{self, Error};
-use iced::{Command, Font};
+use iced::Command;
 
-pub const MONO: Font = Font {
+pub static MONO: Font = Font::new(false);
+pub static MONO_BOLD: Font = Font::new(true);
+pub const ICON: iced::Font = iced::Font {
     monospaced: true,
-    ..Font::with_name("Iosevka Term")
+    ..iced::Font::with_name("bootstrap-icons")
 };
 
-pub const MONO_BOLD: Font = Font {
-    monospaced: true,
-    weight: font::Weight::Bold,
-    ..Font::with_name("Iosevka Term")
-};
+#[derive(Debug, Clone)]
+pub struct Font {
+    bold: bool,
+    inner: OnceCell<iced::Font>,
+}
 
-pub const ICON: Font = Font {
-    monospaced: true,
-    ..Font::with_name("bootstrap-icons")
-};
+impl Font {
+    const fn new(bold: bool) -> Self {
+        Self {
+            bold,
+            inner: OnceCell::new(),
+        }
+    }
+
+    fn set(&self, name: String) {
+        let name = Box::leak(name.into_boxed_str());
+        let weight = if self.bold {
+            font::Weight::Bold
+        } else {
+            font::Weight::Normal
+        };
+
+        let _ = self.inner.set(iced::Font {
+            monospaced: true,
+            weight,
+            ..iced::Font::with_name(name)
+        });
+    }
+}
+
+impl From<Font> for iced::Font {
+    fn from(value: Font) -> Self {
+        value.inner.get().copied().expect("font is set on startup")
+    }
+}
+
+pub fn set(config: Option<&Config>) {
+    let family = config
+        .and_then(|config| config.font.family.clone())
+        .unwrap_or_else(|| String::from("Iosevka Term"));
+
+    MONO.set(family.clone());
+    MONO_BOLD.set(family);
+}
 
 pub fn load() -> Command<Result<(), Error>> {
     Command::batch(vec![

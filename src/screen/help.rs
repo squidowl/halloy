@@ -59,7 +59,7 @@ impl Help {
             .spacing(1)
             .push(icon::error().size(45))
             .push(vertical_space(10))
-            .push(text("Error reading configuration file").font(font::MONO_BOLD))
+            .push(text("Error reading configuration file").font(font::MONO_BOLD.clone()))
             .push(vertical_space(3))
             .push(text(self.error.to_string()).style(theme::Text::Error))
             .push(vertical_space(10))
