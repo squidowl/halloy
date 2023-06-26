@@ -1,9 +1,24 @@
 use serde::{Deserialize, Serialize};
 
-use crate::buffer;
+use crate::{buffer, Buffer};
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct Settings {
-    #[serde(default)]
-    pub buffer: buffer::Settings,
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum Pane {
+    Split {
+        axis: Axis,
+        ratio: f32,
+        a: Box<Pane>,
+        b: Box<Pane>,
+    },
+    Buffer {
+        buffer: Buffer,
+        settings: buffer::Settings,
+    },
+    Empty,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub enum Axis {
+    Horizontal,
+    Vertical,
 }

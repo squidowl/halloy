@@ -1,3 +1,4 @@
+pub use data::buffer::Settings;
 use data::{buffer, history};
 use iced::Command;
 
@@ -39,7 +40,11 @@ pub enum Event {
 }
 
 impl Buffer {
-    pub fn kind(&self) -> Option<data::Buffer> {
+    pub fn empty() -> Self {
+        Self::Empty(Empty::default())
+    }
+
+    pub fn data(&self) -> Option<data::Buffer> {
         match self {
             Buffer::Empty(_) => None,
             Buffer::Channel(state) => Some(data::Buffer::Channel(
@@ -178,8 +183,8 @@ impl Buffer {
 }
 
 impl From<data::Buffer> for Buffer {
-    fn from(kind: data::Buffer) -> Self {
-        match kind {
+    fn from(buffer: data::Buffer) -> Self {
+        match buffer {
             data::Buffer::Server(server) => Self::Server(Server::new(server)),
             data::Buffer::Channel(server, channel) => Self::Channel(Channel::new(server, channel)),
             data::Buffer::Query(server, user) => Self::Query(Query::new(server, user)),
