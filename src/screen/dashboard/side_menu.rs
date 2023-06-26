@@ -196,7 +196,7 @@ fn buffer_button<'a>(
                 Entry::Swap(from, to) => ("Swap with current pane", Message::Swap(from, to)),
             };
 
-            button(text(content))
+            button(text(content).style(theme::Text::Primary))
                 // Based off longest entry text
                 .width(175)
                 .style(theme::Button::Context)

@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::PathBuf;
 
@@ -7,6 +7,8 @@ use thiserror::Error;
 
 use crate::palette::Palette;
 use crate::{environment, pane, server};
+
+const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Config {
@@ -19,36 +21,43 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn config_dir() -> Result<PathBuf, Error> {
-        let dir = environment::config_dir()
-            .ok_or(Error::DirectoryNotFound)?
-            .join("halloy");
+    pub fn config_dir() -> PathBuf {
+        let dir = environment::config_dir().join("halloy");
 
         if !dir.exists() {
-            std::fs::create_dir(dir.as_path()).map_err(|_| Error::DirectoryCreation)?;
+            std::fs::create_dir(dir.as_path())
+                .expect("expected permissions to create config folder");
         }
 
-        Ok(dir)
+        dir
     }
 
-    fn path() -> Result<PathBuf, Error> {
-        Ok(Self::config_dir()?.join("config.yaml"))
+    fn path() -> PathBuf {
+        Self::config_dir().join("config.yaml")
     }
 
     pub fn load() -> Result<Self, Error> {
-        let path = Self::path()?;
+        let path = Self::path();
         let file = File::open(path).map_err(|e| Error::Read(e.to_string()))?;
 
         serde_yaml::from_reader(BufReader::new(file)).map_err(|e| Error::Parse(e.to_string()))
+    }
+
+    pub fn create_template_config() {
+        // Checks if a config file is there
+        let config_file = Self::path();
+        if config_file.exists() {
+            return;
+        }
+
+        // Create template configuration file.
+        let config_template_file = Self::config_dir().join("config.template.yaml");
+        let _ = fs::write(config_template_file, CONFIG_TEMPLATE);
     }
 }
 
 #[derive(Debug, Error, Clone)]
 pub enum Error {
-    #[error("config directory could not be found")]
-    DirectoryNotFound,
-    #[error("config directory could not be created")]
-    DirectoryCreation,
     #[error("config could not be read: {0}")]
     Read(String),
     #[error("{0}")]
