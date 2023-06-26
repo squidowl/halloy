@@ -150,9 +150,11 @@ impl rule::StyleSheet for Theme {
 pub enum Text {
     #[default]
     Default,
+    Primary,
     Alpha04,
     Action,
     Accent,
+    Info,
     Server,
     Error,
     Nickname(Option<String>),
@@ -163,7 +165,8 @@ impl text::StyleSheet for Theme {
 
     fn appearance(&self, style: Self::Style) -> text::Appearance {
         match style {
-            Text::Default => text::Appearance {
+            Text::Default => text::Appearance { color: None },
+            Text::Primary => text::Appearance {
                 color: Some(self.colors.text.base),
             },
             Text::Alpha04 => text::Appearance {
@@ -174,6 +177,9 @@ impl text::StyleSheet for Theme {
             },
             Text::Accent => text::Appearance {
                 color: Some(self.colors.accent.base),
+            },
+            Text::Info => text::Appearance {
+                color: Some(self.colors.info.base),
             },
             Text::Error => text::Appearance {
                 color: Some(self.colors.error.base),
@@ -264,6 +270,7 @@ impl container::StyleSheet for Theme {
 pub enum Button {
     #[default]
     Default,
+    Secondary,
     SideMenu {
         selected: bool,
     },
@@ -280,8 +287,13 @@ impl button::StyleSheet for Theme {
         match style {
             Button::Default => button::Appearance {
                 background: Some(Background::Color(self.colors.action.alpha_02)),
-                border_color: self.colors.action.base,
-                border_width: 1.0,
+                text_color: self.colors.action.base,
+                border_radius: 3.0.into(),
+                ..Default::default()
+            },
+            Button::Secondary => button::Appearance {
+                background: Some(Background::Color(self.colors.text.alpha_02)),
+                text_color: self.colors.text.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
@@ -320,6 +332,7 @@ impl button::StyleSheet for Theme {
         let active = self.active(style);
         match style {
             Button::Default => button::Appearance { ..active },
+            Button::Secondary => button::Appearance { ..active },
             Button::SideMenu { selected: _ } => button::Appearance { ..active },
             Button::Pane { selected: _ } => button::Appearance { ..active },
             Button::Context => button::Appearance { ..active },
@@ -331,9 +344,14 @@ impl button::StyleSheet for Theme {
 
         match style {
             Button::Default => button::Appearance {
-                background: Some(Background::Color(self.colors.action.alpha_06)),
-                border_color: self.colors.action.base,
-                border_width: 1.0,
+                background: Some(Background::Color(self.colors.action.alpha_04)),
+                text_color: self.colors.action.base,
+                border_radius: 3.0.into(),
+                ..Default::default()
+            },
+            Button::Secondary => button::Appearance {
+                background: Some(Background::Color(self.colors.text.alpha_04)),
+                text_color: self.colors.text.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },

@@ -1,4 +1,4 @@
-use data::{buffer, config, history};
+use data::{buffer, history};
 use iced::Command;
 
 use self::channel::Channel;
@@ -89,12 +89,9 @@ impl Buffer {
         history: &'a history::Manager,
         settings: &'a buffer::Settings,
         is_focused: bool,
-        load_config_error: &'a Option<config::Error>,
     ) -> Element<'a, Message> {
         match self {
-            Buffer::Empty(state) => {
-                empty::view(state, clients, load_config_error).map(Message::Empty)
-            }
+            Buffer::Empty(state) => empty::view(state).map(Message::Empty),
             Buffer::Channel(state) => {
                 let status = clients.status(&state.server);
 

@@ -2,7 +2,7 @@ pub mod pane;
 pub mod side_menu;
 
 use data::history::manager::Broadcast;
-use data::{config, history, Config, Server};
+use data::{history, Config, Server};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
 use iced::{clipboard, subscription, window, Command, Length, Subscription};
@@ -247,25 +247,13 @@ impl Dashboard {
         Command::none()
     }
 
-    pub fn view<'a>(
-        &'a self,
-        clients: &'a data::client::Map,
-        load_config_error: &'a Option<config::Error>,
-    ) -> Element<'a, Message> {
+    pub fn view<'a>(&'a self, clients: &'a data::client::Map) -> Element<'a, Message> {
         let focus = self.focus;
 
         let pane_grid: Element<_> = PaneGrid::new(&self.panes, |id, pane, maximized| {
             let is_focused = focus == Some(id);
             let panes = self.panes.len();
-            pane.view(
-                id,
-                panes,
-                is_focused,
-                maximized,
-                clients,
-                &self.history,
-                load_config_error,
-            )
+            pane.view(id, panes, is_focused, maximized, clients, &self.history)
         })
         .on_click(pane::Message::PaneClicked)
         .on_resize(6, pane::Message::PaneResized)
