@@ -1,5 +1,6 @@
+use std::sync::OnceLock;
+
 use data::Config;
-use once_cell::sync::OnceCell;
 
 use iced::font::{self, Error};
 use iced::Command;
@@ -14,14 +15,14 @@ pub const ICON: iced::Font = iced::Font {
 #[derive(Debug, Clone)]
 pub struct Font {
     bold: bool,
-    inner: OnceCell<iced::Font>,
+    inner: OnceLock<iced::Font>,
 }
 
 impl Font {
     const fn new(bold: bool) -> Self {
         Self {
             bold,
-            inner: OnceCell::new(),
+            inner: OnceLock::new(),
         }
     }
 
