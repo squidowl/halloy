@@ -92,10 +92,22 @@ struct Halloy {
 }
 
 impl Halloy {
-    pub fn load_from_configuration() -> (Halloy, Command<Message>) {
+    pub fn load_from_state() -> (Halloy, Command<Message>) {
+        let load_dashboard = |config| match data::Dashboard::load() {
+            Ok(dashboard) => screen::Dashboard::restore(dashboard),
+            Err(error) => {
+                // TODO: Show this in error screen too? Maybe w/ option to report bug on GH
+                // and reset settings to continue loading?
+                log::warn!("failed to load dashboard: {error}");
+
+                screen::Dashboard::empty(config)
+            }
+        };
+
         let (screen, config, command) = match Config::load() {
             Ok(config) => {
-                let (screen, command) = screen::Dashboard::new(&config);
+                let (screen, command) = load_dashboard(&config);
+
                 (
                     Screen::Dashboard(screen),
                     config,
@@ -151,7 +163,7 @@ impl Application for Halloy {
     type Flags = ();
 
     fn new(_flags: ()) -> (Halloy, Command<Self::Message>) {
-        let (halloy, command) = Halloy::load_from_configuration();
+        let (halloy, command) = Halloy::load_from_state();
 
         (
             halloy,
@@ -187,7 +199,7 @@ impl Application for Halloy {
                 if let Some(event) = help.update(message) {
                     match event {
                         help::Event::RefreshConfiguration => {
-                            let (halloy, command) = Halloy::load_from_configuration();
+                            let (halloy, command) = Halloy::load_from_state();
                             *self = halloy;
 
                             return command;
@@ -205,7 +217,7 @@ impl Application for Halloy {
                 if let Some(event) = welcome.update(message) {
                     match event {
                         welcome::Event::RefreshConfiguration => {
-                            let (halloy, command) = Halloy::load_from_configuration();
+                            let (halloy, command) = Halloy::load_from_state();
                             *self = halloy;
 
                             return command;

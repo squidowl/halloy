@@ -3,9 +3,11 @@
 pub use self::buffer::Buffer;
 pub use self::command::Command;
 pub use self::config::Config;
+pub use self::dashboard::Dashboard;
 pub use self::input::Input;
 pub use self::message::Message;
 pub use self::palette::Palette;
+pub use self::pane::Pane;
 pub use self::server::Server;
 pub use self::user::User;
 
@@ -15,6 +17,7 @@ pub mod client;
 pub mod command;
 mod compression;
 pub mod config;
+pub mod dashboard;
 pub mod environment;
 pub mod history;
 pub mod input;

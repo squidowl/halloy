@@ -1,22 +1,27 @@
 pub mod pane;
 pub mod side_menu;
 
+use std::time::{Duration, Instant};
+
 use data::history::manager::Broadcast;
 use data::{history, Config, Server};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
-use iced::{clipboard, subscription, window, Command, Length, Subscription};
+use iced::{clipboard, window, Command, Length, Subscription};
 use pane::Pane;
 use side_menu::SideMenu;
 
 use crate::buffer::{self, Buffer};
 use crate::widget::{selectable_text, Element};
 
+const SAVE_AFTER: Duration = Duration::from_secs(3);
+
 pub struct Dashboard {
     panes: pane_grid::State<Pane>,
     focus: Option<pane_grid::Pane>,
     side_menu: SideMenu,
     history: history::Manager,
+    last_changed: Option<Instant>,
 }
 
 #[derive(Debug)]
@@ -26,31 +31,32 @@ pub enum Message {
     SelectedText(Vec<(f32, String)>),
     History(history::manager::Message),
     Close,
+    Tick(Instant),
+    DashboardSaved(Result<(), data::dashboard::Error>),
 }
 
 impl Dashboard {
-    pub fn new(config: &Config) -> (Self, Command<Message>) {
-        let buffers = vec![];
-
-        let first_buffer = Buffer::Empty(Default::default());
-
-        let (mut panes, pane) =
-            pane_grid::State::new(Pane::new(first_buffer, config.new_pane.clone()));
-
-        for buffer in buffers.into_iter().rev() {
-            panes.split(
-                pane_grid::Axis::Horizontal,
-                &pane,
-                Pane::new(buffer, config.new_pane.clone()),
-            );
-        }
+    pub fn empty(config: &Config) -> (Self, Command<Message>) {
+        let (panes, _) = pane_grid::State::new(Pane::new(
+            Buffer::Empty(Default::default()),
+            config.new_buffer.clone(),
+        ));
 
         let mut dashboard = Dashboard {
             panes,
             focus: None,
             side_menu: SideMenu::new(),
             history: history::Manager::default(),
+            last_changed: None,
         };
+
+        let command = dashboard.track();
+
+        (dashboard, command)
+    }
+
+    pub fn restore(dashboard: data::Dashboard) -> (Self, Command<Message>) {
+        let mut dashboard = Dashboard::from(dashboard);
 
         let command = dashboard.track();
 
@@ -70,6 +76,7 @@ impl Dashboard {
                 }
                 pane::Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
                     self.panes.resize(&split, ratio);
+                    self.last_changed = Some(Instant::now());
                 }
                 pane::Message::PaneDragged(pane_grid::DragEvent::Dropped {
                     pane,
@@ -77,10 +84,13 @@ impl Dashboard {
                     region,
                 }) => {
                     self.panes.split_with(&target, &pane, region);
+                    self.last_changed = Some(Instant::now());
                 }
                 pane::Message::PaneDragged(_) => {}
                 pane::Message::ClosePane => {
                     if let Some(pane) = self.focus {
+                        self.last_changed = Some(Instant::now());
+
                         if let Some((_, sibling)) = self.panes.close(&pane) {
                             return self.focus_pane(sibling);
                         } else if let Some(pane) = self.panes.get_mut(&pane) {
@@ -95,9 +105,10 @@ impl Dashboard {
                             &pane,
                             Pane::new(
                                 Buffer::Empty(buffer::empty::Empty::default()),
-                                config.new_pane.clone(),
+                                config.new_buffer.clone(),
                             ),
                         );
+                        self.last_changed = Some(Instant::now());
                         if let Some((pane, _)) = result {
                             return self.focus_pane(pane);
                         }
@@ -122,9 +133,8 @@ impl Dashboard {
                 }
                 pane::Message::ToggleShowUserList => {
                     if let Some((_, pane)) = self.get_focused_mut() {
-                        pane.update_settings(|settings| {
-                            settings.buffer.channel.users.toggle_visibility()
-                        });
+                        pane.update_settings(|settings| settings.channel.users.toggle_visibility());
+                        self.last_changed = Some(Instant::now());
                     }
                 }
                 pane::Message::MaximizePane => {
@@ -143,7 +153,7 @@ impl Dashboard {
                         side_menu::Event::Open(kind) => {
                             // If channel already is open, we focus it.
                             for (id, pane) in panes.iter() {
-                                if pane.buffer.kind().as_ref() == Some(&kind) {
+                                if pane.buffer.data().as_ref() == Some(&kind) {
                                     self.focus = Some(*id);
 
                                     return self.focus_pane(*id);
@@ -157,9 +167,10 @@ impl Dashboard {
                                         self.panes.panes.entry(*id).and_modify(|p| {
                                             *p = Pane::new(
                                                 Buffer::from(kind),
-                                                config.new_pane.clone(),
+                                                config.new_buffer.clone(),
                                             )
                                         });
+                                        self.last_changed = Some(Instant::now());
 
                                         return self.focus_pane(*id);
                                     }
@@ -182,8 +193,9 @@ impl Dashboard {
                             let result = self.panes.split(
                                 axis,
                                 &pane_to_split,
-                                Pane::new(Buffer::from(kind), config.new_pane.clone()),
+                                Pane::new(Buffer::from(kind), config.new_buffer.clone()),
                             );
+                            self.last_changed = Some(Instant::now());
 
                             if let Some((pane, _)) = result {
                                 return self.focus_pane(pane);
@@ -192,11 +204,13 @@ impl Dashboard {
                         side_menu::Event::Replace(kind, pane) => {
                             if let Some(state) = self.panes.get_mut(&pane) {
                                 state.buffer = Buffer::from(kind);
+                                self.last_changed = Some(Instant::now());
                                 return self.focus_pane(pane);
                             }
                         }
                         side_menu::Event::Close(pane) => {
                             self.panes.close(&pane);
+                            self.last_changed = Some(Instant::now());
 
                             if self.focus == Some(pane) {
                                 self.focus = None;
@@ -204,6 +218,7 @@ impl Dashboard {
                         }
                         side_menu::Event::Swap(from, to) => {
                             self.panes.swap(&from, &to);
+                            self.last_changed = Some(Instant::now());
                             return self.focus_pane(from);
                         }
                     }
@@ -229,18 +244,40 @@ impl Dashboard {
                 return clipboard::write(contents);
             }
             Message::History(message) => {
-                let command = Command::batch(
+                self.history.update(message);
+            }
+            Message::Close => {
+                return window::close();
+            }
+            Message::Tick(now) => {
+                let history = Command::batch(
                     self.history
-                        .update(message)
+                        .tick(now.into())
                         .into_iter()
                         .map(|task| Command::perform(task, Message::History))
                         .collect::<Vec<_>>(),
                 );
 
-                return command;
+                if let Some(last_changed) = self.last_changed {
+                    if now.duration_since(last_changed) >= SAVE_AFTER {
+                        let dashboard = data::Dashboard::from(&*self);
+
+                        self.last_changed = None;
+
+                        return Command::batch(vec![
+                            Command::perform(dashboard.save(), Message::DashboardSaved),
+                            history,
+                        ]);
+                    }
+                }
+
+                return history;
             }
-            Message::Close => {
-                return window::close();
+            Message::DashboardSaved(Ok(_)) => {
+                log::info!("dashboard saved");
+            }
+            Message::DashboardSaved(Err(error)) => {
+                log::warn!("error saving dashboard: {error}");
             }
         }
 
@@ -309,7 +346,28 @@ impl Dashboard {
                         .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
                 })
                 .unwrap_or_else(Command::none),
-            CloseRequested => Command::perform(self.history.close(), |_| Message::Close),
+            CloseRequested => {
+                let history = self.history.close();
+                let last_changed = self.last_changed;
+                let dashboard = data::Dashboard::from(&*self);
+
+                let task = async move {
+                    history.await;
+
+                    if last_changed.is_some() {
+                        match dashboard.save().await {
+                            Ok(_) => {
+                                log::info!("dashboard saved");
+                            }
+                            Err(error) => {
+                                log::warn!("error saving dashboard: {error}");
+                            }
+                        }
+                    }
+                };
+
+                Command::perform(task, |_| Message::Close)
+            }
         }
     }
 
@@ -367,6 +425,73 @@ impl Dashboard {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        subscription::run(history::manager::tick).map(Message::History)
+        iced::time::every(Duration::from_secs(1)).map(Message::Tick)
+    }
+}
+
+impl From<data::Dashboard> for Dashboard {
+    fn from(dashboard: data::Dashboard) -> Self {
+        use pane_grid::Configuration;
+
+        fn configuration(pane: data::Pane) -> Configuration<Pane> {
+            match pane {
+                data::Pane::Split { axis, ratio, a, b } => Configuration::Split {
+                    axis: match axis {
+                        data::pane::Axis::Horizontal => pane_grid::Axis::Horizontal,
+                        data::pane::Axis::Vertical => pane_grid::Axis::Vertical,
+                    },
+                    ratio,
+                    a: Box::new(configuration(*a)),
+                    b: Box::new(configuration(*b)),
+                },
+                data::Pane::Buffer { buffer, settings } => {
+                    Configuration::Pane(Pane::new(Buffer::from(buffer), settings))
+                }
+                data::Pane::Empty => {
+                    Configuration::Pane(Pane::new(Buffer::empty(), buffer::Settings::default()))
+                }
+            }
+        }
+
+        Self {
+            panes: pane_grid::State::with_configuration(configuration(dashboard.pane)),
+            focus: None,
+            side_menu: SideMenu::new(),
+            history: history::Manager::default(),
+            last_changed: None,
+        }
+    }
+}
+
+impl<'a> From<&'a Dashboard> for data::Dashboard {
+    fn from(dashboard: &'a Dashboard) -> Self {
+        use pane_grid::Node;
+
+        fn from_layout(panes: &pane_grid::State<Pane>, node: pane_grid::Node) -> data::Pane {
+            match node {
+                Node::Split {
+                    axis, ratio, a, b, ..
+                } => data::Pane::Split {
+                    axis: match axis {
+                        pane_grid::Axis::Horizontal => data::pane::Axis::Horizontal,
+                        pane_grid::Axis::Vertical => data::pane::Axis::Vertical,
+                    },
+                    ratio,
+                    a: Box::new(from_layout(panes, *a)),
+                    b: Box::new(from_layout(panes, *b)),
+                },
+                Node::Pane(pane) => panes
+                    .get(&pane)
+                    .cloned()
+                    .map(data::Pane::from)
+                    .unwrap_or(data::Pane::Empty),
+            }
+        }
+
+        let layout = dashboard.panes.layout().clone();
+
+        data::Dashboard {
+            pane: from_layout(&dashboard.panes, layout),
+        }
     }
 }
