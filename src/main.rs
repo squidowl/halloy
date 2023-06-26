@@ -81,9 +81,16 @@ fn window_settings() -> iced::window::Settings {
 fn settings(
     config_load: Result<Config, config::Error>,
 ) -> iced::Settings<Result<Config, config::Error>> {
+    let default_text_size = config_load
+        .as_ref()
+        .ok()
+        .and_then(|config| config.font.size)
+        .map(f32::from)
+        .unwrap_or(theme::TEXT_SIZE);
+
     iced::Settings {
         default_font: font::MONO.clone().into(),
-        default_text_size: theme::TEXT_SIZE,
+        default_text_size,
         window: iced::window::Settings {
             ..window_settings()
         },
