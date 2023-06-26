@@ -25,6 +25,7 @@ pub struct Config {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Font {
     pub family: Option<String>,
+    pub size: Option<u8>,
     // TODO: Do we make size, etc configurable and pass to Theme?
 }
 
