@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::Deref;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Server(String);
 
 impl fmt::Display for Server {

@@ -144,7 +144,7 @@ fn buffer_button<'a>(
 ) -> Element<'a, Message> {
     let open = panes
         .iter()
-        .find_map(|(pane, state)| (state.buffer.kind().as_ref() == Some(&buffer)).then_some(*pane));
+        .find_map(|(pane, state)| (state.buffer.data().as_ref() == Some(&buffer)).then_some(*pane));
 
     let row = match &buffer {
         Buffer::Server(server) => row![

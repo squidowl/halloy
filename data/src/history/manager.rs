@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet};
-use std::time::Duration;
 
 use futures::future::BoxFuture;
-use futures::{future, Future, FutureExt, Stream, StreamExt};
+use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
@@ -27,7 +26,6 @@ pub enum Message {
     ),
     Closed(server::Server, history::Kind, Result<(), history::Error>),
     Flushed(server::Server, history::Kind, Result<(), history::Error>),
-    Tick(Instant),
 }
 
 #[derive(Debug, Default)]
@@ -66,14 +64,14 @@ impl Manager {
         tasks
     }
 
-    pub fn update(&mut self, message: Message) -> Vec<BoxFuture<'static, Message>> {
+    pub fn update(&mut self, message: Message) {
         match message {
             Message::Loaded(server, kind, Ok(messages)) => {
                 log::debug!(
                     "loaded history for {kind} on {server}: {} messages",
                     messages.len()
                 );
-                self.data.loaded(server, kind, messages)
+                self.data.loaded(server, kind, messages);
             }
             Message::Loaded(server, kind, Err(error)) => {
                 log::warn!("failed to load history for {kind} on {server}: {error}");
@@ -90,12 +88,11 @@ impl Manager {
             Message::Flushed(server, kind, Err(error)) => {
                 log::warn!("failed to flush history for {kind} on {server}: {error}")
             }
-            Message::Tick(now) => {
-                return self.data.flush_all(now);
-            }
         }
+    }
 
-        vec![]
+    pub fn tick(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
+        self.data.flush_all(now)
     }
 
     pub fn close(&mut self) -> impl Future<Output = ()> {
@@ -235,17 +232,6 @@ impl Manager {
             self.record_message(server, message);
         });
     }
-}
-
-pub fn tick() -> impl Stream<Item = Message> {
-    use tokio::time::interval_at;
-    use tokio_stream::wrappers::IntervalStream;
-
-    IntervalStream::new(interval_at(
-        Instant::now() + Duration::from_secs(1),
-        Duration::from_secs(1),
-    ))
-    .map(Message::Tick)
 }
 
 fn with_limit<'a>(

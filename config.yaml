@@ -35,44 +35,42 @@ servers:
     channels:
       - "##rust"
       
-# Settings applied by default to new panes
-new_pane:
-  # Buffer settings
-  buffer:
-    # Nickname settings
-    nickname:
-      # User color settings:
-      # - Unique: Unique user colors [default]
-      # - Solid: Solid user colors
-      color: Unique
+# Settings applied by default to new buffers
+new_buffer:
+  # Nickname settings
+  nickname:
+    # User color settings:
+    # - Unique: Unique user colors [default]
+    # - Solid: Solid user colors
+    color: Unique
+    
+    # Nickname brackets:
+    # - Default is empty ""
+    brackets:
+      left: "<"
+      right: ">"
       
-      # Nickname brackets:
-      # - Default is empty ""
-      brackets:
-        left: "<"
-        right: ">"
-        
-    # Timestamp settings
-    timestamp: 
-      # Timestamp format:
-      # - Use `strftime` format (see documentation for details):
-      #   https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html
-      format: "%T"
-      
-      # Timestamp brackets:
-      # - Default is empty ""
-      brackets:
-        left: "["
-        right: "]"
+  # Timestamp settings
+  timestamp: 
+    # Timestamp format:
+    # - Use `strftime` format (see documentation for details):
+    #   https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html
+    format: "%T"
+    
+    # Timestamp brackets:
+    # - Default is empty ""
+    brackets:
+      left: "["
+      right: "]"
 
-    # Channel buffer settings
-    channel:
-      # User list settings
-      users:
-        # Visible by default
-        # - Default is true
-        visible: true
-        # List position
-        # - Left: Left side of pane
-        # - Right: Right side of pane [default]
-        position: Right  
+  # Channel buffer settings
+  channel:
+    # User list settings
+    users:
+      # Visible by default
+      # - Default is true
+      visible: true
+      # List position
+      # - Left: Left side of pane
+      # - Right: Right side of pane [default]
+      position: Right  
