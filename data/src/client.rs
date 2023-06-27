@@ -56,7 +56,18 @@ impl Connection {
         use irc::proto::{Command, Response};
 
         match &message.command {
-            Command::NICK(nick) => self.resolved_nick = Some(nick.to_string()),
+            Command::NICK(nick) => {
+                let Some(old_nick) = message.prefix.as_ref().and_then(|prefix| match prefix {
+                    irc::proto::Prefix::ServerName(_) => None,
+                    irc::proto::Prefix::Nickname(nick, _, _) => Some(nick),
+                }) else {
+                    return;
+                };
+
+                if self.resolved_nick.as_ref() == Some(old_nick) {
+                    self.resolved_nick = Some(nick.clone())
+                }
+            }
             Command::Response(Response::RPL_WELCOME, args) => {
                 if let Some(nick) = args.first() {
                     self.resolved_nick = Some(nick.to_string());
