@@ -1,4 +1,5 @@
 #![allow(clippy::large_enum_variant, clippy::too_many_arguments)]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod buffer;
 mod event;

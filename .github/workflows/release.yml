@@ -17,7 +17,10 @@ jobs:
             os: macos-latest
             make: bash scripts/build-macos.sh
             binary_path: target/release/macos/halloy.dmg
-
+          - target: windows
+            os: windows-latest
+            make: bash scripts/build-windows.sh
+            binary_path: target/release/halloy.exe
     runs-on: ${{ matrix.target.os }}
 
     steps:
@@ -67,6 +70,10 @@ jobs:
             artifact_name: halloy.dmg
             asset_name: halloy.dmg
             asset_type: application/octet-stream
+          - artifact: windows
+            artifact_name: halloy.exe
+            asset_name: halloy.exe
+            asset_type: application/x-dosexec
 
     runs-on: ubuntu-latest
     env:
