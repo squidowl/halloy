@@ -14,7 +14,11 @@ use crate::{compression, environment, message, server, Message};
 pub mod manager;
 
 // TODO: Make this configurable?
+/// Max # messages to persist
 const MAX_MESSAGES: usize = 10_000;
+/// # messages to tuncate after hitting [`MAX_MESSAGES`]
+const TRUNC_COUNT: usize = 500;
+/// Duration to wait after receiving last message before flushing
 const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -198,8 +202,13 @@ impl History {
                     if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
                         let server = server.clone();
                         let kind = kind.clone();
-                        let messages = messages.clone();
                         *last_received_at = None;
+
+                        if messages.len() > MAX_MESSAGES {
+                            messages.drain(0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT));
+                        }
+
+                        let messages = messages.clone();
 
                         return Some(
                             async move { overwrite(&server, &kind, &messages).await }.boxed(),
