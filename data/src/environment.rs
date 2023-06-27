@@ -1,5 +1,5 @@
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub const VERSION: &str = env!("VERSION");
 pub const GIT_HASH: Option<&str> = option_env!("GIT_HASH");
@@ -47,7 +47,7 @@ pub(crate) fn data_dir() -> Option<PathBuf> {
     }
 }
 
-#[allow(dead_code)]
-fn is_absolute(path: &Path) -> bool {
+#[cfg(target_os = "linux")]
+fn is_absolute(path: &std::path::Path) -> bool {
     path.is_absolute()
 }
