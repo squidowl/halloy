@@ -246,7 +246,7 @@ fn with_limit<'a>(
             collected[length.saturating_sub(n)..length].to_vec()
         }
         Some(Limit::Since(timestamp)) => messages
-            .skip_while(|message| Posix::from(message.datetime) < timestamp)
+            .skip_while(|message| Posix::from(message.received_at) < timestamp)
             .collect(),
         None => messages.collect(),
     }
