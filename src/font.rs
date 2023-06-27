@@ -1,7 +1,6 @@
 use std::sync::OnceLock;
 
 use data::Config;
-
 use iced::font::{self, Error};
 use iced::Command;
 

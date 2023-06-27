@@ -1,6 +1,7 @@
 use chrono::Utc;
 use irc::proto::ChannelExt;
 
+use crate::time::Posix;
 use crate::user::Nick;
 use crate::{command, message, Buffer, Command, Message, Server, User};
 
@@ -40,7 +41,8 @@ impl Input {
 
         match command {
             Command::Msg(target, text) => Some(Message {
-                datetime: Utc::now(),
+                received_at: Posix::now(),
+                server_time: Utc::now(),
                 direction: message::Direction::Sent,
                 source: source(
                     target,
@@ -49,7 +51,8 @@ impl Input {
                 text,
             }),
             Command::Me(target, action) => Some(Message {
-                datetime: Utc::now(),
+                received_at: Posix::now(),
+                server_time: Utc::now(),
                 direction: message::Direction::Sent,
                 source: source(target, message::Sender::Action)?,
                 text: message::action_text(our_nick, &action),

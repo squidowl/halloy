@@ -31,7 +31,7 @@ pub fn view<'a>(
             history,
             |message| {
                 let timestamp = settings
-                    .format_timestamp(&message.datetime)
+                    .format_timestamp(&message.server_time)
                     .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
                 let message = selectable_text(&message.text).style(theme::Text::Alpha04);
 
