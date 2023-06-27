@@ -34,6 +34,15 @@ servers:
     # Channels to join upon connecting to the server
     channels:
       - "##rust"
+
+# Font settings
+font: 
+  # Specify the monospaced font family to use
+  # - Default is Iosevka Term and provided by this application
+  family: Iosevka Term
+  # Specify the font size
+  # - Default is 13
+  size: 13
       
 # Settings applied by default to new buffers
 new_buffer:
