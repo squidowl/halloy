@@ -64,7 +64,8 @@ pub enum Direction {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
-    pub datetime: DateTime<Utc>,
+    pub received_at: Posix,
+    pub server_time: DateTime<Utc>,
     pub direction: Direction,
     pub source: Source,
     pub text: String,
@@ -92,12 +93,13 @@ impl Message {
     }
 
     pub fn received(encoded: Encoded, our_nick: &Nick) -> Option<Message> {
-        let datetime = datetime(&encoded);
+        let server_time = server_time(&encoded);
         let text = text(&encoded, our_nick)?;
         let source = source(encoded, our_nick)?;
 
         Some(Message {
-            datetime,
+            received_at: Posix::now(),
+            server_time,
             direction: Direction::Received,
             source,
             text,
@@ -222,7 +224,7 @@ fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
     }
 }
 
-fn datetime(message: &Encoded) -> DateTime<Utc> {
+fn server_time(message: &Encoded) -> DateTime<Utc> {
     message
         .tags
         .as_ref()
@@ -325,20 +327,6 @@ impl Limit {
     pub fn bottom() -> Self {
         Self::Bottom(Self::DEFAULT_COUNT)
     }
-
-    fn value_mut(&mut self) -> Option<&mut usize> {
-        match self {
-            Limit::Top(i) => Some(i),
-            Limit::Bottom(i) => Some(i),
-            Limit::Since(_) => None,
-        }
-    }
-
-    pub fn increase(&mut self, n: usize) {
-        if let Some(value) = self.value_mut() {
-            *value += n;
-        }
-    }
 }
 
 fn is_action(text: &str) -> bool {
@@ -359,6 +347,7 @@ pub(crate) mod broadcast {
     use chrono::Utc;
 
     use super::{Direction, Message, Sender, Source};
+    use crate::time::Posix;
     use crate::user::Nick;
 
     fn expand(
@@ -383,7 +372,8 @@ pub(crate) mod broadcast {
     ) -> impl Iterator<Item = Message> {
         fn message(source: Source) -> Message {
             Message {
-                datetime: Utc::now(),
+                received_at: Posix::now(),
+                server_time: Utc::now(),
                 direction: Direction::Received,
                 source,
                 text: " ∙ connection to server lost".into(),
@@ -399,7 +389,8 @@ pub(crate) mod broadcast {
     ) -> impl Iterator<Item = Message> {
         fn message(source: Source) -> Message {
             Message {
-                datetime: Utc::now(),
+                received_at: Posix::now(),
+                server_time: Utc::now(),
                 direction: Direction::Received,
                 source,
                 text: " ∙ connection to server restored".into(),

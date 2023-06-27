@@ -15,11 +15,11 @@ use std::env;
 use data::config::{self, Config};
 use iced::widget::container;
 use iced::{executor, Application, Command, Length, Subscription};
+use screen::{dashboard, help, welcome};
 
 use self::event::{events, Event};
 pub use self::theme::Theme;
 use self::widget::Element;
-use screen::{dashboard, help, welcome};
 
 pub fn main() -> iced::Result {
     let mut args = env::args();

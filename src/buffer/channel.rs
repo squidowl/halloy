@@ -36,7 +36,7 @@ pub fn view<'a>(
                     data::message::Sender::User(user) => {
                         let timestamp =
                             settings
-                                .format_timestamp(&message.datetime)
+                                .format_timestamp(&message.server_time)
                                 .map(|timestamp| {
                                     selectable_text(timestamp).style(theme::Text::Alpha04)
                                 });

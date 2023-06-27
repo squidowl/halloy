@@ -13,6 +13,7 @@ pub enum Message {
         count: usize,
         remaining: bool,
         oldest: time::Posix,
+        status: Status,
         viewport: scrollable::Viewport,
     },
 }
@@ -42,8 +43,9 @@ pub fn view<'a>(
     let remaining = count < total;
     let oldest = messages
         .first()
-        .map(|message| message.datetime.into())
+        .map(|message| message.received_at)
         .unwrap_or_else(time::Posix::now);
+    let status = state.status;
 
     scrollable(
         Column::with_children(messages.into_iter().filter_map(format).collect())
@@ -52,7 +54,7 @@ pub fn view<'a>(
     )
     .vertical_scroll(
         scrollable::Properties::default()
-            .alignment(state.status.alignment())
+            .alignment(status.alignment())
             .width(5)
             .scroller_width(5),
     )
@@ -60,6 +62,7 @@ pub fn view<'a>(
         count,
         remaining,
         oldest,
+        status,
         viewport,
     })
     .id(state.scrollable.clone())
@@ -94,13 +97,31 @@ impl State {
                 count,
                 remaining,
                 oldest,
+                status: old_status,
                 viewport,
             } => {
-                let old_status = self.status;
                 let relative_offset = viewport.relative_offset().y;
 
                 match old_status {
-                    _ if old_status.is_loading_zone(relative_offset) && remaining => {
+                    Status::Loading(anchor) => {
+                        self.status = Status::Unlocked(anchor);
+
+                        if matches!(anchor, Anchor::Bottom) {
+                            self.limit = Limit::Since(oldest);
+                        }
+                        // Top anchor can get stuck in loading state at
+                        // end of scrollable.
+                        else if old_status.is_end(relative_offset) {
+                            if remaining {
+                                self.status = Status::Loading(Anchor::Top);
+                                self.limit = Limit::Top(count + Limit::DEFAULT_STEP);
+                            } else {
+                                self.status = Status::Idle(Anchor::Bottom);
+                                self.limit = Limit::bottom();
+                            }
+                        }
+                    }
+                    _ if old_status.is_end(relative_offset) && remaining => {
                         match old_status.anchor() {
                             Anchor::Top => {
                                 self.status = Status::Loading(Anchor::Top);
@@ -112,22 +133,15 @@ impl State {
                             }
                         }
                     }
-                    _ if old_status.is_bottom_of_scrollable(relative_offset) => {
+                    _ if old_status.is_bottom(relative_offset) => {
                         self.status = Status::Idle(Anchor::Bottom);
                         self.limit = Limit::bottom();
                     }
-                    _ if old_status.is_top_of_scrollable(relative_offset) => {
+                    _ if old_status.is_top(relative_offset) => {
                         self.status = Status::Idle(Anchor::Top);
                         self.limit = Limit::top();
                     }
-                    Status::Idle(anchor) if !old_status.is_idle_zone(relative_offset) => {
-                        self.status = Status::Unlocked(anchor);
-
-                        if matches!(anchor, Anchor::Bottom) {
-                            self.limit = Limit::Since(oldest);
-                        }
-                    }
-                    Status::Loading(anchor) => {
+                    Status::Idle(anchor) if !old_status.is_start(relative_offset) => {
                         self.status = Status::Unlocked(anchor);
 
                         if matches!(anchor, Anchor::Bottom) {
@@ -166,14 +180,14 @@ impl State {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Status {
+pub enum Status {
     Idle(Anchor),
     Unlocked(Anchor),
     Loading(Anchor),
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Anchor {
+pub enum Anchor {
     Top,
     Bottom,
 }
@@ -201,28 +215,28 @@ impl Status {
         }
     }
 
-    fn is_loading_zone(self, relative_offset: f32) -> bool {
+    fn is_end(self, relative_offset: f32) -> bool {
         match self.anchor() {
-            Anchor::Top => self.is_bottom_of_scrollable(relative_offset),
-            Anchor::Bottom => self.is_top_of_scrollable(relative_offset),
+            Anchor::Top => self.is_bottom(relative_offset),
+            Anchor::Bottom => self.is_top(relative_offset),
         }
     }
 
-    fn is_idle_zone(self, relative_offset: f32) -> bool {
+    fn is_start(self, relative_offset: f32) -> bool {
         match self.anchor() {
-            Anchor::Top => self.is_top_of_scrollable(relative_offset),
-            Anchor::Bottom => self.is_bottom_of_scrollable(relative_offset),
+            Anchor::Top => self.is_top(relative_offset),
+            Anchor::Bottom => self.is_bottom(relative_offset),
         }
     }
 
-    fn is_top_of_scrollable(self, relative_offset: f32) -> bool {
+    fn is_top(self, relative_offset: f32) -> bool {
         match self.alignment() {
             scrollable::Alignment::Start => relative_offset == 0.0,
             scrollable::Alignment::End => relative_offset == 1.0,
         }
     }
 
-    fn is_bottom_of_scrollable(self, relative_offset: f32) -> bool {
+    fn is_bottom(self, relative_offset: f32) -> bool {
         match self.alignment() {
             scrollable::Alignment::Start => relative_offset == 1.0,
             scrollable::Alignment::End => relative_offset == 0.0,
