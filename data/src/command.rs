@@ -14,6 +14,7 @@ pub enum Kind {
     Msg,
     Me,
     Whois,
+    Part,
 }
 
 impl FromStr for Kind {
@@ -28,6 +29,7 @@ impl FromStr for Kind {
             "msg" => Ok(Kind::Msg),
             "me" => Ok(Kind::Me),
             "whois" => Ok(Kind::Whois),
+            "part" => Ok(Kind::Part),
             _ => Err(()),
         }
     }
@@ -42,6 +44,7 @@ pub enum Command {
     Msg(String, String),
     Me(String, String),
     Whois(Option<String>, String),
+    Part(String, Option<String>),
     Unknown(String, Vec<String>),
 }
 
@@ -85,6 +88,9 @@ pub fn parse(s: &str, buffer: &Buffer) -> Result<Command, Error> {
             Kind::Whois => validated::<1, 0, false>(args, |[nick], _| {
                 // Leaving out optional [server] for now.
                 Command::Whois(None, nick)
+            }),
+            Kind::Part => validated::<1, 1, true>(args, |[chanlist], [reason]| {
+                Command::Part(chanlist, reason)
             }),
         },
         Err(_) => Ok(unknown()),
@@ -144,6 +150,7 @@ impl TryFrom<Command> for proto::Command {
                 proto::Command::PRIVMSG(target, format!("\u{1}ACTION {text}\u{1}"))
             }
             Command::Whois(channel, user) => proto::Command::WHOIS(channel, user),
+            Command::Part(chanlist, reason) => proto::Command::PART(chanlist, reason),
             Command::Unknown(command, args) => {
                 let args = args.iter().map(|arg| arg.as_str()).collect();
 
