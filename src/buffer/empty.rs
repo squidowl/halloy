@@ -1,17 +1,9 @@
-use core::fmt;
-
 use iced::widget::{column, container, text};
 use iced::{alignment, Length};
 
 use crate::widget::Element;
 
-#[derive(Debug, Clone)]
-pub enum Message {}
-
-#[derive(Debug, Clone)]
-pub enum Event {}
-
-pub fn view<'a>(_state: &Empty) -> Element<'a, Message> {
+pub fn view<'a, Message: 'a>() -> Element<'a, Message> {
     // TODO: Consider if we can completetly remove this buffer.
 
     let content = column![]
@@ -24,19 +16,4 @@ pub fn view<'a>(_state: &Empty) -> Element<'a, Message> {
         .width(Length::Fill)
         .height(Length::Fill)
         .into()
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Empty {}
-
-impl Empty {
-    pub fn update(&mut self, _message: Message) -> Option<Event> {
-        None
-    }
-}
-
-impl fmt::Display for Empty {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "")
-    }
 }

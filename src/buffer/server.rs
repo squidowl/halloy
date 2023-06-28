@@ -14,9 +14,6 @@ pub enum Message {
     InputView(input_view::Message),
 }
 
-#[derive(Debug, Clone)]
-pub enum Event {}
-
 pub fn view<'a>(
     state: &'a Server,
     status: client::Status,
@@ -83,11 +80,11 @@ impl Server {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
-    ) -> (Command<Message>, Option<Event>) {
+    ) -> Command<Message> {
         match message {
             Message::ScrollView(message) => {
-                let command = self.scroll_view.update(message);
-                (command.map(Message::ScrollView), None)
+                let (command, _) = self.scroll_view.update(message);
+                command.map(Message::ScrollView)
             }
             Message::InputView(message) => {
                 let (command, event) =
@@ -96,15 +93,11 @@ impl Server {
                 let command = command.map(Message::InputView);
 
                 match event {
-                    Some(input_view::Event::InputSent) => {
-                        let command = Command::batch(vec![
-                            command,
-                            self.scroll_view.scroll_to_end().map(Message::ScrollView),
-                        ]);
-
-                        (command, None)
-                    }
-                    None => (command, None),
+                    Some(input_view::Event::InputSent) => Command::batch(vec![
+                        command,
+                        self.scroll_view.scroll_to_end().map(Message::ScrollView),
+                    ]),
+                    None => command,
                 }
             }
         }

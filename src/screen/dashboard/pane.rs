@@ -49,7 +49,7 @@ impl Pane {
         history: &'a history::Manager,
     ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
-            Buffer::Empty(state) => state.to_string(),
+            Buffer::Empty => "".to_string(),
             Buffer::Channel(state) => state.to_string(),
             Buffer::Server(state) => state.to_string(),
             Buffer::Query(state) => state.to_string(),
@@ -79,7 +79,7 @@ impl Pane {
 
     pub fn resource(&self) -> Option<history::Resource> {
         match &self.buffer {
-            Buffer::Empty(_) => None,
+            Buffer::Empty => None,
             Buffer::Channel(channel) => Some(history::Resource {
                 server: channel.server.clone(),
                 kind: history::Kind::Channel(channel.channel.clone()),
@@ -181,7 +181,7 @@ impl TitleBar {
 impl From<Pane> for data::Pane {
     fn from(pane: Pane) -> Self {
         let buffer = match pane.buffer {
-            Buffer::Empty(_) => return data::Pane::Empty,
+            Buffer::Empty => return data::Pane::Empty,
             Buffer::Channel(state) => data::Buffer::Channel(state.server, state.channel),
             Buffer::Server(state) => data::Buffer::Server(state.server),
             Buffer::Query(state) => data::Buffer::Query(state.server, state.nick),
