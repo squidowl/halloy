@@ -6,8 +6,7 @@ use iced::widget::{column, container, horizontal_rule, scrollable};
 use iced::{Command, Length};
 
 use super::user_context;
-use crate::theme;
-use crate::widget::Element;
+use crate::widget::{Column, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {

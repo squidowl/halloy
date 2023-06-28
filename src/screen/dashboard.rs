@@ -33,6 +33,8 @@ pub enum Message {
     Close,
     Tick(Instant),
     DashboardSaved(Result<(), data::dashboard::Error>),
+    CloseHistory,
+    QuitServer,
 }
 
 impl Dashboard {
@@ -64,6 +66,7 @@ impl Dashboard {
         &mut self,
         message: Message,
         clients: &mut data::client::Map,
+        servers: &mut data::server::Map,
         config: &Config,
     ) -> Command<Message> {
         match message {
@@ -165,30 +168,102 @@ impl Dashboard {
                 }
             },
             Message::SideMenu(message) => {
-                if let Some(event) = self.side_menu.update(message) {
-                    match event {
-                        side_menu::Event::Open(kind) => {
-                            return self.open_buffer(kind, config);
+                let event = self.side_menu.update(message);
+
+                match event {
+                    side_menu::Event::Open(kind) => {
+                        return self.open_buffer(kind, config);
+                    }
+                    side_menu::Event::Replace(kind, pane) => {
+                        if let Some(state) = self.panes.get_mut(&pane) {
+                            state.buffer = Buffer::from(kind);
+                            self.last_changed = Some(Instant::now());
+                            return self.focus_pane(pane);
                         }
-                        side_menu::Event::Replace(kind, pane) => {
-                            if let Some(state) = self.panes.get_mut(&pane) {
-                                state.buffer = Buffer::from(kind);
-                                self.last_changed = Some(Instant::now());
-                                return self.focus_pane(pane);
+                    }
+                    side_menu::Event::Close(pane) => {
+                        self.panes.close(&pane);
+                        self.last_changed = Some(Instant::now());
+
+                        if self.focus == Some(pane) {
+                            self.focus = None;
+                        }
+                    }
+                    side_menu::Event::Swap(from, to) => {
+                        self.panes.swap(&from, &to);
+                        self.last_changed = Some(Instant::now());
+                        return self.focus_pane(from);
+                    }
+                    side_menu::Event::Leave(buffer) => {
+                        let pane = self.panes.iter().find_map(|(pane, state)| {
+                            (state.buffer.data().as_ref() == Some(&buffer)).then_some(*pane)
+                        });
+
+                        // Close pane
+                        if let Some(pane) = pane {
+                            if self.panes.close(&pane).is_none() {
+                                if let Some(state) = self.panes.get_mut(&pane) {
+                                    state.buffer = Buffer::Empty;
+                                }
                             }
-                        }
-                        side_menu::Event::Close(pane) => {
-                            self.panes.close(&pane);
                             self.last_changed = Some(Instant::now());
 
                             if self.focus == Some(pane) {
                                 self.focus = None;
                             }
                         }
-                        side_menu::Event::Swap(from, to) => {
-                            self.panes.swap(&from, &to);
-                            self.last_changed = Some(Instant::now());
-                            return self.focus_pane(from);
+
+                        match buffer.clone() {
+                            data::Buffer::Server(server) => {
+                                // Remove server connection
+
+                                // Removing from servers kills stream subscription
+                                servers.remove(&server);
+
+                                // Remove from clients pool to fully drop it
+                                let _server = server.clone();
+                                let quit = clients
+                                    .remove(&server)
+                                    .map(move |connection| async move {
+                                        connection.quit().await;
+
+                                        log::info!("[{_server}] quit");
+                                    })
+                                    .map(|task| Command::perform(task, |_| Message::QuitServer))
+                                    .unwrap_or_else(Command::none);
+
+                                // Close history for server
+                                let close_history = self
+                                    .history
+                                    .close_server(server)
+                                    .map(|task| Command::perform(task, |_| Message::CloseHistory))
+                                    .unwrap_or_else(Command::none);
+
+                                return Command::batch(vec![quit, close_history]);
+                            }
+                            data::Buffer::Channel(server, channel) => {
+                                // Send part & close history file
+                                let command = data::Command::Part(channel.clone(), None);
+                                let input = data::Input::command(buffer, command);
+
+                                if let Some(encoded) = input.encoded() {
+                                    clients.send(&server, encoded);
+                                }
+
+                                return self
+                                    .history
+                                    .close(server, history::Kind::Channel(channel))
+                                    .map(|task| Command::perform(task, |_| Message::CloseHistory))
+                                    .unwrap_or_else(Command::none);
+                            }
+                            data::Buffer::Query(server, nick) => {
+                                // No PART to send, just close history
+                                return self
+                                    .history
+                                    .close(server, history::Kind::Query(nick))
+                                    .map(|task| Command::perform(task, |_| Message::CloseHistory))
+                                    .unwrap_or_else(Command::none);
+                            }
                         }
                     }
                 }
@@ -248,6 +323,8 @@ impl Dashboard {
             Message::DashboardSaved(Err(error)) => {
                 log::warn!("error saving dashboard: {error}");
             }
+            Message::CloseHistory => {}
+            Message::QuitServer => {}
         }
 
         Command::none()
@@ -325,7 +402,7 @@ impl Dashboard {
                 })
                 .unwrap_or_else(Command::none),
             CloseRequested => {
-                let history = self.history.close();
+                let history = self.history.close_all();
                 let last_changed = self.last_changed;
                 let dashboard = data::Dashboard::from(&*self);
 

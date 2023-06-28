@@ -14,6 +14,7 @@ mod widget;
 use std::env;
 
 use data::config::{self, Config};
+use data::server;
 use iced::widget::container;
 use iced::{executor, Application, Command, Length, Subscription};
 use screen::{dashboard, help, welcome};
@@ -107,6 +108,7 @@ struct Halloy {
     theme: Theme,
     config: Config,
     clients: data::client::Map,
+    servers: server::Map,
 }
 
 impl Halloy {
@@ -152,8 +154,9 @@ impl Halloy {
             Halloy {
                 screen,
                 theme: Theme::new_from_palette(config.palette),
-                config,
                 clients: Default::default(),
+                servers: config.servers.clone(),
+                config,
             },
             command,
         )
@@ -202,7 +205,8 @@ impl Application for Halloy {
                     return Command::none()
                 };
 
-                let command = dashboard.update(message, &mut self.clients, &self.config);
+                let command =
+                    dashboard.update(message, &mut self.clients, &mut self.servers, &self.config);
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
@@ -332,8 +336,8 @@ impl Application for Halloy {
             Screen::Welcome(_) => Subscription::none(),
         };
 
-        let streams = Subscription::batch(self.config.servers.entries().map(stream::run))
-            .map(Message::Stream);
+        let streams =
+            Subscription::batch(self.servers.entries().map(stream::run)).map(Message::Stream);
 
         Subscription::batch(vec![
             streams,
