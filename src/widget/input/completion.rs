@@ -66,11 +66,35 @@ impl Default for Completion {
                     ],
                 },
                 Entry {
+                    title: "WHOIS",
+                    args: vec![Arg {
+                        text: "nick",
+                        optional: false,
+                    }],
+                },
+                Entry {
                     title: "ME",
                     args: vec![Arg {
                         text: "action",
                         optional: false,
                     }],
+                },
+                Entry {
+                    title: "MODE",
+                    args: vec![
+                        Arg {
+                            text: "channel",
+                            optional: false,
+                        },
+                        Arg {
+                            text: "mode",
+                            optional: false,
+                        },
+                        Arg {
+                            text: "user",
+                            optional: true,
+                        },
+                    ],
                 },
             ],
             filtered_entries: vec![],

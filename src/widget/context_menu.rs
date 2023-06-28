@@ -139,19 +139,16 @@ impl<'a, Message> Widget<Message, Renderer> for ContextMenu<'a, Message> {
 
     fn mouse_interaction(
         &self,
-        tree: &widget::Tree,
+        _tree: &widget::Tree,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
-        viewport: &Rectangle,
-        renderer: &Renderer,
+        _viewport: &Rectangle,
+        _renderer: &Renderer,
     ) -> mouse::Interaction {
-        self.base.as_widget().mouse_interaction(
-            &tree.children[0],
-            layout,
-            cursor,
-            viewport,
-            renderer,
-        )
+        cursor
+            .is_over(layout.bounds())
+            .then_some(mouse::Interaction::Pointer)
+            .unwrap_or_default()
     }
 
     fn overlay<'b>(
@@ -200,13 +197,29 @@ struct Overlay<'a, 'b, Message> {
 }
 
 impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Message> {
-    fn layout(&self, renderer: &Renderer, bounds: Size, position: Point) -> layout::Node {
-        let limits = layout::Limits::new(Size::ZERO, bounds)
+    fn layout(&self, renderer: &Renderer, viewport: Size, position: Point) -> layout::Node {
+        let limits = layout::Limits::new(Size::ZERO, viewport)
             .width(Length::Fill)
             .height(Length::Fill);
 
         let mut node = self.content.as_widget().layout(renderer, &limits);
-        node.move_to(position);
+
+        let viewport = Rectangle::new(Point::ORIGIN, viewport);
+        let mut bounds = Rectangle::new(position, node.size());
+
+        if bounds.x < viewport.x {
+            bounds.x = viewport.x;
+        } else if viewport.x + viewport.width < bounds.x + bounds.width {
+            bounds.x = viewport.x + viewport.width - bounds.width;
+        }
+
+        if bounds.y < viewport.y {
+            bounds.y = viewport.y;
+        } else if viewport.y + viewport.height < bounds.y + bounds.height {
+            bounds.y = viewport.y + viewport.height - bounds.height;
+        }
+
+        node.move_to(bounds.position());
 
         node
     }

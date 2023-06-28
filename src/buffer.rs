@@ -3,7 +3,6 @@ use data::{buffer, history};
 use iced::Command;
 
 use self::channel::Channel;
-use self::empty::Empty;
 use self::query::Query;
 use self::server::Server;
 use crate::widget::Element;
@@ -14,10 +13,11 @@ mod input_view;
 pub mod query;
 mod scroll_view;
 pub mod server;
+pub mod user_context;
 
 #[derive(Clone)]
 pub enum Buffer {
-    Empty(Empty),
+    Empty,
     Channel(Channel),
     Server(Server),
     Query(Query),
@@ -25,7 +25,6 @@ pub enum Buffer {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Empty(empty::Message),
     Channel(channel::Message),
     Server(server::Message),
     Query(query::Message),
@@ -33,20 +32,17 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Empty(empty::Event),
-    Channel(channel::Event),
-    Server(server::Event),
-    Query(query::Event),
+    UserContext(user_context::Event),
 }
 
 impl Buffer {
     pub fn empty() -> Self {
-        Self::Empty(Empty::default())
+        Self::Empty
     }
 
     pub fn data(&self) -> Option<data::Buffer> {
         match self {
-            Buffer::Empty(_) => None,
+            Buffer::Empty => None,
             Buffer::Channel(state) => Some(data::Buffer::Channel(
                 state.server.clone(),
                 state.channel.clone(),
@@ -66,23 +62,28 @@ impl Buffer {
         history: &mut history::Manager,
     ) -> (Command<Message>, Option<Event>) {
         match (self, message) {
-            (Buffer::Empty(state), Message::Empty(message)) => {
-                (Command::none(), state.update(message).map(Event::Empty))
-            }
             (Buffer::Channel(state), Message::Channel(message)) => {
                 let (command, event) = state.update(message, clients, history);
 
-                (command.map(Message::Channel), event.map(Event::Channel))
+                let event = event.map(|event| match event {
+                    channel::Event::UserContext(event) => Event::UserContext(event),
+                });
+
+                (command.map(Message::Channel), event)
             }
             (Buffer::Server(state), Message::Server(message)) => {
-                let (command, event) = state.update(message, clients, history);
+                let command = state.update(message, clients, history);
 
-                (command.map(Message::Server), event.map(Event::Server))
+                (command.map(Message::Server), None)
             }
             (Buffer::Query(state), Message::Query(message)) => {
                 let (command, event) = state.update(message, clients, history);
 
-                (command.map(Message::Query), event.map(Event::Query))
+                let event = event.map(|event| match event {
+                    query::Event::UserContext(event) => Event::UserContext(event),
+                });
+
+                (command.map(Message::Query), event)
             }
             _ => (Command::none(), None),
         }
@@ -96,7 +97,7 @@ impl Buffer {
         is_focused: bool,
     ) -> Element<'a, Message> {
         match self {
-            Buffer::Empty(state) => empty::view(state).map(Message::Empty),
+            Buffer::Empty => empty::view(),
             Buffer::Channel(state) => {
                 let status = clients.status(&state.server);
 
@@ -138,7 +139,7 @@ impl Buffer {
 
     pub fn focus(&self) -> Command<Message> {
         match self {
-            Buffer::Empty(_) => Command::none(),
+            Buffer::Empty => Command::none(),
             Buffer::Channel(channel) => channel.focus().map(Message::Channel),
             Buffer::Server(server) => server.focus().map(Message::Server),
             Buffer::Query(query) => query.focus().map(Message::Query),
@@ -147,7 +148,7 @@ impl Buffer {
 
     pub fn scroll_to_start(&mut self) -> Command<Message> {
         match self {
-            Buffer::Empty(_) => Command::none(),
+            Buffer::Empty => Command::none(),
             Buffer::Channel(channel) => channel
                 .scroll_view
                 .scroll_to_start()
@@ -165,7 +166,7 @@ impl Buffer {
 
     pub fn scroll_to_end(&mut self) -> Command<Message> {
         match self {
-            Buffer::Empty(_) => Command::none(),
+            Buffer::Empty => Command::none(),
             Buffer::Channel(channel) => channel
                 .scroll_view
                 .scroll_to_end()

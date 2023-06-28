@@ -2,21 +2,24 @@ use std::fmt;
 
 use data::server::Server;
 use data::{buffer, client, history};
-use iced::widget::{column, container, row, scrollable, text, vertical_space};
+use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
-use super::{input_view, scroll_view};
+use super::{input_view, scroll_view, user_context};
 use crate::theme;
-use crate::widget::{selectable_text, Collection, Column, Element};
+use crate::widget::{selectable_text, Collection, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
     ScrollView(scroll_view::Message),
     InputView(input_view::Message),
+    UserContext(user_context::Message),
 }
 
 #[derive(Debug, Clone)]
-pub enum Event {}
+pub enum Event {
+    UserContext(user_context::Event),
+}
 
 pub fn view<'a>(
     state: &'a Channel,
@@ -40,9 +43,13 @@ pub fn view<'a>(
                                 .map(|timestamp| {
                                     selectable_text(timestamp).style(theme::Text::Alpha04)
                                 });
-                        let nick = selectable_text(settings.nickname.brackets.format(user)).style(
-                            theme::Text::Nickname(user.color_seed(&settings.nickname.color)),
-                        );
+                        let nick = user_context::view(
+                            selectable_text(settings.nickname.brackets.format(user)).style(
+                                theme::Text::Nickname(user.color_seed(&settings.nickname.color)),
+                            ),
+                            user.clone(),
+                        )
+                        .map(scroll_view::Message::UserContext);
                         let message = selectable_text(&message.text);
 
                         Some(
@@ -73,47 +80,18 @@ pub fn view<'a>(
         .map(Message::InputView)
     });
 
-    let user_column = {
-        let users = clients.get_channel_users(&state.server, &state.channel);
-        let column = Column::with_children(
-            users
-                .iter()
-                .map(|user| {
-                    container(row![].padding([0, 4]).push(text(format!(
-                        "{}{}",
-                        user.highest_access_level(),
-                        user.nickname()
-                    ))))
-                    .into()
-                })
-                .collect(),
-        )
-        .padding(4)
-        .spacing(1);
-
-        container(
-            scrollable(column)
-                .vertical_scroll(
-                    iced::widget::scrollable::Properties::new()
-                        .width(1)
-                        .scroller_width(1),
-                )
-                .style(theme::Scrollable::Hidden),
-        )
-        .width(Length::Shrink)
-        .max_width(120)
-        .height(Length::Fill)
-    };
+    let users = clients.get_channel_users(&state.server, &state.channel);
+    let nick_list = nick_list::view(users).map(Message::UserContext);
 
     let content = match (
         settings.channel.users.visible,
         settings.channel.users.position,
     ) {
         (true, data::channel::Position::Left) => {
-            row![user_column, messages]
+            row![nick_list, messages]
         }
         (true, data::channel::Position::Right) => {
-            row![messages, user_column]
+            row![messages, nick_list]
         }
         (false, _) => { row![messages] }.height(Length::Fill),
     };
@@ -158,8 +136,13 @@ impl Channel {
     ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let command = self.scroll_view.update(message);
-                (command.map(Message::ScrollView), None)
+                let (command, event) = self.scroll_view.update(message);
+
+                let event = event.map(|event| match event {
+                    scroll_view::Event::UserContext(event) => Event::UserContext(event),
+                });
+
+                (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
                 let (command, event) =
@@ -179,6 +162,10 @@ impl Channel {
                     None => (command, None),
                 }
             }
+            Message::UserContext(message) => (
+                Command::none(),
+                Some(Event::UserContext(user_context::update(message))),
+            ),
         }
     }
 
@@ -192,5 +179,49 @@ impl fmt::Display for Channel {
         let channel = self.channel.to_string();
 
         write!(f, "{} ({})", channel, self.server)
+    }
+}
+
+mod nick_list {
+    use data::User;
+    use iced::widget::{column, container, row, scrollable, text};
+    use iced::Length;
+    use user_context::Message;
+
+    use crate::buffer::user_context;
+    use crate::theme;
+    use crate::widget::Element;
+
+    pub fn view<'a>(users: Vec<User>) -> Element<'a, Message> {
+        let column = column(
+            users
+                .iter()
+                .map(|user| {
+                    let content = container(row![].padding([0, 4]).push(text(format!(
+                        "{}{}",
+                        user.highest_access_level(),
+                        user.nickname()
+                    ))));
+
+                    user_context::view(content, user.clone())
+                })
+                .collect(),
+        )
+        .padding(4)
+        .spacing(1);
+
+        container(
+            scrollable(column)
+                .vertical_scroll(
+                    iced::widget::scrollable::Properties::new()
+                        .width(1)
+                        .scroller_width(1),
+                )
+                .style(theme::Scrollable::Hidden),
+        )
+        .width(Length::Shrink)
+        .max_width(120)
+        .height(Length::Fill)
+        .into()
     }
 }

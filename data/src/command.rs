@@ -13,6 +13,7 @@ pub enum Kind {
     Quit,
     Msg,
     Me,
+    Whois,
 }
 
 impl FromStr for Kind {
@@ -26,6 +27,7 @@ impl FromStr for Kind {
             "quit" => Ok(Kind::Quit),
             "msg" => Ok(Kind::Msg),
             "me" => Ok(Kind::Me),
+            "whois" => Ok(Kind::Whois),
             _ => Err(()),
         }
     }
@@ -39,6 +41,7 @@ pub enum Command {
     Quit(Option<String>),
     Msg(String, String),
     Me(String, String),
+    Whois(Option<String>, String),
     Unknown(String, Vec<String>),
 }
 
@@ -79,11 +82,16 @@ pub fn parse(s: &str, buffer: &Buffer) -> Result<Command, Error> {
                     Ok(unknown())
                 }
             }
+            Kind::Whois => validated::<1, 0, false>(args, |[nick], _| {
+                // Leaving out optional [server] for now.
+                Command::Whois(None, nick)
+            }),
         },
         Err(_) => Ok(unknown()),
     }
 }
 
+// TODO: Expand `validated` so we can better indicate which parameters is optional.
 fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
     args: Vec<&str>,
     f: impl FnOnce([String; EXACT], [Option<String>; OPT]) -> Command,
@@ -135,6 +143,7 @@ impl TryFrom<Command> for proto::Command {
             Command::Me(target, text) => {
                 proto::Command::PRIVMSG(target, format!("\u{1}ACTION {text}\u{1}"))
             }
+            Command::Whois(channel, user) => proto::Command::WHOIS(channel, user),
             Command::Unknown(command, args) => {
                 let args = args.iter().map(|arg| arg.as_str()).collect();
 

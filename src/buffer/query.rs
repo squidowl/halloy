@@ -5,7 +5,7 @@ use data::{buffer, client, history, message, Server};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
-use super::{input_view, scroll_view};
+use super::{input_view, scroll_view, user_context};
 use crate::theme;
 use crate::widget::{selectable_text, Collection, Element};
 
@@ -16,7 +16,9 @@ pub enum Message {
 }
 
 #[derive(Debug, Clone)]
-pub enum Event {}
+pub enum Event {
+    UserContext(user_context::Event),
+}
 
 pub fn view<'a>(
     state: &'a Query,
@@ -43,9 +45,13 @@ pub fn view<'a>(
                                 .map(|timestamp| {
                                     selectable_text(timestamp).style(theme::Text::Alpha04)
                                 });
-                        let nick = selectable_text(settings.nickname.brackets.format(user)).style(
-                            theme::Text::Nickname(user.color_seed(&settings.nickname.color)),
-                        );
+                        let nick = user_context::view(
+                            selectable_text(settings.nickname.brackets.format(user)).style(
+                                theme::Text::Nickname(user.color_seed(&settings.nickname.color)),
+                            ),
+                            user.clone(),
+                        )
+                        .map(scroll_view::Message::UserContext);
 
                         let message = selectable_text(&message.text);
 
@@ -112,8 +118,13 @@ impl Query {
     ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let command = self.scroll_view.update(message);
-                (command.map(Message::ScrollView), None)
+                let (command, event) = self.scroll_view.update(message);
+
+                let event = event.map(|event| match event {
+                    scroll_view::Event::UserContext(event) => Event::UserContext(event),
+                });
+
+                (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
                 let (command, event) =
