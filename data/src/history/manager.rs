@@ -95,7 +95,50 @@ impl Manager {
         self.data.flush_all(now)
     }
 
-    pub fn close(&mut self) -> impl Future<Output = ()> {
+    pub fn close(
+        &mut self,
+        server: Server,
+        kind: history::Kind,
+    ) -> Option<impl Future<Output = ()>> {
+        let history = self.data.map.get_mut(&server)?.remove(&kind)?;
+
+        Some(async move {
+            match history.close().await {
+                Ok(_) => {
+                    log::debug!("closed history for {kind} on {server}",);
+                }
+                Err(error) => {
+                    log::warn!("failed to close history for {kind} on {server}: {error}");
+                }
+            }
+        })
+    }
+
+    pub fn close_server(&mut self, server: Server) -> Option<impl Future<Output = ()>> {
+        let map = self.data.map.remove(&server)?;
+
+        Some(async move {
+            let tasks = map.into_iter().map(move |(kind, state)| {
+                let server = server.clone();
+                state.close().map(move |result| (server, kind, result))
+            });
+
+            let results = future::join_all(tasks).await;
+
+            for (server, kind, result) in results {
+                match result {
+                    Ok(_) => {
+                        log::debug!("closed history for {kind} on {server}",);
+                    }
+                    Err(error) => {
+                        log::warn!("failed to close history for {kind} on {server}: {error}");
+                    }
+                }
+            }
+        })
+    }
+
+    pub fn close_all(&mut self) -> impl Future<Output = ()> {
         let map = std::mem::take(&mut self.data).map;
 
         async move {

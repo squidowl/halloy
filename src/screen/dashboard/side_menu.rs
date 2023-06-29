@@ -14,6 +14,7 @@ pub enum Message {
     Replace(Buffer, pane_grid::Pane),
     Close(pane_grid::Pane),
     Swap(pane_grid::Pane, pane_grid::Pane),
+    Leave(Buffer),
 }
 
 #[derive(Debug, Clone)]
@@ -22,6 +23,7 @@ pub enum Event {
     Replace(Buffer, pane_grid::Pane),
     Close(pane_grid::Pane),
     Swap(pane_grid::Pane, pane_grid::Pane),
+    Leave(Buffer),
 }
 
 #[derive(Clone)]
@@ -32,12 +34,13 @@ impl SideMenu {
         Self {}
     }
 
-    pub fn update(&mut self, message: Message) -> Option<Event> {
+    pub fn update(&mut self, message: Message) -> Event {
         match message {
-            Message::Open(source) => Some(Event::Open(source)),
-            Message::Replace(source, pane) => Some(Event::Replace(source, pane)),
-            Message::Close(pane) => Some(Event::Close(pane)),
-            Message::Swap(from, to) => Some(Event::Swap(from, to)),
+            Message::Open(source) => Event::Open(source),
+            Message::Replace(source, pane) => Event::Replace(source, pane),
+            Message::Close(pane) => Event::Close(pane),
+            Message::Swap(from, to) => Event::Swap(from, to),
+            Message::Leave(buffer) => Event::Leave(buffer),
         }
     }
 
@@ -116,6 +119,7 @@ enum Entry {
     Replace(pane_grid::Pane),
     Close(pane_grid::Pane),
     Swap(pane_grid::Pane, pane_grid::Pane),
+    Leave,
 }
 
 impl Entry {
@@ -125,16 +129,18 @@ impl Entry {
         focus: Option<pane_grid::Pane>,
     ) -> Vec<Self> {
         match (open, focus) {
-            (None, None) => vec![Entry::NewPane],
-            (None, Some(focus)) => vec![Entry::NewPane, Entry::Replace(focus)],
+            (None, None) => vec![Entry::NewPane, Entry::Leave],
+            (None, Some(focus)) => vec![Entry::NewPane, Entry::Replace(focus), Entry::Leave],
             (Some(open), None) => (num_panes > 1)
                 .then_some(Entry::Close(open))
                 .into_iter()
+                .chain(Some(Entry::Leave))
                 .collect(),
             (Some(open), Some(focus)) => (num_panes > 1)
                 .then_some(Entry::Close(open))
                 .into_iter()
                 .chain((open != focus).then_some(Entry::Swap(open, focus)))
+                .chain(Some(Entry::Leave))
                 .collect(),
         }
     }
@@ -197,6 +203,7 @@ fn buffer_button<'a>(
                 ),
                 Entry::Close(pane) => ("Close pane", Message::Close(pane)),
                 Entry::Swap(from, to) => ("Swap with current pane", Message::Swap(from, to)),
+                Entry::Leave => ("Leave", Message::Leave(buffer.clone())),
             };
 
             button(text(content).style(theme::Text::Primary))

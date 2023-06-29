@@ -55,6 +55,10 @@ impl<'a> From<(&'a Server, &'a Config)> for Entry {
 pub struct Map(BTreeMap<Server, Config>);
 
 impl Map {
+    pub fn remove(&mut self, server: &Server) {
+        self.0.remove(server);
+    }
+
     pub fn entries(&self) -> impl Iterator<Item = Entry> + '_ {
         self.0.iter().map(Entry::from)
     }

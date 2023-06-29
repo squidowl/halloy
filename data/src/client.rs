@@ -38,6 +38,16 @@ impl Connection {
         }
     }
 
+    pub async fn quit(self) {
+        use std::time::Duration;
+        use tokio::time;
+
+        let _ = self.client.send_quit("");
+
+        // Ensure message is sent before dropping
+        time::sleep(Duration::from_secs(1)).await;
+    }
+
     fn send(&mut self, message: message::Encoded) {
         if let Err(e) = self.client.send(message) {
             log::warn!("Error sending message: {e}");
@@ -113,6 +123,13 @@ impl Map {
 
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    pub fn remove(&mut self, server: &Server) -> Option<Connection> {
+        self.0.remove(server).and_then(|state| match state {
+            State::Disconnected => None,
+            State::Ready(connection) => Some(connection),
+        })
     }
 
     pub fn connection(&self, server: &Server) -> Option<&Connection> {
