@@ -48,7 +48,6 @@ pub fn view<'a>(
                                 theme::Text::Nickname(user.color_seed(&settings.nickname.color)),
                             ),
                             user.clone(),
-                            Some(state.channel.clone()),
                         )
                         .map(scroll_view::Message::UserContext);
                         let message = selectable_text(&message.text);
@@ -82,7 +81,7 @@ pub fn view<'a>(
     });
 
     let users = clients.get_channel_users(&state.server, &state.channel);
-    let nick_list = nick_list::view(users, state.channel.clone()).map(Message::UserContext);
+    let nick_list = nick_list::view(users).map(Message::UserContext);
 
     let content = match (
         settings.channel.users.visible,
@@ -193,7 +192,7 @@ mod nick_list {
     use crate::theme;
     use crate::widget::Element;
 
-    pub fn view<'a>(users: Vec<User>, channel: String) -> Element<'a, Message> {
+    pub fn view<'a>(users: Vec<User>) -> Element<'a, Message> {
         let column = column(
             users
                 .iter()
@@ -204,7 +203,7 @@ mod nick_list {
                         user.nickname()
                     ))));
 
-                    user_context::view(content, user.clone(), Some(channel.clone()))
+                    user_context::view(content, user.clone())
                 })
                 .collect(),
         )
