@@ -121,7 +121,7 @@ pub enum History {
         kind: Kind,
         messages: Vec<Message>,
         last_received_at: Option<Instant>,
-        user_message_count: usize,
+        unread_message_count: usize,
         opened_at: Posix,
     },
     Full {
@@ -140,7 +140,7 @@ impl History {
             kind,
             messages: vec![],
             last_received_at: None,
-            user_message_count: 0,
+            unread_message_count: 0,
             opened_at,
         }
     }
@@ -150,11 +150,11 @@ impl History {
             History::Partial {
                 messages,
                 last_received_at,
-                user_message_count,
+                unread_message_count,
                 ..
             } => {
                 if message.triggers_unread() {
-                    *user_message_count += 1;
+                    *unread_message_count += 1;
                 }
 
                 messages.push(message);
