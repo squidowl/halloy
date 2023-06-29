@@ -105,6 +105,24 @@ impl User {
         AccessLevel(self.0.highest_access_level())
     }
 
+    pub fn has_op(&self) -> bool {
+        use irc::client::data::AccessLevel;
+
+        self.0
+            .access_levels()
+            .iter()
+            .any(|a| a == &AccessLevel::Oper)
+    }
+
+    pub fn has_voice(&self) -> bool {
+        use irc::client::data::AccessLevel;
+
+        self.0
+            .access_levels()
+            .iter()
+            .any(|a| a == &AccessLevel::Voice)
+    }
+
     pub fn formatted(&self) -> String {
         let user = self.username();
         let host = self.hostname();
