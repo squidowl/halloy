@@ -58,6 +58,7 @@ impl SideMenu {
                         focus,
                         Buffer::Server(server.clone()),
                         false,
+                        false,
                     ));
                 }
                 data::client::State::Ready(connection) => {
@@ -66,6 +67,7 @@ impl SideMenu {
                         focus,
                         Buffer::Server(server.clone()),
                         true,
+                        false,
                     ));
 
                     for channel in connection.channels() {
@@ -74,6 +76,7 @@ impl SideMenu {
                             focus,
                             Buffer::Channel(server.clone(), channel.clone()),
                             true,
+                            history.has_unread(server, &history::Kind::Channel(channel.clone())),
                         ));
                     }
 
@@ -84,6 +87,7 @@ impl SideMenu {
                             focus,
                             Buffer::Query(server.clone(), user.clone()),
                             true,
+                            history.has_unread(server, &history::Kind::Query(user.clone())),
                         ));
                     }
 
@@ -141,6 +145,7 @@ fn buffer_button<'a>(
     focus: Option<pane_grid::Pane>,
     buffer: Buffer,
     connected: bool,
+    has_unread: bool,
 ) -> Element<'a, Message> {
     let open = panes
         .iter()
@@ -159,14 +164,22 @@ fn buffer_button<'a>(
         .align_items(iced::Alignment::Center),
         Buffer::Channel(_, channel) => row![
             horizontal_space(4),
-            icon::chat(),
+            if has_unread {
+                icon::chat_fill()
+            } else {
+                icon::chat()
+            },
             text(channel).style(theme::Text::Primary)
         ]
         .spacing(8)
         .align_items(iced::Alignment::Center),
         Buffer::Query(_, nick) => row![
             horizontal_space(4),
-            icon::person(),
+            if has_unread {
+                icon::person_fill()
+            } else {
+                icon::person()
+            },
             text(nick).style(theme::Text::Primary)
         ]
         .spacing(8)
