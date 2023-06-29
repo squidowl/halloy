@@ -9,8 +9,8 @@
     "command": "halloy",
     "finish-args": [
         "--share=ipc",
-        "--filesystem=xdg-config",
-        "--filesystem=xdg-data",
+        "--filesystem=xdg-config/halloy:create",
+        "--filesystem=xdg-data/halloy:create",
         "--socket=fallback-x11",
         "--socket=wayland",
         "--device=dri",
