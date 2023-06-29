@@ -106,11 +106,11 @@ impl SideMenu {
         }
 
         container(
-            scrollable(column).vertical_scroll(
+            scrollable(column).direction(scrollable::Direction::Vertical(
                 iced::widget::scrollable::Properties::default()
                     .width(0)
                     .scroller_width(0),
-            ),
+            )),
         )
         .padding([8, 0, 6, 6])
         .center_x()
