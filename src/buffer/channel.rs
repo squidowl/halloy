@@ -214,11 +214,9 @@ mod nick_list {
 
         container(
             scrollable(column)
-                .vertical_scroll(
-                    iced::widget::scrollable::Properties::new()
-                        .width(1)
-                        .scroller_width(1),
-                )
+                .direction(scrollable::Direction::Vertical(
+                    scrollable::Properties::new().width(1).scroller_width(1),
+                ))
                 .style(theme::Scrollable::Hidden),
         )
         .width(Length::Shrink)
