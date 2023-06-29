@@ -96,6 +96,19 @@ impl Default for Completion {
                         },
                     ],
                 },
+                Entry {
+                    title: "PART",
+                    args: vec![
+                        Arg {
+                            text: "channels",
+                            optional: false,
+                        },
+                        Arg {
+                            text: "reason",
+                            optional: true,
+                        },
+                    ],
+                },
             ],
             filtered_entries: vec![],
         }
