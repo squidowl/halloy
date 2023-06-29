@@ -2,10 +2,11 @@ use data::message::Limit;
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time};
-use iced::widget::scrollable;
+use iced::widget::{column, container, horizontal_rule, scrollable};
 use iced::{Command, Length};
 
-use crate::widget::{Column, Element};
+use crate::theme;
+use crate::widget::Element;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -31,42 +32,66 @@ pub fn view<'a>(
     history: &'a history::Manager,
     format: impl Fn(&'a data::Message) -> Option<Element<'a, Message>> + 'a,
 ) -> Element<'a, Message> {
-    let (total, messages) = match kind {
+    let Some(history::View {
+        total,
+        old_messages,
+        new_messages,
+    }) = (match kind {
         Kind::Server(server) => history.get_server_messages(server, Some(state.limit)),
         Kind::Channel(server, channel) => {
             history.get_channel_messages(server, channel, Some(state.limit))
         }
         Kind::Query(server, user) => history.get_query_messages(server, user, Some(state.limit)),
+    }) else {
+        return column![].into();
     };
 
-    let count = messages.len();
+    let count = old_messages.len() + new_messages.len();
     let remaining = count < total;
-    let oldest = messages
-        .first()
+    let oldest = old_messages
+        .iter()
+        .chain(&new_messages)
+        .next()
         .map(|message| message.received_at)
         .unwrap_or_else(time::Posix::now);
     let status = state.status;
 
-    scrollable(
-        Column::with_children(messages.into_iter().filter_map(format).collect())
+    let old = old_messages
+        .into_iter()
+        .filter_map(&format)
+        .collect::<Vec<_>>();
+    let new = new_messages
+        .into_iter()
+        .filter_map(format)
+        .collect::<Vec<_>>();
+
+    let show_divider = !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom));
+
+    let content = if show_divider {
+        let divider = container(horizontal_rule(1).style(theme::Rule::Unread))
             .width(Length::Fill)
-            .padding([0, 8]),
-    )
-    .vertical_scroll(
-        scrollable::Properties::default()
-            .alignment(status.alignment())
-            .width(5)
-            .scroller_width(5),
-    )
-    .on_scroll(move |viewport| Message::Scrolled {
-        count,
-        remaining,
-        oldest,
-        status,
-        viewport,
-    })
-    .id(state.scrollable.clone())
-    .into()
+            .padding(5);
+        column![column(old), divider, column(new)]
+    } else {
+        column![column(old), column(new)]
+    };
+
+    scrollable(container(content).width(Length::Fill).padding([0, 8]))
+        .vertical_scroll(
+            scrollable::Properties::default()
+                .alignment(status.alignment())
+                .width(5)
+                .scroller_width(5),
+        )
+        .on_scroll(move |viewport| Message::Scrolled {
+            count,
+            remaining,
+            oldest,
+            status,
+            viewport,
+        })
+        .id(state.scrollable.clone())
+        .into()
 }
 
 #[derive(Debug, Clone)]

@@ -131,6 +131,7 @@ impl Subpalette {
 pub enum Rule {
     #[default]
     Default,
+    Unread,
 }
 
 impl rule::StyleSheet for Theme {
@@ -140,6 +141,12 @@ impl rule::StyleSheet for Theme {
         match style {
             Rule::Default => rule::Appearance {
                 color: self.colors.background.lighten_03,
+                width: 1,
+                radius: 0.0.into(),
+                fill_mode: rule::FillMode::Full,
+            },
+            Rule::Unread => rule::Appearance {
+                color: self.colors.accent.base,
                 width: 1,
                 radius: 0.0.into(),
                 fill_mode: rule::FillMode::Full,
@@ -187,7 +194,7 @@ impl text::StyleSheet for Theme {
                 color: Some(self.colors.error.base),
             },
             Text::Nickname(seed) => {
-                let original_color = self.colors.accent.base;
+                let original_color = self.colors.action.base;
                 let color = seed
                     .map(|seed| palette::randomize_color(original_color, seed.as_str()))
                     .unwrap_or_else(|| original_color);
@@ -300,7 +307,10 @@ impl button::StyleSheet for Theme {
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.accent.alpha_02)),
+                background: Some(Background::Color(Color {
+                    a: 0.8,
+                    ..self.colors.background.darken_06
+                })),
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
@@ -358,11 +368,11 @@ impl button::StyleSheet for Theme {
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.accent.alpha_04)),
+                background: Some(Background::Color(self.colors.background.darken_09)),
                 ..active
             },
             Button::SideMenu { .. } => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_06)),
+                background: Some(Background::Color(self.colors.background.darken_03)),
                 border_radius: 3.0.into(),
                 ..active
             },

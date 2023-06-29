@@ -8,6 +8,7 @@ use tokio::fs;
 use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
+use crate::time::Posix;
 use crate::user::Nick;
 use crate::{compression, environment, message, server, Message};
 
@@ -120,29 +121,27 @@ pub enum History {
         kind: Kind,
         messages: Vec<Message>,
         last_received_at: Option<Instant>,
+        unread_message_count: usize,
+        opened_at: Posix,
     },
     Full {
         server: server::Server,
         kind: Kind,
         messages: Vec<Message>,
         last_received_at: Option<Instant>,
+        opened_at: Posix,
     },
 }
 
 impl History {
-    fn partial(server: server::Server, kind: Kind) -> Self {
+    fn partial(server: server::Server, kind: Kind, opened_at: Posix) -> Self {
         Self::Partial {
             server,
             kind,
             messages: vec![],
             last_received_at: None,
-        }
-    }
-
-    fn messages(&self) -> &[Message] {
-        match self {
-            History::Partial { messages, .. } => messages,
-            History::Full { messages, .. } => messages,
+            unread_message_count: 0,
+            opened_at,
         }
     }
 
@@ -151,8 +150,13 @@ impl History {
             History::Partial {
                 messages,
                 last_received_at,
+                unread_message_count,
                 ..
             } => {
+                if message.triggers_unread() {
+                    *unread_message_count += 1;
+                }
+
                 messages.push(message);
                 *last_received_at = Some(Instant::now());
             }
@@ -174,6 +178,7 @@ impl History {
                 kind,
                 messages,
                 last_received_at,
+                ..
             } => {
                 if let Some(last_received) = *last_received_at {
                     let since = now.duration_since(last_received);
@@ -195,6 +200,7 @@ impl History {
                 kind,
                 messages,
                 last_received_at,
+                ..
             } => {
                 if let Some(last_received) = *last_received_at {
                     let since = now.duration_since(last_received);
@@ -234,7 +240,7 @@ impl History {
                 let kind = kind.clone();
                 let messages = std::mem::take(messages);
 
-                *self = Self::partial(server.clone(), kind.clone());
+                *self = Self::partial(server.clone(), kind.clone(), Posix::now());
 
                 Some(async move { overwrite(&server, &kind, &messages).await })
             }
@@ -258,6 +264,14 @@ impl History {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct View<'a> {
+    pub total: usize,
+    pub old_messages: Vec<&'a Message>,
+    pub new_messages: Vec<&'a Message>,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("can't resolve data directory")]
