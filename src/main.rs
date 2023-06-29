@@ -16,7 +16,7 @@ use std::env;
 use data::config::{self, Config};
 use data::server;
 use iced::widget::container;
-use iced::{executor, Application, Command, Length, Subscription};
+use iced::{executor, window, Application, Command, Length, Subscription};
 use screen::{dashboard, help, welcome};
 
 use self::event::{events, Event};
@@ -304,6 +304,8 @@ impl Application for Halloy {
             Message::Event(event) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.handle_event(event).map(Message::Dashboard)
+                } else if let event::Event::CloseRequested = event {
+                    window::close()
                 } else {
                     Command::none()
                 }
