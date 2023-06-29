@@ -65,13 +65,15 @@ pub fn view<'a>(
         .filter_map(format)
         .collect::<Vec<_>>();
 
-    let content = if new.is_empty() && old.is_empty() {
-        column![]
-    } else {
+    let show_divider = !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom));
+
+    let content = if show_divider {
         let divider = container(horizontal_rule(1).style(theme::Rule::Unread))
             .width(Length::Fill)
             .padding(5);
         column![column(old), divider, column(new)]
+    } else {
+        column![column(old), column(new)]
     };
 
     scrollable(container(content).width(Length::Fill).padding([0, 8]))
