@@ -5,7 +5,7 @@ use iced::widget::{
 use iced::Length;
 
 use super::pane::Pane;
-use crate::widget::{context_menu, Element};
+use crate::widget::{context_menu, Collection, Element};
 use crate::{icon, theme};
 
 #[derive(Debug, Clone)]
@@ -162,28 +162,18 @@ fn buffer_button<'a>(
         ]
         .spacing(8)
         .align_items(iced::Alignment::Center),
-        Buffer::Channel(_, channel) => row![
-            horizontal_space(4),
-            if has_unread {
-                icon::chat_fill()
-            } else {
-                icon::chat()
-            },
-            text(channel).style(theme::Text::Primary)
-        ]
-        .spacing(8)
-        .align_items(iced::Alignment::Center),
-        Buffer::Query(_, nick) => row![
-            horizontal_space(4),
-            if has_unread {
-                icon::person_fill()
-            } else {
-                icon::person()
-            },
-            text(nick).style(theme::Text::Primary)
-        ]
-        .spacing(8)
-        .align_items(iced::Alignment::Center),
+        Buffer::Channel(_, channel) => row![]
+            .push(horizontal_space(3))
+            .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::Text::Info)))
+            .push(horizontal_space(if has_unread { 10 } else { 16 }))
+            .push(text(channel).style(theme::Text::Primary))
+            .align_items(iced::Alignment::Center),
+        Buffer::Query(_, nick) => row![]
+            .push(horizontal_space(3))
+            .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::Text::Info)))
+            .push(horizontal_space(if has_unread { 10 } else { 16 }))
+            .push(text(nick).style(theme::Text::Primary))
+            .align_items(iced::Alignment::Center),
     };
 
     let base = button(row)

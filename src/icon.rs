@@ -6,6 +6,10 @@ use crate::{font, theme};
 
 // Based off https://github.com/iced-rs/iced_aw/blob/main/src/graphics/icons/bootstrap.rs
 
+pub fn dot<'a>() -> Text<'a> {
+    to_text('\u{f287}')
+}
+
 pub fn error<'a>() -> Text<'a> {
     to_text('\u{f33a}')
 }
@@ -16,22 +20,6 @@ pub fn globe<'a>() -> Text<'a> {
 
 pub fn wifi_off<'a>() -> Text<'a> {
     to_text('\u{f61b}')
-}
-
-pub fn chat<'a>() -> Text<'a> {
-    to_text('\u{f267}')
-}
-
-pub fn chat_fill<'a>() -> Text<'a> {
-    to_text('\u{f266}')
-}
-
-pub fn person<'a>() -> Text<'a> {
-    to_text('\u{f4e1}')
-}
-
-pub fn person_fill<'a>() -> Text<'a> {
-    to_text('\u{f4da}')
 }
 
 pub fn close<'a>() -> Text<'a> {
