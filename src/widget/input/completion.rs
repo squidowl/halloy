@@ -109,6 +109,36 @@ impl Default for Completion {
                         },
                     ],
                 },
+                Entry {
+                    title: "TOPIC",
+                    args: vec![
+                        Arg {
+                            text: "channel",
+                            optional: false,
+                        },
+                        Arg {
+                            text: "topic",
+                            optional: true,
+                        },
+                    ],
+                },
+                Entry {
+                    title: "KICK",
+                    args: vec![
+                        Arg {
+                            text: "channel",
+                            optional: false,
+                        },
+                        Arg {
+                            text: "user",
+                            optional: false,
+                        },
+                        Arg {
+                            text: "comment",
+                            optional: true,
+                        },
+                    ],
+                },
             ],
             filtered_entries: vec![],
         }
