@@ -50,6 +50,7 @@ pub fn view<'a>(
                                 theme::Text::Nickname(user.color_seed(&settings.nickname.color)),
                             ),
                             user.clone(),
+                            None,
                         )
                         .map(scroll_view::Message::UserContext);
 

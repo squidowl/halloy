@@ -143,6 +143,41 @@ impl Dashboard {
                                         return self.open_buffer(buffer, config);
                                     }
                                 }
+                                buffer::user_context::Event::SendMode(user, channel, mode) => {
+                                    let Some(channel) = channel else {
+                                        return Command::none()
+                                    };
+
+                                    let Some(buffer) = pane.buffer.data() else {
+                                        return Command::none()
+                                    };
+
+                                    let cmd = format!(
+                                        "/MODE {} {} {}",
+                                        channel,
+                                        mode.raw(),
+                                        user.nickname(),
+                                    );
+
+                                    println!("{:?}", &cmd);
+
+                                    let Ok(command) = data::command::parse(&cmd, &buffer) else {
+                                        return Command::none();
+                                    };
+
+                                    let input = data::Input::command(buffer, command);
+
+                                    if let Some(encoded) = input.encoded() {
+                                        clients.send(input.server(), encoded);
+                                    }
+
+                                    if let Some(message) = clients
+                                        .nickname(input.server())
+                                        .and_then(|nick| input.message(&nick))
+                                    {
+                                        self.history.record_message(input.server(), message);
+                                    }
+                                }
                             }
                         }
 
