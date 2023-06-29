@@ -1,6 +1,6 @@
 use iced::{keyboard, subscription, window, Subscription};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Event {
     CloseRequested,
     Copy,
