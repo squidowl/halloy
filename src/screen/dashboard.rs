@@ -37,10 +37,7 @@ pub enum Message {
 
 impl Dashboard {
     pub fn empty(config: &Config) -> (Self, Command<Message>) {
-        let (panes, _) = pane_grid::State::new(Pane::new(
-            Buffer::Empty(Default::default()),
-            config.new_buffer.clone(),
-        ));
+        let (panes, _) = pane_grid::State::new(Pane::new(Buffer::Empty, config.new_buffer.clone()));
 
         let mut dashboard = Dashboard {
             panes,
@@ -94,7 +91,7 @@ impl Dashboard {
                         if let Some((_, sibling)) = self.panes.close(&pane) {
                             return self.focus_pane(sibling);
                         } else if let Some(pane) = self.panes.get_mut(&pane) {
-                            pane.buffer = Buffer::Empty(Default::default());
+                            pane.buffer = Buffer::Empty;
                         }
                     }
                 }
@@ -103,10 +100,7 @@ impl Dashboard {
                         let result = self.panes.split(
                             axis,
                             &pane,
-                            Pane::new(
-                                Buffer::Empty(buffer::empty::Empty::default()),
-                                config.new_buffer.clone(),
-                            ),
+                            Pane::new(Buffer::Empty, config.new_buffer.clone()),
                         );
                         self.last_changed = Some(Instant::now());
                         if let Some((pane, _)) = result {
@@ -119,12 +113,37 @@ impl Dashboard {
                         let (command, event) =
                             pane.buffer.update(message, clients, &mut self.history);
 
-                        match event {
-                            Some(buffer::Event::Empty(event)) => match event {},
-                            Some(buffer::Event::Channel(event)) => match event {},
-                            Some(buffer::Event::Server(event)) => match event {},
-                            Some(buffer::Event::Query(event)) => match event {},
-                            None => {}
+                        if let Some(buffer::Event::UserContext(event)) = event {
+                            match event {
+                                buffer::user_context::Event::SendWhois(user) => {
+                                    if let Some(buffer) = pane.buffer.data() {
+                                        let command =
+                                            data::Command::Whois(None, user.nickname().to_string());
+
+                                        let input = data::Input::command(buffer, command);
+
+                                        if let Some(encoded) = input.encoded() {
+                                            clients.send(input.server(), encoded);
+                                        }
+
+                                        if let Some(message) = clients
+                                            .nickname(input.server())
+                                            .and_then(|nick| input.message(&nick))
+                                        {
+                                            self.history.record_message(input.server(), message);
+                                        }
+                                    }
+                                }
+                                buffer::user_context::Event::OpenQuery(user) => {
+                                    if let Some(data) = pane.buffer.data() {
+                                        let buffer = data::Buffer::Query(
+                                            data.server().clone(),
+                                            user.nickname(),
+                                        );
+                                        return self.open_buffer(buffer, config);
+                                    }
+                                }
+                            }
                         }
 
                         return command
@@ -147,59 +166,9 @@ impl Dashboard {
             },
             Message::SideMenu(message) => {
                 if let Some(event) = self.side_menu.update(message) {
-                    let panes = self.panes.clone();
-
                     match event {
                         side_menu::Event::Open(kind) => {
-                            // If channel already is open, we focus it.
-                            for (id, pane) in panes.iter() {
-                                if pane.buffer.data().as_ref() == Some(&kind) {
-                                    self.focus = Some(*id);
-
-                                    return self.focus_pane(*id);
-                                }
-                            }
-
-                            // If we only have one pane, and its empty, we replace it.
-                            if self.panes.len() == 1 {
-                                for (id, pane) in panes.iter() {
-                                    if let Buffer::Empty(_) = &pane.buffer {
-                                        self.panes.panes.entry(*id).and_modify(|p| {
-                                            *p = Pane::new(
-                                                Buffer::from(kind),
-                                                config.new_buffer.clone(),
-                                            )
-                                        });
-                                        self.last_changed = Some(Instant::now());
-
-                                        return self.focus_pane(*id);
-                                    }
-                                }
-                            }
-
-                            // Default split could be a config option.
-                            let axis = pane_grid::Axis::Horizontal;
-                            let pane_to_split = {
-                                if let Some(pane) = self.focus {
-                                    pane
-                                } else if let Some(pane) = self.panes.panes.keys().last() {
-                                    *pane
-                                } else {
-                                    log::error!("Didn't find any panes");
-                                    return Command::none();
-                                }
-                            };
-
-                            let result = self.panes.split(
-                                axis,
-                                &pane_to_split,
-                                Pane::new(Buffer::from(kind), config.new_buffer.clone()),
-                            );
-                            self.last_changed = Some(Instant::now());
-
-                            if let Some((pane, _)) = result {
-                                return self.focus_pane(pane);
-                            }
+                            return self.open_buffer(kind, config);
                         }
                         side_menu::Event::Replace(kind, pane) => {
                             if let Some(state) = self.panes.get_mut(&pane) {
@@ -378,6 +347,59 @@ impl Dashboard {
                 Command::perform(task, |_| Message::Close)
             }
         }
+    }
+
+    fn open_buffer(&mut self, kind: data::Buffer, config: &Config) -> Command<Message> {
+        let panes = self.panes.clone();
+
+        // If channel already is open, we focus it.
+        for (id, pane) in panes.iter() {
+            if pane.buffer.data().as_ref() == Some(&kind) {
+                self.focus = Some(*id);
+
+                return self.focus_pane(*id);
+            }
+        }
+
+        // If we only have one pane, and its empty, we replace it.
+        if self.panes.len() == 1 {
+            for (id, pane) in panes.iter() {
+                if let Buffer::Empty = &pane.buffer {
+                    self.panes.panes.entry(*id).and_modify(|p| {
+                        *p = Pane::new(Buffer::from(kind), config.new_buffer.clone())
+                    });
+                    self.last_changed = Some(Instant::now());
+
+                    return self.focus_pane(*id);
+                }
+            }
+        }
+
+        // Default split could be a config option.
+        let axis = pane_grid::Axis::Horizontal;
+        let pane_to_split = {
+            if let Some(pane) = self.focus {
+                pane
+            } else if let Some(pane) = self.panes.panes.keys().last() {
+                *pane
+            } else {
+                log::error!("Didn't find any panes");
+                return Command::none();
+            }
+        };
+
+        let result = self.panes.split(
+            axis,
+            &pane_to_split,
+            Pane::new(Buffer::from(kind), config.new_buffer.clone()),
+        );
+        self.last_changed = Some(Instant::now());
+
+        if let Some((pane, _)) = result {
+            return self.focus_pane(pane);
+        }
+
+        Command::none()
     }
 
     pub fn record_message(&mut self, server: &Server, message: data::Message) {

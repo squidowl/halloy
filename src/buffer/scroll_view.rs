@@ -5,6 +5,7 @@ use data::{history, time};
 use iced::widget::{column, container, horizontal_rule, scrollable};
 use iced::{Command, Length};
 
+use super::user_context;
 use crate::theme;
 use crate::widget::Element;
 
@@ -17,6 +18,12 @@ pub enum Message {
         status: Status,
         viewport: scrollable::Viewport,
     },
+    UserContext(user_context::Message),
+}
+
+#[derive(Debug, Clone)]
+pub enum Event {
+    UserContext(user_context::Event),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -116,7 +123,7 @@ impl State {
         Self::default()
     }
 
-    pub fn update(&mut self, message: Message) -> Command<Message> {
+    pub fn update(&mut self, message: Message) -> (Command<Message>, Option<Event>) {
         match message {
             Message::Scrolled {
                 count,
@@ -177,12 +184,21 @@ impl State {
                 }
 
                 if let Some(new_offset) = self.status.new_offset(old_status, viewport) {
-                    return scrollable::scroll_to(self.scrollable.clone(), new_offset);
+                    return (
+                        scrollable::scroll_to(self.scrollable.clone(), new_offset),
+                        None,
+                    );
                 }
+            }
+            Message::UserContext(message) => {
+                return (
+                    Command::none(),
+                    Some(Event::UserContext(user_context::update(message))),
+                );
             }
         }
 
-        Command::none()
+        (Command::none(), None)
     }
 
     pub fn scroll_to_start(&mut self) -> Command<Message> {

@@ -22,6 +22,13 @@ pub struct Input {
 }
 
 impl Input {
+    pub fn command(buffer: Buffer, command: Command) -> Self {
+        Self {
+            buffer,
+            content: Content::Command(command),
+        }
+    }
+
     pub fn server(&self) -> &Server {
         self.buffer.server()
     }
