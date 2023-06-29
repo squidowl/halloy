@@ -187,9 +187,9 @@ impl Manager {
                 matches!(
                     history,
                     History::Partial {
-                        user_message_count,
+                        unread_message_count,
                         ..
-                    } if *user_message_count > 0
+                    } if *unread_message_count > 0
                 )
             })
             .unwrap_or_default()
