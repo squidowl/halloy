@@ -136,8 +136,7 @@ impl Manager {
         limit: Option<Limit>,
     ) -> Option<history::View<'_>> {
         self.data
-            .full_messages(server, &history::Kind::Channel(channel.to_string()))
-            .map(|(opened_at, messages)| history_view(messages, limit, opened_at))
+            .history_view(server, &history::Kind::Channel(channel.to_string()), limit)
     }
 
     pub fn get_server_messages(
@@ -146,8 +145,7 @@ impl Manager {
         limit: Option<Limit>,
     ) -> Option<history::View<'_>> {
         self.data
-            .full_messages(server, &history::Kind::Server)
-            .map(|(opened_at, messages)| history_view(messages, limit, opened_at))
+            .history_view(server, &history::Kind::Server, limit)
     }
 
     pub fn get_query_messages(
@@ -157,8 +155,7 @@ impl Manager {
         limit: Option<Limit>,
     ) -> Option<history::View<'_>> {
         self.data
-            .full_messages(server, &history::Kind::Query(nick.clone()))
-            .map(|(opened_at, messages)| history_view(messages, limit, opened_at))
+            .history_view(server, &history::Kind::Query(nick.clone()), limit)
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
@@ -233,28 +230,6 @@ impl Manager {
         messages.into_iter().for_each(|message| {
             self.record_message(server, message);
         });
-    }
-}
-
-fn history_view(
-    messages: &[crate::Message],
-    limit: Option<Limit>,
-    opened_at: Posix,
-) -> history::View {
-    let total = messages.len();
-    let messages = with_limit(limit, messages.iter());
-
-    let split_at = messages
-        .iter()
-        .position(|message| message.received_at >= opened_at)
-        .unwrap_or(messages.len());
-
-    let (old, new) = messages.split_at(split_at);
-
-    history::View {
-        total,
-        old_messages: old.to_vec(),
-        new_messages: new.to_vec(),
     }
 }
 
@@ -336,26 +311,31 @@ impl Data {
         }
     }
 
-    fn full_messages(
+    fn history_view(
         &self,
         server: &server::Server,
         kind: &history::Kind,
-    ) -> Option<(Posix, &[crate::Message])> {
-        self.map
-            .get(server)
-            .and_then(|map| map.get(kind))
-            .and_then(|history| {
-                if let History::Full {
-                    messages,
-                    opened_at,
-                    ..
-                } = history
-                {
-                    Some((*opened_at, &messages[..]))
-                } else {
-                    None
-                }
-            })
+        limit: Option<Limit>,
+    ) -> Option<history::View> {
+        let History::Full { messages, opened_at, .. } = self.map.get(server)?.get(kind)? else {
+            return None;
+        };
+
+        let total = messages.len();
+        let limited = with_limit(limit, messages.iter());
+
+        let split_at = limited
+            .iter()
+            .position(|message| message.received_at >= *opened_at)
+            .unwrap_or(limited.len());
+
+        let (old, new) = limited.split_at(split_at);
+
+        Some(history::View {
+            total,
+            old_messages: old.to_vec(),
+            new_messages: new.to_vec(),
+        })
     }
 
     fn add_message(
