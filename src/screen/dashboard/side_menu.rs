@@ -5,7 +5,7 @@ use iced::widget::{
 use iced::Length;
 
 use super::pane::Pane;
-use crate::widget::{context_menu, Element};
+use crate::widget::{context_menu, Collection, Element};
 use crate::{icon, theme};
 
 #[derive(Debug, Clone)]
@@ -58,6 +58,7 @@ impl SideMenu {
                         focus,
                         Buffer::Server(server.clone()),
                         false,
+                        false,
                     ));
                 }
                 data::client::State::Ready(connection) => {
@@ -66,6 +67,7 @@ impl SideMenu {
                         focus,
                         Buffer::Server(server.clone()),
                         true,
+                        false,
                     ));
 
                     for channel in connection.channels() {
@@ -74,6 +76,7 @@ impl SideMenu {
                             focus,
                             Buffer::Channel(server.clone(), channel.clone()),
                             true,
+                            history.has_unread(server, &history::Kind::Channel(channel.clone())),
                         ));
                     }
 
@@ -84,6 +87,7 @@ impl SideMenu {
                             focus,
                             Buffer::Query(server.clone(), user.clone()),
                             true,
+                            history.has_unread(server, &history::Kind::Query(user.clone())),
                         ));
                     }
 
@@ -141,6 +145,7 @@ fn buffer_button<'a>(
     focus: Option<pane_grid::Pane>,
     buffer: Buffer,
     connected: bool,
+    has_unread: bool,
 ) -> Element<'a, Message> {
     let open = panes
         .iter()
@@ -157,20 +162,18 @@ fn buffer_button<'a>(
         ]
         .spacing(8)
         .align_items(iced::Alignment::Center),
-        Buffer::Channel(_, channel) => row![
-            horizontal_space(4),
-            icon::chat(),
-            text(channel).style(theme::Text::Primary)
-        ]
-        .spacing(8)
-        .align_items(iced::Alignment::Center),
-        Buffer::Query(_, nick) => row![
-            horizontal_space(4),
-            icon::person(),
-            text(nick).style(theme::Text::Primary)
-        ]
-        .spacing(8)
-        .align_items(iced::Alignment::Center),
+        Buffer::Channel(_, channel) => row![]
+            .push(horizontal_space(3))
+            .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::Text::Info)))
+            .push(horizontal_space(if has_unread { 10 } else { 16 }))
+            .push(text(channel).style(theme::Text::Primary))
+            .align_items(iced::Alignment::Center),
+        Buffer::Query(_, nick) => row![]
+            .push(horizontal_space(3))
+            .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::Text::Info)))
+            .push(horizontal_space(if has_unread { 10 } else { 16 }))
+            .push(text(nick).style(theme::Text::Primary))
+            .align_items(iced::Alignment::Center),
     };
 
     let base = button(row)
