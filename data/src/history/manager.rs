@@ -7,6 +7,7 @@ use tokio::time::Instant;
 
 use crate::history::{self, History};
 use crate::message::{self, Limit};
+use crate::time::Posix;
 use crate::user::Nick;
 use crate::{server, Server};
 
@@ -133,30 +134,20 @@ impl Manager {
         server: &Server,
         channel: &str,
         limit: Option<Limit>,
-    ) -> (usize, Vec<&crate::Message>) {
+    ) -> Option<history::View<'_>> {
         self.data
-            .messages(server, &history::Kind::Channel(channel.to_string()))
-            .map(|messages| {
-                let total = messages.len();
-
-                (total, with_limit(limit, messages.iter()))
-            })
-            .unwrap_or_else(|| (0, vec![]))
+            .full_messages(server, &history::Kind::Channel(channel.to_string()))
+            .map(|(opened_at, messages)| history_view(messages, limit, opened_at))
     }
 
     pub fn get_server_messages(
         &self,
         server: &Server,
         limit: Option<Limit>,
-    ) -> (usize, Vec<&crate::Message>) {
+    ) -> Option<history::View<'_>> {
         self.data
-            .messages(server, &history::Kind::Server)
-            .map(|messages| {
-                let total = messages.len();
-
-                (total, with_limit(limit, messages.iter()))
-            })
-            .unwrap_or_else(|| (0, vec![]))
+            .full_messages(server, &history::Kind::Server)
+            .map(|(opened_at, messages)| history_view(messages, limit, opened_at))
     }
 
     pub fn get_query_messages(
@@ -164,15 +155,10 @@ impl Manager {
         server: &Server,
         nick: &Nick,
         limit: Option<Limit>,
-    ) -> (usize, Vec<&crate::Message>) {
+    ) -> Option<history::View<'_>> {
         self.data
-            .messages(server, &history::Kind::Query(nick.clone()))
-            .map(|messages| {
-                let total = messages.len();
-
-                (total, with_limit(limit, messages.iter()))
-            })
-            .unwrap_or_else(|| (0, vec![]))
+            .full_messages(server, &history::Kind::Query(nick.clone()))
+            .map(|(opened_at, messages)| history_view(messages, limit, opened_at))
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
@@ -190,6 +176,23 @@ impl Manager {
             .collect::<Vec<_>>();
 
         queries
+    }
+
+    pub fn has_unread(&self, server: &Server, kind: &history::Kind) -> bool {
+        self.data
+            .map
+            .get(server)
+            .and_then(|map| map.get(kind))
+            .map(|history| {
+                matches!(
+                    history,
+                    History::Partial {
+                        user_message_count,
+                        ..
+                    } if *user_message_count > 0
+                )
+            })
+            .unwrap_or_default()
     }
 
     pub fn broadcast(&mut self, server: &Server, broadcast: Broadcast) {
@@ -230,6 +233,28 @@ impl Manager {
         messages.into_iter().for_each(|message| {
             self.record_message(server, message);
         });
+    }
+}
+
+fn history_view(
+    messages: &[crate::Message],
+    limit: Option<Limit>,
+    opened_at: Posix,
+) -> history::View {
+    let total = messages.len();
+    let messages = with_limit(limit, messages.iter());
+
+    let split_at = messages
+        .iter()
+        .position(|message| message.received_at >= opened_at)
+        .unwrap_or(messages.len());
+
+    let (old, new) = messages.split_at(split_at);
+
+    history::View {
+        total,
+        old_messages: old.to_vec(),
+        new_messages: new.to_vec(),
     }
 }
 
@@ -275,15 +300,18 @@ impl Data {
                 History::Partial {
                     messages: new_messages,
                     last_received_at,
+                    opened_at,
                     ..
                 } => {
                     let last_received_at = *last_received_at;
+                    let opened_at = *opened_at;
                     messages.extend(std::mem::take(new_messages));
                     entry.insert(History::Full {
                         server,
                         kind,
                         messages,
                         last_received_at,
+                        opened_at,
                     });
                 }
                 _ => {
@@ -292,6 +320,7 @@ impl Data {
                         kind,
                         messages,
                         last_received_at: None,
+                        opened_at: Posix::now(),
                     });
                 }
             },
@@ -301,16 +330,32 @@ impl Data {
                     kind,
                     messages,
                     last_received_at: None,
+                    opened_at: Posix::now(),
                 });
             }
         }
     }
 
-    fn messages(&self, server: &server::Server, kind: &history::Kind) -> Option<&[crate::Message]> {
+    fn full_messages(
+        &self,
+        server: &server::Server,
+        kind: &history::Kind,
+    ) -> Option<(Posix, &[crate::Message])> {
         self.map
             .get(server)
             .and_then(|map| map.get(kind))
-            .map(History::messages)
+            .and_then(|history| {
+                if let History::Full {
+                    messages,
+                    opened_at,
+                    ..
+                } = history
+                {
+                    Some((*opened_at, &messages[..]))
+                } else {
+                    None
+                }
+            })
     }
 
     fn add_message(
@@ -323,7 +368,7 @@ impl Data {
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| History::partial(server, kind))
+            .or_insert_with(|| History::partial(server, kind, message.received_at))
             .add_message(message)
     }
 

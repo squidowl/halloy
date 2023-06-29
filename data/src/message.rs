@@ -39,6 +39,16 @@ pub enum Source {
     Query(Nick, Sender),
 }
 
+impl Source {
+    pub fn sender(&self) -> Option<&Sender> {
+        match self {
+            Source::Server => None,
+            Source::Channel(_, sender) => Some(sender),
+            Source::Query(_, sender) => Some(sender),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Sender {
     User(User),
@@ -90,6 +100,11 @@ impl Message {
             Source::Channel(_, kind) => kind.user(),
             Source::Query(_, kind) => kind.user(),
         }
+    }
+
+    pub fn triggers_unread(&self) -> bool {
+        matches!(self.direction, Direction::Received)
+            && matches!(self.source.sender(), Some(Sender::User(_) | Sender::Action))
     }
 
     pub fn received(encoded: Encoded, our_nick: &Nick) -> Option<Message> {

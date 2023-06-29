@@ -22,8 +22,16 @@ pub fn chat<'a>() -> Text<'a> {
     to_text('\u{f267}')
 }
 
+pub fn chat_fill<'a>() -> Text<'a> {
+    to_text('\u{f266}')
+}
+
 pub fn person<'a>() -> Text<'a> {
     to_text('\u{f4e1}')
+}
+
+pub fn person_fill<'a>() -> Text<'a> {
+    to_text('\u{f4da}')
 }
 
 pub fn close<'a>() -> Text<'a> {

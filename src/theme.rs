@@ -131,6 +131,7 @@ impl Subpalette {
 pub enum Rule {
     #[default]
     Default,
+    Unread,
 }
 
 impl rule::StyleSheet for Theme {
@@ -140,6 +141,12 @@ impl rule::StyleSheet for Theme {
         match style {
             Rule::Default => rule::Appearance {
                 color: self.colors.background.lighten_03,
+                width: 1,
+                radius: 0.0.into(),
+                fill_mode: rule::FillMode::Full,
+            },
+            Rule::Unread => rule::Appearance {
+                color: self.colors.accent.base,
                 width: 1,
                 radius: 0.0.into(),
                 fill_mode: rule::FillMode::Full,
