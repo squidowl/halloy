@@ -11,6 +11,19 @@ pub struct Dashboard {
     pub pane: Pane,
 }
 
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+pub enum DefaultAction {
+    #[default]
+    NewPane,
+    ReplacePane,
+}
+
+#[derive(Debug, Copy, Default, Clone, Deserialize, Serialize)]
+pub struct Config {
+    #[serde(default)]
+    pub sidebar_default_action: DefaultAction,
+}
+
 impl Dashboard {
     pub fn load() -> Result<Self, Error> {
         let path = path()?;
