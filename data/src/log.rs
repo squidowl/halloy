@@ -17,7 +17,7 @@ pub fn file() -> Result<fs::File, Error> {
 }
 
 fn path() -> Result<PathBuf, Error> {
-    let data_dir = environment::data_dir().ok_or(Error::ResolvableDataDir)?;
+    let data_dir = environment::data_dir();
 
     let parent = data_dir.join("halloy");
 
@@ -30,8 +30,6 @@ fn path() -> Result<PathBuf, Error> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("can't resolve data directory")]
-    ResolvableDataDir,
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error(transparent)]
