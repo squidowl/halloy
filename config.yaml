@@ -33,7 +33,7 @@ servers:
     
     # Channels to join upon connecting to the server
     channels:
-      - "##rust"
+      - "#halloy"
 
 # Font settings
 font: 
