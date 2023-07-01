@@ -48,10 +48,20 @@ pub fn view<'a>(
                             user.clone(),
                         )
                         .map(scroll_view::Message::UserContext);
+                        let row_style = match clients.connection(&state.server) {
+                            Some(conn)
+                                if user.nickname() != conn.nickname()
+                                    && message.text.contains(&conn.nickname().to_string()) =>
+                            {
+                                theme::Container::Highlight
+                            }
+                            _ => theme::Container::Default,
+                        };
                         let message = selectable_text(&message.text);
-
                         Some(
-                            container(row![].push_maybe(timestamp).push(nick).push(message)).into(),
+                            container(row![].push_maybe(timestamp).push(nick).push(message))
+                                .style(row_style)
+                                .into(),
                         )
                     }
                     data::message::Sender::Server => Some(
