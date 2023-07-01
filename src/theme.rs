@@ -86,6 +86,7 @@ impl Colors {
 pub struct Subpalette {
     pub base: Color,
     pub weak: Color,
+    pub alpha_005: Color,
     pub alpha_02: Color,
     pub alpha_04: Color,
     pub alpha_06: Color,
@@ -108,6 +109,7 @@ impl Subpalette {
         Subpalette {
             base: color,
             weak: palette::mix(palette.background, color, 0.8),
+            alpha_005: palette::alpha(color, 0.05),
             alpha_02: palette::alpha(color, 0.2),
             alpha_04: palette::alpha(color, 0.4),
             alpha_06: palette::alpha(color, 0.6),
@@ -221,6 +223,7 @@ pub enum Container {
         selected: bool,
     },
     Context,
+    Highlight,
 }
 
 impl container::StyleSheet for Theme {
@@ -269,6 +272,11 @@ impl container::StyleSheet for Theme {
                 border_radius: 4.0.into(),
                 border_width: 1.0,
                 border_color: self.colors.accent.base,
+                ..Default::default()
+            },
+            Container::Highlight => container::Appearance {
+                background: Some(Background::Color(self.colors.info.alpha_005)),
+                border_radius: 3.0.into(),
                 ..Default::default()
             },
         }

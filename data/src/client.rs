@@ -40,6 +40,7 @@ impl Connection {
 
     pub async fn quit(self) {
         use std::time::Duration;
+
         use tokio::time;
 
         let _ = self.client.send_quit("");
@@ -100,7 +101,7 @@ impl Connection {
             .collect()
     }
 
-    fn nickname(&self) -> Nick {
+    pub fn nickname(&self) -> Nick {
         Nick::from(
             self.resolved_nick
                 .as_deref()
