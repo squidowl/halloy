@@ -315,7 +315,9 @@ impl Application for Halloy {
 
     fn view(&self) -> Element<Message> {
         let content = match &self.screen {
-            Screen::Dashboard(dashboard) => dashboard.view(&self.clients).map(Message::Dashboard),
+            Screen::Dashboard(dashboard) => dashboard
+                .view(&self.clients, self.config.dashboard)
+                .map(Message::Dashboard),
             Screen::Help(help) => help.view().map(Message::Help),
             Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
         };

@@ -83,3 +83,10 @@ new_buffer:
       # - Left: Left side of pane
       # - Right: Right side of pane [default]
       position: Right  
+
+# Dashboard settings
+dashboard:
+  # Default action when selecting channels in the sidebar:
+  # - NewPane: Open a new pane for each unique channel [default]
+  # - ReplacePane: Replace the currently selected pane
+  sidebar_default_action: NewPane
