@@ -1,3 +1,4 @@
+use data::dashboard::DefaultAction;
 use data::{history, Buffer};
 use iced::widget::{
     button, column, container, horizontal_space, pane_grid, row, scrollable, text, vertical_space,
@@ -50,6 +51,7 @@ impl SideMenu {
         history: &'a history::Manager,
         panes: &pane_grid::State<Pane>,
         focus: Option<pane_grid::Pane>,
+        default_action: DefaultAction,
     ) -> Element<'a, Message> {
         let mut column = column![].spacing(1);
 
@@ -62,6 +64,7 @@ impl SideMenu {
                         Buffer::Server(server.clone()),
                         false,
                         false,
+                        default_action,
                     ));
                 }
                 data::client::State::Ready(connection) => {
@@ -71,6 +74,7 @@ impl SideMenu {
                         Buffer::Server(server.clone()),
                         true,
                         false,
+                        default_action,
                     ));
 
                     for channel in connection.channels() {
@@ -80,6 +84,7 @@ impl SideMenu {
                             Buffer::Channel(server.clone(), channel.clone()),
                             true,
                             history.has_unread(server, &history::Kind::Channel(channel.clone())),
+                            default_action,
                         ));
                     }
 
@@ -91,6 +96,7 @@ impl SideMenu {
                             Buffer::Query(server.clone(), user.clone()),
                             true,
                             history.has_unread(server, &history::Kind::Query(user.clone())),
+                            default_action,
                         ));
                     }
 
@@ -152,6 +158,7 @@ fn buffer_button<'a>(
     buffer: Buffer,
     connected: bool,
     has_unread: bool,
+    default_action: DefaultAction,
 ) -> Element<'a, Message> {
     let open = panes
         .iter()
@@ -187,7 +194,13 @@ fn buffer_button<'a>(
         .style(theme::Button::SideMenu {
             selected: open.is_some(),
         })
-        .on_press(Message::Open(buffer.clone()));
+        .on_press(match default_action {
+            DefaultAction::NewPane => Message::Open(buffer.clone()),
+            DefaultAction::ReplacePane => match focus {
+                Some(pane) => Message::Replace(buffer.clone(), pane),
+                None => Message::Open(buffer.clone()),
+            },
+        });
 
     let entries = Entry::list(panes.len(), open, focus);
 

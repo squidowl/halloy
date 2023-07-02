@@ -6,7 +6,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::palette::Palette;
-use crate::{buffer, environment, server};
+use crate::{buffer, dashboard, environment, server};
 
 const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
 
@@ -20,6 +20,8 @@ pub struct Config {
     /// Default settings when creating a new buffer
     #[serde(default)]
     pub new_buffer: buffer::Settings,
+    #[serde(default)]
+    pub dashboard: dashboard::Config,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
