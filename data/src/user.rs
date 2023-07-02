@@ -31,14 +31,7 @@ impl Ord for User {
 
 impl PartialOrd for User {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let access_level_comparison = other.highest_access_level()
-            .partial_cmp(&self.highest_access_level());
-
-        if access_level_comparison != Some(std::cmp::Ordering::Equal) {
-            return access_level_comparison;
-        }
-
-        other.nickname().partial_cmp(&self.nickname())
+        Some(self.cmp(&other))
     }
 }
 
