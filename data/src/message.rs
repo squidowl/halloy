@@ -312,7 +312,7 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
 
             Some(format!(" ∙ topic set by {nick} at {datetime}"))
         }
-        proto::Command::Response(_, responses) => Some(
+        proto::Command::Response(_, responses) | proto::Command::Raw(_, responses) => Some(
             responses
                 .iter()
                 .map(|s| s.as_str())
