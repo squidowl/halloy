@@ -23,14 +23,9 @@ impl Hash for User {
 
 impl Ord for User {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let access_level_comparison = other.highest_access_level()
-            .cmp(&self.highest_access_level());
-
-        if access_level_comparison != std::cmp::Ordering::Equal {
-            return access_level_comparison;
-        }
-
-        other.nickname().cmp(&self.nickname())
+        other.highest_access_level()
+            .cmp(&self.highest_access_level())
+            .then(other.nickname().cmp(&self.nickname()))
     }
 }
 
