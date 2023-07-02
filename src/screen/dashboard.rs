@@ -4,7 +4,7 @@ pub mod side_menu;
 use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
-use data::{history, Config, Server};
+use data::{dashboard, history, Config, Server};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
 use iced::{clipboard, window, Command, Length, Subscription};
@@ -330,7 +330,11 @@ impl Dashboard {
         Command::none()
     }
 
-    pub fn view<'a>(&'a self, clients: &'a data::client::Map) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        clients: &'a data::client::Map,
+        config: dashboard::Config,
+    ) -> Element<'a, Message> {
         let focus = self.focus;
 
         let pane_grid: Element<_> = PaneGrid::new(&self.panes, |id, pane, maximized| {
@@ -351,7 +355,13 @@ impl Dashboard {
 
         let side_menu = self
             .side_menu
-            .view(clients, &self.history, &self.panes, self.focus)
+            .view(
+                clients,
+                &self.history,
+                &self.panes,
+                self.focus,
+                config.sidebar_default_action,
+            )
             .map(Message::SideMenu);
 
         // The height margin varies across different operating systems due to design differences.
