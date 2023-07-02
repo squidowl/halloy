@@ -23,17 +23,15 @@ impl Hash for User {
 
 impl Ord for User {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other
-            .highest_access_level()
+        other.highest_access_level()
             .cmp(&self.highest_access_level())
+            .then(other.nickname().cmp(&self.nickname()))
     }
 }
 
 impl PartialOrd for User {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        other
-            .highest_access_level()
-            .partial_cmp(&self.highest_access_level())
+        Some(self.cmp(other))
     }
 }
 
@@ -143,6 +141,18 @@ impl fmt::Display for Nick {
 impl<'a> From<&'a str> for Nick {
     fn from(nick: &'a str) -> Self {
         Nick(nick.to_string())
+    }
+}
+
+impl PartialOrd for Nick {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        other.0.partial_cmp(&self.0)
+    }
+}
+
+impl Ord for Nick {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.0.cmp(&self.0)
     }
 }
 
