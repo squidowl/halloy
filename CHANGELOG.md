@@ -3,6 +3,7 @@
 Added:
 
 - New configuration option `dashboard.sidebar_default_action` allows controlling the pane behaviour when selecting channels in the sidebar
+- Sorting channel nicknames
 
 Changed:
 
