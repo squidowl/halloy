@@ -17,6 +17,7 @@ pub enum Kind {
     Part,
     Topic,
     Kick,
+    Raw,
 }
 
 impl FromStr for Kind {
@@ -34,6 +35,7 @@ impl FromStr for Kind {
             "part" => Ok(Kind::Part),
             "topic" => Ok(Kind::Topic),
             "kick" => Ok(Kind::Kick),
+            "raw" => Ok(Kind::Raw),
             _ => Err(()),
         }
     }
@@ -51,6 +53,7 @@ pub enum Command {
     Part(String, Option<String>),
     Topic(String, Option<String>),
     Kick(String, String, Option<String>),
+    Raw(String, Vec<String>),
     Unknown(String, Vec<String>),
 }
 
@@ -104,6 +107,14 @@ pub fn parse(s: &str, buffer: &Buffer) -> Result<Command, Error> {
             Kind::Kick => validated::<2, 1, true>(args, |[channel, user], [comment]| {
                 Command::Kick(channel, user, comment)
             }),
+            Kind::Raw => {
+                let (cmd, args) = args.split_first().ok_or(Error::MissingCommand)?;
+
+                Ok(Command::Raw(
+                    cmd.to_string(),
+                    args.iter().map(|s| s.to_string()).collect(),
+                ))
+            }
         },
         Err(_) => Ok(unknown()),
     }
@@ -165,6 +176,7 @@ impl TryFrom<Command> for proto::Command {
             Command::Part(chanlist, reason) => proto::Command::PART(chanlist, reason),
             Command::Topic(channel, topic) => proto::Command::TOPIC(channel, topic),
             Command::Kick(channel, user, comment) => proto::Command::KICK(channel, user, comment),
+            Command::Raw(command, args) => proto::Command::Raw(command, args),
             Command::Unknown(command, args) => {
                 let args = args.iter().map(|arg| arg.as_str()).collect();
 

@@ -139,6 +139,19 @@ impl Default for Completion {
                         },
                     ],
                 },
+                Entry {
+                    title: "RAW",
+                    args: vec![
+                        Arg {
+                            text: "command",
+                            optional: false,
+                        },
+                        Arg {
+                            text: "args",
+                            optional: true,
+                        },
+                    ],
+                },
             ],
             filtered_entries: vec![],
         }
