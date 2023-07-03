@@ -48,7 +48,7 @@ impl State {
                 }
                 if let Some(message) = clients
                     .nickname(server)
-                    .and_then(|nick| input.message(&nick))
+                    .and_then(|nick| input.message(nick))
                 {
                     history.record_message(server, message);
                 }

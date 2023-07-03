@@ -27,12 +27,14 @@ pub fn view<'a>(
     settings: &'a buffer::Settings,
     is_focused: bool,
 ) -> Element<'a, Message> {
+    let our_nick = clients.nickname(&state.server);
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
             scroll_view::Kind::Channel(&state.server, &state.channel),
             history,
-            |message| match &message.source {
+            move |message| match &message.source {
                 data::message::Source::Channel(_, kind) => match kind {
                     data::message::Sender::User(user) => {
                         let timestamp =
@@ -48,10 +50,10 @@ pub fn view<'a>(
                             user.clone(),
                         )
                         .map(scroll_view::Message::UserContext);
-                        let row_style = match clients.connection(&state.server) {
-                            Some(conn)
-                                if user.nickname() != conn.nickname()
-                                    && message.text.contains(&conn.nickname().to_string()) =>
+                        let row_style = match our_nick {
+                            Some(nick)
+                                if user.nickname() != nick
+                                    && message.text.contains(nick.as_ref()) =>
                             {
                                 theme::Container::Highlight
                             }
