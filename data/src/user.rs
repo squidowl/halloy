@@ -146,13 +146,13 @@ impl<'a> From<&'a str> for Nick {
 
 impl PartialOrd for Nick {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        other.0.partial_cmp(&self.0)
+        other.0.to_lowercase().partial_cmp(&self.0.to_lowercase())
     }
 }
 
 impl Ord for Nick {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.0.cmp(&self.0)
+        other.0.to_lowercase().cmp(&self.0.to_lowercase())
     }
 }
 
