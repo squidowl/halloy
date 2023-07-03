@@ -107,12 +107,14 @@ pub fn parse(s: &str, buffer: &Buffer) -> Result<Command, Error> {
             Kind::Kick => validated::<2, 1, true>(args, |[channel, user], [comment]| {
                 Command::Kick(channel, user, comment)
             }),
-            Kind::Raw => validated::<1, 1, true>(args, |[cmd], [args]| {
-                let args = args
-                    .map(|args| args.split_whitespace().map(|s| s.to_string()).collect())
-                    .unwrap_or_default();
-                Command::Raw(cmd, args)
-            }),
+            Kind::Raw => {
+                let (cmd, args) = args.split_first().ok_or(Error::MissingCommand)?;
+
+                Ok(Command::Raw(
+                    cmd.to_string(),
+                    args.iter().map(|s| s.to_string()).collect(),
+                ))
+            }
         },
         Err(_) => Ok(unknown()),
     }
