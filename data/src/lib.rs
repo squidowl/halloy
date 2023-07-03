@@ -27,5 +27,6 @@ pub mod palette;
 pub mod pane;
 pub mod server;
 pub mod stream;
+mod themes;
 pub mod time;
 pub mod user;

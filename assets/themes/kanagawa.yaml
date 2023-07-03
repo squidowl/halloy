@@ -1,0 +1,9 @@
+palette:
+  background: "#1f1f28"
+  text: "#dcd7ba"
+  action: "#54546d"
+  accent: "#957fb8"
+  alert: "#ff9e3b"
+  error: "#e46876"
+  info: "#6C809A"
+  success: "#98bb6c"
