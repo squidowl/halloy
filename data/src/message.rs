@@ -4,7 +4,7 @@ use irc::proto::ChannelExt;
 use serde::{Deserialize, Serialize};
 
 use crate::time::{self, Posix};
-use crate::user::Nick;
+use crate::user::{Nick, NickRef};
 use crate::User;
 
 pub type Channel = String;
@@ -107,7 +107,7 @@ impl Message {
             && matches!(self.source.sender(), Some(Sender::User(_) | Sender::Action))
     }
 
-    pub fn received(encoded: Encoded, our_nick: &Nick) -> Option<Message> {
+    pub fn received(encoded: Encoded, our_nick: NickRef) -> Option<Message> {
         let server_time = server_time(&encoded);
         let text = text(&encoded, our_nick)?;
         let source = source(encoded, our_nick)?;
@@ -138,7 +138,7 @@ fn user(message: &Encoded) -> Option<User> {
     }
 }
 
-fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
+fn source(message: Encoded, our_nick: NickRef) -> Option<Source> {
     let user = user(&message);
 
     match message.0.command {
@@ -169,9 +169,10 @@ fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
             match (target.is_channel_name(), user) {
                 (true, Some(user)) => Some(Source::Channel(target, sender(user))),
                 (false, Some(user)) => {
-                    let target = User::try_from(target.as_str()).ok()?.nickname();
+                    let target = User::try_from(target.as_str()).ok()?;
 
-                    (&target == our_nick).then(|| Source::Query(user.nickname(), sender(user)))
+                    (target.nickname() == our_nick)
+                        .then(|| Source::Query(user.nickname().to_owned(), sender(user)))
                 }
                 _ => None,
             }
@@ -250,7 +251,7 @@ fn server_time(message: &Encoded) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
-fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
+fn text(message: &Encoded, our_nick: NickRef) -> Option<String> {
     let user = user(message);
     match &message.command {
         proto::Command::TOPIC(_, topic) => {
@@ -271,7 +272,7 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
         proto::Command::JOIN(_, _, _) | proto::Command::SAJOIN(_, _) => {
             let user = user?;
 
-            (&user.nickname() != our_nick).then(|| format!("⟶ {user} has joined the channel"))
+            (user.nickname() != our_nick).then(|| format!("⟶ {user} has joined the channel"))
         }
         proto::Command::ChannelMODE(_, modes) => {
             let user = user?;
@@ -286,7 +287,7 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
         proto::Command::PRIVMSG(_, text) => {
             // Check if a synthetic action message
             if let Some(nick) = user.as_ref().map(User::nickname) {
-                if let Some(action) = parse_action(&nick, text) {
+                if let Some(action) = parse_action(nick, text) {
                     return Some(action);
                 }
             }
@@ -348,12 +349,12 @@ fn is_action(text: &str) -> bool {
     text.starts_with("\u{1}ACTION ") && text.ends_with('\u{1}')
 }
 
-pub fn parse_action(nick: &Nick, text: &str) -> Option<String> {
+pub fn parse_action(nick: NickRef, text: &str) -> Option<String> {
     let action = text.strip_prefix("\u{1}ACTION ")?.strip_suffix('\u{1}')?;
     Some(action_text(nick, action))
 }
 
-pub fn action_text(nick: &Nick, action: &str) -> String {
+pub fn action_text(nick: NickRef, action: &str) -> String {
     format!(" ∙ {nick} {action}")
 }
 

@@ -131,7 +131,7 @@ impl Dashboard {
 
                                         if let Some(message) = clients
                                             .nickname(input.server())
-                                            .and_then(|nick| input.message(&nick))
+                                            .and_then(|nick| input.message(nick))
                                         {
                                             self.history.record_message(input.server(), message);
                                         }
@@ -141,7 +141,7 @@ impl Dashboard {
                                     if let Some(data) = pane.buffer.data() {
                                         let buffer = data::Buffer::Query(
                                             data.server().clone(),
-                                            user.nickname(),
+                                            user.nickname().to_owned(),
                                         );
                                         return self.open_buffer(buffer, config);
                                     }

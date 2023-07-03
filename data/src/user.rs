@@ -23,9 +23,10 @@ impl Hash for User {
 
 impl Ord for User {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.highest_access_level()
-            .cmp(&self.highest_access_level())
-            .then(other.nickname().cmp(&self.nickname()))
+        self.highest_access_level()
+            .cmp(&other.highest_access_level())
+            .reverse()
+            .then_with(|| self.nickname().cmp(&other.nickname()))
     }
 }
 
@@ -82,7 +83,7 @@ impl User {
             buffer::Color::Unique => Some(
                 self.hostname()
                     .map(ToString::to_string)
-                    .unwrap_or_else(|| self.nickname().to_string()),
+                    .unwrap_or_else(|| self.nickname().as_ref().to_string()),
             ),
         }
     }
@@ -91,8 +92,8 @@ impl User {
         self.0.get_username()
     }
 
-    pub fn nickname(&self) -> Nick {
-        self.0.get_nickname().into()
+    pub fn nickname(&self) -> NickRef {
+        NickRef(self.0.get_nickname())
     }
 
     pub fn hostname(&self) -> Option<&str> {
@@ -144,15 +145,42 @@ impl<'a> From<&'a str> for Nick {
     }
 }
 
-impl PartialOrd for Nick {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        other.0.to_lowercase().partial_cmp(&self.0.to_lowercase())
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NickRef<'a>(&'a str);
+
+impl<'a> From<&'a str> for NickRef<'a> {
+    fn from(nick: &'a str) -> Self {
+        NickRef(nick)
     }
 }
 
-impl Ord for Nick {
+impl<'a> NickRef<'a> {
+    pub fn to_owned(self) -> Nick {
+        Nick(self.0.to_string())
+    }
+}
+
+impl<'a> fmt::Display for NickRef<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<'a> AsRef<str> for NickRef<'a> {
+    fn as_ref(&self) -> &str {
+        self.0
+    }
+}
+
+impl<'a> PartialOrd for NickRef<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.0.to_lowercase().cmp(&other.0.to_lowercase()))
+    }
+}
+
+impl<'a> Ord for NickRef<'a> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.0.to_lowercase().cmp(&self.0.to_lowercase())
+        self.0.to_lowercase().cmp(&other.0.to_lowercase())
     }
 }
 

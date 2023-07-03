@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use irc::client::Client;
 
-use crate::user::Nick;
+use crate::user::NickRef;
 use crate::{message, Message, Server, User};
 
 #[derive(Debug, Clone, Copy)]
@@ -40,6 +40,7 @@ impl Connection {
 
     pub async fn quit(self) {
         use std::time::Duration;
+
         use tokio::time;
 
         let _ = self.client.send_quit("");
@@ -59,7 +60,7 @@ impl Connection {
 
         self.handle(&message);
 
-        Message::received(message, &self.nickname())
+        Message::received(message, self.nickname())
     }
 
     fn handle(&mut self, message: &message::Encoded) {
@@ -100,8 +101,8 @@ impl Connection {
             .collect()
     }
 
-    fn nickname(&self) -> Nick {
-        Nick::from(
+    pub fn nickname(&self) -> NickRef {
+        NickRef::from(
             self.resolved_nick
                 .as_deref()
                 .unwrap_or_else(|| self.client.current_nickname()),
@@ -148,7 +149,7 @@ impl Map {
         }
     }
 
-    pub fn nickname(&self, server: &Server) -> Option<Nick> {
+    pub fn nickname(&self, server: &Server) -> Option<NickRef> {
         self.connection(server).map(Connection::nickname)
     }
 

@@ -2,7 +2,7 @@ use chrono::Utc;
 use irc::proto::ChannelExt;
 
 use crate::time::Posix;
-use crate::user::Nick;
+use crate::user::NickRef;
 use crate::{command, message, Buffer, Command, Message, Server, User};
 
 pub fn parse(buffer: Buffer, input: &str) -> Result<Input, command::Error> {
@@ -33,14 +33,14 @@ impl Input {
         self.buffer.server()
     }
 
-    pub fn message(&self, our_nick: &Nick) -> Option<Message> {
+    pub fn message(&self, our_nick: NickRef) -> Option<Message> {
         let command = self.content.command(&self.buffer)?;
 
         let source = |target: String, sender| {
             if target.is_channel_name() {
                 Some(message::Source::Channel(target, sender))
             } else if let Ok(user) = User::try_from(target) {
-                Some(message::Source::Query(user.nickname(), sender))
+                Some(message::Source::Query(user.nickname().to_owned(), sender))
             } else {
                 None
             }
@@ -53,7 +53,7 @@ impl Input {
                 direction: message::Direction::Sent,
                 source: source(
                     target,
-                    message::Sender::User(User::new(our_nick.clone(), None, None)),
+                    message::Sender::User(User::new(our_nick.to_owned(), None, None)),
                 )?,
                 text,
             }),
