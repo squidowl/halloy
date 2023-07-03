@@ -1,5 +1,3 @@
-use std::fmt;
-
 use data::{buffer, client, history};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
@@ -105,11 +103,5 @@ impl Server {
 
     pub fn focus(&self) -> Command<Message> {
         self.input_view.focus().map(Message::InputView)
-    }
-}
-
-impl fmt::Display for Server {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.server)
     }
 }

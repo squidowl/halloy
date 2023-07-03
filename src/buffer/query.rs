@@ -1,5 +1,3 @@
-use core::fmt;
-
 use data::user::Nick;
 use data::{buffer, client, history, message, Server};
 use iced::widget::{column, container, row, vertical_space};
@@ -149,11 +147,5 @@ impl Query {
 
     pub fn focus(&self) -> Command<Message> {
         self.input_view.focus().map(Message::InputView)
-    }
-}
-
-impl fmt::Display for Query {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.nick)
     }
 }

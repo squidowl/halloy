@@ -50,9 +50,22 @@ impl Pane {
     ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty => "".to_string(),
-            Buffer::Channel(state) => state.to_string(),
-            Buffer::Server(state) => state.to_string(),
-            Buffer::Query(state) => state.to_string(),
+            Buffer::Channel(state) => {
+                let channel = &state.channel;
+                let server = &state.server;
+                let users = clients
+                    .get_channel_users(&state.server, &state.channel)
+                    .len();
+
+                format!("{channel} @ {server} - {users} users")
+            }
+            Buffer::Server(state) => state.server.to_string(),
+            Buffer::Query(state) => {
+                let nick = &state.nick;
+                let server = &state.server;
+
+                format!("{nick} @ {server}")
+            }
         };
 
         let title_bar = self.title_bar.view(
