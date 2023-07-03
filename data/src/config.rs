@@ -6,21 +6,18 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::palette::Palette;
+use crate::themes::THEMES;
 use crate::{buffer, dashboard, environment, server};
 
 const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default)]
 pub struct Config {
-    #[serde(default)]
     pub palette: Palette,
     pub servers: server::Map,
-    #[serde(default)]
     pub font: Font,
     /// Default settings when creating a new buffer
-    #[serde(default)]
     pub new_buffer: buffer::Settings,
-    #[serde(default)]
     pub dashboard: dashboard::Config,
 }
 
@@ -42,15 +39,72 @@ impl Config {
         dir
     }
 
+    fn themes_dir() -> PathBuf {
+        let dir = Self::config_dir().join("themes");
+
+        if !dir.exists() {
+            std::fs::create_dir(dir.as_path())
+                .expect("expected permissions to create themes folder");
+        }
+
+        dir
+    }
+
     fn path() -> PathBuf {
         Self::config_dir().join("config.yaml")
     }
 
     pub fn load() -> Result<Self, Error> {
+        #[derive(Deserialize)]
+        pub struct Configuration {
+            #[serde(default)]
+            pub theme: String,
+            pub servers: server::Map,
+            #[serde(default)]
+            pub font: Font,
+            /// Default settings when creating a new buffer
+            #[serde(default)]
+            pub new_buffer: buffer::Settings,
+            #[serde(default)]
+            pub dashboard: dashboard::Config,
+        }
+
         let path = Self::path();
         let file = File::open(path).map_err(|e| Error::Read(e.to_string()))?;
 
-        serde_yaml::from_reader(BufReader::new(file)).map_err(|e| Error::Parse(e.to_string()))
+        let Configuration {
+            theme,
+            servers,
+            font,
+            new_buffer,
+            dashboard,
+        } = serde_yaml::from_reader(BufReader::new(file))
+            .map_err(|e| Error::Parse(e.to_string()))?;
+
+        let palette = Self::load_theme(&theme).unwrap_or_default();
+
+        Ok(Config {
+            palette,
+            servers,
+            font,
+            new_buffer,
+            dashboard,
+        })
+    }
+
+    fn load_theme(theme: &str) -> Result<Palette, Error> {
+        #[derive(Deserialize)]
+        pub struct PaletteConfig {
+            #[serde(default)]
+            pub palette: Palette,
+        }
+
+        let path = Self::themes_dir().join(format!("{theme}.yaml"));
+        let file = File::open(path).map_err(|e| Error::Read(e.to_string()))?;
+        let PaletteConfig { palette } = serde_yaml::from_reader(BufReader::new(file))
+            .map_err(|e| Error::Parse(e.to_string()))?;
+
+        Ok(palette)
     }
 
     pub fn create_template_config() {
@@ -63,6 +117,16 @@ impl Config {
         // Create template configuration file.
         let config_template_file = Self::config_dir().join("config.template.yaml");
         let _ = fs::write(config_template_file, CONFIG_TEMPLATE);
+    }
+
+    pub fn create_themes_dir() {
+        // Create theme files.
+        for (theme, content) in THEMES.iter() {
+            let file = Config::themes_dir().join(format!("{theme}.yaml"));
+            if !file.exists() {
+                let _ = fs::write(file, content);
+            }
+        }
     }
 }
 
