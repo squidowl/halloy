@@ -26,6 +26,18 @@ pub enum State {
 }
 
 #[derive(Debug)]
+pub enum Brodcast {
+    Quit(User, Option<String>),
+    Nickname(String, String, bool),
+}
+
+#[derive(Debug)]
+pub enum Event {
+    Single(Message),
+    Brodcast(Brodcast),
+}
+
+#[derive(Debug)]
 pub struct Connection {
     client: Client,
     resolved_nick: Option<String>,
@@ -60,15 +72,13 @@ impl Connection {
         }
     }
 
-    fn receive(&mut self, message: message::Encoded) -> Option<Message> {
+    fn receive(&mut self, message: message::Encoded) -> Option<Event> {
         log::trace!("Message received => {:?}", *message);
 
-        self.handle(&message);
-
-        Message::received(message, self.nickname())
+        self.handle(message)
     }
 
-    fn handle(&mut self, message: &message::Encoded) {
+    fn handle(&mut self, message: message::Encoded) -> Option<Event> {
         use irc::proto::{Command, Response};
 
         match &message.command {
@@ -77,20 +87,34 @@ impl Connection {
                     irc::proto::Prefix::ServerName(_) => None,
                     irc::proto::Prefix::Nickname(nick, _, _) => Some(nick),
                 }) else {
-                    return;
+                    return None;
                 };
 
-                if self.resolved_nick.as_ref() == Some(old_nick) {
-                    self.resolved_nick = Some(nick.clone())
+                let changed_own_nickname = self.resolved_nick.as_ref() == Some(old_nick);
+                if changed_own_nickname {
+                    self.resolved_nick = Some(nick.clone());
                 }
+
+                return Some(Event::Brodcast(Brodcast::Nickname(
+                    nick.clone(),
+                    old_nick.clone(),
+                    changed_own_nickname,
+                )));
             }
             Command::Response(Response::RPL_WELCOME, args) => {
                 if let Some(nick) = args.first() {
                     self.resolved_nick = Some(nick.to_string());
                 }
             }
+            Command::QUIT(comment) => {
+                let user = message.user()?;
+
+                return Some(Event::Brodcast(Brodcast::Quit(user, comment.clone())));
+            }
             _ => {}
         }
+
+        Some(Event::Single(Message::received(message, self.nickname())?))
     }
 
     fn sync(&mut self) {
@@ -183,7 +207,7 @@ impl Map {
         self.connection(server).map(Connection::nickname)
     }
 
-    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Option<Message> {
+    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Option<Event> {
         self.connection_mut(server)
             .and_then(|connection| connection.receive(message))
     }
@@ -205,6 +229,24 @@ impl Map {
     pub fn get_channel_users<'a>(&'a self, server: &Server, channel: &str) -> &'a [User] {
         self.connection(server)
             .map(|connection| connection.users(channel))
+            .unwrap_or_default()
+    }
+
+    pub fn get_user_channels(&self, server: &Server, nick: NickRef) -> Vec<String> {
+        self.connection(server)
+            .map(|connection| {
+                connection
+                    .channels()
+                    .iter()
+                    .filter(|channel| {
+                        connection
+                            .users(channel)
+                            .iter()
+                            .any(|user| user.nickname() == nick)
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default()
     }
 
