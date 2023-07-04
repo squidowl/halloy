@@ -19,6 +19,8 @@ use iced::widget::container;
 use iced::{executor, window, Application, Command, Length, Subscription};
 use screen::{dashboard, help, welcome};
 
+extern crate image;
+
 use self::event::{events, Event};
 pub use self::theme::Theme;
 use self::widget::Element;
@@ -63,7 +65,7 @@ pub fn main() -> iced::Result {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
 fn window_settings() -> iced::window::Settings {
     Default::default()
 }
@@ -77,6 +79,33 @@ fn window_settings() -> iced::window::Settings {
             fullsize_content_view: true,
         },
         ..Default::default()
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn window_settings() -> iced::window::Settings {
+    use image::EncodableLayout;
+
+    let img = image::load_from_memory_with_format(
+        include_bytes!("../assets/logo.png"),
+        image::ImageFormat::Png,
+    );
+    match img {
+        Ok(img) => match img.as_rgba8() {
+            Some(icon) => iced::window::Settings {
+                icon: window::icon::from_rgba(
+                    icon.as_bytes().to_vec(),
+                    icon.width(),
+                    icon.height(),
+                )
+                .ok(),
+                ..Default::default()
+            },
+            None => Default::default(),
+        },
+        Err(_) => iced::window::Settings {
+            ..Default::default()
+        },
     }
 }
 
