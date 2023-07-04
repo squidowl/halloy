@@ -62,4 +62,8 @@ impl State {
     pub fn focus(&self) -> Command<Message> {
         input::focus(self.input_id.clone())
     }
+
+    pub fn reset(&self) -> Command<Message> {
+        input::reset(self.input_id.clone())
+    }
 }
