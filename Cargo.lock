@@ -1076,6 +1076,7 @@ dependencies = [
  "embed-resource",
  "fern",
  "iced",
+ "image",
  "log",
  "open",
  "palette",
