@@ -6,8 +6,11 @@
 # Windows: `{FOLDERID_RoamingAppData}`\halloy
 
 # Theme
-# - Choose from the themes directory or add one to it
+# - Add theme files to the themes directory and fill this with the filename
+#   without the .yaml extension to select the theme you want
 # - Default is Halloy and provided by this application
+# - For theme examples, please refer to:
+#   https://github.com/squidowl/halloy/wiki/Themes
 theme: "halloy"
 
 # For more fields under server, please refer to:
