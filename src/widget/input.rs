@@ -117,6 +117,8 @@ where
                 None
             }
             Event::Up => {
+                state.completion.reset();
+
                 if !state.history.is_empty() {
                     if let Some(index) = state.selected_history.as_mut() {
                         *index = (*index + 1).min(state.history.len() - 1);
@@ -129,6 +131,7 @@ where
                         .get(state.selected_history.unwrap())
                         .unwrap()
                         .clone();
+                    state.completion.process(&state.input);
 
                     return Some(self.on_completion.clone());
                 }
@@ -136,6 +139,8 @@ where
                 None
             }
             Event::Down => {
+                state.completion.reset();
+
                 if let Some(index) = state.selected_history.as_mut() {
                     if *index == 0 {
                         state.selected_history = None;
@@ -143,6 +148,7 @@ where
                     } else {
                         *index -= 1;
                         state.input = state.history.get(*index).unwrap().clone();
+                        state.completion.process(&state.input);
                     }
 
                     return Some(self.on_completion.clone());
