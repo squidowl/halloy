@@ -12,6 +12,10 @@ Changed:
 - Sorting channel nicknames
 - Title headers has been changed to also display user count for channels
 
+Fixed:
+
+- The last word of a message sometimes dissapeared
+
 # 2023.1-alpha1 (2023-06-30)
 
 Added:
