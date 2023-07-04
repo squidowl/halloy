@@ -11,6 +11,8 @@ use crate::theme;
 
 mod completion;
 
+pub const HISTORY_LENGTH: usize = 100;
+
 pub type Id = text_input::Id;
 
 pub fn input<'a, Message>(
@@ -106,6 +108,7 @@ where
 
                     // Clear message and add it to history
                     state.history.push_front(std::mem::take(&mut state.input));
+                    state.history.truncate(HISTORY_LENGTH);
 
                     Some((self.on_submit)(input))
                 } else {
