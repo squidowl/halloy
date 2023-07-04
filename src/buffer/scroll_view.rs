@@ -84,12 +84,12 @@ pub fn view<'a>(
     };
 
     scrollable(container(content).width(Length::Fill).padding([0, 8]))
-        .vertical_scroll(
+        .direction(scrollable::Direction::Vertical(
             scrollable::Properties::default()
                 .alignment(status.alignment())
                 .width(5)
                 .scroller_width(5),
-        )
+        ))
         .on_scroll(move |viewport| Message::Scrolled {
             count,
             remaining,

@@ -135,7 +135,7 @@ where
 
         let bounds = limits.max();
 
-        let (width, height) = renderer.measure(
+        let Size { width, height } = renderer.measure(
             &self.content,
             size,
             self.line_height,
