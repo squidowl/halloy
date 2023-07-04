@@ -52,7 +52,7 @@ pub fn main() -> iced::Result {
     );
 
     // Create themes directory
-    Config::create_themes_dir();
+    config::create_themes_dir();
 
     let config_load = Config::load();
 

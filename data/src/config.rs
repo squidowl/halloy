@@ -121,14 +121,14 @@ impl Config {
         let config_template_file = Self::config_dir().join("config.template.yaml");
         let _ = fs::write(config_template_file, CONFIG_TEMPLATE);
     }
+}
 
-    pub fn create_themes_dir() {
-        // Create default theme file.
-        let (theme, content) = DEFAULT_THEME;
-        let file = Config::themes_dir().join(format!("{theme}.yaml"));
-        if !file.exists() {
-            let _ = fs::write(file, content);
-        }
+pub fn create_themes_dir() {
+    // Create default theme file.
+    let (theme, content) = DEFAULT_THEME;
+    let file = Config::themes_dir().join(format!("{theme}.yaml"));
+    if !file.exists() {
+        let _ = fs::write(file, content);
     }
 }
 
