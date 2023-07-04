@@ -6,10 +6,10 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::palette::Palette;
-use crate::themes::THEMES;
 use crate::{buffer, dashboard, environment, server};
 
 const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
+const DEFAULT_THEME: (&str, &[u8]) = ("halloy", include_bytes!("../../assets/themes/halloy.yaml"));
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
@@ -81,6 +81,7 @@ impl Config {
         } = serde_yaml::from_reader(BufReader::new(file))
             .map_err(|e| Error::Parse(e.to_string()))?;
 
+        // If theme fails to load, use default Palette (Halloy theme)
         let palette = Self::load_theme(&theme).unwrap_or_default();
 
         Ok(Config {
@@ -94,14 +95,16 @@ impl Config {
 
     fn load_theme(theme: &str) -> Result<Palette, Error> {
         #[derive(Deserialize)]
-        pub struct PaletteConfig {
+        pub struct Theme {
+            #[serde(default)]
+            pub name: String,
             #[serde(default)]
             pub palette: Palette,
         }
 
         let path = Self::themes_dir().join(format!("{theme}.yaml"));
         let file = File::open(path).map_err(|e| Error::Read(e.to_string()))?;
-        let PaletteConfig { palette } = serde_yaml::from_reader(BufReader::new(file))
+        let Theme { palette, .. } = serde_yaml::from_reader(BufReader::new(file))
             .map_err(|e| Error::Parse(e.to_string()))?;
 
         Ok(palette)
@@ -120,12 +123,11 @@ impl Config {
     }
 
     pub fn create_themes_dir() {
-        // Create theme files.
-        for (theme, content) in THEMES.iter() {
-            let file = Config::themes_dir().join(format!("{theme}.yaml"));
-            if !file.exists() {
-                let _ = fs::write(file, content);
-            }
+        // Create default theme file.
+        let (theme, content) = DEFAULT_THEME;
+        let file = Config::themes_dir().join(format!("{theme}.yaml"));
+        if !file.exists() {
+            let _ = fs::write(file, content);
         }
     }
 }
