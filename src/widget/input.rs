@@ -1,4 +1,7 @@
+use std::collections::VecDeque;
+
 use data::{input, Buffer, Command};
+use iced::advanced::widget::{self, Operation};
 pub use iced::widget::text_input::{focus, move_cursor_to_end};
 use iced::widget::{component, container, row, text, text_input, Component};
 
@@ -7,6 +10,8 @@ use super::{anchored_overlay, key_press, Element, Renderer};
 use crate::theme;
 
 mod completion;
+
+pub const HISTORY_LENGTH: usize = 100;
 
 pub type Id = text_input::Id;
 
@@ -39,6 +44,8 @@ pub enum Event {
     Input(String),
     Send,
     Tab,
+    Up,
+    Down,
 }
 
 pub struct Input<'a, Message> {
@@ -53,6 +60,8 @@ pub struct State {
     input: String,
     error: Option<String>,
     completion: Completion,
+    history: VecDeque<String>,
+    selected_history: Option<usize>,
 }
 
 impl<'a, Message> Component<Message, Renderer> for Input<'a, Message>
@@ -65,7 +74,11 @@ where
     fn update(&mut self, state: &mut Self::State, event: Self::Event) -> Option<Message> {
         match event {
             Event::Input(input) => {
+                // Reset error state
                 state.error = None;
+                // Reset selected history
+                state.selected_history = None;
+
                 state.input = input;
 
                 state.completion.process(&state.input);
@@ -75,6 +88,8 @@ where
             Event::Send => {
                 // Reset error state
                 state.error = None;
+                // Reset selected history
+                state.selected_history = None;
 
                 if let Some(command) = state.completion.select() {
                     state.input = command;
@@ -91,8 +106,9 @@ where
                         }
                     };
 
-                    // Clear message, we parsed it succesfully
-                    state.input = String::new();
+                    // Clear message and add it to history
+                    state.history.push_front(std::mem::take(&mut state.input));
+                    state.history.truncate(HISTORY_LENGTH);
 
                     Some((self.on_submit)(input))
                 } else {
@@ -101,6 +117,46 @@ where
             }
             Event::Tab => {
                 state.completion.tab();
+                None
+            }
+            Event::Up => {
+                state.completion.reset();
+
+                if !state.history.is_empty() {
+                    if let Some(index) = state.selected_history.as_mut() {
+                        *index = (*index + 1).min(state.history.len() - 1);
+                    } else {
+                        state.selected_history = Some(0);
+                    }
+
+                    state.input = state
+                        .history
+                        .get(state.selected_history.unwrap())
+                        .unwrap()
+                        .clone();
+                    state.completion.process(&state.input);
+
+                    return Some(self.on_completion.clone());
+                }
+
+                None
+            }
+            Event::Down => {
+                state.completion.reset();
+
+                if let Some(index) = state.selected_history.as_mut() {
+                    if *index == 0 {
+                        state.selected_history = None;
+                        state.input.clear();
+                    } else {
+                        *index -= 1;
+                        state.input = state.history.get(*index).unwrap().clone();
+                        state.completion.process(&state.input);
+                    }
+
+                    return Some(self.on_completion.clone());
+                }
+
                 None
             }
         }
@@ -121,6 +177,7 @@ where
             .style(style)
             .into();
 
+        // Add tab support if selecting a completion
         let input = if state.completion.is_selecting() {
             key_press(
                 text_input,
@@ -132,6 +189,19 @@ where
             text_input
         };
 
+        // Add up / down support for history cycling
+        let input = key_press(
+            key_press(
+                input,
+                key_press::KeyCode::Up,
+                key_press::Modifiers::default(),
+                Event::Up,
+            ),
+            key_press::KeyCode::Down,
+            key_press::Modifiers::default(),
+            Event::Down,
+        );
+
         let overlay = state
             .error
             .as_ref()
@@ -140,6 +210,10 @@ where
             .unwrap_or_else(|| row![].into());
 
         anchored_overlay(input, overlay)
+    }
+
+    fn operate(&self, state: &mut State, operation: &mut dyn widget::Operation<Message>) {
+        operation.custom(state, Some(&self.id.clone().into()));
     }
 }
 
@@ -158,4 +232,31 @@ where
     fn from(input: Input<'a, Message>) -> Self {
         component(input)
     }
+}
+
+pub fn reset<Message: 'static>(id: impl Into<widget::Id>) -> iced::Command<Message> {
+    struct Reset {
+        id: widget::Id,
+    }
+
+    impl<T> Operation<T> for Reset {
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
+        ) {
+            operate_on_children(self)
+        }
+
+        fn custom(&mut self, state: &mut dyn std::any::Any, id: Option<&widget::Id>) {
+            if Some(&self.id) == id {
+                dbg!("asdfasdf");
+                if let Some(state) = state.downcast_mut::<State>() {
+                    *state = State::default();
+                }
+            }
+        }
+    }
+
+    iced::Command::widget(Reset { id: id.into() })
 }
