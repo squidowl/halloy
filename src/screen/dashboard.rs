@@ -178,7 +178,10 @@ impl Dashboard {
                         if let Some(state) = self.panes.get_mut(&pane) {
                             state.buffer = Buffer::from(kind);
                             self.last_changed = Some(Instant::now());
-                            return self.focus_pane(pane);
+                            return Command::batch(vec![
+                                self.reset_pane(pane),
+                                self.focus_pane(pane),
+                            ]);
                         }
                     }
                     side_menu::Event::Close(pane) => {
@@ -524,6 +527,20 @@ impl Dashboard {
         } else {
             Command::none()
         }
+    }
+
+    fn reset_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
+        self.panes
+            .iter()
+            .find_map(|(p, state)| {
+                (*p == pane).then(|| {
+                    state
+                        .buffer
+                        .reset()
+                        .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
+                })
+            })
+            .unwrap_or(Command::none())
     }
 
     pub fn track(&mut self) -> Command<Message> {
