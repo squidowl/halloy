@@ -51,6 +51,9 @@ pub fn main() -> iced::Result {
         data::environment::formatted_version()
     );
 
+    // Create themes directory
+    Config::create_themes_dir();
+
     let config_load = Config::load();
 
     // DANGER ZONE - font must be set using config

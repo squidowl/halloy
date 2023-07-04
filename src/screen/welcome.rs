@@ -21,9 +21,6 @@ pub struct Welcome;
 
 impl Welcome {
     pub fn new() -> Self {
-        // Create themes directory.
-        Config::create_themes_dir();
-
         Welcome::default()
     }
 
