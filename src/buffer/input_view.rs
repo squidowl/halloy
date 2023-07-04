@@ -1,3 +1,4 @@
+use data::user::User;
 use data::{client, history, Buffer, Input, Server};
 use iced::Command;
 
@@ -13,10 +14,11 @@ pub enum Message {
     CompletionSelected,
 }
 
-pub fn view<'a>(state: &State, buffer: Buffer) -> Element<'a, Message> {
+pub fn view<'a>(state: &State, buffer: Buffer, users: Vec<User>) -> Element<'a, Message> {
     input(
         state.input_id.clone(),
         buffer,
+        users,
         Message::Send,
         Message::CompletionSelected,
     )
