@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use data::{input, Buffer, Command};
+use iced::advanced::widget::{self, Operation};
 pub use iced::widget::text_input::{focus, move_cursor_to_end};
 use iced::widget::{component, container, row, text, text_input, Component};
 
@@ -201,6 +202,10 @@ where
 
         anchored_overlay(input, overlay)
     }
+
+    fn operate(&self, state: &mut State, operation: &mut dyn widget::Operation<Message>) {
+        operation.custom(state, Some(&self.id.clone().into()));
+    }
 }
 
 fn error<'a, Message: 'a>(error: impl ToString) -> Element<'a, Message> {
@@ -218,4 +223,31 @@ where
     fn from(input: Input<'a, Message>) -> Self {
         component(input)
     }
+}
+
+pub fn reset<Message: 'static>(id: impl Into<widget::Id>) -> iced::Command<Message> {
+    struct Reset {
+        id: widget::Id,
+    }
+
+    impl<T> Operation<T> for Reset {
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
+        ) {
+            operate_on_children(self)
+        }
+
+        fn custom(&mut self, state: &mut dyn std::any::Any, id: Option<&widget::Id>) {
+            if Some(&self.id) == id {
+                dbg!("asdfasdf");
+                if let Some(state) = state.downcast_mut::<State>() {
+                    *state = State::default();
+                }
+            }
+        }
+    }
+
+    iced::Command::widget(Reset { id: id.into() })
 }

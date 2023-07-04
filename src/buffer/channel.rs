@@ -182,6 +182,10 @@ impl Channel {
     pub fn focus(&self) -> Command<Message> {
         self.input_view.focus().map(Message::InputView)
     }
+
+    pub fn reset(&self) -> Command<Message> {
+        self.input_view.reset().map(Message::InputView)
+    }
 }
 
 mod nick_list {

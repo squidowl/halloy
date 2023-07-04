@@ -146,6 +146,15 @@ impl Buffer {
         }
     }
 
+    pub fn reset(&self) -> Command<Message> {
+        match self {
+            Buffer::Empty => Command::none(),
+            Buffer::Channel(channel) => channel.reset().map(Message::Channel),
+            Buffer::Server(server) => server.reset().map(Message::Server),
+            Buffer::Query(query) => query.reset().map(Message::Query),
+        }
+    }
+
     pub fn scroll_to_start(&mut self) -> Command<Message> {
         match self {
             Buffer::Empty => Command::none(),
