@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
-
-use data::{input, Buffer, Command};
+use data::{user::User, input, Buffer, Command};
 use iced::advanced::widget::{self, Operation};
 pub use iced::widget::text_input::{focus, move_cursor_to_end};
 use iced::widget::{component, container, row, text, text_input, Component};
@@ -18,6 +17,7 @@ pub type Id = text_input::Id;
 pub fn input<'a, Message>(
     id: Id,
     buffer: Buffer,
+    users: Vec<User>,
     on_submit: impl Fn(data::Input) -> Message + 'a,
     on_completion: Message,
 ) -> Element<'a, Message>
@@ -27,6 +27,7 @@ where
     Input {
         id,
         buffer,
+        users,
         on_submit: Box::new(on_submit),
         on_completion,
     }
@@ -51,6 +52,7 @@ pub enum Event {
 pub struct Input<'a, Message> {
     id: Id,
     buffer: Buffer,
+    users: Vec<User>,
     on_submit: Box<dyn Fn(data::Input) -> Message + 'a>,
     on_completion: Message,
 }
@@ -72,6 +74,7 @@ where
     type Event = Event;
 
     fn update(&mut self, state: &mut Self::State, event: Self::Event) -> Option<Message> {
+        let users = &self.users;
         match event {
             Event::Input(input) => {
                 // Reset error state
@@ -81,7 +84,7 @@ where
 
                 state.input = input;
 
-                state.completion.process(&state.input);
+                state.completion.process(&state.input, users.clone());
 
                 None
             }
@@ -92,7 +95,9 @@ where
                 state.selected_history = None;
 
                 if let Some(command) = state.completion.select() {
-                    state.input = command;
+                    state.input = Completion::complete_selected_word(&state.input, &command);
+                    // We've completed a word and replace out input, reset our completion options
+                    state.completion.reset();
                     Some(self.on_completion.clone())
                 } else if !state.input.is_empty() {
                     state.completion.reset();

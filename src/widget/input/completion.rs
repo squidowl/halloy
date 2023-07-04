@@ -1,3 +1,4 @@
+use data::user::User;
 use std::fmt;
 
 use iced::widget::{column, container, row, text};
@@ -5,9 +6,16 @@ use iced::widget::{column, container, row, text};
 use crate::theme;
 use crate::widget::Element;
 
+#[derive(Debug, Clone, PartialEq)]
+enum CompletionType {
+    Command,
+    User,
+}
+
 #[derive(Debug, Clone)]
 pub struct Completion {
     selection: Selection,
+    users: Vec<Entry>,
     entries: Vec<Entry>,
     filtered_entries: Vec<Entry>,
 }
@@ -30,6 +38,7 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "MOTD",
@@ -37,6 +46,7 @@ impl Default for Completion {
                         text: "server",
                         optional: true,
                     }],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "NICK",
@@ -44,6 +54,7 @@ impl Default for Completion {
                         text: "nickname",
                         optional: false,
                     }],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "QUIT",
@@ -51,6 +62,7 @@ impl Default for Completion {
                         text: "reason",
                         optional: true,
                     }],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "MSG",
@@ -64,6 +76,7 @@ impl Default for Completion {
                             optional: false,
                         },
                     ],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "WHOIS",
@@ -71,6 +84,7 @@ impl Default for Completion {
                         text: "nick",
                         optional: false,
                     }],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "ME",
@@ -78,6 +92,7 @@ impl Default for Completion {
                         text: "action",
                         optional: false,
                     }],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "MODE",
@@ -95,6 +110,7 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "PART",
@@ -108,6 +124,7 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "TOPIC",
@@ -121,6 +138,7 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "KICK",
@@ -138,6 +156,7 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
+                    completion_type: CompletionType::Command,
                 },
                 Entry {
                     title: "RAW",
@@ -151,9 +170,11 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
+                    completion_type: CompletionType::Command,
                 },
             ],
             filtered_entries: vec![],
+            users: vec![],
         }
     }
 }
@@ -164,18 +185,81 @@ impl Completion {
         self.selection = Selection::None;
     }
 
-    pub fn process(&mut self, input: &str) {
-        let Some((head, rest)) = input.split_once('/') else {
+    /// Convert a list of User structs into Completion Entries
+    pub fn with_users(&mut self, users: Vec<User>) -> Self {
+        self.users = users
+            .iter()
+            .map(|u| {
+                // Let's make some eternal strings
+                // TODO! Is this bad?
+                let static_str = Box::leak(u.nickname().to_string().into_boxed_str());
+                Entry {
+                    title: static_str,
+                    args: vec![],
+                    completion_type: CompletionType::User,
+                }
+            })
+            .collect();
+        self.clone()
+    }
+
+    /// Determine if the current text is a viable candidate for completion
+    /// If the command starts with a `/`, we can guess that the user is attempting
+    /// to enter a /command.
+    ///
+    /// If the text doesn't have a `/`, then we want to rsplit the words so we can
+    /// get the last word in the input, which can potentially be autocompleted
+    fn valid_completion_input(input: &str, maybe_command: bool) -> Option<(&str, &str)> {
+        if maybe_command {
+            input.split_once('/')
+        } else {
+            // Are we looking at multiple words? Look at the last one
+            match input.rsplit_once(' ') {
+                Some((head, rest)) => Some((head, rest)),
+                // Single command
+                None => Some(("", input)),
+            }
+        }
+    }
+
+    /// If we are autocompleting a word, we want to replace the word we're completing with the
+    /// completion target. This way, we can continue typing if we've, say, completed a users name
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let input = "Hello my good friend Ano";
+    /// let completion = "AnonymousUser";
+    /// let result = Completion::complete_selected_word(input, completion);
+    /// assert!(result == "Hello my good friend AnonymousUser".to_string());
+    /// ```
+    pub fn complete_selected_word(input: &str, completion: &str) -> String {
+        let Some((original_input, _completion_word)) = input.rsplit_once(' ') else {
+            return completion.into()
+        };
+        format!("{} {}", original_input, completion)
+    }
+
+    pub fn process(&mut self, input: &str, users: Vec<User>) {
+        self.with_users(users);
+        let maybe_command = input.starts_with('/');
+        let Some((head, rest)) = Self::valid_completion_input(input, maybe_command) else {
             self.reset();
             return;
         };
-        // Don't allow leading whitespace before slash
-        if !head.is_empty() {
+
+        // Don't allow text before a command slash
+        if maybe_command && !head.is_empty() {
             self.reset();
             return;
         }
 
-        let (cmd, has_space) = if let Some(index) = rest.find(' ') {
+        if !maybe_command && rest.is_empty() {
+            self.reset();
+            return;
+        }
+
+        let (complete_candidate, has_space) = if let Some(index) = rest.find(' ') {
             (&rest[0..index], true)
         } else {
             (rest, false)
@@ -188,7 +272,18 @@ impl Completion {
                 self.filtered_entries = self
                     .entries
                     .iter()
-                    .filter(|entry| entry.title.to_lowercase().starts_with(&cmd.to_lowercase()))
+                    .chain(&self.users)
+                    .filter(|entry| {
+                        entry
+                            .title
+                            .to_lowercase()
+                            .starts_with(&complete_candidate.to_lowercase())
+                            && if maybe_command {
+                                entry.completion_type == CompletionType::Command
+                            } else {
+                                entry.completion_type == CompletionType::User
+                            }
+                    })
                     .cloned()
                     .collect();
             }
@@ -198,7 +293,15 @@ impl Completion {
                 if let Some(entry) = self
                     .entries
                     .iter()
-                    .find(|entry| entry.title.to_lowercase() == cmd.to_lowercase())
+                    .chain(&self.users)
+                    .find(|entry| {
+                        entry.title.to_lowercase() == complete_candidate.to_lowercase()
+                            && if maybe_command {
+                                entry.completion_type == CompletionType::Command
+                            } else {
+                                entry.completion_type == CompletionType::User
+                            }
+                    })
                     .cloned()
                 {
                     self.selection = Selection::Selected(entry);
@@ -232,7 +335,10 @@ impl Completion {
             }
             Selection::Highlighted(index) => {
                 if let Some(entry) = self.filtered_entries.get(index).cloned() {
-                    let command = format!("/{}", entry.title);
+                    let command = match entry.completion_type {
+                        CompletionType::Command => format!("/{}", entry.title),
+                        CompletionType::User => entry.title.into(),
+                    };
                     self.filtered_entries = vec![];
                     self.selection = Selection::Selected(entry);
                     return Some(command);
@@ -261,7 +367,10 @@ impl Completion {
                         .enumerate()
                         .map(|(index, entry)| {
                             let selected = Some(index) == self.selection.highlighted();
-                            let content = text(format!("/{}", entry.title));
+                            let content = text(match entry.completion_type {
+                                CompletionType::Command => format!("/{}", entry.title),
+                                CompletionType::User => entry.title.into(),
+                            });
 
                             Element::from(
                                 container(content)
@@ -308,6 +417,7 @@ impl Selection {
 pub struct Entry {
     title: &'static str,
     args: Vec<Arg>,
+    completion_type: CompletionType,
 }
 
 impl Entry {
