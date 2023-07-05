@@ -250,7 +250,6 @@ pub fn reset<Message: 'static>(id: impl Into<widget::Id>) -> iced::Command<Messa
 
         fn custom(&mut self, state: &mut dyn std::any::Any, id: Option<&widget::Id>) {
             if Some(&self.id) == id {
-                dbg!("asdfasdf");
                 if let Some(state) = state.downcast_mut::<State>() {
                     *state = State::default();
                 }
