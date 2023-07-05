@@ -6,6 +6,8 @@ use iced::widget::{column, container, row, text};
 use crate::theme;
 use crate::widget::Element;
 
+const MAX_SHOWN_ENTRIES: usize = 5;
+
 #[derive(Debug, Clone)]
 pub struct Completion {
     selection: Selection,
@@ -232,12 +234,6 @@ impl Completion {
             return;
         };
 
-        // Empty input to operate on, ignore completions
-        if nick.is_empty() {
-            self.reset();
-            return;
-        }
-
         match self.selection {
             Selection::None | Selection::Highlighted(_) => {
                 self.selection = Selection::None;
@@ -310,10 +306,23 @@ impl Completion {
         if self.is_active() {
             match &self.selection {
                 Selection::None | Selection::Highlighted(_) => {
+                    let skip = {
+                        let index = if let Selection::Highlighted(index) = &self.selection {
+                            *index
+                        } else {
+                            0
+                        };
+
+                        let to = index.max(MAX_SHOWN_ENTRIES - 1);
+                        to.saturating_sub(MAX_SHOWN_ENTRIES - 1)
+                    };
+
                     let entries = self
                         .filtered_entries
                         .iter()
                         .enumerate()
+                        .skip(skip)
+                        .take(MAX_SHOWN_ENTRIES)
                         .map(|(index, entry)| {
                             let selected = Some(index) == self.selection.highlighted();
                             let content = text(match &entry {
