@@ -226,8 +226,14 @@ impl Completion {
     fn process_users(&mut self, input: &str, users: &[User]) {
         let (_, rest) = input.rsplit_once(' ').unwrap_or(("", input));
 
+        // Only show user completions if using @
+        let Some((_, nick)) = rest.split_once('@') else {
+            self.reset();
+            return;
+        };
+
         // Empty input to operate on, ignore completions
-        if rest.is_empty() {
+        if nick.is_empty() {
             self.reset();
             return;
         }
@@ -239,7 +245,7 @@ impl Completion {
                     .iter()
                     .filter_map(|user| {
                         let nickname = user.nickname().as_ref().to_string();
-                        nickname.starts_with(rest).then_some(nickname)
+                        nickname.starts_with(nick).then_some(nickname)
                     })
                     .map(Entry::User)
                     .collect();
