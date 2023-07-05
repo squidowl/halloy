@@ -239,8 +239,11 @@ impl Completion {
                 self.filtered_entries = users
                     .iter()
                     .filter_map(|user| {
-                        let nickname = user.nickname().as_ref().to_string();
-                        nickname.starts_with(nick).then_some(nickname)
+                        let nickname = user.nickname();
+                        nickname
+                            .as_ref()
+                            .starts_with(nick)
+                            .then(|| nickname.to_string())
                     })
                     .map(Entry::User)
                     .collect();
