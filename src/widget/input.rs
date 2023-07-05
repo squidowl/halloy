@@ -74,7 +74,6 @@ where
     type Event = Event;
 
     fn update(&mut self, state: &mut Self::State, event: Self::Event) -> Option<Message> {
-        let users = &self.users;
         match event {
             Event::Input(input) => {
                 // Reset error state
@@ -84,7 +83,7 @@ where
 
                 state.input = input;
 
-                state.completion.process(&state.input, users.clone());
+                state.completion.process(&state.input, &self.users);
 
                 None
             }
@@ -139,7 +138,7 @@ where
                         .get(state.selected_history.unwrap())
                         .unwrap()
                         .clone();
-                    state.completion.process(&state.input);
+                    state.completion.process(&state.input, &self.users);
 
                     return Some(self.on_completion.clone());
                 }
@@ -156,7 +155,7 @@ where
                     } else {
                         *index -= 1;
                         state.input = state.history.get(*index).unwrap().clone();
-                        state.completion.process(&state.input);
+                        state.completion.process(&state.input, &self.users);
                     }
 
                     return Some(self.on_completion.clone());
