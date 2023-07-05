@@ -6,10 +6,12 @@ Added:
 - Support for RAW command
 - Messages from other users containing your nickname are now highlighted using the `info` colour
 - Previously sent messages can be accessed per buffer in the text input with up / down arrows
+- Themes directory where users can add their own theme files
 
 Changed:
 
 - Default channel in `config.yaml` has been changed to `#halloy` (from `##rust`)
+- `palette` field has been deprecated and replaced by `theme` in `config.yaml`
 - Sorting channel nicknames
 - Title headers has been changed to also display user count for channels
 
