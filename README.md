@@ -5,7 +5,7 @@
 
 </div>
 
-![halloy](https://github.com/squidowl/halloy/assets/2248455/8a1f5105-7760-48fd-b7dd-17da146cd25f)
+![halloy](./assets/animation.gif)
 
 Halloy is an open-source IRC client written in Rust, with the Iced GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.
 
@@ -13,9 +13,14 @@ Halloy is an open-source IRC client written in Rust, with the Iced GUI library. 
   <img src="https://gist.githubusercontent.com/hecrj/ad7ecd38f6e47ff3688a38c79fd108f0/raw/74384875ecbad02ae2a926425e9bcafd0695bade/color.svg" width="130px">
 </a>
 
-## Usage
+## Download
 
-To use Halloy, you can build it from source.
+Prebuilt binaries for macOS and Windows can be downloaded from [GitHub Releases](https://github.com/squidowl/halloy/releases). For Linux, please use [Flatpak]( https://flathub.org/apps/org.squidowl.halloy).
+
+
+## Build
+
+To build Halloy from source
 
 1. Clone the repository:
 
