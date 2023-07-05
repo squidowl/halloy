@@ -4,15 +4,14 @@
 # Linux: `$HOME`/.config/halloy
 # macOS: `$HOME`/Library/Application Support/halloy
 # Windows: `{FOLDERID_RoamingAppData}`\halloy
-palette:
-  background: "#2b292d"
-  text: "#fecdb2"
-  action: "#b1b695"
-  accent: "#d1d1e0"
-  alert: "#ffa07a"
-  error: "#e06b75"
-  info: "#f5d76e"
-  success: "#b1b695"
+
+# Theme
+# - Add theme files to the themes directory and fill this with the filename
+#   without the .yaml extension to select the theme you want
+# - Default is Halloy and provided by this application
+# - For theme examples, please refer to:
+#   https://github.com/squidowl/halloy/wiki/Themes
+theme: "ferra"
 
 # For more fields under server, please refer to:
 # https://docs.rs/irc/0.15.0/irc/client/data/config/struct.Config.html#fields
