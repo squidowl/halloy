@@ -167,8 +167,8 @@ impl Completion {
         self.selection = Selection::None;
     }
 
-    /// If the entered text begins with a command char ('/'), then we want to look at the available
-    /// command completions
+    /// If the entered text begins with a command char ('/') then we want to populate
+    /// applicable command completions
     fn process_command(&mut self, input: &str) {
         let Some((head, rest)) = input.split_once('/') else {
             self.reset();
@@ -223,8 +223,7 @@ impl Completion {
         }
     }
 
-    /// For any given word, we want to check if the user is attempting to autocomplete a name in a
-    /// channel
+    /// If the trailing word starts with an @ we want to populate applicable user completions
     fn process_users(&mut self, input: &str, users: &[User]) {
         let (_, rest) = input.rsplit_once(' ').unwrap_or(("", input));
 
@@ -250,7 +249,7 @@ impl Completion {
         }
     }
 
-    /// Process input and
+    /// Process input and update the completion state
     pub fn process(&mut self, input: &str, users: &[User]) {
         if input.starts_with('/') {
             self.process_command(input);
@@ -395,8 +394,6 @@ pub struct Command {
     args: Vec<Arg>,
 }
 
-/// Dictates how we render a command completion. A command may or may not have args,
-/// so we want to include those as autocomplete hints when the completion is selected
 impl Command {
     pub fn view<'a, Message: 'a>(&self, input: &str) -> Element<'a, Message> {
         let active_arg = [input, "_"]
