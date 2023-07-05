@@ -9,7 +9,7 @@ use crate::palette::Palette;
 use crate::{buffer, dashboard, environment, server};
 
 const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
-const DEFAULT_THEME: (&str, &[u8]) = ("halloy", include_bytes!("../../assets/themes/halloy.yaml"));
+const DEFAULT_THEME: (&str, &[u8]) = ("ferra", include_bytes!("../../assets/themes/ferra.yaml"));
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
