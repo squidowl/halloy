@@ -9,7 +9,7 @@ use crate::widget::Element;
 #[derive(Debug, Clone)]
 pub struct Completion {
     selection: Selection,
-    entries: Vec<Entry>,
+    commands: Vec<Command>,
     filtered_entries: Vec<Entry>,
 }
 
@@ -18,8 +18,8 @@ impl Default for Completion {
         Self {
             selection: Selection::None,
             // TODO: Macro magic all commands as entries or manually add them all :(
-            entries: vec![
-                Entry::Command(CommandEntry {
+            commands: vec![
+                Command {
                     title: "JOIN",
                     args: vec![
                         Arg {
@@ -31,29 +31,29 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "MOTD",
                     args: vec![Arg {
                         text: "server",
                         optional: true,
                     }],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "NICK",
                     args: vec![Arg {
                         text: "nickname",
                         optional: false,
                     }],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "QUIT",
                     args: vec![Arg {
                         text: "reason",
                         optional: true,
                     }],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "MSG",
                     args: vec![
                         Arg {
@@ -65,22 +65,22 @@ impl Default for Completion {
                             optional: false,
                         },
                     ],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "WHOIS",
                     args: vec![Arg {
                         text: "nick",
                         optional: false,
                     }],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "ME",
                     args: vec![Arg {
                         text: "action",
                         optional: false,
                     }],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "MODE",
                     args: vec![
                         Arg {
@@ -96,8 +96,8 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "PART",
                     args: vec![
                         Arg {
@@ -109,8 +109,8 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "TOPIC",
                     args: vec![
                         Arg {
@@ -122,8 +122,8 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "KICK",
                     args: vec![
                         Arg {
@@ -139,8 +139,8 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
-                }),
-                Entry::Command(CommandEntry {
+                },
+                Command {
                     title: "RAW",
                     args: vec![
                         Arg {
@@ -152,7 +152,7 @@ impl Default for Completion {
                             optional: true,
                         },
                     ],
-                }),
+                },
             ],
             filtered_entries: vec![],
         }
@@ -165,44 +165,12 @@ impl Completion {
         self.selection = Selection::None;
     }
 
-    /// Convert a list of User structs into Completion Entries
-    fn users_entries(users: &[User]) -> Vec<Entry> {
-        users
-            .iter()
-            .map(|u| {
-                // Let's make some eternal strings
-                // TODO! Is this bad?
-                Entry::User(UserEntry {
-                    nickname: u.nickname().to_string(),
-                })
-            })
-            .collect::<Vec<_>>()
-    }
-
-    /// If we are autocompleting a word, we want to replace the word we're completing with the
-    /// completion target. This way, we can continue typing if we've, say, completed a users name
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let input = "Hello my good friend Ano";
-    /// let completion = "AnonymousUser";
-    /// let result = Completion::complete_selected_word(input, completion);
-    /// assert!(result == "Hello my good friend AnonymousUser".to_string());
-    /// ```
-    pub fn complete_selected_word(input: &str, completion: &str) -> String {
-        let Some((original_input, _completion_word)) = input.rsplit_once(' ') else {
-            return completion.into()
-        };
-        format!("{} {}", original_input, completion)
-    }
-
     /// If the entered text begins with a command char ('/'), then we want to look at the available
     /// command completions
     fn process_command(&mut self, input: &str) {
         let Some((head, rest)) = input.split_once('/') else {
             self.reset();
-            return
+            return;
         };
 
         // Don't allow text before a command slash
@@ -211,7 +179,7 @@ impl Completion {
             return;
         }
 
-        let (complete_candidate, has_space) = if let Some(index) = rest.find(' ') {
+        let (cmd, has_space) = if let Some(index) = rest.find(' ') {
             (&rest[0..index], true)
         } else {
             (rest, false)
@@ -222,50 +190,40 @@ impl Completion {
             _ if !has_space => {
                 self.selection = Selection::None;
                 self.filtered_entries = self
-                    .entries
+                    .commands
                     .iter()
-                    .filter(|entry| {
-                        if let Entry::Command(command) = entry {
-                            command
-                                .title
-                                .to_lowercase()
-                                .starts_with(&complete_candidate.to_lowercase())
-                        } else {
-                            false
-                        }
+                    .filter(|command| {
+                        command
+                            .title
+                            .to_lowercase()
+                            .starts_with(&cmd.to_lowercase())
                     })
                     .cloned()
+                    .map(Entry::Command)
                     .collect();
             }
             // Command fully typed, transition to showing known entry
             Selection::None | Selection::Highlighted(_) => {
                 self.filtered_entries = vec![];
-                if let Some(entry) = self
-                    .entries
+                if let Some(command) = self
+                    .commands
                     .iter()
-                    .find(|entry| {
-                        if let Entry::Command(command) = entry {
-                            command.title.to_lowercase() == complete_candidate.to_lowercase()
-                        } else {
-                            false
-                        }
-                    })
+                    .find(|command| command.title.to_lowercase() == cmd.to_lowercase())
                     .cloned()
                 {
-                    self.selection = Selection::Selected(entry);
+                    self.selection = Selection::SelectedCommand(command);
                 } else {
                     self.selection = Selection::None;
                 }
             }
             // Command fully typed & already selected, do nothing
-            Selection::Selected(_) => {}
+            Selection::SelectedCommand(_) => {}
         }
     }
 
     /// For any given word, we want to check if the user is attempting to autocomplete a name in a
     /// channel
     fn process_users(&mut self, input: &str, users: &[User]) {
-        let user_entries = Self::users_entries(users);
         let (_, rest) = input.rsplit_once(' ').unwrap_or(("", input));
 
         // Empty input to operate on, ignore completions
@@ -275,41 +233,18 @@ impl Completion {
         }
 
         match self.selection {
-            Selection::None => {
+            Selection::None | Selection::Highlighted(_) => {
                 self.selection = Selection::None;
-                self.filtered_entries = user_entries
+                self.filtered_entries = users
                     .iter()
-                    .filter(|entry| {
-                        if let Entry::User(user) = entry {
-                            user.nickname.starts_with(&rest)
-                        } else {
-                            false
-                        }
+                    .filter_map(|user| {
+                        let nickname = user.nickname().as_ref().to_string();
+                        nickname.starts_with(rest).then_some(nickname)
                     })
-                    .cloned()
+                    .map(Entry::User)
                     .collect();
             }
-            // Command fully typed, transition to showing known entry
-            Selection::Highlighted(_) => {
-                self.filtered_entries = vec![];
-                if let Some(entry) = user_entries
-                    .iter()
-                    .find(|entry| {
-                        if let Entry::User(user) = entry {
-                            user.nickname == rest
-                        } else {
-                            false
-                        }
-                    })
-                    .cloned()
-                {
-                    self.selection = Selection::Selected(entry);
-                } else {
-                    self.selection = Selection::None;
-                }
-            }
-            // Command fully typed & already selected, do nothing
-            Selection::Selected(_) => {}
+            Selection::SelectedCommand(_) => {}
         }
     }
 
@@ -325,34 +260,34 @@ impl Completion {
     pub fn is_selecting(&self) -> bool {
         match self.selection {
             Selection::None | Selection::Highlighted(_) => !self.filtered_entries.is_empty(),
-            Selection::Selected(_) => false,
+            Selection::SelectedCommand(_) => false,
         }
     }
 
     fn is_active(&self) -> bool {
         match self.selection {
             Selection::None | Selection::Highlighted(_) => !self.filtered_entries.is_empty(),
-            Selection::Selected(_) => true,
+            Selection::SelectedCommand(_) => true,
         }
     }
 
-    pub fn select(&mut self) -> Option<String> {
+    pub fn select(&mut self) -> Option<Entry> {
         match self.selection {
             Selection::None => {
                 self.filtered_entries = vec![];
             }
             Selection::Highlighted(index) => {
                 if let Some(entry) = self.filtered_entries.get(index).cloned() {
-                    let command = match &entry {
-                        Entry::Command(command) => format!("/{}", command.title),
-                        Entry::User(user) => user.nickname.clone(),
-                    };
                     self.filtered_entries = vec![];
-                    self.selection = Selection::Selected(entry);
-                    return Some(command);
+
+                    if let Entry::Command(command) = &entry {
+                        self.selection = Selection::SelectedCommand(command.clone());
+                    }
+
+                    return Some(entry);
                 }
             }
-            Selection::Selected(_) => {}
+            Selection::SelectedCommand(_) => {}
         }
         None
     }
@@ -377,7 +312,7 @@ impl Completion {
                             let selected = Some(index) == self.selection.highlighted();
                             let content = text(match &entry {
                                 Entry::Command(command) => format!("/{}", command.title),
-                                Entry::User(user) => user.nickname.clone(),
+                                Entry::User(nickname) => nickname.clone(),
                             });
 
                             Element::from(
@@ -396,10 +331,7 @@ impl Completion {
                             .into(),
                     )
                 }
-                Selection::Selected(entry) => Some(match entry {
-                    Entry::Command(command) => command.view(input),
-                    Entry::User(user) => user.view(),
-                }),
+                Selection::SelectedCommand(command) => Some(command.view(input)),
             }
         } else {
             None
@@ -411,7 +343,7 @@ impl Completion {
 enum Selection {
     None,
     Highlighted(usize),
-    Selected(Entry),
+    SelectedCommand(Command),
 }
 
 impl Selection {
@@ -426,37 +358,31 @@ impl Selection {
 
 #[derive(Debug, Clone)]
 pub enum Entry {
-    Command(CommandEntry),
-    User(UserEntry),
+    Command(Command),
+    User(String),
+}
+
+impl Entry {
+    pub fn complete_input(&self, input: &str) -> String {
+        match self {
+            Entry::Command(command) => format!("/{}", command.title),
+            Entry::User(nickname) => match input.rsplit_once(' ') {
+                Some((left, _)) => format!("{left} {nickname}"),
+                None => nickname.clone(),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
-pub struct CommandEntry {
+pub struct Command {
     title: &'static str,
     args: Vec<Arg>,
 }
 
-#[derive(Debug, Clone)]
-pub struct UserEntry {
-    nickname: String,
-}
-
-/// Dictates how we render a user completion.
-impl UserEntry {
-    pub fn view<'a, Message: 'a>(&self) -> Element<'a, Message> {
-        let nick = Some(Element::from(text(self.nickname.clone())));
-
-        container(row(nick.into_iter().collect()))
-            .style(theme::Container::Context)
-            .padding(8)
-            .center_y()
-            .into()
-    }
-}
-
 /// Dictates how we render a command completion. A command may or may not have args,
 /// so we want to include those as autocomplete hints when the completion is selected
-impl CommandEntry {
+impl Command {
     pub fn view<'a, Message: 'a>(&self, input: &str) -> Element<'a, Message> {
         let active_arg = [input, "_"]
             .concat()
