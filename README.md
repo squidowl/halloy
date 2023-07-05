@@ -1,11 +1,11 @@
 <div align="center">
   
 # Halloy
-![halloy boje](https://github.com/casperstorm/halloy/assets/2248455/414d4466-b9ca-446b-901c-68acfcdff5e8)
+![halloy boje](https://github.com/squidowl/halloy/assets/2248455/414d4466-b9ca-446b-901c-68acfcdff5e8)
 
 </div>
 
-![halloy](https://github.com/casperstorm/halloy/assets/2248455/8a1f5105-7760-48fd-b7dd-17da146cd25f)
+![halloy](https://github.com/squidowl/halloy/assets/2248455/8a1f5105-7760-48fd-b7dd-17da146cd25f)
 
 Halloy is an open-source IRC client written in Rust, with the Iced GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.
 
@@ -20,7 +20,7 @@ To use Halloy, you can build it from source.
 1. Clone the repository:
 
 ```
-git clone https://github.com/casperstorm/halloy.git
+git clone https://github.com/squidowl/halloy.git
 ```
 
 2. Build the project:
@@ -54,4 +54,4 @@ Halloy is still in the early stages of development. Bugs and incomplete features
 
 ## Contact
 
-For any questions, suggestions, or issues, please open an issue on the [GitHub repository](https://github.com/casperstorm/halloy/issues).
+For any questions, suggestions, or issues, please open an issue on the [GitHub repository](https://github.com/squidowl/halloy/issues).
