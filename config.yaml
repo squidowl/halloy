@@ -11,7 +11,7 @@
 # - Default is Halloy and provided by this application
 # - For theme examples, please refer to:
 #   https://github.com/squidowl/halloy/wiki/Themes
-theme: "halloy"
+theme: "ferra"
 
 # For more fields under server, please refer to:
 # https://docs.rs/irc/0.15.0/irc/client/data/config/struct.Config.html#fields
