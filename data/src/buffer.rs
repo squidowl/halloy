@@ -30,7 +30,7 @@ impl Buffer {
         }
     }
 
-    pub fn message_source(self) -> message::Source {
+    pub fn server_message_source(self) -> message::Source {
         match self {
             Self::Server(_) => message::Source::Server,
             Self::Channel(_, channel) => message::Source::Channel(channel, message::Sender::Server),

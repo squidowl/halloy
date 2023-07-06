@@ -495,10 +495,14 @@ impl Dashboard {
     }
 
     pub fn record_whois(&mut self, server: &Server, mut message: data::Message) {
-        // If a buffer is focused, put the whois message there
+        // If a buffer for the server is focused, put the whois message there
         message.source = self
             .get_focused()
-            .and_then(|pane| pane.buffer.data().map(data::Buffer::message_source))
+            .and_then(|pane| {
+                pane.buffer.data().and_then(|buffer| {
+                    (buffer.server() == server).then(|| buffer.server_message_source())
+                })
+            })
             .unwrap_or(message::Source::Server);
 
         self.history.record_message(server, message);
