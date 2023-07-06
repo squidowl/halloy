@@ -14,7 +14,7 @@ pub enum Message {
     CompletionSelected,
 }
 
-pub fn view<'a>(state: &State, buffer: Buffer, users: Vec<User>) -> Element<'a, Message> {
+pub fn view<'a>(state: &State, buffer: Buffer, users: &'a [User]) -> Element<'a, Message> {
     input(
         state.input_id.clone(),
         buffer,
