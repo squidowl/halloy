@@ -1,6 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use irc::client::Client;
+use itertools::Itertools;
 
 use crate::user::NickRef;
 use crate::{message, Message, Server, User};
@@ -28,6 +29,8 @@ pub enum State {
 pub struct Connection {
     client: Client,
     resolved_nick: Option<String>,
+    channels: Vec<String>,
+    users: HashMap<String, Vec<User>>,
 }
 
 impl Connection {
@@ -35,6 +38,8 @@ impl Connection {
         Self {
             client,
             resolved_nick: None,
+            channels: vec![],
+            users: HashMap::new(),
         }
     }
 
@@ -88,17 +93,42 @@ impl Connection {
         }
     }
 
-    pub fn channels(&self) -> Vec<String> {
-        self.client.list_channels().unwrap_or_default()
-    }
-
-    fn users(&self, channel: &str) -> Vec<User> {
-        self.client
-            .list_users(channel)
+    fn sync(&mut self) {
+        self.channels = self
+            .client
+            .list_channels()
             .unwrap_or_default()
             .into_iter()
-            .map(User::from)
-            .collect()
+            .sorted()
+            .collect();
+
+        self.users = self
+            .channels
+            .iter()
+            .map(|channel| {
+                (
+                    channel.clone(),
+                    self.client
+                        .list_users(channel)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(User::from)
+                        .sorted()
+                        .collect(),
+                )
+            })
+            .collect();
+    }
+
+    pub fn channels(&self) -> &[String] {
+        &self.channels
+    }
+
+    fn users<'a>(&'a self, channel: &str) -> &'a [User] {
+        self.users
+            .get(channel)
+            .map(Vec::as_slice)
+            .unwrap_or_default()
     }
 
     pub fn nickname(&self) -> NickRef {
@@ -158,30 +188,24 @@ impl Map {
             .and_then(|connection| connection.receive(message))
     }
 
+    pub fn sync(&mut self) {
+        self.0.values_mut().for_each(|state| {
+            if let State::Ready(connection) = state {
+                connection.sync();
+            }
+        });
+    }
+
     pub fn send(&mut self, server: &Server, message: message::Encoded) {
         if let Some(connection) = self.connection_mut(server) {
             connection.send(message);
         }
     }
 
-    pub fn get_channel_users(&self, server: &Server, channel: &str) -> Vec<User> {
-        let mut users = self
-            .connection(server)
+    pub fn get_channel_users<'a>(&'a self, server: &Server, channel: &str) -> &'a [User] {
+        self.connection(server)
             .map(|connection| connection.users(channel))
-            .unwrap_or_default();
-        users.sort();
-
-        users
-    }
-
-    pub fn get_channels(&self) -> BTreeMap<Server, Vec<String>> {
-        self.0
-            .iter()
-            .filter_map(|(server, state)| match state {
-                State::Disconnected => None,
-                State::Ready(connection) => Some((server.clone(), connection.channels())),
-            })
-            .collect()
+            .unwrap_or_default()
     }
 
     pub fn iter(&self) -> std::collections::btree_map::Iter<Server, State> {
