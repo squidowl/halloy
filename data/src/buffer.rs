@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::user::Nick;
 use crate::{channel, Server};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Buffer {
     Server(Server),
     Channel(Server, String),

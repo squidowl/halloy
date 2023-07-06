@@ -19,6 +19,9 @@ pub fn view<'a>(
     settings: &'a buffer::Settings,
     is_focused: bool,
 ) -> Element<'a, Message> {
+    let buffer = state.buffer();
+    let input_history = history.input_history(&buffer);
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
@@ -38,12 +41,7 @@ pub fn view<'a>(
     .height(Length::Fill);
     let spacing = is_focused.then_some(vertical_space(4));
     let text_input = (is_focused && status.connected()).then(|| {
-        input_view::view(
-            &state.input_view,
-            data::Buffer::Server(state.server.clone()),
-            &[],
-        )
-        .map(Message::InputView)
+        input_view::view(&state.input_view, buffer, &[], input_history).map(Message::InputView)
     });
 
     let scrollable = column![messages]
@@ -74,6 +72,10 @@ impl Server {
         }
     }
 
+    pub fn buffer(&self) -> data::Buffer {
+        data::Buffer::Server(self.server.clone())
+    }
+
     pub fn update(
         &mut self,
         message: Message,
@@ -86,9 +88,7 @@ impl Server {
                 command.map(Message::ScrollView)
             }
             Message::InputView(message) => {
-                let (command, event) =
-                    self.input_view
-                        .update(message, &self.server, clients, history);
+                let (command, event) = self.input_view.update(message, clients, history);
                 let command = command.map(Message::InputView);
 
                 match event {
