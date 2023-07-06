@@ -12,13 +12,18 @@ pub fn parse(buffer: Buffer, input: &str) -> Result<Input, command::Error> {
         Err(error) => return Err(error),
     };
 
-    Ok(Input { buffer, content })
+    Ok(Input {
+        buffer,
+        content,
+        raw: Some(input.to_string()),
+    })
 }
 
 #[derive(Debug, Clone)]
 pub struct Input {
     buffer: Buffer,
     content: Content,
+    raw: Option<String>,
 }
 
 impl Input {
@@ -26,7 +31,12 @@ impl Input {
         Self {
             buffer,
             content: Content::Command(command),
+            raw: None,
         }
+    }
+
+    pub fn buffer(&self) -> &Buffer {
+        &self.buffer
     }
 
     pub fn server(&self) -> &Server {
@@ -77,6 +87,10 @@ impl Input {
             .and_then(|command| proto::Command::try_from(command).ok())?;
 
         Some(message::Encoded::from(proto::Message::from(command)))
+    }
+
+    pub fn raw(&self) -> Option<&str> {
+        self.raw.as_deref()
     }
 }
 
