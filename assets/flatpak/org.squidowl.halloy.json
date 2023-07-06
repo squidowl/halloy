@@ -9,8 +9,6 @@
     "command": "halloy",
     "finish-args": [
         "--share=ipc",
-        "--filesystem=xdg-config/halloy:create",
-        "--filesystem=xdg-data/halloy:create",
         "--socket=fallback-x11",
         "--socket=wayland",
         "--device=dri",
@@ -35,7 +33,7 @@
                 "install -Dm644 ./assets/halloy.appdata.xml /app/share/metainfo/org.squidowl.halloy.appdata.xml",
                 "install -Dm644 ./assets/halloy.desktop /app/share/applications/org.squidowl.halloy.desktop",
                 "install -Dm755 ./target/release/halloy -t /app/bin/"
-              ],
+            ],
             "sources": [
                 {
                     "type": "dir",
