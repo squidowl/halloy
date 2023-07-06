@@ -184,6 +184,12 @@ impl<'a> Ord for NickRef<'a> {
     }
 }
 
+impl<'a> PartialEq<Nick> for NickRef<'a> {
+    fn eq(&self, other: &Nick) -> bool {
+        self.0.eq(other.0.as_str())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct AccessLevel(data::AccessLevel);
 

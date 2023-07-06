@@ -4,7 +4,8 @@ pub mod side_menu;
 use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
-use data::{dashboard, history, Config, Server};
+use data::user::Nick;
+use data::{dashboard, history, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
 use iced::{clipboard, window, Command, Length, Subscription};
@@ -497,11 +498,47 @@ impl Dashboard {
         self.history.record_message(server, message);
     }
 
-    pub fn disconnected(&mut self, server: &Server) {
+    pub fn broadcast_quit(
+        &mut self,
+        server: &Server,
+        user: User,
+        comment: Option<String>,
+        user_channels: Vec<String>,
+    ) {
+        self.history.broadcast(
+            server,
+            Broadcast::Quit {
+                user,
+                comment,
+                user_channels,
+            },
+        );
+    }
+
+    pub fn broadcast_nickname(
+        &mut self,
+        server: &Server,
+        old_nick: Nick,
+        new_nick: Nick,
+        ourself: bool,
+        user_channels: Vec<String>,
+    ) {
+        self.history.broadcast(
+            server,
+            Broadcast::Nickname {
+                new_nick,
+                old_nick,
+                ourself,
+                user_channels,
+            },
+        );
+    }
+
+    pub fn broadcast_disconnected(&mut self, server: &Server) {
         self.history.broadcast(server, Broadcast::Disconnected);
     }
 
-    pub fn reconnected(&mut self, server: &Server) {
+    pub fn broadcast_reconnected(&mut self, server: &Server) {
         self.history.broadcast(server, Broadcast::Reconnected);
     }
 
