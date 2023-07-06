@@ -289,11 +289,14 @@ impl Application for Halloy {
                 } => {
                     self.clients.disconnected(server.clone());
 
-                    if !is_initial {
-                        let Screen::Dashboard(dashboard) = &mut self.screen else {
-                            return Command::none()
-                        };
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
+                        return Command::none()
+                    };
 
+                    if is_initial {
+                        // Intial is sent when first trying to connect
+                        dashboard.broadcast_connecting(&server);
+                    } else {
                         dashboard.broadcast_disconnected(&server, error);
                     }
 
@@ -306,11 +309,13 @@ impl Application for Halloy {
                 } => {
                     self.clients.ready(server.clone(), connection);
 
-                    if !is_initial {
-                        let Screen::Dashboard(dashboard) = &mut self.screen else {
-                            return Command::none()
-                        };
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
+                        return Command::none()
+                    };
 
+                    if is_initial {
+                        dashboard.broadcast_connected(&server);
+                    } else {
                         dashboard.broadcast_reconnected(&server);
                     }
 

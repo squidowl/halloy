@@ -246,9 +246,7 @@ impl Manager {
     }
 
     pub fn broadcast(&mut self, server: &Server, broadcast: Broadcast) {
-        let Some(map) = self.data.map.get(server) else {
-            return;
-        };
+        let map = self.data.map.entry(server.clone()).or_default();
 
         let channels = map
             .keys()
@@ -272,13 +270,13 @@ impl Manager {
             .cloned();
 
         let messages = match broadcast {
+            Broadcast::Connecting => message::broadcast::connecting(),
+            Broadcast::Connected => message::broadcast::connected(),
+            Broadcast::ConnectionFailed { error } => message::broadcast::connection_failed(error),
             Broadcast::Disconnected { error } => {
                 message::broadcast::disconnected(channels, queries, error)
             }
             Broadcast::Reconnected => message::broadcast::reconnected(channels, queries),
-            Broadcast::ConnectionFailed { error } => {
-                message::broadcast::connection_failed(channels, queries, error)
-            }
             Broadcast::Quit {
                 user,
                 comment,
@@ -477,13 +475,15 @@ impl Data {
 
 #[derive(Debug, Clone)]
 pub enum Broadcast {
+    Connecting,
+    Connected,
+    ConnectionFailed {
+        error: String,
+    },
     Disconnected {
         error: Option<String>,
     },
     Reconnected,
-    ConnectionFailed {
-        error: String,
-    },
     Quit {
         user: User,
         comment: Option<String>,

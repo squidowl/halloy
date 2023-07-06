@@ -418,6 +418,21 @@ pub(crate) mod broadcast {
             .collect()
     }
 
+    pub fn connecting() -> Vec<Message> {
+        let text = " ∙ connecting to server...".into();
+        expand([], [], true, text)
+    }
+
+    pub fn connected() -> Vec<Message> {
+        let text = " ∙ connected".into();
+        expand([], [], true, text)
+    }
+
+    pub fn connection_failed(error: String) -> Vec<Message> {
+        let text = format!(" ∙ connection to server failed ({error})");
+        expand([], [], true, text)
+    }
+
     pub fn disconnected(
         channels: impl IntoIterator<Item = String>,
         queries: impl IntoIterator<Item = Nick>,
@@ -433,15 +448,6 @@ pub(crate) mod broadcast {
         queries: impl IntoIterator<Item = Nick>,
     ) -> Vec<Message> {
         let text = " ∙ connection to server restored".into();
-        expand(channels, queries, true, text)
-    }
-
-    pub fn connection_failed(
-        channels: impl IntoIterator<Item = String>,
-        queries: impl IntoIterator<Item = Nick>,
-        error: String,
-    ) -> Vec<Message> {
-        let text = format!(" ∙ connection to server failed ({error})");
         expand(channels, queries, true, text)
     }
 
