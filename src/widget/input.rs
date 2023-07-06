@@ -19,7 +19,7 @@ pub type Id = text_input::Id;
 pub fn input<'a, Message>(
     id: Id,
     buffer: Buffer,
-    users: Vec<User>,
+    users: &'a [User],
     on_submit: impl Fn(data::Input) -> Message + 'a,
     on_completion: Message,
 ) -> Element<'a, Message>
@@ -54,7 +54,7 @@ pub enum Event {
 pub struct Input<'a, Message> {
     id: Id,
     buffer: Buffer,
-    users: Vec<User>,
+    users: &'a [User],
     on_submit: Box<dyn Fn(data::Input) -> Message + 'a>,
     on_completion: Message,
 }
@@ -85,7 +85,7 @@ where
 
                 state.input = input;
 
-                state.completion.process(&state.input, &self.users);
+                state.completion.process(&state.input, self.users);
 
                 None
             }
@@ -142,7 +142,7 @@ where
                         .get(state.selected_history.unwrap())
                         .unwrap()
                         .clone();
-                    state.completion.process(&state.input, &self.users);
+                    state.completion.process(&state.input, self.users);
 
                     return Some(self.on_completion.clone());
                 }
@@ -159,7 +159,7 @@ where
                     } else {
                         *index -= 1;
                         state.input = state.history.get(*index).unwrap().clone();
-                        state.completion.process(&state.input, &self.users);
+                        state.completion.process(&state.input, self.users);
                     }
 
                     return Some(self.on_completion.clone());
