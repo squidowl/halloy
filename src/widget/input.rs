@@ -1,8 +1,10 @@
-use data::{input, user::User, Buffer, Command};
+use std::collections::VecDeque;
+
+use data::user::User;
+use data::{input, Buffer, Command};
 use iced::advanced::widget::{self, Operation};
 pub use iced::widget::text_input::{focus, move_cursor_to_end};
 use iced::widget::{component, container, row, text, text_input, Component};
-use std::collections::VecDeque;
 
 use self::completion::Completion;
 use super::{anchored_overlay, key_press, Element, Renderer};
@@ -118,14 +120,9 @@ where
                 }
             }
             Event::Tab => {
-                state.completion.tab();
-                if let Some(entry) = state.completion.select() {
-                    if entry.is_user() {
-                        state.input = entry.complete_input(&state.input);
-                        Some(self.on_completion.clone())
-                    } else {
-                        None
-                    }
+                if let Some(entry) = state.completion.tab() {
+                    state.input = entry.complete_input(&state.input);
+                    Some(self.on_completion.clone())
                 } else {
                     None
                 }
@@ -185,20 +182,15 @@ where
             .on_submit(Event::Send)
             .id(self.id.clone())
             .padding(8)
-            .style(style)
-            .into();
+            .style(style);
 
-        // Add tab support if selecting a completion
-        let input = if state.completion.is_selecting() {
-            key_press(
-                text_input,
-                key_press::KeyCode::Tab,
-                key_press::Modifiers::default(),
-                Event::Tab,
-            )
-        } else {
-            text_input
-        };
+        // Add tab support
+        let input = key_press(
+            text_input,
+            key_press::KeyCode::Tab,
+            key_press::Modifiers::default(),
+            Event::Tab,
+        );
 
         // Add up / down support for history cycling
         let input = key_press(

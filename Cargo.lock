@@ -1078,6 +1078,7 @@ dependencies = [
  "iced",
  "image",
  "log",
+ "once_cell",
  "open",
  "palette",
  "thiserror",
