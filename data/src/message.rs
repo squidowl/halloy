@@ -158,7 +158,7 @@ fn source(message: Encoded, our_nick: NickRef) -> Option<Source> {
             let channel = params.get(1)?.clone();
             Some(Source::Channel(channel, Sender::Server))
         }
-        proto::Command::PRIVMSG(target, text) | proto::Command::NOTICE(target, text) => {
+        proto::Command::PRIVMSG(target, text) => {
             let is_action = is_action(&text);
             let sender = |user| {
                 if is_action {
@@ -177,6 +177,27 @@ fn source(message: Encoded, our_nick: NickRef) -> Option<Source> {
                         .then(|| Source::Query(user.nickname().to_owned(), sender(user)))
                 }
                 _ => None,
+            }
+        }
+        proto::Command::NOTICE(target, text) => {
+            let is_action = is_action(&text);
+            let sender = |user| {
+                if is_action {
+                    Sender::Action
+                } else {
+                    Sender::User(user)
+                }
+            };
+
+            match (target.is_channel_name(), user) {
+                (true, Some(user)) => Some(Source::Channel(target, sender(user))),
+                (false, Some(user)) => {
+                    let target = User::try_from(target.as_str()).ok()?;
+
+                    (target.nickname() == our_nick)
+                        .then(|| Source::Query(user.nickname().to_owned(), sender(user)))
+                }
+                _ => Some(Source::Server),
             }
         }
 
