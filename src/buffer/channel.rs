@@ -82,16 +82,16 @@ pub fn view<'a>(
     .height(Length::Fill);
 
     let spacing = is_focused.then_some(vertical_space(4));
+    let users = clients.get_channel_users(&state.server, &state.channel);
+    let nick_list = nick_list::view(users).map(Message::UserContext);
     let text_input = (is_focused && status.connected()).then(|| {
         input_view::view(
             &state.input_view,
             data::Buffer::Channel(state.server.clone(), state.channel.clone()),
+            users,
         )
         .map(Message::InputView)
     });
-
-    let users = clients.get_channel_users(&state.server, &state.channel);
-    let nick_list = nick_list::view(users).map(Message::UserContext);
 
     let content = match (
         settings.channel.users.visible,
@@ -198,7 +198,7 @@ mod nick_list {
     use crate::theme;
     use crate::widget::Element;
 
-    pub fn view<'a>(users: Vec<User>) -> Element<'a, Message> {
+    pub fn view(users: &[User]) -> Element<Message> {
         let column = column(
             users
                 .iter()
