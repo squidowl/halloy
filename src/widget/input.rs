@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use data::user::User;
 use data::{input, Buffer, Command};
 use iced::advanced::widget::{self, Operation};
@@ -12,14 +10,13 @@ use crate::theme;
 
 mod completion;
 
-pub const HISTORY_LENGTH: usize = 100;
-
 pub type Id = text_input::Id;
 
 pub fn input<'a, Message>(
     id: Id,
     buffer: Buffer,
     users: &'a [User],
+    history: &'a [String],
     on_submit: impl Fn(data::Input) -> Message + 'a,
     on_completion: Message,
 ) -> Element<'a, Message>
@@ -30,6 +27,7 @@ where
         id,
         buffer,
         users,
+        history,
         on_submit: Box::new(on_submit),
         on_completion,
     }
@@ -55,6 +53,7 @@ pub struct Input<'a, Message> {
     id: Id,
     buffer: Buffer,
     users: &'a [User],
+    history: &'a [String],
     on_submit: Box<dyn Fn(data::Input) -> Message + 'a>,
     on_completion: Message,
 }
@@ -64,7 +63,6 @@ pub struct State {
     input: String,
     error: Option<String>,
     completion: Completion,
-    history: VecDeque<String>,
     selected_history: Option<usize>,
 }
 
@@ -110,9 +108,7 @@ where
                         }
                     };
 
-                    // Clear message and add it to history
-                    state.history.push_front(std::mem::take(&mut state.input));
-                    state.history.truncate(HISTORY_LENGTH);
+                    state.input.clear();
 
                     Some((self.on_submit)(input))
                 } else {
@@ -130,14 +126,14 @@ where
             Event::Up => {
                 state.completion.reset();
 
-                if !state.history.is_empty() {
+                if !self.history.is_empty() {
                     if let Some(index) = state.selected_history.as_mut() {
-                        *index = (*index + 1).min(state.history.len() - 1);
+                        *index = (*index + 1).min(self.history.len() - 1);
                     } else {
                         state.selected_history = Some(0);
                     }
 
-                    state.input = state
+                    state.input = self
                         .history
                         .get(state.selected_history.unwrap())
                         .unwrap()
@@ -158,7 +154,7 @@ where
                         state.input.clear();
                     } else {
                         *index -= 1;
-                        state.input = state.history.get(*index).unwrap().clone();
+                        state.input = self.history.get(*index).unwrap().clone();
                         state.completion.process(&state.input, self.users);
                     }
 

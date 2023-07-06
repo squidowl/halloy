@@ -8,8 +8,8 @@ use tokio::time::Instant;
 use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::time::Posix;
-use crate::user::Nick;
-use crate::{server, Server};
+use crate::user::{Nick, NickRef};
+use crate::{server, Buffer, Input, Server};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -164,6 +164,16 @@ impl Manager {
         }
     }
 
+    pub fn record_input(&mut self, input: Input, our_nick: NickRef) {
+        if let Some(message) = input.message(our_nick) {
+            self.record_message(input.server(), message);
+        }
+
+        if let Some(text) = input.raw() {
+            self.data.input.push(input.buffer(), text.to_string());
+        }
+    }
+
     pub fn record_message(&mut self, server: &Server, message: crate::Message) {
         self.data.add_message(
             server.clone(),
@@ -274,6 +284,10 @@ impl Manager {
             self.record_message(server, message);
         });
     }
+
+    pub fn input_history<'a>(&'a self, buffer: &Buffer) -> &'a [String] {
+        self.data.input.get(buffer)
+    }
 }
 
 fn with_limit<'a>(
@@ -297,6 +311,7 @@ fn with_limit<'a>(
 #[derive(Debug, Default)]
 struct Data {
     map: HashMap<server::Server, HashMap<history::Kind, History>>,
+    input: history::Input,
 }
 
 impl Data {

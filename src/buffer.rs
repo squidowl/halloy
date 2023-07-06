@@ -43,15 +43,9 @@ impl Buffer {
     pub fn data(&self) -> Option<data::Buffer> {
         match self {
             Buffer::Empty => None,
-            Buffer::Channel(state) => Some(data::Buffer::Channel(
-                state.server.clone(),
-                state.channel.clone(),
-            )),
-            Buffer::Server(state) => Some(data::Buffer::Server(state.server.clone())),
-            Buffer::Query(state) => Some(data::Buffer::Query(
-                state.server.clone(),
-                state.nick.clone(),
-            )),
+            Buffer::Channel(state) => Some(state.buffer()),
+            Buffer::Server(state) => Some(state.buffer()),
+            Buffer::Query(state) => Some(state.buffer()),
         }
     }
 

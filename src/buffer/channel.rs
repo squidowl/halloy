@@ -27,6 +27,8 @@ pub fn view<'a>(
     settings: &'a buffer::Settings,
     is_focused: bool,
 ) -> Element<'a, Message> {
+    let buffer = state.buffer();
+    let input_history = history.input_history(&buffer);
     let our_nick = clients.nickname(&state.server);
 
     let messages = container(
@@ -85,12 +87,7 @@ pub fn view<'a>(
     let users = clients.get_channel_users(&state.server, &state.channel);
     let nick_list = nick_list::view(users).map(Message::UserContext);
     let text_input = (is_focused && status.connected()).then(|| {
-        input_view::view(
-            &state.input_view,
-            data::Buffer::Channel(state.server.clone(), state.channel.clone()),
-            users,
-        )
-        .map(Message::InputView)
+        input_view::view(&state.input_view, buffer, users, input_history).map(Message::InputView)
     });
 
     let content = match (
@@ -138,6 +135,10 @@ impl Channel {
         }
     }
 
+    pub fn buffer(&self) -> data::Buffer {
+        data::Buffer::Channel(self.server.clone(), self.channel.clone())
+    }
+
     pub fn update(
         &mut self,
         message: Message,
@@ -155,9 +156,7 @@ impl Channel {
                 (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
-                let (command, event) =
-                    self.input_view
-                        .update(message, &self.server, clients, history);
+                let (command, event) = self.input_view.update(message, clients, history);
                 let command = command.map(Message::InputView);
 
                 match event {
