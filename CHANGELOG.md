@@ -12,6 +12,7 @@ Added:
 - Better error descriptions on connection failures
 - Support RAW command
 - Drag & drop buffers to the edges for better customization of the grid
+- Whois messages are printed in the currently focused buffer
 
 Changed:
 
