@@ -7,6 +7,7 @@ Added:
 - Messages from other users containing your nickname are now highlighted using the `info` colour
 - Previously sent messages can be accessed per buffer in the text input with up / down arrows
 - Themes directory where users can add their own theme files
+- Nickname completions in text input with <kbd>Tab</kbd>
 
 Changed:
 

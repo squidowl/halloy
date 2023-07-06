@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use data::user::User;
 use data::{input, Buffer, Command};
 use iced::advanced::widget::{self, Operation};
 pub use iced::widget::text_input::{focus, move_cursor_to_end};
@@ -18,6 +19,7 @@ pub type Id = text_input::Id;
 pub fn input<'a, Message>(
     id: Id,
     buffer: Buffer,
+    users: &'a [User],
     on_submit: impl Fn(data::Input) -> Message + 'a,
     on_completion: Message,
 ) -> Element<'a, Message>
@@ -27,6 +29,7 @@ where
     Input {
         id,
         buffer,
+        users,
         on_submit: Box::new(on_submit),
         on_completion,
     }
@@ -51,6 +54,7 @@ pub enum Event {
 pub struct Input<'a, Message> {
     id: Id,
     buffer: Buffer,
+    users: &'a [User],
     on_submit: Box<dyn Fn(data::Input) -> Message + 'a>,
     on_completion: Message,
 }
@@ -81,7 +85,7 @@ where
 
                 state.input = input;
 
-                state.completion.process(&state.input);
+                state.completion.process(&state.input, self.users);
 
                 None
             }
@@ -91,8 +95,8 @@ where
                 // Reset selected history
                 state.selected_history = None;
 
-                if let Some(command) = state.completion.select() {
-                    state.input = command;
+                if let Some(entry) = state.completion.select() {
+                    state.input = entry.complete_input(&state.input);
                     Some(self.on_completion.clone())
                 } else if !state.input.is_empty() {
                     state.completion.reset();
@@ -116,8 +120,12 @@ where
                 }
             }
             Event::Tab => {
-                state.completion.tab();
-                None
+                if let Some(entry) = state.completion.tab() {
+                    state.input = entry.complete_input(&state.input);
+                    Some(self.on_completion.clone())
+                } else {
+                    None
+                }
             }
             Event::Up => {
                 state.completion.reset();
@@ -134,7 +142,7 @@ where
                         .get(state.selected_history.unwrap())
                         .unwrap()
                         .clone();
-                    state.completion.process(&state.input);
+                    state.completion.process(&state.input, self.users);
 
                     return Some(self.on_completion.clone());
                 }
@@ -151,7 +159,7 @@ where
                     } else {
                         *index -= 1;
                         state.input = state.history.get(*index).unwrap().clone();
-                        state.completion.process(&state.input);
+                        state.completion.process(&state.input, self.users);
                     }
 
                     return Some(self.on_completion.clone());
@@ -174,20 +182,15 @@ where
             .on_submit(Event::Send)
             .id(self.id.clone())
             .padding(8)
-            .style(style)
-            .into();
+            .style(style);
 
-        // Add tab support if selecting a completion
-        let input = if state.completion.is_selecting() {
-            key_press(
-                text_input,
-                key_press::KeyCode::Tab,
-                key_press::Modifiers::default(),
-                Event::Tab,
-            )
-        } else {
-            text_input
-        };
+        // Add tab support
+        let input = key_press(
+            text_input,
+            key_press::KeyCode::Tab,
+            key_press::Modifiers::default(),
+            Event::Tab,
+        );
 
         // Add up / down support for history cycling
         let input = key_press(
