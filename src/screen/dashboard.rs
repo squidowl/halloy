@@ -543,6 +543,11 @@ impl Dashboard {
         self.history.broadcast(server, Broadcast::Reconnected);
     }
 
+    pub fn broadcast_connection_failed(&mut self, server: &Server, error: String) {
+        self.history
+            .broadcast(server, Broadcast::ConnectionFailed { error });
+    }
+
     fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {
         let pane = self.focus?;
         self.panes.get_mut(&pane).map(|state| (pane, state))

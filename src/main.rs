@@ -316,6 +316,15 @@ impl Application for Halloy {
 
                     Command::none()
                 }
+                stream::Update::ConnectionFailed { server, error } => {
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
+                            return Command::none()
+                        };
+
+                    dashboard.broadcast_connection_failed(&server, error);
+
+                    Command::none()
+                }
                 stream::Update::MessagesReceived(server, messages) => {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
                         return Command::none()
