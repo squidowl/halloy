@@ -219,7 +219,7 @@ impl Completion {
                 }
             }
             // Command fully typed & already selected, do nothing
-            Selection::SelectedCommand(_) => {}
+            Selection::SelectedCommand(_) | Selection::SelectingUser(_) => {}
         }
     }
 
@@ -227,28 +227,23 @@ impl Completion {
     fn process_users(&mut self, input: &str, users: &[User]) {
         let (_, rest) = input.rsplit_once(' ').unwrap_or(("", input));
 
-        // Only show user completions if using @
-        let Some((_, nick)) = rest.split_once('@') else {
-            self.reset();
-            return;
-        };
-
         match self.selection {
-            Selection::None | Selection::Highlighted(_) => {
-                self.selection = Selection::None;
+            Selection::None | Selection::SelectingUser(_) => {
+                self.selection = Selection::SelectingUser(0);
                 self.filtered_entries = users
                     .iter()
                     .filter_map(|user| {
                         let nickname = user.nickname();
                         nickname
                             .as_ref()
-                            .starts_with(nick)
+                            .starts_with(rest)
                             .then(|| nickname.to_string())
                     })
                     .map(Entry::User)
                     .collect();
             }
-            Selection::SelectedCommand(_) => {}
+            // No highlighting for user completion
+            Selection::SelectedCommand(_) | Selection::Highlighted(_) => {}
         }
     }
 
@@ -263,15 +258,20 @@ impl Completion {
 
     pub fn is_selecting(&self) -> bool {
         match self.selection {
-            Selection::None | Selection::Highlighted(_) => !self.filtered_entries.is_empty(),
+            Selection::None | Selection::Highlighted(_) | Selection::SelectingUser(_) => {
+                !self.filtered_entries.is_empty()
+            }
             Selection::SelectedCommand(_) => false,
         }
     }
 
     fn is_active(&self) -> bool {
         match self.selection {
-            Selection::None | Selection::Highlighted(_) => !self.filtered_entries.is_empty(),
+            Selection::None | Selection::Highlighted(_) => {
+                !self.filtered_entries.is_empty()
+            }
             Selection::SelectedCommand(_) => true,
+            Selection::SelectingUser(_) => false
         }
     }
 
@@ -279,6 +279,13 @@ impl Completion {
         match self.selection {
             Selection::None => {
                 self.filtered_entries = vec![];
+            }
+            // When selecting a user, don't clear out the filtered entries so we can continue to
+            // tab through the available options
+            Selection::SelectingUser(index) => {
+                if let Some(entry) = self.filtered_entries.get(index).cloned() {
+                    return Some(entry);
+                }
             }
             Selection::Highlighted(index) => {
                 if let Some(entry) = self.filtered_entries.get(index).cloned() {
@@ -297,7 +304,9 @@ impl Completion {
     }
 
     pub fn tab(&mut self) {
-        if let Selection::Highlighted(index) = &mut self.selection {
+        if let &mut Selection::Highlighted(ref mut index)
+        | &mut Selection::SelectingUser(ref mut index) = &mut self.selection
+        {
             *index = (*index + 1) % self.filtered_entries.len();
         } else if matches!(self.selection, Selection::None) {
             self.selection = Selection::Highlighted(0);
@@ -349,6 +358,7 @@ impl Completion {
                     )
                 }
                 Selection::SelectedCommand(command) => Some(command.view(input)),
+                Selection::SelectingUser(_) => None,
             }
         } else {
             None
@@ -360,6 +370,7 @@ impl Completion {
 enum Selection {
     None,
     Highlighted(usize),
+    SelectingUser(usize),
     SelectedCommand(Command),
 }
 
@@ -388,6 +399,10 @@ impl Entry {
                 None => nickname.clone(),
             },
         }
+    }
+
+    pub fn is_user(&self) -> bool {
+        matches!(self, Self::User(_))
     }
 }
 
