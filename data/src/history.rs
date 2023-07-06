@@ -22,7 +22,7 @@ const MAX_MESSAGES: usize = 10_000;
 const TRUNC_COUNT: usize = 500;
 /// Duration to wait after receiving last message before flushing
 const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
-const MAX_INPUT_HISTORY_LENGTH: usize = 100;
+const INPUT_HISTORY_LENGTH: usize = 100;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -285,7 +285,7 @@ impl Input {
     fn push(&mut self, buffer: &Buffer, text: String) {
         let history = self.0.entry(buffer.clone()).or_default();
         history.insert(0, text);
-        history.truncate(MAX_INPUT_HISTORY_LENGTH);
+        history.truncate(INPUT_HISTORY_LENGTH);
     }
 }
 
