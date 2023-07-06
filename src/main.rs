@@ -19,8 +19,6 @@ use iced::widget::container;
 use iced::{executor, window, Application, Command, Length, Subscription};
 use screen::{dashboard, help, welcome};
 
-extern crate image;
-
 use self::event::{events, Event};
 pub use self::theme::Theme;
 use self::widget::Element;

@@ -19,14 +19,16 @@ thiserror = "1.0.30"
 tokio = { version = "1.0", features = ["rt", "fs", "process"] }
 unicode-segmentation = "1.6"
 open = "4.1.0"
-image = "0.24.6"
-
-[build-dependencies]
-embed-resource = "2.1.1"
 
 [dependencies.uuid]
 version = "1.0"
 features = ["v4"]
+
+[target.'cfg(windows)'.dependencies]
+image = "0.24.6"
+
+[build-dependencies]
+embed-resource = "2.1.1"
 
 [workspace]
 members = ["data"]
