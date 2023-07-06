@@ -66,6 +66,12 @@ pub fn view<'a>(
                     message::Sender::Action => Some(
                         container(selectable_text(&message.text).style(theme::Text::Accent)).into(),
                     ),
+                    message::Sender::Status(status) => Some(
+                        container(
+                            selectable_text(&message.text).style(theme::Text::Status(*status)),
+                        )
+                        .into(),
+                    ),
                 }
             },
         )

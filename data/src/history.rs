@@ -44,7 +44,7 @@ impl fmt::Display for Kind {
 impl From<message::Source> for Kind {
     fn from(source: message::Source) -> Self {
         match source {
-            message::Source::Server => Kind::Server,
+            message::Source::Server | message::Source::Status(_) => Kind::Server,
             message::Source::Channel(channel, _) => Kind::Channel(channel),
             message::Source::Query(user, _) => Kind::Query(user),
         }

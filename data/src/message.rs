@@ -55,6 +55,7 @@ pub enum Source {
     Server,
     Channel(Channel, Sender),
     Query(Nick, Sender),
+    Status(Status),
 }
 
 impl Source {
@@ -63,6 +64,7 @@ impl Source {
             Source::Server => None,
             Source::Channel(_, sender) => Some(sender),
             Source::Query(_, sender) => Some(sender),
+            Source::Status(_) => None,
         }
     }
 }
@@ -72,6 +74,7 @@ pub enum Sender {
     User(User),
     Server,
     Action,
+    Status(Status),
 }
 
 impl Sender {
@@ -80,8 +83,15 @@ impl Sender {
             Sender::User(user) => Some(user),
             Sender::Server => None,
             Sender::Action => None,
+            Sender::Status(_) => None,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Status {
+    Success,
+    Error,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -100,10 +110,6 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn is_server(&self) -> bool {
-        matches!(self.source, Source::Server)
-    }
-
     pub fn channel(&self) -> Option<&str> {
         if let Source::Channel(channel, _) = &self.source {
             Some(channel)
@@ -117,6 +123,7 @@ impl Message {
             Source::Server => None,
             Source::Channel(_, kind) => kind.user(),
             Source::Query(_, kind) => kind.user(),
+            Source::Status(_) => None,
         }
     }
 
@@ -385,15 +392,21 @@ pub(crate) mod broadcast {
     //! Generate messages that can be broadcast into every buffer
     use chrono::Utc;
 
-    use super::{Direction, Message, Sender, Source};
+    use super::{Direction, Message, Sender, Source, Status};
     use crate::time::Posix;
     use crate::user::Nick;
     use crate::User;
+
+    enum Cause {
+        Server,
+        Status(Status),
+    }
 
     fn expand(
         channels: impl IntoIterator<Item = String>,
         queries: impl IntoIterator<Item = Nick>,
         include_server: bool,
+        cause: Cause,
         text: String,
     ) -> Vec<Message> {
         let message = |source, text| -> Message {
@@ -406,31 +419,36 @@ pub(crate) mod broadcast {
             }
         };
 
+        let (source, sender) = match cause {
+            Cause::Server => (Source::Server, Sender::Server),
+            Cause::Status(status) => (Source::Status(status), Sender::Status(status)),
+        };
+
         channels
             .into_iter()
-            .map(|channel| message(Source::Channel(channel, Sender::Server), text.clone()))
+            .map(|channel| message(Source::Channel(channel, sender.clone()), text.clone()))
             .chain(
                 queries
                     .into_iter()
-                    .map(|nick| message(Source::Query(nick, Sender::Server), text.clone())),
+                    .map(|nick| message(Source::Query(nick, sender.clone()), text.clone())),
             )
-            .chain(include_server.then(|| message(Source::Server, text.clone())))
+            .chain(include_server.then(|| message(source, text.clone())))
             .collect()
     }
 
     pub fn connecting() -> Vec<Message> {
         let text = " ∙ connecting to server...".into();
-        expand([], [], true, text)
+        expand([], [], true, Cause::Status(Status::Success), text)
     }
 
     pub fn connected() -> Vec<Message> {
         let text = " ∙ connected".into();
-        expand([], [], true, text)
+        expand([], [], true, Cause::Status(Status::Success), text)
     }
 
     pub fn connection_failed(error: String) -> Vec<Message> {
         let text = format!(" ∙ connection to server failed ({error})");
-        expand([], [], true, text)
+        expand([], [], true, Cause::Status(Status::Error), text)
     }
 
     pub fn disconnected(
@@ -440,7 +458,7 @@ pub(crate) mod broadcast {
     ) -> Vec<Message> {
         let error = error.map(|error| format!(" ({error})")).unwrap_or_default();
         let text = format!(" ∙ connection to server lost{error}");
-        expand(channels, queries, true, text)
+        expand(channels, queries, true, Cause::Status(Status::Error), text)
     }
 
     pub fn reconnected(
@@ -448,7 +466,13 @@ pub(crate) mod broadcast {
         queries: impl IntoIterator<Item = Nick>,
     ) -> Vec<Message> {
         let text = " ∙ connection to server restored".into();
-        expand(channels, queries, true, text)
+        expand(
+            channels,
+            queries,
+            true,
+            Cause::Status(Status::Success),
+            text,
+        )
     }
 
     pub fn quit(
@@ -463,7 +487,7 @@ pub(crate) mod broadcast {
             .unwrap_or_default();
         let text = format!("⟵ {user} has quit{comment}");
 
-        expand(channels, queries, false, text)
+        expand(channels, queries, false, Cause::Server, text)
     }
 
     pub fn nickname(
@@ -479,6 +503,6 @@ pub(crate) mod broadcast {
             format!(" ∙ {old_nick} is now known as {new_nick}")
         };
 
-        expand(channels, queries, false, text)
+        expand(channels, queries, false, Cause::Server, text)
     }
 }

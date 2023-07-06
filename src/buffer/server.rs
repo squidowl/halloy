@@ -27,13 +27,20 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Server(&state.server),
             history,
-            |message| {
-                let timestamp = settings
-                    .format_timestamp(&message.server_time)
-                    .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
-                let message = selectable_text(&message.text).style(theme::Text::Alpha04);
+            |message| match message.source {
+                data::message::Source::Server => {
+                    let timestamp = settings
+                        .format_timestamp(&message.server_time)
+                        .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
+                    let message = selectable_text(&message.text).style(theme::Text::Alpha04);
 
-                Some(container(row![].push_maybe(timestamp).push(message)).into())
+                    Some(container(row![].push_maybe(timestamp).push(message)).into())
+                }
+                data::message::Source::Status(status) => Some(
+                    container(selectable_text(&message.text).style(theme::Text::Status(status)))
+                        .into(),
+                ),
+                _ => None,
             },
         )
         .map(Message::ScrollView),
