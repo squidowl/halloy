@@ -290,7 +290,7 @@ impl Application for Halloy {
                             return Command::none()
                         };
 
-                        dashboard.disconnected(&server);
+                        dashboard.broadcast_disconnected(&server);
                     }
 
                     Command::none()
@@ -307,7 +307,7 @@ impl Application for Halloy {
                             return Command::none()
                         };
 
-                        dashboard.reconnected(&server);
+                        dashboard.broadcast_reconnected(&server);
                     }
 
                     Command::none()
@@ -318,14 +318,49 @@ impl Application for Halloy {
                     };
 
                     messages.into_iter().for_each(|encoded| {
-                        if let Some(message) = self.clients.receive(&server, encoded) {
-                            dashboard.record_message(&server, message);
+                        if let Some(event) = self.clients.receive(&server, encoded) {
+                            match event {
+                                data::client::Event::Single(message) => {
+                                    dashboard.record_message(&server, message);
+                                }
+                                data::client::Event::Brodcast(brodcast) => match brodcast {
+                                    data::client::Brodcast::Quit { user, comment } => {
+                                        let user_channels = self
+                                            .clients
+                                            .get_user_channels(&server, user.nickname());
+
+                                        dashboard.broadcast_quit(
+                                            &server,
+                                            user,
+                                            comment,
+                                            user_channels,
+                                        );
+                                    }
+                                    data::client::Brodcast::Nickname {
+                                        old_user,
+                                        new_nick,
+                                        ourself,
+                                    } => {
+                                        let old_nick = old_user.nickname();
+                                        let user_channels =
+                                            self.clients.get_user_channels(&server, old_nick);
+
+                                        dashboard.broadcast_nickname(
+                                            &server,
+                                            old_nick.to_owned(),
+                                            new_nick,
+                                            ourself,
+                                            user_channels,
+                                        );
+                                    }
+                                },
+                            }
                         }
                     });
 
                     // Must be called after receiving message batches to ensure
                     // user & channel lists are in sync
-                    self.clients.sync();
+                    self.clients.sync(&server);
 
                     Command::none()
                 }

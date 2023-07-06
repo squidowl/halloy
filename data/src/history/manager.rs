@@ -9,7 +9,7 @@ use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{server, Buffer, Input, Server};
+use crate::{server, Buffer, Input, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -260,7 +260,7 @@ impl Manager {
                 }
             })
             .cloned();
-        let queries = map
+        let mut queries = map
             .keys()
             .filter_map(|kind| {
                 if let history::Kind::Query(nick) = kind {
@@ -272,11 +272,43 @@ impl Manager {
             .cloned();
 
         let messages = match broadcast {
-            Broadcast::Disconnected => {
-                message::broadcast::disconnected(channels, queries).collect::<Vec<_>>()
+            Broadcast::Disconnected => message::broadcast::disconnected(channels, queries),
+            Broadcast::Reconnected => message::broadcast::reconnected(channels, queries),
+            Broadcast::Quit {
+                user,
+                comment,
+                user_channels,
+            } => {
+                let user_query = queries.find(|nick| user.nickname() == *nick);
+
+                message::broadcast::quit(user_channels, user_query, &user, &comment)
             }
-            Broadcast::Reconnected => {
-                message::broadcast::reconnected(channels, queries).collect::<Vec<_>>()
+            Broadcast::Nickname {
+                old_nick,
+                new_nick,
+                ourself,
+                user_channels,
+            } => {
+                if ourself {
+                    // If ourself, broadcast to all query channels (since we are in all of them)
+                    message::broadcast::nickname(
+                        user_channels,
+                        queries,
+                        &old_nick,
+                        &new_nick,
+                        ourself,
+                    )
+                } else {
+                    // Otherwise just the query channel of the user w/ nick change
+                    let user_query = queries.find(|nick| old_nick == *nick);
+                    message::broadcast::nickname(
+                        user_channels,
+                        user_query,
+                        &old_nick,
+                        &new_nick,
+                        ourself,
+                    )
+                }
             }
         };
 
@@ -438,8 +470,19 @@ impl Data {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Broadcast {
     Disconnected,
     Reconnected,
+    Quit {
+        user: User,
+        comment: Option<String>,
+        user_channels: Vec<String>,
+    },
+    Nickname {
+        old_nick: Nick,
+        new_nick: Nick,
+        ourself: bool,
+        user_channels: Vec<String>,
+    },
 }

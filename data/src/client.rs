@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use irc::client::Client;
 use itertools::Itertools;
 
-use crate::user::NickRef;
+use crate::user::{Nick, NickRef};
 use crate::{message, Message, Server, User};
 
 #[derive(Debug, Clone, Copy)]
@@ -23,6 +23,25 @@ impl Status {
 pub enum State {
     Disconnected,
     Ready(Connection),
+}
+
+#[derive(Debug)]
+pub enum Brodcast {
+    Quit {
+        user: User,
+        comment: Option<String>,
+    },
+    Nickname {
+        old_user: User,
+        new_nick: Nick,
+        ourself: bool,
+    },
+}
+
+#[derive(Debug)]
+pub enum Event {
+    Single(Message),
+    Brodcast(Brodcast),
 }
 
 #[derive(Debug)]
@@ -60,37 +79,47 @@ impl Connection {
         }
     }
 
-    fn receive(&mut self, message: message::Encoded) -> Option<Message> {
+    fn receive(&mut self, message: message::Encoded) -> Option<Event> {
         log::trace!("Message received => {:?}", *message);
 
-        self.handle(&message);
-
-        Message::received(message, self.nickname())
+        self.handle(message)
     }
 
-    fn handle(&mut self, message: &message::Encoded) {
+    fn handle(&mut self, message: message::Encoded) -> Option<Event> {
         use irc::proto::{Command, Response};
 
         match &message.command {
             Command::NICK(nick) => {
-                let Some(old_nick) = message.prefix.as_ref().and_then(|prefix| match prefix {
-                    irc::proto::Prefix::ServerName(_) => None,
-                    irc::proto::Prefix::Nickname(nick, _, _) => Some(nick),
-                }) else {
-                    return;
-                };
+                let old_user = message.user()?;
+                let ourself = self.nickname() == old_user.nickname();
 
-                if self.resolved_nick.as_ref() == Some(old_nick) {
-                    self.resolved_nick = Some(nick.clone())
+                if ourself {
+                    self.resolved_nick = Some(nick.clone());
                 }
+
+                return Some(Event::Brodcast(Brodcast::Nickname {
+                    old_user,
+                    new_nick: Nick::from(nick.as_str()),
+                    ourself,
+                }));
             }
             Command::Response(Response::RPL_WELCOME, args) => {
                 if let Some(nick) = args.first() {
                     self.resolved_nick = Some(nick.to_string());
                 }
             }
+            Command::QUIT(comment) => {
+                let user = message.user()?;
+
+                return Some(Event::Brodcast(Brodcast::Quit {
+                    user,
+                    comment: comment.clone(),
+                }));
+            }
             _ => {}
         }
+
+        Some(Event::Single(Message::received(message, self.nickname())?))
     }
 
     fn sync(&mut self) {
@@ -183,17 +212,15 @@ impl Map {
         self.connection(server).map(Connection::nickname)
     }
 
-    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Option<Message> {
+    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Option<Event> {
         self.connection_mut(server)
             .and_then(|connection| connection.receive(message))
     }
 
-    pub fn sync(&mut self) {
-        self.0.values_mut().for_each(|state| {
-            if let State::Ready(connection) = state {
-                connection.sync();
-            }
-        });
+    pub fn sync(&mut self, server: &Server) {
+        if let Some(State::Ready(connection)) = self.0.get_mut(server) {
+            connection.sync();
+        }
     }
 
     pub fn send(&mut self, server: &Server, message: message::Encoded) {
@@ -205,6 +232,24 @@ impl Map {
     pub fn get_channel_users<'a>(&'a self, server: &Server, channel: &str) -> &'a [User] {
         self.connection(server)
             .map(|connection| connection.users(channel))
+            .unwrap_or_default()
+    }
+
+    pub fn get_user_channels(&self, server: &Server, nick: NickRef) -> Vec<String> {
+        self.connection(server)
+            .map(|connection| {
+                connection
+                    .channels()
+                    .iter()
+                    .filter(|channel| {
+                        connection
+                            .users(channel)
+                            .iter()
+                            .any(|user| user.nickname() == nick)
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default()
     }
 

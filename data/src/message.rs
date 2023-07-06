@@ -12,6 +12,24 @@ pub type Channel = String;
 #[derive(Debug, Clone)]
 pub struct Encoded(proto::Message);
 
+impl Encoded {
+    pub fn user(&self) -> Option<User> {
+        fn not_empty(s: &str) -> Option<&str> {
+            (!s.is_empty()).then_some(s)
+        }
+
+        let prefix = self.prefix.as_ref()?;
+        match prefix {
+            proto::Prefix::Nickname(nickname, username, hostname) => Some(User::new(
+                Nick::from(nickname.as_str()),
+                not_empty(username),
+                not_empty(hostname),
+            )),
+            _ => None,
+        }
+    }
+}
+
 impl std::ops::Deref for Encoded {
     type Target = proto::Message;
 
@@ -122,24 +140,8 @@ impl Message {
     }
 }
 
-fn user(message: &Encoded) -> Option<User> {
-    fn not_empty(s: &str) -> Option<&str> {
-        (!s.is_empty()).then_some(s)
-    }
-
-    let prefix = message.prefix.as_ref()?;
-    match prefix {
-        proto::Prefix::Nickname(nickname, username, hostname) => Some(User::new(
-            Nick::from(nickname.as_str()),
-            not_empty(username),
-            not_empty(hostname),
-        )),
-        _ => None,
-    }
-}
-
 fn source(message: Encoded, our_nick: NickRef) -> Option<Source> {
-    let user = user(&message);
+    let user = message.user();
 
     match message.0.command {
         // Channel
@@ -252,7 +254,7 @@ fn server_time(message: &Encoded) -> DateTime<Utc> {
 }
 
 fn text(message: &Encoded, our_nick: NickRef) -> Option<String> {
-    let user = user(message);
+    let user = message.user();
     match &message.command {
         proto::Command::TOPIC(_, topic) => {
             let user = user?;
@@ -267,7 +269,7 @@ fn text(message: &Encoded, our_nick: NickRef) -> Option<String> {
                 .map(|text| format!(" ({text})"))
                 .unwrap_or_default();
 
-            Some(format!("⟵ {user}{text} has left the channel"))
+            Some(format!("⟵ {user} has left the channel{text}"))
         }
         proto::Command::JOIN(_, _, _) | proto::Command::SAJOIN(_, _) => {
             let user = user?;
@@ -365,54 +367,80 @@ pub(crate) mod broadcast {
     use super::{Direction, Message, Sender, Source};
     use crate::time::Posix;
     use crate::user::Nick;
+    use crate::User;
 
     fn expand(
         channels: impl IntoIterator<Item = String>,
         queries: impl IntoIterator<Item = Nick>,
-        f: fn(source: Source) -> Message,
-    ) -> impl Iterator<Item = Message> {
+        include_server: bool,
+        text: String,
+    ) -> Vec<Message> {
+        let message = |source, text| -> Message {
+            Message {
+                received_at: Posix::now(),
+                server_time: Utc::now(),
+                direction: Direction::Received,
+                source,
+                text,
+            }
+        };
+
         channels
             .into_iter()
-            .map(move |channel| f(Source::Channel(channel, Sender::Server)))
+            .map(|channel| message(Source::Channel(channel, Sender::Server), text.clone()))
             .chain(
                 queries
                     .into_iter()
-                    .map(move |nick| f(Source::Query(nick, Sender::Server))),
+                    .map(|nick| message(Source::Query(nick, Sender::Server), text.clone())),
             )
-            .chain(Some(f(Source::Server)))
+            .chain(include_server.then(|| message(Source::Server, text.clone())))
+            .collect()
     }
 
     pub fn disconnected(
         channels: impl IntoIterator<Item = String>,
         queries: impl IntoIterator<Item = Nick>,
-    ) -> impl Iterator<Item = Message> {
-        fn message(source: Source) -> Message {
-            Message {
-                received_at: Posix::now(),
-                server_time: Utc::now(),
-                direction: Direction::Received,
-                source,
-                text: " ∙ connection to server lost".into(),
-            }
-        }
-
-        expand(channels, queries, message)
+    ) -> Vec<Message> {
+        let text = " ∙ connection to server lost".into();
+        expand(channels, queries, true, text)
     }
 
     pub fn reconnected(
         channels: impl IntoIterator<Item = String>,
         queries: impl IntoIterator<Item = Nick>,
-    ) -> impl Iterator<Item = Message> {
-        fn message(source: Source) -> Message {
-            Message {
-                received_at: Posix::now(),
-                server_time: Utc::now(),
-                direction: Direction::Received,
-                source,
-                text: " ∙ connection to server restored".into(),
-            }
-        }
+    ) -> Vec<Message> {
+        let text = " ∙ connection to server restored".into();
+        expand(channels, queries, true, text)
+    }
 
-        expand(channels, queries, message)
+    pub fn quit(
+        channels: impl IntoIterator<Item = String>,
+        queries: impl IntoIterator<Item = Nick>,
+        user: &User,
+        comment: &Option<String>,
+    ) -> Vec<Message> {
+        let comment = comment
+            .as_ref()
+            .map(|comment| format!(" ({comment})"))
+            .unwrap_or_default();
+        let text = format!("⟵ {user} has quit{comment}");
+
+        expand(channels, queries, false, text)
+    }
+
+    pub fn nickname(
+        channels: impl IntoIterator<Item = String>,
+        queries: impl IntoIterator<Item = Nick>,
+        old_nick: &Nick,
+        new_nick: &Nick,
+        ourself: bool,
+    ) -> Vec<Message> {
+        let text = if ourself {
+            format!(" ∙ You're now known as {new_nick}")
+        } else {
+            format!(" ∙ {old_nick} is now known as {new_nick}")
+        };
+
+        expand(channels, queries, false, text)
     }
 }
