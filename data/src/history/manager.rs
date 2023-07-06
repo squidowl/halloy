@@ -272,7 +272,9 @@ impl Manager {
             .cloned();
 
         let messages = match broadcast {
-            Broadcast::Disconnected => message::broadcast::disconnected(channels, queries),
+            Broadcast::Disconnected { error } => {
+                message::broadcast::disconnected(channels, queries, error)
+            }
             Broadcast::Reconnected => message::broadcast::reconnected(channels, queries),
             Broadcast::Quit {
                 user,
@@ -472,7 +474,9 @@ impl Data {
 
 #[derive(Debug, Clone)]
 pub enum Broadcast {
-    Disconnected,
+    Disconnected {
+        error: Option<String>,
+    },
     Reconnected,
     Quit {
         user: User,

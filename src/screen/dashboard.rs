@@ -534,8 +534,9 @@ impl Dashboard {
         );
     }
 
-    pub fn broadcast_disconnected(&mut self, server: &Server) {
-        self.history.broadcast(server, Broadcast::Disconnected);
+    pub fn broadcast_disconnected(&mut self, server: &Server, error: Option<String>) {
+        self.history
+            .broadcast(server, Broadcast::Disconnected { error });
     }
 
     pub fn broadcast_reconnected(&mut self, server: &Server) {
