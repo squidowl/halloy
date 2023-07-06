@@ -298,16 +298,17 @@ impl Users {
             return;
         }
 
+        let nick = rest.to_lowercase();
+
         self.selected = None;
         self.prompt = rest.to_string();
         self.filtered = users
             .iter()
             .filter_map(|user| {
-                let nickname = user.nickname();
-                nickname
-                    .as_ref()
-                    .starts_with(rest)
-                    .then(|| nickname.to_string())
+                let lower_nick = user.nickname().as_ref().to_lowercase();
+                lower_nick
+                    .starts_with(&nick)
+                    .then(|| user.nickname().to_string())
             })
             .collect();
     }
