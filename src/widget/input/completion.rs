@@ -1,177 +1,105 @@
 use std::fmt;
 
+use data::user::User;
 use iced::widget::{column, container, row, text};
+use once_cell::sync::Lazy;
 
 use crate::theme;
 use crate::widget::Element;
 
-#[derive(Debug, Clone)]
-pub struct Completion {
-    selection: Selection,
-    entries: Vec<Entry>,
-    filtered_entries: Vec<Entry>,
-}
+const MAX_SHOWN_ENTRIES: usize = 5;
 
-impl Default for Completion {
-    fn default() -> Self {
-        Self {
-            selection: Selection::None,
-            // TODO: Macro magic all commands as entries or manually add them all :(
-            entries: vec![
-                Entry {
-                    title: "JOIN",
-                    args: vec![
-                        Arg {
-                            text: "channels",
-                            optional: false,
-                        },
-                        Arg {
-                            text: "keys",
-                            optional: true,
-                        },
-                    ],
-                },
-                Entry {
-                    title: "MOTD",
-                    args: vec![Arg {
-                        text: "server",
-                        optional: true,
-                    }],
-                },
-                Entry {
-                    title: "NICK",
-                    args: vec![Arg {
-                        text: "nickname",
-                        optional: false,
-                    }],
-                },
-                Entry {
-                    title: "QUIT",
-                    args: vec![Arg {
-                        text: "reason",
-                        optional: true,
-                    }],
-                },
-                Entry {
-                    title: "MSG",
-                    args: vec![
-                        Arg {
-                            text: "target",
-                            optional: false,
-                        },
-                        Arg {
-                            text: "text",
-                            optional: false,
-                        },
-                    ],
-                },
-                Entry {
-                    title: "WHOIS",
-                    args: vec![Arg {
-                        text: "nick",
-                        optional: false,
-                    }],
-                },
-                Entry {
-                    title: "ME",
-                    args: vec![Arg {
-                        text: "action",
-                        optional: false,
-                    }],
-                },
-                Entry {
-                    title: "MODE",
-                    args: vec![
-                        Arg {
-                            text: "channel",
-                            optional: false,
-                        },
-                        Arg {
-                            text: "mode",
-                            optional: false,
-                        },
-                        Arg {
-                            text: "user",
-                            optional: true,
-                        },
-                    ],
-                },
-                Entry {
-                    title: "PART",
-                    args: vec![
-                        Arg {
-                            text: "channels",
-                            optional: false,
-                        },
-                        Arg {
-                            text: "reason",
-                            optional: true,
-                        },
-                    ],
-                },
-                Entry {
-                    title: "TOPIC",
-                    args: vec![
-                        Arg {
-                            text: "channel",
-                            optional: false,
-                        },
-                        Arg {
-                            text: "topic",
-                            optional: true,
-                        },
-                    ],
-                },
-                Entry {
-                    title: "KICK",
-                    args: vec![
-                        Arg {
-                            text: "channel",
-                            optional: false,
-                        },
-                        Arg {
-                            text: "user",
-                            optional: false,
-                        },
-                        Arg {
-                            text: "comment",
-                            optional: true,
-                        },
-                    ],
-                },
-                Entry {
-                    title: "RAW",
-                    args: vec![
-                        Arg {
-                            text: "command",
-                            optional: false,
-                        },
-                        Arg {
-                            text: "args",
-                            optional: true,
-                        },
-                    ],
-                },
-            ],
-            filtered_entries: vec![],
-        }
-    }
+#[derive(Debug, Clone, Default)]
+pub struct Completion {
+    commands: Commands,
+    users: Users,
 }
 
 impl Completion {
     pub fn reset(&mut self) {
-        self.filtered_entries = vec![];
-        self.selection = Selection::None;
+        *self = Self::default();
     }
 
-    pub fn process(&mut self, input: &str) {
+    /// Process input and update the completion state
+    pub fn process(&mut self, input: &str, users: &[User]) {
+        if input.starts_with('/') {
+            self.commands.process(input);
+
+            // Disallow user completions when selecting a command
+            if matches!(self.commands, Commands::Selecting { .. }) {
+                self.users = Users::default();
+            } else {
+                self.users.process(input, users);
+            }
+        } else {
+            self.users.process(input, users);
+            self.commands = Commands::default();
+        }
+    }
+
+    pub fn select(&mut self) -> Option<Entry> {
+        self.commands.select().map(Entry::Command)
+    }
+
+    pub fn tab(&mut self) -> Option<Entry> {
+        if !self.commands.tab() {
+            self.users.tab().map(Entry::User)
+        } else {
+            None
+        }
+    }
+
+    pub fn view<'a, Message: 'a>(&self, input: &str) -> Option<Element<'a, Message>> {
+        self.commands.view(input)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Entry {
+    Command(Command),
+    User(String),
+}
+
+impl Entry {
+    pub fn complete_input(&self, input: &str) -> String {
+        match self {
+            Entry::Command(command) => format!("/{}", command.title),
+            Entry::User(nickname) => match input.rsplit_once(' ') {
+                Some((left, _)) => format!("{left} {nickname}"),
+                None => nickname.clone(),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Commands {
+    Idle,
+    Selecting {
+        highlighted: Option<usize>,
+        filtered: Vec<Command>,
+    },
+    Selected {
+        command: Command,
+    },
+}
+
+impl Default for Commands {
+    fn default() -> Self {
+        Self::Idle
+    }
+}
+
+impl Commands {
+    fn process(&mut self, input: &str) {
         let Some((head, rest)) = input.split_once('/') else {
-            self.reset();
+            *self = Self::Idle;
             return;
         };
-        // Don't allow leading whitespace before slash
+
+        // Don't allow text before a command slash
         if !head.is_empty() {
-            self.reset();
+            *self = Self::Idle;
             return;
         }
 
@@ -181,137 +109,136 @@ impl Completion {
             (rest, false)
         };
 
-        match self.selection {
+        match self {
             // Command not fully typed, show filtered entries
             _ if !has_space => {
-                self.selection = Selection::None;
-                self.filtered_entries = self
-                    .entries
+                let filtered = COMMAND_LIST
                     .iter()
-                    .filter(|entry| entry.title.to_lowercase().starts_with(&cmd.to_lowercase()))
+                    .filter(|command| {
+                        command
+                            .title
+                            .to_lowercase()
+                            .starts_with(&cmd.to_lowercase())
+                    })
                     .cloned()
                     .collect();
+
+                *self = Self::Selecting {
+                    highlighted: None,
+                    filtered,
+                };
             }
             // Command fully typed, transition to showing known entry
-            Selection::None | Selection::Highlighted(_) => {
-                self.filtered_entries = vec![];
-                if let Some(entry) = self
-                    .entries
+            Self::Idle | Self::Selecting { .. } => {
+                if let Some(command) = COMMAND_LIST
                     .iter()
-                    .find(|entry| entry.title.to_lowercase() == cmd.to_lowercase())
+                    .find(|command| command.title.to_lowercase() == cmd.to_lowercase())
                     .cloned()
                 {
-                    self.selection = Selection::Selected(entry);
+                    *self = Self::Selected { command };
                 } else {
-                    self.selection = Selection::None;
+                    *self = Self::Idle
                 }
             }
             // Command fully typed & already selected, do nothing
-            Selection::Selected(_) => {}
+            Self::Selected { .. } => {}
         }
     }
 
-    pub fn is_selecting(&self) -> bool {
-        match self.selection {
-            Selection::None | Selection::Highlighted(_) => !self.filtered_entries.is_empty(),
-            Selection::Selected(_) => false,
-        }
-    }
+    fn select(&mut self) -> Option<Command> {
+        if let Self::Selecting {
+            highlighted: Some(index),
+            filtered,
+        } = self
+        {
+            if let Some(command) = filtered.get(*index).cloned() {
+                *self = Self::Selected {
+                    command: command.clone(),
+                };
 
-    fn is_active(&self) -> bool {
-        match self.selection {
-            Selection::None | Selection::Highlighted(_) => !self.filtered_entries.is_empty(),
-            Selection::Selected(_) => true,
-        }
-    }
-
-    pub fn select(&mut self) -> Option<String> {
-        match self.selection {
-            Selection::None => {
-                self.filtered_entries = vec![];
+                return Some(command);
             }
-            Selection::Highlighted(index) => {
-                if let Some(entry) = self.filtered_entries.get(index).cloned() {
-                    let command = format!("/{}", entry.title);
-                    self.filtered_entries = vec![];
-                    self.selection = Selection::Selected(entry);
-                    return Some(command);
-                }
-            }
-            Selection::Selected(_) => {}
         }
+
         None
     }
 
-    pub fn tab(&mut self) {
-        if let Selection::Highlighted(index) = &mut self.selection {
-            *index = (*index + 1) % self.filtered_entries.len();
-        } else if matches!(self.selection, Selection::None) {
-            self.selection = Selection::Highlighted(0);
-        }
-    }
-
-    pub fn view<'a, Message: 'a>(&self, input: &str) -> Option<Element<'a, Message>> {
-        if self.is_active() {
-            match &self.selection {
-                Selection::None | Selection::Highlighted(_) => {
-                    let entries = self
-                        .filtered_entries
-                        .iter()
-                        .enumerate()
-                        .map(|(index, entry)| {
-                            let selected = Some(index) == self.selection.highlighted();
-                            let content = text(format!("/{}", entry.title));
-
-                            Element::from(
-                                container(content)
-                                    .style(theme::Container::Command { selected })
-                                    .padding(6)
-                                    .center_y(),
-                            )
-                        })
-                        .collect();
-
-                    Some(
-                        container(column(entries))
-                            .padding(4)
-                            .style(theme::Container::Context)
-                            .into(),
-                    )
-                }
-                Selection::Selected(entry) => Some(entry.view(input)),
+    fn tab(&mut self) -> bool {
+        if let Self::Selecting {
+            highlighted,
+            filtered,
+        } = self
+        {
+            if filtered.is_empty() {
+                *highlighted = None;
+            } else if let Some(index) = highlighted {
+                *index = (*index + 1) % filtered.len();
+            } else {
+                *highlighted = Some(0);
             }
+
+            true
         } else {
-            None
+            false
+        }
+    }
+
+    fn view<'a, Message: 'a>(&self, input: &str) -> Option<Element<'a, Message>> {
+        match self {
+            Self::Idle => None,
+            Self::Selecting {
+                highlighted,
+                filtered,
+            } => {
+                let skip = {
+                    let index = if let Some(index) = highlighted {
+                        *index
+                    } else {
+                        0
+                    };
+
+                    let to = index.max(MAX_SHOWN_ENTRIES - 1);
+                    to.saturating_sub(MAX_SHOWN_ENTRIES - 1)
+                };
+
+                let entries = filtered
+                    .iter()
+                    .enumerate()
+                    .skip(skip)
+                    .take(MAX_SHOWN_ENTRIES)
+                    .map(|(index, command)| {
+                        let selected = Some(index) == *highlighted;
+                        let content = text(format!("/{}", command.title));
+
+                        Element::from(
+                            container(content)
+                                .style(theme::Container::Command { selected })
+                                .padding(6)
+                                .center_y(),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                (!entries.is_empty()).then(|| {
+                    container(column(entries))
+                        .padding(4)
+                        .style(theme::Container::Context)
+                        .into()
+                })
+            }
+            Self::Selected { command } => Some(command.view(input)),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-enum Selection {
-    None,
-    Highlighted(usize),
-    Selected(Entry),
-}
-
-impl Selection {
-    fn highlighted(&self) -> Option<usize> {
-        if let Self::Highlighted(index) = self {
-            Some(*index)
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Entry {
+pub struct Command {
     title: &'static str,
     args: Vec<Arg>,
 }
 
-impl Entry {
-    pub fn view<'a, Message: 'a>(&self, input: &str) -> Element<'a, Message> {
+impl Command {
+    fn view<'a, Message: 'a>(&self, input: &str) -> Element<'a, Message> {
         let active_arg = [input, "_"]
             .concat()
             .split_ascii_whitespace()
@@ -340,7 +267,7 @@ impl Entry {
 }
 
 #[derive(Debug, Clone)]
-pub struct Arg {
+struct Arg {
     text: &'static str,
     optional: bool,
 }
@@ -354,3 +281,194 @@ impl fmt::Display for Arg {
         }
     }
 }
+
+#[derive(Debug, Clone, Default)]
+struct Users {
+    prompt: String,
+    filtered: Vec<String>,
+    selected: Option<usize>,
+}
+
+impl Users {
+    fn process(&mut self, input: &str, users: &[User]) {
+        let (_, rest) = input.rsplit_once(' ').unwrap_or(("", input));
+
+        if rest.is_empty() {
+            *self = Self::default();
+            return;
+        }
+
+        let nick = rest.to_lowercase();
+
+        self.selected = None;
+        self.prompt = rest.to_string();
+        self.filtered = users
+            .iter()
+            .filter_map(|user| {
+                let lower_nick = user.nickname().as_ref().to_lowercase();
+                lower_nick
+                    .starts_with(&nick)
+                    .then(|| user.nickname().to_string())
+            })
+            .collect();
+    }
+
+    fn tab(&mut self) -> Option<String> {
+        if !self.filtered.is_empty() {
+            if let Some(index) = &mut self.selected {
+                if *index < self.filtered.len() - 1 {
+                    *index += 1;
+                } else {
+                    self.selected = None;
+                }
+            } else {
+                self.selected = Some(0);
+            }
+        }
+
+        if let Some(index) = self.selected {
+            self.filtered.get(index).cloned()
+        } else {
+            (!self.prompt.is_empty()).then(|| self.prompt.clone())
+        }
+    }
+}
+
+static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
+    vec![
+        Command {
+            title: "JOIN",
+            args: vec![
+                Arg {
+                    text: "channels",
+                    optional: false,
+                },
+                Arg {
+                    text: "keys",
+                    optional: true,
+                },
+            ],
+        },
+        Command {
+            title: "MOTD",
+            args: vec![Arg {
+                text: "server",
+                optional: true,
+            }],
+        },
+        Command {
+            title: "NICK",
+            args: vec![Arg {
+                text: "nickname",
+                optional: false,
+            }],
+        },
+        Command {
+            title: "QUIT",
+            args: vec![Arg {
+                text: "reason",
+                optional: true,
+            }],
+        },
+        Command {
+            title: "MSG",
+            args: vec![
+                Arg {
+                    text: "target",
+                    optional: false,
+                },
+                Arg {
+                    text: "text",
+                    optional: false,
+                },
+            ],
+        },
+        Command {
+            title: "WHOIS",
+            args: vec![Arg {
+                text: "nick",
+                optional: false,
+            }],
+        },
+        Command {
+            title: "ME",
+            args: vec![Arg {
+                text: "action",
+                optional: false,
+            }],
+        },
+        Command {
+            title: "MODE",
+            args: vec![
+                Arg {
+                    text: "channel",
+                    optional: false,
+                },
+                Arg {
+                    text: "mode",
+                    optional: false,
+                },
+                Arg {
+                    text: "user",
+                    optional: true,
+                },
+            ],
+        },
+        Command {
+            title: "PART",
+            args: vec![
+                Arg {
+                    text: "channels",
+                    optional: false,
+                },
+                Arg {
+                    text: "reason",
+                    optional: true,
+                },
+            ],
+        },
+        Command {
+            title: "TOPIC",
+            args: vec![
+                Arg {
+                    text: "channel",
+                    optional: false,
+                },
+                Arg {
+                    text: "topic",
+                    optional: true,
+                },
+            ],
+        },
+        Command {
+            title: "KICK",
+            args: vec![
+                Arg {
+                    text: "channel",
+                    optional: false,
+                },
+                Arg {
+                    text: "user",
+                    optional: false,
+                },
+                Arg {
+                    text: "comment",
+                    optional: true,
+                },
+            ],
+        },
+        Command {
+            title: "RAW",
+            args: vec![
+                Arg {
+                    text: "command",
+                    optional: false,
+                },
+                Arg {
+                    text: "args",
+                    optional: true,
+                },
+            ],
+        },
+    ]
+});
