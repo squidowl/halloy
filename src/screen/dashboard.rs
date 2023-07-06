@@ -178,6 +178,7 @@ impl Dashboard {
                         if let Some(state) = self.panes.get_mut(&pane) {
                             state.buffer = Buffer::from(kind);
                             self.last_changed = Some(Instant::now());
+                            self.focus = None;
                             return Command::batch(vec![
                                 self.reset_pane(pane),
                                 self.focus_pane(pane),
