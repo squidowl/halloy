@@ -19,6 +19,7 @@ Changed:
 Fixed:
 
 - The last word of a message sometimes dissapeared
+- Persist partial text input content when switching away from buffer
 
 # 2023.1-alpha1 (2023-06-30)
 
