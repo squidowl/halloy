@@ -41,6 +41,7 @@ pub fn view<'a>(
         input_view::view(
             &state.input_view,
             data::Buffer::Server(state.server.clone()),
+            &[],
         )
         .map(Message::InputView)
     });
