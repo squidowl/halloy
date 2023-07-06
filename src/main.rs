@@ -341,6 +341,9 @@ impl Application for Halloy {
                                 data::client::Event::Single(message) => {
                                     dashboard.record_message(&server, message);
                                 }
+                                data::client::Event::Whois(message) => {
+                                    dashboard.record_whois(&server, message);
+                                }
                                 data::client::Event::Brodcast(brodcast) => match brodcast {
                                     data::client::Brodcast::Quit { user, comment } => {
                                         let user_channels = self

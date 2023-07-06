@@ -4,7 +4,7 @@ use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::user::Nick;
-use crate::{channel, Server};
+use crate::{channel, message, Server};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Buffer {
@@ -27,6 +27,14 @@ impl Buffer {
             Buffer::Server(_) => None,
             Buffer::Channel(_, channel) => Some(channel.clone()),
             Buffer::Query(_, nick) => Some(nick.to_string()),
+        }
+    }
+
+    pub fn message_source(self) -> message::Source {
+        match self {
+            Self::Server(_) => message::Source::Server,
+            Self::Channel(_, channel) => message::Source::Channel(channel, message::Sender::Server),
+            Self::Query(_, nick) => message::Source::Query(nick, message::Sender::Server),
         }
     }
 }
