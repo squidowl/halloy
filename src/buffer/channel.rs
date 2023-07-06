@@ -198,7 +198,7 @@ mod nick_list {
     use crate::theme;
     use crate::widget::Element;
 
-    pub fn view<'a>(users: Vec<User>) -> Element<'a, Message> {
+    pub fn view(users: &[User]) -> Element<Message> {
         let column = column(
             users
                 .iter()

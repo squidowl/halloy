@@ -325,6 +325,10 @@ impl Application for Halloy {
                         }
                     });
 
+                    // Must be called after receiving message batches to ensure
+                    // user & channel lists are in sync
+                    self.clients.sync();
+
                     Command::none()
                 }
             },
