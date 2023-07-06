@@ -62,7 +62,12 @@ impl Welcome {
 
         let content = column![]
             .spacing(1)
-            .push(image(format!("{}/assets/logo.png", env!("CARGO_MANIFEST_DIR"))).width(150))
+            .push(
+                image(image::Handle::from_memory(include_bytes!(
+                    "../../assets/logo.png"
+                )))
+                .width(150),
+            )
             .push(vertical_space(10))
             .push(text("Welcome to Halloy!").font(font::MONO_BOLD.clone()))
             .push(vertical_space(4))
