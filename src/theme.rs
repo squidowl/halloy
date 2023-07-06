@@ -1,3 +1,4 @@
+use data::message;
 use data::palette::{self, Palette};
 use iced::widget::{button, container, pane_grid, rule, scrollable, text, text_input};
 use iced::{application, Background, Color};
@@ -168,6 +169,7 @@ pub enum Text {
     Info,
     Server,
     Error,
+    Status(message::Status),
     Nickname(Option<String>),
 }
 
@@ -205,6 +207,12 @@ impl text::StyleSheet for Theme {
             }
             Text::Server => text::Appearance {
                 color: Some(self.colors.info.base),
+            },
+            Text::Status(status) => text::Appearance {
+                color: Some(match status {
+                    message::Status::Success => self.colors.success.base,
+                    message::Status::Error => self.colors.error.base,
+                }),
             },
         }
     }
