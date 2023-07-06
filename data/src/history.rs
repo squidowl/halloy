@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{fmt, io};
@@ -10,7 +11,7 @@ use tokio::time::Instant;
 pub use self::manager::{Manager, Resource};
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::{compression, environment, message, server, Message};
+use crate::{compression, environment, message, server, Buffer, Message};
 
 pub mod manager;
 
@@ -21,6 +22,7 @@ const MAX_MESSAGES: usize = 10_000;
 const TRUNC_COUNT: usize = 500;
 /// Duration to wait after receiving last message before flushing
 const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
+const MAX_INPUT_HISTORY_LENGTH: usize = 100;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -270,6 +272,21 @@ pub struct View<'a> {
     pub total: usize,
     pub old_messages: Vec<&'a Message>,
     pub new_messages: Vec<&'a Message>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct Input(HashMap<Buffer, Vec<String>>);
+
+impl Input {
+    fn get<'a>(&'a self, buffer: &Buffer) -> &'a [String] {
+        self.0.get(buffer).map(Vec::as_slice).unwrap_or_default()
+    }
+
+    fn push(&mut self, buffer: &Buffer, text: String) {
+        let history = self.0.entry(buffer.clone()).or_default();
+        history.insert(0, text);
+        history.truncate(MAX_INPUT_HISTORY_LENGTH);
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
