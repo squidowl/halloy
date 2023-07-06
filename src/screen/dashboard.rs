@@ -4,6 +4,7 @@ pub mod side_menu;
 use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
+use data::user::Nick;
 use data::{dashboard, history, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
@@ -516,9 +517,9 @@ impl Dashboard {
     pub fn broadcast_nickname(
         &mut self,
         server: &Server,
-        new_nick: String,
-        old_nick: String,
-        changed_own_nickname: bool,
+        old_nick: Nick,
+        new_nick: Nick,
+        ourself: bool,
         user_channels: Vec<String>,
     ) {
         self.history.broadcast(
@@ -526,7 +527,7 @@ impl Dashboard {
             Broadcast::Nickname {
                 new_nick,
                 old_nick,
-                changed_own_nickname,
+                ourself,
                 user_channels,
             },
         );
