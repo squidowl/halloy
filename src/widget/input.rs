@@ -119,7 +119,16 @@ where
             }
             Event::Tab => {
                 state.completion.tab();
-                None
+                if let Some(entry) = state.completion.select() {
+                    if entry.is_user() {
+                        state.input = entry.complete_input(&state.input);
+                        Some(self.on_completion.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
             }
             Event::Up => {
                 state.completion.reset();
