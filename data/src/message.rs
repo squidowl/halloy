@@ -436,6 +436,15 @@ pub(crate) mod broadcast {
         expand(channels, queries, true, text)
     }
 
+    pub fn connection_failed(
+        channels: impl IntoIterator<Item = String>,
+        queries: impl IntoIterator<Item = Nick>,
+        error: String,
+    ) -> Vec<Message> {
+        let text = format!(" ∙ connection to server failed ({error})");
+        expand(channels, queries, true, text)
+    }
+
     pub fn quit(
         channels: impl IntoIterator<Item = String>,
         queries: impl IntoIterator<Item = Nick>,

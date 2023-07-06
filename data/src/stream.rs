@@ -29,6 +29,10 @@ pub enum Update {
         is_initial: bool,
         error: Option<String>,
     },
+    ConnectionFailed {
+        server: Server,
+        error: String,
+    },
     MessagesReceived(Server, Vec<message::Encoded>),
 }
 
@@ -95,6 +99,13 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                     }
                     Err(e) => {
                         log::warn!("[{server}] connection failed: {e}");
+
+                        let _ = sender
+                            .send(Update::ConnectionFailed {
+                                server: server.clone(),
+                                error: e.to_string(),
+                            })
+                            .await;
 
                         *last_retry = Some(Instant::now());
                     }

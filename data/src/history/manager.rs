@@ -276,6 +276,9 @@ impl Manager {
                 message::broadcast::disconnected(channels, queries, error)
             }
             Broadcast::Reconnected => message::broadcast::reconnected(channels, queries),
+            Broadcast::ConnectionFailed { error } => {
+                message::broadcast::connection_failed(channels, queries, error)
+            }
             Broadcast::Quit {
                 user,
                 comment,
@@ -478,6 +481,9 @@ pub enum Broadcast {
         error: Option<String>,
     },
     Reconnected,
+    ConnectionFailed {
+        error: String,
+    },
     Quit {
         user: User,
         comment: Option<String>,
