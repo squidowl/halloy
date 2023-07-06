@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use irc::client::Client;
 use itertools::Itertools;
 
-use crate::user::NickRef;
+use crate::user::{Nick, NickRef};
 use crate::{message, Message, Server, User};
 
 #[derive(Debug, Clone, Copy)]
@@ -27,8 +27,15 @@ pub enum State {
 
 #[derive(Debug)]
 pub enum Brodcast {
-    Quit(User, Option<String>),
-    Nickname(String, String, bool),
+    Quit {
+        user: User,
+        comment: Option<String>,
+    },
+    Nickname {
+        old_user: User,
+        new_nick: Nick,
+        ourself: bool,
+    },
 }
 
 #[derive(Debug)]
@@ -83,23 +90,18 @@ impl Connection {
 
         match &message.command {
             Command::NICK(nick) => {
-                let Some(old_nick) = message.prefix.as_ref().and_then(|prefix| match prefix {
-                    irc::proto::Prefix::ServerName(_) => None,
-                    irc::proto::Prefix::Nickname(nick, _, _) => Some(nick),
-                }) else {
-                    return None;
-                };
+                let old_user = message.user()?;
+                let ourself = self.nickname() == old_user.nickname();
 
-                let changed_own_nickname = self.resolved_nick.as_ref() == Some(old_nick);
-                if changed_own_nickname {
+                if ourself {
                     self.resolved_nick = Some(nick.clone());
                 }
 
-                return Some(Event::Brodcast(Brodcast::Nickname(
-                    nick.clone(),
-                    old_nick.clone(),
-                    changed_own_nickname,
-                )));
+                return Some(Event::Brodcast(Brodcast::Nickname {
+                    old_user,
+                    new_nick: Nick::from(nick.as_str()),
+                    ourself,
+                }));
             }
             Command::Response(Response::RPL_WELCOME, args) => {
                 if let Some(nick) = args.first() {
@@ -109,7 +111,10 @@ impl Connection {
             Command::QUIT(comment) => {
                 let user = message.user()?;
 
-                return Some(Event::Brodcast(Brodcast::Quit(user, comment.clone())));
+                return Some(Event::Brodcast(Brodcast::Quit {
+                    user,
+                    comment: comment.clone(),
+                }));
             }
             _ => {}
         }
@@ -212,12 +217,10 @@ impl Map {
             .and_then(|connection| connection.receive(message))
     }
 
-    pub fn sync(&mut self) {
-        self.0.values_mut().for_each(|state| {
-            if let State::Ready(connection) = state {
-                connection.sync();
-            }
-        });
+    pub fn sync(&mut self, server: &Server) {
+        if let Some(State::Ready(connection)) = self.0.get_mut(server) {
+            connection.sync();
+        }
     }
 
     pub fn send(&mut self, server: &Server, message: message::Encoded) {

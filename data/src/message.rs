@@ -431,11 +431,11 @@ pub(crate) mod broadcast {
     pub fn nickname(
         channels: impl IntoIterator<Item = String>,
         queries: impl IntoIterator<Item = Nick>,
-        new_nick: &str,
-        old_nick: &str,
-        changed_own_nickname: bool,
+        old_nick: &Nick,
+        new_nick: &Nick,
+        ourself: bool,
     ) -> Vec<Message> {
-        let text = if changed_own_nickname {
+        let text = if ourself {
             format!(" ∙ You're now known as {new_nick}")
         } else {
             format!(" ∙ {old_nick} is now known as {new_nick}")

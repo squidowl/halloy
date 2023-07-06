@@ -284,23 +284,31 @@ impl Manager {
                 message::broadcast::quit(user_channels, user_query, &user, &comment)
             }
             Broadcast::Nickname {
-                new_nick,
                 old_nick,
-                changed_own_nickname,
+                new_nick,
+                ourself,
                 user_channels,
             } => {
-                let user_query = queries.find(|nick| {
-                    let old_nick = NickRef::from(old_nick.as_str());
-                    old_nick == *nick
-                });
-
-                message::broadcast::nickname(
-                    user_channels,
-                    user_query,
-                    &new_nick,
-                    &old_nick,
-                    changed_own_nickname,
-                )
+                if ourself {
+                    // If ourself, broadcast to all query channels (since we are in all of them)
+                    message::broadcast::nickname(
+                        user_channels,
+                        queries,
+                        &old_nick,
+                        &new_nick,
+                        ourself,
+                    )
+                } else {
+                    // Otherwise just the query channel of the user w/ nick change
+                    let user_query = queries.find(|nick| old_nick == *nick);
+                    message::broadcast::nickname(
+                        user_channels,
+                        user_query,
+                        &old_nick,
+                        &new_nick,
+                        ourself,
+                    )
+                }
             }
         };
 
@@ -472,9 +480,9 @@ pub enum Broadcast {
         user_channels: Vec<String>,
     },
     Nickname {
-        new_nick: String,
-        old_nick: String,
-        changed_own_nickname: bool,
+        old_nick: Nick,
+        new_nick: Nick,
+        ourself: bool,
         user_channels: Vec<String>,
     },
 }
