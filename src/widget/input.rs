@@ -15,10 +15,12 @@ pub type Id = text_input::Id;
 pub fn input<'a, Message>(
     id: Id,
     buffer: Buffer,
+    input: &'a str,
     users: &'a [User],
     history: &'a [String],
+    on_input: impl Fn(String) -> Message + 'a,
     on_submit: impl Fn(data::Input) -> Message + 'a,
-    on_completion: Message,
+    on_completion: impl Fn(String) -> Message + 'a,
 ) -> Element<'a, Message>
 where
     Message: 'a + Clone,
@@ -26,10 +28,12 @@ where
     Input {
         id,
         buffer,
+        input,
         users,
         history,
+        on_input: Box::new(on_input),
         on_submit: Box::new(on_submit),
-        on_completion,
+        on_completion: Box::new(on_completion),
     }
     .into()
 }
@@ -52,15 +56,16 @@ pub enum Event {
 pub struct Input<'a, Message> {
     id: Id,
     buffer: Buffer,
+    input: &'a str,
     users: &'a [User],
     history: &'a [String],
+    on_input: Box<dyn Fn(String) -> Message + 'a>,
     on_submit: Box<dyn Fn(data::Input) -> Message + 'a>,
-    on_completion: Message,
+    on_completion: Box<dyn Fn(String) -> Message + 'a>,
 }
 
 #[derive(Default)]
 pub struct State {
-    input: String,
     error: Option<String>,
     completion: Completion,
     selected_history: Option<usize>,
@@ -81,11 +86,9 @@ where
                 // Reset selected history
                 state.selected_history = None;
 
-                state.input = input;
+                state.completion.process(&input, self.users);
 
-                state.completion.process(&state.input, self.users);
-
-                None
+                Some((self.on_input)(input))
             }
             Event::Send => {
                 // Reset error state
@@ -94,21 +97,19 @@ where
                 state.selected_history = None;
 
                 if let Some(entry) = state.completion.select() {
-                    state.input = entry.complete_input(&state.input);
-                    Some(self.on_completion.clone())
-                } else if !state.input.is_empty() {
+                    let new_input = entry.complete_input(self.input);
+                    Some((self.on_completion)(new_input))
+                } else if !self.input.is_empty() {
                     state.completion.reset();
 
                     // Parse input
-                    let input = match input::parse(self.buffer.clone(), &state.input) {
+                    let input = match input::parse(self.buffer.clone(), self.input) {
                         Ok(input) => input,
                         Err(error) => {
                             state.error = Some(error.to_string());
                             return None;
                         }
                     };
-
-                    state.input.clear();
 
                     Some((self.on_submit)(input))
                 } else {
@@ -117,8 +118,8 @@ where
             }
             Event::Tab => {
                 if let Some(entry) = state.completion.tab() {
-                    state.input = entry.complete_input(&state.input);
-                    Some(self.on_completion.clone())
+                    let new_input = entry.complete_input(self.input);
+                    Some((self.on_completion)(new_input))
                 } else {
                     None
                 }
@@ -133,14 +134,14 @@ where
                         state.selected_history = Some(0);
                     }
 
-                    state.input = self
+                    let new_input = self
                         .history
                         .get(state.selected_history.unwrap())
                         .unwrap()
                         .clone();
-                    state.completion.process(&state.input, self.users);
+                    state.completion.process(&new_input, self.users);
 
-                    return Some(self.on_completion.clone());
+                    return Some((self.on_completion)(new_input));
                 }
 
                 None
@@ -149,16 +150,17 @@ where
                 state.completion.reset();
 
                 if let Some(index) = state.selected_history.as_mut() {
-                    if *index == 0 {
+                    let new_input = if *index == 0 {
                         state.selected_history = None;
-                        state.input.clear();
+                        String::new()
                     } else {
                         *index -= 1;
-                        state.input = self.history.get(*index).unwrap().clone();
-                        state.completion.process(&state.input, self.users);
-                    }
+                        let new_input = self.history.get(*index).unwrap().clone();
+                        state.completion.process(&new_input, self.users);
+                        new_input
+                    };
 
-                    return Some(self.on_completion.clone());
+                    return Some((self.on_completion)(new_input));
                 }
 
                 None
@@ -173,7 +175,7 @@ where
             theme::TextInput::Default
         };
 
-        let text_input = text_input("Send message...", &state.input)
+        let text_input = text_input("Send message...", self.input)
             .on_input(Event::Input)
             .on_submit(Event::Send)
             .id(self.id.clone())
@@ -205,7 +207,7 @@ where
             .error
             .as_ref()
             .map(error)
-            .or_else(|| state.completion.view(&state.input))
+            .or_else(|| state.completion.view(self.input))
             .unwrap_or_else(|| row![].into());
 
         anchored_overlay(input, overlay)
