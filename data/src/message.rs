@@ -421,8 +421,10 @@ pub(crate) mod broadcast {
     pub fn disconnected(
         channels: impl IntoIterator<Item = String>,
         queries: impl IntoIterator<Item = Nick>,
+        error: Option<String>,
     ) -> Vec<Message> {
-        let text = " ∙ connection to server lost".into();
+        let error = error.map(|error| format!(" ({error})")).unwrap_or_default();
+        let text = format!(" ∙ connection to server lost{error}");
         expand(channels, queries, true, text)
     }
 

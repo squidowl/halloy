@@ -282,7 +282,11 @@ impl Application for Halloy {
                 Command::none()
             }
             Message::Stream(update) => match update {
-                stream::Update::Disconnected { server, is_initial } => {
+                stream::Update::Disconnected {
+                    server,
+                    is_initial,
+                    error,
+                } => {
                     self.clients.disconnected(server.clone());
 
                     if !is_initial {
@@ -290,7 +294,7 @@ impl Application for Halloy {
                             return Command::none()
                         };
 
-                        dashboard.broadcast_disconnected(&server);
+                        dashboard.broadcast_disconnected(&server, error);
                     }
 
                     Command::none()

@@ -27,6 +27,7 @@ pub enum Update {
     Disconnected {
         server: Server,
         is_initial: bool,
+        error: Option<String>,
     },
     MessagesReceived(Server, Vec<message::Encoded>),
 }
@@ -58,6 +59,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
         .send(Update::Disconnected {
             server: server.clone(),
             is_initial,
+            error: None,
         })
         .await;
 
@@ -114,6 +116,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                             .send(Update::Disconnected {
                                 server: server.clone(),
                                 is_initial,
+                                error: Some(e.to_string()),
                             })
                             .await;
                         state = State::Disconnected {
