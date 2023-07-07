@@ -79,12 +79,8 @@ impl Dashboard {
                     self.panes.resize(&split, ratio);
                     self.last_changed = Some(Instant::now());
                 }
-                pane::Message::PaneDragged(pane_grid::DragEvent::Dropped {
-                    pane,
-                    target,
-                    region,
-                }) => {
-                    self.panes.split_with(&target, &pane, region);
+                pane::Message::PaneDragged(pane_grid::DragEvent::Dropped { pane, target }) => {
+                    self.panes.drop(&pane, target);
                     self.last_changed = Some(Instant::now());
                 }
                 pane::Message::PaneDragged(_) => {}
