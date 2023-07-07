@@ -11,6 +11,7 @@ Added:
 - Broadcast quit messages to relevant channels and queries.
 - Better error descriptions on connection failures
 - Support RAW command
+- Drag & drop buffers to the edges for better customization of the grid
 
 Changed:
 
