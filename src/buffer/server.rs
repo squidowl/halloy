@@ -1,4 +1,4 @@
-use data::{buffer, client, history};
+use data::{client, history, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -16,7 +16,7 @@ pub fn view<'a>(
     state: &'a Server,
     status: client::Status,
     history: &'a history::Manager,
-    settings: &'a buffer::Settings,
+    config: &'a Config,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let buffer = state.buffer();

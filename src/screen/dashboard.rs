@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{dashboard, history, message, Config, Server, User};
+use data::{history, message, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
 use iced::{clipboard, window, Command, Length, Subscription};
@@ -40,7 +40,7 @@ pub enum Message {
 
 impl Dashboard {
     pub fn empty(config: &Config) -> (Self, Command<Message>) {
-        let (panes, _) = pane_grid::State::new(Pane::new(Buffer::Empty, config.new_buffer.clone()));
+        let (panes, _) = pane_grid::State::new(Pane::new(Buffer::Empty, config));
 
         let mut dashboard = Dashboard {
             panes,
@@ -97,11 +97,9 @@ impl Dashboard {
                 }
                 pane::Message::SplitPane(axis) => {
                     if let Some(pane) = self.focus {
-                        let result = self.panes.split(
-                            axis,
-                            &pane,
-                            Pane::new(Buffer::Empty, config.new_buffer.clone()),
-                        );
+                        let result =
+                            self.panes
+                                .split(axis, &pane, Pane::new(Buffer::Empty, config));
                         self.last_changed = Some(Instant::now());
                         if let Some((pane, _)) = result {
                             return self.focus_pane(pane);
@@ -334,14 +332,22 @@ impl Dashboard {
     pub fn view<'a>(
         &'a self,
         clients: &'a data::client::Map,
-        config: dashboard::Config,
+        config: &'a Config,
     ) -> Element<'a, Message> {
         let focus = self.focus;
 
         let pane_grid: Element<_> = PaneGrid::new(&self.panes, |id, pane, maximized| {
             let is_focused = focus == Some(id);
             let panes = self.panes.len();
-            pane.view(id, panes, is_focused, maximized, clients, &self.history)
+            pane.view(
+                id,
+                panes,
+                is_focused,
+                maximized,
+                clients,
+                &self.history,
+                config,
+            )
         })
         .on_click(pane::Message::PaneClicked)
         .on_resize(6, pane::Message::PaneResized)
@@ -361,7 +367,7 @@ impl Dashboard {
                 &self.history,
                 &self.panes,
                 self.focus,
-                config.sidebar_default_action,
+                config.dashboard.sidebar_default_action,
             )
             .map(Message::SideMenu);
 
@@ -453,9 +459,10 @@ impl Dashboard {
         if self.panes.len() == 1 {
             for (id, pane) in panes.iter() {
                 if let Buffer::Empty = &pane.buffer {
-                    self.panes.panes.entry(*id).and_modify(|p| {
-                        *p = Pane::new(Buffer::from(kind), config.new_buffer.clone())
-                    });
+                    self.panes
+                        .panes
+                        .entry(*id)
+                        .and_modify(|p| *p = Pane::new(Buffer::from(kind), config));
                     self.last_changed = Some(Instant::now());
 
                     return self.focus_pane(*id);
@@ -476,11 +483,9 @@ impl Dashboard {
             }
         };
 
-        let result = self.panes.split(
-            axis,
-            &pane_to_split,
-            Pane::new(Buffer::from(kind), config.new_buffer.clone()),
-        );
+        let result = self
+            .panes
+            .split(axis, &pane_to_split, Pane::new(Buffer::from(kind), config));
         self.last_changed = Some(Instant::now());
 
         if let Some((pane, _)) = result {
@@ -647,11 +652,12 @@ impl From<data::Dashboard> for Dashboard {
                     b: Box::new(configuration(*b)),
                 },
                 data::Pane::Buffer { buffer, settings } => {
-                    Configuration::Pane(Pane::new(Buffer::from(buffer), settings))
+                    Configuration::Pane(Pane::with_settings(Buffer::from(buffer), settings))
                 }
-                data::Pane::Empty => {
-                    Configuration::Pane(Pane::new(Buffer::empty(), buffer::Settings::default()))
-                }
+                data::Pane::Empty => Configuration::Pane(Pane::with_settings(
+                    Buffer::empty(),
+                    buffer::Settings::default(),
+                )),
             }
         }
 

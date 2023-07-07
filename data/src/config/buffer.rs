@@ -1,13 +1,17 @@
-use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Local, Utc};
+use serde::Deserialize;
 
-use crate::Message;
+use super::Channel;
+use crate::buffer::{Color, Nickname, Timestamp};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Buffer {
     #[serde(default)]
     pub timestamp: Option<Timestamp>,
     #[serde(default)]
     pub nickname: Nickname,
+    #[serde(default)]
+    pub channel: Channel,
 }
 
 impl Default for Buffer {
@@ -21,44 +25,17 @@ impl Default for Buffer {
                 color: Color::Unique,
                 brackets: Default::default(),
             },
+            channel: Channel::default(),
         }
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Timestamp {
-    pub format: String,
-    #[serde(default)]
-    pub brackets: Brackets,
-}
-
-impl Timestamp {
-    pub fn format_message_with_timestamp(&self, message: &Message) -> String {
-        format!(
-            "{}{}{} ",
-            self.brackets.left,
-            &message.formatted_datetime(self.format.as_str()),
-            self.brackets.right,
-        )
+impl Buffer {
+    pub fn format_timestamp(&self, date_time: &DateTime<Utc>) -> Option<String> {
+        self.timestamp.as_ref().map(|timestamp| {
+            timestamp
+                .brackets
+                .format(date_time.with_timezone(&Local).format(&timestamp.format))
+        })
     }
-}
-
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct Nickname {
-    pub color: Color,
-    #[serde(default)]
-    pub brackets: Brackets,
-}
-
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct Brackets {
-    pub left: String,
-    pub right: String,
-}
-
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub enum Color {
-    Solid,
-    #[default]
-    Unique,
 }
