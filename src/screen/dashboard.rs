@@ -534,12 +534,26 @@ impl Dashboard {
         );
     }
 
-    pub fn broadcast_disconnected(&mut self, server: &Server) {
-        self.history.broadcast(server, Broadcast::Disconnected);
+    pub fn broadcast_connecting(&mut self, server: &Server) {
+        self.history.broadcast(server, Broadcast::Connecting);
+    }
+
+    pub fn broadcast_connected(&mut self, server: &Server) {
+        self.history.broadcast(server, Broadcast::Connected);
+    }
+
+    pub fn broadcast_disconnected(&mut self, server: &Server, error: Option<String>) {
+        self.history
+            .broadcast(server, Broadcast::Disconnected { error });
     }
 
     pub fn broadcast_reconnected(&mut self, server: &Server) {
         self.history.broadcast(server, Broadcast::Reconnected);
+    }
+
+    pub fn broadcast_connection_failed(&mut self, server: &Server, error: String) {
+        self.history
+            .broadcast(server, Broadcast::ConnectionFailed { error });
     }
 
     fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {

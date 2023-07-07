@@ -27,6 +27,11 @@ pub enum Update {
     Disconnected {
         server: Server,
         is_initial: bool,
+        error: Option<String>,
+    },
+    ConnectionFailed {
+        server: Server,
+        error: String,
     },
     MessagesReceived(Server, Vec<message::Encoded>),
 }
@@ -58,6 +63,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
         .send(Update::Disconnected {
             server: server.clone(),
             is_initial,
+            error: None,
         })
         .await;
 
@@ -94,6 +100,13 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                     Err(e) => {
                         log::warn!("[{server}] connection failed: {e}");
 
+                        let _ = sender
+                            .send(Update::ConnectionFailed {
+                                server: server.clone(),
+                                error: e.to_string(),
+                            })
+                            .await;
+
                         *last_retry = Some(Instant::now());
                     }
                 }
@@ -114,6 +127,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                             .send(Update::Disconnected {
                                 server: server.clone(),
                                 is_initial,
+                                error: Some(e.to_string()),
                             })
                             .await;
                         state = State::Disconnected {
