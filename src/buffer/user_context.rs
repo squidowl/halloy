@@ -30,25 +30,7 @@ pub enum Event {
 
 pub fn update(message: Message) -> Event {
     match message {
-        Message::Whois(user) => {
-            Event::SendWhois(user)
-            // let command = data::Command::Whois(None, user.nickname().to_string());
-
-            // let input = data::Input::command(buffer, command);
-
-            // if let Some(encoded) = input.encoded() {
-            //     clients.send(input.server(), encoded);
-            // }
-
-            // if let Some(message) = clients
-            //     .nickname(input.server())
-            //     .and_then(|nick| input.message(&nick))
-            // {
-            //     history.record_message(input.server(), message);
-            // }
-
-            // None
-        }
+        Message::Whois(user) => Event::SendWhois(user),
         Message::Query(user) => Event::OpenQuery(user),
     }
 }
