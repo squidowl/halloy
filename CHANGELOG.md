@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2023.2 (2023-07-07)
+
 Added:
 
 - Nickname completions in text input with <kbd>Tab</kbd>
