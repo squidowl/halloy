@@ -8,7 +8,7 @@
 # Theme
 # - Add theme files to the themes directory and fill this with the filename
 #   without the .yaml extension to select the theme you want
-# - Default is Halloy and provided by this application
+# - Default is "ferra" and provided by this application
 # - For theme examples, please refer to:
 #   https://github.com/squidowl/halloy/wiki/Themes
 theme: "ferra"
