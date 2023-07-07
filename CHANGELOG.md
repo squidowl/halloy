@@ -20,6 +20,7 @@ Changed:
 - `palette` field has been deprecated and replaced by `theme` in `config.yaml`
 - Sorting channel nicknames
 - Title headers has been changed to also display user count for channels
+- Copy change: "Leave" has been changed to "Close query" for queries
 
 Fixed:
 
