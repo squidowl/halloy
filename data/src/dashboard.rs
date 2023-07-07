@@ -18,12 +18,6 @@ pub enum DefaultAction {
     ReplacePane,
 }
 
-#[derive(Debug, Copy, Default, Clone, Deserialize, Serialize)]
-pub struct Config {
-    #[serde(default)]
-    pub sidebar_default_action: DefaultAction,
-}
-
 impl Dashboard {
     pub fn load() -> Result<Self, Error> {
         let path = path()?;

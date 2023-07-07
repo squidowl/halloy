@@ -1,11 +1,21 @@
 use serde::{Deserialize, Serialize};
 
+use crate::config;
+
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Settings {
     pub users: Users,
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+impl From<config::Channel> for Settings {
+    fn from(config: config::Channel) -> Self {
+        Self {
+            users: Users::from(config.users),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
 pub enum Position {
     Left,
     #[default]
@@ -15,16 +25,19 @@ pub enum Position {
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub struct Users {
     pub visible: bool,
-    #[serde(default)]
-    pub position: Position,
+}
+
+impl From<config::channel::Users> for Users {
+    fn from(config: config::channel::Users) -> Self {
+        Users {
+            visible: config.visible,
+        }
+    }
 }
 
 impl Default for Users {
     fn default() -> Self {
-        Self {
-            visible: true,
-            position: Position::default(),
-        }
+        Self { visible: true }
     }
 }
 

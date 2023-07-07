@@ -1,5 +1,5 @@
 use data::server::Server;
-use data::{buffer, client, history};
+use data::{channel, client, history, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -24,7 +24,8 @@ pub fn view<'a>(
     status: client::Status,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
-    settings: &'a buffer::Settings,
+    settings: &'a channel::Settings,
+    config: &'a Config,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let buffer = state.buffer();
@@ -103,10 +104,7 @@ pub fn view<'a>(
         input_view::view(&state.input_view, buffer, users, input_history).map(Message::InputView)
     });
 
-    let content = match (
-        settings.channel.users.visible,
-        settings.channel.users.position,
-    ) {
+    let content = match (settings.users.visible, config.buffer.channel.users.position) {
         (true, data::channel::Position::Left) => {
             row![nick_list, messages]
         }
