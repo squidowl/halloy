@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{dashboard, history, Config, Server, User};
+use data::{dashboard, history, message, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
 use iced::{clipboard, window, Command, Length, Subscription};
@@ -494,6 +494,20 @@ impl Dashboard {
         self.history.record_message(server, message);
     }
 
+    pub fn record_whois(&mut self, server: &Server, mut message: data::Message) {
+        // If a buffer for the server is focused, put the whois message there
+        message.source = self
+            .get_focused()
+            .and_then(|pane| {
+                pane.buffer.data().and_then(|buffer| {
+                    (buffer.server() == server).then(|| buffer.server_message_source())
+                })
+            })
+            .unwrap_or(message::Source::Server);
+
+        self.history.record_message(server, message);
+    }
+
     pub fn broadcast_quit(
         &mut self,
         server: &Server,
@@ -550,6 +564,11 @@ impl Dashboard {
     pub fn broadcast_connection_failed(&mut self, server: &Server, error: String) {
         self.history
             .broadcast(server, Broadcast::ConnectionFailed { error });
+    }
+
+    fn get_focused(&mut self) -> Option<&Pane> {
+        let pane = self.focus?;
+        self.panes.get(&pane)
     }
 
     fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {
