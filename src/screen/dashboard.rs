@@ -80,15 +80,7 @@ impl Dashboard {
                     self.last_changed = Some(Instant::now());
                 }
                 pane::Message::PaneDragged(pane_grid::DragEvent::Dropped { pane, target }) => {
-                    match target {
-                        pane_grid::Target::Edge(edge) => {
-                            self.panes.move_to_edge(&pane, edge);
-                        }
-                        pane_grid::Target::Pane(target, region) => {
-                            self.panes.split_with(&target, &pane, region);
-                        }
-                    }
-
+                    self.panes.drop(&pane, target);
                     self.last_changed = Some(Instant::now());
                 }
                 pane::Message::PaneDragged(_) => {}
