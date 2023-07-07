@@ -2,6 +2,7 @@
 pub use self::anchored_overlay::anchored_overlay;
 pub use self::collection::Collection;
 pub use self::context_menu::context_menu;
+pub use self::double_pass::double_pass;
 pub use self::hover::hover;
 pub use self::input::input;
 pub use self::key_press::key_press;
@@ -11,6 +12,7 @@ use crate::Theme;
 pub mod anchored_overlay;
 pub mod collection;
 pub mod context_menu;
+mod double_pass;
 pub mod hover;
 pub mod input;
 pub mod key_press;
