@@ -71,6 +71,11 @@ new_buffer:
       left: "["
       right: "]"
 
+  # Input visibility behaviour
+  # - Always: Show input at all times [default]
+  # - Focused: Only show input when the buffer is focused
+  input_visibility: Always
+      
   # Channel buffer settings
   channel:
     # User list settings

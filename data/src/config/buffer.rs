@@ -2,7 +2,7 @@ use chrono::{DateTime, Local, Utc};
 use serde::Deserialize;
 
 use super::Channel;
-use crate::buffer::{Color, Nickname, Timestamp};
+use crate::buffer::{Color, InputVisibility, Nickname, Timestamp};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Buffer {
@@ -10,6 +10,8 @@ pub struct Buffer {
     pub timestamp: Option<Timestamp>,
     #[serde(default)]
     pub nickname: Nickname,
+    #[serde(default)]
+    pub input_visibility: InputVisibility,
     #[serde(default)]
     pub channel: Channel,
 }
@@ -25,6 +27,7 @@ impl Default for Buffer {
                 color: Color::Unique,
                 brackets: Default::default(),
             },
+            input_visibility: InputVisibility::default(),
             channel: Channel::default(),
         }
     }

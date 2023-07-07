@@ -51,6 +51,13 @@ impl From<config::Buffer> for Settings {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+pub enum InputVisibility {
+    Focused,
+    #[default]
+    Always,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Timestamp {
     pub format: String,

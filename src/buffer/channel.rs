@@ -97,11 +97,20 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let spacing = is_focused.then_some(vertical_space(4));
     let users = clients.get_channel_users(&state.server, &state.channel);
     let nick_list = nick_list::view(users).map(Message::UserContext);
-    let text_input = (is_focused && status.connected()).then(|| {
-        input_view::view(&state.input_view, buffer, users, input_history).map(Message::InputView)
+
+    let show_text_input = match config.buffer.input_visibility {
+        data::buffer::InputVisibility::Focused => is_focused && status.connected(),
+        data::buffer::InputVisibility::Always => status.connected(),
+    };
+
+    let text_input = show_text_input.then(|| {
+        column![
+            vertical_space(4),
+            input_view::view(&state.input_view, buffer, users, input_history)
+                .map(Message::InputView)
+        ]
     });
 
     let content = match (settings.users.visible, config.buffer.channel.users.position) {
@@ -115,7 +124,6 @@ pub fn view<'a>(
     };
 
     let scrollable = column![container(content).height(Length::Fill)]
-        .push_maybe(spacing)
         .push_maybe(text_input)
         .height(Length::Fill);
 
