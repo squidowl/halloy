@@ -207,7 +207,7 @@ fn buffer_button<'a>(
     if entries.is_empty() || !connected {
         base.into()
     } else {
-        context_menu(base, entries, move |entry| {
+        context_menu(base, entries, move |entry, length| {
             let (content, message) = match entry {
                 Entry::NewPane => ("Open in new pane", Message::Open(buffer.clone())),
                 Entry::Replace(pane) => (
@@ -227,8 +227,7 @@ fn buffer_button<'a>(
             };
 
             button(text(content).style(theme::Text::Primary))
-                // Based off longest entry text
-                .width(175)
+                .width(length)
                 .style(theme::Button::Context)
                 .on_press(message)
                 .into()
