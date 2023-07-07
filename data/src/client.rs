@@ -42,6 +42,7 @@ pub enum Brodcast {
 pub enum Event {
     Single(Message),
     Brodcast(Brodcast),
+    Whois(Message),
 }
 
 #[derive(Debug)]
@@ -86,7 +87,8 @@ impl Connection {
     }
 
     fn handle(&mut self, message: message::Encoded) -> Option<Event> {
-        use irc::proto::{Command, Response};
+        use irc::proto::Command;
+        use irc::proto::Response::*;
 
         match &message.command {
             Command::NICK(nick) => {
@@ -103,11 +105,16 @@ impl Connection {
                     ourself,
                 }));
             }
-            Command::Response(Response::RPL_WELCOME, args) => {
+            Command::Response(RPL_WELCOME, args) => {
                 if let Some(nick) = args.first() {
                     self.resolved_nick = Some(nick.to_string());
                 }
             }
+            Command::Response(
+                RPL_WHOISCERTFP | RPL_WHOISCHANNELS | RPL_WHOISIDLE | RPL_WHOISKEYVALUE
+                | RPL_WHOISOPERATOR | RPL_WHOISSERVER | RPL_WHOISUSER | RPL_ENDOFWHOIS,
+                _,
+            ) => return Some(Event::Whois(Message::received(message, self.nickname())?)),
             Command::QUIT(comment) => {
                 let user = message.user()?;
 
