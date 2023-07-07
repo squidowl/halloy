@@ -282,15 +282,22 @@ impl Application for Halloy {
                 Command::none()
             }
             Message::Stream(update) => match update {
-                stream::Update::Disconnected { server, is_initial } => {
+                stream::Update::Disconnected {
+                    server,
+                    is_initial,
+                    error,
+                } => {
                     self.clients.disconnected(server.clone());
 
-                    if !is_initial {
-                        let Screen::Dashboard(dashboard) = &mut self.screen else {
-                            return Command::none()
-                        };
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
+                        return Command::none()
+                    };
 
-                        dashboard.broadcast_disconnected(&server);
+                    if is_initial {
+                        // Intial is sent when first trying to connect
+                        dashboard.broadcast_connecting(&server);
+                    } else {
+                        dashboard.broadcast_disconnected(&server, error);
                     }
 
                     Command::none()
@@ -302,13 +309,24 @@ impl Application for Halloy {
                 } => {
                     self.clients.ready(server.clone(), connection);
 
-                    if !is_initial {
-                        let Screen::Dashboard(dashboard) = &mut self.screen else {
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
+                        return Command::none()
+                    };
+
+                    if is_initial {
+                        dashboard.broadcast_connected(&server);
+                    } else {
+                        dashboard.broadcast_reconnected(&server);
+                    }
+
+                    Command::none()
+                }
+                stream::Update::ConnectionFailed { server, error } => {
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
                             return Command::none()
                         };
 
-                        dashboard.broadcast_reconnected(&server);
-                    }
+                    dashboard.broadcast_connection_failed(&server, error);
 
                     Command::none()
                 }
