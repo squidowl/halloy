@@ -56,15 +56,14 @@ pub fn update(message: Message) -> Event {
 pub fn view<'a>(content: impl Into<Element<'a, Message>>, user: User) -> Element<'a, Message> {
     let entries = Entry::list();
 
-    context_menu(content, entries, move |entry| {
+    context_menu(content, entries, move |entry, length| {
         let (content, message) = match entry {
             Entry::Whois => ("Whois", Message::Whois(user.clone())),
             Entry::Query => ("Message", Message::Query(user.clone())),
         };
 
         button(text(content).style(theme::Text::Primary))
-            // Based off longest entry text
-            .width(110)
+            .width(length)
             .style(theme::Button::Context)
             .on_press(message)
             .into()
