@@ -216,7 +216,14 @@ fn buffer_button<'a>(
                 ),
                 Entry::Close(pane) => ("Close pane", Message::Close(pane)),
                 Entry::Swap(from, to) => ("Swap with current pane", Message::Swap(from, to)),
-                Entry::Leave => ("Leave", Message::Leave(buffer.clone())),
+                Entry::Leave => (
+                    match &buffer {
+                        Buffer::Server(_) => "Leave server",
+                        Buffer::Channel(_, _) => "Leave channel",
+                        Buffer::Query(_, _) => "Close query",
+                    },
+                    Message::Leave(buffer.clone()),
+                ),
             };
 
             button(text(content).style(theme::Text::Primary))
