@@ -83,13 +83,20 @@ pub fn view<'a>(
         .map(Message::ScrollView),
     )
     .height(Length::Fill);
-    let spacing = is_focused.then_some(vertical_space(4));
-    let text_input = (is_focused && status.connected()).then(|| {
-        input_view::view(&state.input_view, buffer, &[], input_history).map(Message::InputView)
+
+    let show_text_input = match config.buffer.input_visibility {
+        data::buffer::InputVisibility::Focused => is_focused && status.connected(),
+        data::buffer::InputVisibility::Always => status.connected(),
+    };
+
+    let text_input = show_text_input.then(|| {
+        column![
+            vertical_space(4),
+            input_view::view(&state.input_view, buffer, &[], input_history).map(Message::InputView)
+        ]
     });
 
     let scrollable = column![messages]
-        .push_maybe(spacing)
         .push_maybe(text_input)
         .height(Length::Fill);
 
