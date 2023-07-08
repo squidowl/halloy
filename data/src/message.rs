@@ -291,7 +291,7 @@ fn text(message: &Encoded, our_nick: NickRef) -> Option<String> {
             Some(format!(" ∙ {user} changed topic to {topic}"))
         }
         proto::Command::PART(_, text) => {
-            let user = user?;
+            let user = user?.formatted();
             let text = text
                 .as_ref()
                 .map(|text| format!(" ({text})"))
@@ -302,7 +302,8 @@ fn text(message: &Encoded, our_nick: NickRef) -> Option<String> {
         proto::Command::JOIN(_, _, _) | proto::Command::SAJOIN(_, _) => {
             let user = user?;
 
-            (user.nickname() != our_nick).then(|| format!("⟶ {user} has joined the channel"))
+            (user.nickname() != our_nick)
+                .then(|| format!("⟶ {} has joined the channel", user.formatted()))
         }
         proto::Command::ChannelMODE(_, modes) => {
             let user = user?;
@@ -485,7 +486,7 @@ pub(crate) mod broadcast {
             .as_ref()
             .map(|comment| format!(" ({comment})"))
             .unwrap_or_default();
-        let text = format!("⟵ {user} has quit{comment}");
+        let text = format!("⟵ {} has quit{comment}", user.formatted());
 
         expand(channels, queries, false, Cause::Server, text)
     }

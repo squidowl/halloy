@@ -34,18 +34,16 @@ pub fn view<'a>(
             scroll_view::Kind::Query(&state.server, &state.nick),
             history,
             |message| {
+                let timestamp = settings
+                    .format_timestamp(&message.server_time)
+                    .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
+
                 let message::Source::Query(_, sender) = &message.source else {
                     return None;
                 };
 
                 match sender {
                     message::Sender::User(user) => {
-                        let timestamp =
-                            settings
-                                .format_timestamp(&message.server_time)
-                                .map(|timestamp| {
-                                    selectable_text(timestamp).style(theme::Text::Alpha04)
-                                });
                         let nick = user_context::view(
                             selectable_text(settings.nickname.brackets.format(user)).style(
                                 theme::Text::Nickname(user.color_seed(&settings.nickname.color)),
@@ -60,18 +58,22 @@ pub fn view<'a>(
                             container(row![].push_maybe(timestamp).push(nick).push(message)).into(),
                         )
                     }
-                    message::Sender::Server => Some(
-                        container(selectable_text(&message.text).style(theme::Text::Server)).into(),
-                    ),
-                    message::Sender::Action => Some(
-                        container(selectable_text(&message.text).style(theme::Text::Accent)).into(),
-                    ),
-                    message::Sender::Status(status) => Some(
-                        container(
-                            selectable_text(&message.text).style(theme::Text::Status(*status)),
-                        )
-                        .into(),
-                    ),
+                    message::Sender::Server => {
+                        let message = selectable_text(&message.text).style(theme::Text::Server);
+
+                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                    }
+                    message::Sender::Action => {
+                        let message = selectable_text(&message.text).style(theme::Text::Accent);
+
+                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                    }
+                    message::Sender::Status(status) => {
+                        let message =
+                            selectable_text(&message.text).style(theme::Text::Status(*status));
+
+                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                    }
                 }
             },
         )
