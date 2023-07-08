@@ -2,10 +2,11 @@ use std::fmt;
 
 use data::user::User;
 use iced::widget::{column, container, row, text};
+use iced::Length;
 use once_cell::sync::Lazy;
 
 use crate::theme;
-use crate::widget::Element;
+use crate::widget::{double_pass, Element};
 
 const MAX_SHOWN_ENTRIES: usize = 5;
 
@@ -206,21 +207,33 @@ impl Commands {
                     .enumerate()
                     .skip(skip)
                     .take(MAX_SHOWN_ENTRIES)
-                    .map(|(index, command)| {
-                        let selected = Some(index) == *highlighted;
-                        let content = text(format!("/{}", command.title));
-
-                        Element::from(
-                            container(content)
-                                .style(theme::Container::Command { selected })
-                                .padding(6)
-                                .center_y(),
-                        )
-                    })
                     .collect::<Vec<_>>();
 
+                let content = |width| {
+                    column(
+                        entries
+                            .iter()
+                            .map(|(index, command)| {
+                                let selected = Some(*index) == *highlighted;
+                                let content = text(format!("/{}", command.title));
+
+                                Element::from(
+                                    container(content)
+                                        .width(width)
+                                        .style(theme::Container::Command { selected })
+                                        .padding(6)
+                                        .center_y(),
+                                )
+                            })
+                            .collect(),
+                    )
+                };
+
                 (!entries.is_empty()).then(|| {
-                    container(column(entries))
+                    let first_pass = content(Length::Shrink);
+                    let second_pass = content(Length::Fill);
+
+                    container(double_pass(first_pass, second_pass))
                         .padding(4)
                         .style(theme::Container::Context)
                         .into()

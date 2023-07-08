@@ -3,25 +3,38 @@ use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell
 use iced::widget::{column, container};
 use iced::{event, mouse, Event, Length, Point, Rectangle, Size};
 
-use super::{Element, Renderer};
+use super::{double_pass, Element, Renderer};
 use crate::{theme, Theme};
 
 pub fn context_menu<'a, T, Message>(
     base: impl Into<Element<'a, Message>>,
     entries: Vec<T>,
-    view: impl Fn(T) -> Element<'a, Message> + 'a,
+    view: impl Fn(T, Length) -> Element<'a, Message> + 'a,
 ) -> Element<'a, Message>
 where
     Message: 'a,
     T: 'a + Copy,
 {
-    let menu = container(column(entries.into_iter().map(view).collect()))
+    let build_menu = |length, view: &dyn Fn(T, Length) -> Element<'a, Message>| {
+        container(column(
+            entries
+                .iter()
+                .copied()
+                .map(|entry| view(entry, length))
+                .collect(),
+        ))
         .padding(4)
-        .style(theme::Container::Context);
+        .style(theme::Container::Context)
+    };
+
+    let menu = double_pass(
+        build_menu(Length::Shrink, &view),
+        build_menu(Length::Fill, &view),
+    );
 
     ContextMenu {
         base: base.into(),
-        menu: menu.into(),
+        menu,
     }
     .into()
 }
