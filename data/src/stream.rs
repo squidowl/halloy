@@ -161,6 +161,8 @@ async fn connect(
         let mut caps = vec![];
 
         while let Some(Ok(message)) = stream.next().await {
+            log::trace!("Message received => {:?}", message);
+
             if let Command::CAP(_, CapSubCommand::LS, a, b) = message.command {
                 let (cap_str, asterisk) = match (a, b) {
                     (Some(cap_str), None) => (cap_str, None),
