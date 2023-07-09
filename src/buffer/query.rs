@@ -34,7 +34,8 @@ pub fn view<'a>(
             scroll_view::Kind::Query(&state.server, &state.nick),
             history,
             |message| {
-                let timestamp = settings
+                let timestamp = config
+                    .buffer
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
 
