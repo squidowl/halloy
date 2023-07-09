@@ -1,10 +1,9 @@
 use core::fmt;
 
-use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::user::Nick;
-use crate::{channel, message, Server};
+use crate::{channel, config, message, Server};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Buffer {
@@ -39,57 +38,34 @@ impl Buffer {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Settings {
-    #[serde(default)]
-    pub timestamp: Option<Timestamp>,
-    #[serde(default)]
-    pub nickname: Nickname,
-    #[serde(default)]
     pub channel: channel::Settings,
 }
 
-impl Default for Settings {
-    fn default() -> Self {
-        Settings {
-            timestamp: Some(Timestamp {
-                format: "%T".into(),
-                brackets: Default::default(),
-            }),
-            nickname: Nickname {
-                color: Color::Unique,
-                brackets: Default::default(),
-            },
-            channel: channel::Settings::default(),
+impl From<config::Buffer> for Settings {
+    fn from(config: config::Buffer) -> Self {
+        Self {
+            channel: channel::Settings::from(config.channel),
         }
     }
 }
 
-impl Settings {
-    pub fn format_timestamp(&self, date_time: &DateTime<Utc>) -> Option<String> {
-        self.timestamp.as_ref().map(|timestamp| {
-            timestamp
-                .brackets
-                .format(date_time.with_timezone(&Local).format(&timestamp.format))
-        })
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Timestamp {
     pub format: String,
     #[serde(default)]
     pub brackets: Brackets,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Nickname {
     pub color: Color,
     #[serde(default)]
     pub brackets: Brackets,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Brackets {
     pub left: String,
     pub right: String,
@@ -101,7 +77,7 @@ impl Brackets {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub enum Color {
     Solid,
     #[default]

@@ -1,4 +1,4 @@
-use data::history;
+use data::{history, Config};
 use iced::widget::{button, container, pane_grid, row, text};
 use iced::Length;
 use uuid::Uuid;
@@ -30,7 +30,11 @@ pub struct Pane {
 pub struct TitleBar {}
 
 impl Pane {
-    pub fn new(buffer: Buffer, settings: buffer::Settings) -> Self {
+    pub fn new(buffer: Buffer, config: &Config) -> Self {
+        Self::with_settings(buffer, buffer::Settings::from(config.buffer.clone()))
+    }
+
+    pub fn with_settings(buffer: Buffer, settings: buffer::Settings) -> Self {
         Self {
             id: Uuid::new_v4(),
             buffer,
@@ -47,6 +51,7 @@ impl Pane {
         maximized: bool,
         clients: &'a data::client::Map,
         history: &'a history::Manager,
+        config: &'a Config,
     ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty => "".to_string(),
@@ -80,7 +85,7 @@ impl Pane {
 
         let content = self
             .buffer
-            .view(clients, history, &self.settings, is_focused)
+            .view(clients, history, &self.settings, config, is_focused)
             .map(move |msg| Message::Buffer(id, msg));
 
         widget::Content::new(content)

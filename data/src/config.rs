@@ -5,8 +5,15 @@ use std::path::PathBuf;
 use serde::Deserialize;
 use thiserror::Error;
 
+pub use self::buffer::Buffer;
+pub use self::channel::Channel;
+pub use self::dashboard::Dashboard;
 use crate::palette::Palette;
-use crate::{buffer, dashboard, environment, server};
+use crate::{environment, server};
+
+mod buffer;
+pub mod channel;
+mod dashboard;
 
 const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
 const DEFAULT_THEME: (&str, &[u8]) = ("ferra", include_bytes!("../../assets/themes/ferra.yaml"));
@@ -16,9 +23,8 @@ pub struct Config {
     pub palette: Palette,
     pub servers: server::Map,
     pub font: Font,
-    /// Default settings when creating a new buffer
-    pub new_buffer: buffer::Settings,
-    pub dashboard: dashboard::Config,
+    pub buffer: Buffer,
+    pub dashboard: Dashboard,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -64,9 +70,9 @@ impl Config {
             pub font: Font,
             /// Default settings when creating a new buffer
             #[serde(default)]
-            pub new_buffer: buffer::Settings,
+            pub new_buffer: Buffer,
             #[serde(default)]
-            pub dashboard: dashboard::Config,
+            pub dashboard: Dashboard,
         }
 
         let path = Self::path();
@@ -88,7 +94,7 @@ impl Config {
             palette,
             servers,
             font,
-            new_buffer,
+            buffer: new_buffer,
             dashboard,
         })
     }
