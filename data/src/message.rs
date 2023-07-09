@@ -38,6 +38,12 @@ impl std::ops::Deref for Encoded {
     }
 }
 
+impl std::ops::DerefMut for Encoded {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl From<proto::Message> for Encoded {
     fn from(proto: proto::Message) -> Self {
         Self(proto)

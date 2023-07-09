@@ -63,7 +63,7 @@ impl State {
                 self.input.clear();
 
                 if let Some(encoded) = input.encoded() {
-                    clients.send(input.server(), encoded);
+                    clients.send(input.buffer(), encoded);
                 }
 
                 if let Some(nick) = clients.nickname(input.server()) {
