@@ -161,10 +161,12 @@ impl Connection {
                     return Some(events);
                 }
             }
-            Command::PRIVMSG(target, _) => {
-                // If we sent (buffer exists) & we're target (echo), ignore
-                if target == self.nickname().as_ref() && buffer.is_some() {
-                    return None;
+            Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
+                if let Some(user) = message.user() {
+                    // If we sent (echo) & buffer exists (we sent from this client), ignore
+                    if user.nickname() == self.nickname() && buffer.is_some() {
+                        return None;
+                    }
                 }
             }
             Command::NICK(nick) => {
