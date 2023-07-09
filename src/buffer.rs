@@ -1,5 +1,5 @@
 pub use data::buffer::Settings;
-use data::{buffer, history};
+use data::{buffer, history, Config};
 use iced::Command;
 
 use self::channel::Channel;
@@ -88,6 +88,7 @@ impl Buffer {
         clients: &'a data::client::Map,
         history: &'a history::Manager,
         settings: &'a buffer::Settings,
+        config: &'a Config,
         is_focused: bool,
     ) -> Element<'a, Message> {
         match self {
@@ -95,18 +96,26 @@ impl Buffer {
             Buffer::Channel(state) => {
                 let status = clients.status(&state.server);
 
-                channel::view(state, status, clients, history, settings, is_focused)
-                    .map(Message::Channel)
+                channel::view(
+                    state,
+                    status,
+                    clients,
+                    history,
+                    &settings.channel,
+                    config,
+                    is_focused,
+                )
+                .map(Message::Channel)
             }
             Buffer::Server(state) => {
                 let status = clients.status(&state.server);
 
-                server::view(state, status, history, settings, is_focused).map(Message::Server)
+                server::view(state, status, history, config, is_focused).map(Message::Server)
             }
             Buffer::Query(state) => {
                 let status = clients.status(&state.server);
 
-                query::view(state, status, history, settings, is_focused).map(Message::Query)
+                query::view(state, status, history, config, is_focused).map(Message::Query)
             }
         }
     }

@@ -1,4 +1,4 @@
-use data::{buffer, client, history};
+use data::{client, history, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -16,7 +16,7 @@ pub fn view<'a>(
     state: &'a Server,
     status: client::Status,
     history: &'a history::Manager,
-    settings: &'a buffer::Settings,
+    config: &'a Config,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let buffer = state.buffer();
@@ -28,7 +28,8 @@ pub fn view<'a>(
             scroll_view::Kind::Server(&state.server),
             history,
             |message| {
-                let timestamp = settings
+                let timestamp = config
+                    .buffer
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
 

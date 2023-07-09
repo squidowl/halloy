@@ -1,5 +1,5 @@
 use data::user::Nick;
-use data::{buffer, client, history, message, Server};
+use data::{client, history, message, Config, Server};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -22,7 +22,7 @@ pub fn view<'a>(
     state: &'a Query,
     status: client::Status,
     history: &'a history::Manager,
-    settings: &'a buffer::Settings,
+    config: &'a Config,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let buffer = state.buffer();
@@ -34,7 +34,8 @@ pub fn view<'a>(
             scroll_view::Kind::Query(&state.server, &state.nick),
             history,
             |message| {
-                let timestamp = settings
+                let timestamp = config
+                    .buffer
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
 
@@ -45,8 +46,10 @@ pub fn view<'a>(
                 match sender {
                     message::Sender::User(user) => {
                         let nick = user_context::view(
-                            selectable_text(settings.nickname.brackets.format(user)).style(
-                                theme::Text::Nickname(user.color_seed(&settings.nickname.color)),
+                            selectable_text(config.buffer.nickname.brackets.format(user)).style(
+                                theme::Text::Nickname(
+                                    user.color_seed(&config.buffer.nickname.color),
+                                ),
                             ),
                             user.clone(),
                         )
