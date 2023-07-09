@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Changes done in the config file are now properly applied to the old buffers
+
 # 2023.2 (2023-07-07)
 
 Added:
