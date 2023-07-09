@@ -42,10 +42,20 @@ pub enum Brodcast {
 }
 
 #[derive(Debug)]
-pub enum Event {
-    Single(Message),
+pub enum Event<T = Message> {
+    Single(T),
     Brodcast(Brodcast),
-    Whois(Message, Option<Buffer>),
+    Whois(T, Option<Buffer>),
+}
+
+impl<T> Event<T> {
+    fn and_then<U>(self, f: impl FnOnce(T) -> Option<U>) -> Option<Event<U>> {
+        match self {
+            Event::Single(t) => f(t).map(Event::Single),
+            Event::Brodcast(broadcast) => Some(Event::Brodcast(broadcast)),
+            Event::Whois(t, buffer) => f(t).map(|u| Event::Whois(u, buffer)),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -101,10 +111,14 @@ impl Connection {
     fn receive(&mut self, message: message::Encoded) -> Vec<Event> {
         log::trace!("Message received => {:?}", *message);
 
-        self.handle(message).unwrap_or_default()
+        self.handle(message)
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|event| event.and_then(|encoded| Message::received(encoded, self.nickname())))
+            .collect()
     }
 
-    fn handle(&mut self, mut message: message::Encoded) -> Option<Vec<Event>> {
+    fn handle(&mut self, mut message: message::Encoded) -> Option<Vec<Event<message::Encoded>>> {
         use irc::proto::Command;
         use irc::proto::Response::*;
 
@@ -195,12 +209,7 @@ impl Connection {
                 RPL_WHOISCERTFP | RPL_WHOISCHANNELS | RPL_WHOISIDLE | RPL_WHOISKEYVALUE
                 | RPL_WHOISOPERATOR | RPL_WHOISSERVER | RPL_WHOISUSER | RPL_ENDOFWHOIS,
                 _,
-            ) => {
-                return Some(vec![Event::Whois(
-                    Message::received(message, self.nickname())?,
-                    buffer,
-                )])
-            }
+            ) => return Some(vec![Event::Whois(message, buffer)]),
             Command::QUIT(comment) => {
                 let user = message.user()?;
 
@@ -215,10 +224,7 @@ impl Connection {
             _ => {}
         }
 
-        Some(vec![Event::Single(Message::received(
-            message,
-            self.nickname(),
-        )?)])
+        Some(vec![Event::Single(message)])
     }
 
     fn sync(&mut self) {
@@ -371,7 +377,7 @@ impl Map {
 #[derive(Debug)]
 pub struct Batch {
     buffer: Option<Buffer>,
-    events: Vec<Event>,
+    events: Vec<Event<message::Encoded>>,
 }
 
 impl Batch {
