@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Configuration option `new_buffer.input_visibility` to control input field visibility: always shown or following the focused buffer.
+
 Fixed:
 
 - Changes done in the config file are now properly applied to the old buffers
