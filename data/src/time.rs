@@ -20,6 +20,10 @@ impl Posix {
         Self(seconds * 1_000_000_000)
     }
 
+    pub fn as_nanos(&self) -> u64 {
+        self.0
+    }
+
     pub fn datetime(&self) -> Option<DateTime<Utc>> {
         let seconds = (self.0 / 1_000_000_000) as i64;
         let nanos = (self.0 % 1_000_000_000) as u32;
