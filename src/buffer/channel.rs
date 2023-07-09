@@ -38,7 +38,8 @@ pub fn view<'a>(
             scroll_view::Kind::Channel(&state.server, &state.channel),
             history,
             move |message| {
-                let timestamp = settings
+                let timestamp = config
+                    .buffer
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
 
@@ -46,11 +47,10 @@ pub fn view<'a>(
                     data::message::Source::Channel(_, kind) => match kind {
                         data::message::Sender::User(user) => {
                             let nick = user_context::view(
-                                selectable_text(settings.nickname.brackets.format(user)).style(
-                                    theme::Text::Nickname(
-                                        user.color_seed(&settings.nickname.color),
-                                    ),
-                                ),
+                                selectable_text(config.buffer.nickname.brackets.format(user))
+                                    .style(theme::Text::Nickname(
+                                        user.color_seed(&config.buffer.nickname.color),
+                                    )),
                                 user.clone(),
                             )
                             .map(scroll_view::Message::UserContext);
