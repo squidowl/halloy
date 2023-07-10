@@ -64,7 +64,7 @@ pub struct Connection {
     resolved_nick: Option<String>,
     channels: Vec<String>,
     users: HashMap<String, Vec<User>>,
-    labels: HashMap<String, Buffer>,
+    labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
 }
 
@@ -97,8 +97,9 @@ impl Connection {
             use irc::proto::message::Tag;
 
             let label = generate_label();
+            let context = Context::new(&message, buffer.clone());
 
-            self.labels.insert(label.clone(), buffer.clone());
+            self.labels.insert(label.clone(), context);
 
             message.tags = Some(vec![Tag("label".to_string(), Some(label))]);
         }
@@ -121,7 +122,7 @@ impl Connection {
     fn handle(
         &mut self,
         mut message: message::Encoded,
-        mut buffer: Option<Buffer>,
+        parent_context: Option<Context>,
     ) -> Option<Vec<Event<message::Encoded>>> {
         use irc::proto::Command;
         use irc::proto::Response::*;
@@ -129,15 +130,16 @@ impl Connection {
         let label_tag = remove_tag("label", message.tags.as_mut());
         let batch_tag = remove_tag("batch", message.tags.as_mut());
 
-        buffer = buffer.or_else(|| {
+        let context = parent_context.or_else(|| {
             label_tag
-                // Remove label if we get resp for it
+                // Remove context associated to label if we get resp for it
                 .and_then(|label| self.labels.remove(&label))
+                // Otherwise if we're in a batch, get it's context
                 .or_else(|| {
                     batch_tag.as_ref().and_then(|batch| {
                         self.batches
                             .get(batch)
-                            .and_then(|batch| batch.buffer.clone())
+                            .and_then(|batch| batch.context.clone())
                     })
                 })
         });
@@ -150,7 +152,7 @@ impl Connection {
 
                 match symbol {
                     '+' => {
-                        let batch = Batch::new(buffer);
+                        let batch = Batch::new(context);
                         self.batches.insert(reference, batch);
                     }
                     '-' => {
@@ -172,7 +174,7 @@ impl Connection {
                 return None;
             }
             _ if batch_tag.is_some() => {
-                let events = self.handle(message, buffer)?;
+                let events = self.handle(message, context)?;
 
                 if let Some(batch) = self.batches.get_mut(&batch_tag.unwrap()) {
                     batch.events.extend(events);
@@ -183,8 +185,8 @@ impl Connection {
             }
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
                 if let Some(user) = message.user() {
-                    // If we sent (echo) & buffer exists (we sent from this client), ignore
-                    if user.nickname() == self.nickname() && buffer.is_some() {
+                    // If we sent (echo) & context exists (we sent from this client), ignore
+                    if user.nickname() == self.nickname() && context.is_some() {
                         return None;
                     }
                 }
@@ -211,11 +213,16 @@ impl Connection {
                     self.resolved_nick = Some(nick.to_string());
                 }
             }
+            // WHOIS
+            _ if context.as_ref().map(Context::is_whois).unwrap_or_default() => {
+                return Some(vec![Event::Whois(message, context.map(Context::buffer))]);
+            }
             Command::Response(
                 RPL_WHOISCERTFP | RPL_WHOISCHANNELS | RPL_WHOISIDLE | RPL_WHOISKEYVALUE
                 | RPL_WHOISOPERATOR | RPL_WHOISSERVER | RPL_WHOISUSER | RPL_ENDOFWHOIS,
                 _,
-            ) => return Some(vec![Event::Whois(message, buffer)]),
+            ) => return Some(vec![Event::Whois(message, context.map(Context::buffer))]),
+            // QUIT
             Command::QUIT(comment) => {
                 let user = message.user()?;
 
@@ -380,16 +387,45 @@ impl Map {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum Context {
+    Buffer(Buffer),
+    Whois(Buffer),
+}
+
+impl Context {
+    fn new(message: &message::Encoded, buffer: Buffer) -> Self {
+        use irc::proto::Command;
+
+        if let Command::WHOIS(_, _) = message.command {
+            Self::Whois(buffer)
+        } else {
+            Self::Buffer(buffer)
+        }
+    }
+
+    fn is_whois(&self) -> bool {
+        matches!(self, Self::Whois(_))
+    }
+
+    fn buffer(self) -> Buffer {
+        match self {
+            Context::Buffer(buffer) => buffer,
+            Context::Whois(buffer) => buffer,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Batch {
-    buffer: Option<Buffer>,
+    context: Option<Context>,
     events: Vec<Event<message::Encoded>>,
 }
 
 impl Batch {
-    fn new(buffer: Option<Buffer>) -> Self {
+    fn new(context: Option<Context>) -> Self {
         Self {
-            buffer,
+            context,
             events: vec![],
         }
     }
