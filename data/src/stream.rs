@@ -188,11 +188,13 @@ async fn connect(
         if server_caps.contains(&"batch") {
             caps.push(Capability::Batch);
         }
-        // We require both so we can properly tag
-        // echo-messages
-        if server_caps.contains(&"echo-message") && server_caps.contains(&"labeled-response") {
-            caps.push(Capability::EchoMessage);
+        if server_caps.contains(&"labeled-response") {
             caps.push(Capability::Custom("labeled-response"));
+
+            // We require labeled-response so we can properly tag echo-messages
+            if server_caps.contains(&"echo-message") {
+                caps.push(Capability::EchoMessage);
+            }
         }
 
         let _ = client.send_cap_req(&caps);
