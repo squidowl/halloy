@@ -158,6 +158,7 @@ async fn connect(
         .send_cap_ls(irc::proto::NegotiationVersion::V302)
         .is_ok()
     {
+        let mut str_caps = String::new();
         let mut caps = vec![];
 
         while let Some(Ok(message)) = stream.next().await {
@@ -171,27 +172,27 @@ async fn connect(
                     (None, None) | (None, Some(_)) => break,
                 };
 
-                let server_caps = cap_str.split(' ').collect::<Vec<_>>();
-
-                if server_caps.contains(&"server-time") {
-                    caps.push(Capability::ServerTime);
-                }
-                if server_caps.contains(&"batch") {
-                    caps.push(Capability::Batch);
-                }
-                // We require both so we can properly tag
-                // echo-messages
-                if server_caps.contains(&"echo-message")
-                    && server_caps.contains(&"labeled-response")
-                {
-                    caps.push(Capability::EchoMessage);
-                    caps.push(Capability::Custom("labeled-response"));
-                }
+                str_caps = format!("{str_caps} {cap_str}");
 
                 if asterisk.is_none() {
                     break;
                 }
             }
+        }
+
+        let server_caps = str_caps.split(' ').collect::<Vec<_>>();
+
+        if server_caps.contains(&"server-time") {
+            caps.push(Capability::ServerTime);
+        }
+        if server_caps.contains(&"batch") {
+            caps.push(Capability::Batch);
+        }
+        // We require both so we can properly tag
+        // echo-messages
+        if server_caps.contains(&"echo-message") && server_caps.contains(&"labeled-response") {
+            caps.push(Capability::EchoMessage);
+            caps.push(Capability::Custom("labeled-response"));
         }
 
         let _ = client.send_cap_req(&caps);
