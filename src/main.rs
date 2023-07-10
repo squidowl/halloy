@@ -335,14 +335,22 @@ impl Application for Halloy {
                         return Command::none()
                     };
 
-                    messages.into_iter().for_each(|encoded| {
-                        for event in self.clients.receive(&server, encoded) {
+                    messages.into_iter().for_each(|message| {
+                        for event in self.clients.receive(&server, message) {
                             match event {
-                                data::client::Event::Single(message) => {
-                                    dashboard.record_message(&server, message);
+                                data::client::Event::Single(encoded, our_nick) => {
+                                    if let Some(message) =
+                                        data::Message::received(encoded, our_nick)
+                                    {
+                                        dashboard.record_message(&server, message);
+                                    }
                                 }
-                                data::client::Event::Whois(message, buffer) => {
-                                    dashboard.record_whois(&server, message, buffer);
+                                data::client::Event::Whois(encoded, our_nick, buffer) => {
+                                    if let Some(message) =
+                                        data::Message::received(encoded, our_nick)
+                                    {
+                                        dashboard.record_whois(&server, message, buffer);
+                                    }
                                 }
                                 data::client::Event::Brodcast(brodcast) => match brodcast {
                                     data::client::Brodcast::Quit {
