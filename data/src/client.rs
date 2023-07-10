@@ -111,30 +111,36 @@ impl Connection {
     fn receive(&mut self, message: message::Encoded) -> Vec<Event> {
         log::trace!("Message received => {:?}", *message);
 
-        self.handle(message)
+        self.handle(message, None)
             .unwrap_or_default()
             .into_iter()
             .flat_map(|event| event.and_then(|encoded| Message::received(encoded, self.nickname())))
             .collect()
     }
 
-    fn handle(&mut self, mut message: message::Encoded) -> Option<Vec<Event<message::Encoded>>> {
+    fn handle(
+        &mut self,
+        mut message: message::Encoded,
+        mut buffer: Option<Buffer>,
+    ) -> Option<Vec<Event<message::Encoded>>> {
         use irc::proto::Command;
         use irc::proto::Response::*;
 
         let label_tag = remove_tag("label", message.tags.as_mut());
         let batch_tag = remove_tag("batch", message.tags.as_mut());
 
-        let buffer = label_tag
-            // Remove label if we get resp for it
-            .and_then(|label| self.labels.remove(&label))
-            .or_else(|| {
-                batch_tag.as_ref().and_then(|batch| {
-                    self.batches
-                        .get(batch)
-                        .and_then(|batch| batch.buffer.clone())
+        buffer = buffer.or_else(|| {
+            label_tag
+                // Remove label if we get resp for it
+                .and_then(|label| self.labels.remove(&label))
+                .or_else(|| {
+                    batch_tag.as_ref().and_then(|batch| {
+                        self.batches
+                            .get(batch)
+                            .and_then(|batch| batch.buffer.clone())
+                    })
                 })
-            });
+        });
 
         match &message.command {
             Command::BATCH(batch, _, _) => {
@@ -166,7 +172,7 @@ impl Connection {
                 return None;
             }
             _ if batch_tag.is_some() => {
-                let events = self.handle(message)?;
+                let events = self.handle(message, buffer)?;
 
                 if let Some(batch) = self.batches.get_mut(&batch_tag.unwrap()) {
                     batch.events.extend(events);
