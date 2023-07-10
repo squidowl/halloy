@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{message, Buffer, Message, Server, User};
+use crate::{message, Buffer, Server, User};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -42,20 +42,10 @@ pub enum Brodcast {
 }
 
 #[derive(Debug)]
-pub enum Event<T = Message> {
-    Single(T),
+pub enum Event {
+    Single(message::Encoded, Nick),
     Brodcast(Brodcast),
-    Whois(T, Option<Buffer>),
-}
-
-impl<T> Event<T> {
-    fn and_then<U>(self, f: impl FnOnce(T) -> Option<U>) -> Option<Event<U>> {
-        match self {
-            Event::Single(t) => f(t).map(Event::Single),
-            Event::Brodcast(broadcast) => Some(Event::Brodcast(broadcast)),
-            Event::Whois(t, buffer) => f(t).map(|u| Event::Whois(u, buffer)),
-        }
-    }
+    Whois(message::Encoded, Nick, Option<Buffer>),
 }
 
 #[derive(Debug)]
@@ -112,18 +102,14 @@ impl Connection {
     fn receive(&mut self, message: message::Encoded) -> Vec<Event> {
         log::trace!("Message received => {:?}", *message);
 
-        self.handle(message, None)
-            .unwrap_or_default()
-            .into_iter()
-            .flat_map(|event| event.and_then(|encoded| Message::received(encoded, self.nickname())))
-            .collect()
+        self.handle(message, None).unwrap_or_default()
     }
 
     fn handle(
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
-    ) -> Option<Vec<Event<message::Encoded>>> {
+    ) -> Option<Vec<Event>> {
         use irc::proto::Command;
         use irc::proto::Response::*;
 
@@ -215,13 +201,23 @@ impl Connection {
             }
             // WHOIS
             _ if context.as_ref().map(Context::is_whois).unwrap_or_default() => {
-                return Some(vec![Event::Whois(message, context.map(Context::buffer))]);
+                return Some(vec![Event::Whois(
+                    message,
+                    self.nickname().to_owned(),
+                    context.map(Context::buffer),
+                )]);
             }
             Command::Response(
                 RPL_WHOISCERTFP | RPL_WHOISCHANNELS | RPL_WHOISIDLE | RPL_WHOISKEYVALUE
                 | RPL_WHOISOPERATOR | RPL_WHOISSERVER | RPL_WHOISUSER | RPL_ENDOFWHOIS,
                 _,
-            ) => return Some(vec![Event::Whois(message, context.map(Context::buffer))]),
+            ) => {
+                return Some(vec![Event::Whois(
+                    message,
+                    self.nickname().to_owned(),
+                    context.map(Context::buffer),
+                )])
+            }
             // QUIT
             Command::QUIT(comment) => {
                 let user = message.user()?;
@@ -237,7 +233,7 @@ impl Connection {
             _ => {}
         }
 
-        Some(vec![Event::Single(message)])
+        Some(vec![Event::Single(message, self.nickname().to_owned())])
     }
 
     fn sync(&mut self) {
@@ -419,7 +415,7 @@ impl Context {
 #[derive(Debug)]
 pub struct Batch {
     context: Option<Context>,
-    events: Vec<Event<message::Encoded>>,
+    events: Vec<Event>,
 }
 
 impl Batch {
