@@ -43,8 +43,8 @@ font:
   # - Default is 13
   size: 13
       
-# Settings applied by default to new buffers
-new_buffer:
+# Buffer settings
+buffer:
   # Nickname settings
   nickname:
     # User color settings:
