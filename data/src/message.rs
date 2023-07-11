@@ -38,6 +38,12 @@ impl std::ops::Deref for Encoded {
     }
 }
 
+impl std::ops::DerefMut for Encoded {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl From<proto::Message> for Encoded {
     fn from(proto: proto::Message) -> Self {
         Self(proto)
@@ -132,10 +138,10 @@ impl Message {
             && matches!(self.source.sender(), Some(Sender::User(_) | Sender::Action))
     }
 
-    pub fn received(encoded: Encoded, our_nick: NickRef) -> Option<Message> {
+    pub fn received(encoded: Encoded, our_nick: Nick) -> Option<Message> {
         let server_time = server_time(&encoded);
-        let text = text(&encoded, our_nick)?;
-        let source = source(encoded, our_nick)?;
+        let text = text(&encoded, &our_nick)?;
+        let source = source(encoded, &our_nick)?;
 
         Some(Message {
             received_at: Posix::now(),
@@ -147,7 +153,7 @@ impl Message {
     }
 }
 
-fn source(message: Encoded, our_nick: NickRef) -> Option<Source> {
+fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
     let user = message.user();
 
     match message.0.command {
@@ -180,7 +186,7 @@ fn source(message: Encoded, our_nick: NickRef) -> Option<Source> {
                 (false, Some(user)) => {
                     let target = User::try_from(target.as_str()).ok()?;
 
-                    (target.nickname() == our_nick)
+                    (target.nickname() == *our_nick)
                         .then(|| Source::Query(user.nickname().to_owned(), sender(user)))
                 }
                 _ => None,
@@ -201,7 +207,7 @@ fn source(message: Encoded, our_nick: NickRef) -> Option<Source> {
                 (false, Some(user)) => {
                     let target = User::try_from(target.as_str()).ok()?;
 
-                    (target.nickname() == our_nick)
+                    (target.nickname() == *our_nick)
                         .then(|| Source::Query(user.nickname().to_owned(), sender(user)))
                 }
                 _ => Some(Source::Server),
@@ -281,7 +287,7 @@ fn server_time(message: &Encoded) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
-fn text(message: &Encoded, our_nick: NickRef) -> Option<String> {
+fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
     let user = message.user();
     match &message.command {
         proto::Command::TOPIC(_, topic) => {
@@ -302,7 +308,7 @@ fn text(message: &Encoded, our_nick: NickRef) -> Option<String> {
         proto::Command::JOIN(_, _, _) | proto::Command::SAJOIN(_, _) => {
             let user = user?;
 
-            (user.nickname() != our_nick)
+            (user.nickname() != *our_nick)
                 .then(|| format!("⟶ {} has joined the channel", user.formatted()))
         }
         proto::Command::ChannelMODE(_, modes) => {

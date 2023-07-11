@@ -121,7 +121,7 @@ impl Dashboard {
                                         let input = data::Input::command(buffer, command);
 
                                         if let Some(encoded) = input.encoded() {
-                                            clients.send(input.server(), encoded);
+                                            clients.send(input.buffer(), encoded);
                                         }
 
                                         if let Some(message) = clients
@@ -243,10 +243,10 @@ impl Dashboard {
                             data::Buffer::Channel(server, channel) => {
                                 // Send part & close history file
                                 let command = data::Command::Part(channel.clone(), None);
-                                let input = data::Input::command(buffer, command);
+                                let input = data::Input::command(buffer.clone(), command);
 
                                 if let Some(encoded) = input.encoded() {
-                                    clients.send(&server, encoded);
+                                    clients.send(&buffer, encoded);
                                 }
 
                                 return self
@@ -499,15 +499,24 @@ impl Dashboard {
         self.history.record_message(server, message);
     }
 
-    pub fn record_whois(&mut self, server: &Server, mut message: data::Message) {
-        // If a buffer for the server is focused, put the whois message there
-        message.source = self
-            .get_focused()
-            .and_then(|pane| {
-                pane.buffer.data().and_then(|buffer| {
-                    (buffer.server() == server).then(|| buffer.server_message_source())
-                })
+    pub fn record_whois(
+        &mut self,
+        server: &Server,
+        mut message: data::Message,
+        buffer: Option<data::Buffer>,
+    ) {
+        // If server supports labels, we should receive the buffer sent from. Otherwise
+        // fallback to the focused buffer for the server.
+        let buffer = buffer.or_else(|| {
+            self.get_focused().and_then(|pane| {
+                pane.buffer
+                    .data()
+                    .and_then(|buffer| (buffer.server() == server).then_some(buffer))
             })
+        });
+
+        message.source = buffer
+            .map(|buffer| buffer.server_message_source())
             .unwrap_or(message::Source::Server);
 
         self.history.record_message(server, message);

@@ -148,19 +148,61 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
 async fn connect(
     config: server::Config,
 ) -> Result<(irc::client::ClientStream, Connection), irc::error::Error> {
+    use irc::proto::{CapSubCommand, Command};
+
     let mut client = irc::client::Client::from_config((*config).clone()).await?;
+    let mut stream = client.stream()?;
 
     // Negotiate capbilities
     if client
         .send_cap_ls(irc::proto::NegotiationVersion::V302)
         .is_ok()
     {
-        let _ = client.send_cap_req(&[Capability::ServerTime]);
+        let mut str_caps = String::new();
+        let mut caps = vec![];
+
+        while let Some(Ok(message)) = stream.next().await {
+            log::trace!("Message received => {:?}", message);
+
+            if let Command::CAP(_, CapSubCommand::LS, a, b) = message.command {
+                let (cap_str, asterisk) = match (a, b) {
+                    (Some(cap_str), None) => (cap_str, None),
+                    (Some(asterisk), Some(cap_str)) => (cap_str, Some(asterisk)),
+                    // Unreachable?
+                    (None, None) | (None, Some(_)) => break,
+                };
+
+                str_caps = format!("{str_caps} {cap_str}");
+
+                if asterisk.is_none() {
+                    break;
+                }
+            }
+        }
+
+        let server_caps = str_caps.split(' ').collect::<Vec<_>>();
+
+        if server_caps.contains(&"server-time") {
+            caps.push(Capability::ServerTime);
+        }
+        if server_caps.contains(&"batch") {
+            caps.push(Capability::Batch);
+        }
+        if server_caps.contains(&"labeled-response") {
+            caps.push(Capability::Custom("labeled-response"));
+
+            // We require labeled-response so we can properly tag echo-messages
+            if server_caps.contains(&"echo-message") {
+                caps.push(Capability::EchoMessage);
+            }
+        }
+
+        let _ = client.send_cap_req(&caps);
     }
 
     client.identify()?;
 
-    Ok((client.stream()?, Connection::new(client)))
+    Ok((stream, Connection::new(client)))
 }
 
 struct Batch {
