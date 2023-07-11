@@ -86,47 +86,49 @@ impl Colors {
 #[derive(Debug, Clone)]
 pub struct Subpalette {
     pub base: Color,
-    pub weak: Color,
-    pub alpha_005: Color,
-    pub alpha_02: Color,
-    pub alpha_04: Color,
-    pub alpha_06: Color,
-    pub mute_03: Color,
-    pub mute_06: Color,
-    pub mute_09: Color,
-    pub intensify_03: Color,
-    pub intensify_06: Color,
-    pub intensify_09: Color,
-    pub lighten_03: Color,
-    pub lighten_06: Color,
-    pub lighten_09: Color,
-    pub darken_03: Color,
-    pub darken_06: Color,
-    pub darken_09: Color,
+    pub light: Color,
+    pub lighter: Color,
+    pub lightest: Color,
+    pub dark: Color,
+    pub darker: Color,
+    pub darkest: Color,
+    pub low_alpha: Color,
+    pub med_alpha: Color,
+    pub high_alpha: Color,
 }
 
 impl Subpalette {
     pub fn from_color(color: Color, palette: &data::palette::Palette) -> Subpalette {
+        let is_dark = palette::is_dark(palette.background);
+
         Subpalette {
             base: color,
-            weak: palette::mix(palette.background, color, 0.8),
-            alpha_005: palette::alpha(color, 0.05),
-            alpha_02: palette::alpha(color, 0.2),
-            alpha_04: palette::alpha(color, 0.4),
-            alpha_06: palette::alpha(color, 0.6),
-            mute_03: palette::mute(color, 0.03),
-            mute_06: palette::mute(color, 0.06),
-            mute_09: palette::mute(color, 0.09),
-            intensify_03: palette::intensify(color, 0.03),
-            intensify_06: palette::intensify(color, 0.06),
-            intensify_09: palette::intensify(color, 0.09),
-            lighten_03: palette::lighten(color, 0.03),
-            lighten_06: palette::lighten(color, 0.06),
-            lighten_09: palette::lighten(color, 0.09),
-            darken_03: palette::darken(color, 0.03),
-            darken_06: palette::darken(color, 0.06),
-            darken_09: palette::darken(color, 0.09),
+            light: palette::lighten(color, 0.03),
+            lighter: palette::lighten(color, 0.06),
+            lightest: palette::lighten(color, 0.12),
+            dark: palette::darken(color, 0.03),
+            darker: palette::darken(color, 0.06),
+            darkest: palette::darken(color, 0.12),
+            low_alpha: if is_dark {
+                palette::alpha(color, 0.4)
+            } else {
+                palette::alpha(color, 0.8)
+            },
+            med_alpha: if is_dark {
+                palette::alpha(color, 0.2)
+            } else {
+                palette::alpha(color, 0.4)
+            },
+            high_alpha: if is_dark {
+                palette::alpha(color, 0.1)
+            } else {
+                palette::alpha(color, 0.3)
+            },
         }
+    }
+
+    pub fn is_dark(&self) -> bool {
+        palette::is_dark(self.base)
     }
 }
 
@@ -143,7 +145,7 @@ impl rule::StyleSheet for Theme {
     fn appearance(&self, style: &Self::Style) -> rule::Appearance {
         match style {
             Rule::Default => rule::Appearance {
-                color: self.colors.background.lighten_03,
+                color: self.colors.background.light,
                 width: 1,
                 radius: 0.0.into(),
                 fill_mode: rule::FillMode::Full,
@@ -163,12 +165,12 @@ pub enum Text {
     #[default]
     Default,
     Primary,
-    Alpha04,
     Action,
     Accent,
     Info,
     Server,
     Error,
+    Transparent,
     Status(message::Status),
     Nickname(Option<String>),
 }
@@ -181,9 +183,6 @@ impl text::StyleSheet for Theme {
             Text::Default => text::Appearance { color: None },
             Text::Primary => text::Appearance {
                 color: Some(self.colors.text.base),
-            },
-            Text::Alpha04 => text::Appearance {
-                color: Some(self.colors.text.alpha_04),
             },
             Text::Action => text::Appearance {
                 color: Some(self.colors.action.base),
@@ -213,6 +212,9 @@ impl text::StyleSheet for Theme {
                     message::Status::Success => self.colors.success.base,
                     message::Status::Error => self.colors.error.base,
                 }),
+            },
+            Text::Transparent => text::Appearance {
+                color: Some(self.colors.text.low_alpha),
             },
         }
     }
@@ -248,7 +250,7 @@ impl container::StyleSheet for Theme {
                 ..Default::default()
             },
             Container::PaneBody { selected } => container::Appearance {
-                background: Some(Background::Color(self.colors.background.darken_03)),
+                background: Some(Background::Color(self.colors.background.dark)),
                 border_radius: 4.0.into(),
                 border_width: 1.0,
                 border_color: if *selected {
@@ -259,14 +261,14 @@ impl container::StyleSheet for Theme {
                 ..Default::default()
             },
             Container::PaneHeader => container::Appearance {
-                background: Some(Background::Color(self.colors.background.darken_06)),
+                background: Some(Background::Color(self.colors.background.darker)),
                 border_radius: [4.0, 4.0, 0.0, 0.0].into(),
                 border_width: 1.0,
                 border_color: Color::TRANSPARENT,
                 ..Default::default()
             },
             Container::Command { selected } if *selected => container::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_06)),
+                background: Some(Background::Color(self.colors.background.darker)),
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
@@ -279,12 +281,16 @@ impl container::StyleSheet for Theme {
                 background: Some(Background::Color(self.colors.background.base)),
                 border_radius: 4.0.into(),
                 border_width: 1.0,
-                border_color: self.colors.accent.base,
+                border_color: if self.colors.background.is_dark() {
+                    self.colors.background.lighter
+                } else {
+                    self.colors.background.darker
+                },
                 ..Default::default()
             },
             Container::Highlight => container::Appearance {
-                background: Some(Background::Color(self.colors.info.alpha_005)),
-                border_radius: 3.0.into(),
+                background: Some(Background::Color(self.colors.info.high_alpha)),
+                border_radius: 0.0.into(),
                 ..Default::default()
             },
         }
@@ -311,39 +317,41 @@ impl button::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> button::Appearance {
         match style {
             Button::Default => button::Appearance {
-                background: Some(Background::Color(self.colors.action.alpha_02)),
+                background: Some(Background::Color(self.colors.action.med_alpha)),
                 text_color: self.colors.action.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::Secondary => button::Appearance {
-                background: Some(Background::Color(self.colors.text.alpha_02)),
+                background: Some(Background::Color(self.colors.text.med_alpha)),
                 text_color: self.colors.text.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(Color {
-                    a: 0.8,
-                    ..self.colors.background.darken_06
-                })),
+                background: Some(Background::Color(self.colors.background.darker)),
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::SideMenu { .. } => button::Appearance {
                 background: None,
+                border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::Pane { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.action.alpha_02)),
-                border_color: self.colors.action.mute_06,
+                background: Some(Background::Color(self.colors.action.med_alpha)),
+                border_color: self.colors.action.low_alpha,
                 border_width: 1.0,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::Pane { .. } => button::Appearance {
-                background: Some(Background::Color(self.colors.background.darken_09)),
-                border_color: self.colors.background.mute_03,
+                background: Some(Background::Color(self.colors.background.dark)),
+                border_color: if self.colors.background.is_dark() {
+                    self.colors.background.lightest
+                } else {
+                    self.colors.background.darkest
+                },
                 border_width: 1.0,
                 border_radius: 3.0.into(),
                 ..Default::default()
@@ -372,37 +380,39 @@ impl button::StyleSheet for Theme {
 
         match style {
             Button::Default => button::Appearance {
-                background: Some(Background::Color(self.colors.action.alpha_04)),
+                background: Some(Background::Color(self.colors.action.med_alpha)),
                 text_color: self.colors.action.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::Secondary => button::Appearance {
-                background: Some(Background::Color(self.colors.text.alpha_04)),
+                background: Some(Background::Color(self.colors.text.med_alpha)),
                 text_color: self.colors.text.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.background.darken_09)),
+                background: Some(Background::Color(self.colors.background.darkest)),
                 ..active
             },
             Button::SideMenu { .. } => button::Appearance {
-                background: Some(Background::Color(self.colors.background.darken_03)),
-                border_radius: 3.0.into(),
+                background: Some(Background::Color(self.colors.background.dark)),
                 ..active
             },
             Button::Pane { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_09)),
+                background: Some(Background::Color(self.colors.action.high_alpha)),
                 ..active
             },
             Button::Pane { .. } => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_06)),
-                border_color: self.colors.background.mute_06,
+                background: Some(Background::Color(if self.colors.background.is_dark() {
+                    self.colors.background.light
+                } else {
+                    self.colors.background.darker
+                })),
                 ..active
             },
             Button::Context => button::Appearance {
-                background: Some(Background::Color(self.colors.background.mute_06)),
+                background: Some(Background::Color(self.colors.background.darker)),
                 ..active
             },
         }
@@ -438,12 +448,12 @@ impl scrollable::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> scrollable::Scrollbar {
         match style {
             Scrollable::Default => scrollable::Scrollbar {
-                background: Some(Background::Color(self.colors.background.mute_06)),
+                background: Some(Background::Color(self.colors.background.darker)),
                 border_radius: 8.0.into(),
                 border_width: 1.0,
                 border_color: Color::TRANSPARENT,
                 scroller: scrollable::Scroller {
-                    color: self.colors.accent.alpha_06,
+                    color: self.colors.background.darkest,
                     border_radius: 8.0.into(),
                     border_width: 0.0,
                     border_color: Color::TRANSPARENT,
@@ -489,9 +499,9 @@ impl pane_grid::StyleSheet for Theme {
     fn hovered_region(&self, style: &Self::Style) -> pane_grid::Appearance {
         match style {
             PaneGrid::Default => pane_grid::Appearance {
-                background: Background::Color(self.colors.background.mute_03),
+                background: Background::Color(self.colors.action.high_alpha),
                 border_width: 1.0,
-                border_color: self.colors.accent.base,
+                border_color: self.colors.action.base,
                 border_radius: 4.0.into(),
             },
         }
@@ -500,8 +510,8 @@ impl pane_grid::StyleSheet for Theme {
     fn picked_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
         match style {
             PaneGrid::Default => Some(pane_grid::Line {
-                color: self.colors.background.mute_03,
-                width: 2.0,
+                color: self.colors.action.base,
+                width: 4.0,
             }),
         }
     }
@@ -509,8 +519,8 @@ impl pane_grid::StyleSheet for Theme {
     fn hovered_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
         match style {
             PaneGrid::Default => Some(pane_grid::Line {
-                color: self.colors.background.mute_03,
-                width: 2.0,
+                color: self.colors.action.base,
+                width: 4.0,
             }),
         }
     }
@@ -529,11 +539,12 @@ impl text_input::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> text_input::Appearance {
         match style {
             TextInput::Default => text_input::Appearance {
-                background: Background::Color(self.colors.background.darken_06),
+                background: Background::Color(self.colors.background.darker),
                 border_radius: 4.0.into(),
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
-                icon_color: self.colors.action.mute_03,
+                // XXX Not currently displayed in application.
+                icon_color: self.colors.info.base,
             },
             TextInput::Error => text_input::Appearance {
                 border_width: 1.0,
@@ -553,13 +564,13 @@ impl text_input::StyleSheet for Theme {
 
     fn selection_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default | TextInput::Error => self.colors.accent.alpha_02,
+            TextInput::Default | TextInput::Error => self.colors.accent.high_alpha,
         }
     }
 
     fn placeholder_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default | TextInput::Error => self.colors.text.alpha_04,
+            TextInput::Default | TextInput::Error => self.colors.text.low_alpha,
         }
     }
 
@@ -578,11 +589,12 @@ impl text_input::StyleSheet for Theme {
     fn disabled(&self, style: &Self::Style) -> text_input::Appearance {
         match style {
             TextInput::Default | TextInput::Error => text_input::Appearance {
-                background: Background::Color(self.colors.background.lighten_03),
+                background: Background::Color(self.colors.background.light),
                 border_radius: 0.0.into(),
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
-                icon_color: self.colors.action.mute_03,
+                // XXX Not currently displayed in application.
+                icon_color: self.colors.info.base,
             },
         }
     }
@@ -593,10 +605,11 @@ impl selectable_text::StyleSheet for Theme {
 
     fn appearance(&self, style: &Self::Style) -> selectable_text::Appearance {
         let color = <Theme as text::StyleSheet>::appearance(self, style.clone()).color;
+        let selection_color = self.colors.accent.high_alpha;
 
         selectable_text::Appearance {
             color,
-            selection_color: self.colors.accent.alpha_02,
+            selection_color,
         }
     }
 }
