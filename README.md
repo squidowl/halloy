@@ -9,6 +9,8 @@
 
 Halloy is an open-source IRC client written in Rust, with the Iced GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.
 
+Join **#halloy** on libera.chat if you have questions or looking for help.
+
 <a href="https://github.com/iced-rs/iced">
   <img src="https://gist.githubusercontent.com/hecrj/ad7ecd38f6e47ff3688a38c79fd108f0/raw/74384875ecbad02ae2a926425e9bcafd0695bade/color.svg" width="130px">
 </a>

@@ -21,6 +21,9 @@ pub struct Welcome;
 
 impl Welcome {
     pub fn new() -> Self {
+        // Create template config file.
+        Config::create_template_config();
+
         Welcome::default()
     }
 
@@ -28,9 +31,6 @@ impl Welcome {
         match message {
             Message::RefreshConfiguration => Some(Event::RefreshConfiguration),
             Message::OpenConfigurationDirectory => {
-                // Create template config file.
-                Config::create_template_config();
-
                 // Open config directory.
                 let _ = open::that(Config::config_dir());
 
@@ -96,8 +96,9 @@ impl Welcome {
                     ])
                     .push(row![
                         text("4. ").style(theme::Text::Accent),
-                        text("For help and assistance, please visit "),
-                        text("github.com/squidowl/halloy").style(theme::Text::Info),
+                        text("Join "),
+                        text("#halloy").style(theme::Text::Info),
+                        text(" on libera.chat if you have questions or looking for help"),
                     ])
                     .spacing(2)
                     .align_items(iced::Alignment::Start),
