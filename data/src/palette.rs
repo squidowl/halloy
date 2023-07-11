@@ -96,14 +96,6 @@ pub fn alpha(color: Color, alpha: f32) -> Color {
     Color { a: alpha, ..color }
 }
 
-pub fn lightness(color: Color, amount: f32) -> Color {
-    let mut hsl = to_hsl(color);
-
-    hsl.lightness = amount;
-
-    from_hsl(hsl)
-}
-
 pub fn mix(a: Color, b: Color, factor: f32) -> Color {
     let a_hsl = to_hsl(a);
     let b_hsl = to_hsl(b);
@@ -124,30 +116,6 @@ pub fn darken(color: Color, amount: f32) -> Color {
     let mut hsl = to_hsl(color);
 
     hsl.darken_fixed_assign(amount);
-
-    from_hsl(hsl)
-}
-
-pub fn mute(color: Color, amount: f32) -> Color {
-    let mut hsl = to_hsl(color);
-
-    if is_dark(color) {
-        hsl.lighten_fixed_assign(amount)
-    } else {
-        hsl.darken_fixed_assign(amount)
-    };
-
-    from_hsl(hsl)
-}
-
-pub fn intensify(color: Color, amount: f32) -> Color {
-    let mut hsl = to_hsl(color);
-
-    if is_dark(color) {
-        hsl.darken_fixed_assign(amount)
-    } else {
-        hsl.lighten_fixed_assign(amount)
-    };
 
     from_hsl(hsl)
 }

@@ -37,7 +37,7 @@ pub fn view<'a>(
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
-                    .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
+                    .map(|timestamp| selectable_text(timestamp).style(theme::Text::Transparent));
 
                 let message::Source::Query(_, sender) = &message.source else {
                     return None;
