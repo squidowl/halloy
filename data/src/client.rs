@@ -56,6 +56,7 @@ pub struct Connection {
     users: HashMap<String, Vec<User>>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
+    supports_labels: bool,
 }
 
 impl Connection {
@@ -67,6 +68,7 @@ impl Connection {
             users: HashMap::new(),
             labels: HashMap::new(),
             batches: HashMap::new(),
+            supports_labels: false,
         }
     }
 
@@ -82,8 +84,7 @@ impl Connection {
     }
 
     fn send(&mut self, buffer: &Buffer, mut message: message::Encoded) {
-        // Add message label
-        {
+        if self.supports_labels {
             use irc::proto::message::Tag;
 
             let label = generate_label();
@@ -110,8 +111,8 @@ impl Connection {
         mut message: message::Encoded,
         parent_context: Option<Context>,
     ) -> Option<Vec<Event>> {
-        use irc::proto::Command;
         use irc::proto::Response::*;
+        use irc::proto::{CapSubCommand, Command};
 
         let label_tag = remove_tag("label", message.tags.as_mut());
         let batch_tag = remove_tag("batch", message.tags.as_mut());
@@ -167,6 +168,14 @@ impl Connection {
                     return None;
                 } else {
                     return Some(events);
+                }
+            }
+            Command::CAP(_, CapSubCommand::ACK, a, b) => {
+                let cap_str = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+                let caps = cap_str.split(' ').collect::<Vec<_>>();
+
+                if caps.contains(&"labeled-response") {
+                    self.supports_labels = true;
                 }
             }
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
