@@ -345,11 +345,12 @@ impl Application for Halloy {
                                         dashboard.record_message(&server, message);
                                     }
                                 }
-                                data::client::Event::Whois(encoded, our_nick, buffer) => {
+                                data::client::Event::WithSource(encoded, our_nick, source) => {
                                     if let Some(message) =
                                         data::Message::received(encoded, our_nick)
                                     {
-                                        dashboard.record_whois(&server, message, buffer);
+                                        dashboard
+                                            .record_message(&server, message.with_source(source));
                                     }
                                 }
                                 data::client::Event::Brodcast(brodcast) => match brodcast {

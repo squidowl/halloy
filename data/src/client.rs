@@ -44,8 +44,8 @@ pub enum Brodcast {
 #[derive(Debug)]
 pub enum Event {
     Single(message::Encoded, Nick),
+    WithSource(message::Encoded, Nick, message::Source),
     Brodcast(Brodcast),
-    Whois(message::Encoded, Nick, Option<Buffer>),
 }
 
 #[derive(Debug)]
@@ -56,6 +56,7 @@ pub struct Connection {
     users: HashMap<String, Vec<User>>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
+    last_sent_buffer: HashMap<Reason, Buffer>,
     supports_labels: bool,
 }
 
@@ -68,6 +69,7 @@ impl Connection {
             users: HashMap::new(),
             labels: HashMap::new(),
             batches: HashMap::new(),
+            last_sent_buffer: HashMap::new(),
             supports_labels: false,
         }
     }
@@ -94,6 +96,9 @@ impl Connection {
 
             message.tags = Some(vec![Tag("label".to_string(), Some(label))]);
         }
+
+        let reason = Reason::new(&message);
+        self.last_sent_buffer.insert(reason, buffer.clone());
 
         if let Err(e) = self.client.send(message) {
             log::warn!("Error sending message: {e}");
@@ -210,22 +215,35 @@ impl Connection {
             }
             // WHOIS
             _ if context.as_ref().map(Context::is_whois).unwrap_or_default() => {
-                return Some(vec![Event::Whois(
-                    message,
-                    self.nickname().to_owned(),
-                    context.map(Context::buffer),
-                )]);
+                if let Some(source) = context
+                    .map(Context::buffer)
+                    .map(Buffer::server_message_source)
+                {
+                    return Some(vec![Event::WithSource(
+                        message,
+                        self.nickname().to_owned(),
+                        source,
+                    )]);
+                }
             }
             Command::Response(
                 RPL_WHOISCERTFP | RPL_WHOISCHANNELS | RPL_WHOISIDLE | RPL_WHOISKEYVALUE
                 | RPL_WHOISOPERATOR | RPL_WHOISSERVER | RPL_WHOISUSER | RPL_ENDOFWHOIS,
                 _,
             ) => {
-                return Some(vec![Event::Whois(
-                    message,
-                    self.nickname().to_owned(),
-                    context.map(Context::buffer),
-                )])
+                // Context from message labeling is higher priority than
+                // last sent buffer
+                let buffer = context
+                    .map(Context::buffer)
+                    .or_else(|| self.last_sent_buffer.get(&Reason::Whois).cloned());
+
+                if let Some(source) = buffer.map(Buffer::server_message_source) {
+                    return Some(vec![Event::WithSource(
+                        message,
+                        self.nickname().to_owned(),
+                        source,
+                    )]);
+                }
             }
             // QUIT
             Command::QUIT(comment) => {
@@ -444,4 +462,22 @@ fn remove_tag(key: &str, tags: Option<&mut Vec<irc::proto::message::Tag>>) -> Op
     let tags = tags?;
 
     tags.remove(tags.iter().position(|tag| tag.0 == key)?).1
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Reason {
+    Whois,
+    Other,
+}
+
+impl Reason {
+    fn new(message: &message::Encoded) -> Reason {
+        use irc::proto::Command;
+
+        if let Command::WHOIS(_, _) = message.command {
+            Self::Whois
+        } else {
+            Self::Other
+        }
+    }
 }
