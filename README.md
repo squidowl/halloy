@@ -41,6 +41,15 @@ cargo build --release
 cargo run --release
 ```
 
+## Capabilities
+
+Halloy supports the following IRCv3.2 capabilities
+
+- `batch`
+- `server-time`
+- `labeled-response`
+- `echo-message` (server must also support `labeled-response`)
+
 ## Why?
 <div align="center">
   <a href="https://xkcd.com/1782/">
