@@ -68,9 +68,8 @@ impl Config {
             pub servers: server::Map,
             #[serde(default)]
             pub font: Font,
-            /// Default settings when creating a new buffer
-            #[serde(default)]
-            pub new_buffer: Buffer,
+            #[serde(default, alias = "new_buffer")]
+            pub buffer: Buffer,
             #[serde(default)]
             pub dashboard: Dashboard,
         }
@@ -82,7 +81,7 @@ impl Config {
             theme,
             servers,
             font,
-            new_buffer,
+            buffer,
             dashboard,
         } = serde_yaml::from_reader(BufReader::new(file))
             .map_err(|e| Error::Parse(e.to_string()))?;
@@ -94,7 +93,7 @@ impl Config {
             palette,
             servers,
             font,
-            buffer: new_buffer,
+            buffer,
             dashboard,
         })
     }
