@@ -31,11 +31,11 @@ pub fn view<'a>(
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
-                    .map(|timestamp| selectable_text(timestamp).style(theme::Text::Alpha04));
+                    .map(|timestamp| selectable_text(timestamp).style(theme::Text::Transparent));
 
                 match message.source {
                     data::message::Source::Server => {
-                        let message = selectable_text(&message.text).style(theme::Text::Alpha04);
+                        let message = selectable_text(&message.text).style(theme::Text::Server);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
