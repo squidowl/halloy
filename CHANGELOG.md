@@ -7,6 +7,7 @@ Added:
 Fixed:
 
 - Changes done in the config file are now properly applied to the old buffers
+- Text and colors on light themes will no longer appear washed out
 
 # 2023.2 (2023-07-07)
 
