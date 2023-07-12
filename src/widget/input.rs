@@ -18,6 +18,7 @@ pub fn input<'a, Message>(
     input: &'a str,
     users: &'a [User],
     history: &'a [String],
+    buffer_focused: bool,
     on_input: impl Fn(String) -> Message + 'a,
     on_submit: impl Fn(data::Input) -> Message + 'a,
     on_completion: impl Fn(String) -> Message + 'a,
@@ -31,6 +32,7 @@ where
         input,
         users,
         history,
+        buffer_focused,
         on_input: Box::new(on_input),
         on_submit: Box::new(on_submit),
         on_completion: Box::new(on_completion),
@@ -59,6 +61,7 @@ pub struct Input<'a, Message> {
     input: &'a str,
     users: &'a [User],
     history: &'a [String],
+    buffer_focused: bool,
     on_input: Box<dyn Fn(String) -> Message + 'a>,
     on_submit: Box<dyn Fn(data::Input) -> Message + 'a>,
     on_completion: Box<dyn Fn(String) -> Message + 'a>,
@@ -183,7 +186,7 @@ where
             .style(style);
 
         // Add tab support
-        let input = key_press(
+        let mut input = key_press(
             text_input,
             key_press::KeyCode::Tab,
             key_press::Modifiers::default(),
@@ -191,17 +194,19 @@ where
         );
 
         // Add up / down support for history cycling
-        let input = key_press(
-            key_press(
-                input,
-                key_press::KeyCode::Up,
+        if self.buffer_focused {
+            input = key_press(
+                key_press(
+                    input,
+                    key_press::KeyCode::Up,
+                    key_press::Modifiers::default(),
+                    Event::Up,
+                ),
+                key_press::KeyCode::Down,
                 key_press::Modifiers::default(),
-                Event::Up,
-            ),
-            key_press::KeyCode::Down,
-            key_press::Modifiers::default(),
-            Event::Down,
-        );
+                Event::Down,
+            );
+        }
 
         let overlay = state
             .error
