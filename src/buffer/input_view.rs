@@ -20,6 +20,7 @@ pub fn view<'a>(
     buffer: Buffer,
     users: &'a [User],
     history: &'a [String],
+    buffer_focused: bool,
 ) -> Element<'a, Message> {
     input(
         state.input_id.clone(),
@@ -27,6 +28,7 @@ pub fn view<'a>(
         &state.input,
         users,
         history,
+        buffer_focused,
         Message::Input,
         Message::Send,
         Message::Completion,
