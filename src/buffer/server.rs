@@ -61,7 +61,8 @@ pub fn view<'a>(
     let text_input = show_text_input.then(|| {
         column![
             vertical_space(4),
-            input_view::view(&state.input_view, buffer, &[], input_history).map(Message::InputView)
+            input_view::view(&state.input_view, buffer, &[], input_history, is_focused)
+                .map(Message::InputView)
         ]
     });
 
