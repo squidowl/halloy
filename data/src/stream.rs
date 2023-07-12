@@ -156,7 +156,7 @@ async fn connect(
 ) -> Result<(irc::client::ClientStream, Connection), irc::error::Error> {
     use irc::proto::{CapSubCommand, Command};
 
-    let mut client = irc::client::Client::from_config((*config).clone()).await?;
+    let mut client = irc::client::Client::from_config(config.into()).await?;
     let mut stream = client.stream()?;
 
     // Negotiate capbilities
