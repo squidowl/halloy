@@ -56,7 +56,7 @@ pub struct Connection {
     users: HashMap<String, Vec<User>>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
-    last_sent_buffer: HashMap<Reason, Buffer>,
+    reroute_responses_to: Option<Buffer>,
     supports_labels: bool,
 }
 
@@ -69,7 +69,7 @@ impl Connection {
             users: HashMap::new(),
             labels: HashMap::new(),
             batches: HashMap::new(),
-            last_sent_buffer: HashMap::new(),
+            reroute_responses_to: None,
             supports_labels: false,
         }
     }
@@ -97,8 +97,9 @@ impl Connection {
             message.tags = Some(vec![Tag("label".to_string(), Some(label))]);
         }
 
-        let reason = Reason::new(&message);
-        self.last_sent_buffer.insert(reason, buffer.clone());
+        if start_reroute(&message.command) {
+            self.reroute_responses_to = Some(buffer.clone());
+        }
 
         if let Err(e) = self.client.send(message) {
             log::warn!("Error sending message: {e}");
@@ -108,7 +109,15 @@ impl Connection {
     fn receive(&mut self, message: message::Encoded) -> Vec<Event> {
         log::trace!("Message received => {:?}", *message);
 
-        self.handle(message, None).unwrap_or_default()
+        let stop_reroute = stop_reroute(&message.command);
+
+        let events = self.handle(message, None).unwrap_or_default();
+
+        if stop_reroute {
+            self.reroute_responses_to = None;
+        }
+
+        events
     }
 
     fn handle(
@@ -175,6 +184,33 @@ impl Connection {
                     return Some(events);
                 }
             }
+            // Label context whois
+            _ if context.as_ref().map(Context::is_whois).unwrap_or_default() => {
+                if let Some(source) = context
+                    .map(Context::buffer)
+                    .map(Buffer::server_message_source)
+                {
+                    return Some(vec![Event::WithSource(
+                        message,
+                        self.nickname().to_owned(),
+                        source,
+                    )]);
+                }
+            }
+            // Reroute responses
+            Command::Response(..) | Command::Raw(..) if self.reroute_responses_to.is_some() => {
+                if let Some(source) = self
+                    .reroute_responses_to
+                    .clone()
+                    .map(Buffer::server_message_source)
+                {
+                    return Some(vec![Event::WithSource(
+                        message,
+                        self.nickname().to_owned(),
+                        source,
+                    )]);
+                }
+            }
             Command::CAP(_, CapSubCommand::ACK, a, b) => {
                 let cap_str = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
                 let caps = cap_str.split(' ').collect::<Vec<_>>();
@@ -211,38 +247,6 @@ impl Connection {
             Command::Response(RPL_WELCOME, args) => {
                 if let Some(nick) = args.first() {
                     self.resolved_nick = Some(nick.to_string());
-                }
-            }
-            // WHOIS
-            _ if context.as_ref().map(Context::is_whois).unwrap_or_default() => {
-                if let Some(source) = context
-                    .map(Context::buffer)
-                    .map(Buffer::server_message_source)
-                {
-                    return Some(vec![Event::WithSource(
-                        message,
-                        self.nickname().to_owned(),
-                        source,
-                    )]);
-                }
-            }
-            Command::Response(
-                RPL_WHOISCERTFP | RPL_WHOISCHANNELS | RPL_WHOISIDLE | RPL_WHOISKEYVALUE
-                | RPL_WHOISOPERATOR | RPL_WHOISSERVER | RPL_WHOISUSER | RPL_ENDOFWHOIS,
-                _,
-            ) => {
-                // Context from message labeling is higher priority than
-                // last sent buffer
-                let buffer = context
-                    .map(Context::buffer)
-                    .or_else(|| self.last_sent_buffer.get(&Reason::Whois).cloned());
-
-                if let Some(source) = buffer.map(Buffer::server_message_source) {
-                    return Some(vec![Event::WithSource(
-                        message,
-                        self.nickname().to_owned(),
-                        source,
-                    )]);
                 }
             }
             // QUIT
@@ -464,20 +468,31 @@ fn remove_tag(key: &str, tags: Option<&mut Vec<irc::proto::message::Tag>>) -> Op
     tags.remove(tags.iter().position(|tag| tag.0 == key)?).1
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Reason {
-    Whois,
-    Other,
+fn start_reroute(command: &irc::proto::Command) -> bool {
+    use irc::proto::Command;
+
+    matches!(
+        command,
+        Command::WHO(..) | Command::WHOIS(..) | Command::WHOWAS(..)
+    )
 }
 
-impl Reason {
-    fn new(message: &message::Encoded) -> Reason {
-        use irc::proto::Command;
+fn stop_reroute(command: &irc::proto::Command) -> bool {
+    use irc::proto::Command;
+    use irc::proto::Response::*;
 
-        if let Command::WHOIS(_, _) = message.command {
-            Self::Whois
-        } else {
-            Self::Other
-        }
-    }
+    matches!(
+        command,
+        Command::Response(
+            RPL_ENDOFWHO
+                | RPL_ENDOFWHOIS
+                | RPL_ENDOFWHOWAS
+                | ERR_NOSUCHNICK
+                | ERR_NOSUCHSERVER
+                | ERR_NONICKNAMEGIVEN
+                | ERR_WASNOSUCHNICK
+                | ERR_NEEDMOREPARAMS,
+            _
+        )
+    )
 }
