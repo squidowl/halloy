@@ -2,7 +2,11 @@
 
 Added:
 
-- Configuration option `new_buffer.input_visibility` to control input field visibility: always shown or following the focused buffer.
+- Configuration option `buffer.input_visibility` to control input field visibility: always shown or following the focused buffer.
+
+Changed:
+
+- Configuration option `new_buffer` has been renamed to `buffer`. `new_buffer` key will still work for backwards compatibility.
 
 Fixed:
 
