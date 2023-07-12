@@ -317,13 +317,13 @@ impl button::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> button::Appearance {
         match style {
             Button::Default => button::Appearance {
-                background: Some(Background::Color(self.colors.action.med_alpha)),
+                background: Some(Background::Color(self.colors.action.high_alpha)),
                 text_color: self.colors.action.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::Secondary => button::Appearance {
-                background: Some(Background::Color(self.colors.text.med_alpha)),
+                background: Some(Background::Color(self.colors.text.high_alpha)),
                 text_color: self.colors.text.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
