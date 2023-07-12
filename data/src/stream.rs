@@ -98,17 +98,18 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                         };
                     }
                     Err(e) => {
-                        let e = match e {
+                        let error = match e {
                             // unwrap Tls-specific error enums to access more error info
                             irc::error::Error::Tls(e) => format!("a TLS error occured: {e}"),
                             _ => e.to_string(),
                         };
-                        log::warn!("[{server}] connection failed: {e}");
+
+                        log::warn!("[{server}] connection failed: {error}");
 
                         let _ = sender
                             .send(Update::ConnectionFailed {
                                 server: server.clone(),
-                                error: e,
+                                error,
                             })
                             .await;
 
