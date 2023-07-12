@@ -151,6 +151,10 @@ impl Message {
             text,
         })
     }
+
+    pub fn with_source(self, source: Source) -> Self {
+        Self { source, ..self }
+    }
 }
 
 fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
