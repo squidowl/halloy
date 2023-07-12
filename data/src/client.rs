@@ -97,9 +97,7 @@ impl Connection {
             message.tags = Some(vec![Tag("label".to_string(), Some(label))]);
         }
 
-        if start_reroute(&message.command) {
-            self.reroute_responses_to = Some(buffer.clone());
-        }
+        self.reroute_responses_to = start_reroute(&message.command).then(|| buffer.clone());
 
         if let Err(e) = self.client.send(message) {
             log::warn!("Error sending message: {e}");
