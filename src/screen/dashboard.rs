@@ -284,7 +284,9 @@ impl Dashboard {
                         }
                     });
 
-                return clipboard::write(contents);
+                if !contents.is_empty() {
+                    return clipboard::write(contents);
+                }
             }
             Message::History(message) => {
                 self.history.update(message);
