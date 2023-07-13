@@ -8,12 +8,16 @@ use thiserror::Error;
 pub use self::buffer::Buffer;
 pub use self::channel::Channel;
 pub use self::dashboard::Dashboard;
+pub use self::server::Server;
+
+use crate::environment;
 use crate::palette::Palette;
-use crate::{environment, server};
+use crate::server::Map;
 
 mod buffer;
 pub mod channel;
 mod dashboard;
+mod server;
 
 const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
 const DEFAULT_THEME: (&str, &[u8]) = ("ferra", include_bytes!("../../assets/themes/ferra.yaml"));
@@ -21,7 +25,7 @@ const DEFAULT_THEME: (&str, &[u8]) = ("ferra", include_bytes!("../../assets/them
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub palette: Palette,
-    pub servers: server::Map,
+    pub servers: Map,
     pub font: Font,
     pub buffer: Buffer,
     pub dashboard: Dashboard,
@@ -65,7 +69,7 @@ impl Config {
         pub struct Configuration {
             #[serde(default)]
             pub theme: String,
-            pub servers: server::Map,
+            pub servers: Map,
             #[serde(default)]
             pub font: Font,
             #[serde(default, alias = "new_buffer")]
