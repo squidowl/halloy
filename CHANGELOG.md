@@ -4,6 +4,7 @@ Added:
 
 - Configuration option `buffer.input_visibility` to control input field visibility: always shown or following the focused buffer.
 - Upon joining a channel, display the channel mode in the buffer
+- When querying an away user, you will see an away message
 
 Changed:
 
