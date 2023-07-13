@@ -12,7 +12,7 @@ pub use self::server::Server;
 
 use crate::environment;
 use crate::palette::Palette;
-use crate::server::Map;
+use crate::server::Map as ServerMap;
 
 mod buffer;
 pub mod channel;
@@ -25,7 +25,7 @@ const DEFAULT_THEME: (&str, &[u8]) = ("ferra", include_bytes!("../../assets/them
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub palette: Palette,
-    pub servers: Map,
+    pub servers: ServerMap,
     pub font: Font,
     pub buffer: Buffer,
     pub dashboard: Dashboard,
@@ -69,7 +69,7 @@ impl Config {
         pub struct Configuration {
             #[serde(default)]
             pub theme: String,
-            pub servers: Map,
+            pub servers: ServerMap,
             #[serde(default)]
             pub font: Font,
             #[serde(default, alias = "new_buffer")]
