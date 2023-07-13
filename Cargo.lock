@@ -1173,7 +1173,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.9.0"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -1187,7 +1187,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.9.0"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "bitflags 1.3.2",
  "instant",
@@ -1200,7 +1200,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.6.0"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "futures",
  "iced_core",
@@ -1213,7 +1213,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.8.0"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "bitflags 1.3.2",
  "bytemuck",
@@ -1230,7 +1230,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.1.0"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -1243,7 +1243,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.1.0"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -1253,7 +1253,7 @@ dependencies = [
 [[package]]
 name = "iced_style"
 version = "0.8.0"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "iced_core",
  "once_cell",
@@ -1263,7 +1263,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.1.0"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -1273,14 +1273,14 @@ dependencies = [
  "raw-window-handle",
  "rustc-hash",
  "softbuffer",
- "tiny-skia 0.9.1",
+ "tiny-skia 0.10.0",
  "twox-hash",
 ]
 
 [[package]]
 name = "iced_wgpu"
 version = "0.10.0"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "bitflags 1.3.2",
  "bytemuck",
@@ -1300,7 +1300,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.1.0"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -1314,7 +1314,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.9.1"
-source = "git+https://github.com/tarkah/iced?rev=bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1#bcf1ee1bb853bc62fc709d71fa37de1ab6fea6e1"
+source = "git+https://github.com/iced-rs/iced?rev=fca8373516cdaefcb8595b4d544407792a4cfcc0#fca8373516cdaefcb8595b4d544407792a4cfcc0"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -2903,9 +2903,9 @@ dependencies = [
 
 [[package]]
 name = "tiny-skia"
-version = "0.9.1"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce2986c82f77818c7b9144c70818fdde98db15308e329ae2f7204d767808fd3c"
+checksum = "7db11798945fa5c3e5490c794ccca7c6de86d3afdd54b4eb324109939c6f37bc"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -2913,7 +2913,7 @@ dependencies = [
  "cfg-if",
  "log",
  "png",
- "tiny-skia-path 0.9.0",
+ "tiny-skia-path 0.10.0",
 ]
 
 [[package]]
@@ -2929,9 +2929,9 @@ dependencies = [
 
 [[package]]
 name = "tiny-skia-path"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7acb0ccda1ac91084353a56d0b69b0e29c311fd809d2088b1ed2f9ae1841c47"
+checksum = "2f60aa35c89ac2687ace1a2556eaaea68e8c0d47408a2e3e7f5c98a489e7281c"
 dependencies = [
  "arrayref",
  "bytemuck",

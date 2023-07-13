@@ -292,16 +292,13 @@ impl Status {
         let old = self.alignment();
         let new = other.alignment();
 
-        let absolute_offset = viewport.absolute_offset();
-
         if old != new {
-            let scrollable::AbsoluteOffset { x, y } = absolute_offset;
-
-            let scroll_height = (viewport.content_bounds.height - viewport.bounds.height).max(0.0);
+            let offset = viewport.absolute_offset();
+            let reversed_offset = viewport.absolute_offset_reversed();
 
             Some(scrollable::AbsoluteOffset {
-                x,
-                y: (scroll_height - y).max(0.0),
+                x: offset.x,
+                y: reversed_offset.y,
             })
         } else {
             None
