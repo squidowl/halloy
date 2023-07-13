@@ -177,6 +177,12 @@ fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
             let channel = params.get(1)?.clone();
             Some(Source::Channel(channel, Sender::Server))
         }
+        proto::Command::Response(proto::Response::RPL_AWAY, params) => {
+            let user = params.get(1)?;
+            let target = User::try_from(user.as_str()).ok()?;
+
+            Some(Source::Query(target.nickname().to_owned(), Sender::Action))
+        }
         proto::Command::PRIVMSG(target, text) => {
             let is_action = is_action(&text);
             let sender = |user| {
@@ -365,6 +371,15 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
                 .join(" ");
 
             Some(format!(" ∙ Channel mode is {mode}"))
+        }
+        proto::Command::Response(proto::Response::RPL_AWAY, params) => {
+            let user = params.get(1)?;
+            let away_message = params
+                .get(2)
+                .map(|away| format!(" ({away})"))
+                .unwrap_or_default();
+
+            Some(format!(" ∙ {user} is away{away_message}"))
         }
         proto::Command::Response(_, responses) | proto::Command::Raw(_, responses) => Some(
             responses
