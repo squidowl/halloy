@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-const VERSION: &str = include_str!("../../../VERSION");
-
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Server {
     /// The client's nickname.
@@ -73,6 +71,8 @@ pub struct Server {
 
 impl From<Server> for irc::client::data::Config {
     fn from(config: Server) -> Self {
+        let version = crate::environment::VERSION;
+
         irc::client::data::Config {
             nickname: config.nickname,
             nick_password: config.nick_password,
@@ -98,7 +98,7 @@ impl From<Server> for irc::client::data::Config {
             should_ghost: config.should_ghost,
             ghost_sequence: config.ghost_sequence,
             channel_keys: config.channel_keys,
-            version: Some(format!("Halloy {VERSION}")),
+            version: Some(format!("Halloy {version}")),
             owners: vec![],
             source: None,
             use_mock_connection: false,
