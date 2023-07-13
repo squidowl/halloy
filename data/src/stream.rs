@@ -8,7 +8,7 @@ use tokio::time::{self, Instant, Interval};
 
 use crate::client::Connection;
 use crate::server::Server;
-use crate::{message, server};
+use crate::{config, message, server};
 
 pub type Result<T = Update, E = Error> = std::result::Result<T, E>;
 
@@ -152,11 +152,11 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
 }
 
 async fn connect(
-    config: server::Config,
+    config: config::Server,
 ) -> Result<(irc::client::ClientStream, Connection), irc::error::Error> {
     use irc::proto::{CapSubCommand, Command};
 
-    let mut client = irc::client::Client::from_config((*config).clone()).await?;
+    let mut client = irc::client::Client::from_config(config.into()).await?;
     let mut stream = client.stream()?;
 
     // Negotiate capbilities
