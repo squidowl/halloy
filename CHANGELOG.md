@@ -14,6 +14,7 @@ Fixed:
 - Text and colors on light themes will no longer appear washed out
 - All WHOIS responses are now properly routed to the buffer where the request was made (text input or via context menu)
 - Accessing text input history will only populate the current buffer, not all of them
+- Text from input box can be copied to clipboard
 
 # 2023.2 (2023-07-07)
 
