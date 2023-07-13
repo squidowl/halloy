@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 use std::fmt;
-use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
+
+use crate::config;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Server(String);
@@ -19,31 +20,14 @@ impl AsRef<str> for Server {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct Config(irc::client::data::Config);
-
-impl From<irc::client::data::Config> for Config {
-    fn from(config: irc::client::data::Config) -> Self {
-        Self(config)
-    }
-}
-
-impl Deref for Config {
-    type Target = irc::client::data::Config;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Entry {
     pub server: Server,
-    pub config: Config,
+    pub config: config::Server,
 }
 
-impl<'a> From<(&'a Server, &'a Config)> for Entry {
-    fn from((server, config): (&'a Server, &'a Config)) -> Self {
+impl<'a> From<(&'a Server, &'a config::Server)> for Entry {
+    fn from((server, config): (&'a Server, &'a config::Server)) -> Self {
         Self {
             server: server.clone(),
             config: config.clone(),
@@ -52,7 +36,7 @@ impl<'a> From<(&'a Server, &'a Config)> for Entry {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct Map(BTreeMap<Server, Config>);
+pub struct Map(BTreeMap<Server, config::Server>);
 
 impl Map {
     pub fn remove(&mut self, server: &Server) {
