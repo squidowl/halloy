@@ -3,6 +3,7 @@
 Added:
 
 - Configuration option `buffer.input_visibility` to control input field visibility: always shown or following the focused buffer.
+- Upon joining a channel, display the channel mode in the buffer
 
 Changed:
 
