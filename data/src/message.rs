@@ -169,7 +169,9 @@ fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
         | proto::Command::SAJOIN(_, channel)
         | proto::Command::JOIN(channel, _, _) => Some(Source::Channel(channel, Sender::Server)),
         proto::Command::Response(
-            proto::Response::RPL_TOPIC | proto::Response::RPL_TOPICWHOTIME,
+            proto::Response::RPL_TOPIC
+            | proto::Response::RPL_TOPICWHOTIME
+            | proto::Response::RPL_CHANNELMODEIS,
             params,
         ) => {
             let channel = params.get(1)?.clone();
@@ -353,6 +355,16 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
                 .to_rfc2822();
 
             Some(format!(" ∙ topic set by {nick} at {datetime}"))
+        }
+        proto::Command::Response(proto::Response::RPL_CHANNELMODEIS, params) => {
+            let mode = params
+                .iter()
+                .skip(2)
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            Some(format!(" ∙ Channel mode is {mode}"))
         }
         proto::Command::Response(_, responses) | proto::Command::Raw(_, responses) => Some(
             responses
