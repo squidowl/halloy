@@ -5,6 +5,11 @@
 # macOS: `$HOME`/Library/Application Support/halloy
 # Windows: `{FOLDERID_RoamingAppData}`\halloy
 
+# Configuration wiki
+#
+# Visit our wiki for all configurations options
+# https://github.com/squidowl/halloy/wiki/Configuration
+
 # Theme
 # - Add theme files to the themes directory and fill this with the filename
 #   without the .yaml extension to select the theme you want
@@ -20,29 +25,29 @@ servers:
   liberachat:
     # Nickname to be used on the server
     nickname: halloy
-    
+
     # Server address
     server: irc.libera.chat
-    
+
     # Server port number
     port: 6697
-    
+
     # Whether to use TLS
     use_tls: true
-    
+
     # Channels to join upon connecting to the server
     channels:
       - "#halloy"
 
 # Font settings
-font: 
+font:
   # Specify the monospaced font family to use
   # - Default is Iosevka Term and provided by this application
   family: Iosevka Term
   # Specify the font size
   # - Default is 13
   size: 13
-      
+
 # Buffer settings
 buffer:
   # Nickname settings
@@ -51,20 +56,20 @@ buffer:
     # - Unique: Unique user colors [default]
     # - Solid: Solid user colors
     color: Unique
-    
+
     # Nickname brackets:
     # - Default is empty ""
     brackets:
       left: "<"
       right: ">"
-      
+
   # Timestamp settings
-  timestamp: 
+  timestamp:
     # Timestamp format:
     # - Use `strftime` format (see documentation for details):
     #   https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html
     format: "%T"
-    
+
     # Timestamp brackets:
     # - Default is empty ""
     brackets:
@@ -80,7 +85,7 @@ buffer:
   # - Default: []
   # - Supported values: ["join", "part", "quit"]
   hidden_server_messages: []
-      
+
   # Channel buffer settings
   channel:
     # User list settings
@@ -91,7 +96,7 @@ buffer:
       # List position
       # - Left: Left side of pane
       # - Right: Right side of pane [default]
-      position: Right  
+      position: Right
 
 # Dashboard settings
 dashboard:
@@ -103,3 +108,19 @@ dashboard:
     # Maximum width of the sidebar
     # - Default: 120
     width: 120
+
+  # Default action when selecting channels in the sidebar:
+  # - NewPane: Open a new pane for each unique channel [default]
+  # - ReplacePane: Replace the currently selected pane
+  sidebar_default_action: NewPane
+
+# Notification
+# Display a OS level notification on certain events.
+#
+# For information about events and sound
+# https://github.com/squidowl/halloy/wiki/Configuration#notification
+notification:
+  Connected:
+    sound: glass
+  Disconnected:
+    sound: basso
