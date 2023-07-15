@@ -6,6 +6,7 @@ mod event;
 mod font;
 mod icon;
 mod logger;
+mod notification;
 mod screen;
 mod stream;
 mod theme;
@@ -22,6 +23,7 @@ use iced::{executor, Application, Command, Length, Subscription};
 use screen::{dashboard, help, welcome};
 
 use self::event::{events, Event};
+pub use self::notification::Notification;
 pub use self::theme::Theme;
 use self::widget::Element;
 
@@ -44,6 +46,9 @@ pub fn main() -> iced::Result {
     let is_debug = true;
     #[cfg(not(debug_assertions))]
     let is_debug = false;
+
+    // Prepare notifications.
+    notification::prepare();
 
     logger::setup(is_debug).expect("setup logging");
     log::info!("halloy {} has started", environment::formatted_version());
@@ -248,6 +253,8 @@ impl Application for Halloy {
                     is_initial,
                     error,
                 } => {
+                    use config::notification::Event;
+
                     self.clients.disconnected(server.clone());
 
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
@@ -258,6 +265,12 @@ impl Application for Halloy {
                         // Intial is sent when first trying to connect
                         dashboard.broadcast_connecting(&server);
                     } else {
+                        if let Some(config) = self.config.notification.get(Event::Connected) {
+                            Notification::new(config)
+                                .body(format!("Disconnected from {server}"))
+                                .show();
+                        };
+
                         dashboard.broadcast_disconnected(&server, error);
                     }
 
@@ -268,6 +281,8 @@ impl Application for Halloy {
                     client: connection,
                     is_initial,
                 } => {
+                    use config::notification::Event;
+
                     self.clients.ready(server.clone(), connection);
 
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
@@ -275,8 +290,20 @@ impl Application for Halloy {
                     };
 
                     if is_initial {
+                        if let Some(config) = self.config.notification.get(Event::Connected) {
+                            Notification::new(config)
+                                .body(format!("Connected to {server}"))
+                                .show();
+                        };
+
                         dashboard.broadcast_connected(&server);
                     } else {
+                        if let Some(config) = self.config.notification.get(Event::Reconnected) {
+                            Notification::new(config)
+                                .body(format!("Reconnected to {server}"))
+                                .show();
+                        };
+
                         dashboard.broadcast_reconnected(&server);
                     }
 

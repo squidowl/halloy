@@ -20,16 +20,15 @@ jobs:
               echo "ARTIFACT_PATH=target/release/macos/halloy.dmg" >> "$GITHUB_ENV"
           - target: windows
             os: windows-latest
-            make: bash scripts/build-windows.sh
+            make: bash scripts/build-windows-installer.sh
             artifact_path: |
-              echo "ARTIFACT_PATH=target/release/halloy.exe" >> $env:GITHUB_ENV
+              echo "ARTIFACT_PATH=target/release/halloy-installer.msi" >> $env:GITHUB_ENV
           - target: linux
             os: ubuntu-latest
             make: bash scripts/package-linux.sh package
             artifact_path: |
               echo "ARTIFACT_PATH=$(bash scripts/package-linux.sh archive_path)" >> "$GITHUB_ENV"
     runs-on: ${{ matrix.target.os }}
-
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -94,7 +93,7 @@ jobs:
             asset_type: application/octet-stream
           - artifact: windows
             artifact_name: |
-              echo "ARTIFACT_NAME=halloy.exe" >> "$GITHUB_ENV"
+              echo "ARTIFACT_NAME=halloy-installer.msi" >> "$GITHUB_ENV"
             asset_type: application/x-dosexec
           - artifact: linux
             artifact_name: |
