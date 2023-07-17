@@ -19,6 +19,7 @@ pub fn view<'a>(
     state: &'a State,
     buffer: Buffer,
     users: &'a [User],
+    channels: &'a [String],
     history: &'a [String],
     buffer_focused: bool,
 ) -> Element<'a, Message> {
@@ -27,6 +28,7 @@ pub fn view<'a>(
         buffer,
         &state.input,
         users,
+        channels,
         history,
         buffer_focused,
         Message::Input,

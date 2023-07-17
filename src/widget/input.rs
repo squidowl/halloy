@@ -17,6 +17,7 @@ pub fn input<'a, Message>(
     buffer: Buffer,
     input: &'a str,
     users: &'a [User],
+    channels: &'a [String],
     history: &'a [String],
     buffer_focused: bool,
     on_input: impl Fn(String) -> Message + 'a,
@@ -31,6 +32,7 @@ where
         buffer,
         input,
         users,
+        channels,
         history,
         buffer_focused,
         on_input: Box::new(on_input),
@@ -60,6 +62,7 @@ pub struct Input<'a, Message> {
     buffer: Buffer,
     input: &'a str,
     users: &'a [User],
+    channels: &'a [String],
     history: &'a [String],
     buffer_focused: bool,
     on_input: Box<dyn Fn(String) -> Message + 'a>,
@@ -89,7 +92,7 @@ where
                 // Reset selected history
                 state.selected_history = None;
 
-                state.completion.process(&input, self.users);
+                state.completion.process(&input, self.users, self.channels);
 
                 Some((self.on_input)(input))
             }
@@ -142,7 +145,9 @@ where
                         .get(state.selected_history.unwrap())
                         .unwrap()
                         .clone();
-                    state.completion.process(&new_input, self.users);
+                    state
+                        .completion
+                        .process(&new_input, self.users, self.channels);
 
                     return Some((self.on_completion)(new_input));
                 }
@@ -159,7 +164,9 @@ where
                     } else {
                         *index -= 1;
                         let new_input = self.history.get(*index).unwrap().clone();
-                        state.completion.process(&new_input, self.users);
+                        state
+                            .completion
+                            .process(&new_input, self.users, self.channels);
                         new_input
                     };
 
