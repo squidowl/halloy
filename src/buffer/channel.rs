@@ -1,5 +1,5 @@
 use data::server::Server;
-use data::{channel, client, history, Config};
+use data::{channel, client, history, message, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -37,58 +37,57 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Channel(&state.server, &state.channel),
             history,
+            config,
             move |message| {
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| selectable_text(timestamp).style(theme::Text::Transparent));
 
-                match &message.source {
-                    data::message::Source::Channel(_, kind) => match kind {
-                        data::message::Sender::User(user) => {
-                            let nick = user_context::view(
-                                selectable_text(config.buffer.nickname.brackets.format(user))
-                                    .style(theme::Text::Nickname(
-                                        user.color_seed(&config.buffer.nickname.color),
-                                    )),
-                                user.clone(),
-                            )
-                            .map(scroll_view::Message::UserContext);
-                            let row_style = match our_nick {
-                                Some(nick)
-                                    if user.nickname() != nick
-                                        && message.text.contains(nick.as_ref()) =>
-                                {
-                                    theme::Container::Highlight
-                                }
-                                _ => theme::Container::Default,
-                            };
-                            let message = selectable_text(&message.text);
+                match message.target.source() {
+                    message::Source::User(user) => {
+                        let nick = user_context::view(
+                            selectable_text(config.buffer.nickname.brackets.format(user)).style(
+                                theme::Text::Nickname(
+                                    user.color_seed(&config.buffer.nickname.color),
+                                ),
+                            ),
+                            user.clone(),
+                        )
+                        .map(scroll_view::Message::UserContext);
+                        let row_style = match our_nick {
+                            Some(nick)
+                                if user.nickname() != nick
+                                    && message.text.contains(nick.as_ref()) =>
+                            {
+                                theme::Container::Highlight
+                            }
+                            _ => theme::Container::Default,
+                        };
+                        let message = selectable_text(&message.text);
 
-                            Some(
-                                container(row![].push_maybe(timestamp).push(nick).push(message))
-                                    .style(row_style)
-                                    .into(),
-                            )
-                        }
-                        data::message::Sender::Server => {
-                            let message = selectable_text(&message.text).style(theme::Text::Server);
+                        Some(
+                            container(row![].push_maybe(timestamp).push(nick).push(message))
+                                .style(row_style)
+                                .into(),
+                        )
+                    }
+                    message::Source::Server(_) => {
+                        let message = selectable_text(&message.text).style(theme::Text::Server);
 
-                            Some(container(row![].push_maybe(timestamp).push(message)).into())
-                        }
-                        data::message::Sender::Action => {
-                            let message = selectable_text(&message.text).style(theme::Text::Accent);
+                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                    }
+                    message::Source::Action => {
+                        let message = selectable_text(&message.text).style(theme::Text::Accent);
 
-                            Some(container(row![].push_maybe(timestamp).push(message)).into())
-                        }
-                        data::message::Sender::Status(status) => {
-                            let message =
-                                selectable_text(&message.text).style(theme::Text::Status(*status));
+                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                    }
+                    message::Source::Internal(message::source::Internal::Status(status)) => {
+                        let message =
+                            selectable_text(&message.text).style(theme::Text::Status(*status));
 
-                            Some(container(row![].push_maybe(timestamp).push(message)).into())
-                        }
-                    },
-                    _ => None,
+                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                    }
                 }
             },
         )

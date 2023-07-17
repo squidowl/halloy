@@ -75,6 +75,11 @@ buffer:
   # - Always: Show input at all times [default]
   # - Focused: Only show input when the buffer is focused
   input_visibility: Always
+
+  # An array of server message types that will be hidden
+  # - Default: []
+  # - Supported values: ["join", "part", "quit"]
+  hidden_server_messages: []
       
   # Channel buffer settings
   channel:

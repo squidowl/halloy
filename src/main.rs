@@ -232,7 +232,7 @@ impl Application for Halloy {
         match message {
             Message::Dashboard(message) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
-                    return Command::none()
+                    return Command::none();
                 };
 
                 let command =
@@ -290,7 +290,7 @@ impl Application for Halloy {
                     self.clients.disconnected(server.clone());
 
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
-                        return Command::none()
+                        return Command::none();
                     };
 
                     if is_initial {
@@ -310,7 +310,7 @@ impl Application for Halloy {
                     self.clients.ready(server.clone(), connection);
 
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
-                        return Command::none()
+                        return Command::none();
                     };
 
                     if is_initial {
@@ -323,8 +323,8 @@ impl Application for Halloy {
                 }
                 stream::Update::ConnectionFailed { server, error } => {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
-                            return Command::none()
-                        };
+                        return Command::none();
+                    };
 
                     dashboard.broadcast_connection_failed(&server, error);
 
@@ -332,7 +332,7 @@ impl Application for Halloy {
                 }
                 stream::Update::MessagesReceived(server, messages) => {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
-                        return Command::none()
+                        return Command::none();
                     };
 
                     messages.into_iter().for_each(|message| {
@@ -345,12 +345,12 @@ impl Application for Halloy {
                                         dashboard.record_message(&server, message);
                                     }
                                 }
-                                data::client::Event::WithSource(encoded, our_nick, source) => {
+                                data::client::Event::WithTarget(encoded, our_nick, target) => {
                                     if let Some(message) =
                                         data::Message::received(encoded, our_nick)
                                     {
                                         dashboard
-                                            .record_message(&server, message.with_source(source));
+                                            .record_message(&server, message.with_target(target));
                                     }
                                 }
                                 data::client::Event::Brodcast(brodcast) => match brodcast {

@@ -24,7 +24,7 @@ impl Welcome {
         // Create template config file.
         Config::create_template_config();
 
-        Welcome::default()
+        Welcome
     }
 
     pub fn update(&mut self, message: Message) -> Option<Event> {

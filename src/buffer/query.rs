@@ -33,18 +33,15 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Query(&state.server, &state.nick),
             history,
+            config,
             |message| {
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| selectable_text(timestamp).style(theme::Text::Transparent));
 
-                let message::Source::Query(_, sender) = &message.source else {
-                    return None;
-                };
-
-                match sender {
-                    message::Sender::User(user) => {
+                match message.target.source() {
+                    message::Source::User(user) => {
                         let nick = user_context::view(
                             selectable_text(config.buffer.nickname.brackets.format(user)).style(
                                 theme::Text::Nickname(
@@ -61,17 +58,17 @@ pub fn view<'a>(
                             container(row![].push_maybe(timestamp).push(nick).push(message)).into(),
                         )
                     }
-                    message::Sender::Server => {
+                    message::Source::Server(_) => {
                         let message = selectable_text(&message.text).style(theme::Text::Server);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
-                    message::Sender::Action => {
+                    message::Source::Action => {
                         let message = selectable_text(&message.text).style(theme::Text::Accent);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
-                    message::Sender::Status(status) => {
+                    message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message =
                             selectable_text(&message.text).style(theme::Text::Status(*status));
 
