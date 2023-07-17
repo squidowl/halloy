@@ -1,7 +1,7 @@
 use data::message::Limit;
 use data::server::Server;
 use data::user::Nick;
-use data::{history, time};
+use data::{history, time, Config};
 use iced::widget::{column, container, horizontal_rule, scrollable};
 use iced::{Command, Length};
 
@@ -37,6 +37,7 @@ pub fn view<'a>(
     state: &State,
     kind: Kind,
     history: &'a history::Manager,
+    config: &'a Config,
     format: impl Fn(&'a data::Message) -> Option<Element<'a, Message>> + 'a,
 ) -> Element<'a, Message> {
     let Some(history::View {
@@ -44,11 +45,11 @@ pub fn view<'a>(
         old_messages,
         new_messages,
     }) = (match kind {
-        Kind::Server(server) => history.get_server_messages(server, Some(state.limit)),
+        Kind::Server(server) => history.get_server_messages(server, Some(state.limit), &config.buffer.hidden_server_messages),
         Kind::Channel(server, channel) => {
-            history.get_channel_messages(server, channel, Some(state.limit))
+            history.get_channel_messages(server, channel, Some(state.limit), &config.buffer.hidden_server_messages)
         }
-        Kind::Query(server, user) => history.get_query_messages(server, user, Some(state.limit)),
+        Kind::Query(server, user) => history.get_query_messages(server, user, Some(state.limit), &config.buffer.hidden_server_messages),
     })
     else {
         return column![].into();

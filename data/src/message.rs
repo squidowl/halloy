@@ -126,16 +126,16 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
         | proto::Command::ChannelMODE(channel, _)
         | proto::Command::KICK(channel, _, _) => Some(Target::Channel {
             channel,
-            source: source::Source::Server(source::Server::Other),
+            source: source::Source::Server(None),
         }),
         proto::Command::PART(channel, _) => Some(Target::Channel {
             channel,
-            source: source::Source::Server(source::Server::Part),
+            source: source::Source::Server(Some(source::Server::Part)),
         }),
         proto::Command::SAJOIN(_, channel) | proto::Command::JOIN(channel, _, _) => {
             Some(Target::Channel {
                 channel,
-                source: source::Source::Server(source::Server::Join),
+                source: source::Source::Server(Some(source::Server::Join)),
             })
         }
         proto::Command::Response(
@@ -147,7 +147,7 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
             let channel = params.get(1)?.clone();
             Some(Target::Channel {
                 channel,
-                source: source::Source::Server(source::Server::Other),
+                source: source::Source::Server(None),
             })
         }
         proto::Command::Response(proto::Response::RPL_AWAY, params) => {
@@ -209,7 +209,7 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
                     })
                 }
                 _ => Some(Target::Server {
-                    source: Source::Server(source::Server::Other),
+                    source: Source::Server(None),
                 }),
             }
         }
@@ -273,7 +273,7 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
         | proto::Command::Response(_, _)
         | proto::Command::Raw(_, _)
         | proto::Command::SAQUIT(_, _) => Some(Target::Server {
-            source: Source::Server(source::Server::Other),
+            source: Source::Server(None),
         }),
     }
 }

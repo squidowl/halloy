@@ -5,16 +5,17 @@ use crate::User;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Source {
     User(User),
-    Server(Server),
+    Server(Option<Server>),
     Action,
     Internal(Internal),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Server {
     Join,
     Part,
-    Other,
+    Quit,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

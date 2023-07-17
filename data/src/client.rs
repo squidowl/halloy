@@ -186,7 +186,7 @@ impl Connection {
             _ if context.as_ref().map(Context::is_whois).unwrap_or_default() => {
                 if let Some(source) = context
                     .map(Context::buffer)
-                    .map(|buffer| buffer.server_message_target(message::source::Server::Other))
+                    .map(|buffer| buffer.server_message_target(None))
                 {
                     return Some(vec![Event::WithTarget(
                         message,
@@ -200,7 +200,7 @@ impl Connection {
                 if let Some(source) = self
                     .reroute_responses_to
                     .clone()
-                    .map(|buffer| buffer.server_message_target(message::source::Server::Other))
+                    .map(|buffer| buffer.server_message_target(None))
                 {
                     return Some(vec![Event::WithTarget(
                         message,

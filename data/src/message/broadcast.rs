@@ -7,7 +7,7 @@ use crate::user::Nick;
 use crate::User;
 
 enum Cause {
-    Server(source::Server),
+    Server(Option<source::Server>),
     Status(source::Status),
 }
 
@@ -125,7 +125,7 @@ pub fn quit(
         channels,
         queries,
         false,
-        Cause::Server(source::Server::Other),
+        Cause::Server(Some(source::Server::Quit)),
         text,
     )
 }
@@ -143,11 +143,5 @@ pub fn nickname(
         format!(" ∙ {old_nick} is now known as {new_nick}")
     };
 
-    expand(
-        channels,
-        queries,
-        false,
-        Cause::Server(source::Server::Other),
-        text,
-    )
+    expand(channels, queries, false, Cause::Server(None), text)
 }
