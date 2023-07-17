@@ -96,6 +96,7 @@ impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
+        viewport: &Rectangle,
     ) -> event::Status {
         self.base.as_widget_mut().on_event(
             &mut tree.children[0],
@@ -105,6 +106,7 @@ impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
             renderer,
             clipboard,
             shell,
+            viewport,
         )
     }
 
@@ -228,9 +230,16 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) -> event::Status {
-        self.content
-            .as_widget_mut()
-            .on_event(self.tree, event, layout, cursor, renderer, clipboard, shell)
+        self.content.as_widget_mut().on_event(
+            self.tree,
+            event,
+            layout,
+            cursor,
+            renderer,
+            clipboard,
+            shell,
+            &layout.bounds(),
+        )
     }
 
     fn mouse_interaction(

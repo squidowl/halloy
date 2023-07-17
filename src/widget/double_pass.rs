@@ -99,10 +99,11 @@ impl<'a, Message> Widget<Message, Renderer> for DoublePass<'a, Message> {
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
+        viewport: &Rectangle,
     ) -> event::Status {
-        self.second_pass
-            .as_widget_mut()
-            .on_event(tree, event, layout, cursor, renderer, clipboard, shell)
+        self.second_pass.as_widget_mut().on_event(
+            tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+        )
     }
 
     fn mouse_interaction(
