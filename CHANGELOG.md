@@ -1,7 +1,11 @@
 # Unreleased
 
+**Message history and dashboard state will be reset due to a breaking change. We've switched to a more flexible storage format 
+to ensure future breakages won't occur.**
+
 Added:
 
+- Configuration option `buffer.hidden_server_messages` to hide server messages from the provided array of sources: ["join", "part", "quit"]
 - Configuration option `buffer.input_visibility` to control input field visibility: always shown or following the focused buffer.
 - Upon joining a channel, display the channel mode in the buffer
 - When querying an away user, you will see an away message
