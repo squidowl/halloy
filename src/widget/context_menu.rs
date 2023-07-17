@@ -130,6 +130,7 @@ impl<'a, Message> Widget<Message, Renderer> for ContextMenu<'a, Message> {
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
+        viewport: &Rectangle,
     ) -> event::Status {
         let state = tree.state.downcast_mut::<State>();
 
@@ -147,6 +148,7 @@ impl<'a, Message> Widget<Message, Renderer> for ContextMenu<'a, Message> {
             renderer,
             clipboard,
             shell,
+            viewport,
         )
     }
 
@@ -288,9 +290,16 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
             }
         }
 
-        self.content
-            .as_widget_mut()
-            .on_event(self.tree, event, layout, cursor, renderer, clipboard, shell)
+        self.content.as_widget_mut().on_event(
+            self.tree,
+            event,
+            layout,
+            cursor,
+            renderer,
+            clipboard,
+            shell,
+            &layout.bounds(),
+        )
     }
 
     fn mouse_interaction(
