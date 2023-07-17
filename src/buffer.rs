@@ -110,12 +110,13 @@ impl Buffer {
             Buffer::Server(state) => {
                 let status = clients.status(&state.server);
 
-                server::view(state, status, history, config, is_focused).map(Message::Server)
+                server::view(state, status, clients, history, config, is_focused)
+                    .map(Message::Server)
             }
             Buffer::Query(state) => {
                 let status = clients.status(&state.server);
 
-                query::view(state, status, history, config, is_focused).map(Message::Query)
+                query::view(state, status, clients, history, config, is_focused).map(Message::Query)
             }
         }
     }
