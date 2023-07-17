@@ -13,7 +13,7 @@ const MAX_SHOWN_ENTRIES: usize = 5;
 #[derive(Debug, Clone, Default)]
 pub struct Completion {
     commands: Commands,
-    users: Users,
+    text: Text,
 }
 
 impl Completion {
@@ -22,18 +22,36 @@ impl Completion {
     }
 
     /// Process input and update the completion state
-    pub fn process(&mut self, input: &str, users: &[User]) {
-        if input.starts_with('/') {
+    pub fn process(&mut self, input: &str, users: &[User], channels: &[String]) {
+        let last_char_is_space = input
+            .chars()
+            .last()
+            .map(|last| last.is_whitespace())
+            .unwrap_or_default();
+        let words: Vec<&str> = input.split_whitespace().collect();
+        let is_channel = !last_char_is_space
+            && words
+                .last()
+                .map(|word| word.starts_with('#'))
+                .unwrap_or_default();
+        let is_command = input.starts_with('/');
+
+        if is_command {
             self.commands.process(input);
 
             // Disallow user completions when selecting a command
             if matches!(self.commands, Commands::Selecting { .. }) {
-                self.users = Users::default();
+                self.text = Text::default();
+            } else if is_channel {
+                self.text.process_channels(input, channels);
             } else {
-                self.users.process(input, users);
+                self.text.process_users(input, users);
             }
+        } else if is_channel {
+            self.text.process_channels(input, channels);
+            self.commands = Commands::default();
         } else {
-            self.users.process(input, users);
+            self.text.process_users(input, users);
             self.commands = Commands::default();
         }
     }
@@ -44,7 +62,7 @@ impl Completion {
 
     pub fn tab(&mut self) -> Option<Entry> {
         if !self.commands.tab() {
-            self.users.tab().map(Entry::User)
+            self.text.tab().map(Entry::Text)
         } else {
             None
         }
@@ -58,16 +76,16 @@ impl Completion {
 #[derive(Debug, Clone)]
 pub enum Entry {
     Command(Command),
-    User(String),
+    Text(String),
 }
 
 impl Entry {
     pub fn complete_input(&self, input: &str) -> String {
         match self {
             Entry::Command(command) => format!("/{}", command.title),
-            Entry::User(nickname) => match input.rsplit_once(' ') {
-                Some((left, _)) => format!("{left} {nickname}"),
-                None => nickname.clone(),
+            Entry::Text(value) => match input.rsplit_once(' ') {
+                Some((left, _)) => format!("{left} {value}"),
+                None => value.clone(),
             },
         }
     }
@@ -296,14 +314,14 @@ impl fmt::Display for Arg {
 }
 
 #[derive(Debug, Clone, Default)]
-struct Users {
+struct Text {
     prompt: String,
     filtered: Vec<String>,
     selected: Option<usize>,
 }
 
-impl Users {
-    fn process(&mut self, input: &str, users: &[User]) {
+impl Text {
+    fn process_users(&mut self, input: &str, users: &[User]) {
         let (_, rest) = input.rsplit_once(' ').unwrap_or(("", input));
 
         if rest.is_empty() {
@@ -322,6 +340,25 @@ impl Users {
                 lower_nick
                     .starts_with(&nick)
                     .then(|| user.nickname().to_string())
+            })
+            .collect();
+    }
+
+    fn process_channels(&mut self, input: &str, channels: &[String]) {
+        let Some((head, rest)) = input.split_once('#') else {
+            *self = Self::default();
+            return;
+        };
+
+        let channel = format!("#{}", rest.to_lowercase());
+
+        self.selected = None;
+        self.prompt = rest.to_string();
+        self.filtered = channels
+            .iter()
+            .filter_map(|c| {
+                let lower_channel = c.to_lowercase();
+                lower_channel.starts_with(&channel).then(|| c.to_string())
             })
             .collect();
     }
