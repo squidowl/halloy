@@ -158,6 +158,7 @@ where
         _renderer: &Renderer,
         _clipboard: &mut dyn iced::advanced::Clipboard,
         _shell: &mut iced::advanced::Shell<'_, Message>,
+        _viewport: &Rectangle,
     ) -> event::Status {
         let state = tree.state.downcast_mut::<State>();
 
