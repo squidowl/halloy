@@ -306,21 +306,7 @@ struct Text {
 
 impl Text {
     fn process(&mut self, input: &str, users: &[User], channels: &[String]) {
-        let last_char_is_space = input
-            .chars()
-            .last()
-            .map(|last| last.is_whitespace())
-            .unwrap_or_default();
-        let words: Vec<&str> = input.split_whitespace().collect();
-        let is_channel = !last_char_is_space
-            && words
-                .last()
-                .map(|word| word.starts_with('#'))
-                .unwrap_or_default();
-
-        if is_channel {
-            self.process_channels(input, channels);
-        } else {
+        if !self.process_channels(input, channels) {
             self.process_users(input, users);
         }
     }
@@ -348,16 +334,17 @@ impl Text {
             .collect();
     }
 
-    fn process_channels(&mut self, input: &str, channels: &[String]) {
-        let Some((_, rest)) = input.split_once('#') else {
+    fn process_channels(&mut self, input: &str, channels: &[String]) -> bool {
+        let (_, last) = input.rsplit_once(' ').unwrap_or(("", input));
+        let Some((_, rest)) = last.split_once('#') else {
             *self = Self::default();
-            return;
+            return false;
         };
 
         let channel = format!("#{}", rest.to_lowercase());
 
         self.selected = None;
-        self.prompt = rest.to_string();
+        self.prompt = format!("#{rest}");
         self.filtered = channels
             .iter()
             .filter_map(|c| {
@@ -365,6 +352,8 @@ impl Text {
                 lower_channel.starts_with(&channel).then(|| c.to_string())
             })
             .collect();
+
+        true
     }
 
     fn tab(&mut self) -> Option<String> {
