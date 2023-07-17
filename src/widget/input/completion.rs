@@ -345,7 +345,7 @@ impl Text {
     }
 
     fn process_channels(&mut self, input: &str, channels: &[String]) {
-        let Some((head, rest)) = input.split_once('#') else {
+        let Some((_, rest)) = input.split_once('#') else {
             *self = Self::default();
             return;
         };
