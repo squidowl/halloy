@@ -101,13 +101,13 @@ impl Message {
     pub fn received(encoded: Encoded, our_nick: Nick) -> Option<Message> {
         let server_time = server_time(&encoded);
         let text = text(&encoded, &our_nick)?;
-        let source = target(encoded, &our_nick)?;
+        let target = target(encoded, &our_nick)?;
 
         Some(Message {
             received_at: Posix::now(),
             server_time,
             direction: Direction::Received,
-            target: source,
+            target,
             text,
         })
     }
