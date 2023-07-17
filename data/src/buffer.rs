@@ -29,7 +29,7 @@ impl Buffer {
         }
     }
 
-    pub fn server_message_target(self, source: message::source::Server) -> message::Target {
+    pub fn server_message_target(self, source: Option<message::source::Server>) -> message::Target {
         match self {
             Self::Server(_) => message::Target::Server {
                 source: message::Source::Server(source),

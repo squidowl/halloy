@@ -187,18 +187,24 @@ impl Manager {
         server: &Server,
         channel: &str,
         limit: Option<Limit>,
+        exclude: &HashSet<message::source::Server>,
     ) -> Option<history::View<'_>> {
-        self.data
-            .history_view(server, &history::Kind::Channel(channel.to_string()), limit)
+        self.data.history_view(
+            server,
+            &history::Kind::Channel(channel.to_string()),
+            limit,
+            exclude,
+        )
     }
 
     pub fn get_server_messages(
         &self,
         server: &Server,
         limit: Option<Limit>,
+        exclude: &HashSet<message::source::Server>,
     ) -> Option<history::View<'_>> {
         self.data
-            .history_view(server, &history::Kind::Server, limit)
+            .history_view(server, &history::Kind::Server, limit, exclude)
     }
 
     pub fn get_query_messages(
@@ -206,9 +212,10 @@ impl Manager {
         server: &Server,
         nick: &Nick,
         limit: Option<Limit>,
+        exclude: &HashSet<message::source::Server>,
     ) -> Option<history::View<'_>> {
         self.data
-            .history_view(server, &history::Kind::Query(nick.clone()), limit)
+            .history_view(server, &history::Kind::Query(nick.clone()), limit, exclude)
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
@@ -409,6 +416,7 @@ impl Data {
         server: &server::Server,
         kind: &history::Kind,
         limit: Option<Limit>,
+        exclude: &HashSet<message::source::Server>,
     ) -> Option<history::View> {
         let History::Full {
             messages,
@@ -419,8 +427,19 @@ impl Data {
             return None;
         };
 
-        let total = messages.len();
-        let limited = with_limit(limit, messages.iter());
+        let filtered = messages
+            .iter()
+            .filter(|message| {
+                if let message::Source::Server(Some(source)) = message.target.source() {
+                    !exclude.contains(source)
+                } else {
+                    true
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let total = filtered.len();
+        let limited = with_limit(limit, filtered.into_iter());
 
         let split_at = limited
             .iter()

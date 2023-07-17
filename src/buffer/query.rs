@@ -33,6 +33,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Query(&state.server, &state.nick),
             history,
+            config,
             |message| {
                 let timestamp = config
                     .buffer
