@@ -1,7 +1,7 @@
 use data::message;
 use data::palette::{self, Palette};
 use iced::widget::{button, container, pane_grid, rule, scrollable, text, text_input};
-use iced::{application, Background, Color};
+use iced::{application, overlay, Background, Color};
 
 use crate::widget::selectable_text;
 
@@ -610,6 +610,30 @@ impl selectable_text::StyleSheet for Theme {
         selectable_text::Appearance {
             color,
             selection_color,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum Menu {
+    #[default]
+    Default,
+}
+
+impl overlay::menu::StyleSheet for Theme {
+    type Style = Menu;
+
+    fn appearance(&self, style: &Self::Style) -> overlay::menu::Appearance {
+        match style {
+            Menu::Default => overlay::menu::Appearance {
+                text_color: self.colors.text.base,
+                background: Background::Color(self.colors.background.base),
+                border_width: 1.0,
+                border_radius: 4.0.into(),
+                border_color: self.colors.action.base,
+                selected_text_color: self.colors.text.high_alpha,
+                selected_background: Background::Color(self.colors.background.high_alpha),
+            },
         }
     }
 }
