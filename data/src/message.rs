@@ -3,11 +3,15 @@ use irc::proto;
 use irc::proto::ChannelExt;
 use serde::{Deserialize, Serialize};
 
+pub use self::source::Source;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::User;
 
 pub type Channel = String;
+
+pub(crate) mod broadcast;
+pub mod source;
 
 #[derive(Debug, Clone)]
 pub struct Encoded(proto::Message);
@@ -57,47 +61,20 @@ impl From<Encoded> for proto::Message {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Source {
-    Server,
-    Channel(Channel, Sender),
-    Query(Nick, Sender),
-    Status(Status),
+pub enum Target {
+    Server { source: Source },
+    Channel { channel: Channel, source: Source },
+    Query { nick: Nick, source: Source },
 }
 
-impl Source {
-    pub fn sender(&self) -> Option<&Sender> {
+impl Target {
+    pub fn source(&self) -> &Source {
         match self {
-            Source::Server => None,
-            Source::Channel(_, sender) => Some(sender),
-            Source::Query(_, sender) => Some(sender),
-            Source::Status(_) => None,
+            Target::Server { source } => source,
+            Target::Channel { source, .. } => source,
+            Target::Query { source, .. } => source,
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Sender {
-    User(User),
-    Server,
-    Action,
-    Status(Status),
-}
-
-impl Sender {
-    pub fn user(&self) -> Option<&User> {
-        match self {
-            Sender::User(user) => Some(user),
-            Sender::Server => None,
-            Sender::Action => None,
-            Sender::Status(_) => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Status {
-    Success,
-    Error,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -111,63 +88,56 @@ pub struct Message {
     pub received_at: Posix,
     pub server_time: DateTime<Utc>,
     pub direction: Direction,
-    pub source: Source,
+    pub target: Target,
     pub text: String,
 }
 
 impl Message {
-    pub fn channel(&self) -> Option<&str> {
-        if let Source::Channel(channel, _) = &self.source {
-            Some(channel)
-        } else {
-            None
-        }
-    }
-
-    pub fn sent_by(&self) -> Option<&User> {
-        match &self.source {
-            Source::Server => None,
-            Source::Channel(_, kind) => kind.user(),
-            Source::Query(_, kind) => kind.user(),
-            Source::Status(_) => None,
-        }
-    }
-
     pub fn triggers_unread(&self) -> bool {
         matches!(self.direction, Direction::Received)
-            && matches!(self.source.sender(), Some(Sender::User(_) | Sender::Action))
+            && matches!(self.target.source(), Source::User(_) | Source::Action)
     }
 
     pub fn received(encoded: Encoded, our_nick: Nick) -> Option<Message> {
         let server_time = server_time(&encoded);
         let text = text(&encoded, &our_nick)?;
-        let source = source(encoded, &our_nick)?;
+        let target = target(encoded, &our_nick)?;
 
         Some(Message {
             received_at: Posix::now(),
             server_time,
             direction: Direction::Received,
-            source,
+            target,
             text,
         })
     }
 
-    pub fn with_source(self, source: Source) -> Self {
-        Self { source, ..self }
+    pub fn with_target(self, target: Target) -> Self {
+        Self { target, ..self }
     }
 }
 
-fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
+fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
     let user = message.user();
 
     match message.0.command {
         // Channel
         proto::Command::TOPIC(channel, _)
-        | proto::Command::PART(channel, _)
         | proto::Command::ChannelMODE(channel, _)
-        | proto::Command::KICK(channel, _, _)
-        | proto::Command::SAJOIN(_, channel)
-        | proto::Command::JOIN(channel, _, _) => Some(Source::Channel(channel, Sender::Server)),
+        | proto::Command::KICK(channel, _, _) => Some(Target::Channel {
+            channel,
+            source: source::Source::Server(None),
+        }),
+        proto::Command::PART(channel, _) => Some(Target::Channel {
+            channel,
+            source: source::Source::Server(Some(source::Server::Part)),
+        }),
+        proto::Command::SAJOIN(_, channel) | proto::Command::JOIN(channel, _, _) => {
+            Some(Target::Channel {
+                channel,
+                source: source::Source::Server(Some(source::Server::Join)),
+            })
+        }
         proto::Command::Response(
             proto::Response::RPL_TOPIC
             | proto::Response::RPL_TOPICWHOTIME
@@ -175,54 +145,72 @@ fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
             params,
         ) => {
             let channel = params.get(1)?.clone();
-            Some(Source::Channel(channel, Sender::Server))
+            Some(Target::Channel {
+                channel,
+                source: source::Source::Server(None),
+            })
         }
         proto::Command::Response(proto::Response::RPL_AWAY, params) => {
             let user = params.get(1)?;
             let target = User::try_from(user.as_str()).ok()?;
 
-            Some(Source::Query(target.nickname().to_owned(), Sender::Action))
+            Some(Target::Query {
+                nick: target.nickname().to_owned(),
+                source: Source::Action,
+            })
         }
         proto::Command::PRIVMSG(target, text) => {
             let is_action = is_action(&text);
-            let sender = |user| {
+            let source = |user| {
                 if is_action {
-                    Sender::Action
+                    Source::Action
                 } else {
-                    Sender::User(user)
+                    Source::User(user)
                 }
             };
 
             match (target.is_channel_name(), user) {
-                (true, Some(user)) => Some(Source::Channel(target, sender(user))),
+                (true, Some(user)) => Some(Target::Channel {
+                    channel: target,
+                    source: source(user),
+                }),
                 (false, Some(user)) => {
                     let target = User::try_from(target.as_str()).ok()?;
 
-                    (target.nickname() == *our_nick)
-                        .then(|| Source::Query(user.nickname().to_owned(), sender(user)))
+                    (target.nickname() == *our_nick).then(|| Target::Query {
+                        nick: user.nickname().to_owned(),
+                        source: source(user),
+                    })
                 }
                 _ => None,
             }
         }
         proto::Command::NOTICE(target, text) => {
             let is_action = is_action(&text);
-            let sender = |user| {
+            let source = |user| {
                 if is_action {
-                    Sender::Action
+                    Source::Action
                 } else {
-                    Sender::User(user)
+                    Source::User(user)
                 }
             };
 
             match (target.is_channel_name(), user) {
-                (true, Some(user)) => Some(Source::Channel(target, sender(user))),
+                (true, Some(user)) => Some(Target::Channel {
+                    channel: target,
+                    source: source(user),
+                }),
                 (false, Some(user)) => {
                     let target = User::try_from(target.as_str()).ok()?;
 
-                    (target.nickname() == *our_nick)
-                        .then(|| Source::Query(user.nickname().to_owned(), sender(user)))
+                    (target.nickname() == *our_nick).then(|| Target::Query {
+                        nick: user.nickname().to_owned(),
+                        source: source(user),
+                    })
                 }
-                _ => Some(Source::Server),
+                _ => Some(Target::Server {
+                    source: Source::Server(None),
+                }),
             }
         }
 
@@ -284,7 +272,9 @@ fn source(message: Encoded, our_nick: &Nick) -> Option<Source> {
         | proto::Command::CHGHOST(_, _)
         | proto::Command::Response(_, _)
         | proto::Command::Raw(_, _)
-        | proto::Command::SAQUIT(_, _) => Some(Source::Server),
+        | proto::Command::SAQUIT(_, _) => Some(Target::Server {
+            source: Source::Server(None),
+        }),
     }
 }
 
@@ -424,123 +414,4 @@ pub fn parse_action(nick: NickRef, text: &str) -> Option<String> {
 
 pub fn action_text(nick: NickRef, action: &str) -> String {
     format!(" ∙ {nick} {action}")
-}
-
-pub(crate) mod broadcast {
-    //! Generate messages that can be broadcast into every buffer
-    use chrono::Utc;
-
-    use super::{Direction, Message, Sender, Source, Status};
-    use crate::time::Posix;
-    use crate::user::Nick;
-    use crate::User;
-
-    enum Cause {
-        Server,
-        Status(Status),
-    }
-
-    fn expand(
-        channels: impl IntoIterator<Item = String>,
-        queries: impl IntoIterator<Item = Nick>,
-        include_server: bool,
-        cause: Cause,
-        text: String,
-    ) -> Vec<Message> {
-        let message = |source, text| -> Message {
-            Message {
-                received_at: Posix::now(),
-                server_time: Utc::now(),
-                direction: Direction::Received,
-                source,
-                text,
-            }
-        };
-
-        let (source, sender) = match cause {
-            Cause::Server => (Source::Server, Sender::Server),
-            Cause::Status(status) => (Source::Status(status), Sender::Status(status)),
-        };
-
-        channels
-            .into_iter()
-            .map(|channel| message(Source::Channel(channel, sender.clone()), text.clone()))
-            .chain(
-                queries
-                    .into_iter()
-                    .map(|nick| message(Source::Query(nick, sender.clone()), text.clone())),
-            )
-            .chain(include_server.then(|| message(source, text.clone())))
-            .collect()
-    }
-
-    pub fn connecting() -> Vec<Message> {
-        let text = " ∙ connecting to server...".into();
-        expand([], [], true, Cause::Status(Status::Success), text)
-    }
-
-    pub fn connected() -> Vec<Message> {
-        let text = " ∙ connected".into();
-        expand([], [], true, Cause::Status(Status::Success), text)
-    }
-
-    pub fn connection_failed(error: String) -> Vec<Message> {
-        let text = format!(" ∙ connection to server failed ({error})");
-        expand([], [], true, Cause::Status(Status::Error), text)
-    }
-
-    pub fn disconnected(
-        channels: impl IntoIterator<Item = String>,
-        queries: impl IntoIterator<Item = Nick>,
-        error: Option<String>,
-    ) -> Vec<Message> {
-        let error = error.map(|error| format!(" ({error})")).unwrap_or_default();
-        let text = format!(" ∙ connection to server lost{error}");
-        expand(channels, queries, true, Cause::Status(Status::Error), text)
-    }
-
-    pub fn reconnected(
-        channels: impl IntoIterator<Item = String>,
-        queries: impl IntoIterator<Item = Nick>,
-    ) -> Vec<Message> {
-        let text = " ∙ connection to server restored".into();
-        expand(
-            channels,
-            queries,
-            true,
-            Cause::Status(Status::Success),
-            text,
-        )
-    }
-
-    pub fn quit(
-        channels: impl IntoIterator<Item = String>,
-        queries: impl IntoIterator<Item = Nick>,
-        user: &User,
-        comment: &Option<String>,
-    ) -> Vec<Message> {
-        let comment = comment
-            .as_ref()
-            .map(|comment| format!(" ({comment})"))
-            .unwrap_or_default();
-        let text = format!("⟵ {} has quit{comment}", user.formatted());
-
-        expand(channels, queries, false, Cause::Server, text)
-    }
-
-    pub fn nickname(
-        channels: impl IntoIterator<Item = String>,
-        queries: impl IntoIterator<Item = Nick>,
-        old_nick: &Nick,
-        new_nick: &Nick,
-        ourself: bool,
-    ) -> Vec<Message> {
-        let text = if ourself {
-            format!(" ∙ You're now known as {new_nick}")
-        } else {
-            format!(" ∙ {old_nick} is now known as {new_nick}")
-        };
-
-        expand(channels, queries, false, Cause::Server, text)
-    }
 }

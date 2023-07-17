@@ -29,11 +29,19 @@ impl Buffer {
         }
     }
 
-    pub fn server_message_source(self) -> message::Source {
+    pub fn server_message_target(self, source: Option<message::source::Server>) -> message::Target {
         match self {
-            Self::Server(_) => message::Source::Server,
-            Self::Channel(_, channel) => message::Source::Channel(channel, message::Sender::Server),
-            Self::Query(_, nick) => message::Source::Query(nick, message::Sender::Server),
+            Self::Server(_) => message::Target::Server {
+                source: message::Source::Server(source),
+            },
+            Self::Channel(_, channel) => message::Target::Channel {
+                channel,
+                source: message::Source::Server(source),
+            },
+            Self::Query(_, nick) => message::Target::Query {
+                nick,
+                source: message::Source::Server(source),
+            },
         }
     }
 }

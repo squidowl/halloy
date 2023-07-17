@@ -1,8 +1,13 @@
+use std::collections::HashSet;
+
 use chrono::{DateTime, Local, Utc};
 use serde::Deserialize;
 
 use super::Channel;
-use crate::buffer::{Color, InputVisibility, Nickname, Timestamp};
+use crate::{
+    buffer::{Color, InputVisibility, Nickname, Timestamp},
+    message,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Buffer {
@@ -14,6 +19,8 @@ pub struct Buffer {
     pub input_visibility: InputVisibility,
     #[serde(default)]
     pub channel: Channel,
+    #[serde(default)]
+    pub hidden_server_messages: HashSet<message::source::Server>,
 }
 
 impl Default for Buffer {
@@ -29,6 +36,7 @@ impl Default for Buffer {
             },
             input_visibility: InputVisibility::default(),
             channel: Channel::default(),
+            hidden_server_messages: HashSet::default(),
         }
     }
 }
