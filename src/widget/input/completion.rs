@@ -23,17 +23,6 @@ impl Completion {
 
     /// Process input and update the completion state
     pub fn process(&mut self, input: &str, users: &[User], channels: &[String]) {
-        let last_char_is_space = input
-            .chars()
-            .last()
-            .map(|last| last.is_whitespace())
-            .unwrap_or_default();
-        let words: Vec<&str> = input.split_whitespace().collect();
-        let is_channel = !last_char_is_space
-            && words
-                .last()
-                .map(|word| word.starts_with('#'))
-                .unwrap_or_default();
         let is_command = input.starts_with('/');
 
         if is_command {
@@ -42,16 +31,11 @@ impl Completion {
             // Disallow user completions when selecting a command
             if matches!(self.commands, Commands::Selecting { .. }) {
                 self.text = Text::default();
-            } else if is_channel {
-                self.text.process_channels(input, channels);
             } else {
-                self.text.process_users(input, users);
+                self.text.process(input, users, channels);
             }
-        } else if is_channel {
-            self.text.process_channels(input, channels);
-            self.commands = Commands::default();
         } else {
-            self.text.process_users(input, users);
+            self.text.process(input, users, channels);
             self.commands = Commands::default();
         }
     }
@@ -321,6 +305,26 @@ struct Text {
 }
 
 impl Text {
+    fn process(&mut self, input: &str, users: &[User], channels: &[String]) {
+        let last_char_is_space = input
+            .chars()
+            .last()
+            .map(|last| last.is_whitespace())
+            .unwrap_or_default();
+        let words: Vec<&str> = input.split_whitespace().collect();
+        let is_channel = !last_char_is_space
+            && words
+                .last()
+                .map(|word| word.starts_with('#'))
+                .unwrap_or_default();
+
+        if is_channel {
+            self.process_channels(input, channels);
+        } else {
+            self.process_users(input, users);
+        }
+    }
+
     fn process_users(&mut self, input: &str, users: &[User]) {
         let (_, rest) = input.rsplit_once(' ').unwrap_or(("", input));
 
