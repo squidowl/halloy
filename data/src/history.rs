@@ -113,7 +113,7 @@ async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
         fs::create_dir_all(&parent).await?;
     }
 
-    Ok(parent.join(format!("{hashed_name}")))
+    Ok(parent.join(format!("{hashed_name}.json.gz")))
 }
 
 #[derive(Debug)]

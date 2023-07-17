@@ -47,7 +47,7 @@ fn path() -> Result<PathBuf, Error> {
         std::fs::create_dir_all(&parent)?;
     }
 
-    Ok(parent.join("dashboard"))
+    Ok(parent.join("dashboard.json.gz"))
 }
 
 #[derive(Debug, thiserror::Error)]
