@@ -41,12 +41,12 @@ impl fmt::Display for Kind {
     }
 }
 
-impl From<message::Source> for Kind {
-    fn from(source: message::Source) -> Self {
-        match source {
-            message::Source::Server | message::Source::Status(_) => Kind::Server,
-            message::Source::Channel(channel, _) => Kind::Channel(channel),
-            message::Source::Query(user, _) => Kind::Query(user),
+impl From<message::Target> for Kind {
+    fn from(target: message::Target) -> Self {
+        match target {
+            message::Target::Server { .. } => Kind::Server,
+            message::Target::Channel { channel, .. } => Kind::Channel(channel),
+            message::Target::Query { nick, .. } => Kind::Query(nick),
         }
     }
 }

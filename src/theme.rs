@@ -171,7 +171,7 @@ pub enum Text {
     Server,
     Error,
     Transparent,
-    Status(message::Status),
+    Status(message::source::Status),
     Nickname(Option<String>),
 }
 
@@ -209,8 +209,8 @@ impl text::StyleSheet for Theme {
             },
             Text::Status(status) => text::Appearance {
                 color: Some(match status {
-                    message::Status::Success => self.colors.success.base,
-                    message::Status::Error => self.colors.error.base,
+                    message::source::Status::Success => self.colors.success.base,
+                    message::source::Status::Error => self.colors.error.base,
                 }),
             },
             Text::Transparent => text::Appearance {

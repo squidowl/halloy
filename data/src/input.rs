@@ -46,11 +46,17 @@ impl Input {
     pub fn message(&self, our_nick: NickRef) -> Option<Message> {
         let command = self.content.command(&self.buffer)?;
 
-        let source = |target: String, sender| {
+        let to_target = |target: String, source| {
             if target.is_channel_name() {
-                Some(message::Source::Channel(target, sender))
+                Some(message::Target::Channel {
+                    channel: target,
+                    source,
+                })
             } else if let Ok(user) = User::try_from(target) {
-                Some(message::Source::Query(user.nickname().to_owned(), sender))
+                Some(message::Target::Query {
+                    nick: user.nickname().to_owned(),
+                    source,
+                })
             } else {
                 None
             }
@@ -61,9 +67,9 @@ impl Input {
                 received_at: Posix::now(),
                 server_time: Utc::now(),
                 direction: message::Direction::Sent,
-                source: source(
+                target: to_target(
                     target,
-                    message::Sender::User(User::new(our_nick.to_owned(), None, None)),
+                    message::Source::User(User::new(our_nick.to_owned(), None, None)),
                 )?,
                 text,
             }),
@@ -71,7 +77,7 @@ impl Input {
                 received_at: Posix::now(),
                 server_time: Utc::now(),
                 direction: message::Direction::Sent,
-                source: source(target, message::Sender::Action)?,
+                target: to_target(target, message::Source::Action)?,
                 text: message::action_text(our_nick, &action),
             }),
             _ => None,

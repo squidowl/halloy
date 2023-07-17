@@ -49,7 +49,8 @@ pub fn view<'a>(
             history.get_channel_messages(server, channel, Some(state.limit))
         }
         Kind::Query(server, user) => history.get_query_messages(server, user, Some(state.limit)),
-    }) else {
+    })
+    else {
         return column![].into();
     };
 
