@@ -9,7 +9,6 @@ pub use self::buffer::Buffer;
 pub use self::channel::Channel;
 pub use self::dashboard::Dashboard;
 pub use self::server::Server;
-
 use crate::environment;
 use crate::palette::Palette;
 use crate::server::Map as ServerMap;

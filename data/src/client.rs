@@ -44,7 +44,7 @@ pub enum Brodcast {
 #[derive(Debug)]
 pub enum Event {
     Single(message::Encoded, Nick),
-    WithSource(message::Encoded, Nick, message::Source),
+    WithTarget(message::Encoded, Nick, message::Target),
     Brodcast(Brodcast),
 }
 
@@ -186,9 +186,9 @@ impl Connection {
             _ if context.as_ref().map(Context::is_whois).unwrap_or_default() => {
                 if let Some(source) = context
                     .map(Context::buffer)
-                    .map(Buffer::server_message_source)
+                    .map(|buffer| buffer.server_message_target(message::source::Server::Other))
                 {
-                    return Some(vec![Event::WithSource(
+                    return Some(vec![Event::WithTarget(
                         message,
                         self.nickname().to_owned(),
                         source,
@@ -200,9 +200,9 @@ impl Connection {
                 if let Some(source) = self
                     .reroute_responses_to
                     .clone()
-                    .map(Buffer::server_message_source)
+                    .map(|buffer| buffer.server_message_target(message::source::Server::Other))
                 {
-                    return Some(vec![Event::WithSource(
+                    return Some(vec![Event::WithTarget(
                         message,
                         self.nickname().to_owned(),
                         source,

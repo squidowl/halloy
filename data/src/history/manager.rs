@@ -177,7 +177,7 @@ impl Manager {
     pub fn record_message(&mut self, server: &Server, message: crate::Message) {
         self.data.add_message(
             server.clone(),
-            history::Kind::from(message.source.clone()),
+            history::Kind::from(message.target.clone()),
             message,
         );
     }
@@ -213,7 +213,7 @@ impl Manager {
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
         let Some(map) = self.data.map.get(server) else {
-            return vec![]
+            return vec![];
         };
 
         let queries = map
@@ -410,7 +410,12 @@ impl Data {
         kind: &history::Kind,
         limit: Option<Limit>,
     ) -> Option<history::View> {
-        let History::Full { messages, opened_at, .. } = self.map.get(server)?.get(kind)? else {
+        let History::Full {
+            messages,
+            opened_at,
+            ..
+        } = self.map.get(server)?.get(kind)?
+        else {
             return None;
         };
 

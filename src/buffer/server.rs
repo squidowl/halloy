@@ -1,4 +1,4 @@
-use data::{client, history, Config};
+use data::{client, history, message, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -33,15 +33,15 @@ pub fn view<'a>(
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| selectable_text(timestamp).style(theme::Text::Transparent));
 
-                match message.source {
-                    data::message::Source::Server => {
+                match message.target.source() {
+                    message::Source::Server(_) => {
                         let message = selectable_text(&message.text).style(theme::Text::Server);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
-                    data::message::Source::Status(status) => {
+                    message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message =
-                            selectable_text(&message.text).style(theme::Text::Status(status));
+                            selectable_text(&message.text).style(theme::Text::Status(*status));
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
