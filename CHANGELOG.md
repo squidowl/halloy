@@ -17,6 +17,7 @@ Fixed:
 - All WHOIS responses are now properly routed to the buffer where the request was made (text input or via context menu)
 - Accessing text input history will only populate the current buffer, not all of them
 - Text from input box can be copied to clipboard
+- Prevent text input cursor from blinking when window loses focus
 
 # 2023.2 (2023-07-07)
 
