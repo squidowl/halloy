@@ -16,6 +16,7 @@ palette = "=0.7.2"
 rand = "0.8.4"
 rand_chacha = "0.3.0"
 seahash = "4.1.0"
+serde_json = "1.0"
 serde_yaml = "0.8.23"
 thiserror = "1.0.30"
 tokio = { version = "1.0", features = ["io-util"] }
