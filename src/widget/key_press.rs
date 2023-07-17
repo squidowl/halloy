@@ -99,6 +99,7 @@ where
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
+        viewport: &Rectangle,
     ) -> event::Status {
         if let Event::Keyboard(keyboard::Event::KeyPressed {
             key_code,
@@ -111,9 +112,9 @@ where
             }
         }
 
-        self.content
-            .as_widget_mut()
-            .on_event(tree, event, layout, cursor, renderer, clipboard, shell)
+        self.content.as_widget_mut().on_event(
+            tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+        )
     }
 
     fn mouse_interaction(

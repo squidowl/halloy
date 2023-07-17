@@ -150,6 +150,7 @@ mod widget {
             renderer: &Renderer,
             clipboard: &mut dyn Clipboard,
             shell: &mut Shell<'_, Message>,
+            viewport: &iced::Rectangle,
         ) -> iced::event::Status {
             let hovered = tree.state.downcast_mut::<bool>();
             let prev_hovered = *hovered;
@@ -173,6 +174,7 @@ mod widget {
                 renderer,
                 clipboard,
                 shell,
+                viewport,
             )
         }
 

@@ -35,5 +35,5 @@ embed-resource = "2.1.1"
 members = ["data"]
 
 [patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced", rev = "fca8373516cdaefcb8595b4d544407792a4cfcc0" }
-iced_core = { git = "https://github.com/iced-rs/iced", rev = "fca8373516cdaefcb8595b4d544407792a4cfcc0" }
+iced = { git = "https://github.com/iced-rs/iced", rev = "fd077918db7643530c3a7318ed5777d2f3d8761b" }
+iced_core = { git = "https://github.com/iced-rs/iced", rev = "fd077918db7643530c3a7318ed5777d2f3d8761b" }
