@@ -21,6 +21,7 @@ pub enum Event {
 pub fn view<'a>(
     state: &'a Query,
     status: client::Status,
+    clients: &'a data::client::Map,
     history: &'a history::Manager,
     config: &'a Config,
     is_focused: bool,
@@ -86,11 +87,20 @@ pub fn view<'a>(
         data::buffer::InputVisibility::Always => status.connected(),
     };
 
+    let channels = clients.get_channels(&state.server);
+
     let text_input = show_text_input.then(|| {
         column![
             vertical_space(4),
-            input_view::view(&state.input_view, buffer, &[], input_history, is_focused)
-                .map(Message::InputView)
+            input_view::view(
+                &state.input_view,
+                buffer,
+                &[],
+                channels,
+                input_history,
+                is_focused
+            )
+            .map(Message::InputView)
         ]
     });
 

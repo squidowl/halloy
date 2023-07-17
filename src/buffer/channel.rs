@@ -97,6 +97,7 @@ pub fn view<'a>(
     .height(Length::Fill);
 
     let users = clients.get_channel_users(&state.server, &state.channel);
+    let channels = clients.get_channels(&state.server);
     let nick_list = nick_list::view(users).map(Message::UserContext);
 
     let show_text_input = match config.buffer.input_visibility {
@@ -107,8 +108,15 @@ pub fn view<'a>(
     let text_input = show_text_input.then(|| {
         column![
             vertical_space(4),
-            input_view::view(&state.input_view, buffer, users, input_history, is_focused)
-                .map(Message::InputView)
+            input_view::view(
+                &state.input_view,
+                buffer,
+                users,
+                channels,
+                input_history,
+                is_focused
+            )
+            .map(Message::InputView)
         ]
     });
 
