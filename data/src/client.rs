@@ -397,7 +397,7 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_our_channels<'a>(&'a self, server: &Server) -> &'a [String] {
+    pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [String] {
         self.connection(server)
             .map(|connection| connection.channels())
             .unwrap_or_default()

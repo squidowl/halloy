@@ -59,7 +59,7 @@ pub fn view<'a>(
         data::buffer::InputVisibility::Always => status.connected(),
     };
 
-    let channels = clients.get_our_channels(&state.server);
+    let channels = clients.get_channels(&state.server);
 
     let text_input = show_text_input.then(|| {
         column![
