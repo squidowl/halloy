@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use irc::proto;
-use irc::proto::ChannelExt;
+use irc::proto::Command;
 use serde::{Deserialize, Serialize};
 
 pub use self::source::Source;
@@ -18,16 +18,17 @@ pub struct Encoded(proto::Message);
 
 impl Encoded {
     pub fn user(&self) -> Option<User> {
-        fn not_empty(s: &str) -> Option<&str> {
-            (!s.is_empty()).then_some(s)
-        }
+        let source = self.source.as_ref()?;
 
-        let prefix = self.prefix.as_ref()?;
-        match prefix {
-            proto::Prefix::Nickname(nickname, username, hostname) => Some(User::new(
+        match source {
+            proto::Source::User(proto::User {
+                nickname,
+                username,
+                hostname,
+            }) => Some(User::new(
                 Nick::from(nickname.as_str()),
-                not_empty(username),
-                not_empty(hostname),
+                username.clone(),
+                hostname.clone(),
             )),
             _ => None,
         }
@@ -118,39 +119,36 @@ impl Message {
 }
 
 fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
+    use proto::command::Numeric::*;
+
     let user = message.user();
 
     match message.0.command {
         // Channel
-        proto::Command::TOPIC(channel, _)
-        | proto::Command::ChannelMODE(channel, _)
-        | proto::Command::KICK(channel, _, _) => Some(Target::Channel {
+        Command::MODE(target, ..) if proto::is_channel(&target) => Some(Target::Channel {
+            channel: target,
+            source: source::Source::Server(None),
+        }),
+        Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => Some(Target::Channel {
             channel,
             source: source::Source::Server(None),
         }),
-        proto::Command::PART(channel, _) => Some(Target::Channel {
+        Command::PART(channel, _) => Some(Target::Channel {
             channel,
             source: source::Source::Server(Some(source::Server::Part)),
         }),
-        proto::Command::SAJOIN(_, channel) | proto::Command::JOIN(channel, _, _) => {
-            Some(Target::Channel {
-                channel,
-                source: source::Source::Server(Some(source::Server::Join)),
-            })
-        }
-        proto::Command::Response(
-            proto::Response::RPL_TOPIC
-            | proto::Response::RPL_TOPICWHOTIME
-            | proto::Response::RPL_CHANNELMODEIS,
-            params,
-        ) => {
+        Command::JOIN(channel, _) => Some(Target::Channel {
+            channel,
+            source: source::Source::Server(Some(source::Server::Join)),
+        }),
+        Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME | RPL_CHANNELMODEIS, params) => {
             let channel = params.get(1)?.clone();
             Some(Target::Channel {
                 channel,
                 source: source::Source::Server(None),
             })
         }
-        proto::Command::Response(proto::Response::RPL_AWAY, params) => {
+        Command::Numeric(RPL_AWAY, params) => {
             let user = params.get(1)?;
             let target = User::try_from(user.as_str()).ok()?;
 
@@ -159,7 +157,7 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
                 source: Source::Action,
             })
         }
-        proto::Command::PRIVMSG(target, text) => {
+        Command::PRIVMSG(target, text) => {
             let is_action = is_action(&text);
             let source = |user| {
                 if is_action {
@@ -169,7 +167,7 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
                 }
             };
 
-            match (target.is_channel_name(), user) {
+            match (proto::is_channel(&target), user) {
                 (true, Some(user)) => Some(Target::Channel {
                     channel: target,
                     source: source(user),
@@ -185,7 +183,7 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
                 _ => None,
             }
         }
-        proto::Command::NOTICE(target, text) => {
+        Command::NOTICE(target, text) => {
             let is_action = is_action(&text);
             let source = |user| {
                 if is_action {
@@ -195,7 +193,7 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
                 }
             };
 
-            match (target.is_channel_name(), user) {
+            match (proto::is_channel(&target), user) {
                 (true, Some(user)) => Some(Target::Channel {
                     channel: target,
                     source: source(user),
@@ -215,64 +213,43 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
         }
 
         // Server
-        proto::Command::SANICK(_, _)
-        | proto::Command::SAMODE(_, _, _)
-        | proto::Command::PASS(_)
-        | proto::Command::NICK(_)
-        | proto::Command::USER(_, _, _)
-        | proto::Command::OPER(_, _)
-        | proto::Command::UserMODE(_, _)
-        | proto::Command::SERVICE(_, _, _, _, _, _)
-        | proto::Command::QUIT(_)
-        | proto::Command::SQUIT(_, _)
-        | proto::Command::NAMES(_, _)
-        | proto::Command::LIST(_, _)
-        | proto::Command::INVITE(_, _)
-        | proto::Command::MOTD(_)
-        | proto::Command::LUSERS(_, _)
-        | proto::Command::VERSION(_)
-        | proto::Command::STATS(_, _)
-        | proto::Command::LINKS(_, _)
-        | proto::Command::TIME(_)
-        | proto::Command::CONNECT(_, _, _)
-        | proto::Command::TRACE(_)
-        | proto::Command::ADMIN(_)
-        | proto::Command::INFO(_)
-        | proto::Command::SERVLIST(_, _)
-        | proto::Command::SQUERY(_, _)
-        | proto::Command::WHO(_, _)
-        | proto::Command::WHOIS(_, _)
-        | proto::Command::WHOWAS(_, _, _)
-        | proto::Command::KILL(_, _)
-        | proto::Command::PING(_, _)
-        | proto::Command::PONG(_, _)
-        | proto::Command::ERROR(_)
-        | proto::Command::AWAY(_)
-        | proto::Command::REHASH
-        | proto::Command::DIE
-        | proto::Command::RESTART
-        | proto::Command::SUMMON(_, _, _)
-        | proto::Command::USERS(_)
-        | proto::Command::WALLOPS(_)
-        | proto::Command::USERHOST(_)
-        | proto::Command::ISON(_)
-        | proto::Command::SAPART(_, _)
-        | proto::Command::NICKSERV(_)
-        | proto::Command::CHANSERV(_)
-        | proto::Command::OPERSERV(_)
-        | proto::Command::BOTSERV(_)
-        | proto::Command::HOSTSERV(_)
-        | proto::Command::MEMOSERV(_)
-        | proto::Command::CAP(_, _, _, _)
-        | proto::Command::AUTHENTICATE(_)
-        | proto::Command::ACCOUNT(_)
-        | proto::Command::METADATA(_, _, _)
-        | proto::Command::MONITOR(_, _)
-        | proto::Command::BATCH(_, _, _)
-        | proto::Command::CHGHOST(_, _)
-        | proto::Command::Response(_, _)
-        | proto::Command::Raw(_, _)
-        | proto::Command::SAQUIT(_, _) => Some(Target::Server {
+        Command::PASS(_)
+        | Command::NICK(_)
+        | Command::USER(_, _)
+        | Command::OPER(_, _)
+        | Command::QUIT(_)
+        | Command::SQUIT(_, _)
+        | Command::NAMES(_)
+        | Command::LIST(_, _)
+        | Command::INVITE(_, _)
+        | Command::MOTD(_)
+        | Command::LUSERS
+        | Command::VERSION(_)
+        | Command::STATS(_, _)
+        | Command::LINKS
+        | Command::TIME(_)
+        | Command::CONNECT(_, _, _)
+        | Command::ADMIN(_)
+        | Command::INFO
+        | Command::WHO(_)
+        | Command::WHOIS(_, _)
+        | Command::WHOWAS(_, _)
+        | Command::KILL(_, _)
+        | Command::PING(_)
+        | Command::PONG(_, _)
+        | Command::ERROR(_)
+        | Command::AWAY(_)
+        | Command::REHASH
+        | Command::RESTART
+        | Command::WALLOPS(_)
+        | Command::USERHOST(_)
+        | Command::CAP(_, _, _, _)
+        | Command::AUTHENTICATE(_)
+        | Command::BATCH(_, _)
+        | Command::HELP(_)
+        | Command::MODE(_, _, _)
+        | Command::Numeric(_, _)
+        | Command::Unknown(_, _) => Some(Target::Server {
             source: Source::Server(None),
         }),
     }
@@ -281,24 +258,26 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
 fn server_time(message: &Encoded) -> DateTime<Utc> {
     message
         .tags
-        .as_ref()
-        .and_then(|tags| tags.iter().find(|tag| tag.0 == "time"))
-        .and_then(|tag| tag.1.clone())
+        .iter()
+        .find(|tag| &tag.key == "time")
+        .and_then(|tag| tag.value.clone())
         .and_then(|rfc3339| DateTime::parse_from_rfc3339(&rfc3339).ok())
         .map(|dt| dt.with_timezone(&Utc))
         .unwrap_or_else(Utc::now)
 }
 
 fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
+    use irc::proto::command::Numeric::*;
+
     let user = message.user();
     match &message.command {
-        proto::Command::TOPIC(_, topic) => {
+        Command::TOPIC(_, topic) => {
             let user = user?;
             let topic = topic.as_ref()?;
 
             Some(format!(" ∙ {user} changed topic to {topic}"))
         }
-        proto::Command::PART(_, text) => {
+        Command::PART(_, text) => {
             let user = user?.formatted();
             let text = text
                 .as_ref()
@@ -307,13 +286,13 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
 
             Some(format!("⟵ {user} has left the channel{text}"))
         }
-        proto::Command::JOIN(_, _, _) | proto::Command::SAJOIN(_, _) => {
+        Command::JOIN(_, _) => {
             let user = user?;
 
             (user.nickname() != *our_nick)
                 .then(|| format!("⟶ {} has joined the channel", user.formatted()))
         }
-        proto::Command::ChannelMODE(_, modes) => {
+        Command::MODE(target, modes, _) if proto::is_channel(target) => {
             let user = user?;
             let modes = modes
                 .iter()
@@ -323,7 +302,7 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
 
             Some(format!(" ∙ {user} sets mode {modes}"))
         }
-        proto::Command::PRIVMSG(_, text) => {
+        Command::PRIVMSG(_, text) => {
             // Check if a synthetic action message
             if let Some(nick) = user.as_ref().map(User::nickname) {
                 if let Some(action) = parse_action(nick, text) {
@@ -333,13 +312,13 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
 
             Some(text.clone())
         }
-        proto::Command::NOTICE(_, text) => Some(text.clone()),
-        proto::Command::Response(proto::Response::RPL_TOPIC, params) => {
+        Command::NOTICE(_, text) => Some(text.clone()),
+        Command::Numeric(RPL_TOPIC, params) => {
             let topic = params.get(2)?;
 
             Some(format!(" ∙ topic is {topic}"))
         }
-        proto::Command::Response(proto::Response::RPL_TOPICWHOTIME, params) => {
+        Command::Numeric(RPL_TOPICWHOTIME, params) => {
             let nick = params.get(2)?;
             let datetime = params
                 .get(3)?
@@ -352,7 +331,7 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
 
             Some(format!(" ∙ topic set by {nick} at {datetime}"))
         }
-        proto::Command::Response(proto::Response::RPL_CHANNELMODEIS, params) => {
+        Command::Numeric(RPL_CHANNELMODEIS, params) => {
             let mode = params
                 .iter()
                 .skip(2)
@@ -362,7 +341,7 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
 
             Some(format!(" ∙ Channel mode is {mode}"))
         }
-        proto::Command::Response(proto::Response::RPL_AWAY, params) => {
+        Command::Numeric(RPL_AWAY, params) => {
             let user = params.get(1)?;
             let away_message = params
                 .get(2)
@@ -371,7 +350,7 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
 
             Some(format!(" ∙ {user} is away{away_message}"))
         }
-        proto::Command::Response(_, responses) | proto::Command::Raw(_, responses) => Some(
+        Command::Numeric(_, responses) | Command::Unknown(_, responses) => Some(
             responses
                 .iter()
                 .map(|s| s.as_str())

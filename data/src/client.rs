@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
+use std::fmt;
 
-use irc::client::Client;
-use itertools::Itertools;
+use futures::channel::mpsc;
+use irc::proto::{self, command, Command};
 
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -23,7 +24,7 @@ impl Status {
 #[derive(Debug)]
 pub enum State {
     Disconnected,
-    Ready(Connection),
+    Ready(Client),
 }
 
 #[derive(Debug)]
@@ -48,9 +49,8 @@ pub enum Event {
     Brodcast(Brodcast),
 }
 
-#[derive(Debug)]
-pub struct Connection {
-    client: Client,
+pub struct Client {
+    sender: mpsc::Sender<proto::Message>,
     resolved_nick: Option<String>,
     channels: Vec<String>,
     users: HashMap<String, Vec<User>>,
@@ -60,10 +60,16 @@ pub struct Connection {
     supports_labels: bool,
 }
 
-impl Connection {
-    pub fn new(client: Client) -> Self {
+impl fmt::Debug for Client {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Client").finish()
+    }
+}
+
+impl Client {
+    pub fn new(sender: mpsc::Sender<proto::Message>) -> Self {
         Self {
-            client,
+            sender,
             resolved_nick: None,
             channels: vec![],
             users: HashMap::new(),
@@ -74,12 +80,12 @@ impl Connection {
         }
     }
 
-    pub async fn quit(self) {
+    pub async fn quit(mut self) {
         use std::time::Duration;
 
         use tokio::time;
 
-        let _ = self.client.send_quit("");
+        let _ = self.sender.try_send(command!("QUIT"));
 
         // Ensure message is sent before dropping
         time::sleep(Duration::from_secs(1)).await;
@@ -87,19 +93,23 @@ impl Connection {
 
     fn send(&mut self, buffer: &Buffer, mut message: message::Encoded) {
         if self.supports_labels {
-            use irc::proto::message::Tag;
+            use proto::Tag;
 
             let label = generate_label();
             let context = Context::new(&message, buffer.clone());
 
             self.labels.insert(label.clone(), context);
 
-            message.tags = Some(vec![Tag("label".to_string(), Some(label))]);
+            // IRC: Encode tags
+            message.tags = vec![Tag {
+                key: "label".to_string(),
+                value: Some(label),
+            }];
         }
 
         self.reroute_responses_to = start_reroute(&message.command).then(|| buffer.clone());
 
-        if let Err(e) = self.client.send(message) {
+        if let Err(e) = self.sender.try_send(message.into()) {
             log::warn!("Error sending message: {e}");
         }
     }
@@ -123,8 +133,7 @@ impl Connection {
         mut message: message::Encoded,
         parent_context: Option<Context>,
     ) -> Option<Vec<Event>> {
-        use irc::proto::Response::*;
-        use irc::proto::{CapSubCommand, Command};
+        use irc::proto::command::Numeric::*;
 
         let label_tag = remove_tag("label", message.tags.as_mut());
         let batch_tag = remove_tag("batch", message.tags.as_mut());
@@ -144,7 +153,7 @@ impl Connection {
         });
 
         match &message.command {
-            Command::BATCH(batch, _, _) => {
+            Command::BATCH(batch, ..) => {
                 let mut chars = batch.chars();
                 let symbol = chars.next()?;
                 let reference = chars.collect::<String>();
@@ -196,7 +205,7 @@ impl Connection {
                 }
             }
             // Reroute responses
-            Command::Response(..) | Command::Raw(..) if self.reroute_responses_to.is_some() => {
+            Command::Numeric(..) | Command::Unknown(..) if self.reroute_responses_to.is_some() => {
                 if let Some(source) = self
                     .reroute_responses_to
                     .clone()
@@ -209,7 +218,7 @@ impl Connection {
                     )]);
                 }
             }
-            Command::CAP(_, CapSubCommand::ACK, a, b) => {
+            Command::CAP(_, sub, a, b) if sub == "ACK" => {
                 let cap_str = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
                 let caps = cap_str.split(' ').collect::<Vec<_>>();
 
@@ -242,7 +251,7 @@ impl Connection {
                     channels,
                 })]);
             }
-            Command::Response(RPL_WELCOME, args) => {
+            Command::Numeric(RPL_WELCOME, args) => {
                 if let Some(nick) = args.first() {
                     self.resolved_nick = Some(nick.to_string());
                 }
@@ -266,30 +275,31 @@ impl Connection {
     }
 
     fn sync(&mut self) {
-        self.channels = self
-            .client
-            .list_channels()
-            .unwrap_or_default()
-            .into_iter()
-            .sorted()
-            .collect();
+        // TODO
+        // self.channels = self
+        //     .sender
+        //     .list_channels()
+        //     .unwrap_or_default()
+        //     .into_iter()
+        //     .sorted()
+        //     .collect();
 
-        self.users = self
-            .channels
-            .iter()
-            .map(|channel| {
-                (
-                    channel.clone(),
-                    self.client
-                        .list_users(channel)
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(User::from)
-                        .sorted()
-                        .collect(),
-                )
-            })
-            .collect();
+        // self.users = self
+        //     .channels
+        //     .iter()
+        //     .map(|channel| {
+        //         (
+        //             channel.clone(),
+        //             self.sender
+        //                 .list_users(channel)
+        //                 .unwrap_or_default()
+        //                 .into_iter()
+        //                 .map(User::from)
+        //                 .sorted()
+        //                 .collect(),
+        //         )
+        //     })
+        //     .collect();
     }
 
     pub fn channels(&self) -> &[String] {
@@ -316,11 +326,8 @@ impl Connection {
     }
 
     pub fn nickname(&self) -> NickRef {
-        NickRef::from(
-            self.resolved_nick
-                .as_deref()
-                .unwrap_or_else(|| self.client.current_nickname()),
-        )
+        // TODO: Fallback nicks
+        NickRef::from(self.resolved_nick.as_deref().unwrap_or("unknown"))
     }
 }
 
@@ -332,7 +339,7 @@ impl Map {
         self.0.insert(server, State::Disconnected);
     }
 
-    pub fn ready(&mut self, server: Server, client: Connection) {
+    pub fn ready(&mut self, server: Server, client: Client) {
         self.0.insert(server, State::Ready(client));
     }
 
@@ -340,14 +347,14 @@ impl Map {
         self.0.is_empty()
     }
 
-    pub fn remove(&mut self, server: &Server) -> Option<Connection> {
+    pub fn remove(&mut self, server: &Server) -> Option<Client> {
         self.0.remove(server).and_then(|state| match state {
             State::Disconnected => None,
-            State::Ready(connection) => Some(connection),
+            State::Ready(client) => Some(client),
         })
     }
 
-    pub fn connection(&self, server: &Server) -> Option<&Connection> {
+    pub fn client(&self, server: &Server) -> Option<&Client> {
         if let Some(State::Ready(client)) = self.0.get(server) {
             Some(client)
         } else {
@@ -355,7 +362,7 @@ impl Map {
         }
     }
 
-    pub fn connection_mut(&mut self, server: &Server) -> Option<&mut Connection> {
+    pub fn client_mut(&mut self, server: &Server) -> Option<&mut Client> {
         if let Some(State::Ready(client)) = self.0.get_mut(server) {
             Some(client)
         } else {
@@ -364,42 +371,42 @@ impl Map {
     }
 
     pub fn nickname(&self, server: &Server) -> Option<NickRef> {
-        self.connection(server).map(Connection::nickname)
+        self.client(server).map(Client::nickname)
     }
 
     pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Vec<Event> {
-        self.connection_mut(server)
-            .map(|connection| connection.receive(message))
+        self.client_mut(server)
+            .map(|client| client.receive(message))
             .unwrap_or_default()
     }
 
     pub fn sync(&mut self, server: &Server) {
-        if let Some(State::Ready(connection)) = self.0.get_mut(server) {
-            connection.sync();
+        if let Some(State::Ready(client)) = self.0.get_mut(server) {
+            client.sync();
         }
     }
 
     pub fn send(&mut self, buffer: &Buffer, message: message::Encoded) {
-        if let Some(connection) = self.connection_mut(buffer.server()) {
-            connection.send(buffer, message);
+        if let Some(client) = self.client_mut(buffer.server()) {
+            client.send(buffer, message);
         }
     }
 
     pub fn get_channel_users<'a>(&'a self, server: &Server, channel: &str) -> &'a [User] {
-        self.connection(server)
-            .map(|connection| connection.users(channel))
+        self.client(server)
+            .map(|client| client.users(channel))
             .unwrap_or_default()
     }
 
     pub fn get_user_channels(&self, server: &Server, nick: NickRef) -> Vec<String> {
-        self.connection(server)
-            .map(|connection| connection.user_channels(nick))
+        self.client(server)
+            .map(|client| client.user_channels(nick))
             .unwrap_or_default()
     }
 
     pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [String] {
-        self.connection(server)
-            .map(|connection| connection.channels())
+        self.client(server)
+            .map(|client| client.channels())
             .unwrap_or_default()
     }
 
@@ -426,8 +433,6 @@ pub enum Context {
 
 impl Context {
     fn new(message: &message::Encoded, buffer: Buffer) -> Self {
-        use irc::proto::Command;
-
         if let Command::WHOIS(_, _) = message.command {
             Self::Whois(buffer)
         } else {
@@ -466,28 +471,23 @@ fn generate_label() -> String {
     Posix::now().as_nanos().to_string()
 }
 
-fn remove_tag(key: &str, tags: Option<&mut Vec<irc::proto::message::Tag>>) -> Option<String> {
-    let tags = tags?;
-
-    tags.remove(tags.iter().position(|tag| tag.0 == key)?).1
+fn remove_tag(key: &str, tags: &mut Vec<irc::proto::Tag>) -> Option<String> {
+    tags.remove(tags.iter().position(|tag| tag.key == key)?)
+        .value
 }
 
-fn start_reroute(command: &irc::proto::Command) -> bool {
-    use irc::proto::Command;
+fn start_reroute(command: &Command) -> bool {
+    use Command::*;
+
+    matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..))
+}
+
+fn stop_reroute(command: &Command) -> bool {
+    use command::Numeric::*;
 
     matches!(
         command,
-        Command::WHO(..) | Command::WHOIS(..) | Command::WHOWAS(..)
-    )
-}
-
-fn stop_reroute(command: &irc::proto::Command) -> bool {
-    use irc::proto::Command;
-    use irc::proto::Response::*;
-
-    matches!(
-        command,
-        Command::Response(
+        Command::Numeric(
             RPL_ENDOFWHO
                 | RPL_ENDOFWHOIS
                 | RPL_ENDOFWHOWAS

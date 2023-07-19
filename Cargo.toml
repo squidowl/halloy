@@ -32,7 +32,11 @@ image = "0.24.6"
 embed-resource = "2.1.1"
 
 [workspace]
-members = ["data"]
+members = [
+  "data",
+  "irc",
+  "irc/proto",
+]
 
 [patch.crates-io]
 iced = { git = "https://github.com/iced-rs/iced", rev = "fd077918db7643530c3a7318ed5777d2f3d8761b" }

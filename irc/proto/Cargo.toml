@@ -1,0 +1,9 @@
+[package]
+name = "irc_proto"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+itertools = "0.10.5"
+nom = "7.1"
+thiserror = "1.0.30"

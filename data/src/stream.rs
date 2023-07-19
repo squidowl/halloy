@@ -3,10 +3,11 @@ use std::time::Duration;
 use futures::channel::mpsc;
 use futures::never::Never;
 use futures::{stream, SinkExt, StreamExt};
-use irc::proto::Capability;
+use irc::proto::{self, command};
+use irc::{codec, connection, Connection};
 use tokio::time::{self, Instant, Interval};
 
-use crate::client::Connection;
+use crate::client::Client;
 use crate::server::Server;
 use crate::{config, message, server};
 
@@ -14,14 +15,14 @@ pub type Result<T = Update, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug)]
 pub enum Error {
-    Connection(irc::error::Error),
+    Connection(connection::Error),
 }
 
 #[derive(Debug)]
 pub enum Update {
     Connected {
         server: Server,
-        connection: Connection,
+        client: Client,
         is_initial: bool,
     },
     Disconnected {
@@ -37,18 +38,19 @@ pub enum Update {
 }
 
 enum State {
-    Disconnected {
-        last_retry: Option<Instant>,
-    },
-    Connected {
-        stream: irc::client::ClientStream,
-        batch: Batch,
-    },
+    Disconnected { last_retry: Option<Instant> },
+    Connected { stream: Stream, batch: Batch },
 }
 
 enum Input {
-    IrcMessage(Result<irc::proto::Message, irc::error::Error>),
+    IrcMessage(Result<codec::ParseResult, codec::Error>),
     Batch(Vec<message::Encoded>),
+    Send(proto::Message),
+}
+
+struct Stream {
+    connection: Connection,
+    receiver: mpsc::Receiver<proto::Message>,
 }
 
 pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Never {
@@ -79,13 +81,13 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                 }
 
                 match connect(config.clone()).await {
-                    Ok((stream, connection)) => {
+                    Ok((stream, client)) => {
                         log::info!("[{server}] connected");
 
                         let _ = sender
                             .send(Update::Connected {
                                 server: server.clone(),
-                                connection,
+                                client,
                                 is_initial,
                             })
                             .await;
@@ -100,7 +102,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                     Err(e) => {
                         let error = match e {
                             // unwrap Tls-specific error enums to access more error info
-                            irc::error::Error::Tls(e) => format!("a TLS error occured: {e}"),
+                            connection::Error::Tls(e) => format!("a TLS error occured: {e}"),
                             _ => e.to_string(),
                         };
 
@@ -118,14 +120,23 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                 }
             }
             State::Connected { stream, batch } => {
-                let input = stream::select(stream.map(Input::IrcMessage), batch.map(Input::Batch))
-                    .next()
-                    .await
-                    .expect("stream input");
+                let input = stream::select(
+                    stream::select(
+                        (&mut stream.connection).map(Input::IrcMessage),
+                        batch.map(Input::Batch),
+                    ),
+                    (&mut stream.receiver).map(Input::Send),
+                )
+                .next()
+                .await
+                .expect("stream input");
 
                 match input {
-                    Input::IrcMessage(Ok(message)) => {
+                    Input::IrcMessage(Ok(Ok(message))) => {
                         batch.messages.push(message.into());
+                    }
+                    Input::IrcMessage(Ok(Err(e))) => {
+                        log::warn!("message decoding failed: {e}");
                     }
                     Input::IrcMessage(Err(e)) => {
                         log::warn!("[{server}] disconnected: {e}");
@@ -145,43 +156,61 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                             .send(Update::MessagesReceived(server.clone(), messages))
                             .await;
                     }
+                    Input::Send(message) => {
+                        let _ = stream.connection.send(message).await;
+                    }
                 }
             }
         }
     }
 }
 
-async fn connect(
-    config: config::Server,
-) -> Result<(irc::client::ClientStream, Connection), irc::error::Error> {
-    use irc::proto::{CapSubCommand, Command};
+async fn connect(config: config::Server) -> Result<(Stream, Client), connection::Error> {
+    let mut connection = Connection::new(
+        &config.server,
+        config.port.unwrap_or(6697),
+        config.use_tls.unwrap_or(true),
+    )
+    .await?;
 
-    let mut client = irc::client::Client::from_config(config.into()).await?;
-    let mut stream = client.stream()?;
+    // Begin registration
+    connection.send(command!("CAP", "LS", "302")).await?;
+
+    // Identify
+    {
+        let nick = &config.nickname;
+        let user = config.username.as_ref().unwrap_or(nick);
+        let real = config.realname.as_ref().unwrap_or(nick);
+
+        if let Some(pass) = config.password.as_ref() {
+            connection.send(command!("PASS", pass)).await?;
+        }
+        connection.send(command!("NICK", nick)).await?;
+        connection.send(command!("USER", user, real)).await?;
+    }
 
     // Negotiate capbilities
-    if client
-        .send_cap_ls(irc::proto::NegotiationVersion::V302)
-        .is_ok()
     {
         let mut str_caps = String::new();
         let mut caps = vec![];
 
-        while let Some(Ok(message)) = stream.next().await {
+        while let Some(Ok(Ok(message))) = connection.next().await {
             log::trace!("Message received => {:?}", message);
 
-            if let Command::CAP(_, CapSubCommand::LS, a, b) = message.command {
-                let (cap_str, asterisk) = match (a, b) {
-                    (Some(cap_str), None) => (cap_str, None),
-                    (Some(asterisk), Some(cap_str)) => (cap_str, Some(asterisk)),
-                    // Unreachable?
-                    (None, None) | (None, Some(_)) => break,
-                };
+            if let proto::Command::CAP(_, sub, a, b) = message.command {
+                if sub.as_str() == "LS" {
+                    let (cap_str, asterisk) = match (a, b) {
+                        (Some(cap_str), None) => (cap_str, None),
+                        (Some(asterisk), Some(cap_str)) => (cap_str, Some(asterisk)),
+                        // Unreachable?
+                        (None, None) | (None, Some(_)) => break,
+                    };
 
-                str_caps = format!("{str_caps} {cap_str}");
+                    str_caps = format!("{str_caps} {cap_str}");
 
-                if asterisk.is_none() {
-                    break;
+                    if asterisk.is_none() {
+                        break;
+                    }
                 }
             }
         }
@@ -189,26 +218,37 @@ async fn connect(
         let server_caps = str_caps.split(' ').collect::<Vec<_>>();
 
         if server_caps.contains(&"server-time") {
-            caps.push(Capability::ServerTime);
+            caps.push("server-time");
         }
         if server_caps.contains(&"batch") {
-            caps.push(Capability::Batch);
+            caps.push("batch");
         }
         if server_caps.contains(&"labeled-response") {
-            caps.push(Capability::Custom("labeled-response"));
+            caps.push("labeled-response");
 
             // We require labeled-response so we can properly tag echo-messages
             if server_caps.contains(&"echo-message") {
-                caps.push(Capability::EchoMessage);
+                caps.push("echo-message");
             }
         }
 
-        let _ = client.send_cap_req(&caps);
+        let caps = caps.join(" ");
+
+        connection.send(command!("CAP", "REQ", caps)).await?;
     }
 
-    client.identify()?;
+    // Finish
+    connection.send(command!("CAP", "END")).await?;
 
-    Ok((stream, Connection::new(client)))
+    let (sender, receiver) = mpsc::channel(100);
+
+    Ok((
+        Stream {
+            connection,
+            receiver,
+        },
+        Client::new(sender),
+    ))
 }
 
 struct Batch {
