@@ -5,7 +5,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Server {
     /// The client's nickname.
-    pub nickname: Option<String>,
+    pub nickname: String,
     /// The client's NICKSERV password.
     pub nick_password: Option<String>,
     /// Alternative nicknames for the client, if the default is taken.
@@ -16,7 +16,7 @@ pub struct Server {
     /// The client's real name.
     pub realname: Option<String>,
     /// The server to connect to.
-    pub server: Option<String>,
+    pub server: String,
     /// The port to connect on.
     pub port: Option<u16>,
     /// The password to connect to the server.
@@ -67,44 +67,4 @@ pub struct Server {
     /// A mapping of channel names to keys for join-on-connect.
     #[serde(default)]
     pub channel_keys: HashMap<String, String>,
-}
-
-impl From<Server> for irc::client::data::Config {
-    fn from(config: Server) -> Self {
-        let version = crate::environment::VERSION;
-
-        irc::client::data::Config {
-            nickname: config.nickname,
-            nick_password: config.nick_password,
-            alt_nicks: config.alt_nicks,
-            username: config.username,
-            realname: config.realname,
-            server: config.server,
-            port: config.port,
-            password: config.password,
-            use_tls: config.use_tls,
-            cert_path: config.cert_path,
-            client_cert_path: config.client_cert_path,
-            client_cert_pass: config.client_cert_pass,
-            dangerously_accept_invalid_certs: config.dangerously_accept_invalid_certs,
-            encoding: config.encoding,
-            channels: config.channels,
-            umodes: config.umodes,
-            user_info: config.user_info,
-            ping_time: config.ping_time,
-            ping_timeout: config.ping_timeout,
-            burst_window_length: config.burst_window_length,
-            max_messages_in_burst: config.max_messages_in_burst,
-            should_ghost: config.should_ghost,
-            ghost_sequence: config.ghost_sequence,
-            channel_keys: config.channel_keys,
-            version: Some(format!("Halloy {version}")),
-            owners: vec![],
-            source: None,
-            use_mock_connection: false,
-            mock_initial_value: None,
-            options: HashMap::new(),
-            path: None,
-        }
-    }
 }

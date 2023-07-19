@@ -304,7 +304,7 @@ impl Application for Halloy {
                 }
                 stream::Update::Connected {
                     server,
-                    connection,
+                    client: connection,
                     is_initial,
                 } => {
                     self.clients.ready(server.clone(), connection);

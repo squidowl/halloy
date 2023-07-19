@@ -160,11 +160,11 @@ fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
 }
 
 impl TryFrom<Command> for proto::Command {
-    type Error = proto::error::MessageParseError;
+    type Error = ();
 
     fn try_from(command: Command) -> Result<Self, Self::Error> {
         Ok(match command {
-            Command::Join(chanlist, chankeys) => proto::Command::JOIN(chanlist, chankeys, None),
+            Command::Join(chanlist, chankeys) => proto::Command::JOIN(chanlist, chankeys),
             Command::Motd(target) => proto::Command::MOTD(target),
             Command::Nick(nick) => proto::Command::NICK(nick),
             Command::Quit(comment) => proto::Command::QUIT(comment),
@@ -176,12 +176,8 @@ impl TryFrom<Command> for proto::Command {
             Command::Part(chanlist, reason) => proto::Command::PART(chanlist, reason),
             Command::Topic(channel, topic) => proto::Command::TOPIC(channel, topic),
             Command::Kick(channel, user, comment) => proto::Command::KICK(channel, user, comment),
-            Command::Raw(command, args) => proto::Command::Raw(command, args),
-            Command::Unknown(command, args) => {
-                let args = args.iter().map(|arg| arg.as_str()).collect();
-
-                return proto::Command::new(command.as_str(), args);
-            }
+            Command::Raw(command, args) => proto::Command::Unknown(command, args),
+            Command::Unknown(command, args) => proto::Command::Unknown(command, args),
         })
     }
 }
