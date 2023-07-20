@@ -112,8 +112,6 @@ impl Client {
             }];
         }
 
-        dbg!(&message.command);
-
         self.reroute_responses_to = start_reroute(&message.command).then(|| buffer.clone());
 
         if let Err(e) = self.sender.try_send(message.into()) {
@@ -269,6 +267,15 @@ impl Client {
             Command::Numeric(RPL_WELCOME, args) => {
                 if let Some(nick) = args.first() {
                     self.resolved_nick = Some(nick.to_string());
+                }
+
+                // Send JOIN
+                for channel in &self.config.channels {
+                    if let Some(keys) = self.config.channel_keys.get(channel) {
+                        let _ = self.sender.try_send(command!("JOIN", channel, keys));
+                    } else {
+                        let _ = self.sender.try_send(command!("JOIN", channel));
+                    }
                 }
             }
             // QUIT
