@@ -1,3 +1,4 @@
+use irc::connection;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -25,7 +26,28 @@ pub struct Server {
     /// Whether or not to use TLS.
     /// Clients will automatically panic if this is enabled without TLS support.
     #[serde(default = "default_use_tls")]
-    pub use_tls: bool,
+    use_tls: bool,
+    /// On `true`, all certificate validations are skipped. Defaults to `false`.
+    #[serde(default)]
+    dangerously_accept_invalid_certs: bool,
+}
+
+impl Server {
+    pub fn connection(&self) -> connection::Config {
+        let security = if self.use_tls {
+            connection::Security::Secured {
+                accept_invalid_certs: self.dangerously_accept_invalid_certs,
+            }
+        } else {
+            connection::Security::Unsecured
+        };
+
+        connection::Config {
+            server: &self.server,
+            port: self.port,
+            security,
+        }
+    }
 }
 
 // TODO
@@ -37,9 +59,6 @@ pub struct Server {
 // TODO
 /// The password for the certificate to use in CertFP authentication.
 // pub client_cert_pass: Option<String>,
-// TODO
-/// On `true`, all certificate validations are skipped. Defaults to `false`.
-// pub dangerously_accept_invalid_certs: Option<bool>,
 // TODO
 /// The encoding type used for this connection.
 /// This is typically UTF-8, but could be something else.
