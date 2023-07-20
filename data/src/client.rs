@@ -112,6 +112,8 @@ impl Client {
             }];
         }
 
+        dbg!(&message.command);
+
         self.reroute_responses_to = start_reroute(&message.command).then(|| buffer.clone());
 
         if let Err(e) = self.sender.try_send(message.into()) {
