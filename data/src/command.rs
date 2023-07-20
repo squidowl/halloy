@@ -177,7 +177,7 @@ impl TryFrom<Command> for proto::Command {
             Command::Topic(channel, topic) => proto::Command::TOPIC(channel, topic),
             Command::Kick(channel, user, comment) => proto::Command::KICK(channel, user, comment),
             Command::Raw(command, args) => proto::Command::Unknown(command, args),
-            Command::Unknown(command, args) => proto::Command::Unknown(command, args),
+            Command::Unknown(command, args) => proto::Command::new(&command, args),
         })
     }
 }
