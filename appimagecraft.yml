@@ -1,0 +1,34 @@
+version: 1
+
+project:
+  name: org.squidowl.halloy
+  # version: 0.1.0
+  version_command: awk -F'[ ="]+' '$1 == "version" { print $2;exit;}' "$PROJECT_ROOT"/Cargo.toml
+
+build:
+  script:
+    commands:
+      - cargo build --release
+
+scripts:
+  post_build:
+    - mkdir -p "$BUILD_DIR"/AppDir/usr/share/metainfo
+    - cp "$PROJECT_ROOT"/assets/linux/org.squidowl.halloy.appdata.xml "$BUILD_DIR"/AppDir/usr/share/metainfo/
+    - |2
+      cat > "$BUILD_DIR"/halloy.desktop <<EOF
+      [Desktop Entry]
+      Name=Halloy
+      Comment=IRC client written in Rust
+      Type=Application
+      Keywords=IM,Chat;
+      Categories=Network;IRCClient;
+      Exec=halloy
+      Icon=logo
+      StartupWMClass=halloy
+      MimeType=x-scheme-handler/irc;x-scheme-handler/ircs;
+      Terminal=false
+      EOF
+
+appimage:
+  linuxdeploy:
+    extra_args: -d "$BUILD_DIR"/halloy.desktop -e "$PROJECT_ROOT"/target/release/halloy -i "$PROJECT_ROOT"/assets/linux/512/logo.png -i "$PROJECT_ROOT"/assets/linux/256/logo.png -i "$PROJECT_ROOT"/assets/linux/128/logo.png
