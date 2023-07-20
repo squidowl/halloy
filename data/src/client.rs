@@ -1,12 +1,13 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
+use itertools::Itertools;
 
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{message, Buffer, Server, User};
+use crate::{config, message, mode, Buffer, Server, User};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -50,8 +51,10 @@ pub enum Event {
 }
 
 pub struct Client {
+    config: config::Server,
     sender: mpsc::Sender<proto::Message>,
     resolved_nick: Option<String>,
+    chanmap: BTreeMap<String, HashSet<User>>,
     channels: Vec<String>,
     users: HashMap<String, Vec<User>>,
     labels: HashMap<String, Context>,
@@ -67,10 +70,12 @@ impl fmt::Debug for Client {
 }
 
 impl Client {
-    pub fn new(sender: mpsc::Sender<proto::Message>) -> Self {
+    pub fn new(config: config::Server, sender: mpsc::Sender<proto::Message>) -> Self {
         Self {
+            config,
             sender,
             resolved_nick: None,
+            chanmap: BTreeMap::default(),
             channels: vec![],
             users: HashMap::new(),
             labels: HashMap::new(),
@@ -242,11 +247,19 @@ impl Client {
                     self.resolved_nick = Some(nick.clone());
                 }
 
+                let new_nick = Nick::from(nick.as_str());
+
+                self.chanmap.values_mut().for_each(|list| {
+                    if let Some(user) = list.take(&old_user) {
+                        list.insert(user.with_nickname(new_nick.clone()));
+                    }
+                });
+
                 let channels = self.user_channels(old_user.nickname());
 
                 return Some(vec![Event::Brodcast(Brodcast::Nickname {
                     old_user,
-                    new_nick: Nick::from(nick.as_str()),
+                    new_nick,
                     ourself,
                     channels,
                 })]);
@@ -260,6 +273,10 @@ impl Client {
             Command::QUIT(comment) => {
                 let user = message.user()?;
 
+                self.chanmap.values_mut().for_each(|list| {
+                    list.remove(&user);
+                });
+
                 let channels = self.user_channels(user.nickname());
 
                 return Some(vec![Event::Brodcast(Brodcast::Quit {
@@ -268,6 +285,50 @@ impl Client {
                     channels,
                 })]);
             }
+            Command::PART(channel, _) => {
+                let user = message.user()?;
+
+                if user.nickname() == self.nickname() {
+                    self.chanmap.remove(channel);
+                } else if let Some(list) = self.chanmap.get_mut(channel) {
+                    list.remove(&user);
+                }
+            }
+            Command::JOIN(channel, _) => {
+                let user = message.user()?;
+
+                if user.nickname() == self.nickname() {
+                    self.chanmap.insert(channel.clone(), Default::default());
+                } else if let Some(list) = self.chanmap.get_mut(channel) {
+                    list.insert(user);
+                }
+            }
+            Command::MODE(target, Some(modes), args) if proto::is_channel(target) => {
+                let modes = mode::parse::<mode::Channel>(modes, args);
+
+                if let Some(list) = self.chanmap.get_mut(target) {
+                    for mode in modes {
+                        if let Some((op, lookup)) = mode
+                            .operation()
+                            .zip(mode.arg().map(|nick| User::from(Nick::from(nick))))
+                        {
+                            if let Some(mut user) = list.take(&lookup) {
+                                user.update_access_level(op, *mode.value());
+                                list.insert(user);
+                            }
+                        }
+                    }
+                }
+            }
+            Command::Numeric(RPL_NAMREPLY, args) if args.len() > 3 => {
+                if let Some(list) = self.chanmap.get_mut(&args[2]) {
+                    for user in args[3].split(' ') {
+                        if let Ok(user) = User::try_from(user) {
+                            list.insert(user);
+                        }
+                    }
+                }
+            }
             _ => {}
         }
 
@@ -275,31 +336,12 @@ impl Client {
     }
 
     fn sync(&mut self) {
-        // TODO
-        // self.channels = self
-        //     .sender
-        //     .list_channels()
-        //     .unwrap_or_default()
-        //     .into_iter()
-        //     .sorted()
-        //     .collect();
-
-        // self.users = self
-        //     .channels
-        //     .iter()
-        //     .map(|channel| {
-        //         (
-        //             channel.clone(),
-        //             self.sender
-        //                 .list_users(channel)
-        //                 .unwrap_or_default()
-        //                 .into_iter()
-        //                 .map(User::from)
-        //                 .sorted()
-        //                 .collect(),
-        //         )
-        //     })
-        //     .collect();
+        self.channels = self.chanmap.keys().cloned().collect();
+        self.users = self
+            .chanmap
+            .iter()
+            .map(|(channel, users)| (channel.clone(), users.iter().sorted().cloned().collect()))
+            .collect();
     }
 
     pub fn channels(&self) -> &[String] {
@@ -327,7 +369,11 @@ impl Client {
 
     pub fn nickname(&self) -> NickRef {
         // TODO: Fallback nicks
-        NickRef::from(self.resolved_nick.as_deref().unwrap_or("unknown"))
+        NickRef::from(
+            self.resolved_nick
+                .as_deref()
+                .unwrap_or(&self.config.nickname),
+        )
     }
 }
 

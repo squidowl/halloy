@@ -21,15 +21,7 @@ impl Encoded {
         let source = self.source.as_ref()?;
 
         match source {
-            proto::Source::User(proto::User {
-                nickname,
-                username,
-                hostname,
-            }) => Some(User::new(
-                Nick::from(nickname.as_str()),
-                username.clone(),
-                hostname.clone(),
-            )),
+            proto::Source::User(user) => Some(User::from(user.clone())),
             _ => None,
         }
     }
@@ -61,7 +53,7 @@ impl From<Encoded> for proto::Message {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
     Server { source: Source },
     Channel { channel: Channel, source: Source },

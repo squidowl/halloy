@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::User;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Source {
     User(User),
     Server(Option<Server>),
