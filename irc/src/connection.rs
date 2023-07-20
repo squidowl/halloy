@@ -16,14 +16,34 @@ pub enum Connection {
     Unsecured(Framed<TcpStream, Codec>),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Security {
+    Unsecured,
+    Secured { accept_invalid_certs: bool },
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Config<'a> {
+    pub server: &'a str,
+    pub port: u16,
+    pub security: Security,
+}
+
 impl Connection {
-    pub async fn new(server: &str, port: u16, use_tls: bool) -> Result<Self, Error> {
-        let tcp = TcpStream::connect((server, port)).await?;
+    pub async fn new(config: Config<'_>) -> Result<Self, Error> {
+        let tcp = TcpStream::connect((config.server, config.port)).await?;
 
-        if use_tls {
-            let connector = native_tls::TlsConnector::builder().build()?;
+        if let Security::Secured {
+            accept_invalid_certs,
+        } = config.security
+        {
+            let connector = native_tls::TlsConnector::builder()
+                .danger_accept_invalid_certs(accept_invalid_certs)
+                .build()?;
 
-            let tls = TlsConnector::from(connector).connect(server, tcp).await?;
+            let tls = TlsConnector::from(connector)
+                .connect(config.server, tcp)
+                .await?;
 
             Ok(Self::Tls(Framed::new(tls, Codec)))
         } else {

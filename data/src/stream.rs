@@ -166,7 +166,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
 }
 
 async fn connect(config: config::Server) -> Result<(Stream, Client), connection::Error> {
-    let mut connection = Connection::new(&config.server, config.port, config.use_tls).await?;
+    let mut connection = Connection::new(config.connection()).await?;
 
     // Begin registration
     connection.send(command!("CAP", "LS", "302")).await?;
