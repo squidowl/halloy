@@ -7,13 +7,11 @@ use serde::Deserialize;
 pub struct Server {
     /// The client's nickname.
     pub nickname: String,
-    // TODO
     /// The client's NICKSERV password.
-    // pub nick_password: Option<String>,
+    pub nick_password: Option<String>,
     /// Alternative nicknames for the client, if the default is taken.
-    // TODO
-    // #[serde(default)]
-    // pub alt_nicks: Vec<String>,
+    #[serde(default)]
+    pub alt_nicks: Vec<String>,
     /// The client's username.
     pub username: Option<String>,
     /// The client's real name.
@@ -47,6 +45,16 @@ pub struct Server {
     /// The amount of time in seconds before attempting to reconnect to the server when disconnected.
     #[serde(default = "default_reconnect_delay")]
     pub reconnect_delay: u64,
+    /// Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in
+    /// use. This has no effect if `nick_password` is not set.
+    #[serde(default)]
+    pub should_ghost: bool,
+    /// The command(s) that should be sent to NickServ to recover a nickname. The nickname and
+    /// password will be appended in that order after the command.
+    /// E.g. `["RECOVER", "RELEASE"]` means `RECOVER nick pass` and `RELEASE nick pass` will be sent
+    /// in that order.
+    #[serde(default = "default_ghost_sequence")]
+    pub ghost_sequence: Vec<String>,
 }
 
 impl Server {
@@ -81,24 +89,11 @@ impl Server {
 /// This is typically UTF-8, but could be something else.
 // pub encoding: Option<String>,
 // TODO
-// TODO
 /// User modes to set on connect. Example: "+RB -x"
 // pub umodes: Option<String>,
 // TODO
 /// The text that'll be sent in response to CTCP USERINFO requests.
 // pub user_info: Option<String>,
-// TODO
-/// Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in
-/// use. This has no effect if `nick_password` is not set.
-// #[serde(default)]
-// pub should_ghost: bool,
-// TODO
-/// The command(s) that should be sent to NickServ to recover a nickname. The nickname and
-/// password will be appended in that order after the command.
-/// E.g. `["RECOVER", "RELEASE"]` means `RECOVER nick pass` and `RELEASE nick pass` will be sent
-/// in that order.
-// pub ghost_sequence: Option<Vec<String>>,
-// TODO
 
 fn default_use_tls() -> bool {
     true
@@ -118,4 +113,8 @@ fn default_ping_timeout() -> u64 {
 
 fn default_reconnect_delay() -> u64 {
     10
+}
+
+fn default_ghost_sequence() -> Vec<String> {
+    vec!["GHOST".into()]
 }
