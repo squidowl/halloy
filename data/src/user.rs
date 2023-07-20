@@ -1,5 +1,6 @@
+use std::collections::HashSet;
+use std::fmt;
 use std::hash::Hash;
-use std::{collections::HashSet, fmt};
 
 use irc::proto;
 use serde::{Deserialize, Serialize};
