@@ -1,14 +1,49 @@
 use itertools::Itertools;
 
-use crate::Message;
+use crate::{Message, Tag};
 
-// TODO: Tags
 pub fn message(message: Message) -> String {
-    let tag = message.command.tag();
+    let command = message.command.command();
 
-    let parameters = message.command.parameters();
+    let params = parameters(message.command.parameters());
+
+    let tags = tags(message.tags);
+
+    if tags.is_empty() {
+        format!("{command} {params}\r\n")
+    } else {
+        format!("@{tags} {command} {params}\r\n")
+    }
+}
+
+fn tags(tags: Vec<Tag>) -> String {
+    tags.into_iter().map(tag).join(";")
+}
+
+fn tag(tag: Tag) -> String {
+    match tag.value {
+        Some(value) => {
+            let mappings = [
+                ('\\', r"\\"),
+                (';', r"\:"),
+                (' ', r"\s"),
+                ('\r', r"\r"),
+                ('\n', r"\n"),
+            ];
+
+            let escaped = mappings
+                .into_iter()
+                .fold(value, |value, (from, to)| value.replace(from, to));
+
+            format!("{}={escaped}", tag.key)
+        }
+        None => tag.key,
+    }
+}
+
+fn parameters(parameters: Vec<String>) -> String {
     let params_len = parameters.len();
-    let params = parameters
+    parameters
         .into_iter()
         .enumerate()
         .map(|(index, param)| {
@@ -18,9 +53,7 @@ pub fn message(message: Message) -> String {
                 param
             }
         })
-        .join(" ");
-
-    format!("{tag} {params}\r\n")
+        .join(" ")
 }
 
 fn trailing(parameter: String) -> String {
@@ -33,7 +66,7 @@ fn trailing(parameter: String) -> String {
 
 #[cfg(test)]
 mod test {
-    use crate::{command, format};
+    use crate::{command, format, Tag};
 
     #[test]
     fn commands() {
@@ -66,5 +99,27 @@ mod test {
             let formatted = format::message(test);
             assert_eq!(formatted, expected);
         }
+    }
+
+    #[test]
+    fn tags() {
+        let test = vec![
+            Tag {
+                key: "tag".into(),
+                value: Some("as\\; \r\n".into()),
+            },
+            Tag {
+                key: "id".into(),
+                value: Some("234AB".into()),
+            },
+            Tag {
+                key: "test".into(),
+                value: None,
+            },
+        ];
+        let expected = r"tag=as\\\:\s\r\n;id=234AB;test";
+
+        let tags = super::tags(test);
+        assert_eq!(tags, expected);
     }
 }
