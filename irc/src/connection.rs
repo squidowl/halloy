@@ -1,8 +1,11 @@
 use std::io;
+use std::path::PathBuf;
 
 use futures::stream::{SplitSink, SplitStream};
 use futures::{Sink, SinkExt, Stream, StreamExt};
+use tokio::fs;
 use tokio::net::TcpStream;
+use tokio_native_tls::native_tls::{Certificate, Identity};
 use tokio_native_tls::{native_tls, TlsConnector, TlsStream};
 use tokio_util::codec::Framed;
 
@@ -16,17 +19,22 @@ pub enum Connection {
     Unsecured(Framed<TcpStream, Codec>),
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Security {
+#[derive(Debug, Clone)]
+pub enum Security<'a> {
     Unsecured,
-    Secured { accept_invalid_certs: bool },
+    Secured {
+        accept_invalid_certs: bool,
+        cert_path: Option<&'a PathBuf>,
+        client_cert_path: Option<&'a PathBuf>,
+        client_cert_pass: Option<&'a str>,
+    },
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Config<'a> {
     pub server: &'a str,
     pub port: u16,
-    pub security: Security,
+    pub security: Security<'a>,
 }
 
 impl Connection {
@@ -35,13 +43,27 @@ impl Connection {
 
         if let Security::Secured {
             accept_invalid_certs,
+            cert_path,
+            client_cert_path,
+            client_cert_pass,
         } = config.security
         {
-            let connector = native_tls::TlsConnector::builder()
-                .danger_accept_invalid_certs(accept_invalid_certs)
-                .build()?;
+            let mut builder = native_tls::TlsConnector::builder();
+            builder.danger_accept_invalid_certs(accept_invalid_certs);
 
-            let tls = TlsConnector::from(connector)
+            if let Some(path) = cert_path {
+                let bytes = fs::read(path).await?;
+                let cert = Certificate::from_der(&bytes)?;
+                builder.add_root_certificate(cert);
+            }
+
+            if let Some((path, pass)) = client_cert_path.zip(client_cert_pass) {
+                let bytes = fs::read(path).await?;
+                let pkcs12_archive = Identity::from_pkcs12(&bytes, pass)?;
+                builder.identity(pkcs12_archive);
+            }
+
+            let tls = TlsConnector::from(builder.build()?)
                 .connect(config.server, tcp)
                 .await?;
 

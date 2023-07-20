@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use irc::connection;
 use serde::Deserialize;
@@ -29,13 +29,6 @@ pub struct Server {
     /// A mapping of channel names to keys for join-on-connect.
     #[serde(default)]
     pub channel_keys: HashMap<String, String>,
-    /// Whether or not to use TLS.
-    /// Clients will automatically panic if this is enabled without TLS support.
-    #[serde(default = "default_use_tls")]
-    use_tls: bool,
-    /// On `true`, all certificate validations are skipped. Defaults to `false`.
-    #[serde(default)]
-    dangerously_accept_invalid_certs: bool,
     /// The amount of inactivity in seconds before the client will ping the server.
     #[serde(default = "default_ping_time")]
     pub ping_time: u64,
@@ -57,6 +50,19 @@ pub struct Server {
     pub ghost_sequence: Vec<String>,
     /// User modestring to set on connect. Example: "+RB-x"
     pub umodes: Option<String>,
+    /// Whether or not to use TLS.
+    /// Clients will automatically panic if this is enabled without TLS support.
+    #[serde(default = "default_use_tls")]
+    use_tls: bool,
+    /// On `true`, all certificate validations are skipped. Defaults to `false`.
+    #[serde(default)]
+    dangerously_accept_invalid_certs: bool,
+    /// The path to the TLS certificate for this server in DER format.
+    cert_path: Option<PathBuf>,
+    /// The path to a TLS certificate to use for CertFP client authentication in DER format.
+    client_cert_path: Option<PathBuf>,
+    /// The password for the certificate to use in CertFP authentication.
+    client_cert_pass: Option<String>,
 }
 
 impl Server {
@@ -64,6 +70,9 @@ impl Server {
         let security = if self.use_tls {
             connection::Security::Secured {
                 accept_invalid_certs: self.dangerously_accept_invalid_certs,
+                cert_path: self.cert_path.as_ref(),
+                client_cert_path: self.client_cert_path.as_ref(),
+                client_cert_pass: self.client_cert_pass.as_deref(),
             }
         } else {
             connection::Security::Unsecured
@@ -76,23 +85,6 @@ impl Server {
         }
     }
 }
-
-// TODO
-/// The path to the TLS certificate for this server in DER format.
-// pub cert_path: Option<String>,
-// TODO
-/// The path to a TLS certificate to use for CertFP client authentication in DER format.
-// pub client_cert_path: Option<String>,
-// TODO
-/// The password for the certificate to use in CertFP authentication.
-// pub client_cert_pass: Option<String>,
-// TODO
-/// The encoding type used for this connection.
-/// This is typically UTF-8, but could be something else.
-// pub encoding: Option<String>,
-// TODO
-/// The text that'll be sent in response to CTCP USERINFO requests.
-// pub user_info: Option<String>,
 
 fn default_use_tls() -> bool {
     true
