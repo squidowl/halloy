@@ -164,6 +164,7 @@ impl Command {
             "MODE" if len > 0 => MODE(req!(), opt!(), params.collect()),
             "PRIVMSG" if len > 1 => PRIVMSG(req!(), req!()),
             "NOTICE" if len > 1 => NOTICE(req!(), req!()),
+            "WHO" if len > 0 => WHO(req!()),
             "WHOIS" => {
                 let a = req!();
                 match opt!() {
