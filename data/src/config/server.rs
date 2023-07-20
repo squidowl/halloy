@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use irc::connection;
 use serde::Deserialize;
 
@@ -23,6 +25,12 @@ pub struct Server {
     pub port: u16,
     /// The password to connect to the server.
     pub password: Option<String>,
+    /// A list of channels to join on connection.
+    #[serde(default)]
+    pub channels: Vec<String>,
+    /// A mapping of channel names to keys for join-on-connect.
+    #[serde(default)]
+    pub channel_keys: HashMap<String, String>,
     /// Whether or not to use TLS.
     /// Clients will automatically panic if this is enabled without TLS support.
     #[serde(default = "default_use_tls")]
@@ -73,9 +81,6 @@ impl Server {
 /// This is typically UTF-8, but could be something else.
 // pub encoding: Option<String>,
 // TODO
-/// A list of channels to join on connection.
-// #[serde(default)]
-// pub channels: Vec<String>,
 // TODO
 /// User modes to set on connect. Example: "+RB -x"
 // pub umodes: Option<String>,
@@ -94,9 +99,6 @@ impl Server {
 /// in that order.
 // pub ghost_sequence: Option<Vec<String>>,
 // TODO
-/// A mapping of channel names to keys for join-on-connect.
-// #[serde(default)]
-// pub channel_keys: HashMap<String, String>,
 
 fn default_use_tls() -> bool {
     true
