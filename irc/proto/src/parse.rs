@@ -1,10 +1,9 @@
-use std::net::IpAddr;
 use std::string::FromUtf8Error;
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
-use nom::combinator::{cut, map, opt, peek, recognize, value, verify};
+use nom::combinator::{cut, map, opt, peek, recognize, value};
 use nom::multi::{many0, many0_count, many1, many1_count, many_m_n, separated_list1};
 use nom::sequence::{preceded, terminated, tuple};
 use nom::{Finish, IResult};
@@ -54,18 +53,16 @@ fn tags(input: &str) -> IResult<&str, Vec<Tag>> {
     );
     // '+'
     let client_prefix = char('+');
-    // <host>
-    let vendor = host;
     // [ <client_prefix> ] [ <vendor> '/' ] <sequence of letters, digits, hyphens (`-`)>
     let key = recognize(tuple((
         opt(client_prefix),
-        opt(terminated(vendor, char('/'))),
+        opt(terminated(many1_count(none_of("/")), char('/'))),
         many1_count(satisfy(|c| c.is_ascii_alphanumeric() || c == '-')),
     )));
     // <key> ['=' <escaped value>]
     let tag = map(
         tuple((key, opt(preceded(char('='), escaped_value)))),
-        |(key, value)| Tag {
+        |(key, value): (&str, _)| Tag {
             key: key.to_string(),
             value,
         },
@@ -80,9 +77,11 @@ fn source(input: &str) -> IResult<&str, Source> {
     // <servername> / <user>
     let source = alt((
         map(terminated(user, peek(space)), Source::User),
-        map(terminated(host, peek(space)), |host| {
-            Source::Server(host.to_string())
-        }),
+        // Default all non-valid users to server
+        map(
+            terminated(recognize(many1(none_of(" "))), peek(space)),
+            |host| Source::Server(host.to_string()),
+        ),
     ));
     // ':' <source> <SPACE>
     terminated(preceded(char(':'), source), space)(input)
@@ -151,37 +150,6 @@ fn user(input: &str) -> IResult<&str, User> {
     )(input)
 }
 
-fn host(input: &str) -> IResult<&str, &str> {
-    alt((ip, hostname))(input)
-}
-
-// shortname *( "." shortname )
-fn hostname(input: &str) -> IResult<&str, &str> {
-    recognize(tuple((
-        shortname,
-        many0_count(preceded(char('.'), shortname)),
-    )))(input)
-}
-
-// ( letter / digit ) *( letter / digit / "-" ) *( letter / digit )
-fn shortname(input: &str) -> IResult<&str, &str> {
-    recognize(tuple((
-        satisfy(|c| c.is_ascii_alphanumeric()),
-        many0_count(satisfy(|c| c.is_ascii_alphanumeric() || c == '-')),
-        many0_count(satisfy(|c| c.is_ascii_alphanumeric())),
-    )))(input)
-}
-
-// super lazy version
-fn ip(input: &str) -> IResult<&str, &str> {
-    verify(
-        recognize(many1(satisfy(|c| {
-            c.is_ascii_hexdigit() || c == '.' || c == ':'
-        }))),
-        |s: &str| s.parse::<IpAddr>().is_ok(),
-    )(input)
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("parsing failed: {input}")]
@@ -194,19 +162,7 @@ pub enum Error {
 mod test {
     use nom::combinator::all_consuming;
 
-    #[test]
-    fn host() {
-        let tests = [
-            "irc.example.com",
-            "localhost",
-            "1.1.1.1",
-            "atw.hu.quakenet.org",
-        ];
-
-        for test in tests {
-            all_consuming(super::host)(test).unwrap();
-        }
-    }
+    use crate::{Source, User};
 
     #[test]
     fn user() {
@@ -223,10 +179,29 @@ mod test {
 
     #[test]
     fn source() {
-        let tests = [":irc.example.com ", ":dan!d@localhost "];
+        let tests = [
+            (
+                ":irc.example.com ",
+                Source::Server("irc.example.com".into()),
+            ),
+            (
+                ":dan!d@localhost ",
+                Source::User(User {
+                    nickname: "dan".into(),
+                    username: Some("d".into()),
+                    hostname: Some("localhost".into()),
+                }),
+            ),
+            (
+                ":atw.hu.quakenet.org ",
+                Source::Server("atw.hu.quakenet.org".into()),
+            ),
+            (":*.freenode.net ", Source::Server("*.freenode.net".into())),
+        ];
 
-        for test in tests {
-            super::source(test).unwrap();
+        for (test, expected) in tests {
+            let (_, source) = super::source(test).unwrap();
+            assert_eq!(source, expected);
         }
     }
 
