@@ -56,7 +56,7 @@ fn tags(input: &str) -> IResult<&str, Vec<Tag>> {
     // [ <client_prefix> ] [ <vendor> '/' ] <sequence of letters, digits, hyphens (`-`)>
     let key = recognize(tuple((
         opt(client_prefix),
-        opt(terminated(many1_count(none_of("/")), char('/'))),
+        opt(terminated(many1_count(none_of("/ ;=")), char('/'))),
         many1_count(satisfy(|c| c.is_ascii_alphanumeric() || c == '-')),
     )));
     // <key> ['=' <escaped value>]
@@ -215,6 +215,7 @@ mod test {
             "@+1.1.1.1/wi2-asef-1=as\\\\\\:\\sdf\\z\\ UNKNOWN\r\n",
             ":test!test@5555:5555:0:55:5555:5555:5555:5555 396 test user/test :is now your visible host\r\n",
             ":atw.hu.quakenet.org 001 test :Welcome to the QuakeNet IRC Network, test\r\n",
+            "@time=2023-07-20T21:19:11.000Z :chat!test@user/test/bot/chat PRIVMSG ##chat :\\_o< quack!\r\n",
         ];
 
         for test in tests {
