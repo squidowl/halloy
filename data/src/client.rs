@@ -288,16 +288,13 @@ impl Client {
             }
             Command::Numeric(RPL_WELCOME, args) => {
                 // Updated actual nick
-                if let Some(nick) = args.first() {
-                    self.resolved_nick = Some(nick.to_string());
-                }
+                let nick = args.first()?;
+                self.resolved_nick = Some(nick.to_string());
 
                 // Send nick password & ghost
                 if let Some(nick_pass) = self.config.nick_password.as_ref() {
                     // Try ghost recovery if we couldn't claim our nick
-                    if self.config.should_ghost
-                        && self.resolved_nick.as_ref() != Some(&self.config.nickname)
-                    {
+                    if self.config.should_ghost && nick != &self.config.nickname {
                         for sequence in &self.config.ghost_sequence {
                             let _ = self.sender.try_send(command!(
                                 "PRIVMSG",
@@ -312,6 +309,11 @@ impl Client {
                         "NickServ",
                         format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
                     ));
+                }
+
+                // Send user modestring
+                if let Some(modestring) = self.config.umodes.as_ref() {
+                    let _ = self.sender.try_send(command!("MODE", nick, modestring));
                 }
 
                 // Send JOIN

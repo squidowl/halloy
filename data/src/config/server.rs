@@ -55,6 +55,8 @@ pub struct Server {
     /// in that order.
     #[serde(default = "default_ghost_sequence")]
     pub ghost_sequence: Vec<String>,
+    /// User modestring to set on connect. Example: "+RB-x"
+    pub umodes: Option<String>,
 }
 
 impl Server {
@@ -88,9 +90,6 @@ impl Server {
 /// The encoding type used for this connection.
 /// This is typically UTF-8, but could be something else.
 // pub encoding: Option<String>,
-// TODO
-/// User modes to set on connect. Example: "+RB -x"
-// pub umodes: Option<String>,
 // TODO
 /// The text that'll be sent in response to CTCP USERINFO requests.
 // pub user_info: Option<String>,
