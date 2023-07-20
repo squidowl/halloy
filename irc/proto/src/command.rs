@@ -234,7 +234,7 @@ impl Command {
         }
     }
 
-    pub fn tag(&self) -> String {
+    pub fn command(&self) -> String {
         use Command::*;
 
         match self {
