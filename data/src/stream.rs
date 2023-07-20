@@ -2,13 +2,14 @@ use std::time::Duration;
 
 use futures::channel::mpsc;
 use futures::never::Never;
-use futures::{stream, SinkExt, StreamExt};
+use futures::{stream, FutureExt, SinkExt, StreamExt};
 use irc::proto::{self, command};
 use irc::{codec, connection, Connection};
 use tokio::time::{self, Instant, Interval};
 
 use crate::client::Client;
 use crate::server::Server;
+use crate::time::Posix;
 use crate::{config, message, server};
 
 pub type Result<T = Update, E = Error> = std::result::Result<T, E>;
@@ -38,14 +39,23 @@ pub enum Update {
 }
 
 enum State {
-    Disconnected { last_retry: Option<Instant> },
-    Connected { stream: Stream, batch: Batch },
+    Disconnected {
+        last_retry: Option<Instant>,
+    },
+    Connected {
+        stream: Stream,
+        batch: Batch,
+        ping_time: Interval,
+        ping_timeout: Option<Interval>,
+    },
 }
 
 enum Input {
     IrcMessage(Result<codec::ParseResult, codec::Error>),
     Batch(Vec<message::Encoded>),
     Send(proto::Message),
+    Ping,
+    PingTimeout,
 }
 
 struct Stream {
@@ -54,12 +64,13 @@ struct Stream {
 }
 
 pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Never {
-    const RECONNECT_DELAY: Duration = Duration::from_secs(10);
-
     let server::Entry { server, config } = server;
+
+    let reconnect_delay = Duration::from_secs(config.reconnect_delay);
 
     let mut is_initial = true;
     let mut state = State::Disconnected { last_retry: None };
+
     // Notify app of initial disconnected state
     let _ = sender
         .send(Update::Disconnected {
@@ -73,7 +84,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
         match &mut state {
             State::Disconnected { last_retry } => {
                 if let Some(last_retry) = last_retry.as_ref() {
-                    let remaining = RECONNECT_DELAY.saturating_sub(last_retry.elapsed());
+                    let remaining = reconnect_delay.saturating_sub(last_retry.elapsed());
 
                     if !remaining.is_zero() {
                         time::sleep(remaining).await;
@@ -97,6 +108,8 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                         state = State::Connected {
                             stream,
                             batch: Batch::new(),
+                            ping_timeout: None,
+                            ping_time: ping_time_interval(config.ping_time),
                         };
                     }
                     Err(e) => {
@@ -119,26 +132,48 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                     }
                 }
             }
-            State::Connected { stream, batch } => {
-                let input = stream::select(
-                    stream::select(
-                        (&mut stream.connection).map(Input::IrcMessage),
-                        batch.map(Input::Batch),
-                    ),
-                    (&mut stream.receiver).map(Input::Send),
-                )
-                .next()
-                .await
-                .expect("stream input");
+            State::Connected {
+                stream,
+                batch,
+                ping_time,
+                ping_timeout,
+            } => {
+                let input = {
+                    let mut select = stream::select_all([
+                        (&mut stream.connection).map(Input::IrcMessage).boxed(),
+                        (&mut stream.receiver).map(Input::Send).boxed(),
+                        ping_time.tick().into_stream().map(|_| Input::Ping).boxed(),
+                        batch.map(Input::Batch).boxed(),
+                    ]);
+
+                    if let Some(timeout) = ping_timeout.as_mut() {
+                        select.push(
+                            timeout
+                                .tick()
+                                .into_stream()
+                                .map(|_| Input::PingTimeout)
+                                .boxed(),
+                        );
+                    }
+
+                    select.next().await.expect("stream input")
+                };
 
                 match input {
-                    Input::IrcMessage(Ok(Ok(message))) => {
-                        if let proto::Command::PING(token) = message.command {
+                    Input::IrcMessage(Ok(Ok(message))) => match message.command {
+                        proto::Command::PING(token) => {
                             let _ = stream.connection.send(command!("PONG", token)).await;
-                        } else {
+                        }
+                        proto::Command::PONG(_, token) => {
+                            let token = token.unwrap_or_default();
+                            log::trace!("[{server}] pong received: {token}");
+
+                            *ping_timeout = None;
+                        }
+                        _ => {
                             batch.messages.push(message.into());
                         }
-                    }
+                    },
                     Input::IrcMessage(Ok(Err(e))) => {
                         log::warn!("message decoding failed: {e}");
                     }
@@ -162,6 +197,29 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                     }
                     Input::Send(message) => {
                         let _ = stream.connection.send(message).await;
+                    }
+                    Input::Ping => {
+                        let now = Posix::now().as_nanos().to_string();
+                        log::trace!("[{server}] ping sent: {now}");
+
+                        let _ = stream.connection.send(command!("PING", now)).await;
+
+                        if ping_timeout.is_none() {
+                            *ping_timeout = Some(ping_timeout_interval(config.ping_timeout));
+                        }
+                    }
+                    Input::PingTimeout => {
+                        log::warn!("[{server}] ping timeout");
+                        let _ = sender
+                            .send(Update::Disconnected {
+                                server: server.clone(),
+                                is_initial,
+                                error: Some("ping timeout".into()),
+                            })
+                            .await;
+                        state = State::Disconnected {
+                            last_retry: Some(Instant::now()),
+                        };
                     }
                 }
             }
@@ -302,4 +360,18 @@ impl futures::Stream for Batch {
             std::task::Poll::Pending => std::task::Poll::Pending,
         }
     }
+}
+
+fn ping_time_interval(secs: u64) -> Interval {
+    time::interval_at(
+        Instant::now() + Duration::from_secs(secs),
+        Duration::from_secs(secs),
+    )
+}
+
+fn ping_timeout_interval(secs: u64) -> Interval {
+    time::interval_at(
+        Instant::now() + Duration::from_secs(secs),
+        Duration::from_secs(secs),
+    )
 }
