@@ -60,7 +60,7 @@ pub enum Command {
     /// None
     INFO,
     /// <target> [<modestring> [<mode arguments>...]]
-    MODE(String, Option<String>, Option<String>),
+    MODE(String, Option<String>, Vec<String>),
 
     /* Sending Messages */
     /// <target>{,<target>} <text to be sent>
@@ -161,7 +161,7 @@ impl Command {
             "STATS" if len > 0 => STATS(req!(), opt!()),
             "HELP" => HELP(opt!()),
             "INFO" => INFO,
-            "MODE" if len > 0 => MODE(req!(), opt!(), opt!()),
+            "MODE" if len > 0 => MODE(req!(), opt!(), params.collect()),
             "PRIVMSG" if len > 1 => PRIVMSG(req!(), req!()),
             "NOTICE" if len > 1 => NOTICE(req!(), req!()),
             "WHOIS" => {

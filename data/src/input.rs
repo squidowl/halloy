@@ -69,7 +69,7 @@ impl Input {
                 direction: message::Direction::Sent,
                 target: to_target(
                     target,
-                    message::Source::User(User::new(our_nick.to_owned(), None, None)),
+                    message::Source::User(User::from(our_nick.to_owned())),
                 )?,
                 text,
             }),

@@ -1,19 +1,25 @@
-use std::fmt;
 use std::hash::Hash;
+use std::{collections::HashSet, fmt};
 
 use irc::proto;
 use serde::{Deserialize, Serialize};
 
-use crate::buffer;
+use crate::{buffer, mode};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
 pub struct User {
     nickname: Nick,
     username: Option<String>,
     hostname: Option<String>,
-    access_levels: Vec<AccessLevel>,
+    access_levels: HashSet<AccessLevel>,
+}
+
+impl PartialEq for User {
+    fn eq(&self, other: &Self) -> bool {
+        self.nickname.eq(&other.nickname)
+    }
 }
 
 impl Eq for User {}
@@ -21,8 +27,6 @@ impl Eq for User {}
 impl Hash for User {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.nickname.hash(state);
-        self.username.hash(state);
-        self.hostname.hash(state);
     }
 }
 
@@ -59,20 +63,22 @@ impl<'a> TryFrom<&'a str> for User {
 
         let access_levels = value
             .chars()
-            .filter_map(|c| AccessLevel::try_from(c).ok())
-            .collect::<Vec<_>>();
+            .map(|c| AccessLevel::try_from(c).ok())
+            .take_while(Option::is_some)
+            .flatten()
+            .collect::<HashSet<_>>();
 
         // Safe as access levels are just ASCII
         let rest = &value[access_levels.len()..];
 
         let (nickname, username, hostname) = match (rest.find('!'), rest.find('@')) {
             (None, None) => (rest, None, None),
-            (Some(i), None) => (&rest[..i], Some(rest[i..].to_string()), None),
-            (None, Some(i)) => (&rest[..i], None, Some(rest[i..].to_string())),
+            (Some(i), None) => (&rest[..i], Some(rest[i + 1..].to_string()), None),
+            (None, Some(i)) => (&rest[..i], None, Some(rest[i + 1..].to_string())),
             (Some(i), Some(j)) => (
                 &rest[..i],
-                Some(rest[i..j].to_string()),
-                Some(rest[j..].to_string()),
+                Some(rest[i + 1..j].to_string()),
+                Some(rest[j + 1..].to_string()),
             ),
         };
 
@@ -98,16 +104,18 @@ impl From<User> for String {
     }
 }
 
-impl User {
-    pub fn new(nickname: Nick, username: Option<String>, hostname: Option<String>) -> Self {
-        Self {
+impl From<Nick> for User {
+    fn from(nickname: Nick) -> Self {
+        User {
             nickname,
-            username,
-            hostname,
-            access_levels: vec![],
+            username: None,
+            hostname: None,
+            access_levels: HashSet::default(),
         }
     }
+}
 
+impl User {
     pub fn color_seed(&self, color: &buffer::Color) -> Option<String> {
         match color {
             buffer::Color::Solid => None,
@@ -131,12 +139,29 @@ impl User {
         self.hostname.as_deref()
     }
 
+    pub fn with_nickname(self, nickname: Nick) -> Self {
+        Self { nickname, ..self }
+    }
+
     pub fn highest_access_level(&self) -> AccessLevel {
         self.access_levels
             .iter()
             .max()
             .copied()
             .unwrap_or(AccessLevel::Member)
+    }
+
+    pub fn update_access_level(&mut self, operation: mode::Operation, mode: mode::Channel) {
+        if let Ok(level) = AccessLevel::try_from(mode) {
+            match operation {
+                mode::Operation::Add => {
+                    self.access_levels.insert(level);
+                }
+                mode::Operation::Remove => {
+                    self.access_levels.remove(&level);
+                }
+            }
+        }
     }
 
     pub fn formatted(&self) -> String {
@@ -155,11 +180,12 @@ impl User {
 
 impl From<proto::User> for User {
     fn from(user: proto::User) -> Self {
-        Self::new(
-            Nick::from(user.nickname.as_str()),
-            user.username,
-            user.hostname,
-        )
+        User {
+            nickname: Nick::from(user.nickname),
+            username: user.username,
+            hostname: user.hostname,
+            access_levels: HashSet::default(),
+        }
     }
 }
 
@@ -175,6 +201,12 @@ pub struct Nick(String);
 impl fmt::Display for Nick {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+impl From<String> for Nick {
+    fn from(nick: String) -> Self {
+        Nick(nick)
     }
 }
 
@@ -229,7 +261,7 @@ impl<'a> PartialEq<Nick> for NickRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AccessLevel {
     Member,
     Voice,
@@ -266,5 +298,20 @@ impl TryFrom<char> for AccessLevel {
             '+' => Ok(AccessLevel::Voice),
             _ => Err(()),
         }
+    }
+}
+
+impl TryFrom<mode::Channel> for AccessLevel {
+    type Error = ();
+
+    fn try_from(mode: mode::Channel) -> Result<Self, Self::Error> {
+        Ok(match mode {
+            mode::Channel::Founder => Self::Owner,
+            mode::Channel::Admin => Self::Admin,
+            mode::Channel::Oper => Self::Oper,
+            mode::Channel::Halfop => Self::HalfOp,
+            mode::Channel::Voice => Self::Voice,
+            _ => return Err(()),
+        })
     }
 }

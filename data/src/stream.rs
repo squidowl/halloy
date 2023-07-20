@@ -247,7 +247,7 @@ async fn connect(config: config::Server) -> Result<(Stream, Client), connection:
             connection,
             receiver,
         },
-        Client::new(sender),
+        Client::new(config, sender),
     ))
 }
 
