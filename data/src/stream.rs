@@ -170,6 +170,19 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
 
                             *ping_timeout = None;
                         }
+                        proto::Command::ERROR(error) => {
+                            log::warn!("[{server}] disconnected: {error}");
+                            let _ = sender
+                                .send(Update::Disconnected {
+                                    server: server.clone(),
+                                    is_initial,
+                                    error: Some(error),
+                                })
+                                .await;
+                            state = State::Disconnected {
+                                last_retry: Some(Instant::now()),
+                            };
+                        }
                         _ => {
                             batch.messages.push(message.into());
                         }

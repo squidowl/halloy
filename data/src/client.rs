@@ -53,6 +53,7 @@ pub enum Event {
 pub struct Client {
     config: config::Server,
     sender: mpsc::Sender<proto::Message>,
+    alt_nick: Option<usize>,
     resolved_nick: Option<String>,
     chanmap: BTreeMap<String, HashSet<User>>,
     channels: Vec<String>,
@@ -75,6 +76,7 @@ impl Client {
             config,
             sender,
             resolved_nick: None,
+            alt_nick: None,
             chanmap: BTreeMap::default(),
             channels: vec![],
             users: HashMap::new(),
@@ -264,9 +266,52 @@ impl Client {
                     channels,
                 })]);
             }
+            Command::Numeric(ERR_NICKNAMEINUSE | ERR_ERRONEUSNICKNAME, _)
+                if self.resolved_nick.is_none() =>
+            {
+                // Try alt nicks
+                match &mut self.alt_nick {
+                    Some(index) => {
+                        if *index == self.config.alt_nicks.len() - 1 {
+                            self.alt_nick = None;
+                        } else {
+                            *index += 1;
+                        }
+                    }
+                    None if !self.config.alt_nicks.is_empty() => self.alt_nick = Some(0),
+                    None => {}
+                }
+
+                if let Some(nick) = self.alt_nick.and_then(|i| self.config.alt_nicks.get(i)) {
+                    let _ = self.sender.try_send(command!("NICK", nick));
+                }
+            }
             Command::Numeric(RPL_WELCOME, args) => {
+                // Updated actual nick
                 if let Some(nick) = args.first() {
                     self.resolved_nick = Some(nick.to_string());
+                }
+
+                // Send nick password & ghost
+                if let Some(nick_pass) = self.config.nick_password.as_ref() {
+                    // Try ghost recovery if we couldn't claim our nick
+                    if self.config.should_ghost
+                        && self.resolved_nick.as_ref() != Some(&self.config.nickname)
+                    {
+                        for sequence in &self.config.ghost_sequence {
+                            let _ = self.sender.try_send(command!(
+                                "PRIVMSG",
+                                "NickServ",
+                                format!("{sequence} {} {nick_pass}", &self.config.nickname)
+                            ));
+                        }
+                    }
+
+                    let _ = self.sender.try_send(command!(
+                        "PRIVMSG",
+                        "NickServ",
+                        format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
+                    ));
                 }
 
                 // Send JOIN
