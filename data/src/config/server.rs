@@ -30,6 +30,15 @@ pub struct Server {
     /// On `true`, all certificate validations are skipped. Defaults to `false`.
     #[serde(default)]
     dangerously_accept_invalid_certs: bool,
+    /// The amount of inactivity in seconds before the client will ping the server.
+    #[serde(default = "default_ping_time")]
+    pub ping_time: u64,
+    /// The amount of time in seconds for a client to reconnect due to no ping response.
+    #[serde(default = "default_ping_timeout")]
+    pub ping_timeout: u64,
+    /// The amount of time in seconds before attempting to reconnect to the server when disconnected.
+    #[serde(default = "default_reconnect_delay")]
+    pub reconnect_delay: u64,
 }
 
 impl Server {
@@ -73,14 +82,6 @@ impl Server {
 // TODO
 /// The text that'll be sent in response to CTCP USERINFO requests.
 // pub user_info: Option<String>,
-/// The amount of inactivity in seconds before the client will ping the server.
-// TODO
-// #[serde(default = "default_ping_time")]
-// pub ping_time: u32,
-// TODO
-// /// The amount of time in seconds for a client to reconnect due to no ping response.
-// #[serde(default = "default_ping_timeout")]
-// pub ping_timeout: u32,
 // TODO
 /// Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in
 /// use. This has no effect if `nick_password` is not set.
@@ -105,10 +106,14 @@ fn default_port() -> u16 {
     6697
 }
 
-fn default_ping_time() -> u32 {
+fn default_ping_time() -> u64 {
     180
 }
 
-fn default_ping_timeout() -> u32 {
+fn default_ping_timeout() -> u64 {
     20
+}
+
+fn default_reconnect_delay() -> u64 {
+    10
 }
