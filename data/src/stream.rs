@@ -133,7 +133,11 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
 
                 match input {
                     Input::IrcMessage(Ok(Ok(message))) => {
-                        batch.messages.push(message.into());
+                        if let proto::Command::PING(token) = message.command {
+                            let _ = stream.connection.send(command!("PONG", token)).await;
+                        } else {
+                            batch.messages.push(message.into());
+                        }
                     }
                     Input::IrcMessage(Ok(Err(e))) => {
                         log::warn!("message decoding failed: {e}");
@@ -168,6 +172,8 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
 async fn connect(config: config::Server) -> Result<(Stream, Client), connection::Error> {
     let mut connection = Connection::new(config.connection()).await?;
 
+    let (mut sender, receiver) = mpsc::channel(100);
+
     // Begin registration
     connection.send(command!("CAP", "LS", "302")).await?;
 
@@ -187,13 +193,12 @@ async fn connect(config: config::Server) -> Result<(Stream, Client), connection:
     // Negotiate capbilities
     {
         let mut str_caps = String::new();
-        let mut caps = vec![];
 
         while let Some(Ok(Ok(message))) = connection.next().await {
-            log::trace!("Message received => {:?}", message);
+            match &message.command {
+                proto::Command::CAP(_, sub, a, b) if sub == "LS" => {
+                    log::trace!("Message received => {:?}", message);
 
-            if let proto::Command::CAP(_, sub, a, b) = message.command {
-                if sub.as_str() == "LS" {
                     let (cap_str, asterisk) = match (a, b) {
                         (Some(cap_str), None) => (cap_str, None),
                         (Some(asterisk), Some(cap_str)) => (cap_str, Some(asterisk)),
@@ -207,35 +212,45 @@ async fn connect(config: config::Server) -> Result<(Stream, Client), connection:
                         break;
                     }
                 }
+                _ => {
+                    // Not CAP LS, forward message and break
+                    let _ = sender.try_send(message);
+
+                    break;
+                }
             }
         }
 
-        let server_caps = str_caps.split(' ').collect::<Vec<_>>();
+        if !str_caps.is_empty() {
+            let mut caps = vec![];
 
-        if server_caps.contains(&"server-time") {
-            caps.push("server-time");
-        }
-        if server_caps.contains(&"batch") {
-            caps.push("batch");
-        }
-        if server_caps.contains(&"labeled-response") {
-            caps.push("labeled-response");
+            let server_caps = str_caps.split(' ').collect::<Vec<_>>();
 
-            // We require labeled-response so we can properly tag echo-messages
-            if server_caps.contains(&"echo-message") {
-                caps.push("echo-message");
+            if server_caps.contains(&"server-time") {
+                caps.push("server-time");
+            }
+            if server_caps.contains(&"batch") {
+                caps.push("batch");
+            }
+            if server_caps.contains(&"labeled-response") {
+                caps.push("labeled-response");
+
+                // We require labeled-response so we can properly tag echo-messages
+                if server_caps.contains(&"echo-message") {
+                    caps.push("echo-message");
+                }
+            }
+
+            if !caps.is_empty() {
+                connection
+                    .send(command!("CAP", "REQ", caps.join(" ")))
+                    .await?;
             }
         }
-
-        let caps = caps.join(" ");
-
-        connection.send(command!("CAP", "REQ", caps)).await?;
     }
 
     // Finish
     connection.send(command!("CAP", "END")).await?;
-
-    let (sender, receiver) = mpsc::channel(100);
 
     Ok((
         Stream {
