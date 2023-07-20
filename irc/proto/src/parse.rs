@@ -1,9 +1,10 @@
+use std::net::IpAddr;
 use std::string::FromUtf8Error;
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
-use nom::combinator::{cut, map, opt, peek, recognize, value};
+use nom::combinator::{cut, map, opt, peek, recognize, value, verify};
 use nom::multi::{many0, many0_count, many1, many1_count, many_m_n, separated_list1};
 use nom::sequence::{preceded, terminated, tuple};
 use nom::{Finish, IResult};
@@ -173,9 +174,12 @@ fn shortname(input: &str) -> IResult<&str, &str> {
 
 // super lazy version
 fn ip(input: &str) -> IResult<&str, &str> {
-    recognize(many1(satisfy(|c| {
-        c.is_ascii_hexdigit() || c == '.' || c == ':'
-    })))(input)
+    verify(
+        recognize(many1(satisfy(|c| {
+            c.is_ascii_hexdigit() || c == '.' || c == ':'
+        }))),
+        |s: &str| s.parse::<IpAddr>().is_ok(),
+    )(input)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -192,7 +196,12 @@ mod test {
 
     #[test]
     fn host() {
-        let tests = ["irc.example.com", "localhost", "1.1.1.1"];
+        let tests = [
+            "irc.example.com",
+            "localhost",
+            "1.1.1.1",
+            "atw.hu.quakenet.org",
+        ];
 
         for test in tests {
             all_consuming(super::host)(test).unwrap();
@@ -230,6 +239,7 @@ mod test {
             "@tag=as\\\\\\:\\sdf\\z\\ UNKNOWN\r\n",
             "@+1.1.1.1/wi2-asef-1=as\\\\\\:\\sdf\\z\\ UNKNOWN\r\n",
             ":test!test@5555:5555:0:55:5555:5555:5555:5555 396 test user/test :is now your visible host\r\n",
+            ":atw.hu.quakenet.org 001 test :Welcome to the QuakeNet IRC Network, test\r\n",
         ];
 
         for test in tests {
