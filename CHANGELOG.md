@@ -5,6 +5,9 @@ to ensure future breakages won't occur.**
 
 Added:
 
+- SASL support for PLAIN & EXTERNAL. The following per-server config keys have been added:
+  - PLAIN - `sasl.plain.username` & `sasl.plain.password`
+  - EXTERNAL - `sasl.external.cert` is a path to the PEM encoded X509 cert
 - Configuration option `buffer.hidden_server_messages` to hide server messages from the provided array of sources: ["join", "part", "quit"]
 - Configuration option `buffer.input_visibility` to control input field visibility: always shown or following the focused buffer.
 - Upon joining a channel, display the channel mode in the buffer
