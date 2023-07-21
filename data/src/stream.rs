@@ -91,7 +91,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                     }
                 }
 
-                match connect(config.clone()).await {
+                match connect(server.clone(), config.clone()).await {
                     Ok((stream, client)) => {
                         log::info!("[{server}] connected");
 
@@ -240,95 +240,20 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
     }
 }
 
-async fn connect(config: config::Server) -> Result<(Stream, Client), connection::Error> {
-    let mut connection = Connection::new(config.connection()).await?;
+async fn connect(
+    server: Server,
+    config: config::Server,
+) -> Result<(Stream, Client), connection::Error> {
+    let connection = Connection::new(config.connection()).await?;
 
-    let (mut sender, receiver) = mpsc::channel(100);
-
-    // Begin registration
-    connection.send(command!("CAP", "LS", "302")).await?;
-
-    // Identify
-    {
-        let nick = &config.nickname;
-        let user = config.username.as_ref().unwrap_or(nick);
-        let real = config.realname.as_ref().unwrap_or(nick);
-
-        if let Some(pass) = config.password.as_ref() {
-            connection.send(command!("PASS", pass)).await?;
-        }
-        connection.send(command!("NICK", nick)).await?;
-        connection.send(command!("USER", user, real)).await?;
-    }
-
-    // Negotiate capbilities
-    {
-        let mut str_caps = String::new();
-
-        while let Some(Ok(Ok(message))) = connection.next().await {
-            match &message.command {
-                proto::Command::CAP(_, sub, a, b) if sub == "LS" => {
-                    log::trace!("Message received => {:?}", message);
-
-                    let (cap_str, asterisk) = match (a, b) {
-                        (Some(cap_str), None) => (cap_str, None),
-                        (Some(asterisk), Some(cap_str)) => (cap_str, Some(asterisk)),
-                        // Unreachable?
-                        (None, None) | (None, Some(_)) => break,
-                    };
-
-                    str_caps = format!("{str_caps} {cap_str}");
-
-                    if asterisk.is_none() {
-                        break;
-                    }
-                }
-                _ => {
-                    // Not CAP LS, forward message and break
-                    let _ = sender.try_send(message);
-
-                    break;
-                }
-            }
-        }
-
-        if !str_caps.is_empty() {
-            let mut caps = vec![];
-
-            let server_caps = str_caps.split(' ').collect::<Vec<_>>();
-
-            if server_caps.contains(&"server-time") {
-                caps.push("server-time");
-            }
-            if server_caps.contains(&"batch") {
-                caps.push("batch");
-            }
-            if server_caps.contains(&"labeled-response") {
-                caps.push("labeled-response");
-
-                // We require labeled-response so we can properly tag echo-messages
-                if server_caps.contains(&"echo-message") {
-                    caps.push("echo-message");
-                }
-            }
-
-            if !caps.is_empty() {
-                connection
-                    .send(command!("CAP", "REQ", caps.join(" ")))
-                    .await?;
-            }
-        }
-    }
-
-    // Finish
-    connection.send(command!("CAP", "END")).await?;
+    let (sender, receiver) = mpsc::channel(100);
 
     Ok((
         Stream {
             connection,
             receiver,
         },
-        Client::new(config, sender),
+        Client::new(server, config, sender),
     ))
 }
 

@@ -161,13 +161,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "bincode"
-version = "1.3.3"
+name = "base64"
+version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
-dependencies = [
- "serde",
-]
+checksum = "604178f6c5c21f02dc555784810edfb88d34ac2c73b2eae109655649ee73ce3d"
 
 [[package]]
 name = "bit-set"
@@ -542,7 +539,7 @@ dependencies = [
 name = "data"
 version = "0.1.0"
 dependencies = [
- "bincode",
+ "base64",
  "chrono",
  "dirs-next",
  "flate2",

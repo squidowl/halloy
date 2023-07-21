@@ -16,7 +16,7 @@ use crate::server::Map as ServerMap;
 mod buffer;
 pub mod channel;
 mod dashboard;
-mod server;
+pub mod server;
 
 const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
 const DEFAULT_THEME: (&str, &[u8]) = ("ferra", include_bytes!("../../assets/themes/ferra.yaml"));
