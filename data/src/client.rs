@@ -51,6 +51,7 @@ pub enum Event {
 }
 
 pub struct Client {
+    server: Server,
     config: config::Server,
     sender: mpsc::Sender<proto::Message>,
     alt_nick: Option<usize>,
@@ -61,6 +62,8 @@ pub struct Client {
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
     reroute_responses_to: Option<Buffer>,
+    registration_step: RegistrationStep,
+    listed_caps: Vec<String>,
     supports_labels: bool,
 }
 
@@ -71,8 +74,30 @@ impl fmt::Debug for Client {
 }
 
 impl Client {
-    pub fn new(config: config::Server, sender: mpsc::Sender<proto::Message>) -> Self {
+    pub fn new(
+        server: Server,
+        config: config::Server,
+        mut sender: mpsc::Sender<proto::Message>,
+    ) -> Self {
+        // Begin registration
+        let _ = sender.try_send(command!("CAP", "LS", "302"));
+        let registration_step = RegistrationStep::List;
+
+        // Identify
+        {
+            let nick = &config.nickname;
+            let user = config.username.as_ref().unwrap_or(nick);
+            let real = config.realname.as_ref().unwrap_or(nick);
+
+            if let Some(pass) = config.password.as_ref() {
+                let _ = sender.try_send(command!("PASS", pass));
+            }
+            let _ = sender.try_send(command!("NICK", nick));
+            let _ = sender.try_send(command!("USER", user, real));
+        }
+
         Self {
+            server,
             config,
             sender,
             resolved_nick: None,
@@ -83,6 +108,8 @@ impl Client {
             labels: HashMap::new(),
             batches: HashMap::new(),
             reroute_responses_to: None,
+            registration_step,
+            listed_caps: vec![],
             supports_labels: false,
         }
     }
@@ -225,13 +252,96 @@ impl Client {
                     )]);
                 }
             }
+            Command::CAP(_, sub, a, b) if sub == "LS" => {
+                let (caps, asterisk) = match (a, b) {
+                    (Some(caps), None) => (caps, None),
+                    (Some(asterisk), Some(caps)) => (caps, Some(asterisk)),
+                    // Unreachable
+                    (None, None) | (None, Some(_)) => return None,
+                };
+
+                self.listed_caps.extend(caps.split(' ').map(String::from));
+
+                // Finished
+                if asterisk.is_none() {
+                    let mut requested = vec![];
+
+                    let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
+
+                    if contains("server-time") {
+                        requested.push("server-time");
+                    }
+                    if contains("batch") {
+                        requested.push("batch");
+                    }
+                    if contains("labeled-response") {
+                        requested.push("labeled-response");
+
+                        // We require labeled-response so we can properly tag echo-messages
+                        if contains("echo-message") {
+                            requested.push("echo-message");
+                        }
+                    }
+                    if self.listed_caps.iter().any(|cap| cap.starts_with("sasl")) {
+                        requested.push("sasl");
+                    }
+
+                    if !requested.is_empty() {
+                        // Request
+                        self.registration_step = RegistrationStep::Req;
+                        let _ = self
+                            .sender
+                            .try_send(command!("CAP", "REQ", requested.join(" ")));
+                    } else {
+                        // If none requested, end negotiation
+                        self.registration_step = RegistrationStep::End;
+                        let _ = self.sender.try_send(command!("CAP", "END"));
+                    }
+                }
+            }
             Command::CAP(_, sub, a, b) if sub == "ACK" => {
-                let cap_str = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
-                let caps = cap_str.split(' ').collect::<Vec<_>>();
+                let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+                log::info!("[{}] capabilities acknowledged: {caps}", self.server);
+
+                let caps = caps.split(' ').collect::<Vec<_>>();
 
                 if caps.contains(&"labeled-response") {
                     self.supports_labels = true;
                 }
+
+                let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
+
+                if let Some(sasl) = self.config.sasl.as_ref().filter(|_| supports_sasl) {
+                    self.registration_step = RegistrationStep::Sasl;
+                    let _ = self
+                        .sender
+                        .try_send(command!("AUTHENTICATE", sasl.command()));
+                } else {
+                    self.registration_step = RegistrationStep::End;
+                    let _ = self.sender.try_send(command!("CAP", "END"));
+                }
+            }
+            Command::CAP(_, sub, a, b) if sub == "NAK" => {
+                let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+                log::warn!("[{}] capabilities not acknowledged: {caps}", self.server);
+
+                // End we didn't move to sasl or already ended
+                if self.registration_step < RegistrationStep::Sasl {
+                    self.registration_step = RegistrationStep::End;
+                    let _ = self.sender.try_send(command!("CAP", "END"));
+                }
+            }
+            Command::AUTHENTICATE(param) if param == "+" => {
+                if let Some(sasl) = self.config.sasl.as_ref() {
+                    log::info!("[{}] sasl auth: {}", self.server, sasl.command());
+
+                    let _ = self.sender.try_send(command!("AUTHENTICATE", sasl.param()));
+                    self.registration_step = RegistrationStep::End;
+                    let _ = self.sender.try_send(command!("CAP", "END"));
+                }
+            }
+            Command::Numeric(RPL_LOGGEDIN, _) => {
+                log::info!("[{}] logged in", self.server);
             }
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
                 if let Some(user) = message.user() {
@@ -601,4 +711,12 @@ fn stop_reroute(command: &Command) -> bool {
             _
         )
     )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum RegistrationStep {
+    List,
+    Req,
+    Sasl,
+    End,
 }

@@ -58,12 +58,10 @@ pub struct Server {
     /// On `true`, all certificate validations are skipped. Defaults to `false`.
     #[serde(default)]
     dangerously_accept_invalid_certs: bool,
-    /// The path to the TLS certificate for this server in DER format.
-    cert_path: Option<PathBuf>,
-    /// The path to a TLS certificate to use for CertFP client authentication in DER format.
-    client_cert_path: Option<PathBuf>,
-    /// The password for the certificate to use in CertFP authentication.
-    client_cert_pass: Option<String>,
+    /// The path to the root TLS certificate for this server in PEM format.
+    root_cert_path: Option<PathBuf>,
+    /// Sasl authentication
+    pub sasl: Option<Sasl>,
 }
 
 impl Server {
@@ -71,9 +69,8 @@ impl Server {
         let security = if self.use_tls {
             connection::Security::Secured {
                 accept_invalid_certs: self.dangerously_accept_invalid_certs,
-                cert_path: self.cert_path.as_ref(),
-                client_cert_path: self.client_cert_path.as_ref(),
-                client_cert_pass: self.client_cert_pass.as_deref(),
+                root_cert_path: self.root_cert_path.as_ref(),
+                client_cert_path: self.sasl.as_ref().and_then(Sasl::external_cert),
             }
         } else {
             connection::Security::Unsecured
@@ -83,6 +80,49 @@ impl Server {
             server: &self.server,
             port: self.port,
             security,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Sasl {
+    Plain {
+        /// Account name
+        username: String,
+        /// Account password,
+        password: String,
+    },
+    External {
+        /// The path to PEM encoded X509 certificate for external auth
+        cert: PathBuf,
+    },
+}
+
+impl Sasl {
+    pub fn command(&self) -> &'static str {
+        match self {
+            Sasl::Plain { .. } => "PLAIN",
+            Sasl::External { .. } => "EXTERNAL",
+        }
+    }
+
+    pub fn param(&self) -> String {
+        match self {
+            Sasl::Plain { username, password } => {
+                use base64::engine::Engine;
+                base64::engine::general_purpose::STANDARD
+                    .encode(format!("{username}\x00{username}\x00{password}"))
+            }
+            Sasl::External { .. } => "+".into(),
+        }
+    }
+
+    fn external_cert(&self) -> Option<&PathBuf> {
+        if let Self::External { cert } = self {
+            Some(cert)
+        } else {
+            None
         }
     }
 }

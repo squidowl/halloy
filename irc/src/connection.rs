@@ -24,9 +24,8 @@ pub enum Security<'a> {
     Unsecured,
     Secured {
         accept_invalid_certs: bool,
-        cert_path: Option<&'a PathBuf>,
+        root_cert_path: Option<&'a PathBuf>,
         client_cert_path: Option<&'a PathBuf>,
-        client_cert_pass: Option<&'a str>,
     },
 }
 
@@ -43,23 +42,22 @@ impl Connection {
 
         if let Security::Secured {
             accept_invalid_certs,
-            cert_path,
+            root_cert_path,
             client_cert_path,
-            client_cert_pass,
         } = config.security
         {
             let mut builder = native_tls::TlsConnector::builder();
             builder.danger_accept_invalid_certs(accept_invalid_certs);
 
-            if let Some(path) = cert_path {
+            if let Some(path) = root_cert_path {
                 let bytes = fs::read(path).await?;
-                let cert = Certificate::from_der(&bytes)?;
+                let cert = Certificate::from_pem(&bytes)?;
                 builder.add_root_certificate(cert);
             }
 
-            if let Some((path, pass)) = client_cert_path.zip(client_cert_pass) {
+            if let Some(path) = client_cert_path {
                 let bytes = fs::read(path).await?;
-                let pkcs12_archive = Identity::from_pkcs12(&bytes, pass)?;
+                let pkcs12_archive = Identity::from_pkcs8(&bytes, &bytes)?;
                 builder.identity(pkcs12_archive);
             }
 
