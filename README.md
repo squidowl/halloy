@@ -49,6 +49,7 @@ Halloy supports the following IRCv3.2 capabilities
 
 - `batch`
 - `server-time`
+- `sasl=PLAIN,EXTERNAL`
 - `labeled-response`
 - `echo-message` (server must also support `labeled-response`)
 
