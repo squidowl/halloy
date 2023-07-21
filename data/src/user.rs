@@ -1,23 +1,33 @@
+use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
 
-use irc::client::data;
+use irc::proto;
 use serde::{Deserialize, Serialize};
 
-use crate::buffer;
+use crate::{buffer, mode};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(into = "String")]
 #[serde(try_from = "String")]
-pub struct User(data::User);
+pub struct User {
+    nickname: Nick,
+    username: Option<String>,
+    hostname: Option<String>,
+    access_levels: HashSet<AccessLevel>,
+}
+
+impl PartialEq for User {
+    fn eq(&self, other: &Self) -> bool {
+        self.nickname.eq(&other.nickname)
+    }
+}
 
 impl Eq for User {}
 
 impl Hash for User {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.get_nickname().hash(state);
-        self.0.get_username().hash(state);
-        self.0.get_hostname().hash(state);
+        self.nickname.hash(state);
     }
 }
 
@@ -48,7 +58,37 @@ impl<'a> TryFrom<&'a str> for User {
     type Error = &'static str;
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        Ok(Self(data::User::new(value)))
+        if value.is_empty() {
+            return Err("nickname can't be empty");
+        }
+
+        let access_levels = value
+            .chars()
+            .map(|c| AccessLevel::try_from(c).ok())
+            .take_while(Option::is_some)
+            .flatten()
+            .collect::<HashSet<_>>();
+
+        // Safe as access levels are just ASCII
+        let rest = &value[access_levels.len()..];
+
+        let (nickname, username, hostname) = match (rest.find('!'), rest.find('@')) {
+            (None, None) => (rest, None, None),
+            (Some(i), None) => (&rest[..i], Some(rest[i + 1..].to_string()), None),
+            (None, Some(i)) => (&rest[..i], None, Some(rest[i + 1..].to_string())),
+            (Some(i), Some(j)) => (
+                &rest[..i],
+                Some(rest[i + 1..j].to_string()),
+                Some(rest[j + 1..].to_string()),
+            ),
+        };
+
+        Ok(User {
+            nickname: Nick::from(nickname),
+            username,
+            hostname,
+            access_levels,
+        })
     }
 }
 
@@ -65,18 +105,18 @@ impl From<User> for String {
     }
 }
 
-impl User {
-    pub fn new(nick: Nick, user: Option<&str>, host: Option<&str>) -> Self {
-        let formatted = match (user, host) {
-            (None, None) => nick.to_string(),
-            (None, Some(host)) => format!("{nick}@{host}"),
-            (Some(user), None) => format!("{nick}!{user}"),
-            (Some(user), Some(host)) => format!("{nick}!{user}@{host}"),
-        };
-
-        Self(data::User::new(&formatted))
+impl From<Nick> for User {
+    fn from(nickname: Nick) -> Self {
+        User {
+            nickname,
+            username: None,
+            hostname: None,
+            access_levels: HashSet::default(),
+        }
     }
+}
 
+impl User {
     pub fn color_seed(&self, color: &buffer::Color) -> Option<String> {
         match color {
             buffer::Color::Solid => None,
@@ -89,19 +129,40 @@ impl User {
     }
 
     pub fn username(&self) -> Option<&str> {
-        self.0.get_username()
+        self.username.as_deref()
     }
 
     pub fn nickname(&self) -> NickRef {
-        NickRef(self.0.get_nickname())
+        NickRef(&self.nickname.0)
     }
 
     pub fn hostname(&self) -> Option<&str> {
-        self.0.get_hostname()
+        self.hostname.as_deref()
+    }
+
+    pub fn with_nickname(self, nickname: Nick) -> Self {
+        Self { nickname, ..self }
     }
 
     pub fn highest_access_level(&self) -> AccessLevel {
-        AccessLevel(self.0.highest_access_level())
+        self.access_levels
+            .iter()
+            .max()
+            .copied()
+            .unwrap_or(AccessLevel::Member)
+    }
+
+    pub fn update_access_level(&mut self, operation: mode::Operation, mode: mode::Channel) {
+        if let Ok(level) = AccessLevel::try_from(mode) {
+            match operation {
+                mode::Operation::Add => {
+                    self.access_levels.insert(level);
+                }
+                mode::Operation::Remove => {
+                    self.access_levels.remove(&level);
+                }
+            }
+        }
     }
 
     pub fn formatted(&self) -> String {
@@ -118,9 +179,14 @@ impl User {
     }
 }
 
-impl From<data::User> for User {
-    fn from(user: data::User) -> Self {
-        Self(user)
+impl From<proto::User> for User {
+    fn from(user: proto::User) -> Self {
+        User {
+            nickname: Nick::from(user.nickname),
+            username: user.username,
+            hostname: user.hostname,
+            access_levels: HashSet::default(),
+        }
     }
 }
 
@@ -136,6 +202,12 @@ pub struct Nick(String);
 impl fmt::Display for Nick {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+impl From<String> for Nick {
+    fn from(nick: String) -> Self {
+        Nick(nick)
     }
 }
 
@@ -190,86 +262,57 @@ impl<'a> PartialEq<Nick> for NickRef<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct AccessLevel(data::AccessLevel);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum AccessLevel {
+    Member,
+    Voice,
+    HalfOp,
+    Oper,
+    Admin,
+    Owner,
+}
 
 impl std::fmt::Display for AccessLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let access_level = match self.0 {
-            data::AccessLevel::Owner => "~",
-            data::AccessLevel::Admin => "&",
-            data::AccessLevel::Oper => "@",
-            data::AccessLevel::HalfOp => "%",
-            data::AccessLevel::Voice => "+",
-            data::AccessLevel::Member => "",
+        let access_level = match self {
+            AccessLevel::Owner => "~",
+            AccessLevel::Admin => "&",
+            AccessLevel::Oper => "@",
+            AccessLevel::HalfOp => "%",
+            AccessLevel::Voice => "+",
+            AccessLevel::Member => "",
         };
 
         write!(f, "{}", access_level)
     }
 }
 
-impl From<data::AccessLevel> for AccessLevel {
-    fn from(access_level: data::AccessLevel) -> Self {
-        Self(access_level)
-    }
-}
+impl TryFrom<char> for AccessLevel {
+    type Error = ();
 
-impl PartialEq for AccessLevel {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
-}
-
-impl Eq for AccessLevel {}
-
-impl Ord for AccessLevel {
-    fn cmp(&self, other: &AccessLevel) -> std::cmp::Ordering {
-        use std::cmp::Ordering::{Equal, Greater, Less};
-
-        use irc::client::data::AccessLevel::{Admin, HalfOp, Member, Oper, Owner, Voice};
-
-        if self == other {
-            return Equal;
-        }
-
-        let other = other.0;
-        match self.0 {
-            Owner => Greater,
-            Admin => {
-                if other == Owner {
-                    Less
-                } else {
-                    Greater
-                }
-            }
-            Oper => {
-                if other == Owner || other == Admin {
-                    Less
-                } else {
-                    Greater
-                }
-            }
-            HalfOp => {
-                if other == Voice || other == Member {
-                    Greater
-                } else {
-                    Less
-                }
-            }
-            Voice => {
-                if other == Member {
-                    Greater
-                } else {
-                    Less
-                }
-            }
-            Member => Less,
+    fn try_from(c: char) -> Result<AccessLevel, ()> {
+        match c {
+            '~' => Ok(AccessLevel::Owner),
+            '&' => Ok(AccessLevel::Admin),
+            '@' => Ok(AccessLevel::Oper),
+            '%' => Ok(AccessLevel::HalfOp),
+            '+' => Ok(AccessLevel::Voice),
+            _ => Err(()),
         }
     }
 }
 
-impl PartialOrd for AccessLevel {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.partial_cmp(&other.0)
+impl TryFrom<mode::Channel> for AccessLevel {
+    type Error = ();
+
+    fn try_from(mode: mode::Channel) -> Result<Self, Self::Error> {
+        Ok(match mode {
+            mode::Channel::Founder => Self::Owner,
+            mode::Channel::Admin => Self::Admin,
+            mode::Channel::Oper => Self::Oper,
+            mode::Channel::Halfop => Self::HalfOp,
+            mode::Channel::Voice => Self::Voice,
+            _ => return Err(()),
+        })
     }
 }

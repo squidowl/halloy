@@ -1,5 +1,5 @@
 use chrono::Utc;
-use irc::proto::ChannelExt;
+use irc::proto;
 
 use crate::time::Posix;
 use crate::user::NickRef;
@@ -47,7 +47,7 @@ impl Input {
         let command = self.content.command(&self.buffer)?;
 
         let to_target = |target: String, source| {
-            if target.is_channel_name() {
+            if proto::is_channel(&target) {
                 Some(message::Target::Channel {
                     channel: target,
                     source,
@@ -69,7 +69,7 @@ impl Input {
                 direction: message::Direction::Sent,
                 target: to_target(
                     target,
-                    message::Source::User(User::new(our_nick.to_owned(), None, None)),
+                    message::Source::User(User::from(our_nick.to_owned())),
                 )?,
                 text,
             }),
@@ -85,8 +85,6 @@ impl Input {
     }
 
     pub fn encoded(&self) -> Option<message::Encoded> {
-        use irc::proto;
-
         let command = self
             .content
             .command(&self.buffer)
