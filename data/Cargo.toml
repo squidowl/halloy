@@ -4,13 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bincode = "1.0"
+base64 = "0.21.2"
 chrono = { version = "0.4", features = ['serde'] }
 dirs-next = "2.0.0"
 flate2 = "1.0"
 futures = "0.3.21"
 iced_core = "0.9"
-irc = { git = "https://github.com/aatxe/irc.git", rev = "8eef9c56881670aa614782ab4321fb8ae3975fa0" }
 log = "0.4.16"
 palette = "=0.7.2"
 rand = "0.8.4"
@@ -22,6 +21,9 @@ thiserror = "1.0.30"
 tokio = { version = "1.0", features = ["io-util"] }
 tokio-stream = { version = "0.1", features = ["time"] }
 itertools = "0.10.5"
+
+[dependencies.irc]
+path = "../irc"
 
 [dependencies.serde]
 version = "1.0"

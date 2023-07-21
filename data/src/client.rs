@@ -1,11 +1,13 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fmt;
 
-use irc::client::Client;
+use futures::channel::mpsc;
+use irc::proto::{self, command, Command};
 use itertools::Itertools;
 
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{message, Buffer, Server, User};
+use crate::{config, message, mode, Buffer, Server, User};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -23,7 +25,7 @@ impl Status {
 #[derive(Debug)]
 pub enum State {
     Disconnected,
-    Ready(Connection),
+    Ready(Client),
 }
 
 #[derive(Debug)]
@@ -48,38 +50,76 @@ pub enum Event {
     Brodcast(Brodcast),
 }
 
-#[derive(Debug)]
-pub struct Connection {
-    client: Client,
+pub struct Client {
+    server: Server,
+    config: config::Server,
+    sender: mpsc::Sender<proto::Message>,
+    alt_nick: Option<usize>,
     resolved_nick: Option<String>,
+    chanmap: BTreeMap<String, HashSet<User>>,
     channels: Vec<String>,
     users: HashMap<String, Vec<User>>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
     reroute_responses_to: Option<Buffer>,
+    registration_step: RegistrationStep,
+    listed_caps: Vec<String>,
     supports_labels: bool,
 }
 
-impl Connection {
-    pub fn new(client: Client) -> Self {
+impl fmt::Debug for Client {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Client").finish()
+    }
+}
+
+impl Client {
+    pub fn new(
+        server: Server,
+        config: config::Server,
+        mut sender: mpsc::Sender<proto::Message>,
+    ) -> Self {
+        // Begin registration
+        let _ = sender.try_send(command!("CAP", "LS", "302"));
+        let registration_step = RegistrationStep::List;
+
+        // Identify
+        {
+            let nick = &config.nickname;
+            let user = config.username.as_ref().unwrap_or(nick);
+            let real = config.realname.as_ref().unwrap_or(nick);
+
+            if let Some(pass) = config.password.as_ref() {
+                let _ = sender.try_send(command!("PASS", pass));
+            }
+            let _ = sender.try_send(command!("NICK", nick));
+            let _ = sender.try_send(command!("USER", user, real));
+        }
+
         Self {
-            client,
+            server,
+            config,
+            sender,
             resolved_nick: None,
+            alt_nick: None,
+            chanmap: BTreeMap::default(),
             channels: vec![],
             users: HashMap::new(),
             labels: HashMap::new(),
             batches: HashMap::new(),
             reroute_responses_to: None,
+            registration_step,
+            listed_caps: vec![],
             supports_labels: false,
         }
     }
 
-    pub async fn quit(self) {
+    pub async fn quit(mut self) {
         use std::time::Duration;
 
         use tokio::time;
 
-        let _ = self.client.send_quit("");
+        let _ = self.sender.try_send(command!("QUIT"));
 
         // Ensure message is sent before dropping
         time::sleep(Duration::from_secs(1)).await;
@@ -87,19 +127,23 @@ impl Connection {
 
     fn send(&mut self, buffer: &Buffer, mut message: message::Encoded) {
         if self.supports_labels {
-            use irc::proto::message::Tag;
+            use proto::Tag;
 
             let label = generate_label();
             let context = Context::new(&message, buffer.clone());
 
             self.labels.insert(label.clone(), context);
 
-            message.tags = Some(vec![Tag("label".to_string(), Some(label))]);
+            // IRC: Encode tags
+            message.tags = vec![Tag {
+                key: "label".to_string(),
+                value: Some(label),
+            }];
         }
 
         self.reroute_responses_to = start_reroute(&message.command).then(|| buffer.clone());
 
-        if let Err(e) = self.client.send(message) {
+        if let Err(e) = self.sender.try_send(message.into()) {
             log::warn!("Error sending message: {e}");
         }
     }
@@ -123,8 +167,7 @@ impl Connection {
         mut message: message::Encoded,
         parent_context: Option<Context>,
     ) -> Option<Vec<Event>> {
-        use irc::proto::Response::*;
-        use irc::proto::{CapSubCommand, Command};
+        use irc::proto::command::Numeric::*;
 
         let label_tag = remove_tag("label", message.tags.as_mut());
         let batch_tag = remove_tag("batch", message.tags.as_mut());
@@ -144,7 +187,7 @@ impl Connection {
         });
 
         match &message.command {
-            Command::BATCH(batch, _, _) => {
+            Command::BATCH(batch, ..) => {
                 let mut chars = batch.chars();
                 let symbol = chars.next()?;
                 let reference = chars.collect::<String>();
@@ -196,7 +239,7 @@ impl Connection {
                 }
             }
             // Reroute responses
-            Command::Response(..) | Command::Raw(..) if self.reroute_responses_to.is_some() => {
+            Command::Numeric(..) | Command::Unknown(..) if self.reroute_responses_to.is_some() => {
                 if let Some(source) = self
                     .reroute_responses_to
                     .clone()
@@ -209,13 +252,96 @@ impl Connection {
                     )]);
                 }
             }
-            Command::CAP(_, CapSubCommand::ACK, a, b) => {
-                let cap_str = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
-                let caps = cap_str.split(' ').collect::<Vec<_>>();
+            Command::CAP(_, sub, a, b) if sub == "LS" => {
+                let (caps, asterisk) = match (a, b) {
+                    (Some(caps), None) => (caps, None),
+                    (Some(asterisk), Some(caps)) => (caps, Some(asterisk)),
+                    // Unreachable
+                    (None, None) | (None, Some(_)) => return None,
+                };
+
+                self.listed_caps.extend(caps.split(' ').map(String::from));
+
+                // Finished
+                if asterisk.is_none() {
+                    let mut requested = vec![];
+
+                    let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
+
+                    if contains("server-time") {
+                        requested.push("server-time");
+                    }
+                    if contains("batch") {
+                        requested.push("batch");
+                    }
+                    if contains("labeled-response") {
+                        requested.push("labeled-response");
+
+                        // We require labeled-response so we can properly tag echo-messages
+                        if contains("echo-message") {
+                            requested.push("echo-message");
+                        }
+                    }
+                    if self.listed_caps.iter().any(|cap| cap.starts_with("sasl")) {
+                        requested.push("sasl");
+                    }
+
+                    if !requested.is_empty() {
+                        // Request
+                        self.registration_step = RegistrationStep::Req;
+                        let _ = self
+                            .sender
+                            .try_send(command!("CAP", "REQ", requested.join(" ")));
+                    } else {
+                        // If none requested, end negotiation
+                        self.registration_step = RegistrationStep::End;
+                        let _ = self.sender.try_send(command!("CAP", "END"));
+                    }
+                }
+            }
+            Command::CAP(_, sub, a, b) if sub == "ACK" => {
+                let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+                log::info!("[{}] capabilities acknowledged: {caps}", self.server);
+
+                let caps = caps.split(' ').collect::<Vec<_>>();
 
                 if caps.contains(&"labeled-response") {
                     self.supports_labels = true;
                 }
+
+                let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
+
+                if let Some(sasl) = self.config.sasl.as_ref().filter(|_| supports_sasl) {
+                    self.registration_step = RegistrationStep::Sasl;
+                    let _ = self
+                        .sender
+                        .try_send(command!("AUTHENTICATE", sasl.command()));
+                } else {
+                    self.registration_step = RegistrationStep::End;
+                    let _ = self.sender.try_send(command!("CAP", "END"));
+                }
+            }
+            Command::CAP(_, sub, a, b) if sub == "NAK" => {
+                let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+                log::warn!("[{}] capabilities not acknowledged: {caps}", self.server);
+
+                // End we didn't move to sasl or already ended
+                if self.registration_step < RegistrationStep::Sasl {
+                    self.registration_step = RegistrationStep::End;
+                    let _ = self.sender.try_send(command!("CAP", "END"));
+                }
+            }
+            Command::AUTHENTICATE(param) if param == "+" => {
+                if let Some(sasl) = self.config.sasl.as_ref() {
+                    log::info!("[{}] sasl auth: {}", self.server, sasl.command());
+
+                    let _ = self.sender.try_send(command!("AUTHENTICATE", sasl.param()));
+                    self.registration_step = RegistrationStep::End;
+                    let _ = self.sender.try_send(command!("CAP", "END"));
+                }
+            }
+            Command::Numeric(RPL_LOGGEDIN, _) => {
+                log::info!("[{}] logged in", self.server);
             }
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
                 if let Some(user) = message.user() {
@@ -233,23 +359,89 @@ impl Connection {
                     self.resolved_nick = Some(nick.clone());
                 }
 
+                let new_nick = Nick::from(nick.as_str());
+
+                self.chanmap.values_mut().for_each(|list| {
+                    if let Some(user) = list.take(&old_user) {
+                        list.insert(user.with_nickname(new_nick.clone()));
+                    }
+                });
+
                 let channels = self.user_channels(old_user.nickname());
 
                 return Some(vec![Event::Brodcast(Brodcast::Nickname {
                     old_user,
-                    new_nick: Nick::from(nick.as_str()),
+                    new_nick,
                     ourself,
                     channels,
                 })]);
             }
-            Command::Response(RPL_WELCOME, args) => {
-                if let Some(nick) = args.first() {
-                    self.resolved_nick = Some(nick.to_string());
+            Command::Numeric(ERR_NICKNAMEINUSE | ERR_ERRONEUSNICKNAME, _)
+                if self.resolved_nick.is_none() =>
+            {
+                // Try alt nicks
+                match &mut self.alt_nick {
+                    Some(index) => {
+                        if *index == self.config.alt_nicks.len() - 1 {
+                            self.alt_nick = None;
+                        } else {
+                            *index += 1;
+                        }
+                    }
+                    None if !self.config.alt_nicks.is_empty() => self.alt_nick = Some(0),
+                    None => {}
+                }
+
+                if let Some(nick) = self.alt_nick.and_then(|i| self.config.alt_nicks.get(i)) {
+                    let _ = self.sender.try_send(command!("NICK", nick));
+                }
+            }
+            Command::Numeric(RPL_WELCOME, args) => {
+                // Updated actual nick
+                let nick = args.first()?;
+                self.resolved_nick = Some(nick.to_string());
+
+                // Send nick password & ghost
+                if let Some(nick_pass) = self.config.nick_password.as_ref() {
+                    // Try ghost recovery if we couldn't claim our nick
+                    if self.config.should_ghost && nick != &self.config.nickname {
+                        for sequence in &self.config.ghost_sequence {
+                            let _ = self.sender.try_send(command!(
+                                "PRIVMSG",
+                                "NickServ",
+                                format!("{sequence} {} {nick_pass}", &self.config.nickname)
+                            ));
+                        }
+                    }
+
+                    let _ = self.sender.try_send(command!(
+                        "PRIVMSG",
+                        "NickServ",
+                        format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
+                    ));
+                }
+
+                // Send user modestring
+                if let Some(modestring) = self.config.umodes.as_ref() {
+                    let _ = self.sender.try_send(command!("MODE", nick, modestring));
+                }
+
+                // Send JOIN
+                for channel in &self.config.channels {
+                    if let Some(keys) = self.config.channel_keys.get(channel) {
+                        let _ = self.sender.try_send(command!("JOIN", channel, keys));
+                    } else {
+                        let _ = self.sender.try_send(command!("JOIN", channel));
+                    }
                 }
             }
             // QUIT
             Command::QUIT(comment) => {
                 let user = message.user()?;
+
+                self.chanmap.values_mut().for_each(|list| {
+                    list.remove(&user);
+                });
 
                 let channels = self.user_channels(user.nickname());
 
@@ -259,6 +451,50 @@ impl Connection {
                     channels,
                 })]);
             }
+            Command::PART(channel, _) => {
+                let user = message.user()?;
+
+                if user.nickname() == self.nickname() {
+                    self.chanmap.remove(channel);
+                } else if let Some(list) = self.chanmap.get_mut(channel) {
+                    list.remove(&user);
+                }
+            }
+            Command::JOIN(channel, _) => {
+                let user = message.user()?;
+
+                if user.nickname() == self.nickname() {
+                    self.chanmap.insert(channel.clone(), Default::default());
+                } else if let Some(list) = self.chanmap.get_mut(channel) {
+                    list.insert(user);
+                }
+            }
+            Command::MODE(target, Some(modes), args) if proto::is_channel(target) => {
+                let modes = mode::parse::<mode::Channel>(modes, args);
+
+                if let Some(list) = self.chanmap.get_mut(target) {
+                    for mode in modes {
+                        if let Some((op, lookup)) = mode
+                            .operation()
+                            .zip(mode.arg().map(|nick| User::from(Nick::from(nick))))
+                        {
+                            if let Some(mut user) = list.take(&lookup) {
+                                user.update_access_level(op, *mode.value());
+                                list.insert(user);
+                            }
+                        }
+                    }
+                }
+            }
+            Command::Numeric(RPL_NAMREPLY, args) if args.len() > 3 => {
+                if let Some(list) = self.chanmap.get_mut(&args[2]) {
+                    for user in args[3].split(' ') {
+                        if let Ok(user) = User::try_from(user) {
+                            list.insert(user);
+                        }
+                    }
+                }
+            }
             _ => {}
         }
 
@@ -266,29 +502,11 @@ impl Connection {
     }
 
     fn sync(&mut self) {
-        self.channels = self
-            .client
-            .list_channels()
-            .unwrap_or_default()
-            .into_iter()
-            .sorted()
-            .collect();
-
+        self.channels = self.chanmap.keys().cloned().collect();
         self.users = self
-            .channels
+            .chanmap
             .iter()
-            .map(|channel| {
-                (
-                    channel.clone(),
-                    self.client
-                        .list_users(channel)
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(User::from)
-                        .sorted()
-                        .collect(),
-                )
-            })
+            .map(|(channel, users)| (channel.clone(), users.iter().sorted().cloned().collect()))
             .collect();
     }
 
@@ -316,10 +534,11 @@ impl Connection {
     }
 
     pub fn nickname(&self) -> NickRef {
+        // TODO: Fallback nicks
         NickRef::from(
             self.resolved_nick
                 .as_deref()
-                .unwrap_or_else(|| self.client.current_nickname()),
+                .unwrap_or(&self.config.nickname),
         )
     }
 }
@@ -332,7 +551,7 @@ impl Map {
         self.0.insert(server, State::Disconnected);
     }
 
-    pub fn ready(&mut self, server: Server, client: Connection) {
+    pub fn ready(&mut self, server: Server, client: Client) {
         self.0.insert(server, State::Ready(client));
     }
 
@@ -340,14 +559,14 @@ impl Map {
         self.0.is_empty()
     }
 
-    pub fn remove(&mut self, server: &Server) -> Option<Connection> {
+    pub fn remove(&mut self, server: &Server) -> Option<Client> {
         self.0.remove(server).and_then(|state| match state {
             State::Disconnected => None,
-            State::Ready(connection) => Some(connection),
+            State::Ready(client) => Some(client),
         })
     }
 
-    pub fn connection(&self, server: &Server) -> Option<&Connection> {
+    pub fn client(&self, server: &Server) -> Option<&Client> {
         if let Some(State::Ready(client)) = self.0.get(server) {
             Some(client)
         } else {
@@ -355,7 +574,7 @@ impl Map {
         }
     }
 
-    pub fn connection_mut(&mut self, server: &Server) -> Option<&mut Connection> {
+    pub fn client_mut(&mut self, server: &Server) -> Option<&mut Client> {
         if let Some(State::Ready(client)) = self.0.get_mut(server) {
             Some(client)
         } else {
@@ -364,42 +583,42 @@ impl Map {
     }
 
     pub fn nickname(&self, server: &Server) -> Option<NickRef> {
-        self.connection(server).map(Connection::nickname)
+        self.client(server).map(Client::nickname)
     }
 
     pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Vec<Event> {
-        self.connection_mut(server)
-            .map(|connection| connection.receive(message))
+        self.client_mut(server)
+            .map(|client| client.receive(message))
             .unwrap_or_default()
     }
 
     pub fn sync(&mut self, server: &Server) {
-        if let Some(State::Ready(connection)) = self.0.get_mut(server) {
-            connection.sync();
+        if let Some(State::Ready(client)) = self.0.get_mut(server) {
+            client.sync();
         }
     }
 
     pub fn send(&mut self, buffer: &Buffer, message: message::Encoded) {
-        if let Some(connection) = self.connection_mut(buffer.server()) {
-            connection.send(buffer, message);
+        if let Some(client) = self.client_mut(buffer.server()) {
+            client.send(buffer, message);
         }
     }
 
     pub fn get_channel_users<'a>(&'a self, server: &Server, channel: &str) -> &'a [User] {
-        self.connection(server)
-            .map(|connection| connection.users(channel))
+        self.client(server)
+            .map(|client| client.users(channel))
             .unwrap_or_default()
     }
 
     pub fn get_user_channels(&self, server: &Server, nick: NickRef) -> Vec<String> {
-        self.connection(server)
-            .map(|connection| connection.user_channels(nick))
+        self.client(server)
+            .map(|client| client.user_channels(nick))
             .unwrap_or_default()
     }
 
     pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [String] {
-        self.connection(server)
-            .map(|connection| connection.channels())
+        self.client(server)
+            .map(|client| client.channels())
             .unwrap_or_default()
     }
 
@@ -426,8 +645,6 @@ pub enum Context {
 
 impl Context {
     fn new(message: &message::Encoded, buffer: Buffer) -> Self {
-        use irc::proto::Command;
-
         if let Command::WHOIS(_, _) = message.command {
             Self::Whois(buffer)
         } else {
@@ -466,28 +683,23 @@ fn generate_label() -> String {
     Posix::now().as_nanos().to_string()
 }
 
-fn remove_tag(key: &str, tags: Option<&mut Vec<irc::proto::message::Tag>>) -> Option<String> {
-    let tags = tags?;
-
-    tags.remove(tags.iter().position(|tag| tag.0 == key)?).1
+fn remove_tag(key: &str, tags: &mut Vec<irc::proto::Tag>) -> Option<String> {
+    tags.remove(tags.iter().position(|tag| tag.key == key)?)
+        .value
 }
 
-fn start_reroute(command: &irc::proto::Command) -> bool {
-    use irc::proto::Command;
+fn start_reroute(command: &Command) -> bool {
+    use Command::*;
+
+    matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..))
+}
+
+fn stop_reroute(command: &Command) -> bool {
+    use command::Numeric::*;
 
     matches!(
         command,
-        Command::WHO(..) | Command::WHOIS(..) | Command::WHOWAS(..)
-    )
-}
-
-fn stop_reroute(command: &irc::proto::Command) -> bool {
-    use irc::proto::Command;
-    use irc::proto::Response::*;
-
-    matches!(
-        command,
-        Command::Response(
+        Command::Numeric(
             RPL_ENDOFWHO
                 | RPL_ENDOFWHOIS
                 | RPL_ENDOFWHOWAS
@@ -499,4 +711,12 @@ fn stop_reroute(command: &irc::proto::Command) -> bool {
             _
         )
     )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum RegistrationStep {
+    List,
+    Req,
+    Sasl,
+    End,
 }

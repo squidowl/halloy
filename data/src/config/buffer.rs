@@ -4,10 +4,8 @@ use chrono::{DateTime, Local, Utc};
 use serde::Deserialize;
 
 use super::Channel;
-use crate::{
-    buffer::{Color, InputVisibility, Nickname, Timestamp},
-    message,
-};
+use crate::buffer::{Color, InputVisibility, Nickname, Timestamp};
+use crate::message;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Buffer {
