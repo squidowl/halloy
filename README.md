@@ -47,6 +47,7 @@ cargo run --release
 
 Halloy supports the following IRCv3.2 capabilities
 
+- `away-notify`
 - `batch`
 - `server-time`
 - `sasl=PLAIN,EXTERNAL`

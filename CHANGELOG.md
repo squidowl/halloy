@@ -5,6 +5,7 @@ to ensure future breakages won't occur.**
 
 Added:
 
+- Away-notify extension added for supported servers
 - SASL support for PLAIN & EXTERNAL. The following per-server config keys have been added:
   - PLAIN - `sasl.plain.username` & `sasl.plain.password`
   - EXTERNAL - `sasl.external.cert` is a path to the PEM encoded X509 cert
@@ -16,6 +17,7 @@ Added:
 
 Changed:
 
+- Away users will be appear slightly transparent in nicklist
 - Configuration option `new_buffer` has been renamed to `buffer`. `new_buffer` key will still work for backwards compatibility.
 - Migrated to our own internal IRC backend. This should allow for quicker development against extensions and bug fixes.
 
