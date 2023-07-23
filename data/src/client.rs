@@ -65,6 +65,7 @@ pub struct Client {
     registration_step: RegistrationStep,
     listed_caps: Vec<String>,
     supports_labels: bool,
+    supports_away_notify: bool,
 }
 
 impl fmt::Debug for Client {
@@ -111,6 +112,7 @@ impl Client {
             registration_step,
             listed_caps: vec![],
             supports_labels: false,
+            supports_away_notify: false,
         }
     }
 
@@ -268,6 +270,9 @@ impl Client {
 
                     let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
 
+                    if contains("away-notify") {
+                        requested.push("away-notify");
+                    }
                     if contains("server-time") {
                         requested.push("server-time");
                     }
@@ -307,6 +312,9 @@ impl Client {
 
                 if caps.contains(&"labeled-response") {
                     self.supports_labels = true;
+                }
+                if caps.contains(&"away-notify") {
+                    self.supports_away_notify = true;
                 }
 
                 let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
@@ -461,12 +469,46 @@ impl Client {
                 }
             }
             Command::JOIN(channel, _) => {
+                if self.supports_away_notify {
+                    // Sends WHO to get away state on users.
+                    let _ = self.sender.try_send(command!("WHO", channel));
+                }
+
                 let user = message.user()?;
 
                 if user.nickname() == self.nickname() {
                     self.chanmap.insert(channel.clone(), Default::default());
                 } else if let Some(list) = self.chanmap.get_mut(channel) {
                     list.insert(user);
+                }
+            }
+            Command::Numeric(RPL_WHOREPLY, args) => {
+                if self.supports_away_notify {
+                    // H = Here, G = gone (away)
+                    let flags = args.get(6)?.chars().collect::<Vec<char>>();
+                    let away = *(flags.first()?) == 'G';
+
+                    if let Some(list) = self.chanmap.get_mut(&args[1]) {
+                        let lookup = User::from(Nick::from(args[5].clone()));
+
+                        if let Some(mut user) = list.take(&lookup) {
+                            user.update_away(away);
+                            list.insert(user);
+                        }
+                    }
+                }
+            }
+            Command::AWAY(args) => {
+                let away = args.is_some();
+                let user = message.user()?;
+                let channels = self.user_channels(user.nickname());
+                for channel in channels.iter() {
+                    if let Some(list) = self.chanmap.get_mut(channel) {
+                        if let Some(mut user) = list.take(&user) {
+                            user.update_away(away);
+                            list.insert(user);
+                        }
+                    }
                 }
             }
             Command::MODE(target, Some(modes), args) if proto::is_channel(target) => {
