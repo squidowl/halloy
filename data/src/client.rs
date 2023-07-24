@@ -471,13 +471,13 @@ impl Client {
             Command::JOIN(channel, _) => {
                 let user = message.user()?;
 
-                if self.supports_away_notify && user.nickname() == self.nickname() {
-                    // Sends WHO to get away state on users.
-                    let _ = self.sender.try_send(command!("WHO", channel));
-                }
-
                 if user.nickname() == self.nickname() {
                     self.chanmap.insert(channel.clone(), Default::default());
+
+                    if self.supports_away_notify {
+                        // Sends WHO to get away state on users.
+                        let _ = self.sender.try_send(command!("WHO", channel));
+                    }
                 } else if let Some(list) = self.chanmap.get_mut(channel) {
                     list.insert(user);
                 }
