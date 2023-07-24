@@ -618,6 +618,7 @@ impl selectable_text::StyleSheet for Theme {
 pub enum Menu {
     #[default]
     Default,
+    ComboBox,
 }
 
 impl overlay::menu::StyleSheet for Theme {
@@ -634,6 +635,37 @@ impl overlay::menu::StyleSheet for Theme {
                 selected_text_color: self.colors.text.high_alpha,
                 selected_background: Background::Color(self.colors.background.high_alpha),
             },
+            Menu::ComboBox => overlay::menu::Appearance {
+                text_color: self.colors.text.base,
+                background: Background::Color(self.colors.background.darker),
+                border_width: 0.0,
+                border_radius: 8.0.into(),
+                border_color: Color::TRANSPARENT,
+                selected_text_color: self.colors.text.base,
+                selected_background: Background::Color(self.colors.background.dark),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum ComboBox {
+    #[default]
+    Default,
+}
+
+impl From<ComboBox> for TextInput {
+    fn from(combo_box: ComboBox) -> Self {
+        match combo_box {
+            ComboBox::Default => TextInput::Default,
+        }
+    }
+}
+
+impl From<ComboBox> for Menu {
+    fn from(combo_box: ComboBox) -> Self {
+        match combo_box {
+            ComboBox::Default => Menu::ComboBox,
         }
     }
 }
