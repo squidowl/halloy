@@ -469,12 +469,12 @@ impl Client {
                 }
             }
             Command::JOIN(channel, _) => {
-                if self.supports_away_notify {
+                let user = message.user()?;
+
+                if self.supports_away_notify && user.nickname() == self.nickname() {
                     // Sends WHO to get away state on users.
                     let _ = self.sender.try_send(command!("WHO", channel));
                 }
-
-                let user = message.user()?;
 
                 if user.nickname() == self.nickname() {
                     self.chanmap.insert(channel.clone(), Default::default());
@@ -501,12 +501,36 @@ impl Client {
             Command::AWAY(args) => {
                 let away = args.is_some();
                 let user = message.user()?;
-                let channels = self.user_channels(user.nickname());
-                for channel in channels.iter() {
-                    if let Some(list) = self.chanmap.get_mut(channel) {
-                        if let Some(mut user) = list.take(&user) {
-                            user.update_away(away);
-                            list.insert(user);
+
+                for channel in self.chanmap.values_mut() {
+                    if let Some(mut user) = channel.take(&user) {
+                        user.update_away(away);
+                        channel.insert(user);
+                    }
+                }
+            }
+            Command::Numeric(RPL_UNAWAY, args) => {
+                let nick = args.get(0)?.as_str();
+                let user = User::try_from(nick).ok()?;
+
+                if user.nickname() == self.nickname() {
+                    for channel in self.chanmap.values_mut() {
+                        if let Some(mut user) = channel.take(&user) {
+                            user.update_away(false);
+                            channel.insert(user);
+                        }
+                    }
+                }
+            }
+            Command::Numeric(RPL_NOWAWAY, args) => {
+                let nick = args.get(0)?.as_str();
+                let user = User::try_from(nick).ok()?;
+
+                if user.nickname() == self.nickname() {
+                    for channel in self.chanmap.values_mut() {
+                        if let Some(mut user) = channel.take(&user) {
+                            user.update_away(true);
+                            channel.insert(user);
                         }
                     }
                 }
