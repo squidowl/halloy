@@ -308,7 +308,7 @@ impl Status {
 
         if old != new {
             let offset = viewport.absolute_offset();
-            let reversed_offset = viewport.absolute_offset(); // TODO: revert this
+            let reversed_offset = viewport.absolute_offset_reversed();
 
             Some(scrollable::AbsoluteOffset {
                 x: offset.x,

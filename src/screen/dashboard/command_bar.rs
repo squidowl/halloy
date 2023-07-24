@@ -1,24 +1,46 @@
-use crate::widget::Element;
 use iced::widget::combo_box;
+
+use crate::theme;
+use crate::widget::Element;
 
 #[derive(Debug, Clone)]
 pub struct CommandBar {
-    input: combo_box::State<Command>,
+    state: combo_box::State<Command>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Message {
+    Command(Command),
+    Unfocused,
 }
 
 impl CommandBar {
     pub fn new() -> Self {
-        Self {
-            input: combo_box::State::new(Command::list()),
+        let state = combo_box::State::new(Command::list());
+        state.focus();
+
+        Self { state }
+    }
+
+    pub fn update(&mut self, message: Message) -> Event {
+        match message {
+            Message::Command(command) => Event::Command(command),
+            Message::Unfocused => Event::Unfocused,
         }
     }
 
-    pub fn view<Message>(&self, on_command: fn(Command) -> Message) -> Element<Message>
-    where
-        Message: 'static + Clone,
-    {
-        combo_box(&self.input, "placeholder", None, move |x| on_command(x)).into()
+    pub fn view(&self) -> Element<Message> {
+        combo_box(&self.state, "Type a command...", None, Message::Command)
+            .on_close(Message::Unfocused)
+            .style(theme::ComboBox::Default)
+            .padding([4, 8])
+            .into()
     }
+}
+
+pub enum Event {
+    Command(Command),
+    Unfocused,
 }
 
 #[derive(Debug, Clone)]
@@ -29,7 +51,7 @@ pub enum Command {
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Command::OpenConfig => write!(f, "Configuration - Open Directory"),
+            Command::OpenConfig => write!(f, "Configuration: Open Directory"),
         }
     }
 }

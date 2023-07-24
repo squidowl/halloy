@@ -39,7 +39,7 @@ pub enum Message {
     DashboardSaved(Result<(), data::dashboard::Error>),
     CloseHistory,
     QuitServer,
-    Command(command_bar::Command),
+    Command(command_bar::Message),
 }
 
 impl Dashboard {
@@ -307,11 +307,24 @@ impl Dashboard {
             }
             Message::CloseHistory => {}
             Message::QuitServer => {}
-            Message::Command(command) => match command {
-                command_bar::Command::OpenConfig => {
-                    let _ = open::that(Config::config_dir());
+            Message::Command(message) => {
+                let Some(command_bar) = &mut self.command_bar else {
+                    return Command::none();
+                };
+
+                match command_bar.update(message) {
+                    command_bar::Event::Command(command) => {
+                        self.toggle_command_bar();
+
+                        match command {
+                            command_bar::Command::OpenConfig => {
+                                let _ = open::that(Config::config_dir());
+                            }
+                        }
+                    }
+                    command_bar::Event::Unfocused => self.toggle_command_bar(),
                 }
-            },
+            }
         }
 
         Command::none()
@@ -364,14 +377,17 @@ impl Dashboard {
         // space occupied by the traffic light buttons.
         let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
 
+        let command_bar = self.command_bar.as_ref().map(|command_bar| {
+            container(command_bar.view().map(Message::Command))
+                .width(Length::Fill)
+                .padding([0, 8, 8, 8])
+        });
+
         column![row![side_menu, pane_grid]
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding([height_margin, 0, 0, 0]),]
-        .push_maybe(
-            self.command_bar
-                .map(|command_bar| command_bar.view(Message::Command)),
-        )
+            .padding([height_margin, 0, 0, 0])]
+        .push_maybe(command_bar)
         .into()
     }
 
@@ -608,7 +624,6 @@ impl Dashboard {
         )
     }
 
-<<<<<<< HEAD
     pub fn tick(&mut self, now: Instant) -> Command<Message> {
         let history = Command::batch(
             self.history
@@ -632,18 +647,22 @@ impl Dashboard {
         }
 
         history
-=======
+    }
+
     pub fn toggle_command_bar(&mut self) {
         if self.command_bar.is_some() {
-            self.command_bar = None;
+            self.close_command_bar();
         } else {
-            self.command_bar = Some(CommandBar::new());
+            self.open_command_bar();
         }
     }
 
-    pub fn subscription(&self) -> Subscription<Message> {
-        iced::time::every(Duration::from_secs(1)).map(Message::Tick)
->>>>>>> 378710d (Add command bar)
+    fn open_command_bar(&mut self) {
+        self.command_bar = Some(CommandBar::new());
+    }
+
+    fn close_command_bar(&mut self) {
+        self.command_bar = None;
     }
 }
 
