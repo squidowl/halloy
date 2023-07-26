@@ -38,7 +38,7 @@ pub struct Font {
 
 impl Config {
     pub fn config_dir() -> PathBuf {
-        let dir = environment::config_dir().join("halloy");
+        let dir = environment::config_dir();
 
         if !dir.exists() {
             std::fs::create_dir(dir.as_path())
@@ -60,7 +60,7 @@ impl Config {
     }
 
     fn path() -> PathBuf {
-        Self::config_dir().join("config.yaml")
+        Self::config_dir().join(environment::CONFIG_FILE_NAME)
     }
 
     pub fn load() -> Result<Self, Error> {

@@ -107,7 +107,7 @@ async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
     };
     let hashed_name = seahash::hash(name.as_bytes());
 
-    let parent = data_dir.join("halloy").join("history");
+    let parent = data_dir.join("history");
 
     if !parent.exists() {
         fs::create_dir_all(&parent).await?;
