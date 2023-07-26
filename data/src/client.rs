@@ -478,9 +478,8 @@ impl Client {
                     self.chanmap.insert(channel.clone(), Default::default());
 
                     // Sends WHO to get away state on users.
-                    if self.sender.try_send(command!("WHO", channel)).is_ok() {
-                        self.last_who_channels.insert(channel.clone(), None);
-                    }
+                    let _ = self.sender.try_send(command!("WHO", channel));
+                    self.last_who_channels.insert(channel.clone(), None);
                 } else if let Some(list) = self.chanmap.get_mut(channel) {
                     list.insert(user);
                 }
