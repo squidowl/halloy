@@ -5,7 +5,7 @@
   </content_rating>
   <id>org.squidowl.halloy</id>
   <metadata_license>MIT</metadata_license>
-  <project_license>GPL-3.0+</project_license>
+  <project_license>GPL-3.0-or-later</project_license>
   <name>Halloy</name>
   <summary>IRC client written in Rust</summary>
   <description>
