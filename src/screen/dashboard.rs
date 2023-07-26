@@ -589,7 +589,7 @@ impl Dashboard {
         )
     }
 
-    pub(crate) fn tick(&mut self, now: Instant) -> Command<Message> {
+    pub fn tick(&mut self, now: Instant) -> Command<Message> {
         let history = Command::batch(
             self.history
                 .tick(now.into())
