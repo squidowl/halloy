@@ -15,6 +15,7 @@ pub struct User {
     username: Option<String>,
     hostname: Option<String>,
     access_levels: HashSet<AccessLevel>,
+    away: bool,
 }
 
 impl PartialEq for User {
@@ -88,6 +89,7 @@ impl<'a> TryFrom<&'a str> for User {
             username,
             hostname,
             access_levels,
+            away: false,
         })
     }
 }
@@ -112,6 +114,7 @@ impl From<Nick> for User {
             username: None,
             hostname: None,
             access_levels: HashSet::default(),
+            away: false,
         }
     }
 }
@@ -126,6 +129,10 @@ impl User {
                     .unwrap_or_else(|| self.nickname().as_ref().to_string()),
             ),
         }
+    }
+
+    pub fn is_away(&self) -> bool {
+        self.away
     }
 
     pub fn username(&self) -> Option<&str> {
@@ -165,6 +172,10 @@ impl User {
         }
     }
 
+    pub fn update_away(&mut self, away: bool) {
+        self.away = away;
+    }
+
     pub fn formatted(&self) -> String {
         let user = self.username();
         let host = self.hostname();
@@ -186,6 +197,7 @@ impl From<proto::User> for User {
             username: user.username,
             hostname: user.hostname,
             access_levels: HashSet::default(),
+            away: false,
         }
     }
 }

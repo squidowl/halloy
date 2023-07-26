@@ -12,6 +12,7 @@ mod theme;
 mod widget;
 
 use std::env;
+use std::time::{Duration, Instant};
 
 use data::config::{self, Config};
 use data::server;
@@ -207,6 +208,7 @@ pub enum Message {
     Welcome(welcome::Message),
     Event(Event),
     FontsLoaded(Result<(), iced::font::Error>),
+    Tick(Instant),
 }
 
 impl Application for Halloy {
@@ -403,6 +405,15 @@ impl Application for Halloy {
                     Command::none()
                 }
             }
+            Message::Tick(now) => {
+                self.clients.tick(now);
+
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    dashboard.tick(now).map(Message::Dashboard)
+                } else {
+                    Command::none()
+                }
+            }
         }
     }
 
@@ -427,19 +438,11 @@ impl Application for Halloy {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        let screen_subscription = match &self.screen {
-            Screen::Dashboard(dashboard) => dashboard.subscription().map(Message::Dashboard),
-            Screen::Help(_) => Subscription::none(),
-            Screen::Welcome(_) => Subscription::none(),
-        };
+        let tick = iced::time::every(Duration::from_secs(1)).map(Message::Tick);
 
         let streams =
             Subscription::batch(self.servers.entries().map(stream::run)).map(Message::Stream);
 
-        Subscription::batch(vec![
-            streams,
-            events().map(Message::Event),
-            screen_subscription,
-        ])
+        Subscription::batch(vec![tick, streams, events().map(Message::Event)])
     }
 }
