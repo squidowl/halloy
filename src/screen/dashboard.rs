@@ -8,7 +8,7 @@ use data::user::Nick;
 use data::{history, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
-use iced::{clipboard, window, Command, Length, Subscription};
+use iced::{clipboard, window, Command, Length};
 use pane::Pane;
 use side_menu::SideMenu;
 
@@ -32,7 +32,6 @@ pub enum Message {
     SelectedText(Vec<(f32, String)>),
     History(history::manager::Message),
     Close,
-    Tick(Instant),
     DashboardSaved(Result<(), data::dashboard::Error>),
     CloseHistory,
     QuitServer,
@@ -293,30 +292,6 @@ impl Dashboard {
             }
             Message::Close => {
                 return window::close();
-            }
-            Message::Tick(now) => {
-                let history = Command::batch(
-                    self.history
-                        .tick(now.into())
-                        .into_iter()
-                        .map(|task| Command::perform(task, Message::History))
-                        .collect::<Vec<_>>(),
-                );
-
-                if let Some(last_changed) = self.last_changed {
-                    if now.duration_since(last_changed) >= SAVE_AFTER {
-                        let dashboard = data::Dashboard::from(&*self);
-
-                        self.last_changed = None;
-
-                        return Command::batch(vec![
-                            Command::perform(dashboard.save(), Message::DashboardSaved),
-                            history,
-                        ]);
-                    }
-                }
-
-                return history;
             }
             Message::DashboardSaved(Ok(_)) => {
                 log::info!("dashboard saved");
@@ -614,8 +589,29 @@ impl Dashboard {
         )
     }
 
-    pub fn subscription(&self) -> Subscription<Message> {
-        iced::time::every(Duration::from_secs(1)).map(Message::Tick)
+    pub(crate) fn tick(&mut self, now: Instant) -> Command<Message> {
+        let history = Command::batch(
+            self.history
+                .tick(now.into())
+                .into_iter()
+                .map(|task| Command::perform(task, Message::History))
+                .collect::<Vec<_>>(),
+        );
+
+        if let Some(last_changed) = self.last_changed {
+            if now.duration_since(last_changed) >= SAVE_AFTER {
+                let dashboard = data::Dashboard::from(&*self);
+
+                self.last_changed = None;
+
+                return Command::batch(vec![
+                    Command::perform(dashboard.save(), Message::DashboardSaved),
+                    history,
+                ]);
+            }
+        }
+
+        history
     }
 }
 

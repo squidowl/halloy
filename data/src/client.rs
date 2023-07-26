@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
+use std::time::Instant;
 
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
@@ -66,6 +67,7 @@ pub struct Client {
     listed_caps: Vec<String>,
     supports_labels: bool,
     supports_away_notify: bool,
+    last_who_channels: HashMap<String, Option<Instant>>,
 }
 
 impl fmt::Debug for Client {
@@ -113,6 +115,7 @@ impl Client {
             listed_caps: vec![],
             supports_labels: false,
             supports_away_notify: false,
+            last_who_channels: HashMap::new(),
         }
     }
 
@@ -471,9 +474,11 @@ impl Client {
             Command::JOIN(channel, _) => {
                 let user = message.user()?;
 
-                if self.supports_away_notify && user.nickname() == self.nickname() {
+                if user.nickname() == self.nickname() {
                     // Sends WHO to get away state on users.
-                    let _ = self.sender.try_send(command!("WHO", channel));
+                    if self.sender.try_send(command!("WHO", channel)).is_ok() {
+                        self.last_who_channels.insert(channel.clone(), None);
+                    }
                 }
 
                 if user.nickname() == self.nickname() {
@@ -483,18 +488,20 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_WHOREPLY, args) => {
-                if self.supports_away_notify {
-                    // H = Here, G = gone (away)
-                    let flags = args.get(6)?.chars().collect::<Vec<char>>();
-                    let away = *(flags.first()?) == 'G';
+                let channel = args.get(1)?;
+                self.last_who_channels
+                    .insert(channel.clone(), Some(Instant::now()));
 
-                    if let Some(list) = self.chanmap.get_mut(&args[1]) {
-                        let lookup = User::from(Nick::from(args[5].clone()));
+                // H = Here, G = gone (away)
+                let flags = args.get(6)?.chars().collect::<Vec<char>>();
+                let away = *(flags.first()?) == 'G';
 
-                        if let Some(mut user) = list.take(&lookup) {
-                            user.update_away(away);
-                            list.insert(user);
-                        }
+                if let Some(list) = self.chanmap.get_mut(channel) {
+                    let lookup = User::from(Nick::from(args[5].clone()));
+
+                    if let Some(mut user) = list.take(&lookup) {
+                        user.update_away(away);
+                        list.insert(user);
                     }
                 }
             }
@@ -606,6 +613,29 @@ impl Client {
                 .as_deref()
                 .unwrap_or(&self.config.nickname),
         )
+    }
+
+    pub fn tick(&mut self, now: Instant) {
+        // Send WHO for channels without timestamp.
+        for channel in
+            self.last_who_channels
+                .iter()
+                .filter_map(|(k, v)| if v.is_none() { Some(k) } else { None })
+        {
+            let _ = self.sender.try_send(command!("WHO", channel));
+        }
+
+        if !self.supports_away_notify {
+            for channel in self.last_who_channels.iter().filter_map(|(k, v)| {
+                if *v >= Some(now) {
+                    Some(k)
+                } else {
+                    None
+                }
+            }) {
+                let _ = self.sender.try_send(command!("WHO", channel));
+            }
+        }
     }
 }
 
