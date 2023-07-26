@@ -11,6 +11,7 @@ use crate::user::{Nick, NickRef};
 use crate::{config, message, mode, Buffer, Server, User};
 
 const WHO_POLL_INTERVAL: Duration = Duration::from_secs(60);
+const WHO_RETRY_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -475,8 +476,12 @@ impl Client {
                 if user.nickname() == self.nickname() {
                     self.chanmap.insert(channel.clone(), Channel::default());
 
-                    // Sends WHO to get away state on users.
-                    let _ = self.sender.try_send(command!("WHO", channel));
+                    if let Some(state) = self.chanmap.get_mut(channel) {
+                        // Sends WHO to get away state on users.
+                        let _ = self.sender.try_send(command!("WHO", channel));
+                        state.last_who = Some(WhoStatus::Requested(Instant::now()));
+                        log::debug!("[{}] {channel} - WHO requested", self.server);
+                    }
                 } else if let Some(channel) = self.chanmap.get_mut(channel) {
                     channel.users.insert(user);
                 }
@@ -486,7 +491,10 @@ impl Client {
 
                 if proto::is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
-                        channel.last_who = Some(Instant::now());
+                        if matches!(channel.last_who, Some(WhoStatus::Requested(_)) | None) {
+                            channel.last_who = Some(WhoStatus::Receiving);
+                            log::debug!("[{}] {target} - WHO receiving...", self.server);
+                        }
 
                         // H = Here, G = gone (away)
                         let flags = args.get(6)?.chars().collect::<Vec<char>>();
@@ -498,6 +506,16 @@ impl Client {
                             user.update_away(away);
                             channel.users.insert(user);
                         }
+                    }
+                }
+            }
+            Command::Numeric(RPL_ENDOFWHO, args) => {
+                let target = args.get(1)?;
+
+                if proto::is_channel(target) {
+                    if let Some(channel) = self.chanmap.get_mut(target) {
+                        channel.last_who = Some(WhoStatus::Done(Instant::now()));
+                        log::debug!("[{}] {target} - WHO done", self.server);
                     }
                 }
             }
@@ -617,17 +635,33 @@ impl Client {
     }
 
     pub fn tick(&mut self, now: Instant) {
-        for (channel, state) in self.chanmap.iter() {
-            let send_who = match state.last_who {
-                Some(last) if !self.supports_away_notify => {
-                    now.duration_since(last) >= WHO_POLL_INTERVAL
+        for (channel, state) in self.chanmap.iter_mut() {
+            enum Request {
+                Poll,
+                Retry,
+            }
+
+            let request = match state.last_who {
+                Some(WhoStatus::Done(last)) if !self.supports_away_notify => {
+                    (now.duration_since(last) >= WHO_POLL_INTERVAL).then_some(Request::Poll)
                 }
-                Some(_) => false,
-                None => true,
+                Some(WhoStatus::Requested(requested)) => {
+                    (now.duration_since(requested) >= WHO_RETRY_INTERVAL).then_some(Request::Retry)
+                }
+                _ => None,
             };
 
-            if send_who {
+            if let Some(request) = request {
                 let _ = self.sender.try_send(command!("WHO", channel));
+                state.last_who = Some(WhoStatus::Requested(Instant::now()));
+                log::debug!(
+                    "[{}] {channel} - WHO {}",
+                    self.server,
+                    match request {
+                        Request::Poll => "poll",
+                        Request::Retry => "retry",
+                    }
+                );
             }
         }
     }
@@ -822,5 +856,12 @@ enum RegistrationStep {
 #[derive(Debug, Default)]
 pub struct Channel {
     pub users: HashSet<User>,
-    pub last_who: Option<Instant>,
+    pub last_who: Option<WhoStatus>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum WhoStatus {
+    Requested(Instant),
+    Receiving,
+    Done(Instant),
 }
