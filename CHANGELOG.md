@@ -11,6 +11,7 @@ to ensure future breakages won't occur.**
 
 Added:
 
+- Command bar (opened by pressing (`Ctrl` + `K` (macOS: `CMD` + `K`)))
 - Away-notify extension added for supported servers
 - SASL support for PLAIN & EXTERNAL. The following per-server config keys have been added:
   - PLAIN - `sasl.plain.username` & `sasl.plain.password`
