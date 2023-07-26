@@ -487,20 +487,23 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_WHOREPLY, args) => {
-                let channel = args.get(1)?;
-                self.last_who_channels
-                    .insert(channel.clone(), Some(Instant::now()));
+                let target = args.get(1)?;
 
-                // H = Here, G = gone (away)
-                let flags = args.get(6)?.chars().collect::<Vec<char>>();
-                let away = *(flags.first()?) == 'G';
+                if proto::is_channel(target) {
+                    if let Some(list) = self.chanmap.get_mut(target) {
+                        self.last_who_channels
+                            .insert(target.clone(), Some(Instant::now()));
 
-                if let Some(list) = self.chanmap.get_mut(channel) {
-                    let lookup = User::from(Nick::from(args[5].clone()));
+                        // H = Here, G = gone (away)
+                        let flags = args.get(6)?.chars().collect::<Vec<char>>();
+                        let away = *(flags.first()?) == 'G';
 
-                    if let Some(mut user) = list.take(&lookup) {
-                        user.update_away(away);
-                        list.insert(user);
+                        let lookup = User::from(Nick::from(args[5].clone()));
+
+                        if let Some(mut user) = list.take(&lookup) {
+                            user.update_away(away);
+                            list.insert(user);
+                        }
                     }
                 }
             }
