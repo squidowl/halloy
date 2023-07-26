@@ -467,6 +467,8 @@ impl Client {
 
                 if user.nickname() == self.nickname() {
                     self.chanmap.remove(channel);
+
+                    self.last_who_channels.remove(channel);
                 } else if let Some(list) = self.chanmap.get_mut(channel) {
                     list.remove(&user);
                 }
