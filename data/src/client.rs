@@ -733,6 +733,14 @@ impl Map {
             })
             .unwrap_or(Status::Unavailable)
     }
+
+    pub fn tick(&mut self, now: Instant) {
+        self.0.values_mut().for_each(|client| {
+            if let State::Ready(client) = client {
+                client.tick(now);
+            }
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
