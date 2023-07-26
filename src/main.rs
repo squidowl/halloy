@@ -406,11 +406,7 @@ impl Application for Halloy {
                 }
             }
             Message::Tick(now) => {
-                for entry in self.servers.entries() {
-                    if let Some(client) = self.clients.client_mut(&entry.server) {
-                        client.tick(now);
-                    };
-                }
+                self.clients.tick(now);
 
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.tick(now).map(Message::Dashboard)
