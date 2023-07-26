@@ -475,14 +475,12 @@ impl Client {
                 let user = message.user()?;
 
                 if user.nickname() == self.nickname() {
+                    self.chanmap.insert(channel.clone(), Default::default());
+
                     // Sends WHO to get away state on users.
                     if self.sender.try_send(command!("WHO", channel)).is_ok() {
                         self.last_who_channels.insert(channel.clone(), None);
                     }
-                }
-
-                if user.nickname() == self.nickname() {
-                    self.chanmap.insert(channel.clone(), Default::default());
                 } else if let Some(list) = self.chanmap.get_mut(channel) {
                     list.insert(user);
                 }
