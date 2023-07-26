@@ -228,11 +228,20 @@ mod nick_list {
             users
                 .iter()
                 .map(|user| {
-                    let content = container(row![].padding([0, 4]).push(text(format!(
-                        "{}{}",
-                        user.highest_access_level(),
-                        user.nickname()
-                    ))));
+                    let content = container(
+                        row![].padding([0, 4]).push(
+                            text(format!(
+                                "{}{}",
+                                user.highest_access_level(),
+                                user.nickname()
+                            ))
+                            .style(if user.is_away() {
+                                theme::Text::Transparent
+                            } else {
+                                theme::Text::Default
+                            }),
+                        ),
+                    );
 
                     user_context::view(content, user.clone())
                 })

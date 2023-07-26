@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
+use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
@@ -8,6 +9,9 @@ use itertools::Itertools;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{config, message, mode, Buffer, Server, User};
+
+const WHO_POLL_INTERVAL: Duration = Duration::from_secs(60);
+const WHO_RETRY_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -56,7 +60,7 @@ pub struct Client {
     sender: mpsc::Sender<proto::Message>,
     alt_nick: Option<usize>,
     resolved_nick: Option<String>,
-    chanmap: BTreeMap<String, HashSet<User>>,
+    chanmap: BTreeMap<String, Channel>,
     channels: Vec<String>,
     users: HashMap<String, Vec<User>>,
     labels: HashMap<String, Context>,
@@ -65,6 +69,7 @@ pub struct Client {
     registration_step: RegistrationStep,
     listed_caps: Vec<String>,
     supports_labels: bool,
+    supports_away_notify: bool,
 }
 
 impl fmt::Debug for Client {
@@ -111,12 +116,11 @@ impl Client {
             registration_step,
             listed_caps: vec![],
             supports_labels: false,
+            supports_away_notify: false,
         }
     }
 
     pub async fn quit(mut self) {
-        use std::time::Duration;
-
         use tokio::time;
 
         let _ = self.sender.try_send(command!("QUIT"));
@@ -268,6 +272,9 @@ impl Client {
 
                     let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
 
+                    if contains("away-notify") {
+                        requested.push("away-notify");
+                    }
                     if contains("server-time") {
                         requested.push("server-time");
                     }
@@ -307,6 +314,9 @@ impl Client {
 
                 if caps.contains(&"labeled-response") {
                     self.supports_labels = true;
+                }
+                if caps.contains(&"away-notify") {
+                    self.supports_away_notify = true;
                 }
 
                 let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
@@ -361,9 +371,9 @@ impl Client {
 
                 let new_nick = Nick::from(nick.as_str());
 
-                self.chanmap.values_mut().for_each(|list| {
-                    if let Some(user) = list.take(&old_user) {
-                        list.insert(user.with_nickname(new_nick.clone()));
+                self.chanmap.values_mut().for_each(|channel| {
+                    if let Some(user) = channel.users.take(&old_user) {
+                        channel.users.insert(user.with_nickname(new_nick.clone()));
                     }
                 });
 
@@ -439,8 +449,8 @@ impl Client {
             Command::QUIT(comment) => {
                 let user = message.user()?;
 
-                self.chanmap.values_mut().for_each(|list| {
-                    list.remove(&user);
+                self.chanmap.values_mut().for_each(|channel| {
+                    channel.users.remove(&user);
                 });
 
                 let channels = self.user_channels(user.nickname());
@@ -456,41 +466,118 @@ impl Client {
 
                 if user.nickname() == self.nickname() {
                     self.chanmap.remove(channel);
-                } else if let Some(list) = self.chanmap.get_mut(channel) {
-                    list.remove(&user);
+                } else if let Some(channel) = self.chanmap.get_mut(channel) {
+                    channel.users.remove(&user);
                 }
             }
             Command::JOIN(channel, _) => {
                 let user = message.user()?;
 
                 if user.nickname() == self.nickname() {
-                    self.chanmap.insert(channel.clone(), Default::default());
-                } else if let Some(list) = self.chanmap.get_mut(channel) {
-                    list.insert(user);
+                    self.chanmap.insert(channel.clone(), Channel::default());
+
+                    if let Some(state) = self.chanmap.get_mut(channel) {
+                        // Sends WHO to get away state on users.
+                        let _ = self.sender.try_send(command!("WHO", channel));
+                        state.last_who = Some(WhoStatus::Requested(Instant::now()));
+                        log::debug!("[{}] {channel} - WHO requested", self.server);
+                    }
+                } else if let Some(channel) = self.chanmap.get_mut(channel) {
+                    channel.users.insert(user);
+                }
+            }
+            Command::Numeric(RPL_WHOREPLY, args) => {
+                let target = args.get(1)?;
+
+                if proto::is_channel(target) {
+                    if let Some(channel) = self.chanmap.get_mut(target) {
+                        if matches!(channel.last_who, Some(WhoStatus::Requested(_)) | None) {
+                            channel.last_who = Some(WhoStatus::Receiving);
+                            log::debug!("[{}] {target} - WHO receiving...", self.server);
+                        }
+
+                        // H = Here, G = gone (away)
+                        let flags = args.get(6)?.chars().collect::<Vec<char>>();
+                        let away = *(flags.first()?) == 'G';
+
+                        let lookup = User::from(Nick::from(args[5].clone()));
+
+                        if let Some(mut user) = channel.users.take(&lookup) {
+                            user.update_away(away);
+                            channel.users.insert(user);
+                        }
+                    }
+                }
+            }
+            Command::Numeric(RPL_ENDOFWHO, args) => {
+                let target = args.get(1)?;
+
+                if proto::is_channel(target) {
+                    if let Some(channel) = self.chanmap.get_mut(target) {
+                        channel.last_who = Some(WhoStatus::Done(Instant::now()));
+                        log::debug!("[{}] {target} - WHO done", self.server);
+                    }
+                }
+            }
+            Command::AWAY(args) => {
+                let away = args.is_some();
+                let user = message.user()?;
+
+                for channel in self.chanmap.values_mut() {
+                    if let Some(mut user) = channel.users.take(&user) {
+                        user.update_away(away);
+                        channel.users.insert(user);
+                    }
+                }
+            }
+            Command::Numeric(RPL_UNAWAY, args) => {
+                let nick = args.get(0)?.as_str();
+                let user = User::try_from(nick).ok()?;
+
+                if user.nickname() == self.nickname() {
+                    for channel in self.chanmap.values_mut() {
+                        if let Some(mut user) = channel.users.take(&user) {
+                            user.update_away(false);
+                            channel.users.insert(user);
+                        }
+                    }
+                }
+            }
+            Command::Numeric(RPL_NOWAWAY, args) => {
+                let nick = args.get(0)?.as_str();
+                let user = User::try_from(nick).ok()?;
+
+                if user.nickname() == self.nickname() {
+                    for channel in self.chanmap.values_mut() {
+                        if let Some(mut user) = channel.users.take(&user) {
+                            user.update_away(true);
+                            channel.users.insert(user);
+                        }
+                    }
                 }
             }
             Command::MODE(target, Some(modes), args) if proto::is_channel(target) => {
                 let modes = mode::parse::<mode::Channel>(modes, args);
 
-                if let Some(list) = self.chanmap.get_mut(target) {
+                if let Some(channel) = self.chanmap.get_mut(target) {
                     for mode in modes {
                         if let Some((op, lookup)) = mode
                             .operation()
                             .zip(mode.arg().map(|nick| User::from(Nick::from(nick))))
                         {
-                            if let Some(mut user) = list.take(&lookup) {
+                            if let Some(mut user) = channel.users.take(&lookup) {
                                 user.update_access_level(op, *mode.value());
-                                list.insert(user);
+                                channel.users.insert(user);
                             }
                         }
                     }
                 }
             }
             Command::Numeric(RPL_NAMREPLY, args) if args.len() > 3 => {
-                if let Some(list) = self.chanmap.get_mut(&args[2]) {
+                if let Some(channel) = self.chanmap.get_mut(&args[2]) {
                     for user in args[3].split(' ') {
                         if let Ok(user) = User::try_from(user) {
-                            list.insert(user);
+                            channel.users.insert(user);
                         }
                     }
                 }
@@ -506,7 +593,12 @@ impl Client {
         self.users = self
             .chanmap
             .iter()
-            .map(|(channel, users)| (channel.clone(), users.iter().sorted().cloned().collect()))
+            .map(|(channel, state)| {
+                (
+                    channel.clone(),
+                    state.users.iter().sorted().cloned().collect(),
+                )
+            })
             .collect();
     }
 
@@ -540,6 +632,38 @@ impl Client {
                 .as_deref()
                 .unwrap_or(&self.config.nickname),
         )
+    }
+
+    pub fn tick(&mut self, now: Instant) {
+        for (channel, state) in self.chanmap.iter_mut() {
+            enum Request {
+                Poll,
+                Retry,
+            }
+
+            let request = match state.last_who {
+                Some(WhoStatus::Done(last)) if !self.supports_away_notify => {
+                    (now.duration_since(last) >= WHO_POLL_INTERVAL).then_some(Request::Poll)
+                }
+                Some(WhoStatus::Requested(requested)) => {
+                    (now.duration_since(requested) >= WHO_RETRY_INTERVAL).then_some(Request::Retry)
+                }
+                _ => None,
+            };
+
+            if let Some(request) = request {
+                let _ = self.sender.try_send(command!("WHO", channel));
+                state.last_who = Some(WhoStatus::Requested(Instant::now()));
+                log::debug!(
+                    "[{}] {channel} - WHO {}",
+                    self.server,
+                    match request {
+                        Request::Poll => "poll",
+                        Request::Retry => "retry",
+                    }
+                );
+            }
+        }
     }
 }
 
@@ -635,6 +759,14 @@ impl Map {
             })
             .unwrap_or(Status::Unavailable)
     }
+
+    pub fn tick(&mut self, now: Instant) {
+        self.0.values_mut().for_each(|client| {
+            if let State::Ready(client) = client {
+                client.tick(now);
+            }
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -719,4 +851,17 @@ enum RegistrationStep {
     Req,
     Sasl,
     End,
+}
+
+#[derive(Debug, Default)]
+pub struct Channel {
+    pub users: HashSet<User>,
+    pub last_who: Option<WhoStatus>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum WhoStatus {
+    Requested(Instant),
+    Receiving,
+    Done(Instant),
 }
