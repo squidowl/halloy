@@ -15,7 +15,7 @@ pub struct Shortcut {
 }
 
 impl Shortcut {
-    pub fn execute(self, key_bind: KeyBind) -> Option<Command> {
+    pub fn execute(&self, key_bind: KeyBind) -> Option<Command> {
         (self.key_bind == key_bind).then_some(self.command)
     }
 }
@@ -63,8 +63,22 @@ impl KeyBind {
     default!(maximize_buffer, Up, COMMAND);
     default!(restore_buffer, Down, COMMAND);
 
-    pub fn is_pressed(&self, key_code: KeyCode, modifiers: Modifiers) -> bool {
-        self.key_code == key_code && self.modifiers == modifiers
+    pub fn is_pressed(
+        &self,
+        key_code: impl Into<KeyCode>,
+        modifiers: impl Into<Modifiers>,
+    ) -> bool {
+        self.key_code == key_code.into() && self.modifiers == modifiers.into()
+    }
+
+    pub fn from_char(char: char, modifiers: impl Into<Modifiers>) -> Option<Self> {
+        char.to_string()
+            .parse::<KeyCode>()
+            .ok()
+            .map(|key_code| KeyBind {
+                key_code,
+                modifiers: modifiers.into(),
+            })
     }
 }
 
@@ -121,6 +135,12 @@ pub struct KeyCode(keyboard::KeyCode);
 
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Default)]
 pub struct Modifiers(keyboard::Modifiers);
+
+impl From<keyboard::Modifiers> for Modifiers {
+    fn from(modifiers: keyboard::Modifiers) -> Self {
+        Self(modifiers)
+    }
+}
 
 impl ops::BitOr for Modifiers {
     type Output = Self;
@@ -311,7 +331,8 @@ impl FromStr for Modifiers {
             "shift" => keyboard::Modifiers::SHIFT,
             "ctrl" => keyboard::Modifiers::CTRL,
             "alt" => keyboard::Modifiers::ALT,
-            "cmd" | "command" | "logo" | "super" | "windows" => keyboard::Modifiers::LOGO,
+            "cmd" | "command" => keyboard::Modifiers::COMMAND,
+            "logo" | "super" | "windows" => keyboard::Modifiers::LOGO,
             _ => return Err(ParseError::InvalidModifier(s.to_string())),
         }))
     }
