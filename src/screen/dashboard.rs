@@ -14,7 +14,7 @@ use side_menu::SideMenu;
 
 use crate::buffer::{self, Buffer};
 use crate::event;
-use crate::widget::{selectable_text, Element};
+use crate::widget::{selectable_text, shortcut, Element};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
@@ -36,6 +36,7 @@ pub enum Message {
     DashboardSaved(Result<(), data::dashboard::Error>),
     CloseHistory,
     QuitServer,
+    Shortcut(shortcut::Command),
 }
 
 impl Dashboard {
@@ -302,6 +303,36 @@ impl Dashboard {
             }
             Message::CloseHistory => {}
             Message::QuitServer => {}
+            Message::Shortcut(shortcut) => {
+                use shortcut::Command::*;
+
+                let mut move_focus = |direction: pane_grid::Direction| {
+                    if let Some(pane) = self.focus.as_ref() {
+                        if let Some(adjacent) = self.panes.adjacent(pane, direction) {
+                            return self.focus_pane(adjacent);
+                        }
+                    } else if let Some((pane, _)) = self.panes.panes.iter().next() {
+                        return self.focus_pane(*pane);
+                    }
+
+                    Command::none()
+                };
+
+                match shortcut {
+                    MoveUp => return move_focus(pane_grid::Direction::Up),
+                    MoveDown => return move_focus(pane_grid::Direction::Down),
+                    MoveLeft => return move_focus(pane_grid::Direction::Left),
+                    MoveRight => return move_focus(pane_grid::Direction::Right),
+                    MaximizeBuffer => {
+                        if let Some(pane) = self.focus.as_ref() {
+                            self.panes.maximize(pane);
+                        }
+                    }
+                    RestoreBuffer => {
+                        self.panes.restore();
+                    }
+                }
+            }
         }
 
         Command::none()
@@ -354,14 +385,15 @@ impl Dashboard {
         // space occupied by the traffic light buttons.
         let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
 
-        row![side_menu, pane_grid]
+        let base = row![side_menu, pane_grid]
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding([height_margin, 0, 0, 0])
-            .into()
+            .padding([height_margin, 0, 0, 0]);
+
+        shortcut(base, config.keys.shortcuts(), Message::Shortcut)
     }
 
-    pub fn handle_event(&mut self, event: event::Event, config: &Config) -> Command<Message> {
+    pub fn handle_event(&mut self, event: event::Event) -> Command<Message> {
         use event::Event::*;
 
         match event {
@@ -417,47 +449,6 @@ impl Dashboard {
                 };
 
                 Command::perform(task, |_| Message::Close)
-            }
-            KeyBind(key_bind) => {
-                use data::shortcut::Command::*;
-
-                let Some(shortcut) = config
-                    .keys
-                    .shortcuts()
-                    .into_iter()
-                    .find_map(|shortcut| shortcut.execute(key_bind))
-                else {
-                    return Command::none();
-                };
-
-                let mut move_focus = |direction: pane_grid::Direction| {
-                    if let Some(pane) = self.focus.as_ref() {
-                        if let Some(adjacent) = self.panes.adjacent(pane, direction) {
-                            return self.focus_pane(adjacent);
-                        }
-                    } else if let Some((pane, _)) = self.panes.panes.iter().next() {
-                        return self.focus_pane(*pane);
-                    }
-
-                    Command::none()
-                };
-
-                match shortcut {
-                    MoveUp => move_focus(pane_grid::Direction::Up),
-                    MoveDown => move_focus(pane_grid::Direction::Down),
-                    MoveLeft => move_focus(pane_grid::Direction::Left),
-                    MoveRight => move_focus(pane_grid::Direction::Right),
-                    MaximizeBuffer => {
-                        if let Some(pane) = self.focus.as_ref() {
-                            self.panes.maximize(pane);
-                        }
-                        Command::none()
-                    }
-                    RestoreBuffer => {
-                        self.panes.restore();
-                        Command::none()
-                    }
-                }
             }
         }
     }
