@@ -11,6 +11,7 @@ Added:
   - EXTERNAL - `sasl.external.cert` is a path to the PEM encoded X509 cert
 - Configuration option `buffer.hidden_server_messages` to hide server messages from the provided array of sources: ["join", "part", "quit"]
 - Configuration option `buffer.input_visibility` to control input field visibility: always shown or following the focused buffer.
+- Portable mode - if a config file exists in the same directory as the executable, all Halloy data will be saved to that directory
 - Upon joining a channel, display the channel mode in the buffer
 - When querying an away user, you will see an away message
 - Autocomplete on joined channels

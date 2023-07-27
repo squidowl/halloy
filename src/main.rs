@@ -15,7 +15,7 @@ use std::env;
 use std::time::{Duration, Instant};
 
 use data::config::{self, Config};
-use data::server;
+use data::{environment, server};
 use iced::widget::container;
 use iced::{executor, window, Application, Command, Length, Subscription};
 use screen::{dashboard, help, welcome};
@@ -34,7 +34,7 @@ pub fn main() -> iced::Result {
         .unwrap_or_default();
 
     if version {
-        println!("halloy {}", data::environment::formatted_version());
+        println!("halloy {}", environment::formatted_version());
 
         return Ok(());
     }
@@ -45,10 +45,9 @@ pub fn main() -> iced::Result {
     let is_debug = false;
 
     logger::setup(is_debug).expect("setup logging");
-    log::info!(
-        "halloy {} has started",
-        data::environment::formatted_version()
-    );
+    log::info!("halloy {} has started", environment::formatted_version());
+    log::info!("config dir: {:?}", environment::config_dir());
+    log::info!("data dir: {:?}", environment::data_dir());
 
     // Create themes directory
     config::create_themes_dir();
