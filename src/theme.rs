@@ -234,6 +234,7 @@ pub enum Container {
     },
     Context,
     Highlight,
+    SemiTransparent,
 }
 
 impl container::StyleSheet for Theme {
@@ -291,6 +292,16 @@ impl container::StyleSheet for Theme {
             Container::Highlight => container::Appearance {
                 background: Some(Background::Color(self.colors.info.high_alpha)),
                 border_radius: 0.0.into(),
+                ..Default::default()
+            },
+            Container::SemiTransparent => container::Appearance {
+                background: Some(
+                    Color {
+                        a: 0.80,
+                        ..self.colors.background.base
+                    }
+                    .into(),
+                ),
                 ..Default::default()
             },
         }

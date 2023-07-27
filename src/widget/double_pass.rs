@@ -5,7 +5,7 @@
 use iced::advanced::widget::tree;
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
 pub use iced::keyboard::{KeyCode, Modifiers};
-use iced::{event, mouse, Event, Length, Rectangle};
+use iced::{event, mouse, Event, Length, Rectangle, Size};
 
 use super::{Element, Renderer};
 use crate::Theme;
@@ -42,7 +42,7 @@ impl<'a, Message> Widget<Message, Renderer> for DoublePass<'a, Message> {
     fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
         let layout = self.first_pass.as_widget().layout(renderer, limits);
 
-        let new_limits = layout::Limits::new(layout.size(), layout.size());
+        let new_limits = layout::Limits::new(Size::ZERO, layout.size());
 
         self.second_pass.as_widget().layout(renderer, &new_limits)
     }

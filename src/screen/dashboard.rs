@@ -8,7 +8,7 @@ use data::history::manager::Broadcast;
 use data::user::Nick;
 use data::{history, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{column, container, row};
+use iced::widget::{container, row, Space};
 use iced::{clipboard, window, Command, Length};
 
 use command_bar::CommandBar;
@@ -16,7 +16,8 @@ use pane::Pane;
 use side_menu::SideMenu;
 
 use crate::buffer::{self, Buffer};
-use crate::widget::{selectable_text, Collection, Element};
+use crate::theme;
+use crate::widget::{anchored_overlay, selectable_text, Element};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
@@ -377,18 +378,32 @@ impl Dashboard {
         // space occupied by the traffic light buttons.
         let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
 
-        let command_bar = self.command_bar.as_ref().map(|command_bar| {
-            container(command_bar.view().map(Message::Command))
-                .width(Length::Fill)
-                .padding([0, 8, 8, 8])
-        });
-
-        column![row![side_menu, pane_grid]
+        let base = row![side_menu, pane_grid]
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding([height_margin, 0, 0, 0])]
-        .push_maybe(command_bar)
-        .into()
+            .padding([height_margin, 0, 0, 0]);
+
+        if let Some(command_bar) = self.command_bar.as_ref() {
+            let background = anchored_overlay(
+                base,
+                container(Space::new(Length::Fill, Length::Fill))
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .style(theme::Container::SemiTransparent),
+                anchored_overlay::Anchor::BelowTopCentered,
+                0.0,
+            );
+
+            // Command bar
+            anchored_overlay(
+                background,
+                command_bar.view().map(Message::Command),
+                anchored_overlay::Anchor::BelowTopCentered,
+                (height_margin + 10) as f32,
+            )
+        } else {
+            base.into()
+        }
     }
 
     pub fn handle_event(&mut self, event: crate::event::Event) -> Command<Message> {
