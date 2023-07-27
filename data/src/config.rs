@@ -8,6 +8,7 @@ use thiserror::Error;
 pub use self::buffer::Buffer;
 pub use self::channel::Channel;
 pub use self::dashboard::Dashboard;
+pub use self::keys::Keys;
 pub use self::server::Server;
 use crate::environment;
 use crate::palette::Palette;
@@ -16,6 +17,7 @@ use crate::server::Map as ServerMap;
 mod buffer;
 pub mod channel;
 mod dashboard;
+mod keys;
 pub mod server;
 
 const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
@@ -28,6 +30,7 @@ pub struct Config {
     pub font: Font,
     pub buffer: Buffer,
     pub dashboard: Dashboard,
+    pub keys: Keys,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -75,6 +78,8 @@ impl Config {
             pub buffer: Buffer,
             #[serde(default)]
             pub dashboard: Dashboard,
+            #[serde(default)]
+            pub keys: Keys,
         }
 
         let path = Self::path();
@@ -86,6 +91,7 @@ impl Config {
             font,
             buffer,
             dashboard,
+            keys,
         } = serde_yaml::from_reader(BufReader::new(file))
             .map_err(|e| Error::Parse(e.to_string()))?;
 
@@ -98,6 +104,7 @@ impl Config {
             font,
             buffer,
             dashboard,
+            keys,
         })
     }
 

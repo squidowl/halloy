@@ -13,6 +13,7 @@ use pane::Pane;
 use side_menu::SideMenu;
 
 use crate::buffer::{self, Buffer};
+use crate::event;
 use crate::widget::{selectable_text, Element};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
@@ -360,8 +361,8 @@ impl Dashboard {
             .into()
     }
 
-    pub fn handle_event(&mut self, event: crate::event::Event) -> Command<Message> {
-        use crate::event::Event::*;
+    pub fn handle_event(&mut self, event: event::Event, config: &Config) -> Command<Message> {
+        use event::Event::*;
 
         match event {
             Escape => {
@@ -416,6 +417,47 @@ impl Dashboard {
                 };
 
                 Command::perform(task, |_| Message::Close)
+            }
+            KeyBind(key_bind) => {
+                use data::shortcut::Command::*;
+
+                let Some(shortcut) = config
+                    .keys
+                    .shortcuts()
+                    .into_iter()
+                    .find_map(|shortcut| shortcut.execute(key_bind))
+                else {
+                    return Command::none();
+                };
+
+                let mut move_focus = |direction: pane_grid::Direction| {
+                    if let Some(pane) = self.focus.as_ref() {
+                        if let Some(adjacent) = self.panes.adjacent(pane, direction) {
+                            return self.focus_pane(adjacent);
+                        }
+                    } else if let Some((pane, _)) = self.panes.panes.iter().next() {
+                        return self.focus_pane(*pane);
+                    }
+
+                    Command::none()
+                };
+
+                match shortcut {
+                    MoveUp => move_focus(pane_grid::Direction::Up),
+                    MoveDown => move_focus(pane_grid::Direction::Down),
+                    MoveLeft => move_focus(pane_grid::Direction::Left),
+                    MoveRight => move_focus(pane_grid::Direction::Right),
+                    MaximizeBuffer => {
+                        if let Some(pane) = self.focus.as_ref() {
+                            self.panes.maximize(pane);
+                        }
+                        Command::none()
+                    }
+                    RestoreBuffer => {
+                        self.panes.restore();
+                        Command::none()
+                    }
+                }
             }
         }
     }

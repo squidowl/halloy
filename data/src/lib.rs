@@ -10,6 +10,7 @@ pub use self::mode::Mode;
 pub use self::palette::Palette;
 pub use self::pane::Pane;
 pub use self::server::Server;
+pub use self::shortcut::Shortcut;
 pub use self::user::User;
 
 pub mod buffer;
@@ -28,6 +29,7 @@ pub mod mode;
 pub mod palette;
 pub mod pane;
 pub mod server;
+pub mod shortcut;
 pub mod stream;
 pub mod time;
 pub mod user;
