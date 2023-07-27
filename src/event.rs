@@ -39,7 +39,7 @@ fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Ev
         iced::Event::Keyboard(keyboard::Event::KeyPressed {
             key_code,
             modifiers,
-        }) if ignored(status) => Some(Event::KeyBind(KeyBind::from((*key_code, *modifiers)))),
+        }) => Some(Event::KeyBind(KeyBind::from((*key_code, *modifiers)))),
         _ => None,
     }
 }
