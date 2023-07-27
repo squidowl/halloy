@@ -3,6 +3,9 @@ name = "data"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+dev = []
+
 [dependencies]
 base64 = "0.21.2"
 chrono = { version = "0.4", features = ['serde'] }
