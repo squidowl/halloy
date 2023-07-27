@@ -56,10 +56,10 @@ pub struct KeyBind {
 }
 
 impl KeyBind {
-    default!(move_up, Up);
-    default!(move_down, Down);
-    default!(move_left, Left);
-    default!(move_right, Right);
+    default!(move_up, Up, ALT);
+    default!(move_down, Down, ALT);
+    default!(move_left, Left, ALT);
+    default!(move_right, Right, ALT);
     default!(maximize_buffer, Up, COMMAND);
     default!(restore_buffer, Down, COMMAND);
 
