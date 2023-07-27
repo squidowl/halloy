@@ -3,7 +3,7 @@ use iced::widget::{column, combo_box, container, text};
 use iced::Length;
 
 use crate::theme;
-use crate::widget::{double_pass, Element};
+use crate::widget::{double_pass, key_press, Element};
 
 #[derive(Debug, Clone)]
 pub struct CommandBar {
@@ -14,6 +14,7 @@ pub struct CommandBar {
 pub enum Message {
     Command(Command),
     Unfocused,
+    Ignored,
 }
 
 impl CommandBar {
@@ -24,16 +25,32 @@ impl CommandBar {
         Self { state }
     }
 
-    pub fn update(&mut self, message: Message) -> Event {
+    pub fn update(&mut self, message: Message) -> Option<Event> {
         match message {
-            Message::Command(command) => Event::Command(command),
-            Message::Unfocused => Event::Unfocused,
+            Message::Command(command) => Some(Event::Command(command)),
+            Message::Unfocused => Some(Event::Unfocused),
+            Message::Ignored => None,
         }
     }
 
     pub fn view<'a>(&'a self, config: &'a Config) -> Element<'a, Message> {
         // 1px larger than default
         let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) + 1.0;
+
+        let combo_box = combo_box(&self.state, "Type a command...", None, Message::Command)
+            .on_close(Message::Unfocused)
+            .style(theme::ComboBox::Default)
+            .size(font_size)
+            .padding([8, 8]);
+
+        // Capture ESC so we can close the combobox manually from application
+        // and prevent undesired effects
+        let combo_box = key_press(
+            combo_box,
+            key_press::KeyCode::Escape,
+            key_press::Modifiers::default(),
+            Message::Ignored,
+        );
 
         double_pass(
             // Layout should be based on the Shrink text size width of largest option
@@ -49,16 +66,10 @@ impl CommandBar {
             )
             // Give it some extra width
             .padding([0, 20]),
-            container(
-                combo_box(&self.state, "Type a command...", None, Message::Command)
-                    .on_close(Message::Unfocused)
-                    .style(theme::ComboBox::Default)
-                    .size(font_size)
-                    .padding([8, 8]),
-            )
-            .padding(1)
-            .style(theme::Container::Context)
-            .width(Length::Fill),
+            container(combo_box)
+                .padding(1)
+                .style(theme::Container::Context)
+                .width(Length::Fill),
         )
     }
 }
