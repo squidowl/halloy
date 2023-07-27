@@ -1,22 +1,22 @@
-mod command_bar;
-pub mod pane;
-pub mod side_menu;
-
 use std::time::{Duration, Instant};
 
-use command_bar::CommandBar;
 use data::history::manager::Broadcast;
 use data::user::Nick;
 use data::{history, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row, Space};
 use iced::{clipboard, window, Command, Length};
-use pane::Pane;
-use side_menu::SideMenu;
 
+use self::command_bar::CommandBar;
+use self::pane::Pane;
+use self::side_menu::SideMenu;
 use crate::buffer::{self, Buffer};
 use crate::theme;
 use crate::widget::{anchored_overlay, selectable_text, Element};
+
+mod command_bar;
+pub mod pane;
+pub mod side_menu;
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
