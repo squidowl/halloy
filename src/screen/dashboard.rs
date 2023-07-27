@@ -313,16 +313,17 @@ impl Dashboard {
                 };
 
                 match command_bar.update(message) {
-                    command_bar::Event::Command(command) => {
-                        self.toggle_command_bar();
-
+                    Some(command_bar::Event::Command(command)) => {
                         match command {
                             command_bar::Command::OpenConfig => {
                                 let _ = open::that(Config::config_dir());
                             }
                         }
+
+                        return self.toggle_command_bar();
                     }
-                    command_bar::Event::Unfocused => self.toggle_command_bar(),
+                    Some(command_bar::Event::Unfocused) => return self.toggle_command_bar(),
+                    None => {}
                 }
             }
         }
@@ -412,9 +413,12 @@ impl Dashboard {
             Escape => {
                 // Order of operations
                 //
+                // - Close command bar
                 // - Restore maximized pane
                 // - Unfocus
-                if self.panes.maximized().is_some() {
+                if self.command_bar.is_some() {
+                    return self.toggle_command_bar();
+                } else if self.panes.maximized().is_some() {
                     self.panes.restore();
                 } else {
                     self.focus = None;
@@ -462,10 +466,7 @@ impl Dashboard {
 
                 Command::perform(task, |_| Message::Close)
             }
-            CommandBar => {
-                self.toggle_command_bar();
-                Command::none()
-            }
+            CommandBar => self.toggle_command_bar(),
         }
     }
 
@@ -663,11 +664,17 @@ impl Dashboard {
         history
     }
 
-    pub fn toggle_command_bar(&mut self) {
+    pub fn toggle_command_bar(&mut self) -> Command<Message> {
         if self.command_bar.is_some() {
             self.close_command_bar();
+            // Refocus the pane so text input gets refocused
+            self.focus
+                .take()
+                .map(|pane| self.focus_pane(pane))
+                .unwrap_or(Command::none())
         } else {
             self.open_command_bar();
+            Command::none()
         }
     }
 
