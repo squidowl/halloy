@@ -4,14 +4,13 @@ pub mod side_menu;
 
 use std::time::{Duration, Instant};
 
+use command_bar::CommandBar;
 use data::history::manager::Broadcast;
 use data::user::Nick;
 use data::{history, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row, Space};
 use iced::{clipboard, window, Command, Length};
-
-use command_bar::CommandBar;
 use pane::Pane;
 use side_menu::SideMenu;
 
@@ -397,7 +396,7 @@ impl Dashboard {
             // Command bar
             anchored_overlay(
                 background,
-                command_bar.view().map(Message::Command),
+                command_bar.view(config).map(Message::Command),
                 anchored_overlay::Anchor::BelowTopCentered,
                 (height_margin + 10) as f32,
             )
