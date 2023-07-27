@@ -39,9 +39,7 @@ impl Dashboard {
 }
 
 fn path() -> Result<PathBuf, Error> {
-    let data_dir = environment::data_dir();
-
-    let parent = data_dir.join("halloy");
+    let parent = environment::data_dir();
 
     if !parent.exists() {
         std::fs::create_dir_all(&parent)?;
