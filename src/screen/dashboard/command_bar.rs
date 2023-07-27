@@ -1,4 +1,6 @@
-use iced::widget::{column, combo_box, text};
+use data::Config;
+use iced::widget::{column, combo_box, container, text};
+use iced::Length;
 
 use crate::theme;
 use crate::widget::{double_pass, Element};
@@ -29,21 +31,34 @@ impl CommandBar {
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view<'a>(&'a self, config: &'a Config) -> Element<'a, Message> {
+        // 1px larger than default
+        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) + 1.0;
+
         double_pass(
             // Layout should be based on the Shrink text size width of largest option
             column(
-                std::iter::once(text("Type a command..."))
-                    .chain(Command::list().iter().map(ToString::to_string).map(text))
+                std::iter::once(text("Type a command...").size(font_size))
+                    .chain(
+                        Command::list()
+                            .iter()
+                            .map(|command| text(command).size(font_size)),
+                    )
                     .map(Element::from)
                     .collect(),
             )
             // Give it some extra width
             .padding([0, 20]),
-            combo_box(&self.state, "Type a command...", None, Message::Command)
-                .on_close(Message::Unfocused)
-                .style(theme::ComboBox::Default)
-                .padding([4, 8]),
+            container(
+                combo_box(&self.state, "Type a command...", None, Message::Command)
+                    .on_close(Message::Unfocused)
+                    .style(theme::ComboBox::Default)
+                    .size(font_size)
+                    .padding([8, 8]),
+            )
+            .padding(1)
+            .style(theme::Container::Context)
+            .width(Length::Fill),
         )
     }
 }
