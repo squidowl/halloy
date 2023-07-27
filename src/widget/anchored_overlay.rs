@@ -8,17 +8,29 @@ use crate::Theme;
 pub fn anchored_overlay<'a, Message: 'a>(
     base: impl Into<Element<'a, Message>>,
     overlay: impl Into<Element<'a, Message>>,
+    anchor: Anchor,
+    offset: f32,
 ) -> Element<'a, Message> {
     AnchoredOverlay {
         base: base.into(),
         overlay: overlay.into(),
+        anchor,
+        offset,
     }
     .into()
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Anchor {
+    AboveTop,
+    BelowTop,
 }
 
 struct AnchoredOverlay<'a, Message> {
     base: Element<'a, Message>,
     overlay: Element<'a, Message>,
+    anchor: Anchor,
+    offset: f32,
 }
 
 impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
@@ -145,6 +157,8 @@ impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
             Box::new(Overlay {
                 content: &mut self.overlay,
                 tree: &mut second[0],
+                anchor: self.anchor,
+                offset: self.offset,
                 base_layout: layout.bounds(),
             }),
         );
@@ -168,25 +182,40 @@ where
 struct Overlay<'a, 'b, Message> {
     content: &'b mut Element<'a, Message>,
     tree: &'b mut widget::Tree,
+    anchor: Anchor,
+    offset: f32,
     base_layout: Rectangle,
 }
 
 impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Message> {
-    // TODO: Make anchor options configurable
-    // Anchor it above for now = same width & offset up by height
-    fn layout(&self, renderer: &Renderer, _bounds: Size, position: Point) -> layout::Node {
+    fn layout(&self, renderer: &Renderer, bounds: Size, position: Point) -> layout::Node {
+        let height = match self.anchor {
+            // From top of base to top of viewport
+            Anchor::AboveTop => position.y,
+            // From top of base to bottom of viewport
+            Anchor::BelowTop => bounds.height - position.y,
+        };
+
         let limits = layout::Limits::new(
             Size::ZERO,
             Size {
                 width: self.base_layout.width,
-                height: position.y,
+                height,
             },
         )
         .width(Length::Fill)
         .height(Length::Fill);
 
         let mut node = self.content.as_widget().layout(renderer, &limits);
-        node.move_to(position - Vector::new(0.0, node.size().height + 4.0));
+
+        let translation = match self.anchor {
+            // Overlay height + offset above the top
+            Anchor::AboveTop => Vector::new(0.0, -(node.size().height + self.offset)),
+            // Offset below the top
+            Anchor::BelowTop => Vector::new(0.0, self.offset),
+        };
+
+        node.move_to(position + translation);
 
         node
     }

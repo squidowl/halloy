@@ -223,7 +223,7 @@ where
             .or_else(|| state.completion.view(self.input))
             .unwrap_or_else(|| row![].into());
 
-        anchored_overlay(input, overlay)
+        anchored_overlay(input, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
     }
 
     fn operate(&self, state: &mut State, operation: &mut dyn widget::Operation<Message>) {
