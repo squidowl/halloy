@@ -23,7 +23,7 @@ pub fn anchored_overlay<'a, Message: 'a>(
 #[derive(Debug, Clone, Copy)]
 pub enum Anchor {
     AboveTop,
-    BelowTop,
+    BelowTopCentered,
 }
 
 struct AnchoredOverlay<'a, Message> {
@@ -193,7 +193,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
             // From top of base to top of viewport
             Anchor::AboveTop => position.y,
             // From top of base to bottom of viewport
-            Anchor::BelowTop => bounds.height - position.y,
+            Anchor::BelowTopCentered => bounds.height - position.y,
         };
 
         let limits = layout::Limits::new(
@@ -211,8 +211,11 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
         let translation = match self.anchor {
             // Overlay height + offset above the top
             Anchor::AboveTop => Vector::new(0.0, -(node.size().height + self.offset)),
-            // Offset below the top
-            Anchor::BelowTop => Vector::new(0.0, self.offset),
+            // Offset below the top and centered
+            Anchor::BelowTopCentered => Vector::new(
+                self.base_layout.width / 2.0 - node.size().width / 2.0,
+                self.offset,
+            ),
         };
 
         node.move_to(position + translation);
@@ -285,5 +288,15 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
 
     fn is_over(&self, layout: Layout<'_>, _renderer: &Renderer, cursor_position: Point) -> bool {
         layout.bounds().contains(cursor_position)
+    }
+
+    fn overlay<'c>(
+        &'c mut self,
+        layout: Layout<'_>,
+        renderer: &Renderer,
+    ) -> Option<overlay::Element<'c, Message, Renderer>> {
+        self.content
+            .as_widget_mut()
+            .overlay(self.tree, layout, renderer)
     }
 }
