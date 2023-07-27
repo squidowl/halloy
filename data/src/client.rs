@@ -582,6 +582,9 @@ impl Client {
                     }
                 }
             }
+            #[cfg(feature = "dev")]
+            // Suppress topic during development to prevent history spam
+            Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME, _) => return None,
             _ => {}
         }
 
