@@ -12,6 +12,8 @@ pub struct Keys {
     pub move_left: KeyBind,
     #[serde(default = "KeyBind::move_right")]
     pub move_right: KeyBind,
+    #[serde(default = "KeyBind::close_buffer")]
+    pub close_buffer: KeyBind,
     #[serde(default = "KeyBind::maximize_buffer")]
     pub maximize_buffer: KeyBind,
     #[serde(default = "KeyBind::restore_buffer")]
@@ -20,6 +22,8 @@ pub struct Keys {
     pub cycle_next_buffer: KeyBind,
     #[serde(default = "KeyBind::cycle_previous_buffer")]
     pub cycle_previous_buffer: KeyBind,
+    #[serde(default = "KeyBind::toggle_nick_list")]
+    pub toggle_nick_list: KeyBind,
 }
 
 impl Default for Keys {
@@ -29,10 +33,12 @@ impl Default for Keys {
             move_down: KeyBind::move_down(),
             move_left: KeyBind::move_left(),
             move_right: KeyBind::move_right(),
+            close_buffer: KeyBind::close_buffer(),
             maximize_buffer: KeyBind::maximize_buffer(),
             restore_buffer: KeyBind::restore_buffer(),
             cycle_next_buffer: KeyBind::cycle_next_buffer(),
             cycle_previous_buffer: KeyBind::cycle_previous_buffer(),
+            toggle_nick_list: KeyBind::toggle_nick_list(),
         }
     }
 }
@@ -46,10 +52,12 @@ impl Keys {
             shortcut(self.move_down, MoveDown),
             shortcut(self.move_left, MoveLeft),
             shortcut(self.move_right, MoveRight),
+            shortcut(self.close_buffer, CloseBuffer),
             shortcut(self.maximize_buffer, MaximizeBuffer),
             shortcut(self.restore_buffer, RestoreBuffer),
             shortcut(self.cycle_next_buffer, CycleNextBuffer),
             shortcut(self.cycle_previous_buffer, CyclePreviousBuffer),
+            shortcut(self.toggle_nick_list, ToggleNickList),
         ]
     }
 }

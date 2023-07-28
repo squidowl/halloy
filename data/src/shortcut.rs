@@ -26,10 +26,12 @@ pub enum Command {
     MoveDown,
     MoveLeft,
     MoveRight,
+    CloseBuffer,
     MaximizeBuffer,
     RestoreBuffer,
     CycleNextBuffer,
     CyclePreviousBuffer,
+    ToggleNickList,
 }
 
 macro_rules! default {
@@ -62,10 +64,12 @@ impl KeyBind {
     default!(move_down, Down, ALT);
     default!(move_left, Left, ALT);
     default!(move_right, Right, ALT);
+    default!(close_buffer, W, COMMAND);
     default!(maximize_buffer, Up, COMMAND);
     default!(restore_buffer, Down, COMMAND);
     default!(cycle_next_buffer, Tab, CTRL);
     default!(cycle_previous_buffer, Tab, CTRL | SHIFT);
+    default!(toggle_nick_list, M, COMMAND | ALT);
 
     pub fn is_pressed(
         &self,

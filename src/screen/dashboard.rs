@@ -87,13 +87,7 @@ impl Dashboard {
                 pane::Message::PaneDragged(_) => {}
                 pane::Message::ClosePane => {
                     if let Some(pane) = self.focus {
-                        self.last_changed = Some(Instant::now());
-
-                        if let Some((_, sibling)) = self.panes.close(&pane) {
-                            return self.focus_pane(sibling);
-                        } else if let Some(pane) = self.panes.get_mut(&pane) {
-                            pane.buffer = Buffer::Empty;
-                        }
+                        return self.close_pane(pane);
                     }
                 }
                 pane::Message::SplitPane(axis) => {
@@ -323,6 +317,11 @@ impl Dashboard {
                     MoveDown => return move_focus(pane_grid::Direction::Down),
                     MoveLeft => return move_focus(pane_grid::Direction::Left),
                     MoveRight => return move_focus(pane_grid::Direction::Right),
+                    CloseBuffer => {
+                        if let Some(pane) = self.focus {
+                            return self.close_pane(pane);
+                        }
+                    }
                     MaximizeBuffer => {
                         if let Some(pane) = self.focus.as_ref() {
                             self.panes.maximize(pane);
@@ -355,6 +354,13 @@ impl Dashboard {
                                 self.focus = None;
                                 return self.focus_pane(pane);
                             }
+                        }
+                    }
+                    ToggleNickList => {
+                        if let Some((_, pane)) = self.get_focused_mut() {
+                            pane.update_settings(|settings| {
+                                settings.channel.users.visible = !settings.channel.users.visible
+                            });
                         }
                     }
                 }
@@ -630,6 +636,18 @@ impl Dashboard {
                 })
             })
             .unwrap_or(Command::none())
+    }
+
+    fn close_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
+        self.last_changed = Some(Instant::now());
+
+        if let Some((_, sibling)) = self.panes.close(&pane) {
+            return self.focus_pane(sibling);
+        } else if let Some(pane) = self.panes.get_mut(&pane) {
+            pane.buffer = Buffer::Empty;
+        }
+
+        Command::none()
     }
 
     pub fn track(&mut self) -> Command<Message> {
