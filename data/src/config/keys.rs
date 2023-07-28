@@ -16,6 +16,10 @@ pub struct Keys {
     pub maximize_buffer: KeyBind,
     #[serde(default = "KeyBind::restore_buffer")]
     pub restore_buffer: KeyBind,
+    #[serde(default = "KeyBind::cycle_next_buffer")]
+    pub cycle_next_buffer: KeyBind,
+    #[serde(default = "KeyBind::cycle_previous_buffer")]
+    pub cycle_previous_buffer: KeyBind,
 }
 
 impl Default for Keys {
@@ -27,6 +31,8 @@ impl Default for Keys {
             move_right: KeyBind::move_right(),
             maximize_buffer: KeyBind::maximize_buffer(),
             restore_buffer: KeyBind::restore_buffer(),
+            cycle_next_buffer: KeyBind::cycle_next_buffer(),
+            cycle_previous_buffer: KeyBind::cycle_previous_buffer(),
         }
     }
 }
@@ -42,6 +48,8 @@ impl Keys {
             shortcut(self.move_right, MoveRight),
             shortcut(self.maximize_buffer, MaximizeBuffer),
             shortcut(self.restore_buffer, RestoreBuffer),
+            shortcut(self.cycle_next_buffer, CycleNextBuffer),
+            shortcut(self.cycle_previous_buffer, CyclePreviousBuffer),
         ]
     }
 }

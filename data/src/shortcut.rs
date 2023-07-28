@@ -28,22 +28,24 @@ pub enum Command {
     MoveRight,
     MaximizeBuffer,
     RestoreBuffer,
+    CycleNextBuffer,
+    CyclePreviousBuffer,
 }
 
 macro_rules! default {
     ($name:ident, $k:tt) => {
-        pub const fn $name() -> KeyBind {
+        pub fn $name() -> KeyBind {
             KeyBind {
                 key_code: KeyCode(iced_core::keyboard::KeyCode::$k),
-                modifiers: Modifiers(iced_core::keyboard::Modifiers::empty()),
+                modifiers: Modifiers::default(),
             }
         }
     };
-    ($name:ident, $k:tt, $m:tt) => {
-        pub const fn $name() -> KeyBind {
+    ($name:ident, $k:tt, $m:expr) => {
+        pub fn $name() -> KeyBind {
             KeyBind {
                 key_code: KeyCode(iced_core::keyboard::KeyCode::$k),
-                modifiers: Modifiers(iced_core::keyboard::Modifiers::$m),
+                modifiers: $m,
             }
         }
     };
@@ -62,6 +64,8 @@ impl KeyBind {
     default!(move_right, Right, ALT);
     default!(maximize_buffer, Up, COMMAND);
     default!(restore_buffer, Down, COMMAND);
+    default!(cycle_next_buffer, Tab, CTRL);
+    default!(cycle_previous_buffer, Tab, CTRL | SHIFT);
 
     pub fn is_pressed(
         &self,
@@ -135,6 +139,11 @@ pub struct KeyCode(keyboard::KeyCode);
 
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Default)]
 pub struct Modifiers(keyboard::Modifiers);
+
+const CTRL: Modifiers = Modifiers(keyboard::Modifiers::CTRL);
+const SHIFT: Modifiers = Modifiers(keyboard::Modifiers::SHIFT);
+const ALT: Modifiers = Modifiers(keyboard::Modifiers::ALT);
+const COMMAND: Modifiers = Modifiers(keyboard::Modifiers::COMMAND);
 
 impl From<keyboard::Modifiers> for Modifiers {
     fn from(modifiers: keyboard::Modifiers) -> Self {
