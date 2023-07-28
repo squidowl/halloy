@@ -10,6 +10,7 @@ mod screen;
 mod stream;
 mod theme;
 mod widget;
+mod window;
 
 use std::env;
 use std::time::{Duration, Instant};
@@ -17,7 +18,7 @@ use std::time::{Duration, Instant};
 use data::config::{self, Config};
 use data::{environment, server};
 use iced::widget::container;
-use iced::{executor, window, Application, Command, Length, Subscription};
+use iced::{executor, Application, Command, Length, Subscription};
 use screen::{dashboard, help, welcome};
 
 use self::event::{events, Event};
@@ -66,50 +67,6 @@ pub fn main() -> iced::Result {
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
-fn window_settings() -> iced::window::Settings {
-    Default::default()
-}
-
-#[cfg(target_os = "macos")]
-fn window_settings() -> iced::window::Settings {
-    iced::window::Settings {
-        platform_specific: iced::window::PlatformSpecific {
-            title_hidden: true,
-            titlebar_transparent: true,
-            fullsize_content_view: true,
-        },
-        ..Default::default()
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn window_settings() -> iced::window::Settings {
-    use image::EncodableLayout;
-
-    let img = image::load_from_memory_with_format(
-        include_bytes!("../assets/logo.png"),
-        image::ImageFormat::Png,
-    );
-    match img {
-        Ok(img) => match img.as_rgba8() {
-            Some(icon) => iced::window::Settings {
-                icon: window::icon::from_rgba(
-                    icon.as_bytes().to_vec(),
-                    icon.width(),
-                    icon.height(),
-                )
-                .ok(),
-                ..Default::default()
-            },
-            None => Default::default(),
-        },
-        Err(_) => iced::window::Settings {
-            ..Default::default()
-        },
-    }
-}
-
 fn settings(
     config_load: Result<Config, config::Error>,
 ) -> iced::Settings<Result<Config, config::Error>> {
@@ -123,9 +80,7 @@ fn settings(
     iced::Settings {
         default_font: font::MONO.clone().into(),
         default_text_size,
-        window: iced::window::Settings {
-            ..window_settings()
-        },
+        window: window::settings(),
         exit_on_close_request: false,
         flags: config_load,
         id: None,
