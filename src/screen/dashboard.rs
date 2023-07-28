@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{history, Config, Server, User};
+use data::{client, history, server, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row};
 use iced::{clipboard, window, Command, Length};
@@ -67,8 +67,8 @@ impl Dashboard {
     pub fn update(
         &mut self,
         message: Message,
-        clients: &mut data::client::Map,
-        servers: &mut data::server::Map,
+        clients: &mut client::Map,
+        servers: &mut server::Map,
         config: &Config,
     ) -> Command<Message> {
         match message {
@@ -331,6 +331,32 @@ impl Dashboard {
                     RestoreBuffer => {
                         self.panes.restore();
                     }
+                    CycleNextBuffer => {
+                        let all_buffers = all_buffers(clients, &self.history);
+
+                        if let Some((pane, state)) = self.get_focused_mut() {
+                            if let Some(buffer) =
+                                cycle_next_buffer(state.buffer.data().as_ref(), &all_buffers)
+                            {
+                                state.buffer = Buffer::from(buffer);
+                                self.focus = None;
+                                return self.focus_pane(pane);
+                            }
+                        }
+                    }
+                    CyclePreviousBuffer => {
+                        let all_buffers = all_buffers(clients, &self.history);
+
+                        if let Some((pane, state)) = self.get_focused_mut() {
+                            if let Some(buffer) =
+                                cycle_previous_buffer(state.buffer.data().as_ref(), &all_buffers)
+                            {
+                                state.buffer = Buffer::from(buffer);
+                                self.focus = None;
+                                return self.focus_pane(pane);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -340,7 +366,7 @@ impl Dashboard {
 
     pub fn view<'a>(
         &'a self,
-        clients: &'a data::client::Map,
+        clients: &'a client::Map,
         config: &'a Config,
     ) -> Element<'a, Message> {
         let focus = self.focus;
@@ -714,4 +740,49 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
             pane: from_layout(&dashboard.panes, layout),
         }
     }
+}
+
+fn all_buffers(clients: &client::Map, history: &history::Manager) -> Vec<data::Buffer> {
+    clients
+        .connected_servers()
+        .flat_map(|server| {
+            std::iter::once(data::Buffer::Server(server.clone()))
+                .chain(
+                    clients
+                        .get_channels(server)
+                        .iter()
+                        .map(|channel| data::Buffer::Channel(server.clone(), channel.clone())),
+                )
+                .chain(
+                    history
+                        .get_unique_queries(server)
+                        .into_iter()
+                        .map(|nick| data::Buffer::Query(server.clone(), nick.clone())),
+                )
+        })
+        .collect()
+}
+
+fn cycle_next_buffer(current: Option<&data::Buffer>, all: &[data::Buffer]) -> Option<data::Buffer> {
+    let next = || {
+        let buffer = current?;
+        let index = all.iter().position(|b| b == buffer)?;
+        all.get(index + 1)
+    };
+
+    next().or_else(|| all.first()).cloned()
+}
+
+fn cycle_previous_buffer(
+    current: Option<&data::Buffer>,
+    all: &[data::Buffer],
+) -> Option<data::Buffer> {
+    let previous = || {
+        let buffer = current?;
+        let index = all.iter().position(|b| b == buffer).filter(|i| *i > 0)?;
+
+        all.get(index - 1)
+    };
+
+    previous().or_else(|| all.last()).cloned()
 }
