@@ -127,7 +127,8 @@ impl Dashboard {
                                         }
                                     }
                                 }
-                                buffer::user_context::Event::OpenQuery(user) => {
+                                buffer::user_context::Event::OpenQuery(user)
+                                | buffer::user_context::Event::DoubleClick(user) => {
                                     if let Some(data) = pane.buffer.data() {
                                         let buffer = data::Buffer::Query(
                                             data.server().clone(),
