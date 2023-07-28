@@ -332,11 +332,14 @@ impl Dashboard {
                     }
                     CycleNextBuffer => {
                         let all_buffers = all_buffers(clients, &self.history);
+                        let open_buffers = open_buffers(self);
 
                         if let Some((pane, state)) = self.get_focused_mut() {
-                            if let Some(buffer) =
-                                cycle_next_buffer(state.buffer.data().as_ref(), &all_buffers)
-                            {
+                            if let Some(buffer) = cycle_next_buffer(
+                                state.buffer.data().as_ref(),
+                                all_buffers,
+                                &open_buffers,
+                            ) {
                                 state.buffer = Buffer::from(buffer);
                                 self.focus = None;
                                 return self.focus_pane(pane);
@@ -345,11 +348,14 @@ impl Dashboard {
                     }
                     CyclePreviousBuffer => {
                         let all_buffers = all_buffers(clients, &self.history);
+                        let open_buffers = open_buffers(self);
 
                         if let Some((pane, state)) = self.get_focused_mut() {
-                            if let Some(buffer) =
-                                cycle_previous_buffer(state.buffer.data().as_ref(), &all_buffers)
-                            {
+                            if let Some(buffer) = cycle_previous_buffer(
+                                state.buffer.data().as_ref(),
+                                all_buffers,
+                                &open_buffers,
+                            ) {
                                 state.buffer = Buffer::from(buffer);
                                 self.focus = None;
                                 return self.focus_pane(pane);
@@ -781,7 +787,21 @@ fn all_buffers(clients: &client::Map, history: &history::Manager) -> Vec<data::B
         .collect()
 }
 
-fn cycle_next_buffer(current: Option<&data::Buffer>, all: &[data::Buffer]) -> Option<data::Buffer> {
+fn open_buffers(dashboard: &Dashboard) -> Vec<data::Buffer> {
+    dashboard
+        .panes
+        .iter()
+        .filter_map(|(_, pane)| pane.buffer.data())
+        .collect()
+}
+
+fn cycle_next_buffer(
+    current: Option<&data::Buffer>,
+    mut all: Vec<data::Buffer>,
+    opened: &[data::Buffer],
+) -> Option<data::Buffer> {
+    all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
+
     let next = || {
         let buffer = current?;
         let index = all.iter().position(|b| b == buffer)?;
@@ -793,8 +813,11 @@ fn cycle_next_buffer(current: Option<&data::Buffer>, all: &[data::Buffer]) -> Op
 
 fn cycle_previous_buffer(
     current: Option<&data::Buffer>,
-    all: &[data::Buffer],
+    mut all: Vec<data::Buffer>,
+    opened: &[data::Buffer],
 ) -> Option<data::Buffer> {
+    all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
+
     let previous = || {
         let buffer = current?;
         let index = all.iter().position(|b| b == buffer).filter(|i| *i > 0)?;
