@@ -399,7 +399,7 @@ impl Dashboard {
                 background,
                 command_bar.view(config).map(Message::Command),
                 anchored_overlay::Anchor::BelowTopCentered,
-                (height_margin + 10) as f32,
+                10.0,
             )
         } else {
             base.into()
