@@ -4,6 +4,7 @@ use std::path::PathBuf;
 pub const VERSION: &str = env!("VERSION");
 pub const GIT_HASH: Option<&str> = option_env!("GIT_HASH");
 pub const CONFIG_FILE_NAME: &str = "config.yaml";
+pub const APPLICATION_ID: &str = "org.squidowl.halloy";
 
 pub fn formatted_version() -> String {
     let hash = GIT_HASH
