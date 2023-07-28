@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Set the window application id on Linux to `org.squidowl.halloy`
+
 # 2023.3 (2023-07-27)
 
 **Message history and dashboard state will be reset due to a breaking change. We've switched to a more flexible storage format 
