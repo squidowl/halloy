@@ -330,7 +330,7 @@ impl FromStr for Modifiers {
         Ok(Self(match s.to_lowercase().as_str() {
             "shift" => keyboard::Modifiers::SHIFT,
             "ctrl" => keyboard::Modifiers::CTRL,
-            "alt" => keyboard::Modifiers::ALT,
+            "alt" | "option" | "opt" => keyboard::Modifiers::ALT,
             "cmd" | "command" => keyboard::Modifiers::COMMAND,
             "logo" | "super" | "windows" => keyboard::Modifiers::LOGO,
             _ => return Err(ParseError::InvalidModifier(s.to_string())),
