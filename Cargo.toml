@@ -40,5 +40,5 @@ members = [
 ]
 
 [patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced", rev = "fd077918db7643530c3a7318ed5777d2f3d8761b" }
-iced_core = { git = "https://github.com/iced-rs/iced", rev = "fd077918db7643530c3a7318ed5777d2f3d8761b" }
+iced = { git = "https://github.com/iced-rs/iced", rev = "78dc341ea82449f1e075e37e67c1ccf66b88e8d6" }
+iced_core = { git = "https://github.com/iced-rs/iced", rev = "78dc341ea82449f1e075e37e67c1ccf66b88e8d6" }

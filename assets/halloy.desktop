@@ -6,6 +6,6 @@ Keywords=IM;Chat;
 Categories=Network;IRCClient;
 Exec=halloy
 Icon=org.squidowl.halloy
-StartupWMClass=halloy
+StartupWMClass=org.squidowl.halloy
 MimeType=x-scheme-handler/irc;x-scheme-handler/ircs;
 Terminal=false
