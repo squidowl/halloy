@@ -478,6 +478,7 @@ pub fn selected<Message: 'static>(f: fn(Vec<(f32, String)>) -> Message) -> Comma
         fn container(
             &mut self,
             _id: Option<&widget::Id>,
+            _bounds: Rectangle,
             operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
         ) {
             operate_on_children(self)
