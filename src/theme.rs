@@ -648,10 +648,14 @@ impl overlay::menu::StyleSheet for Theme {
             },
             Menu::ComboBox => overlay::menu::Appearance {
                 text_color: self.colors.text.base,
-                background: Background::Color(self.colors.background.darker),
-                border_width: 0.0,
+                background: Background::Color(self.colors.background.base),
+                border_width: 1.0,
                 border_radius: 4.0.into(),
-                border_color: Color::TRANSPARENT,
+                border_color: if self.colors.background.is_dark() {
+                    self.colors.background.lighter
+                } else {
+                    self.colors.background.darker
+                },
                 selected_text_color: self.colors.text.base,
                 selected_background: Background::Color(self.colors.background.dark),
             },
