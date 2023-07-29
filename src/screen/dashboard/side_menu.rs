@@ -28,11 +28,17 @@ pub enum Event {
 }
 
 #[derive(Clone)]
-pub struct SideMenu {}
+pub struct SideMenu {
+    hidden: bool,
+}
 
 impl SideMenu {
     pub fn new() -> Self {
-        Self {}
+        Self { hidden: false }
+    }
+
+    pub fn toggle_visibility(&mut self) {
+        self.hidden = !self.hidden
     }
 
     pub fn update(&mut self, message: Message) -> Event {
@@ -52,7 +58,11 @@ impl SideMenu {
         panes: &pane_grid::State<Pane>,
         focus: Option<pane_grid::Pane>,
         default_action: DefaultAction,
-    ) -> Element<'a, Message> {
+    ) -> Option<Element<'a, Message>> {
+        if self.hidden {
+            return None;
+        }
+
         let mut column = column![].spacing(1);
 
         for (server, state) in clients.iter() {
@@ -105,17 +115,19 @@ impl SideMenu {
             }
         }
 
-        container(
-            scrollable(column).direction(scrollable::Direction::Vertical(
-                iced::widget::scrollable::Properties::default()
-                    .width(0)
-                    .scroller_width(0),
-            )),
+        Some(
+            container(
+                scrollable(column).direction(scrollable::Direction::Vertical(
+                    iced::widget::scrollable::Properties::default()
+                        .width(0)
+                        .scroller_width(0),
+                )),
+            )
+            .padding([8, 0, 6, 6])
+            .center_x()
+            .max_width(120)
+            .into(),
         )
-        .padding([8, 0, 6, 6])
-        .center_x()
-        .max_width(120)
-        .into()
     }
 }
 
