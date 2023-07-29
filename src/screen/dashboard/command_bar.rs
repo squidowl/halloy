@@ -82,18 +82,20 @@ pub enum Event {
 #[derive(Debug, Clone)]
 pub enum Command {
     OpenConfig,
+    ToggleSidebarVisibility,
 }
 
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Command::OpenConfig => write!(f, "Configuration: Open Directory"),
+            Command::ToggleSidebarVisibility => write!(f, "UI: Toggle Sidebar visibility"),
         }
     }
 }
 
 impl Command {
     pub fn list() -> Vec<Self> {
-        vec![Command::OpenConfig]
+        vec![Command::OpenConfig, Command::ToggleSidebarVisibility]
     }
 }

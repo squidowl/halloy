@@ -12,7 +12,7 @@ use self::pane::Pane;
 use self::side_menu::SideMenu;
 use crate::buffer::{self, Buffer};
 use crate::theme;
-use crate::widget::{anchored_overlay, selectable_text, Element};
+use crate::widget::{anchored_overlay, selectable_text, Collection, Element};
 
 mod command_bar;
 pub mod pane;
@@ -318,6 +318,9 @@ impl Dashboard {
                             command_bar::Command::OpenConfig => {
                                 let _ = open::that(Config::config_dir());
                             }
+                            command_bar::Command::ToggleSidebarVisibility => {
+                                self.side_menu.toggle_visibility();
+                            }
                         }
 
                         return self.toggle_command_bar();
@@ -371,14 +374,16 @@ impl Dashboard {
                 self.focus,
                 config.dashboard.sidebar_default_action,
             )
-            .map(Message::SideMenu);
+            .map(|e| e.map(Message::SideMenu));
 
         // The height margin varies across different operating systems due to design differences.
         // For instance, on macOS, the menubar is hidden, resulting in a need for additional padding to accommodate the
         // space occupied by the traffic light buttons.
         let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
 
-        let base = row![side_menu, pane_grid]
+        let base = row![]
+            .push_maybe(side_menu)
+            .push(pane_grid)
             .width(Length::Fill)
             .height(Length::Fill)
             .padding([height_margin, 0, 0, 0]);
