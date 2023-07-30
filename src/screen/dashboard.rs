@@ -159,13 +159,7 @@ impl Dashboard {
                         self.last_changed = Some(Instant::now());
                     }
                 }
-                pane::Message::MaximizePane => {
-                    if self.panes.maximized().is_some() {
-                        self.panes.restore();
-                    } else if let Some(pane) = self.focus {
-                        self.panes.maximize(&pane);
-                    }
-                }
+                pane::Message::MaximizePane => self.maximize_pane(),
             },
             Message::SideMenu(message) => {
                 let event = self.side_menu.update(message);
@@ -315,12 +309,19 @@ impl Dashboard {
                 match command_bar.update(message) {
                     Some(command_bar::Event::Command(command)) => {
                         match command {
-                            command_bar::Command::OpenConfig => {
-                                let _ = open::that(Config::config_dir());
-                            }
-                            command_bar::Command::ToggleSidebarVisibility => {
-                                self.side_menu.toggle_visibility();
-                            }
+                            command_bar::Command::Buffer(command) => match command {
+                                command_bar::Buffer::Maximize => self.maximize_pane(),
+                            },
+                            command_bar::Command::Configuration(command) => match command {
+                                command_bar::Configuration::Open => {
+                                    let _ = open::that(Config::config_dir());
+                                }
+                            },
+                            command_bar::Command::UI(command) => match command {
+                                command_bar::Ui::ToggleSidebarVisibility => {
+                                    self.side_menu.toggle_visibility();
+                                }
+                            },
                         }
 
                         return self.toggle_command_bar();
@@ -611,6 +612,14 @@ impl Dashboard {
                 .unwrap_or(Command::none())
         } else {
             Command::none()
+        }
+    }
+
+    fn maximize_pane(&mut self) {
+        if self.panes.maximized().is_some() {
+            self.panes.restore();
+        } else if let Some(pane) = self.focus {
+            self.panes.maximize(&pane);
         }
     }
 

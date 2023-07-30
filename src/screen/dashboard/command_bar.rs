@@ -81,21 +81,66 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Command {
-    OpenConfig,
+    Buffer(Buffer),
+    Configuration(Configuration),
+    UI(Ui),
+}
+
+#[derive(Debug, Clone)]
+pub enum Buffer {
+    Maximize,
+}
+
+#[derive(Debug, Clone)]
+pub enum Configuration {
+    Open,
+}
+
+#[derive(Debug, Clone)]
+pub enum Ui {
     ToggleSidebarVisibility,
+}
+
+impl Command {
+    pub fn list() -> Vec<Self> {
+        vec![
+            Command::Buffer(Buffer::Maximize),
+            Command::Configuration(Configuration::Open),
+            Command::UI(Ui::ToggleSidebarVisibility),
+        ]
+    }
 }
 
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Command::OpenConfig => write!(f, "Configuration: Open Directory"),
-            Command::ToggleSidebarVisibility => write!(f, "UI: Toggle Sidebar visibility"),
+            Command::Buffer(buffer) => write!(f, "Buffer: {}", buffer),
+            Command::Configuration(config) => write!(f, "Configuration: {}", config),
+            Command::UI(ui) => write!(f, "UI: {}", ui),
         }
     }
 }
 
-impl Command {
-    pub fn list() -> Vec<Self> {
-        vec![Command::OpenConfig, Command::ToggleSidebarVisibility]
+impl std::fmt::Display for Buffer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Buffer::Maximize => write!(f, "Maximize/Restore"),
+        }
+    }
+}
+
+impl std::fmt::Display for Configuration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Configuration::Open => write!(f, "Open directory"),
+        }
+    }
+}
+
+impl std::fmt::Display for Ui {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Ui::ToggleSidebarVisibility => write!(f, "Toggle sidebar visibility"),
+        }
     }
 }
