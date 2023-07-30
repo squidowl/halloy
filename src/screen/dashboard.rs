@@ -90,15 +90,7 @@ impl Dashboard {
                 }
                 pane::Message::PaneDragged(_) => {}
                 pane::Message::ClosePane => {
-                    if let Some(pane) = self.focus {
-                        self.last_changed = Some(Instant::now());
-
-                        if let Some((_, sibling)) = self.panes.close(&pane) {
-                            return self.focus_pane(sibling);
-                        } else if let Some(pane) = self.panes.get_mut(&pane) {
-                            pane.buffer = Buffer::Empty;
-                        }
-                    }
+                    return self.close_pane();
                 }
                 pane::Message::SplitPane(axis) => {
                     return self.split_pane(axis, config);
@@ -300,31 +292,32 @@ impl Dashboard {
 
                 match command_bar.update(message) {
                     Some(command_bar::Event::Command(command)) => {
-                        let mut commands = vec![];
-
-                        match command {
+                        let command = match command {
                             command_bar::Command::Buffer(command) => match command {
-                                command_bar::Buffer::Maximize => self.maximize_pane(),
-                                command_bar::Buffer::New => {
-                                    commands
-                                        .push(self.split_pane(pane_grid::Axis::Horizontal, config));
+                                command_bar::Buffer::Maximize => {
+                                    self.maximize_pane();
+                                    Command::none()
                                 }
+                                command_bar::Buffer::New => {
+                                    self.split_pane(pane_grid::Axis::Horizontal, config)
+                                }
+                                command_bar::Buffer::Close => self.close_pane(),
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::Open => {
                                     let _ = open::that(Config::config_dir());
+                                    Command::none()
                                 }
                             },
                             command_bar::Command::UI(command) => match command {
                                 command_bar::Ui::ToggleSidebarVisibility => {
                                     self.side_menu.toggle_visibility();
+                                    Command::none()
                                 }
                             },
-                        }
+                        };
 
-                        commands.push(self.toggle_command_bar());
-
-                        return Command::batch(commands);
+                        return Command::batch(vec![command, self.toggle_command_bar()]);
                     }
                     Some(command_bar::Event::Unfocused) => return self.toggle_command_bar(),
                     None => {}
@@ -649,6 +642,20 @@ impl Dashboard {
                 })
             })
             .unwrap_or(Command::none())
+    }
+
+    fn close_pane(&mut self) -> Command<Message> {
+        if let Some(pane) = self.focus {
+            self.last_changed = Some(Instant::now());
+
+            if let Some((_, sibling)) = self.panes.close(&pane) {
+                return self.focus_pane(sibling);
+            } else if let Some(pane) = self.panes.get_mut(&pane) {
+                pane.buffer = Buffer::Empty;
+            }
+        }
+
+        Command::none()
     }
 
     pub fn track(&mut self) -> Command<Message> {
