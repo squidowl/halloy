@@ -89,6 +89,7 @@ pub enum Command {
 #[derive(Debug, Clone)]
 pub enum Buffer {
     Maximize,
+    New,
 }
 
 #[derive(Debug, Clone)]
@@ -105,6 +106,7 @@ impl Command {
     pub fn list() -> Vec<Self> {
         vec![
             Command::Buffer(Buffer::Maximize),
+            Command::Buffer(Buffer::New),
             Command::Configuration(Configuration::Open),
             Command::UI(Ui::ToggleSidebarVisibility),
         ]
@@ -125,6 +127,7 @@ impl std::fmt::Display for Buffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Buffer::Maximize => write!(f, "Maximize/Restore"),
+            Buffer::New => write!(f, "New buffer"),
         }
     }
 }
