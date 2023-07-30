@@ -101,15 +101,7 @@ impl Dashboard {
                     }
                 }
                 pane::Message::SplitPane(axis) => {
-                    if let Some(pane) = self.focus {
-                        let result =
-                            self.panes
-                                .split(axis, &pane, Pane::new(Buffer::Empty, config));
-                        self.last_changed = Some(Instant::now());
-                        if let Some((pane, _)) = result {
-                            return self.focus_pane(pane);
-                        }
-                    }
+                    return self.split_pane(axis, config);
                 }
                 pane::Message::Buffer(id, message) => {
                     if let Some(pane) = self.panes.get_mut(&id) {
@@ -308,9 +300,15 @@ impl Dashboard {
 
                 match command_bar.update(message) {
                     Some(command_bar::Event::Command(command)) => {
+                        let mut commands = vec![];
+
                         match command {
                             command_bar::Command::Buffer(command) => match command {
                                 command_bar::Buffer::Maximize => self.maximize_pane(),
+                                command_bar::Buffer::New => {
+                                    commands
+                                        .push(self.split_pane(pane_grid::Axis::Horizontal, config));
+                                }
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::Open => {
@@ -324,7 +322,9 @@ impl Dashboard {
                             },
                         }
 
-                        return self.toggle_command_bar();
+                        commands.push(self.toggle_command_bar());
+
+                        return Command::batch(commands);
                     }
                     Some(command_bar::Event::Unfocused) => return self.toggle_command_bar(),
                     None => {}
@@ -621,6 +621,20 @@ impl Dashboard {
         } else if let Some(pane) = self.focus {
             self.panes.maximize(&pane);
         }
+    }
+
+    fn split_pane(&mut self, axis: pane_grid::Axis, config: &Config) -> Command<Message> {
+        if let Some(pane) = self.focus {
+            let result = self
+                .panes
+                .split(axis, &pane, Pane::new(Buffer::Empty, config));
+            self.last_changed = Some(Instant::now());
+            if let Some((pane, _)) = result {
+                return self.focus_pane(pane);
+            }
+        }
+
+        Command::none()
     }
 
     fn reset_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
