@@ -294,7 +294,7 @@ impl Dashboard {
                     Some(command_bar::Event::Command(command)) => {
                         let command = match command {
                             command_bar::Command::Buffer(command) => match command {
-                                command_bar::Buffer::Maximize => {
+                                command_bar::Buffer::Maximize(_) => {
                                     self.maximize_pane();
                                     Command::none()
                                 }
@@ -414,7 +414,9 @@ impl Dashboard {
             // Command bar
             anchored_overlay(
                 background,
-                command_bar.view(clients, config).map(Message::Command),
+                command_bar
+                    .view(clients, self.is_pane_maximized(), config)
+                    .map(Message::Command),
                 anchored_overlay::Anchor::BelowTopCentered,
                 10.0,
             )
@@ -439,7 +441,7 @@ impl Dashboard {
                 // - Unfocus
                 if self.command_bar.is_some() {
                     return self.toggle_command_bar(clients);
-                } else if self.panes.maximized().is_some() {
+                } else if self.is_pane_maximized() {
                     self.panes.restore();
                 } else {
                     self.focus = None;
@@ -631,11 +633,15 @@ impl Dashboard {
     }
 
     fn maximize_pane(&mut self) {
-        if self.panes.maximized().is_some() {
+        if self.is_pane_maximized() {
             self.panes.restore();
         } else if let Some(pane) = self.focus {
             self.panes.maximize(&pane);
         }
+    }
+
+    fn is_pane_maximized(&self) -> bool {
+        self.panes.maximized().is_some()
     }
 
     fn split_pane(&mut self, axis: pane_grid::Axis, config: &Config) -> Command<Message> {
@@ -737,7 +743,7 @@ impl Dashboard {
     }
 
     fn open_command_bar(&mut self, clients: &data::client::Map) {
-        self.command_bar = Some(CommandBar::new(clients));
+        self.command_bar = Some(CommandBar::new(clients, self.is_pane_maximized()));
     }
 
     fn close_command_bar(&mut self) {
