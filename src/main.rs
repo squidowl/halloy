@@ -191,15 +191,13 @@ impl Application for Halloy {
                     return Command::none();
                 };
 
-                let (command, event) =
-                    dashboard.update(message, &mut self.clients, &mut self.servers, &self.config);
-
-                if let Some(event) = event {
-                    match event {
-                        dashboard::Event::SwitchTheme(theme) => self.theme = theme,
-                    }
-                }
-
+                let command = dashboard.update(
+                    message,
+                    &mut self.clients,
+                    &mut self.servers,
+                    &mut self.theme,
+                    &self.config,
+                );
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
@@ -360,7 +358,7 @@ impl Application for Halloy {
             Message::Event(event) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
-                        .handle_event(event, &self.clients, &self.config)
+                        .handle_event(event, &self.clients, &self.config, &mut self.theme)
                         .map(Message::Dashboard)
                 } else if let event::Event::CloseRequested = event {
                     window::close()
