@@ -18,8 +18,8 @@ pub enum Message {
 }
 
 impl CommandBar {
-    pub fn new(clients: &data::client::Map) -> Self {
-        let state = combo_box::State::new(Command::list(clients));
+    pub fn new(clients: &data::client::Map, maximized: bool) -> Self {
+        let state = combo_box::State::new(Command::list(clients, maximized));
         state.focus();
 
         Self { state }
@@ -36,6 +36,7 @@ impl CommandBar {
     pub fn view<'a>(
         &'a self,
         clients: &data::client::Map,
+        maximized: bool,
         config: &'a Config,
     ) -> Element<'a, Message> {
         // 1px larger than default
@@ -61,7 +62,7 @@ impl CommandBar {
             column(
                 std::iter::once(text("Type a command...").size(font_size))
                     .chain(
-                        Command::list(clients)
+                        Command::list(clients, maximized)
                             .iter()
                             .map(|command| text(command).size(font_size)),
                     )
@@ -92,7 +93,7 @@ pub enum Command {
 
 #[derive(Debug, Clone)]
 pub enum Buffer {
-    Maximize,
+    Maximize(bool),
     New,
     Close,
     Replace(data::Buffer),
@@ -109,8 +110,10 @@ pub enum Ui {
 }
 
 impl Command {
-    pub fn list(clients: &data::client::Map) -> Vec<Self> {
-        let buffers = Buffer::list(clients).into_iter().map(Command::Buffer);
+    pub fn list(clients: &data::client::Map, maximized: bool) -> Vec<Self> {
+        let buffers = Buffer::list(clients, maximized)
+            .into_iter()
+            .map(Command::Buffer);
 
         let configs = Configuration::list()
             .into_iter()
@@ -133,7 +136,7 @@ impl std::fmt::Display for Command {
 }
 
 impl Buffer {
-    fn list(clients: &data::client::Map) -> Vec<Self> {
+    fn list(clients: &data::client::Map, maximized: bool) -> Vec<Self> {
         let mut channels = vec![];
 
         for (server, state) in clients.iter() {
@@ -147,7 +150,7 @@ impl Buffer {
             }
         }
 
-        let mut buffers = vec![Buffer::Maximize, Buffer::New, Buffer::Close];
+        let mut buffers = vec![Buffer::Maximize(!maximized), Buffer::New, Buffer::Close];
         buffers.extend(channels.iter().cloned().map(Buffer::Replace));
         buffers
     }
@@ -168,7 +171,17 @@ impl Ui {
 impl std::fmt::Display for Buffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Buffer::Maximize => write!(f, "Maximize/Restore"),
+            Buffer::Maximize(maximize) => {
+                write!(
+                    f,
+                    "{}",
+                    if *maximize {
+                        "Maximize"
+                    } else {
+                        "Restore size"
+                    }
+                )
+            }
             Buffer::New => write!(f, "New buffer"),
             Buffer::Close => write!(f, "Close buffer"),
             Buffer::Replace(buffer) => {
