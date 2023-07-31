@@ -127,8 +127,7 @@ impl Dashboard {
                                         }
                                     }
                                 }
-                                buffer::user_context::Event::OpenQuery(user)
-                                | buffer::user_context::Event::DoubleClick(user) => {
+                                buffer::user_context::Event::OpenQuery(user) => {
                                     if let Some(data) = pane.buffer.data() {
                                         let buffer = data::Buffer::Query(
                                             data.server().clone(),
@@ -136,6 +135,17 @@ impl Dashboard {
                                         );
                                         return self.open_buffer(buffer, config);
                                     }
+                                }
+                                buffer::user_context::Event::SingleClick(user) => {
+                                    let Some((_, pane)) = self.get_focused_mut() else {
+                                        return Command::none();
+                                    };
+
+                                    return pane.buffer.insert_user_to_input(user).map(
+                                        move |message| {
+                                            Message::Pane(pane::Message::Buffer(id, message))
+                                        },
+                                    );
                                 }
                             }
                         }

@@ -2,7 +2,7 @@ use data::User;
 use iced::widget::{button, text};
 
 use crate::theme;
-use crate::widget::{context_menu, double_click, Element};
+use crate::widget::{context_menu, Element};
 
 #[derive(Debug, Clone, Copy)]
 enum Entry {
@@ -20,28 +20,31 @@ impl Entry {
 pub enum Message {
     Whois(User),
     Query(User),
-    DoubleClick(User),
+    SingleClick(User),
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     SendWhois(User),
     OpenQuery(User),
-    DoubleClick(User),
+    SingleClick(User),
 }
 
 pub fn update(message: Message) -> Event {
     match message {
         Message::Whois(user) => Event::SendWhois(user),
         Message::Query(user) => Event::OpenQuery(user),
-        Message::DoubleClick(user) => Event::DoubleClick(user),
+        Message::SingleClick(user) => Event::SingleClick(user),
     }
 }
 
 pub fn view<'a>(content: impl Into<Element<'a, Message>>, user: User) -> Element<'a, Message> {
     let entries = Entry::list();
 
-    let content = double_click(content, Message::DoubleClick(user.clone()));
+    let content = button(content)
+        .padding(0)
+        .style(theme::Button::Bare)
+        .on_press(Message::SingleClick(user.clone()));
 
     context_menu(content, entries, move |entry, length| {
         let (content, message) = match entry {

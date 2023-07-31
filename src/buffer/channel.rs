@@ -147,7 +147,7 @@ pub struct Channel {
     pub channel: String,
     pub topic: Option<String>,
     pub scroll_view: scroll_view::State,
-    input_view: input_view::State,
+    pub input_view: input_view::State,
 }
 
 impl Channel {
