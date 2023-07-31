@@ -1,5 +1,5 @@
 use data::message;
-use data::palette::{self, Palette};
+use data::theme::{randomize_color, Colors};
 use iced::widget::{button, container, pane_grid, rule, scrollable, text, text_input};
 use iced::{application, overlay, Background, Color};
 
@@ -10,10 +10,25 @@ use crate::widget::selectable_text;
 pub const TEXT_SIZE: f32 = 13.0;
 pub const ICON_SIZE: f32 = 12.0;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Theme {
-    pub palette: Palette,
+    pub name: String,
     pub colors: Colors,
+}
+
+impl From<data::Theme> for Theme {
+    fn from(theme: data::Theme) -> Self {
+        Theme {
+            name: theme.name,
+            colors: theme.colors,
+        }
+    }
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        Self::from(data::Theme::default())
+    }
 }
 
 impl application::StyleSheet for Theme {
@@ -24,111 +39,6 @@ impl application::StyleSheet for Theme {
             background_color: self.colors.background.base,
             text_color: self.colors.text.base,
         }
-    }
-}
-
-impl Default for Theme {
-    fn default() -> Self {
-        let palette = Palette::default();
-
-        Theme {
-            palette,
-            colors: Colors::colors_from_palette(&palette),
-        }
-    }
-}
-
-impl Theme {
-    pub fn new_from_palette(palette: data::palette::Palette) -> Self {
-        Theme {
-            palette,
-            colors: Colors {
-                background: Subpalette::from_color(palette.background, &palette),
-                text: Subpalette::from_color(palette.text, &palette),
-                action: Subpalette::from_color(palette.action, &palette),
-                accent: Subpalette::from_color(palette.accent, &palette),
-                alert: Subpalette::from_color(palette.alert, &palette),
-                error: Subpalette::from_color(palette.error, &palette),
-                info: Subpalette::from_color(palette.info, &palette),
-                success: Subpalette::from_color(palette.success, &palette),
-            },
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Colors {
-    pub background: Subpalette,
-    pub text: Subpalette,
-    pub action: Subpalette,
-    pub accent: Subpalette,
-    pub alert: Subpalette,
-    pub error: Subpalette,
-    pub info: Subpalette,
-    pub success: Subpalette,
-}
-
-impl Colors {
-    pub fn colors_from_palette(palette: &Palette) -> Self {
-        Colors {
-            background: Subpalette::from_color(palette.background, palette),
-            text: Subpalette::from_color(palette.text, palette),
-            action: Subpalette::from_color(palette.action, palette),
-            accent: Subpalette::from_color(palette.accent, palette),
-            alert: Subpalette::from_color(palette.alert, palette),
-            error: Subpalette::from_color(palette.error, palette),
-            info: Subpalette::from_color(palette.info, palette),
-            success: Subpalette::from_color(palette.success, palette),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Subpalette {
-    pub base: Color,
-    pub light: Color,
-    pub lighter: Color,
-    pub lightest: Color,
-    pub dark: Color,
-    pub darker: Color,
-    pub darkest: Color,
-    pub low_alpha: Color,
-    pub med_alpha: Color,
-    pub high_alpha: Color,
-}
-
-impl Subpalette {
-    pub fn from_color(color: Color, palette: &data::palette::Palette) -> Subpalette {
-        let is_dark = palette::is_dark(palette.background);
-
-        Subpalette {
-            base: color,
-            light: palette::lighten(color, 0.03),
-            lighter: palette::lighten(color, 0.06),
-            lightest: palette::lighten(color, 0.12),
-            dark: palette::darken(color, 0.03),
-            darker: palette::darken(color, 0.06),
-            darkest: palette::darken(color, 0.12),
-            low_alpha: if is_dark {
-                palette::alpha(color, 0.4)
-            } else {
-                palette::alpha(color, 0.8)
-            },
-            med_alpha: if is_dark {
-                palette::alpha(color, 0.2)
-            } else {
-                palette::alpha(color, 0.4)
-            },
-            high_alpha: if is_dark {
-                palette::alpha(color, 0.1)
-            } else {
-                palette::alpha(color, 0.3)
-            },
-        }
-    }
-
-    pub fn is_dark(&self) -> bool {
-        palette::is_dark(self.base)
     }
 }
 
@@ -199,7 +109,7 @@ impl text::StyleSheet for Theme {
             Text::Nickname(seed) => {
                 let original_color = self.colors.action.base;
                 let color = seed
-                    .map(|seed| palette::randomize_color(original_color, seed.as_str()))
+                    .map(|seed| randomize_color(original_color, seed.as_str()))
                     .unwrap_or_else(|| original_color);
 
                 text::Appearance { color: Some(color) }

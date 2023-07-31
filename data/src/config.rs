@@ -11,8 +11,9 @@ pub use self::dashboard::Dashboard;
 pub use self::keys::Keys;
 pub use self::server::Server;
 use crate::environment;
-use crate::palette::Palette;
 use crate::server::Map as ServerMap;
+use crate::theme::Palette;
+use crate::Theme;
 
 mod buffer;
 pub mod channel;
@@ -21,11 +22,11 @@ mod keys;
 pub mod server;
 
 const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
-const DEFAULT_THEME: (&str, &[u8]) = ("ferra", include_bytes!("../../assets/themes/ferra.yaml"));
+const DEFAULT_THEME_FILE_NAME: &str = "ferra.yaml";
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
-    pub palette: Palette,
+    pub themes: Themes,
     pub servers: ServerMap,
     pub font: Font,
     pub buffer: Buffer,
@@ -37,6 +38,21 @@ pub struct Config {
 pub struct Font {
     pub family: Option<String>,
     pub size: Option<u8>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Themes {
+    pub default: Theme,
+    pub all: Vec<Theme>,
+}
+
+impl Default for Themes {
+    fn default() -> Self {
+        Self {
+            default: Theme::default(),
+            all: vec![Theme::default()],
+        }
+    }
 }
 
 impl Config {
@@ -95,11 +111,10 @@ impl Config {
         } = serde_yaml::from_reader(BufReader::new(file))
             .map_err(|e| Error::Parse(e.to_string()))?;
 
-        // If theme fails to load, use default Palette (Halloy theme)
-        let palette = Self::load_theme(&theme).unwrap_or_default();
+        let themes = Self::load_themes(&theme).unwrap_or_default();
 
         Ok(Config {
-            palette,
+            themes,
             servers,
             font,
             buffer,
@@ -108,21 +123,56 @@ impl Config {
         })
     }
 
-    fn load_theme(theme: &str) -> Result<Palette, Error> {
+    fn load_themes(default_key: &str) -> Result<Themes, Error> {
         #[derive(Deserialize)]
-        pub struct Theme {
+        pub struct Data {
             #[serde(default)]
             pub name: String,
             #[serde(default)]
             pub palette: Palette,
         }
 
-        let path = Self::themes_dir().join(format!("{theme}.yaml"));
-        let file = File::open(path).map_err(|e| Error::Read(e.to_string()))?;
-        let Theme { palette, .. } = serde_yaml::from_reader(BufReader::new(file))
-            .map_err(|e| Error::Parse(e.to_string()))?;
+        let read_entry = |entry: fs::DirEntry| {
+            let content = fs::read(entry.path())?;
 
-        Ok(palette)
+            let Data { name, palette } =
+                serde_yaml::from_slice(&content).map_err(|e| Error::Parse(e.to_string()))?;
+
+            Ok::<Theme, Error>(Theme::new(name, &palette))
+        };
+
+        let mut all = vec![];
+        let mut default = Theme::default();
+        let mut has_halloy_theme = false;
+
+        for entry in fs::read_dir(Self::themes_dir())? {
+            let Ok(entry) = entry else {
+                continue;
+            };
+
+            let Some(file_name) = entry.file_name().to_str().map(String::from) else {
+                continue;
+            };
+
+            if file_name.ends_with(".yaml") {
+                if let Ok(theme) = read_entry(entry) {
+                    if file_name.strip_suffix(".yaml").unwrap_or_default() == default_key {
+                        default = theme.clone();
+                    }
+                    if file_name == DEFAULT_THEME_FILE_NAME {
+                        has_halloy_theme = true;
+                    }
+
+                    all.push(theme);
+                }
+            }
+        }
+
+        if !has_halloy_theme {
+            all.push(Theme::default());
+        }
+
+        Ok(Themes { default, all })
     }
 
     pub fn create_template_config() {
@@ -139,11 +189,12 @@ impl Config {
 }
 
 pub fn create_themes_dir() {
+    const CONTENT: &[u8] = include_bytes!("../../assets/themes/ferra.yaml");
+
     // Create default theme file.
-    let (theme, content) = DEFAULT_THEME;
-    let file = Config::themes_dir().join(format!("{theme}.yaml"));
+    let file = Config::themes_dir().join(DEFAULT_THEME_FILE_NAME);
     if !file.exists() {
-        let _ = fs::write(file, content);
+        let _ = fs::write(file, CONTENT);
     }
 }
 
@@ -152,5 +203,13 @@ pub enum Error {
     #[error("config could not be read: {0}")]
     Read(String),
     #[error("{0}")]
+    Io(String),
+    #[error("{0}")]
     Parse(String),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error.to_string())
+    }
 }

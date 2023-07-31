@@ -18,8 +18,14 @@ pub enum Message {
 }
 
 impl CommandBar {
-    pub fn new(buffers: &[data::Buffer], is_focused_buffer: bool, maximized: bool) -> Self {
-        let state = combo_box::State::new(Command::list(buffers, is_focused_buffer, maximized));
+    pub fn new(
+        buffers: &[data::Buffer],
+        config: &Config,
+        is_focused_buffer: bool,
+        maximized: bool,
+    ) -> Self {
+        let state =
+            combo_box::State::new(Command::list(buffers, config, is_focused_buffer, maximized));
         state.focus();
 
         Self { state }
@@ -63,7 +69,7 @@ impl CommandBar {
             column(
                 std::iter::once(text("Type a command...").size(font_size))
                     .chain(
-                        Command::list(buffers, focused_buffer, maximized)
+                        Command::list(buffers, config, focused_buffer, maximized)
                             .iter()
                             .map(|command| text(command).size(font_size)),
                     )
@@ -90,6 +96,7 @@ pub enum Command {
     Buffer(Buffer),
     Configuration(Configuration),
     UI(Ui),
+    Theme(Theme),
 }
 
 #[derive(Debug, Clone)]
@@ -110,8 +117,18 @@ pub enum Ui {
     ToggleSidebarVisibility,
 }
 
+#[derive(Debug, Clone)]
+pub enum Theme {
+    Switch(crate::Theme),
+}
+
 impl Command {
-    pub fn list(buffers: &[data::Buffer], is_focused_buffer: bool, maximized: bool) -> Vec<Self> {
+    pub fn list(
+        buffers: &[data::Buffer],
+        config: &Config,
+        is_focused_buffer: bool,
+        maximized: bool,
+    ) -> Vec<Self> {
         let buffers = Buffer::list(buffers, is_focused_buffer, maximized)
             .into_iter()
             .map(Command::Buffer);
@@ -122,7 +139,9 @@ impl Command {
 
         let uis = Ui::list().into_iter().map(Command::UI);
 
-        buffers.chain(configs).chain(uis).collect()
+        let themes = Theme::list(config).into_iter().map(Command::Theme);
+
+        buffers.chain(configs).chain(uis).chain(themes).collect()
     }
 }
 
@@ -132,6 +151,7 @@ impl std::fmt::Display for Command {
             Command::Buffer(buffer) => write!(f, "Buffer: {}", buffer),
             Command::Configuration(config) => write!(f, "Configuration: {}", config),
             Command::UI(ui) => write!(f, "UI: {}", ui),
+            Command::Theme(theme) => write!(f, "Theme: {}", theme),
         }
     }
 }
@@ -161,6 +181,19 @@ impl Configuration {
 impl Ui {
     fn list() -> Vec<Self> {
         vec![Ui::ToggleSidebarVisibility]
+    }
+}
+
+impl Theme {
+    fn list(config: &Config) -> Vec<Self> {
+        config
+            .themes
+            .all
+            .iter()
+            .cloned()
+            .map(crate::Theme::from)
+            .map(Self::Switch)
+            .collect()
     }
 }
 
@@ -203,6 +236,14 @@ impl std::fmt::Display for Ui {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Ui::ToggleSidebarVisibility => write!(f, "Toggle sidebar visibility"),
+        }
+    }
+}
+
+impl std::fmt::Display for Theme {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Theme::Switch(theme) => write!(f, "Switch to {}", theme.name),
         }
     }
 }
