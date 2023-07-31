@@ -742,7 +742,7 @@ impl Dashboard {
     }
 
     fn new_pane(&mut self, axis: pane_grid::Axis, config: &Config) -> Command<Message> {
-        if let Some(_) = self.focus {
+        if self.focus.is_some() {
             // If there is any focused pane, split it
             return self.split_pane(axis, config);
         } else {
