@@ -506,6 +506,11 @@ impl Client {
                             user.update_away(away);
                             channel.users.insert(user);
                         }
+
+                        // We requested, don't save to history
+                        if matches!(channel.last_who, Some(WhoStatus::Receiving)) {
+                            return None;
+                        }
                     }
                 }
             }
@@ -514,8 +519,11 @@ impl Client {
 
                 if proto::is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
-                        channel.last_who = Some(WhoStatus::Done(Instant::now()));
-                        log::debug!("[{}] {target} - WHO done", self.server);
+                        if matches!(channel.last_who, Some(WhoStatus::Receiving)) {
+                            channel.last_who = Some(WhoStatus::Done(Instant::now()));
+                            log::debug!("[{}] {target} - WHO done", self.server);
+                            return None;
+                        }
                     }
                 }
             }
