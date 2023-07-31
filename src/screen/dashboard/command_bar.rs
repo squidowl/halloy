@@ -18,8 +18,8 @@ pub enum Message {
 }
 
 impl CommandBar {
-    pub fn new(clients: &data::client::Map, maximized: bool) -> Self {
-        let state = combo_box::State::new(Command::list(clients, maximized));
+    pub fn new(buffers: &[data::Buffer], maximized: bool) -> Self {
+        let state = combo_box::State::new(Command::list(buffers, maximized));
         state.focus();
 
         Self { state }
@@ -35,7 +35,7 @@ impl CommandBar {
 
     pub fn view<'a>(
         &'a self,
-        clients: &data::client::Map,
+        buffers: &[data::Buffer],
         maximized: bool,
         config: &'a Config,
     ) -> Element<'a, Message> {
@@ -62,7 +62,7 @@ impl CommandBar {
             column(
                 std::iter::once(text("Type a command...").size(font_size))
                     .chain(
-                        Command::list(clients, maximized)
+                        Command::list(buffers, maximized)
                             .iter()
                             .map(|command| text(command).size(font_size)),
                     )
@@ -110,8 +110,8 @@ pub enum Ui {
 }
 
 impl Command {
-    pub fn list(clients: &data::client::Map, maximized: bool) -> Vec<Self> {
-        let buffers = Buffer::list(clients, maximized)
+    pub fn list(buffers: &[data::Buffer], maximized: bool) -> Vec<Self> {
+        let buffers = Buffer::list(buffers, maximized)
             .into_iter()
             .map(Command::Buffer);
 
@@ -136,23 +136,10 @@ impl std::fmt::Display for Command {
 }
 
 impl Buffer {
-    fn list(clients: &data::client::Map, maximized: bool) -> Vec<Self> {
-        let mut channels = vec![];
-
-        for (server, state) in clients.iter() {
-            match state {
-                data::client::State::Ready(connection) => {
-                    for channel in connection.channels() {
-                        channels.push(data::Buffer::Channel(server.clone(), channel.clone()));
-                    }
-                }
-                data::client::State::Disconnected => {}
-            }
-        }
-
-        let mut buffers = vec![Buffer::Maximize(!maximized), Buffer::New, Buffer::Close];
-        buffers.extend(channels.iter().cloned().map(Buffer::Replace));
-        buffers
+    fn list(buffers: &[data::Buffer], maximized: bool) -> Vec<Self> {
+        let mut list = vec![Buffer::Maximize(!maximized), Buffer::New, Buffer::Close];
+        list.extend(buffers.iter().cloned().map(Buffer::Replace));
+        list
     }
 }
 
@@ -184,14 +171,13 @@ impl std::fmt::Display for Buffer {
             }
             Buffer::New => write!(f, "New buffer"),
             Buffer::Close => write!(f, "Close buffer"),
-            Buffer::Replace(buffer) => {
-                write!(
-                    f,
-                    "Change to {} ({})",
-                    buffer.target().ok_or(std::fmt::Error::default())?,
-                    buffer.server(),
-                )
-            }
+            Buffer::Replace(buffer) => match buffer {
+                data::Buffer::Server(server) => write!(f, "Change to {}", server),
+                data::Buffer::Channel(server, channel) => {
+                    write!(f, "Change to {} ({})", channel, server)
+                }
+                data::Buffer::Query(_, nick) => write!(f, "Change to {}", nick),
+            },
         }
     }
 }
