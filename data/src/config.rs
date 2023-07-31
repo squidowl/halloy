@@ -10,10 +10,9 @@ pub use self::channel::Channel;
 pub use self::dashboard::Dashboard;
 pub use self::keys::Keys;
 pub use self::server::Server;
-use crate::environment;
 use crate::server::Map as ServerMap;
 use crate::theme::Palette;
-use crate::Theme;
+use crate::{environment, Theme};
 
 mod buffer;
 pub mod channel;
