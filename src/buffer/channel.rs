@@ -147,7 +147,7 @@ pub struct Channel {
     pub channel: String,
     pub topic: Option<String>,
     pub scroll_view: scroll_view::State,
-    input_view: input_view::State,
+    pub input_view: input_view::State,
 }
 
 impl Channel {
@@ -215,7 +215,7 @@ impl Channel {
 
 mod nick_list {
     use data::User;
-    use iced::widget::{column, container, row, scrollable, text};
+    use iced::widget::{column, container, scrollable, text};
     use iced::Length;
     use user_context::Message;
 
@@ -228,20 +228,16 @@ mod nick_list {
             users
                 .iter()
                 .map(|user| {
-                    let content = container(
-                        row![].padding([0, 4]).push(
-                            text(format!(
-                                "{}{}",
-                                user.highest_access_level(),
-                                user.nickname()
-                            ))
-                            .style(if user.is_away() {
-                                theme::Text::Transparent
-                            } else {
-                                theme::Text::Default
-                            }),
-                        ),
-                    );
+                    let content = text(format!(
+                        "{}{}",
+                        user.highest_access_level(),
+                        user.nickname()
+                    ))
+                    .style(if user.is_away() {
+                        theme::Text::Transparent
+                    } else {
+                        theme::Text::Primary
+                    });
 
                     user_context::view(content, user.clone())
                 })
