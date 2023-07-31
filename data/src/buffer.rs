@@ -98,3 +98,24 @@ pub enum Color {
     #[default]
     Unique,
 }
+
+#[derive(Debug, Clone, Copy)]
+pub enum Resize {
+    None,
+    Maximize,
+    Restore,
+}
+
+impl Resize {
+    pub fn action(can_resize: bool, maximized: bool) -> Self {
+        if can_resize {
+            if maximized {
+                Self::Restore
+            } else {
+                Self::Maximize
+            }
+        } else {
+            Self::None
+        }
+    }
+}

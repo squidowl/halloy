@@ -23,10 +23,14 @@ impl CommandBar {
         buffers: &[data::Buffer],
         config: &Config,
         is_focused_buffer: bool,
-        maximized: bool,
+        resize_buffer: data::buffer::Resize,
     ) -> Self {
-        let state =
-            combo_box::State::new(Command::list(buffers, config, is_focused_buffer, maximized));
+        let state = combo_box::State::new(Command::list(
+            buffers,
+            config,
+            is_focused_buffer,
+            resize_buffer,
+        ));
         state.focus();
 
         Self { state }
@@ -48,7 +52,7 @@ impl CommandBar {
         &'a self,
         buffers: &[data::Buffer],
         focused_buffer: bool,
-        maximized: bool,
+        resize_buffer: data::buffer::Resize,
         config: &'a Config,
     ) -> Element<'a, Message> {
         // 1px larger than default
@@ -75,7 +79,7 @@ impl CommandBar {
             column(
                 std::iter::once(text("Type a command...").size(font_size))
                     .chain(
-                        Command::list(buffers, config, focused_buffer, maximized)
+                        Command::list(buffers, config, focused_buffer, resize_buffer)
                             .iter()
                             .map(|command| text(command).size(font_size)),
                     )
@@ -134,9 +138,9 @@ impl Command {
         buffers: &[data::Buffer],
         config: &Config,
         is_focused_buffer: bool,
-        maximized: bool,
+        resize_buffer: data::buffer::Resize,
     ) -> Vec<Self> {
-        let buffers = Buffer::list(buffers, is_focused_buffer, maximized)
+        let buffers = Buffer::list(buffers, is_focused_buffer, resize_buffer)
             .into_iter()
             .map(Command::Buffer);
 
@@ -164,15 +168,23 @@ impl std::fmt::Display for Command {
 }
 
 impl Buffer {
-    fn list(buffers: &[data::Buffer], is_focused_buffer: bool, maximized: bool) -> Vec<Self> {
+    fn list(
+        buffers: &[data::Buffer],
+        is_focused_buffer: bool,
+        resize_buffer: data::buffer::Resize,
+    ) -> Vec<Self> {
         let mut list = vec![Buffer::New];
 
         if is_focused_buffer {
-            list.extend(
-                [Buffer::Close, Buffer::Maximize(!maximized)]
-                    .into_iter()
-                    .chain(buffers.iter().cloned().map(Buffer::Replace)),
-            );
+            list.push(Buffer::Close);
+
+            match resize_buffer {
+                data::buffer::Resize::Maximize => list.push(Buffer::Maximize(true)),
+                data::buffer::Resize::Restore => list.push(Buffer::Maximize(false)),
+                data::buffer::Resize::None => {}
+            }
+
+            list.extend(buffers.iter().cloned().map(Buffer::Replace));
         }
 
         list
