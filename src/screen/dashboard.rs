@@ -519,7 +519,7 @@ impl Dashboard {
                     .view(
                         &all_buffers(clients, &self.history),
                         self.focus.is_some(),
-                        self.is_pane_maximized(),
+                        self.buffer_resize_action(),
                         config,
                     )
                     .map(Message::Command),
@@ -550,7 +550,7 @@ impl Dashboard {
                 // - Restore maximized pane
                 // - Unfocus
                 if self.command_bar.is_some() {
-                    return self.toggle_command_bar(&closed_buffers(&self, clients), config, theme);
+                    return self.toggle_command_bar(&closed_buffers(self, clients), config, theme);
                 } else if self.is_pane_maximized() {
                     self.panes.restore();
                 } else {
@@ -599,7 +599,7 @@ impl Dashboard {
 
                 Command::perform(task, |_| Message::Close)
             }
-            CommandBar => self.toggle_command_bar(&closed_buffers(&self, clients), config, theme),
+            CommandBar => self.toggle_command_bar(&closed_buffers(self, clients), config, theme),
         }
     }
 
@@ -891,12 +891,17 @@ impl Dashboard {
             buffers,
             config,
             self.focus.is_some(),
-            self.is_pane_maximized(),
+            self.buffer_resize_action(),
         ));
     }
 
     fn close_command_bar(&mut self) {
         self.command_bar = None;
+    }
+
+    fn buffer_resize_action(&self) -> data::buffer::Resize {
+        let can_resize_buffer = self.focus.is_some() && self.panes.len() > 1;
+        data::buffer::Resize::action(can_resize_buffer, self.is_pane_maximized())
     }
 }
 
