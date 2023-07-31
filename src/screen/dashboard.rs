@@ -294,8 +294,6 @@ impl Dashboard {
                     return Command::none();
                 };
 
-                let all_buffers = all_buffers(clients, &self.history);
-
                 match command_bar.update(message) {
                     Some(command_bar::Event::ThemePreview(preview)) => {
                         *theme = theme.preview(preview);
@@ -357,11 +355,15 @@ impl Dashboard {
 
                         return Command::batch(vec![
                             command,
-                            self.toggle_command_bar(&all_buffers, config, theme),
+                            self.toggle_command_bar(&closed_buffers(self, clients), config, theme),
                         ]);
                     }
                     Some(command_bar::Event::Unfocused) => {
-                        return self.toggle_command_bar(&all_buffers, config, theme);
+                        return self.toggle_command_bar(
+                            &closed_buffers(self, clients),
+                            config,
+                            theme,
+                        );
                     }
                     None => {}
                 }
@@ -548,11 +550,7 @@ impl Dashboard {
                 // - Restore maximized pane
                 // - Unfocus
                 if self.command_bar.is_some() {
-                    return self.toggle_command_bar(
-                        &all_buffers(clients, &self.history),
-                        config,
-                        theme,
-                    );
+                    return self.toggle_command_bar(&closed_buffers(&self, clients), config, theme);
                 } else if self.is_pane_maximized() {
                     self.panes.restore();
                 } else {
@@ -601,9 +599,7 @@ impl Dashboard {
 
                 Command::perform(task, |_| Message::Close)
             }
-            CommandBar => {
-                self.toggle_command_bar(&all_buffers(clients, &self.history), config, theme)
-            }
+            CommandBar => self.toggle_command_bar(&closed_buffers(&self, clients), config, theme),
         }
     }
 
@@ -999,6 +995,15 @@ fn open_buffers(dashboard: &Dashboard) -> Vec<data::Buffer> {
         .panes
         .iter()
         .filter_map(|(_, pane)| pane.buffer.data())
+        .collect()
+}
+
+fn closed_buffers(dashboard: &Dashboard, clients: &client::Map) -> Vec<data::Buffer> {
+    let open_buffers = open_buffers(dashboard);
+
+    all_buffers(clients, &dashboard.history)
+        .into_iter()
+        .filter(|buffer| !open_buffers.contains(buffer))
         .collect()
 }
 
