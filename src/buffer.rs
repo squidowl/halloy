@@ -169,7 +169,7 @@ impl Buffer {
             Buffer::Query(query) => query
                 .input_view
                 .insert_user(user)
-                .map(|message| Message::Channel(channel::Message::InputView(message))),
+                .map(|message| Message::Query(query::Message::InputView(message))),
         }
     }
 
