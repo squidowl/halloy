@@ -11,17 +11,43 @@ pub const TEXT_SIZE: f32 = 13.0;
 pub const ICON_SIZE: f32 = 12.0;
 
 #[derive(Debug, Clone)]
-pub struct Theme {
-    pub name: String,
-    pub colors: Colors,
+pub enum Theme {
+    Selected(data::Theme),
+    Preview {
+        selected: data::Theme,
+        preview: data::Theme,
+    },
+}
+
+impl Theme {
+    pub fn preview(&self, theme: data::Theme) -> Self {
+        match self {
+            Theme::Selected(selected) | Theme::Preview { selected, .. } => Self::Preview {
+                selected: selected.clone(),
+                preview: theme,
+            },
+        }
+    }
+
+    pub fn selected(&self) -> Self {
+        match self {
+            Theme::Selected(selected) | Theme::Preview { selected, .. } => {
+                Self::Selected(selected.clone())
+            }
+        }
+    }
+
+    fn colors(&self) -> &Colors {
+        match self {
+            Theme::Selected(selected) => &selected.colors,
+            Theme::Preview { preview, .. } => &preview.colors,
+        }
+    }
 }
 
 impl From<data::Theme> for Theme {
     fn from(theme: data::Theme) -> Self {
-        Theme {
-            name: theme.name,
-            colors: theme.colors,
-        }
+        Theme::Selected(theme)
     }
 }
 
@@ -36,8 +62,8 @@ impl application::StyleSheet for Theme {
 
     fn appearance(&self, _style: &Self::Style) -> application::Appearance {
         application::Appearance {
-            background_color: self.colors.background.base,
-            text_color: self.colors.text.base,
+            background_color: self.colors().background.base,
+            text_color: self.colors().text.base,
         }
     }
 }
@@ -55,13 +81,13 @@ impl rule::StyleSheet for Theme {
     fn appearance(&self, style: &Self::Style) -> rule::Appearance {
         match style {
             Rule::Default => rule::Appearance {
-                color: self.colors.background.light,
+                color: self.colors().background.light,
                 width: 1,
                 radius: 0.0.into(),
                 fill_mode: rule::FillMode::Full,
             },
             Rule::Unread => rule::Appearance {
-                color: self.colors.accent.base,
+                color: self.colors().accent.base,
                 width: 1,
                 radius: 0.0.into(),
                 fill_mode: rule::FillMode::Full,
@@ -92,22 +118,22 @@ impl text::StyleSheet for Theme {
         match style {
             Text::Default => text::Appearance { color: None },
             Text::Primary => text::Appearance {
-                color: Some(self.colors.text.base),
+                color: Some(self.colors().text.base),
             },
             Text::Action => text::Appearance {
-                color: Some(self.colors.action.base),
+                color: Some(self.colors().action.base),
             },
             Text::Accent => text::Appearance {
-                color: Some(self.colors.accent.base),
+                color: Some(self.colors().accent.base),
             },
             Text::Info => text::Appearance {
-                color: Some(self.colors.info.base),
+                color: Some(self.colors().info.base),
             },
             Text::Error => text::Appearance {
-                color: Some(self.colors.error.base),
+                color: Some(self.colors().error.base),
             },
             Text::Nickname(seed) => {
-                let original_color = self.colors.action.base;
+                let original_color = self.colors().action.base;
                 let color = seed
                     .map(|seed| randomize_color(original_color, seed.as_str()))
                     .unwrap_or_else(|| original_color);
@@ -115,16 +141,16 @@ impl text::StyleSheet for Theme {
                 text::Appearance { color: Some(color) }
             }
             Text::Server => text::Appearance {
-                color: Some(self.colors.info.base),
+                color: Some(self.colors().info.base),
             },
             Text::Status(status) => text::Appearance {
                 color: Some(match status {
-                    message::source::Status::Success => self.colors.success.base,
-                    message::source::Status::Error => self.colors.error.base,
+                    message::source::Status::Success => self.colors().success.base,
+                    message::source::Status::Error => self.colors().error.base,
                 }),
             },
             Text::Transparent => text::Appearance {
-                color: Some(self.colors.text.low_alpha),
+                color: Some(self.colors().text.low_alpha),
             },
         }
     }
@@ -156,30 +182,30 @@ impl container::StyleSheet for Theme {
                 ..Default::default()
             },
             Container::Primary => container::Appearance {
-                background: Some(Background::Color(self.colors.background.base)),
-                text_color: Some(self.colors.text.base),
+                background: Some(Background::Color(self.colors().background.base)),
+                text_color: Some(self.colors().text.base),
                 ..Default::default()
             },
             Container::PaneBody { selected } => container::Appearance {
-                background: Some(Background::Color(self.colors.background.dark)),
+                background: Some(Background::Color(self.colors().background.dark)),
                 border_radius: 4.0.into(),
                 border_width: 1.0,
                 border_color: if *selected {
-                    self.colors.action.base
+                    self.colors().action.base
                 } else {
                     Color::TRANSPARENT
                 },
                 ..Default::default()
             },
             Container::PaneHeader => container::Appearance {
-                background: Some(Background::Color(self.colors.background.darker)),
+                background: Some(Background::Color(self.colors().background.darker)),
                 border_radius: [4.0, 4.0, 0.0, 0.0].into(),
                 border_width: 1.0,
                 border_color: Color::TRANSPARENT,
                 ..Default::default()
             },
             Container::Command { selected } if *selected => container::Appearance {
-                background: Some(Background::Color(self.colors.background.darker)),
+                background: Some(Background::Color(self.colors().background.darker)),
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
@@ -189,18 +215,18 @@ impl container::StyleSheet for Theme {
             },
             Container::Context => container::Appearance {
                 //TODO: Blur background when possible?
-                background: Some(Background::Color(self.colors.background.base)),
+                background: Some(Background::Color(self.colors().background.base)),
                 border_radius: 4.0.into(),
                 border_width: 1.0,
-                border_color: if self.colors.background.is_dark() {
-                    self.colors.background.lighter
+                border_color: if self.colors().background.is_dark() {
+                    self.colors().background.lighter
                 } else {
-                    self.colors.background.darker
+                    self.colors().background.darker
                 },
                 ..Default::default()
             },
             Container::Highlight => container::Appearance {
-                background: Some(Background::Color(self.colors.info.high_alpha)),
+                background: Some(Background::Color(self.colors().info.high_alpha)),
                 border_radius: 0.0.into(),
                 ..Default::default()
             },
@@ -208,7 +234,7 @@ impl container::StyleSheet for Theme {
                 background: Some(
                     Color {
                         a: 0.80,
-                        ..self.colors.background.base
+                        ..self.colors().background.base
                     }
                     .into(),
                 ),
@@ -238,19 +264,19 @@ impl button::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> button::Appearance {
         match style {
             Button::Default => button::Appearance {
-                background: Some(Background::Color(self.colors.action.high_alpha)),
-                text_color: self.colors.action.base,
+                background: Some(Background::Color(self.colors().action.high_alpha)),
+                text_color: self.colors().action.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::Secondary => button::Appearance {
-                background: Some(Background::Color(self.colors.text.high_alpha)),
-                text_color: self.colors.text.base,
+                background: Some(Background::Color(self.colors().text.high_alpha)),
+                text_color: self.colors().text.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.background.darker)),
+                background: Some(Background::Color(self.colors().background.darker)),
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
@@ -260,18 +286,18 @@ impl button::StyleSheet for Theme {
                 ..Default::default()
             },
             Button::Pane { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.action.med_alpha)),
-                border_color: self.colors.action.low_alpha,
+                background: Some(Background::Color(self.colors().action.med_alpha)),
+                border_color: self.colors().action.low_alpha,
                 border_width: 1.0,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::Pane { .. } => button::Appearance {
-                background: Some(Background::Color(self.colors.background.dark)),
-                border_color: if self.colors.background.is_dark() {
-                    self.colors.background.lightest
+                background: Some(Background::Color(self.colors().background.dark)),
+                border_color: if self.colors().background.is_dark() {
+                    self.colors().background.lightest
                 } else {
-                    self.colors.background.darkest
+                    self.colors().background.darkest
                 },
                 border_width: 1.0,
                 border_radius: 3.0.into(),
@@ -301,39 +327,39 @@ impl button::StyleSheet for Theme {
 
         match style {
             Button::Default => button::Appearance {
-                background: Some(Background::Color(self.colors.action.med_alpha)),
-                text_color: self.colors.action.base,
+                background: Some(Background::Color(self.colors().action.med_alpha)),
+                text_color: self.colors().action.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::Secondary => button::Appearance {
-                background: Some(Background::Color(self.colors.text.med_alpha)),
-                text_color: self.colors.text.base,
+                background: Some(Background::Color(self.colors().text.med_alpha)),
+                text_color: self.colors().text.base,
                 border_radius: 3.0.into(),
                 ..Default::default()
             },
             Button::SideMenu { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.background.darkest)),
+                background: Some(Background::Color(self.colors().background.darkest)),
                 ..active
             },
             Button::SideMenu { .. } => button::Appearance {
-                background: Some(Background::Color(self.colors.background.dark)),
+                background: Some(Background::Color(self.colors().background.dark)),
                 ..active
             },
             Button::Pane { selected } if *selected => button::Appearance {
-                background: Some(Background::Color(self.colors.action.high_alpha)),
+                background: Some(Background::Color(self.colors().action.high_alpha)),
                 ..active
             },
             Button::Pane { .. } => button::Appearance {
-                background: Some(Background::Color(if self.colors.background.is_dark() {
-                    self.colors.background.light
+                background: Some(Background::Color(if self.colors().background.is_dark() {
+                    self.colors().background.light
                 } else {
-                    self.colors.background.darker
+                    self.colors().background.darker
                 })),
                 ..active
             },
             Button::Context => button::Appearance {
-                background: Some(Background::Color(self.colors.background.darker)),
+                background: Some(Background::Color(self.colors().background.darker)),
                 ..active
             },
         }
@@ -369,12 +395,12 @@ impl scrollable::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> scrollable::Scrollbar {
         match style {
             Scrollable::Default => scrollable::Scrollbar {
-                background: Some(Background::Color(self.colors.background.darker)),
+                background: Some(Background::Color(self.colors().background.darker)),
                 border_radius: 8.0.into(),
                 border_width: 1.0,
                 border_color: Color::TRANSPARENT,
                 scroller: scrollable::Scroller {
-                    color: self.colors.background.darkest,
+                    color: self.colors().background.darkest,
                     border_radius: 8.0.into(),
                     border_width: 0.0,
                     border_color: Color::TRANSPARENT,
@@ -420,9 +446,9 @@ impl pane_grid::StyleSheet for Theme {
     fn hovered_region(&self, style: &Self::Style) -> pane_grid::Appearance {
         match style {
             PaneGrid::Default => pane_grid::Appearance {
-                background: Background::Color(self.colors.action.high_alpha),
+                background: Background::Color(self.colors().action.high_alpha),
                 border_width: 1.0,
-                border_color: self.colors.action.base,
+                border_color: self.colors().action.base,
                 border_radius: 4.0.into(),
             },
         }
@@ -431,7 +457,7 @@ impl pane_grid::StyleSheet for Theme {
     fn picked_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
         match style {
             PaneGrid::Default => Some(pane_grid::Line {
-                color: self.colors.action.base,
+                color: self.colors().action.base,
                 width: 4.0,
             }),
         }
@@ -440,7 +466,7 @@ impl pane_grid::StyleSheet for Theme {
     fn hovered_split(&self, style: &Self::Style) -> Option<pane_grid::Line> {
         match style {
             PaneGrid::Default => Some(pane_grid::Line {
-                color: self.colors.action.base,
+                color: self.colors().action.base,
                 width: 4.0,
             }),
         }
@@ -460,16 +486,16 @@ impl text_input::StyleSheet for Theme {
     fn active(&self, style: &Self::Style) -> text_input::Appearance {
         match style {
             TextInput::Default => text_input::Appearance {
-                background: Background::Color(self.colors.background.darker),
+                background: Background::Color(self.colors().background.darker),
                 border_radius: 4.0.into(),
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
                 // XXX Not currently displayed in application.
-                icon_color: self.colors.info.base,
+                icon_color: self.colors().info.base,
             },
             TextInput::Error => text_input::Appearance {
                 border_width: 1.0,
-                border_color: self.colors.error.base,
+                border_color: self.colors().error.base,
                 ..self.active(&TextInput::Default)
             },
         }
@@ -485,37 +511,37 @@ impl text_input::StyleSheet for Theme {
 
     fn selection_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default | TextInput::Error => self.colors.accent.high_alpha,
+            TextInput::Default | TextInput::Error => self.colors().accent.high_alpha,
         }
     }
 
     fn placeholder_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default | TextInput::Error => self.colors.text.low_alpha,
+            TextInput::Default | TextInput::Error => self.colors().text.low_alpha,
         }
     }
 
     fn value_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default | TextInput::Error => self.colors.text.base,
+            TextInput::Default | TextInput::Error => self.colors().text.base,
         }
     }
 
     fn disabled_color(&self, style: &Self::Style) -> Color {
         match style {
-            TextInput::Default | TextInput::Error => self.colors.text.base,
+            TextInput::Default | TextInput::Error => self.colors().text.base,
         }
     }
 
     fn disabled(&self, style: &Self::Style) -> text_input::Appearance {
         match style {
             TextInput::Default | TextInput::Error => text_input::Appearance {
-                background: Background::Color(self.colors.background.light),
+                background: Background::Color(self.colors().background.light),
                 border_radius: 0.0.into(),
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
                 // XXX Not currently displayed in application.
-                icon_color: self.colors.info.base,
+                icon_color: self.colors().info.base,
             },
         }
     }
@@ -526,7 +552,7 @@ impl selectable_text::StyleSheet for Theme {
 
     fn appearance(&self, style: &Self::Style) -> selectable_text::Appearance {
         let color = <Theme as text::StyleSheet>::appearance(self, style.clone()).color;
-        let selection_color = self.colors.accent.high_alpha;
+        let selection_color = self.colors().accent.high_alpha;
 
         selectable_text::Appearance {
             color,
@@ -548,26 +574,26 @@ impl overlay::menu::StyleSheet for Theme {
     fn appearance(&self, style: &Self::Style) -> overlay::menu::Appearance {
         match style {
             Menu::Default => overlay::menu::Appearance {
-                text_color: self.colors.text.base,
-                background: Background::Color(self.colors.background.base),
+                text_color: self.colors().text.base,
+                background: Background::Color(self.colors().background.base),
                 border_width: 1.0,
                 border_radius: 4.0.into(),
-                border_color: self.colors.action.base,
-                selected_text_color: self.colors.text.high_alpha,
-                selected_background: Background::Color(self.colors.background.high_alpha),
+                border_color: self.colors().action.base,
+                selected_text_color: self.colors().text.high_alpha,
+                selected_background: Background::Color(self.colors().background.high_alpha),
             },
             Menu::ComboBox => overlay::menu::Appearance {
-                text_color: self.colors.text.base,
-                background: Background::Color(self.colors.background.base),
+                text_color: self.colors().text.base,
+                background: Background::Color(self.colors().background.base),
                 border_width: 1.0,
                 border_radius: 4.0.into(),
-                border_color: if self.colors.background.is_dark() {
-                    self.colors.background.lighter
+                border_color: if self.colors().background.is_dark() {
+                    self.colors().background.lighter
                 } else {
-                    self.colors.background.darker
+                    self.colors().background.darker
                 },
-                selected_text_color: self.colors.text.base,
-                selected_background: Background::Color(self.colors.background.dark),
+                selected_text_color: self.colors().text.base,
+                selected_background: Background::Color(self.colors().background.dark),
             },
         }
     }

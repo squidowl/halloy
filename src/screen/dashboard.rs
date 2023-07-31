@@ -20,10 +20,6 @@ use crate::{event, theme, Theme};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
-pub enum Event {
-    SwitchTheme(Theme),
-}
-
 pub struct Dashboard {
     panes: pane_grid::State<Pane>,
     focus: Option<pane_grid::Pane>,
@@ -78,12 +74,13 @@ impl Dashboard {
         message: Message,
         clients: &mut client::Map,
         servers: &mut server::Map,
+        theme: &mut Theme,
         config: &Config,
-    ) -> (Command<Message>, Option<Event>) {
+    ) -> Command<Message> {
         match message {
             Message::Pane(message) => match message {
                 pane::Message::PaneClicked(pane) => {
-                    return (self.focus_pane(pane), None);
+                    return self.focus_pane(pane);
                 }
                 pane::Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
                     self.panes.resize(&split, ratio);
@@ -96,11 +93,11 @@ impl Dashboard {
                 pane::Message::PaneDragged(_) => {}
                 pane::Message::ClosePane => {
                     if let Some(pane) = self.focus {
-                        return (self.close_pane(pane), None);
+                        return self.close_pane(pane);
                     }
                 }
                 pane::Message::SplitPane(axis) => {
-                    return (self.split_pane(axis, config), None);
+                    return self.split_pane(axis, config);
                 }
                 pane::Message::Buffer(id, message) => {
                     if let Some(pane) = self.panes.get_mut(&id) {
@@ -134,18 +131,14 @@ impl Dashboard {
                                             data.server().clone(),
                                             user.nickname().to_owned(),
                                         );
-                                        return (self.open_buffer(buffer, config), None);
+                                        return self.open_buffer(buffer, config);
                                     }
                                 }
                             }
                         }
 
-                        return (
-                            command.map(move |message| {
-                                Message::Pane(pane::Message::Buffer(id, message))
-                            }),
-                            None,
-                        );
+                        return command
+                            .map(move |message| Message::Pane(pane::Message::Buffer(id, message)));
                     }
                 }
                 pane::Message::ToggleShowUserList => {
@@ -161,17 +154,17 @@ impl Dashboard {
 
                 match event {
                     side_menu::Event::Open(kind) => {
-                        return (self.open_buffer(kind, config), None);
+                        return self.open_buffer(kind, config);
                     }
                     side_menu::Event::Replace(kind, pane) => {
                         if let Some(state) = self.panes.get_mut(&pane) {
                             state.buffer = Buffer::from(kind);
                             self.last_changed = Some(Instant::now());
                             self.focus = None;
-                            return (
-                                Command::batch(vec![self.reset_pane(pane), self.focus_pane(pane)]),
-                                None,
-                            );
+                            return Command::batch(vec![
+                                self.reset_pane(pane),
+                                self.focus_pane(pane),
+                            ]);
                         }
                     }
                     side_menu::Event::Close(pane) => {
@@ -185,7 +178,7 @@ impl Dashboard {
                     side_menu::Event::Swap(from, to) => {
                         self.panes.swap(&from, &to);
                         self.last_changed = Some(Instant::now());
-                        return (self.focus_pane(from), None);
+                        return self.focus_pane(from);
                     }
                     side_menu::Event::Leave(buffer) => {
                         let pane = self.panes.iter().find_map(|(pane, state)| {
@@ -232,7 +225,7 @@ impl Dashboard {
                                     .map(|task| Command::perform(task, |_| Message::CloseHistory))
                                     .unwrap_or_else(Command::none);
 
-                                return (Command::batch(vec![quit, close_history]), None);
+                                return Command::batch(vec![quit, close_history]);
                             }
                             data::Buffer::Channel(server, channel) => {
                                 // Send part & close history file
@@ -243,27 +236,19 @@ impl Dashboard {
                                     clients.send(&buffer, encoded);
                                 }
 
-                                return (
-                                    self.history
-                                        .close(server, history::Kind::Channel(channel))
-                                        .map(|task| {
-                                            Command::perform(task, |_| Message::CloseHistory)
-                                        })
-                                        .unwrap_or_else(Command::none),
-                                    None,
-                                );
+                                return self
+                                    .history
+                                    .close(server, history::Kind::Channel(channel))
+                                    .map(|task| Command::perform(task, |_| Message::CloseHistory))
+                                    .unwrap_or_else(Command::none);
                             }
                             data::Buffer::Query(server, nick) => {
                                 // No PART to send, just close history
-                                return (
-                                    self.history
-                                        .close(server, history::Kind::Query(nick))
-                                        .map(|task| {
-                                            Command::perform(task, |_| Message::CloseHistory)
-                                        })
-                                        .unwrap_or_else(Command::none),
-                                    None,
-                                );
+                                return self
+                                    .history
+                                    .close(server, history::Kind::Query(nick))
+                                    .map(|task| Command::perform(task, |_| Message::CloseHistory))
+                                    .unwrap_or_else(Command::none);
                             }
                         }
                     }
@@ -287,14 +272,14 @@ impl Dashboard {
                     });
 
                 if !contents.is_empty() {
-                    return (clipboard::write(contents), None);
+                    return clipboard::write(contents);
                 }
             }
             Message::History(message) => {
                 self.history.update(message);
             }
             Message::Close => {
-                return (window::close(), None);
+                return window::close();
             }
             Message::DashboardSaved(Ok(_)) => {
                 log::info!("dashboard saved");
@@ -306,27 +291,30 @@ impl Dashboard {
             Message::QuitServer => {}
             Message::Command(message) => {
                 let Some(command_bar) = &mut self.command_bar else {
-                    return (Command::none(), None);
+                    return Command::none();
                 };
 
                 let all_buffers = all_buffers(clients, &self.history);
 
                 match command_bar.update(message) {
+                    Some(command_bar::Event::ThemePreview(preview)) => {
+                        *theme = theme.preview(preview);
+                    }
                     Some(command_bar::Event::Command(command)) => {
-                        let (command, event) = match command {
+                        let command = match command {
                             command_bar::Command::Buffer(command) => match command {
                                 command_bar::Buffer::Maximize(_) => {
                                     self.maximize_pane();
-                                    (Command::none(), None)
+                                    Command::none()
                                 }
                                 command_bar::Buffer::New => {
-                                    (self.new_pane(pane_grid::Axis::Horizontal, config), None)
+                                    self.new_pane(pane_grid::Axis::Horizontal, config)
                                 }
                                 command_bar::Buffer::Close => {
                                     if let Some(pane) = self.focus {
-                                        (self.close_pane(pane), None)
+                                        self.close_pane(pane)
                                     } else {
-                                        (Command::none(), None)
+                                        Command::none()
                                     }
                                 }
                                 command_bar::Buffer::Replace(buffer) => {
@@ -344,38 +332,36 @@ impl Dashboard {
                                         }
                                     }
 
-                                    (Command::batch(commands), None)
+                                    Command::batch(commands)
                                 }
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::Open => {
                                     let _ = open::that(Config::config_dir());
-                                    (Command::none(), None)
+                                    Command::none()
                                 }
                             },
                             command_bar::Command::UI(command) => match command {
                                 command_bar::Ui::ToggleSidebarVisibility => {
                                     self.side_menu.toggle_visibility();
-                                    (Command::none(), None)
+                                    Command::none()
                                 }
                             },
-                            command_bar::Command::Theme(theme) => match theme {
-                                command_bar::Theme::Switch(theme) => {
-                                    (Command::none(), Some(Event::SwitchTheme(theme)))
+                            command_bar::Command::Theme(command) => match command {
+                                command_bar::Theme::Switch(new) => {
+                                    *theme = Theme::from(new);
+                                    Command::none()
                                 }
                             },
                         };
 
-                        return (
-                            Command::batch(vec![
-                                command,
-                                self.toggle_command_bar(&all_buffers, config),
-                            ]),
-                            event,
-                        );
+                        return Command::batch(vec![
+                            command,
+                            self.toggle_command_bar(&all_buffers, config, theme),
+                        ]);
                     }
                     Some(command_bar::Event::Unfocused) => {
-                        return (self.toggle_command_bar(&all_buffers, config), None);
+                        return self.toggle_command_bar(&all_buffers, config, theme);
                     }
                     None => {}
                 }
@@ -396,13 +382,13 @@ impl Dashboard {
                 };
 
                 match shortcut {
-                    MoveUp => return (move_focus(pane_grid::Direction::Up), None),
-                    MoveDown => return (move_focus(pane_grid::Direction::Down), None),
-                    MoveLeft => return (move_focus(pane_grid::Direction::Left), None),
-                    MoveRight => return (move_focus(pane_grid::Direction::Right), None),
+                    MoveUp => return move_focus(pane_grid::Direction::Up),
+                    MoveDown => return move_focus(pane_grid::Direction::Down),
+                    MoveLeft => return move_focus(pane_grid::Direction::Left),
+                    MoveRight => return move_focus(pane_grid::Direction::Right),
                     CloseBuffer => {
                         if let Some(pane) = self.focus {
-                            return (self.close_pane(pane), None);
+                            return self.close_pane(pane);
                         }
                     }
                     MaximizeBuffer => {
@@ -425,7 +411,7 @@ impl Dashboard {
                             ) {
                                 state.buffer = Buffer::from(buffer);
                                 self.focus = None;
-                                return (self.focus_pane(pane), None);
+                                return self.focus_pane(pane);
                             }
                         }
                     }
@@ -441,7 +427,7 @@ impl Dashboard {
                             ) {
                                 state.buffer = Buffer::from(buffer);
                                 self.focus = None;
-                                return (self.focus_pane(pane), None);
+                                return self.focus_pane(pane);
                             }
                         }
                     }
@@ -456,7 +442,7 @@ impl Dashboard {
             }
         }
 
-        (Command::none(), None)
+        Command::none()
     }
 
     pub fn view<'a>(
@@ -550,6 +536,7 @@ impl Dashboard {
         event: event::Event,
         clients: &data::client::Map,
         config: &Config,
+        theme: &mut Theme,
     ) -> Command<Message> {
         use event::Event::*;
 
@@ -561,7 +548,11 @@ impl Dashboard {
                 // - Restore maximized pane
                 // - Unfocus
                 if self.command_bar.is_some() {
-                    return self.toggle_command_bar(&all_buffers(clients, &self.history), config);
+                    return self.toggle_command_bar(
+                        &all_buffers(clients, &self.history),
+                        config,
+                        theme,
+                    );
                 } else if self.is_pane_maximized() {
                     self.panes.restore();
                 } else {
@@ -610,7 +601,9 @@ impl Dashboard {
 
                 Command::perform(task, |_| Message::Close)
             }
-            CommandBar => self.toggle_command_bar(&all_buffers(clients, &self.history), config),
+            CommandBar => {
+                self.toggle_command_bar(&all_buffers(clients, &self.history), config, theme)
+            }
         }
     }
 
@@ -878,8 +871,12 @@ impl Dashboard {
         &mut self,
         buffers: &[data::Buffer],
         config: &Config,
+        theme: &mut Theme,
     ) -> Command<Message> {
         if self.command_bar.is_some() {
+            // Remove theme preview
+            *theme = theme.selected();
+
             self.close_command_bar();
             // Refocus the pane so text input gets refocused
             self.focus

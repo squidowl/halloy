@@ -13,6 +13,7 @@ pub struct CommandBar {
 #[derive(Debug, Clone)]
 pub enum Message {
     Command(Command),
+    Hovered(Command),
     Unfocused,
     Ignored,
 }
@@ -34,6 +35,10 @@ impl CommandBar {
     pub fn update(&mut self, message: Message) -> Option<Event> {
         match message {
             Message::Command(command) => Some(Event::Command(command)),
+            Message::Hovered(Command::Theme(Theme::Switch(theme))) => {
+                Some(Event::ThemePreview(theme))
+            }
+            Message::Hovered(_) => None,
             Message::Unfocused => Some(Event::Unfocused),
             Message::Ignored => None,
         }
@@ -51,6 +56,7 @@ impl CommandBar {
 
         let combo_box = combo_box(&self.state, "Type a command...", None, Message::Command)
             .on_close(Message::Unfocused)
+            .on_option_hovered(Message::Hovered)
             .style(theme::ComboBox::Default)
             .size(font_size)
             .padding([8, 8]);
@@ -88,6 +94,7 @@ impl CommandBar {
 
 pub enum Event {
     Command(Command),
+    ThemePreview(data::Theme),
     Unfocused,
 }
 
@@ -119,7 +126,7 @@ pub enum Ui {
 
 #[derive(Debug, Clone)]
 pub enum Theme {
-    Switch(crate::Theme),
+    Switch(data::Theme),
 }
 
 impl Command {
@@ -191,7 +198,6 @@ impl Theme {
             .all
             .iter()
             .cloned()
-            .map(crate::Theme::from)
             .map(Self::Switch)
             .collect()
     }
