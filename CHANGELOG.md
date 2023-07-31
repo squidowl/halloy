@@ -5,7 +5,7 @@ Added:
 - Configurable keyboard shortcuts for common actions, such as changing buffer focus, maximize / restoring buffer size, 
   cycling channels in the buffer and more! A new `keys` section has been added to the config file, reference the 
   [wiki](https://github.com/squidowl/halloy/wiki/Keyboard-shortcuts) for more details.
-- Double clicking on a user will open a query with them
+- Single clicking on a user will insert nickname to input
 
 Fixed:
 
