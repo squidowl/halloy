@@ -148,7 +148,7 @@ impl Command {
 
         let themes = Theme::list(config).into_iter().map(Command::Theme);
 
-        buffers.chain(configs).chain(uis).chain(themes).collect()
+        buffers.chain(configs).chain(themes).chain(uis).collect()
     }
 }
 
