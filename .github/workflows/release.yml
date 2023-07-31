@@ -16,11 +16,18 @@ jobs:
           - target: macos
             os: macos-latest
             make: bash scripts/build-macos.sh
-            binary_path: target/release/macos/halloy.dmg
+            artifact_path: |
+              echo "ARTIFACT_PATH=target/release/macos/halloy.dmg" >> "$GITHUB_ENV"
           - target: windows
             os: windows-latest
             make: bash scripts/build-windows.sh
-            binary_path: target/release/halloy.exe
+            artifact_path: |
+              echo "ARTIFACT_PATH=target/release/halloy.exe" >> $env:GITHUB_ENV
+          - target: linux
+            os: ubuntu-latest
+            make: bash scripts/package-linux.sh package
+            artifact_path: |
+              echo "ARTIFACT_PATH=$(bash scripts/package-linux.sh archive_path)" >> "$GITHUB_ENV"
     runs-on: ${{ matrix.target.os }}
 
     steps:
@@ -31,14 +38,29 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Install linux deps
+        if: matrix.target.target == 'linux'
+        run: |
+          sudo apt install \
+            build-essential \
+            git \
+            pkg-config \
+            libdbus-1-dev \
+            libudev-dev \
+            libxkbcommon-dev \
+            libfontconfig1-dev
+
       - name: Build
         run: ${{ matrix.target.make }}
+
+      - name: Set artifact path
+        run: ${{ matrix.target.artifact_path }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.target.target }}
-          path: ${{ matrix.target.binary_path }}
+          path: ${{ env.ARTIFACT_PATH }}
 
   create-release:
     needs: build
@@ -67,29 +89,38 @@ jobs:
       matrix:
         target:
           - artifact: macos
-            artifact_name: halloy.dmg
-            asset_name: halloy.dmg
+            artifact_name: |
+              echo "ARTIFACT_NAME=halloy.dmg" >> "$GITHUB_ENV"
             asset_type: application/octet-stream
           - artifact: windows
-            artifact_name: halloy.exe
-            asset_name: halloy.exe
+            artifact_name: |
+              echo "ARTIFACT_NAME=halloy.exe" >> "$GITHUB_ENV"
             asset_type: application/x-dosexec
+          - artifact: linux
+            artifact_name: |
+              echo "ARTIFACT_NAME=$(bash scripts/package-linux.sh archive_name)" >> "$GITHUB_ENV"
+            asset_type: application/gzip
 
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
+      - uses: actions/checkout@v3
+
       - name: Download artifact
         uses: actions/download-artifact@v2
         with:
           name: ${{ matrix.target.artifact }}
           path: ${{ matrix.target.artifact }}
 
+      - name: Set artifact name
+        run: ${{ matrix.target.artifact_name }}
+
       - name: Upload asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./${{ matrix.target.artifact }}/${{ matrix.target.artifact_name }}
-          asset_name: ${{ matrix.target.asset_name }}
+          asset_path: ./${{ matrix.target.artifact }}/${{ env.ARTIFACT_NAME }}
+          asset_name: ${{ env.ARTIFACT_NAME }}
           asset_content_type: ${{ matrix.target.asset_type }}
