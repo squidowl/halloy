@@ -294,6 +294,8 @@ impl Dashboard {
                     return Command::none();
                 };
 
+                let all_buffers = all_buffers(clients, &self.history);
+
                 match command_bar.update(message) {
                     Some(command_bar::Event::Command(command)) => {
                         let command = match command {
@@ -315,11 +317,10 @@ impl Dashboard {
                                 command_bar::Buffer::Replace(buffer) => {
                                     let mut commands = vec![];
 
-                                    if let Some(pane) = self.focus {
+                                    if let Some(pane) = self.focus.take() {
                                         if let Some(state) = self.panes.get_mut(&pane) {
                                             state.buffer = Buffer::from(buffer);
                                             self.last_changed = Some(Instant::now());
-                                            self.focus = None;
 
                                             commands.extend(vec![
                                                 self.reset_pane(pane),
@@ -345,9 +346,14 @@ impl Dashboard {
                             },
                         };
 
-                        return Command::batch(vec![command, self.toggle_command_bar(clients)]);
+                        return Command::batch(vec![
+                            command,
+                            self.toggle_command_bar(&all_buffers),
+                        ]);
                     }
-                    Some(command_bar::Event::Unfocused) => return self.toggle_command_bar(clients),
+                    Some(command_bar::Event::Unfocused) => {
+                        return self.toggle_command_bar(&all_buffers)
+                    }
                     None => {}
                 }
             }
@@ -499,7 +505,11 @@ impl Dashboard {
             anchored_overlay(
                 background,
                 command_bar
-                    .view(clients, self.is_pane_maximized(), config)
+                    .view(
+                        &all_buffers(clients, &self.history),
+                        self.is_pane_maximized(),
+                        config,
+                    )
                     .map(Message::Command),
                 anchored_overlay::Anchor::BelowTopCentered,
                 10.0,
@@ -526,7 +536,7 @@ impl Dashboard {
                 // - Restore maximized pane
                 // - Unfocus
                 if self.command_bar.is_some() {
-                    return self.toggle_command_bar(clients);
+                    return self.toggle_command_bar(&all_buffers(clients, &self.history));
                 } else if self.is_pane_maximized() {
                     self.panes.restore();
                 } else {
@@ -575,7 +585,7 @@ impl Dashboard {
 
                 Command::perform(task, |_| Message::Close)
             }
-            CommandBar => self.toggle_command_bar(clients),
+            CommandBar => self.toggle_command_bar(&all_buffers(clients, &self.history)),
         }
     }
 
@@ -811,7 +821,7 @@ impl Dashboard {
         history
     }
 
-    pub fn toggle_command_bar(&mut self, clients: &data::client::Map) -> Command<Message> {
+    pub fn toggle_command_bar(&mut self, buffers: &[data::Buffer]) -> Command<Message> {
         if self.command_bar.is_some() {
             self.close_command_bar();
             // Refocus the pane so text input gets refocused
@@ -820,14 +830,14 @@ impl Dashboard {
                 .map(|pane| self.focus_pane(pane))
                 .unwrap_or(Command::none())
         } else {
-            self.open_command_bar(clients);
+            self.open_command_bar(buffers);
 
             Command::none()
         }
     }
 
-    fn open_command_bar(&mut self, clients: &data::client::Map) {
-        self.command_bar = Some(CommandBar::new(clients, self.is_pane_maximized()));
+    fn open_command_bar(&mut self, buffers: &[data::Buffer]) {
+        self.command_bar = Some(CommandBar::new(buffers, self.is_pane_maximized()));
     }
 
     fn close_command_bar(&mut self) {
