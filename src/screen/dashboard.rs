@@ -136,6 +136,17 @@ impl Dashboard {
                                         return self.open_buffer(buffer, config);
                                     }
                                 }
+                                buffer::user_context::Event::SingleClick(user) => {
+                                    let Some((_, pane)) = self.get_focused_mut() else {
+                                        return Command::none();
+                                    };
+
+                                    return pane.buffer.insert_user_to_input(user).map(
+                                        move |message| {
+                                            Message::Pane(pane::Message::Buffer(id, message))
+                                        },
+                                    );
+                                }
                             }
                         }
 

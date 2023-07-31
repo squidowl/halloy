@@ -309,6 +309,7 @@ pub enum Button {
         selected: bool,
     },
     Context,
+    Bare,
 }
 
 impl button::StyleSheet for Theme {
@@ -361,6 +362,10 @@ impl button::StyleSheet for Theme {
                 border_radius: 4.0.into(),
                 ..Default::default()
             },
+            Button::Bare => button::Appearance {
+                background: Some(Background::Color(Color::TRANSPARENT)),
+                ..Default::default()
+            },
         }
     }
 
@@ -372,6 +377,7 @@ impl button::StyleSheet for Theme {
             Button::SideMenu { selected: _ } => button::Appearance { ..active },
             Button::Pane { selected: _ } => button::Appearance { ..active },
             Button::Context => button::Appearance { ..active },
+            Button::Bare => button::Appearance { ..active },
         }
     }
 
@@ -415,6 +421,7 @@ impl button::StyleSheet for Theme {
                 background: Some(Background::Color(self.colors.background.darker)),
                 ..active
             },
+            Button::Bare => button::Appearance { ..active },
         }
     }
 
