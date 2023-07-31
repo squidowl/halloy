@@ -150,7 +150,7 @@ impl TitleBar {
             controls = controls.push(users);
         }
 
-        // If we have more than one pane open, show delete and maximize button.
+        // If we have more than one pane open, show maximize button.
         if panes > 1 {
             let maximize = button(
                 container(if maximized {
@@ -171,7 +171,10 @@ impl TitleBar {
             });
 
             controls = controls.push(maximize);
+        }
 
+        // Add delete as long as it's not a single empty buffer
+        if !(panes == 1 && matches!(buffer, Buffer::Empty)) {
             let delete = button(
                 container(icon::close())
                     .width(Length::Fill)

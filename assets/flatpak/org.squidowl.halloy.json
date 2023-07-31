@@ -29,9 +29,9 @@
             "build-commands": [
                 "cargo --offline fetch --manifest-path Cargo.toml --verbose",
                 "cargo --offline build --release --verbose",
-                "install -Dm644 ./assets/logo_128px.png /app/share/icons/hicolor/128x128/apps/org.squidowl.halloy.png",
-                "install -Dm644 ./assets/halloy.appdata.xml /app/share/metainfo/org.squidowl.halloy.appdata.xml",
-                "install -Dm644 ./assets/halloy.desktop /app/share/applications/org.squidowl.halloy.desktop",
+                "install -Dm644 ./assets/linux/org.squidowl.halloy.png /app/share/icons/hicolor/128x128/apps/org.squidowl.halloy.png",
+                "install -Dm644 ./assets/linux/org.squidowl.halloy.appdata.xml /app/share/metainfo/org.squidowl.halloy.appdata.xml",
+                "install -Dm644 ./assets/linux/org.squidowl.halloy.desktop /app/share/applications/org.squidowl.halloy.desktop",
                 "install -Dm755 ./target/release/halloy -t /app/bin/"
             ],
             "sources": [

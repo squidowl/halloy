@@ -1,22 +1,23 @@
+mod command_bar;
+pub mod pane;
+pub mod side_menu;
+
 use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{history, Config, Server, User};
+use data::{client, history, server, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{container, row, Space};
 use iced::{clipboard, window, Command, Length};
 
-use self::command_bar::CommandBar;
-use self::pane::Pane;
-use self::side_menu::SideMenu;
-use crate::buffer::{self, Buffer};
-use crate::theme;
-use crate::widget::{anchored_overlay, selectable_text, Collection, Element};
+use command_bar::CommandBar;
+use pane::Pane;
+use side_menu::SideMenu;
 
-mod command_bar;
-pub mod pane;
-pub mod side_menu;
+use crate::buffer::{self, Buffer};
+use crate::widget::{anchored_overlay, selectable_text, shortcut, Collection, Element};
+use crate::{event, theme};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
@@ -40,6 +41,7 @@ pub enum Message {
     CloseHistory,
     QuitServer,
     Command(command_bar::Message),
+    Shortcut(shortcut::Command),
 }
 
 impl Dashboard {
@@ -71,8 +73,8 @@ impl Dashboard {
     pub fn update(
         &mut self,
         message: Message,
-        clients: &mut data::client::Map,
-        servers: &mut data::server::Map,
+        clients: &mut client::Map,
+        servers: &mut server::Map,
         config: &Config,
     ) -> Command<Message> {
         match message {
@@ -90,7 +92,9 @@ impl Dashboard {
                 }
                 pane::Message::PaneDragged(_) => {}
                 pane::Message::ClosePane => {
-                    return self.close_pane();
+                    if let Some(pane) = self.focus {
+                        return self.close_pane(pane);
+                    }
                 }
                 pane::Message::SplitPane(axis) => {
                     return self.split_pane(axis, config);
@@ -301,7 +305,13 @@ impl Dashboard {
                                 command_bar::Buffer::New => {
                                     self.split_pane(pane_grid::Axis::Horizontal, config)
                                 }
-                                command_bar::Buffer::Close => self.close_pane(),
+                                command_bar::Buffer::Close => {
+                                    if let Some(pane) = self.focus {
+                                        self.close_pane(pane)
+                                    } else {
+                                        Command::none()
+                                    }
+                                }
                                 command_bar::Buffer::Replace(buffer) => {
                                     let mut commands = vec![];
 
@@ -341,6 +351,80 @@ impl Dashboard {
                     None => {}
                 }
             }
+            Message::Shortcut(shortcut) => {
+                use shortcut::Command::*;
+
+                let mut move_focus = |direction: pane_grid::Direction| {
+                    if let Some(pane) = self.focus.as_ref() {
+                        if let Some(adjacent) = self.panes.adjacent(pane, direction) {
+                            return self.focus_pane(adjacent);
+                        }
+                    } else if let Some((pane, _)) = self.panes.panes.iter().next() {
+                        return self.focus_pane(*pane);
+                    }
+
+                    Command::none()
+                };
+
+                match shortcut {
+                    MoveUp => return move_focus(pane_grid::Direction::Up),
+                    MoveDown => return move_focus(pane_grid::Direction::Down),
+                    MoveLeft => return move_focus(pane_grid::Direction::Left),
+                    MoveRight => return move_focus(pane_grid::Direction::Right),
+                    CloseBuffer => {
+                        if let Some(pane) = self.focus {
+                            return self.close_pane(pane);
+                        }
+                    }
+                    MaximizeBuffer => {
+                        if let Some(pane) = self.focus.as_ref() {
+                            self.panes.maximize(pane);
+                        }
+                    }
+                    RestoreBuffer => {
+                        self.panes.restore();
+                    }
+                    CycleNextBuffer => {
+                        let all_buffers = all_buffers(clients, &self.history);
+                        let open_buffers = open_buffers(self);
+
+                        if let Some((pane, state)) = self.get_focused_mut() {
+                            if let Some(buffer) = cycle_next_buffer(
+                                state.buffer.data().as_ref(),
+                                all_buffers,
+                                &open_buffers,
+                            ) {
+                                state.buffer = Buffer::from(buffer);
+                                self.focus = None;
+                                return self.focus_pane(pane);
+                            }
+                        }
+                    }
+                    CyclePreviousBuffer => {
+                        let all_buffers = all_buffers(clients, &self.history);
+                        let open_buffers = open_buffers(self);
+
+                        if let Some((pane, state)) = self.get_focused_mut() {
+                            if let Some(buffer) = cycle_previous_buffer(
+                                state.buffer.data().as_ref(),
+                                all_buffers,
+                                &open_buffers,
+                            ) {
+                                state.buffer = Buffer::from(buffer);
+                                self.focus = None;
+                                return self.focus_pane(pane);
+                            }
+                        }
+                    }
+                    ToggleNickList => {
+                        if let Some((_, pane)) = self.get_focused_mut() {
+                            pane.update_settings(|settings| {
+                                settings.channel.users.visible = !settings.channel.users.visible
+                            });
+                        }
+                    }
+                }
+            }
         }
 
         Command::none()
@@ -348,7 +432,7 @@ impl Dashboard {
 
     pub fn view<'a>(
         &'a self,
-        clients: &'a data::client::Map,
+        clients: &'a client::Map,
         config: &'a Config,
     ) -> Element<'a, Message> {
         let focus = self.focus;
@@ -400,7 +484,7 @@ impl Dashboard {
             .height(Length::Fill)
             .padding([height_margin, 0, 0, 0]);
 
-        if let Some(command_bar) = self.command_bar.as_ref() {
+        let base = if let Some(command_bar) = self.command_bar.as_ref() {
             let background = anchored_overlay(
                 base,
                 container(Space::new(Length::Fill, Length::Fill))
@@ -422,15 +506,17 @@ impl Dashboard {
             )
         } else {
             base.into()
-        }
+        };
+
+        shortcut(base, config.keys.shortcuts(), Message::Shortcut)
     }
 
     pub fn handle_event(
         &mut self,
-        event: crate::event::Event,
+        event: event::Event,
         clients: &data::client::Map,
     ) -> Command<Message> {
-        use crate::event::Event::*;
+        use event::Event::*;
 
         match event {
             Escape => {
@@ -672,15 +758,13 @@ impl Dashboard {
             .unwrap_or(Command::none())
     }
 
-    fn close_pane(&mut self) -> Command<Message> {
-        if let Some(pane) = self.focus {
-            self.last_changed = Some(Instant::now());
+    fn close_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
+        self.last_changed = Some(Instant::now());
 
-            if let Some((_, sibling)) = self.panes.close(&pane) {
-                return self.focus_pane(sibling);
-            } else if let Some(pane) = self.panes.get_mut(&pane) {
-                pane.buffer = Buffer::Empty;
-            }
+        if let Some((_, sibling)) = self.panes.close(&pane) {
+            return self.focus_pane(sibling);
+        } else if let Some(pane) = self.panes.get_mut(&pane) {
+            pane.buffer = Buffer::Empty;
         }
 
         Command::none()
@@ -818,4 +902,66 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
             pane: from_layout(&dashboard.panes, layout),
         }
     }
+}
+
+fn all_buffers(clients: &client::Map, history: &history::Manager) -> Vec<data::Buffer> {
+    clients
+        .connected_servers()
+        .flat_map(|server| {
+            std::iter::once(data::Buffer::Server(server.clone()))
+                .chain(
+                    clients
+                        .get_channels(server)
+                        .iter()
+                        .map(|channel| data::Buffer::Channel(server.clone(), channel.clone())),
+                )
+                .chain(
+                    history
+                        .get_unique_queries(server)
+                        .into_iter()
+                        .map(|nick| data::Buffer::Query(server.clone(), nick.clone())),
+                )
+        })
+        .collect()
+}
+
+fn open_buffers(dashboard: &Dashboard) -> Vec<data::Buffer> {
+    dashboard
+        .panes
+        .iter()
+        .filter_map(|(_, pane)| pane.buffer.data())
+        .collect()
+}
+
+fn cycle_next_buffer(
+    current: Option<&data::Buffer>,
+    mut all: Vec<data::Buffer>,
+    opened: &[data::Buffer],
+) -> Option<data::Buffer> {
+    all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
+
+    let next = || {
+        let buffer = current?;
+        let index = all.iter().position(|b| b == buffer)?;
+        all.get(index + 1)
+    };
+
+    next().or_else(|| all.first()).cloned()
+}
+
+fn cycle_previous_buffer(
+    current: Option<&data::Buffer>,
+    mut all: Vec<data::Buffer>,
+    opened: &[data::Buffer],
+) -> Option<data::Buffer> {
+    all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
+
+    let previous = || {
+        let buffer = current?;
+        let index = all.iter().position(|b| b == buffer).filter(|i| *i > 0)?;
+
+        all.get(index - 1)
+    };
+
+    previous().or_else(|| all.last()).cloned()
 }
