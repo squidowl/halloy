@@ -138,7 +138,7 @@ impl Halloy {
         (
             Halloy {
                 screen,
-                theme: Theme::new_from_palette(config.palette),
+                theme: config.themes.default.clone().into(),
                 clients: Default::default(),
                 servers: config.servers.clone(),
                 config,
@@ -168,7 +168,7 @@ pub enum Message {
 impl Application for Halloy {
     type Executor = executor::Default;
     type Message = Message;
-    type Theme = theme::Theme;
+    type Theme = Theme;
     type Flags = Result<Config, config::Error>;
 
     fn new(config_load: Self::Flags) -> (Halloy, Command<Self::Message>) {
@@ -191,8 +191,13 @@ impl Application for Halloy {
                     return Command::none();
                 };
 
-                let command =
-                    dashboard.update(message, &mut self.clients, &mut self.servers, &self.config);
+                let command = dashboard.update(
+                    message,
+                    &mut self.clients,
+                    &mut self.servers,
+                    &mut self.theme,
+                    &self.config,
+                );
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
@@ -352,7 +357,9 @@ impl Application for Halloy {
             }
             Message::Event(event) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
-                    dashboard.handle_event(event).map(Message::Dashboard)
+                    dashboard
+                        .handle_event(event, &self.clients, &self.config, &mut self.theme)
+                        .map(Message::Dashboard)
                 } else if let event::Event::CloseRequested = event {
                     window::close()
                 } else {
