@@ -18,8 +18,8 @@ pub enum Message {
 }
 
 impl CommandBar {
-    pub fn new(buffers: &[data::Buffer], maximized: bool) -> Self {
-        let state = combo_box::State::new(Command::list(buffers, maximized));
+    pub fn new(buffers: &[data::Buffer], is_focused_buffer: bool, maximized: bool) -> Self {
+        let state = combo_box::State::new(Command::list(buffers, is_focused_buffer, maximized));
         state.focus();
 
         Self { state }
@@ -36,6 +36,7 @@ impl CommandBar {
     pub fn view<'a>(
         &'a self,
         buffers: &[data::Buffer],
+        focused_buffer: bool,
         maximized: bool,
         config: &'a Config,
     ) -> Element<'a, Message> {
@@ -62,7 +63,7 @@ impl CommandBar {
             column(
                 std::iter::once(text("Type a command...").size(font_size))
                     .chain(
-                        Command::list(buffers, maximized)
+                        Command::list(buffers, focused_buffer, maximized)
                             .iter()
                             .map(|command| text(command).size(font_size)),
                     )
@@ -110,8 +111,8 @@ pub enum Ui {
 }
 
 impl Command {
-    pub fn list(buffers: &[data::Buffer], maximized: bool) -> Vec<Self> {
-        let buffers = Buffer::list(buffers, maximized)
+    pub fn list(buffers: &[data::Buffer], is_focused_buffer: bool, maximized: bool) -> Vec<Self> {
+        let buffers = Buffer::list(buffers, is_focused_buffer, maximized)
             .into_iter()
             .map(Command::Buffer);
 
@@ -136,9 +137,17 @@ impl std::fmt::Display for Command {
 }
 
 impl Buffer {
-    fn list(buffers: &[data::Buffer], maximized: bool) -> Vec<Self> {
-        let mut list = vec![Buffer::Maximize(!maximized), Buffer::New, Buffer::Close];
-        list.extend(buffers.iter().cloned().map(Buffer::Replace));
+    fn list(buffers: &[data::Buffer], is_focused_buffer: bool, maximized: bool) -> Vec<Self> {
+        let mut list = vec![Buffer::New];
+
+        if is_focused_buffer {
+            list.extend(
+                [Buffer::Close, Buffer::Maximize(!maximized)]
+                    .into_iter()
+                    .chain(buffers.iter().cloned().map(Buffer::Replace)),
+            );
+        }
+
         list
     }
 }

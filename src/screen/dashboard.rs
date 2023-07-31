@@ -305,7 +305,7 @@ impl Dashboard {
                                     Command::none()
                                 }
                                 command_bar::Buffer::New => {
-                                    self.split_pane(pane_grid::Axis::Horizontal, config)
+                                    self.new_pane(pane_grid::Axis::Horizontal, config)
                                 }
                                 command_bar::Buffer::Close => {
                                     if let Some(pane) = self.focus {
@@ -507,6 +507,7 @@ impl Dashboard {
                 command_bar
                     .view(
                         &all_buffers(clients, &self.history),
+                        self.focus.is_some(),
                         self.is_pane_maximized(),
                         config,
                     )
@@ -740,6 +741,34 @@ impl Dashboard {
         self.panes.maximized().is_some()
     }
 
+    fn new_pane(&mut self, axis: pane_grid::Axis, config: &Config) -> Command<Message> {
+        if let Some(_) = self.focus {
+            // If there is any focused pane, split it
+            return self.split_pane(axis, config);
+        } else {
+            // If there is no focused pane, split the last pane or create a new empty grid
+            let pane = self.panes.iter().last().map(|(pane, _)| pane).cloned();
+
+            if let Some(pane) = pane {
+                let result = self
+                    .panes
+                    .split(axis, &pane, Pane::new(Buffer::Empty, config));
+                self.last_changed = Some(Instant::now());
+
+                if let Some((pane, _)) = result {
+                    return self.focus_pane(pane);
+                }
+            } else {
+                let (state, pane) = pane_grid::State::new(Pane::new(Buffer::Empty, config));
+                self.panes = state;
+                self.last_changed = Some(Instant::now());
+                return self.focus_pane(pane);
+            }
+        }
+
+        Command::none()
+    }
+
     fn split_pane(&mut self, axis: pane_grid::Axis, config: &Config) -> Command<Message> {
         if let Some(pane) = self.focus {
             let result = self
@@ -837,7 +866,11 @@ impl Dashboard {
     }
 
     fn open_command_bar(&mut self, buffers: &[data::Buffer]) {
-        self.command_bar = Some(CommandBar::new(buffers, self.is_pane_maximized()));
+        self.command_bar = Some(CommandBar::new(
+            buffers,
+            self.focus.is_some(),
+            self.is_pane_maximized(),
+        ));
     }
 
     fn close_command_bar(&mut self) {
