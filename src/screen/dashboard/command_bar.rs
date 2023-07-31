@@ -1,9 +1,9 @@
 use data::Config;
-use iced::widget::{column, combo_box, container, text};
+use iced::widget::{column, container, text};
 use iced::Length;
 
 use crate::theme;
-use crate::widget::{double_pass, key_press, Element};
+use crate::widget::{combo_box, double_pass, key_press, Element};
 
 #[derive(Debug, Clone)]
 pub struct CommandBar {
