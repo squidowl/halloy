@@ -18,8 +18,8 @@ pub enum Message {
 }
 
 impl CommandBar {
-    pub fn new() -> Self {
-        let state = combo_box::State::new(Command::list());
+    pub fn new(clients: &data::client::Map) -> Self {
+        let state = combo_box::State::new(Command::list(clients));
         state.focus();
 
         Self { state }
@@ -33,7 +33,11 @@ impl CommandBar {
         }
     }
 
-    pub fn view<'a>(&'a self, config: &'a Config) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        clients: &data::client::Map,
+        config: &'a Config,
+    ) -> Element<'a, Message> {
         // 1px larger than default
         let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) + 1.0;
 
@@ -57,7 +61,7 @@ impl CommandBar {
             column(
                 std::iter::once(text("Type a command...").size(font_size))
                     .chain(
-                        Command::list()
+                        Command::list(clients)
                             .iter()
                             .map(|command| text(command).size(font_size)),
                     )
@@ -91,6 +95,7 @@ pub enum Buffer {
     Maximize,
     New,
     Close,
+    Replace(data::Buffer),
 }
 
 #[derive(Debug, Clone)]
@@ -104,14 +109,16 @@ pub enum Ui {
 }
 
 impl Command {
-    pub fn list() -> Vec<Self> {
-        vec![
-            Command::Buffer(Buffer::Maximize),
-            Command::Buffer(Buffer::New),
-            Command::Buffer(Buffer::Close),
-            Command::Configuration(Configuration::Open),
-            Command::UI(Ui::ToggleSidebarVisibility),
-        ]
+    pub fn list(clients: &data::client::Map) -> Vec<Self> {
+        let buffers = Buffer::list(clients).into_iter().map(Command::Buffer);
+
+        let configs = Configuration::list()
+            .into_iter()
+            .map(Command::Configuration);
+
+        let uis = Ui::list().into_iter().map(Command::UI);
+
+        buffers.chain(configs).chain(uis).collect()
     }
 }
 
@@ -125,12 +132,53 @@ impl std::fmt::Display for Command {
     }
 }
 
+impl Buffer {
+    fn list(clients: &data::client::Map) -> Vec<Self> {
+        let mut channels = vec![];
+
+        for (server, state) in clients.iter() {
+            match state {
+                data::client::State::Ready(connection) => {
+                    for channel in connection.channels() {
+                        channels.push(data::Buffer::Channel(server.clone(), channel.clone()));
+                    }
+                }
+                data::client::State::Disconnected => {}
+            }
+        }
+
+        let mut buffers = vec![Buffer::Maximize, Buffer::New, Buffer::Close];
+        buffers.extend(channels.iter().cloned().map(Buffer::Replace));
+        buffers
+    }
+}
+
+impl Configuration {
+    fn list() -> Vec<Self> {
+        vec![Configuration::Open]
+    }
+}
+
+impl Ui {
+    fn list() -> Vec<Self> {
+        vec![Ui::ToggleSidebarVisibility]
+    }
+}
+
 impl std::fmt::Display for Buffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Buffer::Maximize => write!(f, "Maximize/Restore"),
             Buffer::New => write!(f, "New buffer"),
             Buffer::Close => write!(f, "Close buffer"),
+            Buffer::Replace(buffer) => {
+                write!(
+                    f,
+                    "Change to {} ({})",
+                    buffer.target().ok_or(std::fmt::Error::default())?,
+                    buffer.server(),
+                )
+            }
         }
     }
 }

@@ -352,7 +352,9 @@ impl Application for Halloy {
             }
             Message::Event(event) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
-                    dashboard.handle_event(event).map(Message::Dashboard)
+                    dashboard
+                        .handle_event(event, &self.clients)
+                        .map(Message::Dashboard)
                 } else if let event::Event::CloseRequested = event {
                     window::close()
                 } else {

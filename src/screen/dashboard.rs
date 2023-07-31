@@ -302,6 +302,24 @@ impl Dashboard {
                                     self.split_pane(pane_grid::Axis::Horizontal, config)
                                 }
                                 command_bar::Buffer::Close => self.close_pane(),
+                                command_bar::Buffer::Replace(buffer) => {
+                                    let mut commands = vec![];
+
+                                    if let Some(pane) = self.focus {
+                                        if let Some(state) = self.panes.get_mut(&pane) {
+                                            state.buffer = Buffer::from(buffer);
+                                            self.last_changed = Some(Instant::now());
+                                            self.focus = None;
+
+                                            commands.extend(vec![
+                                                self.reset_pane(pane),
+                                                self.focus_pane(pane),
+                                            ]);
+                                        }
+                                    }
+
+                                    Command::batch(commands)
+                                }
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::Open => {
@@ -317,9 +335,9 @@ impl Dashboard {
                             },
                         };
 
-                        return Command::batch(vec![command, self.toggle_command_bar()]);
+                        return Command::batch(vec![command, self.toggle_command_bar(clients)]);
                     }
-                    Some(command_bar::Event::Unfocused) => return self.toggle_command_bar(),
+                    Some(command_bar::Event::Unfocused) => return self.toggle_command_bar(clients),
                     None => {}
                 }
             }
@@ -396,7 +414,7 @@ impl Dashboard {
             // Command bar
             anchored_overlay(
                 background,
-                command_bar.view(config).map(Message::Command),
+                command_bar.view(clients, config).map(Message::Command),
                 anchored_overlay::Anchor::BelowTopCentered,
                 10.0,
             )
@@ -405,7 +423,11 @@ impl Dashboard {
         }
     }
 
-    pub fn handle_event(&mut self, event: crate::event::Event) -> Command<Message> {
+    pub fn handle_event(
+        &mut self,
+        event: crate::event::Event,
+        clients: &data::client::Map,
+    ) -> Command<Message> {
         use crate::event::Event::*;
 
         match event {
@@ -416,7 +438,7 @@ impl Dashboard {
                 // - Restore maximized pane
                 // - Unfocus
                 if self.command_bar.is_some() {
-                    return self.toggle_command_bar();
+                    return self.toggle_command_bar(clients);
                 } else if self.panes.maximized().is_some() {
                     self.panes.restore();
                 } else {
@@ -465,7 +487,7 @@ impl Dashboard {
 
                 Command::perform(task, |_| Message::Close)
             }
-            CommandBar => self.toggle_command_bar(),
+            CommandBar => self.toggle_command_bar(clients),
         }
     }
 
@@ -699,7 +721,7 @@ impl Dashboard {
         history
     }
 
-    pub fn toggle_command_bar(&mut self) -> Command<Message> {
+    pub fn toggle_command_bar(&mut self, clients: &data::client::Map) -> Command<Message> {
         if self.command_bar.is_some() {
             self.close_command_bar();
             // Refocus the pane so text input gets refocused
@@ -708,13 +730,14 @@ impl Dashboard {
                 .map(|pane| self.focus_pane(pane))
                 .unwrap_or(Command::none())
         } else {
-            self.open_command_bar();
+            self.open_command_bar(clients);
+
             Command::none()
         }
     }
 
-    fn open_command_bar(&mut self) {
-        self.command_bar = Some(CommandBar::new());
+    fn open_command_bar(&mut self, clients: &data::client::Map) {
+        self.command_bar = Some(CommandBar::new(clients));
     }
 
     fn close_command_bar(&mut self) {
