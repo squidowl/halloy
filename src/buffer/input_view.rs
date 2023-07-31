@@ -91,4 +91,14 @@ impl State {
     pub fn reset(&self) -> Command<Message> {
         input::reset(self.input_id.clone())
     }
+
+    pub fn insert_user(&mut self, user: User) -> Command<Message> {
+        if self.input.is_empty() {
+            self.input = format!("{}: ", user.nickname());
+        } else {
+            self.input = format!("{} {}", self.input, user.nickname());
+        }
+
+        input::move_cursor_to_end(self.input_id.clone())
+    }
 }

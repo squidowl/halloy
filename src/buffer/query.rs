@@ -120,7 +120,7 @@ pub struct Query {
     pub server: Server,
     pub nick: Nick,
     pub scroll_view: scroll_view::State,
-    input_view: input_view::State,
+    pub input_view: input_view::State,
 }
 
 impl Query {
