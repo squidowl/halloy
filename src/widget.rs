@@ -7,6 +7,7 @@ pub use self::hover::hover;
 pub use self::input::input;
 pub use self::key_press::key_press;
 pub use self::selectable_text::selectable_text;
+pub use self::shortcut::shortcut;
 use crate::Theme;
 
 pub mod anchored_overlay;
@@ -17,6 +18,7 @@ pub mod hover;
 pub mod input;
 pub mod key_press;
 pub mod selectable_text;
+pub mod shortcut;
 
 pub type Renderer = iced::Renderer<Theme>;
 pub type Element<'a, Message> = iced::Element<'a, Message, Renderer>;
