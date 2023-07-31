@@ -757,6 +757,16 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn connected_servers(&self) -> impl Iterator<Item = &Server> {
+        self.0.iter().filter_map(|(server, state)| {
+            if let State::Ready(_) = state {
+                Some(server)
+            } else {
+                None
+            }
+        })
+    }
+
     pub fn iter(&self) -> std::collections::btree_map::Iter<Server, State> {
         self.0.iter()
     }
