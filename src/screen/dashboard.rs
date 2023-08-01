@@ -306,9 +306,10 @@ impl Dashboard {
                 };
 
                 match command_bar.update(message) {
-                    Some(command_bar::Event::ThemePreview(preview)) => {
-                        *theme = theme.preview(preview);
-                    }
+                    Some(command_bar::Event::ThemePreview(preview)) => match preview {
+                        Some(preview) => *theme = theme.preview(preview),
+                        None => *theme = theme.selected(),
+                    },
                     Some(command_bar::Event::Command(command)) => {
                         let command = match command {
                             command_bar::Command::Buffer(command) => match command {

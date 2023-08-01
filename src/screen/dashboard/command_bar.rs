@@ -40,9 +40,9 @@ impl CommandBar {
         match message {
             Message::Command(command) => Some(Event::Command(command)),
             Message::Hovered(Command::Theme(Theme::Switch(theme))) => {
-                Some(Event::ThemePreview(theme))
+                Some(Event::ThemePreview(Some(theme)))
             }
-            Message::Hovered(_) => None,
+            Message::Hovered(_) => Some(Event::ThemePreview(None)),
             Message::Unfocused => Some(Event::Unfocused),
             Message::Ignored => None,
         }
@@ -98,7 +98,7 @@ impl CommandBar {
 
 pub enum Event {
     Command(Command),
-    ThemePreview(data::Theme),
+    ThemePreview(Option<data::Theme>),
     Unfocused,
 }
 
