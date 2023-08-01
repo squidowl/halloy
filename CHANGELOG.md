@@ -2,6 +2,7 @@
 
 Added:
 
+- Command bar (opened by pressing (`Ctrl` + `K` (macOS: `CMD` + `K`)))
 - Configurable keyboard shortcuts for common actions, such as changing buffer focus, maximize / restoring buffer size, 
   cycling channels in the buffer and more! A new `keys` section has been added to the config file, reference the 
   [wiki](https://github.com/squidowl/halloy/wiki/Keyboard-shortcuts) for more details.
@@ -18,7 +19,6 @@ to ensure future breakages won't occur.**
 
 Added:
 
-- Command bar (opened by pressing (`Ctrl` + `K` (macOS: `CMD` + `K`)))
 - Away-notify extension added for supported servers
 - SASL support for PLAIN & EXTERNAL. The following per-server config keys have been added:
   - PLAIN - `sasl.plain.username` & `sasl.plain.password`
