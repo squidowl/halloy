@@ -436,6 +436,15 @@ impl Client {
                     let _ = self.sender.try_send(command!("MODE", nick, modestring));
                 }
 
+                // Loop on connect commands
+                for command in self.config.on_connect.iter() {
+                    if let Ok(cmd) = crate::command::parse(command, None) {
+                        if let Ok(command) = proto::Command::try_from(cmd) {
+                            let _ = self.sender.try_send(command.into());
+                        };
+                    };
+                }
+
                 // Send JOIN
                 for channel in &self.config.channels {
                     if let Some(keys) = self.config.channel_keys.get(channel) {

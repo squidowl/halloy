@@ -62,6 +62,9 @@ pub struct Server {
     root_cert_path: Option<PathBuf>,
     /// Sasl authentication
     pub sasl: Option<Sasl>,
+    /// Commands which are executed once connected.
+    #[serde(default)]
+    pub on_connect: Vec<String>,
 }
 
 impl Server {
