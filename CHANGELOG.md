@@ -8,7 +8,7 @@ Added:
   [wiki](https://github.com/squidowl/halloy/wiki/Keyboard-shortcuts) for more details.
 - Single clicking on a user will insert nickname to input
 - Configuration option `on_connect` to execute commands once connected to a server, reference the 
-  [wiki](https://github.com/squidowl/halloy/wiki/Configuration#on-connect) for more details.
+  [wiki](https://github.com/squidowl/halloy/wiki/Configuration#on-connect-commands) for more details.
 
 Fixed:
 
