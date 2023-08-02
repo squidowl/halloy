@@ -64,7 +64,7 @@
                                 Description="IRC application written in Rust"
                                 Advertise="yes"
                                 WorkingDirectory="APPLICATIONFOLDER">
-                                <ShortcutProperty Key="System.AppUserModel.ID" Value="irc.squidowl.org" />
+                                <ShortcutProperty Key="System.AppUserModel.ID" Value="org.squidowl.halloy" />
                             </Shortcut>
                         </File>
                         <RegistryKey Root="HKCR"
