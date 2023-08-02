@@ -1,28 +1,38 @@
-use std::collections::HashMap;
-
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Deserialize, PartialEq, PartialOrd, Eq, Hash)]
-pub enum Event {
-    Connected,
-    Reconnected,
-    Disconnected,
-    // TODO: Add more alert types.
-    // Highlighted
-    // ..
+#[cfg(target_os = "macos")]
+const DEFAULT_SOUND: &str = "Submarine";
+#[cfg(all(unix, not(target_os = "macos")))]
+const DEFAULT_SOUND: &str = "message-new-instant";
+#[cfg(target_os = "windows")]
+const DEFAULT_SOUND: &str = "Mail";
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Notification {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_sound")]
+    sound: String,
+    #[serde(default)]
+    mute: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct Config {
-    #[serde(default)]
-    pub sound: Option<String>,
+impl Notification {
+    pub fn sound(&self) -> Option<&str> {
+        (!self.mute).then_some(&self.sound)
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct List(HashMap<Event, Config>);
+pub struct Notifications {
+    #[serde(default)]
+    pub connected: Notification,
+    #[serde(default)]
+    pub disconnected: Notification,
+    #[serde(default)]
+    pub reconnected: Notification,
+}
 
-impl List {
-    pub fn get(&self, event: Event) -> Option<&Config> {
-        self.0.get(&event)
-    }
+fn default_sound() -> String {
+    DEFAULT_SOUND.to_string()
 }

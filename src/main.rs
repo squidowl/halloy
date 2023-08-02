@@ -23,8 +23,7 @@ use iced::{executor, Application, Command, Length, Subscription};
 use screen::{dashboard, help, welcome};
 
 use self::event::{events, Event};
-pub use self::notification::Notification;
-pub use self::theme::Theme;
+use self::theme::Theme;
 use self::widget::Element;
 
 pub fn main() -> iced::Result {
@@ -253,8 +252,6 @@ impl Application for Halloy {
                     is_initial,
                     error,
                 } => {
-                    use config::notification::Event;
-
                     self.clients.disconnected(server.clone());
 
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
@@ -265,10 +262,10 @@ impl Application for Halloy {
                         // Intial is sent when first trying to connect
                         dashboard.broadcast_connecting(&server);
                     } else {
-                        if let Some(config) = self.config.notification.get(Event::Connected) {
-                            Notification::new(config)
-                                .body(format!("Disconnected from {server}"))
-                                .show();
+                        let notification = &self.config.notifications.disconnected;
+
+                        if notification.enabled {
+                            notification::show("Disconnected", &server, notification.sound());
                         };
 
                         dashboard.broadcast_disconnected(&server, error);
@@ -281,8 +278,6 @@ impl Application for Halloy {
                     client: connection,
                     is_initial,
                 } => {
-                    use config::notification::Event;
-
                     self.clients.ready(server.clone(), connection);
 
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
@@ -290,19 +285,19 @@ impl Application for Halloy {
                     };
 
                     if is_initial {
-                        if let Some(config) = self.config.notification.get(Event::Connected) {
-                            Notification::new(config)
-                                .body(format!("Connected to {server}"))
-                                .show();
-                        };
+                        let notification = &self.config.notifications.connected;
+
+                        if notification.enabled {
+                            notification::show("Connected", &server, notification.sound());
+                        }
 
                         dashboard.broadcast_connected(&server);
                     } else {
-                        if let Some(config) = self.config.notification.get(Event::Reconnected) {
-                            Notification::new(config)
-                                .body(format!("Reconnected to {server}"))
-                                .show();
-                        };
+                        let notification = &self.config.notifications.reconnected;
+
+                        if notification.enabled {
+                            notification::show("Reconnected", &server, notification.sound());
+                        }
 
                         dashboard.broadcast_reconnected(&server);
                     }
