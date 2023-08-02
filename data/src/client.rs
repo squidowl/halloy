@@ -411,15 +411,6 @@ impl Client {
                 let nick = args.first()?;
                 self.resolved_nick = Some(nick.to_string());
 
-                // Loop on connect commands.
-                for command in self.config.on_connect.iter() {
-                    if let Ok(cmd) = crate::command::parse(command, None) {
-                        if let Ok(command) = proto::Command::try_from(cmd) {
-                            let _ = self.sender.try_send(command.into());
-                        };
-                    };
-                }
-
                 // Send nick password & ghost
                 if let Some(nick_pass) = self.config.nick_password.as_ref() {
                     // Try ghost recovery if we couldn't claim our nick
@@ -443,6 +434,15 @@ impl Client {
                 // Send user modestring
                 if let Some(modestring) = self.config.umodes.as_ref() {
                     let _ = self.sender.try_send(command!("MODE", nick, modestring));
+                }
+
+                // Loop on connect commands
+                for command in self.config.on_connect.iter() {
+                    if let Ok(cmd) = crate::command::parse(command, None) {
+                        if let Ok(command) = proto::Command::try_from(cmd) {
+                            let _ = self.sender.try_send(command.into());
+                        };
+                    };
                 }
 
                 // Send JOIN
