@@ -2,7 +2,7 @@
 
 Added:
 
-- Command bar (opened by pressing (`Ctrl` + `K` (macOS: `CMD` + `K`)))
+- Command bar (opened by pressing (<kbd>Ctrl</kbd> + <kbd>k</kbd> (macOS: <kbd>⌘</kbd> + <kbd>k</kbd>)))
 - Configurable keyboard shortcuts for common actions, such as changing buffer focus, maximize / restoring buffer size, 
   cycling channels in the buffer and more! A new `keys` section has been added to the config file, reference the 
   [wiki](https://github.com/squidowl/halloy/wiki/Keyboard-shortcuts) for more details.
