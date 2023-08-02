@@ -7,7 +7,7 @@
   <key>CFBundleExecutable</key>
   <string>halloy</string>
   <key>CFBundleIdentifier</key>
-  <string>irc.squidowl.org</string>
+  <string>org.squidowl.halloy</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
