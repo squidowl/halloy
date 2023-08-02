@@ -57,7 +57,7 @@ pub enum Command {
     Unknown(String, Vec<String>),
 }
 
-pub fn parse(s: &str, buffer: &Buffer) -> Result<Command, Error> {
+pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
     let (head, rest) = s.split_once('/').ok_or(Error::MissingSlash)?;
     // Don't allow leading whitespace before slash
     if !head.is_empty() {
@@ -88,7 +88,7 @@ pub fn parse(s: &str, buffer: &Buffer) -> Result<Command, Error> {
                 validated::<2, 0, true>(args, |[target, msg], []| Command::Msg(target, msg))
             }
             Kind::Me => {
-                if let Some(target) = buffer.target() {
+                if let Some(target) = buffer.and_then(|b| b.target()) {
                     validated::<1, 0, true>(args, |[text], _| Command::Me(target, text))
                 } else {
                     Ok(unknown())
