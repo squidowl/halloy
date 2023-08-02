@@ -7,6 +7,8 @@ Added:
   cycling channels in the buffer and more! A new `keys` section has been added to the config file, reference the 
   [wiki](https://github.com/squidowl/halloy/wiki/Keyboard-shortcuts) for more details.
 - Single clicking on a user will insert nickname to input
+- Configuration option `on_connect` to execute commands once connected to a server, reference the 
+  [wiki](https://github.com/squidowl/halloy/wiki/Configuration#on-connect) for more details.
 
 Fixed:
 

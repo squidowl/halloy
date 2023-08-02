@@ -6,7 +6,7 @@ use crate::user::NickRef;
 use crate::{command, message, Buffer, Command, Message, Server, User};
 
 pub fn parse(buffer: Buffer, input: &str) -> Result<Input, command::Error> {
-    let content = match command::parse(input, &buffer) {
+    let content = match command::parse(input, Some(&buffer)) {
         Ok(command) => Content::Command(command),
         Err(command::Error::MissingSlash) => Content::Text(input.to_string()),
         Err(error) => return Err(error),
