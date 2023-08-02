@@ -123,11 +123,7 @@ impl User {
     pub fn color_seed(&self, color: &buffer::Color) -> Option<String> {
         match color {
             buffer::Color::Solid => None,
-            buffer::Color::Unique => Some(
-                self.hostname()
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| self.nickname().as_ref().to_string()),
-            ),
+            buffer::Color::Unique => Some(self.nickname().as_ref().to_string()),
         }
     }
 
