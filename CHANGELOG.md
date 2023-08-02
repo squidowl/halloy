@@ -10,6 +10,10 @@ Added:
 - Configuration option `on_connect` to execute commands once connected to a server, reference the 
   [wiki](https://github.com/squidowl/halloy/wiki/Configuration#on-connect) for more details.
 
+Changed:
+
+- Instead of using hostname as fallback, we now always derive the seed for unique user colors from their nickname
+
 Fixed:
 
 - Set the window application id on Linux to `org.squidowl.halloy`
