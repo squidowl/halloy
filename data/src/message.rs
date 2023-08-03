@@ -284,7 +284,7 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
             (user.nickname() != *our_nick)
                 .then(|| format!("⟶ {} has joined the channel", user.formatted()))
         }
-        Command::MODE(target, modes, _) if proto::is_channel(target) => {
+        Command::MODE(target, modes, args) if proto::is_channel(target) => {
             let user = user?;
             let modes = modes
                 .iter()
@@ -292,7 +292,13 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(format!(" ∙ {user} sets mode {modes}"))
+            let args = args
+                .iter()
+                .map(|arg| arg.to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            Some(format!(" ∙ {user} sets mode {modes} {args}"))
         }
         Command::PRIVMSG(_, text) => {
             // Check if a synthetic action message

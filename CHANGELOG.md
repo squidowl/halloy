@@ -17,6 +17,7 @@ Changed:
 Fixed:
 
 - Set the window application id on Linux to `org.squidowl.halloy`
+- Correctly display all arguments when receiving MODE command
 
 # 2023.3 (2023-07-27)
 
