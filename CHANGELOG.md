@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2023.4 (2023-08-03)
+
 Added:
 
 - Command bar (opened by pressing (<kbd>Ctrl</kbd> + <kbd>k</kbd> (macOS: <kbd>⌘</kbd> + <kbd>k</kbd>)))
