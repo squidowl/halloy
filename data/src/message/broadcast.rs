@@ -145,3 +145,13 @@ pub fn nickname(
 
     expand(channels, queries, false, Cause::Server(None), text)
 }
+
+pub fn invite(
+    inviter: Nick,
+    channel: String,
+    channels: impl IntoIterator<Item = String>,
+) -> Vec<Message> {
+    let text = format!(" ∙ {inviter} invited you to join {channel}");
+
+    expand(channels, [], false, Cause::Server(None), text)
+}

@@ -45,6 +45,11 @@ pub enum Brodcast {
         ourself: bool,
         channels: Vec<String>,
     },
+    Invite {
+        inviter: User,
+        channel: String,
+        user_channels: Vec<String>,
+    },
 }
 
 #[derive(Debug)]
@@ -272,6 +277,12 @@ impl Client {
 
                     let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
 
+                    if contains("invite-notify") {
+                        requested.push("invite-notify");
+                    }
+                    if contains("userhost-in-names") {
+                        requested.push("userhost-in-names");
+                    }
                     if contains("away-notify") {
                         requested.push("away-notify");
                     }
@@ -360,6 +371,17 @@ impl Client {
                         return None;
                     }
                 }
+            }
+            Command::INVITE(user, channel) => {
+                let user = User::from(Nick::from(user.as_str()));
+                let inviter = message.user()?;
+                let user_channels = self.user_channels(user.nickname());
+
+                return Some(vec![Event::Brodcast(Brodcast::Invite {
+                    inviter,
+                    channel: channel.clone(),
+                    user_channels,
+                })]);
             }
             Command::NICK(nick) => {
                 let old_user = message.user()?;

@@ -47,12 +47,16 @@ cargo run --release
 
 Halloy supports the following IRCv3.2 capabilities
 
-- `away-notify`
-- `batch`
-- `server-time`
-- `sasl=PLAIN,EXTERNAL`
-- `labeled-response`
-- `echo-message` (server must also support `labeled-response`)
+| Capabilities                                                              |
+|---------------------------------------------------------------------------|
+| [away-notify](https://ircv3.net/specs/extensions/away-notify)             |
+| [batch](https://ircv3.net/specs/extensions/batch)                         |
+| [server-time](https://ircv3.net/specs/extensions/server-time)             |
+| [labeled-response](https://ircv3.net/specs/extensions/labeled-response)   |
+| [echo-message](https://ircv3.net/specs/extensions/echo-message)           |
+| [invite-notify](https://ircv3.net/specs/extensions/invite-notify)         |
+| [userhost-in-names](https://ircv3.net/specs/extensions/userhost-in-names) |
+| [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)                   |
 
 ## Why?
 <div align="center">
@@ -65,10 +69,6 @@ Halloy supports the following IRCv3.2 capabilities
 ## License
 
 Halloy is released under the GPL-3.0 License. For more details, see the [LICENSE](LICENSE) file.
-
-## Disclaimer
-
-Halloy is still in the early stages of development. Bugs and incomplete features may be present. Use it at your own risk.
 
 ## Contact
 

@@ -1,5 +1,10 @@
 # Unreleased
 
+Added:
+
+- IRCv3 capability `userhost-in-names` support added
+- IRCv3 capability `invite-notify` support added
+
 # 2023.4 (2023-08-03)
 
 Added:

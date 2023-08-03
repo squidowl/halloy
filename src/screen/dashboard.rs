@@ -707,6 +707,23 @@ impl Dashboard {
         );
     }
 
+    pub fn broadcast_invite(
+        &mut self,
+        server: &Server,
+        inviter: Nick,
+        channel: String,
+        user_channels: Vec<String>,
+    ) {
+        self.history.broadcast(
+            server,
+            Broadcast::Invite {
+                inviter,
+                channel,
+                user_channels,
+            },
+        );
+    }
+
     pub fn broadcast_connecting(&mut self, server: &Server) {
         self.history.broadcast(server, Broadcast::Connecting);
     }
