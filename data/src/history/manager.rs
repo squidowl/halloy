@@ -320,6 +320,11 @@ impl Manager {
                     )
                 }
             }
+            Broadcast::Invite {
+                inviter,
+                channel,
+                user_channels,
+            } => message::broadcast::invite(inviter, channel, user_channels),
         };
 
         messages.into_iter().for_each(|message| {
@@ -517,6 +522,11 @@ pub enum Broadcast {
         old_nick: Nick,
         new_nick: Nick,
         ourself: bool,
+        user_channels: Vec<String>,
+    },
+    Invite {
+        inviter: Nick,
+        channel: String,
         user_channels: Vec<String>,
     },
 }

@@ -338,6 +338,20 @@ impl Application for Halloy {
                                             channels,
                                         );
                                     }
+                                    data::client::Brodcast::Invite {
+                                        inviter,
+                                        channel,
+                                        user_channels,
+                                    } => {
+                                        let inviter = inviter.nickname();
+
+                                        dashboard.broadcast_invite(
+                                            &server,
+                                            inviter.to_owned(),
+                                            channel,
+                                            user_channels,
+                                        );
+                                    }
                                 },
                             }
                         }
