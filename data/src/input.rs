@@ -1,16 +1,25 @@
 use chrono::Utc;
 use irc::proto;
+use irc::proto::format;
 
 use crate::time::Posix;
 use crate::user::NickRef;
 use crate::{command, message, Buffer, Command, Message, Server, User};
 
-pub fn parse(buffer: Buffer, input: &str) -> Result<Input, command::Error> {
+pub fn parse(buffer: Buffer, input: &str) -> Result<Input, Error> {
     let content = match command::parse(input, Some(&buffer)) {
         Ok(command) => Content::Command(command),
         Err(command::Error::MissingSlash) => Content::Text(input.to_string()),
-        Err(error) => return Err(error),
+        Err(error) => return Err(Error::Command(error)),
     };
+
+    if content
+        .proto(&buffer)
+        .map(exceeds_byte_limit)
+        .unwrap_or_default()
+    {
+        return Err(Error::ExceedsByteLimit);
+    }
 
     Ok(Input {
         buffer,
@@ -44,8 +53,6 @@ impl Input {
     }
 
     pub fn message(&self, our_nick: NickRef) -> Option<Message> {
-        let command = self.content.command(&self.buffer)?;
-
         let to_target = |target: String, source| {
             if proto::is_channel(&target) {
                 Some(message::Target::Channel {
@@ -61,6 +68,8 @@ impl Input {
                 None
             }
         };
+
+        let command = self.content.command(&self.buffer)?;
 
         match command {
             Command::Msg(target, text) => Some(Message {
@@ -85,12 +94,7 @@ impl Input {
     }
 
     pub fn encoded(&self) -> Option<message::Encoded> {
-        let command = self
-            .content
-            .command(&self.buffer)
-            .and_then(|command| proto::Command::try_from(command).ok())?;
-
-        Some(message::Encoded::from(proto::Message::from(command)))
+        self.content.proto(&self.buffer).map(message::Encoded::from)
     }
 
     pub fn raw(&self) -> Option<&str> {
@@ -114,4 +118,25 @@ impl Content {
             Self::Command(command) => Some(command.clone()),
         }
     }
+
+    fn proto(&self, buffer: &Buffer) -> Option<proto::Message> {
+        self.command(buffer)
+            .and_then(|command| proto::Command::try_from(command).ok())
+            .map(proto::Message::from)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(
+        "message exceeds maximum encoded length of {} bytes",
+        format::BYTE_LIMIT
+    )]
+    ExceedsByteLimit,
+    #[error(transparent)]
+    Command(#[from] command::Error),
+}
+
+fn exceeds_byte_limit(message: proto::Message) -> bool {
+    format::message(message).len() > format::BYTE_LIMIT
 }
