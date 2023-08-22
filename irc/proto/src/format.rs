@@ -2,6 +2,9 @@ use itertools::Itertools;
 
 use crate::{Message, Tag};
 
+/// Most IRC servers limit messages to 512 bytes in length, including the trailing CR-LF characters.
+pub const BYTE_LIMIT: usize = 512;
+
 pub fn message(message: Message) -> String {
     let command = message.command.command();
 
