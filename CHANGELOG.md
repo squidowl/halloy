@@ -5,6 +5,10 @@ Added:
 - IRCv3 capability `userhost-in-names` support added
 - IRCv3 capability `invite-notify` support added
 
+Changed:
+
+- Limit messages to 512 bytes in length, including the trailing CR-LF characters.
+
 # 2023.4 (2023-08-03)
 
 Added:
