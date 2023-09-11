@@ -16,7 +16,7 @@ use crate::{environment, Theme};
 
 mod buffer;
 pub mod channel;
-mod dashboard;
+pub mod dashboard;
 mod keys;
 pub mod server;
 

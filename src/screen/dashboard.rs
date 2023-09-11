@@ -497,7 +497,7 @@ impl Dashboard {
                 &self.history,
                 &self.panes,
                 self.focus,
-                config.dashboard.sidebar_default_action,
+                config.dashboard.sidebar,
             )
             .map(|e| e.map(Message::SideMenu));
 

@@ -57,7 +57,7 @@ impl SideMenu {
         history: &'a history::Manager,
         panes: &pane_grid::State<Pane>,
         focus: Option<pane_grid::Pane>,
-        default_action: DefaultAction,
+        config: data::config::dashboard::Sidebar,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -74,7 +74,7 @@ impl SideMenu {
                         Buffer::Server(server.clone()),
                         false,
                         false,
-                        default_action,
+                        config.default_action,
                     ));
                 }
                 data::client::State::Ready(connection) => {
@@ -84,7 +84,7 @@ impl SideMenu {
                         Buffer::Server(server.clone()),
                         true,
                         false,
-                        default_action,
+                        config.default_action,
                     ));
 
                     for channel in connection.channels() {
@@ -94,7 +94,7 @@ impl SideMenu {
                             Buffer::Channel(server.clone(), channel.clone()),
                             true,
                             history.has_unread(server, &history::Kind::Channel(channel.clone())),
-                            default_action,
+                            config.default_action,
                         ));
                     }
 
@@ -106,7 +106,7 @@ impl SideMenu {
                             Buffer::Query(server.clone(), user.clone()),
                             true,
                             history.has_unread(server, &history::Kind::Query(user.clone())),
-                            default_action,
+                            config.default_action,
                         ));
                     }
 
@@ -125,7 +125,7 @@ impl SideMenu {
             )
             .padding([8, 0, 6, 6])
             .center_x()
-            .max_width(120)
+            .max_width(config.width)
             .into(),
         )
     }
