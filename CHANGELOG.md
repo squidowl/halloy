@@ -4,10 +4,12 @@ Added:
 
 - IRCv3 capability `userhost-in-names` support added
 - IRCv3 capability `invite-notify` support added
+- Configuration option `dashboard.sidebar.width` to control sidebar width.
 
 Changed:
 
 - Limit messages to 512 bytes in length, including the trailing CR-LF characters.
+- Configuration option `dashboard.sidebar_default_action` now moved to `dashboard.sidebar.default_action`
 
 # 2023.4 (2023-08-03)
 
