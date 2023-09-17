@@ -57,8 +57,11 @@ pub fn view<'a>(
                         .map(scroll_view::Message::UserContext);
                         let row_style = match our_nick {
                             Some(nick)
-                                if user.nickname() != nick
-                                    && message.text.contains(nick.as_ref()) =>
+                                if message::reference_user(
+                                    user.nickname(),
+                                    nick,
+                                    &message.text,
+                                ) =>
                             {
                                 theme::Container::Highlight
                             }
