@@ -31,6 +31,8 @@ pub struct Notifications {
     pub disconnected: Notification,
     #[serde(default)]
     pub reconnected: Notification,
+    #[serde(default)]
+    pub highlight: Notification,
 }
 
 fn default_sound() -> String {

@@ -319,7 +319,7 @@ impl Application for Halloy {
                     };
 
                     messages.into_iter().for_each(|message| {
-                        for event in self.clients.receive(&server, message) {
+                        for event in self.clients.receive(&server, message, &self.config) {
                             match event {
                                 data::client::Event::Single(encoded, our_nick) => {
                                     if let Some(message) =

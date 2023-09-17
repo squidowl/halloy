@@ -1,10 +1,9 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fmt;
-use std::time::{Duration, Instant};
-
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
 use itertools::Itertools;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fmt;
+use std::time::{Duration, Instant};
 
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -12,6 +11,7 @@ use crate::{config, message, mode, Buffer, Server, User};
 
 const WHO_POLL_INTERVAL: Duration = Duration::from_secs(60);
 const WHO_RETRY_INTERVAL: Duration = Duration::from_secs(10);
+const HIGHLIGHT_BLACKOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -157,12 +157,12 @@ impl Client {
         }
     }
 
-    fn receive(&mut self, message: message::Encoded) -> Vec<Event> {
+    fn receive(&mut self, message: message::Encoded, config: &config::Config) -> Vec<Event> {
         log::trace!("Message received => {:?}", *message);
 
         let stop_reroute = stop_reroute(&message.command);
 
-        let events = self.handle(message, None).unwrap_or_default();
+        let events = self.handle(message, None, config).unwrap_or_default();
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -175,6 +175,7 @@ impl Client {
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
+        config: &config::Config,
     ) -> Option<Vec<Event>> {
         use irc::proto::command::Numeric::*;
 
@@ -225,7 +226,7 @@ impl Client {
                 return None;
             }
             _ if batch_tag.is_some() => {
-                let events = self.handle(message, context)?;
+                let events = self.handle(message, context, config)?;
 
                 if let Some(batch) = self.batches.get_mut(&batch_tag.unwrap()) {
                     batch.events.extend(events);
@@ -364,7 +365,20 @@ impl Client {
             Command::Numeric(RPL_LOGGEDIN, _) => {
                 log::info!("[{}] logged in", self.server);
             }
-            Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
+            Command::PRIVMSG(_, text) | Command::NOTICE(_, text) => {
+                // Highlight notification
+                if let Some(user) = message.user() {
+                    if message::reference_user(user.nickname(), self.nickname(), text) {
+                        let notification = &config.notifications.highlight;
+                        if notification.enabled {
+                            // notification::show("Highlight", &server, notification.sound());
+                            // TODO:
+                            // - Notify highlight.
+                            // - Initial blackout period.
+                        };
+                    }
+                }
+
                 if let Some(user) = message.user() {
                     // If we sent (echo) & context exists (we sent from this client), ignore
                     if user.nickname() == self.nickname() && context.is_some() {
@@ -752,9 +766,14 @@ impl Map {
         self.client(server).map(Client::nickname)
     }
 
-    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Vec<Event> {
+    pub fn receive(
+        &mut self,
+        server: &Server,
+        message: message::Encoded,
+        config: &config::Config,
+    ) -> Vec<Event> {
         self.client_mut(server)
-            .map(|client| client.receive(message))
+            .map(|client| client.receive(message, config))
             .unwrap_or_default()
     }
 
