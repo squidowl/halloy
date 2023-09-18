@@ -33,6 +33,11 @@ pub enum State {
 }
 
 #[derive(Debug)]
+pub enum Notification {
+    Highlight(User, String),
+}
+
+#[derive(Debug)]
 pub enum Brodcast {
     Quit {
         user: User,
@@ -57,6 +62,7 @@ pub enum Event {
     Single(message::Encoded, Nick),
     WithTarget(message::Encoded, Nick, message::Target),
     Brodcast(Brodcast),
+    Notification(Notification),
 }
 
 pub struct Client {
@@ -75,6 +81,22 @@ pub struct Client {
     listed_caps: Vec<String>,
     supports_labels: bool,
     supports_away_notify: bool,
+    highlight_blackout: HighlightBlackout,
+}
+
+#[derive(Debug)]
+enum HighlightBlackout {
+    Blackout(Instant),
+    Receiving,
+}
+
+impl HighlightBlackout {
+    fn allow_highlights(&self) -> bool {
+        match self {
+            HighlightBlackout::Blackout(_) => false,
+            HighlightBlackout::Receiving => true,
+        }
+    }
 }
 
 impl fmt::Debug for Client {
@@ -122,6 +144,7 @@ impl Client {
             listed_caps: vec![],
             supports_labels: false,
             supports_away_notify: false,
+            highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
         }
     }
 
@@ -157,12 +180,12 @@ impl Client {
         }
     }
 
-    fn receive(&mut self, message: message::Encoded, config: &config::Config) -> Vec<Event> {
+    fn receive(&mut self, message: message::Encoded) -> Vec<Event> {
         log::trace!("Message received => {:?}", *message);
 
         let stop_reroute = stop_reroute(&message.command);
 
-        let events = self.handle(message, None, config).unwrap_or_default();
+        let events = self.handle(message, None).unwrap_or_default();
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -175,9 +198,10 @@ impl Client {
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
-        config: &config::Config,
     ) -> Option<Vec<Event>> {
         use irc::proto::command::Numeric::*;
+
+        let mut events = vec![];
 
         let label_tag = remove_tag("label", message.tags.as_mut());
         let batch_tag = remove_tag("batch", message.tags.as_mut());
@@ -226,7 +250,7 @@ impl Client {
                 return None;
             }
             _ if batch_tag.is_some() => {
-                let events = self.handle(message, context, config)?;
+                let events = self.handle(message, context)?;
 
                 if let Some(batch) = self.batches.get_mut(&batch_tag.unwrap()) {
                     batch.events.extend(events);
@@ -365,23 +389,18 @@ impl Client {
             Command::Numeric(RPL_LOGGEDIN, _) => {
                 log::info!("[{}] logged in", self.server);
             }
-            Command::PRIVMSG(_, text) | Command::NOTICE(_, text) => {
-                // Highlight notification
+            Command::PRIVMSG(channel, text) | Command::NOTICE(channel, text) => {
                 if let Some(user) = message.user() {
-                    if message::reference_user(user.nickname(), self.nickname(), text) {
-                        let notification = &config.notifications.highlight;
-                        if notification.enabled {
-                            // notification::show("Highlight", &server, notification.sound());
-                            // TODO:
-                            // - Notify highlight.
-                            // - Initial blackout period.
-                        };
-                    }
-                }
-
-                if let Some(user) = message.user() {
-                    // If we sent (echo) & context exists (we sent from this client), ignore
-                    if user.nickname() == self.nickname() && context.is_some() {
+                    // Highlight notification
+                    if message::reference_user(user.nickname(), self.nickname(), text)
+                        && self.highlight_blackout.allow_highlights()
+                    {
+                        events.push(Event::Notification(Notification::Highlight(
+                            user,
+                            channel.clone(),
+                        )));
+                    } else if user.nickname() == self.nickname() && context.is_some() {
+                        // If we sent (echo) & context exists (we sent from this client), ignore
                         return None;
                     }
                 }
@@ -641,7 +660,8 @@ impl Client {
             _ => {}
         }
 
-        Some(vec![Event::Single(message, self.nickname().to_owned())])
+        events.push(Event::Single(message, self.nickname().to_owned()));
+        Some(events)
     }
 
     fn sync(&mut self) {
@@ -695,6 +715,15 @@ impl Client {
             enum Request {
                 Poll,
                 Retry,
+            }
+
+            match self.highlight_blackout {
+                HighlightBlackout::Blackout(instant) => {
+                    if now.duration_since(instant) >= HIGHLIGHT_BLACKOUT {
+                        self.highlight_blackout = HighlightBlackout::Receiving;
+                    }
+                }
+                HighlightBlackout::Receiving => {}
             }
 
             let request = match state.last_who {
@@ -766,14 +795,9 @@ impl Map {
         self.client(server).map(Client::nickname)
     }
 
-    pub fn receive(
-        &mut self,
-        server: &Server,
-        message: message::Encoded,
-        config: &config::Config,
-    ) -> Vec<Event> {
+    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Vec<Event> {
         self.client_mut(server)
-            .map(|client| client.receive(message, config))
+            .map(|client| client.receive(message))
             .unwrap_or_default()
     }
 

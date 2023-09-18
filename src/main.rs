@@ -319,7 +319,7 @@ impl Application for Halloy {
                     };
 
                     messages.into_iter().for_each(|message| {
-                        for event in self.clients.receive(&server, message, &self.config) {
+                        for event in self.clients.receive(&server, message) {
                             match event {
                                 data::client::Event::Single(encoded, our_nick) => {
                                     if let Some(message) =
@@ -375,6 +375,24 @@ impl Application for Halloy {
                                         );
                                     }
                                 },
+                                data::client::Event::Notification(notification) => {
+                                    match notification {
+                                        data::client::Notification::Highlight(user, channel) => {
+                                            let notification = &self.config.notifications.highlight;
+                                            if notification.enabled {
+                                                notification::show(
+                                                    "Highlight",
+                                                    format!(
+                                                        "{} highlighted you in {}",
+                                                        user.nickname(),
+                                                        channel
+                                                    ),
+                                                    notification.sound(),
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     });
