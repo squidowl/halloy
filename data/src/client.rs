@@ -11,7 +11,7 @@ use crate::{config, message, mode, Buffer, Server, User};
 
 const WHO_POLL_INTERVAL: Duration = Duration::from_secs(60);
 const WHO_RETRY_INTERVAL: Duration = Duration::from_secs(10);
-const HIGHLIGHT_BLACKOUT: Duration = Duration::from_secs(5);
+const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -62,7 +62,7 @@ pub enum Event {
     Single(message::Encoded, Nick),
     WithTarget(message::Encoded, Nick, message::Target),
     Brodcast(Brodcast),
-    Notification(Notification),
+    Notification(message::Encoded, Nick, Notification),
 }
 
 pub struct Client {
@@ -82,21 +82,6 @@ pub struct Client {
     supports_labels: bool,
     supports_away_notify: bool,
     highlight_blackout: HighlightBlackout,
-}
-
-#[derive(Debug)]
-enum HighlightBlackout {
-    Blackout(Instant),
-    Receiving,
-}
-
-impl HighlightBlackout {
-    fn allow_highlights(&self) -> bool {
-        match self {
-            HighlightBlackout::Blackout(_) => false,
-            HighlightBlackout::Receiving => true,
-        }
-    }
 }
 
 impl fmt::Debug for Client {
@@ -395,10 +380,11 @@ impl Client {
                     if message::reference_user(user.nickname(), self.nickname(), text)
                         && self.highlight_blackout.allow_highlights()
                     {
-                        events.push(Event::Notification(Notification::Highlight(
-                            user,
-                            channel.clone(),
-                        )));
+                        events.push(Event::Notification(
+                            message.clone(),
+                            self.nickname().to_owned(),
+                            Notification::Highlight(user, channel.clone()),
+                        ));
                     } else if user.nickname() == self.nickname() && context.is_some() {
                         // If we sent (echo) & context exists (we sent from this client), ignore
                         return None;
@@ -711,19 +697,19 @@ impl Client {
     }
 
     pub fn tick(&mut self, now: Instant) {
+        match self.highlight_blackout {
+            HighlightBlackout::Blackout(instant) => {
+                if now.duration_since(instant) >= HIGHLIGHT_BLACKOUT_INTERVAL {
+                    self.highlight_blackout = HighlightBlackout::Receiving;
+                }
+            }
+            HighlightBlackout::Receiving => {}
+        }
+
         for (channel, state) in self.chanmap.iter_mut() {
             enum Request {
                 Poll,
                 Retry,
-            }
-
-            match self.highlight_blackout {
-                HighlightBlackout::Blackout(instant) => {
-                    if now.duration_since(instant) >= HIGHLIGHT_BLACKOUT {
-                        self.highlight_blackout = HighlightBlackout::Receiving;
-                    }
-                }
-                HighlightBlackout::Receiving => {}
             }
 
             let request = match state.last_who {
@@ -748,6 +734,21 @@ impl Client {
                     }
                 );
             }
+        }
+    }
+}
+
+#[derive(Debug)]
+enum HighlightBlackout {
+    Blackout(Instant),
+    Receiving,
+}
+
+impl HighlightBlackout {
+    fn allow_highlights(&self) -> bool {
+        match self {
+            HighlightBlackout::Blackout(_) => false,
+            HighlightBlackout::Receiving => true,
         }
     }
 }
