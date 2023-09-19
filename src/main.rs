@@ -375,7 +375,17 @@ impl Application for Halloy {
                                         );
                                     }
                                 },
-                                data::client::Event::Notification(notification) => {
+                                data::client::Event::Notification(
+                                    encoded,
+                                    our_nick,
+                                    notification,
+                                ) => {
+                                    if let Some(message) =
+                                        data::Message::received(encoded, our_nick)
+                                    {
+                                        dashboard.record_message(&server, message);
+                                    }
+
                                     match notification {
                                         data::client::Notification::Highlight(user, channel) => {
                                             let notification = &self.config.notifications.highlight;
