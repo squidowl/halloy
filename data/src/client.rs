@@ -186,8 +186,6 @@ impl Client {
     ) -> Option<Vec<Event>> {
         use irc::proto::command::Numeric::*;
 
-        let mut events = vec![];
-
         let label_tag = remove_tag("label", message.tags.as_mut());
         let batch_tag = remove_tag("batch", message.tags.as_mut());
 
@@ -380,11 +378,11 @@ impl Client {
                     if message::reference_user(user.nickname(), self.nickname(), text)
                         && self.highlight_blackout.allow_highlights()
                     {
-                        events.push(Event::Notification(
+                        return Some(vec![Event::Notification(
                             message.clone(),
                             self.nickname().to_owned(),
                             Notification::Highlight(user, channel.clone()),
-                        ));
+                        )]);
                     } else if user.nickname() == self.nickname() && context.is_some() {
                         // If we sent (echo) & context exists (we sent from this client), ignore
                         return None;
@@ -646,8 +644,7 @@ impl Client {
             _ => {}
         }
 
-        events.push(Event::Single(message, self.nickname().to_owned()));
-        Some(events)
+        Some(vec![Event::Single(message, self.nickname().to_owned())])
     }
 
     fn sync(&mut self) {
