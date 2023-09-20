@@ -16,7 +16,7 @@
         Manufacturer='Squidowl'
         Language='1033'
         Codepage='1252'
-        Version='{{ VERSION }}'>
+        Version='{{ VERSION }}.0.0'>
 
         <Package Id='*'
             Keywords='Installer'
