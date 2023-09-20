@@ -119,8 +119,6 @@ dashboard:
 #
 # For information about events and sound
 # https://github.com/squidowl/halloy/wiki/Configuration#notification
-notification:
-  Connected:
-    sound: glass
-  Disconnected:
-    sound: basso
+notifications:
+  highlight:
+    enabled: true
