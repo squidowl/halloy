@@ -40,8 +40,8 @@ jobs:
       - name: Install linux deps
         if: matrix.target.target == 'linux'
         run: |
-          sudo apt update \
-            sudo apt install \
+          sudo apt update
+          sudo apt install \
             build-essential \
             git \
             pkg-config \
