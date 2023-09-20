@@ -9,6 +9,7 @@ pub use self::buffer::Buffer;
 pub use self::channel::Channel;
 pub use self::dashboard::Dashboard;
 pub use self::keys::Keys;
+pub use self::notification::{Notification, Notifications};
 pub use self::server::Server;
 use crate::server::Map as ServerMap;
 use crate::theme::Palette;
@@ -18,6 +19,7 @@ mod buffer;
 pub mod channel;
 pub mod dashboard;
 mod keys;
+pub mod notification;
 pub mod server;
 
 const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
@@ -31,6 +33,7 @@ pub struct Config {
     pub buffer: Buffer,
     pub dashboard: Dashboard,
     pub keys: Keys,
+    pub notifications: Notifications,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -95,6 +98,8 @@ impl Config {
             pub dashboard: Dashboard,
             #[serde(default)]
             pub keys: Keys,
+            #[serde(default)]
+            pub notifications: Notifications,
         }
 
         let path = Self::path();
@@ -107,6 +112,7 @@ impl Config {
             buffer,
             dashboard,
             keys,
+            notifications,
         } = serde_yaml::from_reader(BufReader::new(file))
             .map_err(|e| Error::Parse(e.to_string()))?;
 
@@ -119,6 +125,7 @@ impl Config {
             buffer,
             dashboard,
             keys,
+            notifications,
         })
     }
 

@@ -1,10 +1,9 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fmt;
-use std::time::{Duration, Instant};
-
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
 use itertools::Itertools;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fmt;
+use std::time::{Duration, Instant};
 
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -12,6 +11,7 @@ use crate::{config, message, mode, Buffer, Server, User};
 
 const WHO_POLL_INTERVAL: Duration = Duration::from_secs(60);
 const WHO_RETRY_INTERVAL: Duration = Duration::from_secs(10);
+const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -30,6 +30,11 @@ impl Status {
 pub enum State {
     Disconnected,
     Ready(Client),
+}
+
+#[derive(Debug)]
+pub enum Notification {
+    Highlight(User, String),
 }
 
 #[derive(Debug)]
@@ -57,6 +62,7 @@ pub enum Event {
     Single(message::Encoded, Nick),
     WithTarget(message::Encoded, Nick, message::Target),
     Brodcast(Brodcast),
+    Notification(message::Encoded, Nick, Notification),
 }
 
 pub struct Client {
@@ -75,6 +81,7 @@ pub struct Client {
     listed_caps: Vec<String>,
     supports_labels: bool,
     supports_away_notify: bool,
+    highlight_blackout: HighlightBlackout,
 }
 
 impl fmt::Debug for Client {
@@ -122,6 +129,7 @@ impl Client {
             listed_caps: vec![],
             supports_labels: false,
             supports_away_notify: false,
+            highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
         }
     }
 
@@ -364,10 +372,19 @@ impl Client {
             Command::Numeric(RPL_LOGGEDIN, _) => {
                 log::info!("[{}] logged in", self.server);
             }
-            Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
+            Command::PRIVMSG(channel, text) | Command::NOTICE(channel, text) => {
                 if let Some(user) = message.user() {
-                    // If we sent (echo) & context exists (we sent from this client), ignore
-                    if user.nickname() == self.nickname() && context.is_some() {
+                    // Highlight notification
+                    if message::reference_user(user.nickname(), self.nickname(), text)
+                        && self.highlight_blackout.allow_highlights()
+                    {
+                        return Some(vec![Event::Notification(
+                            message.clone(),
+                            self.nickname().to_owned(),
+                            Notification::Highlight(user, channel.clone()),
+                        )]);
+                    } else if user.nickname() == self.nickname() && context.is_some() {
+                        // If we sent (echo) & context exists (we sent from this client), ignore
                         return None;
                     }
                 }
@@ -677,6 +694,15 @@ impl Client {
     }
 
     pub fn tick(&mut self, now: Instant) {
+        match self.highlight_blackout {
+            HighlightBlackout::Blackout(instant) => {
+                if now.duration_since(instant) >= HIGHLIGHT_BLACKOUT_INTERVAL {
+                    self.highlight_blackout = HighlightBlackout::Receiving;
+                }
+            }
+            HighlightBlackout::Receiving => {}
+        }
+
         for (channel, state) in self.chanmap.iter_mut() {
             enum Request {
                 Poll,
@@ -705,6 +731,21 @@ impl Client {
                     }
                 );
             }
+        }
+    }
+}
+
+#[derive(Debug)]
+enum HighlightBlackout {
+    Blackout(Instant),
+    Receiving,
+}
+
+impl HighlightBlackout {
+    fn allow_highlights(&self) -> bool {
+        match self {
+            HighlightBlackout::Blackout(_) => false,
+            HighlightBlackout::Receiving => true,
         }
     }
 }

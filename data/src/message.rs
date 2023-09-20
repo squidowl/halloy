@@ -392,3 +392,7 @@ pub fn parse_action(nick: NickRef, text: &str) -> Option<String> {
 pub fn action_text(nick: NickRef, action: &str) -> String {
     format!(" ∙ {nick} {action}")
 }
+
+pub fn reference_user(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
+    sender != own_nick && text.contains(own_nick.as_ref())
+}
