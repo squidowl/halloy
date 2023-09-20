@@ -1,0 +1,152 @@
+<?xml version='1.0' encoding='windows-1252'?>
+
+<?if $(var.Platform) = x64 ?>
+    <?define Win64 = "yes" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+<?else ?>
+  <?define Win64 = "no" ?>
+  <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+<?endif ?>
+
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+    <Product
+        Id='*'
+        Name='Halloy'
+        UpgradeCode='3ed18662-fb43-4803-a4f9-89bbbc0b6d01'
+        Manufacturer='Squidowl'
+        Language='1033'
+        Codepage='1252'
+        Version='{{ VERSION }}'>
+
+        <Package Id='*'
+            Keywords='Installer'
+            Description='IRC application written in Rust'
+            Manufacturer='Squidowl'
+            InstallerVersion='450'
+            Languages='1033'
+            Compressed='yes'
+            InstallScope='perMachine'
+            SummaryCodepage='1252'
+            Platform='$(var.Platform)'/>
+
+        <MajorUpgrade
+            Schedule='afterInstallInitialize'
+            DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
+
+        <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' />
+        <Property Id='DiskPrompt' Value='Halloy Installation'/>
+
+        <Directory Id='TARGETDIR' Name='SourceDir'>
+            <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
+                <Directory Id='APPLICATIONFOLDER' Name='Halloy'>
+                    <Component Id='Path' Guid='6112ca47-e424-4454-b780-081463624eee' Win64='$(var.Win64)' KeyPath='yes'>
+                        <Environment
+                            Id='PATH'
+                            Name='PATH'
+                            Value='[APPLICATIONFOLDER]'
+                            Permanent='no'
+                            Part='last'
+                            Action='set'
+                            System='yes'/>
+                    </Component>
+                    <Component Id='binary0' Guid='*' Win64='$(var.Win64)'>
+                        <File
+                            Id='exe0'
+                            Name='Halloy.exe'
+                            DiskId='1'
+                            Source='target\$(var.Profile)\halloy.exe'
+                            KeyPath='yes'>
+                            <Shortcut
+                                Id="ApplicationStartMenuShortcutInFile"
+                                Name="Halloy"
+                                Icon="HalloyIcon.exe"
+                                Directory="ApplicationProgramsFolder"
+                                Description="IRC application written in Rust"
+                                Advertise="yes"
+                                WorkingDirectory="APPLICATIONFOLDER">
+                                <ShortcutProperty Key="System.AppUserModel.ID" Value="org.squidowl.halloy" />
+                            </Shortcut>
+                        </File>
+                        <RegistryKey Root="HKCR"
+                              Key="halloy">
+                          <RegistryKey Key="DefaultIcon">
+                            <RegistryValue Type="string" Value="HalloyIcon.exe" />
+                          </RegistryKey>
+                          <RegistryKey Key="shell">
+                            <RegistryKey Key="open">
+                              <RegistryKey Key="command">
+                                <RegistryValue Type="expandable" Value="&quot;[APPLICATIONFOLDER]Halloy.exe&quot; &#37;1"/>
+                              </RegistryKey>
+                            </RegistryKey>
+                          </RegistryKey>
+                        </RegistryKey>
+                    </Component>
+                </Directory>
+            </Directory>
+
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="Halloy"/>
+            </Directory>
+        </Directory>
+
+        <DirectoryRef Id="ApplicationProgramsFolder">
+            <Component Id="ApplicationShortcut" Guid="c28a5892-ccdf-4870-af36-f87a440b3415">
+                <Shortcut Id="ApplicationStartMenuShortcut"
+                          Name="Halloy"
+                          Description="IRC application written in Rust"
+                          Target="[binary0]"
+                          WorkingDirectory="APPLICATIONFOLDER"/>
+                <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+                <RegistryValue Root="HKCU" Key="Software\Halloy" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
+        </DirectoryRef>
+
+        <Feature
+            Id='Binaries'
+            Title='Application'
+            Description='Install binaries.'
+            Level='1'
+            ConfigurableDirectory='APPLICATIONFOLDER'
+            AllowAdvertise='no'
+            Display='expand'
+            Absent='disallow'>
+
+            <ComponentRef Id='binary0'/>
+            <ComponentRef Id='Path'/>
+
+            <Feature
+                Id='Shortcut'
+                Title='Start Menu Shortcut'
+                Description='Add [ProductName] to the Start Menu'
+                Level='1'
+                Absent='allow'>
+                <ComponentRef Id="ApplicationShortcut" />
+            </Feature>
+        </Feature>
+
+        <Property Id="WIXUI_INSTALLDIR" Value="APPLICATIONFOLDER" />
+
+        <Icon Id="HalloyIcon.exe" SourceFile="assets/windows/halloy.ico" />
+        <Property Id='ARPPRODUCTICON' Value='HalloyIcon.exe' />
+        <Property Id='ARPHELPLINK' Value='https://squidowl.org/'/>
+
+        <UIRef Id='WixUI_InstallDir'/>
+
+        <CustomAction
+          Id="LaunchApp"
+          Impersonate="yes"
+          Execute="deferred"
+          FileKey="exe0"
+          ExeCommand=""
+          Return="asyncNoWait"
+        />
+
+        <InstallExecuteSequence>
+          <Custom Action="LaunchApp" Before="InstallFinalize">NOT REMOVE</Custom>
+        </InstallExecuteSequence>
+
+        <WixVariable Id="WixUILicenseRtf" Value="wix/license.rtf" />
+        <WixVariable Id='WixUIDialogBmp' Value='wix/dialog.png' />
+        <WixVariable Id='WixUIBannerBmp' Value='wix/banner.png' />
+    </Product>
+</Wix>

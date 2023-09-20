@@ -11,6 +11,7 @@ dev = ["debug", "data/dev"]
 [dependencies]
 data = { version = "0.1.0", path = "data" }
 
+notify-rust = "4"
 chrono = { version = "0.4", features = ['serde'] }
 fern = "0.6.1"
 iced = { version = "0.9", features = ["tokio", "lazy", "advanced", "image"] }

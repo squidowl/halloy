@@ -5,6 +5,7 @@ Added:
 - IRCv3 capability `userhost-in-names` support added
 - IRCv3 capability `invite-notify` support added
 - Configuration option `dashboard.sidebar.width` to control sidebar width.
+- Configuration option `notification` to control and enable notifications
 
 Changed:
 

@@ -6,6 +6,7 @@ mod event;
 mod font;
 mod icon;
 mod logger;
+mod notification;
 mod screen;
 mod stream;
 mod theme;
@@ -22,7 +23,7 @@ use iced::{executor, Application, Command, Length, Subscription};
 use screen::{dashboard, help, welcome};
 
 use self::event::{events, Event};
-pub use self::theme::Theme;
+use self::theme::Theme;
 use self::widget::Element;
 
 pub fn main() -> iced::Result {
@@ -44,6 +45,9 @@ pub fn main() -> iced::Result {
     let is_debug = true;
     #[cfg(not(debug_assertions))]
     let is_debug = false;
+
+    // Prepare notifications.
+    notification::prepare();
 
     logger::setup(is_debug).expect("setup logging");
     log::info!("halloy {} has started", environment::formatted_version());
@@ -258,6 +262,12 @@ impl Application for Halloy {
                         // Intial is sent when first trying to connect
                         dashboard.broadcast_connecting(&server);
                     } else {
+                        let notification = &self.config.notifications.disconnected;
+
+                        if notification.enabled {
+                            notification::show("Disconnected", &server, notification.sound());
+                        };
+
                         dashboard.broadcast_disconnected(&server, error);
                     }
 
@@ -275,8 +285,20 @@ impl Application for Halloy {
                     };
 
                     if is_initial {
+                        let notification = &self.config.notifications.connected;
+
+                        if notification.enabled {
+                            notification::show("Connected", &server, notification.sound());
+                        }
+
                         dashboard.broadcast_connected(&server);
                     } else {
+                        let notification = &self.config.notifications.reconnected;
+
+                        if notification.enabled {
+                            notification::show("Reconnected", &server, notification.sound());
+                        }
+
                         dashboard.broadcast_reconnected(&server);
                     }
 
@@ -353,6 +375,34 @@ impl Application for Halloy {
                                         );
                                     }
                                 },
+                                data::client::Event::Notification(
+                                    encoded,
+                                    our_nick,
+                                    notification,
+                                ) => {
+                                    if let Some(message) =
+                                        data::Message::received(encoded, our_nick)
+                                    {
+                                        dashboard.record_message(&server, message);
+                                    }
+
+                                    match notification {
+                                        data::client::Notification::Highlight(user, channel) => {
+                                            let notification = &self.config.notifications.highlight;
+                                            if notification.enabled {
+                                                notification::show(
+                                                    "Highlight",
+                                                    format!(
+                                                        "{} highlighted you in {}",
+                                                        user.nickname(),
+                                                        channel
+                                                    ),
+                                                    notification.sound(),
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     });
