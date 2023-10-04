@@ -86,6 +86,16 @@ buffer:
   # - Supported values: ["join", "part", "quit"]
   hidden_server_messages: []
 
+  # - Supported values: ["join", "part", "quit"]
+  server_messages:
+    join:
+      exclude: true
+      user_format: Short
+    part:
+      enabled: false
+    quit:
+      enabled: false
+
   # Channel buffer settings
   channel:
     # User list settings
