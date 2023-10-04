@@ -1,11 +1,11 @@
-use std::collections::HashSet;
-
 use chrono::{DateTime, Local, Utc};
 use serde::Deserialize;
 
 use super::Channel;
-use crate::buffer::{Color, InputVisibility, Nickname, Timestamp};
-use crate::message;
+use crate::{
+    buffer::{Color, InputVisibility, Nickname, Timestamp},
+    message::source,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Buffer {
@@ -18,7 +18,39 @@ pub struct Buffer {
     #[serde(default)]
     pub channel: Channel,
     #[serde(default)]
-    pub hidden_server_messages: HashSet<message::source::Server>,
+    pub server_messages: ServerMessages,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ServerMessages {
+    pub join: ServerMessage,
+    pub part: ServerMessage,
+    pub quit: ServerMessage,
+}
+
+impl ServerMessages {
+    pub fn get(&self, server: &source::Server) -> ServerMessage {
+        match server {
+            source::Server::Join => self.join,
+            source::Server::Part => self.part,
+            source::Server::Quit => self.quit,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Deserialize)]
+pub struct ServerMessage {
+    #[serde(default)]
+    pub exclude: bool,
+    #[serde(default)]
+    pub user_format: UserFormat,
+}
+
+#[derive(Debug, Copy, Clone, Default, Deserialize)]
+pub enum UserFormat {
+    Short,
+    #[default]
+    Full,
 }
 
 impl Default for Buffer {
@@ -34,7 +66,7 @@ impl Default for Buffer {
             },
             input_visibility: InputVisibility::default(),
             channel: Channel::default(),
-            hidden_server_messages: HashSet::default(),
+            server_messages: Default::default(),
         }
     }
 }

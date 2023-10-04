@@ -5,6 +5,7 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
+use crate::config::buffer::ServerMessages;
 use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::time::Posix;
@@ -187,13 +188,13 @@ impl Manager {
         server: &Server,
         channel: &str,
         limit: Option<Limit>,
-        exclude: &HashSet<message::source::Server>,
+        server_messages: &ServerMessages,
     ) -> Option<history::View<'_>> {
         self.data.history_view(
             server,
             &history::Kind::Channel(channel.to_string()),
             limit,
-            exclude,
+            server_messages,
         )
     }
 
@@ -201,10 +202,10 @@ impl Manager {
         &self,
         server: &Server,
         limit: Option<Limit>,
-        exclude: &HashSet<message::source::Server>,
+        server_messages: &ServerMessages,
     ) -> Option<history::View<'_>> {
         self.data
-            .history_view(server, &history::Kind::Server, limit, exclude)
+            .history_view(server, &history::Kind::Server, limit, server_messages)
     }
 
     pub fn get_query_messages(
@@ -212,10 +213,14 @@ impl Manager {
         server: &Server,
         nick: &Nick,
         limit: Option<Limit>,
-        exclude: &HashSet<message::source::Server>,
+        server_messages: &ServerMessages,
     ) -> Option<history::View<'_>> {
-        self.data
-            .history_view(server, &history::Kind::Query(nick.clone()), limit, exclude)
+        self.data.history_view(
+            server,
+            &history::Kind::Query(nick.clone()),
+            limit,
+            server_messages,
+        )
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
@@ -421,7 +426,7 @@ impl Data {
         server: &server::Server,
         kind: &history::Kind,
         limit: Option<Limit>,
-        exclude: &HashSet<message::source::Server>,
+        server_messages: &ServerMessages,
     ) -> Option<history::View> {
         let History::Full {
             messages,
@@ -436,7 +441,7 @@ impl Data {
             .iter()
             .filter(|message| {
                 if let message::Source::Server(Some(source)) = message.target.source() {
-                    !exclude.contains(source)
+                    !server_messages.get(source).exclude
                 } else {
                     true
                 }

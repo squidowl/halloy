@@ -45,22 +45,20 @@ pub fn view<'a>(
         old_messages,
         new_messages,
     }) = (match kind {
-        Kind::Server(server) => history.get_server_messages(
-            server,
-            Some(state.limit),
-            &config.buffer.hidden_server_messages,
-        ),
+        Kind::Server(server) => {
+            history.get_server_messages(server, Some(state.limit), &config.buffer.server_messages)
+        }
         Kind::Channel(server, channel) => history.get_channel_messages(
             server,
             channel,
             Some(state.limit),
-            &config.buffer.hidden_server_messages,
+            &config.buffer.server_messages,
         ),
         Kind::Query(server, user) => history.get_query_messages(
             server,
             user,
             Some(state.limit),
-            &config.buffer.hidden_server_messages,
+            &config.buffer.server_messages,
         ),
     })
     else {
