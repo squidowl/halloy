@@ -75,6 +75,7 @@ pub struct Timestamp {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Nickname {
+    #[serde(default)]
     pub color: Color,
     #[serde(default)]
     pub brackets: Brackets,
