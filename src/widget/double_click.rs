@@ -115,7 +115,7 @@ where
         }
 
         let event::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) = event else {
-          return event::Status::Ignored;
+            return event::Status::Ignored;
         };
 
         let state = tree.state.downcast_mut::<Internal>();

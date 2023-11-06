@@ -3,8 +3,8 @@ use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
 use super::{input_view, scroll_view};
-use crate::theme;
 use crate::widget::{selectable_text, Collection, Element};
+use crate::{message::format_message, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -37,13 +37,12 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::Server(_) => {
-                        let message = selectable_text(&message.text).style(theme::Text::Server);
+                        let message = format_message(&message.text, theme::Text::Server);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
-                        let message =
-                            selectable_text(&message.text).style(theme::Text::Status(*status));
+                        let message = format_message(&message.text, theme::Text::Status(*status));
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }

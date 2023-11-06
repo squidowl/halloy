@@ -6,6 +6,7 @@ mod event;
 mod font;
 mod icon;
 mod logger;
+mod message;
 mod notification;
 mod screen;
 mod stream;
