@@ -109,6 +109,7 @@ pub enum Text {
     Transparent,
     Status(message::source::Status),
     Nickname(Option<String>),
+    Custom(Option<Color>),
 }
 
 impl text::StyleSheet for Theme {
@@ -152,6 +153,7 @@ impl text::StyleSheet for Theme {
             Text::Transparent => text::Appearance {
                 color: Some(self.colors().text.low_alpha),
             },
+            Text::Custom(color) => text::Appearance { color },
         }
     }
 }
@@ -171,6 +173,7 @@ pub enum Container {
     Context,
     Highlight,
     SemiTransparent,
+    Custom { background: Option<Color> },
 }
 
 impl container::StyleSheet for Theme {
@@ -240,6 +243,10 @@ impl container::StyleSheet for Theme {
                 ),
                 ..Default::default()
             },
+            Container::Custom { background } => container::Appearance {
+                background: background.map(Background::Color),
+                ..Default::default()
+            }
         }
     }
 }
