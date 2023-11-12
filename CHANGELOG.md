@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2023.5 (2023-11-12)
+
 Added:
 
 - IRCv3 capability `userhost-in-names` support added
