@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Accept '*' as a legal special symbol for usernames
+
 # 2023.5 (2023-11-12)
 
 Added:
