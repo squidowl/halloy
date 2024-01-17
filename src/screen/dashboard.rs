@@ -66,7 +66,7 @@ impl Dashboard {
 
         let command;
         if let Some((pane, _)) = dashboard.panes.panes.iter().next() {
-            command = Command::batch(vec![dashboard.focus_pane(*pane),dashboard.track()]);
+            command = Command::batch(vec![dashboard.focus_pane(*pane), dashboard.track()]);
         } else {
             command = dashboard.track();
         }
