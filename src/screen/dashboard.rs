@@ -64,7 +64,11 @@ impl Dashboard {
     pub fn restore(dashboard: data::Dashboard) -> (Self, Command<Message>) {
         let mut dashboard = Dashboard::from(dashboard);
 
-        let command = dashboard.track();
+        let command = if let Some((pane, _)) = dashboard.panes.panes.iter().next() {
+            Command::batch(vec![dashboard.focus_pane(*pane), dashboard.track()])
+        } else {
+            dashboard.track()
+        };
 
         (dashboard, command)
     }
