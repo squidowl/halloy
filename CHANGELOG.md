@@ -1,5 +1,10 @@
 # Unreleased
 
+Changed:
+
+- Focus an available pane on launch, so that launch behavior follows typical use (e.g. if `dashboard.sidebar.default_action`
+  is set to `replacePane`, then selecting a channel in the sidebar will replace the focused pane instead of opening a new pane)
+
 # 2023.5 (2023-11-12)
 
 Added:
