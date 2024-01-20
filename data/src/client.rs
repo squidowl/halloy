@@ -448,7 +448,8 @@ impl Client {
             Command::Numeric(RPL_WELCOME, args) => {
                 // Updated actual nick
                 let nick = args.first()?;
-                self.resolved_nick = Some(nick.to_string());
+                // Strip ZNC server when resolving nick if necessary
+                self.resolved_nick = Some(nick.to_string().split('/').nth(0)?.to_string());
 
                 // Send nick password & ghost
                 if let Some(nick_pass) = self.config.nick_password.as_ref() {
