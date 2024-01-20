@@ -681,6 +681,7 @@ impl Dashboard {
         user: User,
         comment: Option<String>,
         user_channels: Vec<String>,
+        config: &Config,
     ) {
         self.history.broadcast(
             server,
@@ -689,6 +690,7 @@ impl Dashboard {
                 comment,
                 user_channels,
             },
+            config,
         );
     }
 
@@ -699,6 +701,7 @@ impl Dashboard {
         new_nick: Nick,
         ourself: bool,
         user_channels: Vec<String>,
+        config: &Config,
     ) {
         self.history.broadcast(
             server,
@@ -708,6 +711,7 @@ impl Dashboard {
                 ourself,
                 user_channels,
             },
+            config,
         );
     }
 
@@ -717,6 +721,7 @@ impl Dashboard {
         inviter: Nick,
         channel: String,
         user_channels: Vec<String>,
+        config: &Config,
     ) {
         self.history.broadcast(
             server,
@@ -725,29 +730,37 @@ impl Dashboard {
                 channel,
                 user_channels,
             },
+            config,
         );
     }
 
-    pub fn broadcast_connecting(&mut self, server: &Server) {
-        self.history.broadcast(server, Broadcast::Connecting);
-    }
-
-    pub fn broadcast_connected(&mut self, server: &Server) {
-        self.history.broadcast(server, Broadcast::Connected);
-    }
-
-    pub fn broadcast_disconnected(&mut self, server: &Server, error: Option<String>) {
+    pub fn broadcast_connecting(&mut self, server: &Server, config: &Config) {
         self.history
-            .broadcast(server, Broadcast::Disconnected { error });
+            .broadcast(server, Broadcast::Connecting, config);
     }
 
-    pub fn broadcast_reconnected(&mut self, server: &Server) {
-        self.history.broadcast(server, Broadcast::Reconnected);
+    pub fn broadcast_connected(&mut self, server: &Server, config: &Config) {
+        self.history.broadcast(server, Broadcast::Connected, config);
     }
 
-    pub fn broadcast_connection_failed(&mut self, server: &Server, error: String) {
+    pub fn broadcast_disconnected(
+        &mut self,
+        server: &Server,
+        error: Option<String>,
+        config: &Config,
+    ) {
         self.history
-            .broadcast(server, Broadcast::ConnectionFailed { error });
+            .broadcast(server, Broadcast::Disconnected { error }, config);
+    }
+
+    pub fn broadcast_reconnected(&mut self, server: &Server, config: &Config) {
+        self.history
+            .broadcast(server, Broadcast::Reconnected, config);
+    }
+
+    pub fn broadcast_connection_failed(&mut self, server: &Server, error: String, config: &Config) {
+        self.history
+            .broadcast(server, Broadcast::ConnectionFailed { error }, config);
     }
 
     fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {

@@ -260,7 +260,7 @@ impl Application for Halloy {
 
                     if is_initial {
                         // Intial is sent when first trying to connect
-                        dashboard.broadcast_connecting(&server);
+                        dashboard.broadcast_connecting(&server, &self.config);
                     } else {
                         let notification = &self.config.notifications.disconnected;
 
@@ -268,7 +268,7 @@ impl Application for Halloy {
                             notification::show("Disconnected", &server, notification.sound());
                         };
 
-                        dashboard.broadcast_disconnected(&server, error);
+                        dashboard.broadcast_disconnected(&server, error, &self.config);
                     }
 
                     Command::none()
@@ -291,7 +291,7 @@ impl Application for Halloy {
                             notification::show("Connected", &server, notification.sound());
                         }
 
-                        dashboard.broadcast_connected(&server);
+                        dashboard.broadcast_connected(&server, &self.config);
                     } else {
                         let notification = &self.config.notifications.reconnected;
 
@@ -299,7 +299,7 @@ impl Application for Halloy {
                             notification::show("Reconnected", &server, notification.sound());
                         }
 
-                        dashboard.broadcast_reconnected(&server);
+                        dashboard.broadcast_reconnected(&server, &self.config);
                     }
 
                     Command::none()
@@ -309,7 +309,7 @@ impl Application for Halloy {
                         return Command::none();
                     };
 
-                    dashboard.broadcast_connection_failed(&server, error);
+                    dashboard.broadcast_connection_failed(&server, error, &self.config);
 
                     Command::none()
                 }
@@ -323,14 +323,14 @@ impl Application for Halloy {
                             match event {
                                 data::client::Event::Single(encoded, our_nick) => {
                                     if let Some(message) =
-                                        data::Message::received(encoded, our_nick)
+                                        data::Message::received(encoded, our_nick, &self.config)
                                     {
                                         dashboard.record_message(&server, message);
                                     }
                                 }
                                 data::client::Event::WithTarget(encoded, our_nick, target) => {
                                     if let Some(message) =
-                                        data::Message::received(encoded, our_nick)
+                                        data::Message::received(encoded, our_nick, &self.config)
                                     {
                                         dashboard
                                             .record_message(&server, message.with_target(target));
@@ -342,7 +342,13 @@ impl Application for Halloy {
                                         comment,
                                         channels,
                                     } => {
-                                        dashboard.broadcast_quit(&server, user, comment, channels);
+                                        dashboard.broadcast_quit(
+                                            &server,
+                                            user,
+                                            comment,
+                                            channels,
+                                            &self.config,
+                                        );
                                     }
                                     data::client::Brodcast::Nickname {
                                         old_user,
@@ -358,6 +364,7 @@ impl Application for Halloy {
                                             new_nick,
                                             ourself,
                                             channels,
+                                            &self.config,
                                         );
                                     }
                                     data::client::Brodcast::Invite {
@@ -372,6 +379,7 @@ impl Application for Halloy {
                                             inviter.to_owned(),
                                             channel,
                                             user_channels,
+                                            &self.config,
                                         );
                                     }
                                 },
@@ -381,7 +389,7 @@ impl Application for Halloy {
                                     notification,
                                 ) => {
                                     if let Some(message) =
-                                        data::Message::received(encoded, our_nick)
+                                        data::Message::received(encoded, our_nick, &self.config)
                                     {
                                         dashboard.record_message(&server, message);
                                     }
