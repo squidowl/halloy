@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub use self::source::Source;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
-use crate::User;
+use crate::{Config, User};
 
 pub type Channel = String;
 
@@ -91,9 +91,9 @@ impl Message {
             && matches!(self.target.source(), Source::User(_) | Source::Action)
     }
 
-    pub fn received(encoded: Encoded, our_nick: Nick) -> Option<Message> {
+    pub fn received(encoded: Encoded, our_nick: Nick, config: &Config) -> Option<Message> {
         let server_time = server_time(&encoded);
-        let text = text(&encoded, &our_nick)?;
+        let text = text(&encoded, &our_nick, config)?;
         let target = target(encoded, &our_nick)?;
 
         Some(Message {
@@ -258,7 +258,7 @@ fn server_time(message: &Encoded) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
-fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
+fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
     use irc::proto::command::Numeric::*;
 
     let user = message.user();
@@ -270,7 +270,7 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
             Some(format!(" ∙ {user} changed topic to {topic}"))
         }
         Command::PART(_, text) => {
-            let user = user?.formatted();
+            let user = user?.formatted(config.buffer.server_messages.part.username_format);
             let text = text
                 .as_ref()
                 .map(|text| format!(" ({text})"))
@@ -281,8 +281,12 @@ fn text(message: &Encoded, our_nick: &Nick) -> Option<String> {
         Command::JOIN(_, _) => {
             let user = user?;
 
-            (user.nickname() != *our_nick)
-                .then(|| format!("⟶ {} has joined the channel", user.formatted()))
+            (user.nickname() != *our_nick).then(|| {
+                format!(
+                    "⟶ {} has joined the channel",
+                    user.formatted(config.buffer.server_messages.join.username_format)
+                )
+            })
         }
         Command::MODE(target, modes, args) if proto::is_channel(target) => {
             let user = user?;

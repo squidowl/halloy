@@ -10,7 +10,7 @@ use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{server, Buffer, Input, Server, User};
+use crate::{server, Buffer, Config, Input, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -257,7 +257,7 @@ impl Manager {
             .unwrap_or_default()
     }
 
-    pub fn broadcast(&mut self, server: &Server, broadcast: Broadcast) {
+    pub fn broadcast(&mut self, server: &Server, broadcast: Broadcast, config: &Config) {
         let map = self.data.map.entry(server.clone()).or_default();
 
         let channels = map
@@ -296,7 +296,7 @@ impl Manager {
             } => {
                 let user_query = queries.find(|nick| user.nickname() == *nick);
 
-                message::broadcast::quit(user_channels, user_query, &user, &comment)
+                message::broadcast::quit(user_channels, user_query, &user, &comment, &config)
             }
             Broadcast::Nickname {
                 old_nick,

@@ -1,5 +1,8 @@
 # Unreleased
 
+Added:
+- Format `join`, `part` and `quit` server messages. Ability to exclude and adjust username format. 
+
 Changed:
 
 - Focus an available pane on launch, so that launch behavior follows typical use (e.g. if `dashboard.sidebar.default_action`

@@ -81,20 +81,17 @@ buffer:
   # - Focused: Only show input when the buffer is focused
   input_visibility: Always
 
-  # An array of server message types that will be hidden
-  # - Default: []
-  # - Supported values: ["join", "part", "quit"]
-  hidden_server_messages: []
-
-  # - Supported values: ["join", "part", "quit"]
+  # Control different server messages.
+  # - exclude [boolean]: exclude the message from showing
+  # - user_format [Short, Full]: controls the username formatting
   server_messages:
     join:
       exclude: true
-      user_format: Short
+      username_format: Short
     part:
-      enabled: false
+      exclude: false
     quit:
-      enabled: false
+      exclude: false
 
   # Channel buffer settings
   channel:

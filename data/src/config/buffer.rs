@@ -23,8 +23,11 @@ pub struct Buffer {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ServerMessages {
+    #[serde(default)]
     pub join: ServerMessage,
+    #[serde(default)]
     pub part: ServerMessage,
+    #[serde(default)]
     pub quit: ServerMessage,
 }
 
@@ -43,11 +46,11 @@ pub struct ServerMessage {
     #[serde(default)]
     pub exclude: bool,
     #[serde(default)]
-    pub user_format: UserFormat,
+    pub username_format: UsernameFormat,
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
-pub enum UserFormat {
+pub enum UsernameFormat {
     Short,
     #[default]
     Full,
