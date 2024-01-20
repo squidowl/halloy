@@ -4,7 +4,7 @@ use chrono::Utc;
 use super::{source, Direction, Message, Source, Target};
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::User;
+use crate::{Config, User};
 
 enum Cause {
     Server(Option<source::Server>),
@@ -114,12 +114,16 @@ pub fn quit(
     queries: impl IntoIterator<Item = Nick>,
     user: &User,
     comment: &Option<String>,
+    config: &Config,
 ) -> Vec<Message> {
     let comment = comment
         .as_ref()
         .map(|comment| format!(" ({comment})"))
         .unwrap_or_default();
-    let text = format!("⟵ {} has quit{comment}", user.formatted());
+    let text = format!(
+        "⟵ {} has quit{comment}",
+        user.formatted(config.buffer.server_messages.quit.username_format)
+    );
 
     expand(
         channels,

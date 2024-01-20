@@ -4,11 +4,13 @@ Changed:
 
 - Focus an available pane on launch, so that launch behavior follows typical use (e.g. if `dashboard.sidebar.default_action`
   is set to `replacePane`, then selecting a channel in the sidebar will replace the focused pane instead of opening a new pane)
+- `hidden_server_messages` has been changed to `server_messages` and additional customization has been added:
+  - Exclude messages [join, part, quit].
+  - Adjust username format. 
 
 Fixed:
 
 - Accept '*' as a legal special symbol for usernames
-
 
 # 2023.5 (2023-11-12)
 

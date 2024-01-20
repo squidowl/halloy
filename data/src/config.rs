@@ -15,7 +15,7 @@ use crate::server::Map as ServerMap;
 use crate::theme::Palette;
 use crate::{environment, Theme};
 
-mod buffer;
+pub mod buffer;
 pub mod channel;
 pub mod dashboard;
 mod keys;

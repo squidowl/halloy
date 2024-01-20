@@ -5,7 +5,7 @@ use std::hash::Hash;
 use irc::proto;
 use serde::{Deserialize, Serialize};
 
-use crate::{buffer, mode};
+use crate::{buffer, config::buffer::UsernameFormat, mode};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(into = "String")]
@@ -172,16 +172,19 @@ impl User {
         self.away = away;
     }
 
-    pub fn formatted(&self) -> String {
+    pub fn formatted(&self, user_format: UsernameFormat) -> String {
         let user = self.username();
         let host = self.hostname();
         let nick = self.nickname();
 
-        match (user, host) {
-            (None, None) => nick.to_string(),
-            (None, Some(host)) => format!("{nick} ({host})"),
-            (Some(user), None) => format!("{nick} ({user})"),
-            (Some(user), Some(host)) => format!("{nick} ({user}@{host})"),
+        match user_format {
+            UsernameFormat::Short => nick.to_string(),
+            UsernameFormat::Full => match (user, host) {
+                (None, None) => nick.to_string(),
+                (None, Some(host)) => format!("{nick} ({host})"),
+                (Some(user), None) => format!("{nick} ({user})"),
+                (Some(user), Some(host)) => format!("{nick} ({user}@{host})"),
+            },
         }
     }
 }

@@ -587,7 +587,7 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_UNAWAY, args) => {
-                let nick = args.get(0)?.as_str();
+                let nick = args.first()?.as_str();
                 let user = User::try_from(nick).ok()?;
 
                 if user.nickname() == self.nickname() {
@@ -600,7 +600,7 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_NOWAWAY, args) => {
-                let nick = args.get(0)?.as_str();
+                let nick = args.first()?.as_str();
                 let user = User::try_from(nick).ok()?;
 
                 if user.nickname() == self.nickname() {
