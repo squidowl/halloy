@@ -296,7 +296,7 @@ impl Manager {
             } => {
                 let user_query = queries.find(|nick| user.nickname() == *nick);
 
-                message::broadcast::quit(user_channels, user_query, &user, &comment, &config)
+                message::broadcast::quit(user_channels, user_query, &user, &comment, config)
             }
             Broadcast::Nickname {
                 old_nick,
