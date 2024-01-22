@@ -5,7 +5,7 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
-use crate::config::buffer::ServerMessages;
+use crate::config::buffer::{Exclude, ServerMessages};
 use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::time::Posix;
@@ -439,13 +439,53 @@ impl Data {
 
         let filtered = messages
             .iter()
-            .filter(|message| {
+            .enumerate()
+            .filter(|(message_index, message)| {
                 if let message::Source::Server(Some(source)) = message.target.source() {
-                    !server_messages.get(source).exclude
+                    match server_messages.get(source).exclude {
+                        Exclude::All => false,
+                        Exclude::None => true,
+                        Exclude::Smart(seconds) => 'search_previous_messages: {
+                            for previous_message in
+                                messages.iter().rev().skip(messages.len() - *message_index)
+                            {
+                                let duration_seconds = message
+                                    .server_time
+                                    .signed_duration_since(previous_message.server_time)
+                                    .num_seconds();
+
+                                if duration_seconds <= seconds {
+                                    if let message::Source::User(previous_message_user) =
+                                        previous_message.target.source()
+                                    {
+                                        let substring = match source {
+                                            message::source::Server::Join => {
+                                                format!("⟶ {}", previous_message_user.nickname())
+                                            }
+                                            message::source::Server::Part => {
+                                                format!("⟵ {}", previous_message_user.nickname())
+                                            }
+                                            message::source::Server::Quit => {
+                                                format!("⟵ {}", previous_message_user.nickname())
+                                            }
+                                        };
+
+                                        if message.text.starts_with(&substring) {
+                                            break 'search_previous_messages true;
+                                        }
+                                    }
+                                } else {
+                                    break 'search_previous_messages false;
+                                }
+                            }
+                            false
+                        }
+                    }
                 } else {
                     true
                 }
             })
+            .map(|(_, message)| message)
             .collect::<Vec<_>>();
 
         let total = filtered.len();

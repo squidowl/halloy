@@ -87,16 +87,18 @@ buffer:
   input_visibility: Always
 
   # Control different server messages.
-  # - exclude [boolean]: exclude the message from showing
+  # - exclude [All, None, !Smart seconds]:
+  #   - Smart will show a server message if the user has sent a message
+  #     in the given time interval (seconds) prior to the server message
   # - user_format [Short, Full]: controls the username formatting
   server_messages:
     join:
-      exclude: true
+      exclude: All
       username_format: Short
     part:
-      exclude: false
+      exclude: None
     quit:
-      exclude: false
+      exclude: None
 
   # Channel buffer settings
   channel:

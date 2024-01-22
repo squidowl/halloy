@@ -21,6 +21,14 @@ pub struct Buffer {
     pub server_messages: ServerMessages,
 }
 
+#[derive(Debug, Copy, Clone, Default, Deserialize)]
+pub enum Exclude {
+    #[default]
+    All,
+    None,
+    Smart(i64),
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ServerMessages {
     #[serde(default)]
@@ -44,7 +52,7 @@ impl ServerMessages {
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
 pub struct ServerMessage {
     #[serde(default)]
-    pub exclude: bool,
+    pub exclude: Exclude,
     #[serde(default)]
     pub username_format: UsernameFormat,
 }
