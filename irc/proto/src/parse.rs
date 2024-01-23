@@ -126,8 +126,8 @@ fn space(input: &str) -> IResult<&str, ()> {
 fn user(input: &str) -> IResult<&str, User> {
     // <sequence of any characters except NUL, CR, LF, and SPACE> and @
     let username = recognize(many1_count(none_of("\0\r\n @")));
-    // "-", "[", "]", "\", "`", "_", "^", "{", "|", "}", "*"
-    let special = one_of("-[]\\`_^{|}*");
+    // "-", "[", "]", "\", "`", "_", "^", "{", "|", "}", "*", "/"
+    let special = one_of("-[]\\`_^{|}*/");
     // *( <letter> | <number> | <special> )
     let nickname = recognize(many1_count(alt((
         satisfy(|c| c.is_ascii_alphanumeric()),
@@ -197,6 +197,14 @@ mod test {
                 Source::Server("atw.hu.quakenet.org".into()),
             ),
             (":*.freenode.net ", Source::Server("*.freenode.net".into())),
+            (
+                ":foobar/server!~foobar@555.555.555.555.abc.efg.com ",
+                Source::User(User {
+                    nickname: "foobar/server".into(),
+                    username: Some("~foobar".into()),
+                    hostname: Some("555.555.555.555.abc.efg.com".into()),
+                }),
+            ),
         ];
 
         for (test, expected) in tests {
