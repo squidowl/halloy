@@ -11,6 +11,8 @@ Changed:
 Fixed:
 
 - Accept '*' as a legal special symbol for usernames
+- Accept '/' in usernames, ensuring correct parsing for bouncers using the nick/server convention
+
 
 # 2023.5 (2023-11-12)
 
