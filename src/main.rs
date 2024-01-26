@@ -85,10 +85,10 @@ fn settings(
         default_font: font::MONO.clone().into(),
         default_text_size,
         window: window::settings(),
-        exit_on_close_request: false,
         flags: config_load,
         id: None,
         antialiasing: false,
+        fonts: todo!(),
     }
 }
 
@@ -433,7 +433,8 @@ impl Application for Halloy {
                         .handle_event(event, &self.clients, &self.config, &mut self.theme)
                         .map(Message::Dashboard)
                 } else if let event::Event::CloseRequested = event {
-                    window::close()
+                    // TODO: Window::close()
+                    // window::close()
                 } else {
                     Command::none()
                 }

@@ -14,14 +14,14 @@ data = { version = "0.1.0", path = "data" }
 notify-rust = "4"
 chrono = { version = "0.4", features = ['serde'] }
 fern = "0.6.1"
-iced = { version = "0.9", features = ["tokio", "lazy", "advanced", "image"] }
+iced = { version = "0.12.0", features = ["tokio", "lazy", "advanced", "image"] }
 log = "0.4.16"
 once_cell = "1.18"
 palette = "=0.7.2"
 thiserror = "1.0.30"
 tokio = { version = "1.0", features = ["rt", "fs", "process"] }
 unicode-segmentation = "1.6"
-open = "4.1.0"
+open = "5.0.1"
 
 [dependencies.uuid]
 version = "1.0"
@@ -34,12 +34,8 @@ image = "0.24.6"
 embed-resource = "2.1.1"
 
 [workspace]
-members = [
-  "data",
-  "irc",
-  "irc/proto",
-]
+members = ["data", "irc", "irc/proto"]
 
 [patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced", rev = "78dc341ea82449f1e075e37e67c1ccf66b88e8d6" }
-iced_core = { git = "https://github.com/iced-rs/iced", rev = "78dc341ea82449f1e075e37e67c1ccf66b88e8d6" }
+iced = { git = "https://github.com/iced-rs/iced", rev = "a1114cada310fa6e4cd478cc0827500e70a1bd0d" }
+iced_core = { git = "https://github.com/iced-rs/iced", rev = "a1114cada310fa6e4cd478cc0827500e70a1bd0d" }
