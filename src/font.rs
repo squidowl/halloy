@@ -1,15 +1,12 @@
+use std::borrow::Cow;
 use std::sync::OnceLock;
 
 use data::Config;
-use iced::font::{self, Error};
-use iced::Command;
+use iced::font;
 
 pub static MONO: Font = Font::new(false);
 pub static MONO_BOLD: Font = Font::new(true);
-pub const ICON: iced::Font = iced::Font {
-    monospaced: true,
-    ..iced::Font::with_name("bootstrap-icons")
-};
+pub const ICON: iced::Font = iced::Font::with_name("bootstrap-icons");
 
 #[derive(Debug, Clone)]
 pub struct Font {
@@ -34,7 +31,6 @@ impl Font {
         };
 
         let _ = self.inner.set(iced::Font {
-            monospaced: true,
             weight,
             ..iced::Font::with_name(name)
         });
@@ -56,11 +52,11 @@ pub fn set(config: Option<&Config>) {
     MONO_BOLD.set(family);
 }
 
-pub fn load() -> Command<Result<(), Error>> {
-    Command::batch(vec![
-        font::load(include_bytes!("../fonts/iosevka-term-regular.ttf").as_slice()),
-        font::load(include_bytes!("../fonts/iosevka-term-bold.ttf").as_slice()),
-        font::load(include_bytes!("../fonts/iosevka-term-italic.ttf").as_slice()),
-        font::load(include_bytes!("../fonts/icons.ttf").as_slice()),
-    ])
+pub fn load() -> Vec<Cow<'static, [u8]>> {
+    vec![
+        Cow::Borrowed(include_bytes!("../fonts/iosevka-term-regular.ttf")),
+        Cow::Borrowed(include_bytes!("../fonts/iosevka-term-bold.ttf")),
+        Cow::Borrowed(include_bytes!("../fonts/iosevka-term-italic.ttf")),
+        Cow::Borrowed(include_bytes!("../fonts/icons.ttf")),
+    ]
 }

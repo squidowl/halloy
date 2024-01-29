@@ -33,17 +33,22 @@ struct AnchoredOverlay<'a, Message> {
     offset: f32,
 }
 
-impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
-    fn width(&self) -> Length {
-        self.base.as_widget().width()
+impl<'a, Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'a, Message> {
+    fn size(&self) -> Size<Length> {
+        self.base.as_widget().size()
     }
 
-    fn height(&self) -> Length {
-        self.base.as_widget().height()
+    fn size_hint(&self) -> Size<Length> {
+        self.base.as_widget().size_hint()
     }
 
-    fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        self.base.as_widget().layout(renderer, limits)
+    fn layout(
+        &self,
+        tree: &mut widget::Tree,
+        renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        self.base.as_widget().layout(tree, renderer, limits)
     }
 
     fn draw(
@@ -144,7 +149,7 @@ impl<'a, Message> Widget<Message, Renderer> for AnchoredOverlay<'a, Message> {
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'b, Message, Renderer>> {
+    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let (first, second) = tree.children.split_at_mut(1);
 
         let base = self
@@ -187,8 +192,14 @@ struct Overlay<'a, 'b, Message> {
     base_layout: Rectangle,
 }
 
-impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Message> {
-    fn layout(&self, renderer: &Renderer, bounds: Size, position: Point) -> layout::Node {
+impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a, 'b, Message> {
+    fn layout(
+        &mut self,
+        renderer: &Renderer,
+        bounds: Size,
+        position: Point,
+        mut translation: Vector,
+    ) -> layout::Node {
         let height = match self.anchor {
             // From top of base to top of viewport
             Anchor::AboveTop => position.y,
@@ -206,7 +217,10 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
         .width(Length::Fill)
         .height(Length::Fill);
 
-        let mut node = self.content.as_widget().layout(renderer, &limits);
+        let mut node = self
+            .content
+            .as_widget()
+            .layout(self.tree, renderer, &limits);
 
         let translation = match self.anchor {
             // Overlay height + offset above the top
@@ -216,7 +230,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
                 self.base_layout.width / 2.0 - node.size().width / 2.0,
                 self.offset,
             ),
-        };
+        } + translation;
 
         node.move_to(position + translation);
 
@@ -294,7 +308,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
         &'c mut self,
         layout: Layout<'_>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'c, Message, Renderer>> {
+    ) -> Option<overlay::Element<'c, Message, Theme, Renderer>> {
         self.content
             .as_widget_mut()
             .overlay(self.tree, layout, renderer)

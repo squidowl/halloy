@@ -7,7 +7,7 @@ use iced::Rectangle;
 
 use self::completion::Completion;
 use super::{anchored_overlay, key_press, Element, Renderer};
-use crate::theme;
+use crate::theme::{self, Theme};
 
 mod completion;
 
@@ -78,7 +78,7 @@ pub struct State {
     selected_history: Option<usize>,
 }
 
-impl<'a, Message> Component<Message, Renderer> for Input<'a, Message>
+impl<'a, Message> Component<Message, Theme, Renderer> for Input<'a, Message>
 where
     Message: Clone,
 {
@@ -196,7 +196,7 @@ where
         // Add tab support
         let mut input = key_press(
             text_input,
-            key_press::KeyCode::Tab,
+            key_press::Key::Named(key_press::Named::Tab),
             key_press::Modifiers::default(),
             Event::Tab,
         );
@@ -206,11 +206,11 @@ where
             input = key_press(
                 key_press(
                     input,
-                    key_press::KeyCode::Up,
+                    key_press::Key::Named(key_press::Named::ArrowUp),
                     key_press::Modifiers::default(),
                     Event::Up,
                 ),
-                key_press::KeyCode::Down,
+                key_press::Key::Named(key_press::Named::ArrowDown),
                 key_press::Modifiers::default(),
                 Event::Down,
             );

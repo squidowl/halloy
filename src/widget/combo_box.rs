@@ -1,3 +1,4 @@
+use iced::advanced::graphics::text::Paragraph;
 use iced::advanced::{
     layout, mouse, overlay, renderer, text, widget, Clipboard, Layout, Shell, Widget,
 };
@@ -11,35 +12,36 @@ use std::fmt::Display;
 use std::time::Instant;
 
 use super::Element;
+use crate::Theme;
 
 /// A widget for searching and selecting a single value from a list of options.
 ///
 /// This widget is composed by a [`TextInput`] that can be filled with the text
 /// to search for corresponding values from the list of options that are displayed
 /// as a [`Menu`].
-pub struct ComboBox<'a, T, Message, Renderer = super::Renderer>
+pub struct ComboBox<'a, T, Message, Theme = crate::Theme, Renderer = super::Renderer>
 where
     Renderer: text::Renderer,
-    Renderer::Theme: text_input::StyleSheet + menu::StyleSheet,
+    Theme: text_input::StyleSheet + menu::StyleSheet,
 {
     state: &'a State<T>,
-    text_input: TextInput<'a, TextInputEvent, Renderer>,
+    text_input: TextInput<'a, TextInputEvent, Theme, Renderer>,
     font: Option<Renderer::Font>,
     selection: text_input::Value,
     on_selected: Box<dyn Fn(T) -> Message>,
     on_option_hovered: Option<Box<dyn Fn(T) -> Message>>,
     on_close: Option<Message>,
     on_input: Option<Box<dyn Fn(String) -> Message>>,
-    menu_style: <Renderer::Theme as menu::StyleSheet>::Style,
+    menu_style: <Theme as menu::StyleSheet>::Style,
     padding: Padding,
     size: Option<f32>,
 }
 
-impl<'a, T, Message, Renderer> ComboBox<'a, T, Message, Renderer>
+impl<'a, T, Message, Theme, Renderer> ComboBox<'a, T, Message, Theme, Renderer>
 where
     T: std::fmt::Display + Clone,
     Renderer: text::Renderer,
-    Renderer::Theme: text_input::StyleSheet + menu::StyleSheet,
+    Theme: text_input::StyleSheet + menu::StyleSheet,
 {
     /// Creates a new [`ComboBox`] with the given list of options, a placeholder,
     /// the current selected value, and the message to produce when an option is
@@ -102,8 +104,8 @@ where
     // TODO: Define its own `StyleSheet` trait
     pub fn style<S>(mut self, style: S) -> Self
     where
-        S: Into<<Renderer::Theme as text_input::StyleSheet>::Style>
-            + Into<<Renderer::Theme as menu::StyleSheet>::Style>
+        S: Into<<Theme as text_input::StyleSheet>::Style>
+            + Into<<Theme as menu::StyleSheet>::Style>
             + Clone,
     {
         self.menu_style = style.clone().into();
@@ -114,7 +116,7 @@ where
     /// Sets the style of the [`TextInput`] of the [`ComboBox`].
     pub fn text_input_style<S>(mut self, style: S) -> Self
     where
-        S: Into<<Renderer::Theme as text_input::StyleSheet>::Style> + Clone,
+        S: Into<<Theme as text_input::StyleSheet>::Style> + Clone,
     {
         self.text_input = self.text_input.style(style);
         self
@@ -168,7 +170,7 @@ pub struct State<T>(RefCell<Inner<T>>);
 
 #[derive(Debug, Clone)]
 struct Inner<T> {
-    text_input: text_input::State,
+    text_input: text_input::State<Paragraph>,
     value: String,
     options: Vec<T>,
     option_matchers: Vec<String>,
@@ -280,14 +282,17 @@ where
 impl<T> Inner<T> {
     fn text_input_tree(&self) -> widget::Tree {
         widget::Tree {
-            tag: widget::tree::Tag::of::<text_input::State>(),
+            tag: widget::tree::Tag::of::<text_input::State<Paragraph>>(),
             state: widget::tree::State::new(self.text_input.clone()),
             children: vec![],
         }
     }
 
     fn update_text_input(&mut self, tree: widget::Tree) {
-        self.text_input = tree.state.downcast_ref::<text_input::State>().clone();
+        self.text_input = tree
+            .state
+            .downcast_ref::<text_input::State<Paragraph>>()
+            .clone();
     }
 }
 
@@ -333,24 +338,30 @@ enum TextInputEvent {
     TextChanged(String),
 }
 
-impl<'a, T, Message, Renderer> Widget<Message, Renderer> for ComboBox<'a, T, Message, Renderer>
+impl<'a, T, Message, Renderer> Widget<Message, Theme, Renderer>
+    for ComboBox<'a, T, Message, Theme, Renderer>
 where
     T: Display + Clone + 'static,
     Message: Clone,
     Renderer: text::Renderer,
-    Renderer::Theme:
+    Theme:
         container::StyleSheet + text_input::StyleSheet + scrollable::StyleSheet + menu::StyleSheet,
 {
-    fn width(&self) -> Length {
-        Widget::<TextInputEvent, Renderer>::width(&self.text_input)
+    fn size(&self) -> iced::Size<Length> {
+        Widget::<TextInputEvent, Theme, Renderer>::size(&self.text_input)
     }
 
-    fn height(&self) -> Length {
-        Widget::<TextInputEvent, Renderer>::height(&self.text_input)
+    fn size_hint(&self) -> iced::Size<Length> {
+        Widget::<TextInputEvent, Theme, Renderer>::size_hint(&self.text_input)
     }
 
-    fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        self.text_input.layout(renderer, limits)
+    fn layout(
+        &self,
+        tree: &mut widget::Tree,
+        renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        self.text_input.layout(tree, renderer, limits, None)
     }
 
     fn tag(&self) -> widget::tree::Tag {
@@ -440,16 +451,11 @@ where
                     }
                 }
 
-                if let Event::Keyboard(keyboard::Event::KeyPressed {
-                    key_code,
-                    modifiers,
-                    ..
-                }) = event
-                {
+                if let Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) = event {
                     let shift_modifier = modifiers.shift();
 
-                    match (key_code, shift_modifier) {
-                        (keyboard::KeyCode::Enter, _) => {
+                    match (key, shift_modifier) {
+                        (keyboard::Key::Named(keyboard::key::Named::Enter), _) => {
                             if let Some(index) = &menu.hovered_option {
                                 if let Some(option) = state.filtered_options.options.get(*index) {
                                     menu.new_selection = Some(option.clone());
@@ -458,7 +464,8 @@ where
 
                             event_status = event::Status::Captured;
                         }
-                        (keyboard::KeyCode::Up, _) | (keyboard::KeyCode::Tab, true) => {
+                        (keyboard::Key::Named(keyboard::key::Named::ArrowUp), _)
+                        | (keyboard::Key::Named(keyboard::key::Named::Tab), true) => {
                             if let Some(index) = &mut menu.hovered_option {
                                 if *index == 0 {
                                     *index = state.filtered_options.options.len().saturating_sub(1);
@@ -482,7 +489,8 @@ where
 
                             event_status = event::Status::Captured;
                         }
-                        (keyboard::KeyCode::Down, _) | (keyboard::KeyCode::Tab, false) => {
+                        (keyboard::Key::Named(keyboard::key::Named::ArrowDown), _)
+                        | (keyboard::Key::Named(keyboard::key::Named::Tab), false) => {
                             if let Some(index) = &mut menu.hovered_option {
                                 if *index == state.filtered_options.options.len().saturating_sub(1)
                                 {
@@ -574,11 +582,11 @@ where
         &self,
         _tree: &widget::Tree,
         renderer: &mut Renderer,
-        theme: &Renderer::Theme,
+        theme: &Theme,
         _style: &renderer::Style,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
     ) {
         let selection = if self.state.is_focused() || self.selection.is_empty() {
             None
@@ -588,7 +596,7 @@ where
 
         let tree = self.state.text_input_tree();
         self.text_input
-            .draw(&tree, renderer, theme, layout, cursor, selection);
+            .draw(&tree, renderer, theme, layout, cursor, selection, viewport);
     }
 
     fn overlay<'b>(
@@ -596,7 +604,7 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         _renderer: &Renderer,
-    ) -> Option<overlay::Element<'b, Message, Renderer>> {
+    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let Menu {
             menu,
             filtered_options,

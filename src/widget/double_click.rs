@@ -2,7 +2,7 @@ use std::time;
 
 use iced::advanced::widget::{self, tree, Tree};
 use iced::advanced::{mouse, overlay, renderer, Clipboard, Layout, Shell, Widget};
-use iced::{advanced, event, Rectangle};
+use iced::{advanced, event, Length, Rectangle, Size};
 
 const TIMEOUT_MILLIS: u64 = 250;
 
@@ -27,24 +27,25 @@ impl Default for Internal {
     }
 }
 
-impl<'a, Message> Widget<Message, Renderer> for DoubleClick<'a, Message>
+impl<'a, Message> Widget<Message, Theme, Renderer> for DoubleClick<'a, Message>
 where
     Message: Clone,
 {
-    fn width(&self) -> iced::Length {
-        self.content.as_widget().width()
+    fn size(&self) -> Size<Length> {
+        self.content.as_widget().size()
     }
 
-    fn height(&self) -> iced::Length {
-        self.content.as_widget().height()
+    fn size_hint(&self) -> Size<Length> {
+        self.content.as_widget().size_hint()
     }
 
     fn layout(
         &self,
+        tree: &mut widget::Tree,
         renderer: &Renderer,
         limits: &advanced::layout::Limits,
     ) -> advanced::layout::Node {
-        self.content.as_widget().layout(renderer, limits)
+        self.content.as_widget().layout(tree, renderer, limits)
     }
 
     fn tag(&self) -> widget::tree::Tag {
@@ -115,7 +116,7 @@ where
         }
 
         let event::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) = event else {
-          return event::Status::Ignored;
+            return event::Status::Ignored;
         };
 
         let state = tree.state.downcast_mut::<Internal>();
@@ -166,7 +167,7 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'b, Message, Renderer>> {
+    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         self.content
             .as_widget_mut()
             .overlay(&mut tree.children[0], layout, renderer)
