@@ -38,15 +38,27 @@ macro_rules! default {
     ($name:ident, $k:tt) => {
         pub fn $name() -> KeyBind {
             KeyBind {
-                key_code: KeyCode($k),
+                key_code: KeyCode(iced_core::keyboard::Key::Named(
+                    iced_core::keyboard::key::Named::$k,
+                )),
                 modifiers: Modifiers::default(),
+            }
+        }
+    };
+    ($name:ident, $k:literal, $m:expr) => {
+        pub fn $name() -> KeyBind {
+            KeyBind {
+                key_code: KeyCode(iced_core::keyboard::Key::Character($k.into())),
+                modifiers: $m,
             }
         }
     };
     ($name:ident, $k:tt, $m:expr) => {
         pub fn $name() -> KeyBind {
             KeyBind {
-                key_code: KeyCode($k),
+                key_code: KeyCode(iced_core::keyboard::Key::Named(
+                    iced_core::keyboard::key::Named::$k,
+                )),
                 modifiers: $m,
             }
         }
@@ -60,16 +72,16 @@ pub struct KeyBind {
 }
 
 impl KeyBind {
-    // default!(move_up, Up, ALT);
-    // default!(move_down, Down, ALT);
-    // default!(move_left, Left, ALT);
-    // default!(move_right, Right, ALT);
-    // default!(close_buffer, W, COMMAND);
-    // default!(maximize_buffer, Up, COMMAND);
-    // default!(restore_buffer, Down, COMMAND);
-    // default!(cycle_next_buffer, Tab, CTRL);
-    // default!(cycle_previous_buffer, Tab, CTRL | SHIFT);
-    // default!(toggle_nick_list, M, COMMAND | ALT);
+    default!(move_up, ArrowUp, ALT);
+    default!(move_down, ArrowDown, ALT);
+    default!(move_left, ArrowLeft, ALT);
+    default!(move_right, ArrowRight, ALT);
+    default!(close_buffer, "w", COMMAND);
+    default!(maximize_buffer, ArrowUp, COMMAND);
+    default!(restore_buffer, ArrowDown, COMMAND);
+    default!(cycle_next_buffer, Tab, CTRL);
+    default!(cycle_previous_buffer, Tab, CTRL | SHIFT);
+    default!(toggle_nick_list, "m", COMMAND | ALT);
 
     pub fn is_pressed(
         &self,
@@ -79,14 +91,14 @@ impl KeyBind {
         self.key_code == key_code.into() && self.modifiers == modifiers.into()
     }
 
-    pub fn from_char(char: char, modifiers: impl Into<Modifiers>) -> Option<Self> {
-        // char.to_string()
-        //     .parse::<KeyCode>()
-        //     .ok()
-        //     .map(|key_code| KeyBind {
-        //         key_code,
-        //         modifiers: modifiers.into(),
-        //     })
+    pub fn from_char(char: &str, modifiers: impl Into<Modifiers>) -> Option<Self> {
+        char.to_string()
+            .parse::<KeyCode>()
+            .ok()
+            .map(|key_code| KeyBind {
+                key_code,
+                modifiers: modifiers.into(),
+            })
     }
 }
 
@@ -213,8 +225,6 @@ impl FromStr for KeyCode {
             "tab" => keyboard::Key::Named(key::Named::Tab),
             "pause" => keyboard::Key::Named(key::Named::Pause),
             "insert" => keyboard::Key::Named(key::Named::Insert),
-            "backspace" => keyboard::Key::Named(key::Named::Backspace),
-            "delete" => keyboard::Key::Named(key::Named::Delete),
             "cut" => keyboard::Key::Named(key::Named::Cut),
             "paste" => keyboard::Key::Named(key::Named::Paste),
             "copy" => keyboard::Key::Named(key::Named::Copy),

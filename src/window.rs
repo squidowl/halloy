@@ -1,8 +1,8 @@
-pub use iced::window::{close, Settings};
+pub use iced::window::{close, Id, Settings};
 
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 pub fn settings() -> Settings {
-    Default::default()
+    Settings::default()
 }
 
 #[cfg(target_os = "linux")]
@@ -11,7 +11,7 @@ pub fn settings() -> Settings {
     use iced::window;
 
     Settings {
-        platform_specific: window::PlatformSpecific {
+        platform_specific: window::settings::PlatformSpecific {
             application_id: environment::APPLICATION_ID.to_string(),
         },
         ..Default::default()
@@ -23,7 +23,7 @@ pub fn settings() -> Settings {
     use iced::window;
 
     Settings {
-        platform_specific: window::PlatformSpecific {
+        platform_specific: window::settings::PlatformSpecific {
             title_hidden: true,
             titlebar_transparent: true,
             fullsize_content_view: true,

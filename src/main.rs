@@ -83,12 +83,15 @@ fn settings(
 
     iced::Settings {
         default_font: font::MONO.clone().into(),
-        default_text_size,
-        window: window::settings(),
+        default_text_size: default_text_size.into(),
+        window: window::Settings {
+            exit_on_close_request: false,
+            ..window::settings()
+        },
         flags: config_load,
         id: None,
         antialiasing: false,
-        fonts: todo!(),
+        fonts: font::load(),
     }
 }
 
@@ -165,7 +168,6 @@ pub enum Message {
     Help(help::Message),
     Welcome(welcome::Message),
     Event(Event),
-    FontsLoaded(Result<(), iced::font::Error>),
     Tick(Instant),
 }
 
@@ -178,10 +180,7 @@ impl Application for Halloy {
     fn new(config_load: Self::Flags) -> (Halloy, Command<Self::Message>) {
         let (halloy, command) = Halloy::load_from_state(config_load);
 
-        (
-            halloy,
-            Command::batch(vec![font::load().map(Message::FontsLoaded), command]),
-        )
+        (halloy, command)
     }
 
     fn title(&self) -> String {
@@ -422,19 +421,13 @@ impl Application for Halloy {
                     Command::none()
                 }
             },
-            Message::FontsLoaded(Ok(())) => Command::none(),
-            Message::FontsLoaded(Err(error)) => {
-                log::error!("fonts failed to load: {error:?}");
-                Command::none()
-            }
             Message::Event(event) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
                         .handle_event(event, &self.clients, &self.config, &mut self.theme)
                         .map(Message::Dashboard)
                 } else if let event::Event::CloseRequested = event {
-                    // TODO: Window::close()
-                    // window::close()
+                    window::close(window::Id::MAIN)
                 } else {
                     Command::none()
                 }

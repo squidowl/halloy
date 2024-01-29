@@ -2,7 +2,7 @@ use data::shortcut;
 pub use data::shortcut::Command;
 use iced::advanced::widget::tree;
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::{event, keyboard, mouse, Event, Length, Rectangle};
+use iced::{event, keyboard, mouse, Event, Length, Rectangle, Size};
 
 use super::{Element, Renderer};
 use crate::Theme;
@@ -29,17 +29,22 @@ struct Shortcut<'a, Message> {
     on_press: Box<dyn Fn(Command) -> Message + 'a>,
 }
 
-impl<'a, Message> Widget<Message, Renderer> for Shortcut<'a, Message> {
-    fn width(&self) -> Length {
-        self.content.as_widget().width()
+impl<'a, Message> Widget<Message, Theme, Renderer> for Shortcut<'a, Message> {
+    fn size(&self) -> Size<Length> {
+        self.content.as_widget().size()
     }
 
-    fn height(&self) -> Length {
-        self.content.as_widget().height()
+    fn size_hint(&self) -> Size<Length> {
+        self.content.as_widget().size_hint()
     }
 
-    fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        self.content.as_widget().layout(renderer, limits)
+    fn layout(
+        &self,
+        tree: &mut widget::Tree,
+        renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        self.content.as_widget().layout(tree, renderer, limits)
     }
 
     fn draw(
@@ -106,11 +111,8 @@ impl<'a, Message> Widget<Message, Renderer> for Shortcut<'a, Message> {
         let modifiers = tree.state.downcast_mut::<shortcut::Modifiers>();
 
         match &event {
-            Event::Keyboard(keyboard::Event::KeyPressed {
-                key_code,
-                modifiers,
-            }) => {
-                let key_bind = shortcut::KeyBind::from((*key_code, *modifiers));
+            Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+                let key_bind = shortcut::KeyBind::from((*key, *modifiers));
 
                 if let Some(command) = self
                     .shortcuts
@@ -124,9 +126,12 @@ impl<'a, Message> Widget<Message, Renderer> for Shortcut<'a, Message> {
             Event::Keyboard(keyboard::Event::ModifiersChanged(new_modifiers)) => {
                 *modifiers = (*new_modifiers).into();
             }
-            Event::Keyboard(keyboard::Event::CharacterReceived(char)) => {
+            Event::Keyboard(keyboard::Event::KeyPressed {
+                key: keyboard::Key::Character(char),
+                ..
+            }) => {
                 // Prevent text input character entry if it matches a keybind
-                if let Some(key_bind) = shortcut::KeyBind::from_char(*char, *modifiers) {
+                if let Some(key_bind) = shortcut::KeyBind::from_char(char.as_str(), *modifiers) {
                     if self
                         .shortcuts
                         .iter()
@@ -173,7 +178,7 @@ impl<'a, Message> Widget<Message, Renderer> for Shortcut<'a, Message> {
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'b, Message, Renderer>> {
+    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         self.content
             .as_widget_mut()
             .overlay(&mut tree.children[0], layout, renderer)

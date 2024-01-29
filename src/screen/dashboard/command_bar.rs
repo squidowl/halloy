@@ -69,7 +69,7 @@ impl CommandBar {
         // and prevent undesired effects
         let combo_box = key_press(
             combo_box,
-            key_press::KeyCode::Escape,
+            key_press::Key::Named(key_press::Named::Escape),
             key_press::Modifiers::default(),
             Message::Ignored,
         );

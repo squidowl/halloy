@@ -1,14 +1,14 @@
 use iced::advanced::widget::tree;
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-pub use iced::keyboard::{KeyCode, Modifiers};
-use iced::{event, keyboard, mouse, Event, Length, Rectangle};
+pub use iced::keyboard::{key::Named, Key, Modifiers};
+use iced::{event, keyboard, mouse, Event, Length, Rectangle, Size};
 
 use super::{Element, Renderer};
 use crate::Theme;
 
 pub fn key_press<'a, Message>(
     base: impl Into<Element<'a, Message>>,
-    key_code: KeyCode,
+    key: Key,
     modifiers: Modifiers,
     on_press: Message,
 ) -> Element<'a, Message>
@@ -17,7 +17,7 @@ where
 {
     KeyPress {
         content: base.into(),
-        key_code,
+        key,
         modifiers,
         on_press,
     }
@@ -26,25 +26,30 @@ where
 
 struct KeyPress<'a, Message> {
     content: Element<'a, Message>,
-    key_code: KeyCode,
+    key: Key,
     modifiers: Modifiers,
     on_press: Message,
 }
 
-impl<'a, Message> Widget<Message, Renderer> for KeyPress<'a, Message>
+impl<'a, Message> Widget<Message, Theme, Renderer> for KeyPress<'a, Message>
 where
     Message: Clone,
 {
-    fn width(&self) -> Length {
-        self.content.as_widget().width()
+    fn size(&self) -> Size<Length> {
+        self.content.as_widget().size()
     }
 
-    fn height(&self) -> Length {
-        self.content.as_widget().height()
+    fn size_hint(&self) -> Size<Length> {
+        self.content.as_widget().size_hint()
     }
 
-    fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        self.content.as_widget().layout(renderer, limits)
+    fn layout(
+        &self,
+        tree: &mut widget::Tree,
+        renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        self.content.as_widget().layout(tree, renderer, limits)
     }
 
     fn draw(
@@ -101,12 +106,8 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) -> event::Status {
-        if let Event::Keyboard(keyboard::Event::KeyPressed {
-            key_code,
-            modifiers,
-        }) = &event
-        {
-            if *key_code == self.key_code && *modifiers == self.modifiers {
+        if let Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) = &event {
+            if *key == self.key && *modifiers == self.modifiers {
                 shell.publish(self.on_press.clone());
                 return event::Status::Captured;
             }
@@ -135,7 +136,7 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'b, Message, Renderer>> {
+    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         self.content.as_widget_mut().overlay(tree, layout, renderer)
     }
 }
