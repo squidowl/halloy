@@ -83,8 +83,7 @@ impl CommandBar {
                             .iter()
                             .map(|command| text(command).size(font_size)),
                     )
-                    .map(Element::from)
-                    .collect(),
+                    .map(Element::from),
             )
             // Give it some extra width
             .padding([0, 20]),

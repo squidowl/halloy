@@ -227,25 +227,20 @@ mod nick_list {
     use crate::widget::Element;
 
     pub fn view(users: &[User]) -> Element<Message> {
-        let column = column(
-            users
-                .iter()
-                .map(|user| {
-                    let content = text(format!(
-                        "{}{}",
-                        user.highest_access_level(),
-                        user.nickname()
-                    ))
-                    .style(if user.is_away() {
-                        theme::Text::Transparent
-                    } else {
-                        theme::Text::Primary
-                    });
+        let column = column(users.iter().map(|user| {
+            let content = text(format!(
+                "{}{}",
+                user.highest_access_level(),
+                user.nickname()
+            ))
+            .style(if user.is_away() {
+                theme::Text::Transparent
+            } else {
+                theme::Text::Primary
+            });
 
-                    user_context::view(content, user.clone())
-                })
-                .collect(),
-        )
+            user_context::view(content, user.clone())
+        }))
         .padding(4)
         .spacing(1);
 
