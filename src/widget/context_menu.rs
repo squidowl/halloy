@@ -17,11 +17,7 @@ where
 {
     let build_menu = |length, view: &dyn Fn(T, Length) -> Element<'a, Message>| {
         container(column(
-            entries
-                .iter()
-                .copied()
-                .map(|entry| view(entry, length))
-                .collect(),
+            entries.iter().copied().map(|entry| view(entry, length)),
         ))
         .padding(4)
         .style(theme::Container::Context)

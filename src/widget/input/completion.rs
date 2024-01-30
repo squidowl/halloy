@@ -212,23 +212,18 @@ impl Commands {
                     .collect::<Vec<_>>();
 
                 let content = |width| {
-                    column(
-                        entries
-                            .iter()
-                            .map(|(index, command)| {
-                                let selected = Some(*index) == *highlighted;
-                                let content = text(format!("/{}", command.title));
+                    column(entries.iter().map(|(index, command)| {
+                        let selected = Some(*index) == *highlighted;
+                        let content = text(format!("/{}", command.title));
 
-                                Element::from(
-                                    container(content)
-                                        .width(width)
-                                        .style(theme::Container::Command { selected })
-                                        .padding(6)
-                                        .center_y(),
-                                )
-                            })
-                            .collect(),
-                    )
+                        Element::from(
+                            container(content)
+                                .width(width)
+                                .style(theme::Container::Command { selected })
+                                .padding(6)
+                                .center_y(),
+                        )
+                    }))
                 };
 
                 (!entries.is_empty()).then(|| {
@@ -273,7 +268,7 @@ impl Command {
             Element::from(text(format!(" {arg}")).style(style))
         });
 
-        container(row(title.into_iter().chain(args).collect()))
+        container(row(title.into_iter().chain(args)))
             .style(theme::Container::Context)
             .padding(8)
             .center_y()
