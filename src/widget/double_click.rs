@@ -45,7 +45,9 @@ where
         renderer: &Renderer,
         limits: &advanced::layout::Limits,
     ) -> advanced::layout::Node {
-        self.content.as_widget().layout(tree, renderer, limits)
+        self.content
+            .as_widget()
+            .layout(&mut tree.children[0], renderer, limits)
     }
 
     fn tag(&self) -> widget::tree::Tag {

@@ -137,7 +137,7 @@ where
     ) -> layout::Node {
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
-        layout::sized(&limits, self.width, self.height, |limits| {
+        layout::sized(limits, self.width, self.height, |limits| {
             let bounds = limits.max();
 
             let size = self
@@ -146,7 +146,7 @@ where
                 .unwrap_or_else(|| renderer.default_size());
             let font = self.font.unwrap_or_else(|| renderer.default_font());
 
-            let paragraph = state.paragraph.update(text::Text {
+            state.paragraph.update(text::Text {
                 content: &self.content,
                 size,
                 line_height: self.line_height,
@@ -157,7 +157,7 @@ where
                 shaping: self.shaping,
             });
 
-            paragraph.min_bounds()
+            state.paragraph.min_bounds()
         })
     }
 
@@ -370,25 +370,18 @@ where
         &self,
         tree: &mut Tree,
         layout: Layout<'_>,
-        renderer: &Renderer,
+        _renderer: &Renderer,
         operation: &mut dyn Operation<Message>,
     ) {
         let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
 
         let bounds = layout.bounds();
         let value = Value::new(&self.content);
-        if let Some(selection) = state.interaction.selection().and_then(|raw| {
-            selection(
-                raw,
-                renderer,
-                self.font,
-                self.size,
-                self.line_height,
-                bounds,
-                &value,
-                &state.paragraph,
-            )
-        }) {
+        if let Some(selection) = state
+            .interaction
+            .selection()
+            .and_then(|raw| selection(raw, bounds, &state.paragraph, &value))
+        {
             let content = value.select(selection.start, selection.end).to_string();
             operation.custom(&mut (bounds.y, content), None);
         }
@@ -432,7 +425,7 @@ impl<'a, Message, Theme, Renderer> From<Text<'a, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Renderer: text::Renderer + 'a,
-    Theme: StyleSheet,
+    Theme: StyleSheet + 'a,
 {
     fn from(text: Text<'a, Theme, Renderer>) -> Element<'a, Message, Theme, Renderer> {
         Element::new(text)
