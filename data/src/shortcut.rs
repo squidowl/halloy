@@ -15,8 +15,8 @@ pub struct Shortcut {
 }
 
 impl Shortcut {
-    pub fn execute(&self, key_bind: KeyBind) -> Option<Command> {
-        (self.key_bind == key_bind).then_some(self.command)
+    pub fn execute(&self, key_bind: &KeyBind) -> Option<Command> {
+        (self.key_bind == *key_bind).then_some(self.command)
     }
 }
 
@@ -89,16 +89,6 @@ impl KeyBind {
         modifiers: impl Into<Modifiers>,
     ) -> bool {
         self.key_code == key_code.into() && self.modifiers == modifiers.into()
-    }
-
-    pub fn from_char(char: &str, modifiers: impl Into<Modifiers>) -> Option<Self> {
-        char.to_string()
-            .parse::<KeyCode>()
-            .ok()
-            .map(|key_code| KeyBind {
-                key_code,
-                modifiers: modifiers.into(),
-            })
     }
 }
 

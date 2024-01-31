@@ -1565,7 +1565,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -1579,7 +1579,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "bitflags 1.3.2",
  "log",
@@ -1595,7 +1595,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "futures",
  "iced_core",
@@ -1608,7 +1608,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "bitflags 1.3.2",
  "bytemuck",
@@ -1631,7 +1631,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -1643,7 +1643,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -1653,7 +1653,7 @@ dependencies = [
 [[package]]
 name = "iced_style"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "iced_core",
  "once_cell",
@@ -1663,7 +1663,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -1679,7 +1679,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "bitflags 1.3.2",
  "bytemuck",
@@ -1696,7 +1696,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -1710,7 +1710,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.12.0"
-source = "git+https://github.com/iced-rs/iced?rev=a1114cada310fa6e4cd478cc0827500e70a1bd0d#a1114cada310fa6e4cd478cc0827500e70a1bd0d"
+source = "git+https://github.com/tarkah/iced?rev=f9db8d1efe68634b7b06ce07f12ea33a3e37d79c#f9db8d1efe68634b7b06ce07f12ea33a3e37d79c"
 dependencies = [
  "iced_graphics",
  "iced_runtime",

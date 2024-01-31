@@ -357,11 +357,14 @@ where
 
     fn layout(
         &self,
-        tree: &mut widget::Tree,
+        _tree: &mut widget::Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        self.text_input.layout(tree, renderer, limits, None)
+        let mut tree = self.state.text_input_tree();
+        let node = self.text_input.layout(&mut tree, renderer, limits, None);
+        self.state.update_text_input(tree);
+        node
     }
 
     fn tag(&self) -> widget::tree::Tag {

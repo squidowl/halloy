@@ -44,7 +44,9 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for Shortcut<'a, Message> {
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        self.content.as_widget().layout(tree, renderer, limits)
+        self.content
+            .as_widget()
+            .layout(&mut tree.children[0], renderer, limits)
     }
 
     fn draw(
@@ -112,12 +114,12 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for Shortcut<'a, Message> {
 
         match &event {
             Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
-                let key_bind = shortcut::KeyBind::from((*key, *modifiers));
+                let key_bind = shortcut::KeyBind::from((key.clone(), *modifiers));
 
                 if let Some(command) = self
                     .shortcuts
                     .iter()
-                    .find_map(|shortcut| shortcut.execute(key_bind))
+                    .find_map(|shortcut| shortcut.execute(&key_bind))
                 {
                     shell.publish((self.on_press)(command));
                     return event::Status::Captured;
@@ -125,21 +127,6 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for Shortcut<'a, Message> {
             }
             Event::Keyboard(keyboard::Event::ModifiersChanged(new_modifiers)) => {
                 *modifiers = (*new_modifiers).into();
-            }
-            Event::Keyboard(keyboard::Event::KeyPressed {
-                key: keyboard::Key::Character(char),
-                ..
-            }) => {
-                // Prevent text input character entry if it matches a keybind
-                if let Some(key_bind) = shortcut::KeyBind::from_char(char.as_str(), *modifiers) {
-                    if self
-                        .shortcuts
-                        .iter()
-                        .any(|shortcut| shortcut.execute(key_bind).is_some())
-                    {
-                        return event::Status::Captured;
-                    }
-                }
             }
             _ => {}
         }

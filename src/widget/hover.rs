@@ -109,7 +109,9 @@ mod widget {
             renderer: &Renderer,
             limits: &layout::Limits,
         ) -> layout::Node {
-            self.content.as_widget().layout(tree, renderer, limits)
+            self.content
+                .as_widget()
+                .layout(&mut tree.children[0], renderer, limits)
         }
 
         fn tag(&self) -> widget::tree::Tag {

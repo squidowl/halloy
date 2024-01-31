@@ -48,7 +48,9 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'a, Messa
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        self.base.as_widget().layout(tree, renderer, limits)
+        self.base
+            .as_widget()
+            .layout(&mut tree.children[0], renderer, limits)
     }
 
     fn draw(
@@ -198,7 +200,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
         renderer: &Renderer,
         bounds: Size,
         position: Point,
-        mut translation: Vector,
+        translation: Vector,
     ) -> layout::Node {
         let height = match self.anchor {
             // From top of base to top of viewport
@@ -217,7 +219,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
         .width(Length::Fill)
         .height(Length::Fill);
 
-        let mut node = self
+        let node = self
             .content
             .as_widget()
             .layout(self.tree, renderer, &limits);
@@ -232,9 +234,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
             ),
         } + translation;
 
-        node.move_to(position + translation);
-
-        node
+        node.move_to(position + translation)
     }
 
     fn draw(

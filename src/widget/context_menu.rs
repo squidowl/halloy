@@ -70,7 +70,9 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for ContextMenu<'a, Message> 
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        self.base.as_widget().layout(tree, renderer, limits)
+        self.base
+            .as_widget()
+            .layout(&mut tree.children[0], renderer, limits)
     }
 
     fn draw(
@@ -224,7 +226,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
             .width(Length::Fill)
             .height(Length::Fill);
 
-        let mut node = self
+        let node = self
             .content
             .as_widget()
             .layout(self.tree, renderer, &limits);
@@ -244,9 +246,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
             bounds.y = viewport.y + viewport.height - bounds.height;
         }
 
-        node.move_to(bounds.position() + translation);
-
-        node
+        node.move_to(bounds.position() + translation)
     }
 
     fn draw(
