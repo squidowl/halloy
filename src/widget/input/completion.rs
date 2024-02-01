@@ -233,6 +233,7 @@ impl Commands {
                     container(double_pass(first_pass, second_pass))
                         .padding(4)
                         .style(theme::Container::Context)
+                        .width(Length::Shrink)
                         .into()
                 })
             }

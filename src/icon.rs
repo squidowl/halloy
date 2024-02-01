@@ -41,7 +41,7 @@ pub fn people<'a>() -> Text<'a> {
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .style(theme::Text::Primary)
-        .line_height(LineHeight::Relative(1.1))
+        .line_height(LineHeight::Relative(1.0))
         .size(theme::ICON_SIZE)
         .font(font::ICON)
 }

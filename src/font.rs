@@ -54,9 +54,15 @@ pub fn set(config: Option<&Config>) {
 
 pub fn load() -> Vec<Cow<'static, [u8]>> {
     vec![
-        Cow::Borrowed(include_bytes!("../fonts/iosevka-term-regular.ttf")),
-        Cow::Borrowed(include_bytes!("../fonts/iosevka-term-bold.ttf")),
-        Cow::Borrowed(include_bytes!("../fonts/iosevka-term-italic.ttf")),
-        Cow::Borrowed(include_bytes!("../fonts/icons.ttf")),
+        include_bytes!("../fonts/iosevka-term-regular.ttf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/iosevka-term-bold.ttf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/iosevka-term-italic.ttf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/icons.ttf").as_slice().into(),
     ]
 }

@@ -200,7 +200,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
         renderer: &Renderer,
         bounds: Size,
         position: Point,
-        translation: Vector,
+        _translation: Vector,
     ) -> layout::Node {
         let height = match self.anchor {
             // From top of base to top of viewport
@@ -232,7 +232,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
                 self.base_layout.width / 2.0 - node.size().width / 2.0,
                 self.offset,
             ),
-        } + translation;
+        };
 
         node.move_to(position + translation)
     }

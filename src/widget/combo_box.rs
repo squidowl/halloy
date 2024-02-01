@@ -362,7 +362,12 @@ where
         limits: &layout::Limits,
     ) -> layout::Node {
         let mut tree = self.state.text_input_tree();
-        let node = self.text_input.layout(&mut tree, renderer, limits, None);
+        let node = Widget::<TextInputEvent, Theme, Renderer>::layout(
+            &self.text_input,
+            &mut tree,
+            renderer,
+            limits,
+        );
         self.state.update_text_input(tree);
         node
     }

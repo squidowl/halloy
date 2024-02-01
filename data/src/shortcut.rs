@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use std::ops;
 use std::str::FromStr;
 
@@ -65,10 +66,35 @@ macro_rules! default {
     };
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, Ord, PartialOrd)]
 pub struct KeyBind {
     key_code: KeyCode,
     modifiers: Modifiers,
+}
+
+impl PartialEq for KeyBind {
+    fn eq(&self, other: &Self) -> bool {
+        if self.modifiers != other.modifiers {
+            return false;
+        }
+
+        match (&self.key_code.0, &other.key_code.0) {
+            // SHIFT modifier effects if this comes across as `a` or `A`, but
+            // we explicitly define / check modifiers so it doesn't matter if
+            // user defined it as `a` or `A` in their keymap
+            (keyboard::Key::Character(a), keyboard::Key::Character(b)) => {
+                a.to_lowercase() == b.to_lowercase()
+            }
+            (a, b) => a == b,
+        }
+    }
+}
+
+impl Hash for KeyBind {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key_code.hash(state);
+        self.modifiers.hash(state);
+    }
 }
 
 impl KeyBind {
