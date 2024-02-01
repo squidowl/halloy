@@ -121,6 +121,7 @@ pub fn view<'a>(
             )
             .map(Message::InputView)
         ]
+        .width(Length::Fill)
     });
 
     let content = match (settings.users.visible, config.buffer.channel.users.position) {

@@ -220,7 +220,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
         renderer: &Renderer,
         viewport: Size,
         position: Point,
-        translation: Vector,
+        _translation: Vector,
     ) -> layout::Node {
         let limits = layout::Limits::new(Size::ZERO, viewport)
             .width(Length::Fill)
@@ -246,7 +246,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
             bounds.y = viewport.y + viewport.height - bounds.height;
         }
 
-        node.move_to(bounds.position() + translation)
+        node.move_to(bounds.position())
     }
 
     fn draw(

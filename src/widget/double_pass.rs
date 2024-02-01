@@ -44,7 +44,11 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for DoublePass<'a, Message> {
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let layout = self.first_pass.as_widget().layout(tree, renderer, limits);
+        let layout = self.first_pass.as_widget().layout(
+            &mut widget::Tree::new(&self.first_pass),
+            renderer,
+            limits,
+        );
 
         let new_limits = layout::Limits::new(Size::ZERO, layout.size());
 
