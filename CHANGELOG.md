@@ -22,6 +22,7 @@ Changed:
 - `hidden_server_messages` has been changed to `server_messages` and additional customization has been added:
   - Exclude messages [join, part, quit].
   - Adjust username format. 
+  - Exclude server messages for users who have not messaged in the last X seconds
 
 Fixed:
 
