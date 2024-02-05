@@ -456,6 +456,13 @@ impl Dashboard {
                             });
                         }
                     }
+                    CommandBar => {
+                        return self.toggle_command_bar(
+                            &closed_buffers(self, clients),
+                            config,
+                            theme,
+                        );
+                    }
                 }
             }
         }
@@ -618,7 +625,6 @@ impl Dashboard {
 
                 Command::perform(task, |_| Message::Close)
             }
-            CommandBar => self.toggle_command_bar(&closed_buffers(self, clients), config, theme),
         }
     }
 

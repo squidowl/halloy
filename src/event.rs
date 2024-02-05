@@ -7,7 +7,6 @@ pub enum Event {
     Escape,
     Home,
     End,
-    CommandBar,
 }
 
 pub fn events() -> Subscription<Event> {
@@ -35,11 +34,6 @@ fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Ev
             key: keyboard::Key::Named(keyboard::key::Named::End),
             ..
         }) if ignored(status) => Some(Event::End),
-        iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key: keyboard::Key::Character(c),
-            modifiers,
-            ..
-        }) if c.as_str() == "k" && modifiers.command() => Some(Event::CommandBar),
         iced::Event::Window(_, window::Event::CloseRequested) => Some(Event::CloseRequested),
         _ => None,
     }

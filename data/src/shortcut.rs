@@ -33,6 +33,7 @@ pub enum Command {
     CycleNextBuffer,
     CyclePreviousBuffer,
     ToggleNickList,
+    CommandBar,
 }
 
 macro_rules! default {
@@ -108,6 +109,7 @@ impl KeyBind {
     default!(cycle_next_buffer, Tab, CTRL);
     default!(cycle_previous_buffer, Tab, CTRL | SHIFT);
     default!(toggle_nick_list, "m", COMMAND | ALT);
+    default!(command_bar, "k", COMMAND);
 
     pub fn is_pressed(
         &self,
