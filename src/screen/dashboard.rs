@@ -8,7 +8,7 @@ use data::history::manager::Broadcast;
 use data::user::Nick;
 use data::{client, history, server, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{container, row, Space};
+use iced::widget::{column, container, row, Space};
 use iced::{clipboard, window, Command, Length};
 
 use self::command_bar::CommandBar;
@@ -543,7 +543,10 @@ impl Dashboard {
                 10.0,
             )
         } else {
-            base.into()
+            // Align `base` into same view tree shape
+            // as `anchored_overlay` to prevent diff
+            // from firing when displaying command bar
+            column![column![base]].into()
         };
 
         shortcut(base, config.keys.shortcuts(), Message::Shortcut)
