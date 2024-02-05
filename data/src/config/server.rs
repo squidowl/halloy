@@ -101,7 +101,7 @@ pub enum Sasl {
         /// The path to PEM encoded X509 user certificate for external auth
         cert: PathBuf,
         /// The path to PEM encoded PKCS#8 private key corresponding to the user certificate for external auth
-        key: PathBuf,
+        key: Option<PathBuf>,
     },
 }
 
@@ -133,8 +133,8 @@ impl Sasl {
     }
 
     fn external_key(&self) -> Option<&PathBuf> {
-        if let Self::External { key, .. } = self {
-            Some(key)
+        if let Self::External { cert, key, .. } = self {
+            Some(key.as_ref().unwrap_or(cert))
         } else {
             None
         }
