@@ -26,6 +26,7 @@ pub enum Security<'a> {
         accept_invalid_certs: bool,
         root_cert_path: Option<&'a PathBuf>,
         client_cert_path: Option<&'a PathBuf>,
+        client_key_path: Option<&'a PathBuf>,
     },
 }
 
@@ -44,6 +45,7 @@ impl Connection {
             accept_invalid_certs,
             root_cert_path,
             client_cert_path,
+            client_key_path,
         } = config.security
         {
             let mut builder = native_tls::TlsConnector::builder();
@@ -55,10 +57,11 @@ impl Connection {
                 builder.add_root_certificate(cert);
             }
 
-            if let Some(path) = client_cert_path {
-                let bytes = fs::read(path).await?;
-                let pkcs12_archive = Identity::from_pkcs8(&bytes, &bytes)?;
-                builder.identity(pkcs12_archive);
+            if let (Some(cert_path), Some(pkcs8_key_path)) = (client_cert_path, client_key_path) {
+                let cert_bytes = fs::read(cert_path).await?;
+                let pkcs8_key_bytes = fs::read(pkcs8_key_path).await?;
+                let identity = Identity::from_pkcs8(&cert_bytes, &pkcs8_key_bytes)?;
+                builder.identity(identity);
             }
 
             let tls = TlsConnector::from(builder.build()?)

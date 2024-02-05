@@ -74,6 +74,7 @@ impl Server {
                 accept_invalid_certs: self.dangerously_accept_invalid_certs,
                 root_cert_path: self.root_cert_path.as_ref(),
                 client_cert_path: self.sasl.as_ref().and_then(Sasl::external_cert),
+                client_key_path: self.sasl.as_ref().and_then(Sasl::external_key),
             }
         } else {
             connection::Security::Unsecured
@@ -97,8 +98,10 @@ pub enum Sasl {
         password: String,
     },
     External {
-        /// The path to PEM encoded X509 certificate for external auth
+        /// The path to PEM encoded X509 user certificate for external auth
         cert: PathBuf,
+        /// The path to PEM encoded PKCS#8 private key corresponding to the user certificate for external auth
+        key: Option<PathBuf>,
     },
 }
 
@@ -122,8 +125,16 @@ impl Sasl {
     }
 
     fn external_cert(&self) -> Option<&PathBuf> {
-        if let Self::External { cert } = self {
+        if let Self::External { cert, .. } = self {
             Some(cert)
+        } else {
+            None
+        }
+    }
+
+    fn external_key(&self) -> Option<&PathBuf> {
+        if let Self::External { cert, key, .. } = self {
+            Some(key.as_ref().unwrap_or(cert))
         } else {
             None
         }
