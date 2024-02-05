@@ -1,4 +1,3 @@
-use iced::advanced::widget::tree;
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
 use iced::{event, mouse, Event, Length, Point, Rectangle, Size, Vector};
 
@@ -72,15 +71,6 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'a, Messa
             cursor,
             viewport,
         )
-    }
-
-    fn tag(&self) -> tree::Tag {
-        struct Marker;
-        tree::Tag::of::<Marker>()
-    }
-
-    fn state(&self) -> tree::State {
-        tree::State::None
     }
 
     fn children(&self) -> Vec<widget::Tree> {
