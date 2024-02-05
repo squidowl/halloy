@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Configuration option `servers.<name>.sasl.external.key` added to support loading a separate PEM PKCS #8 encoded key for SASL authentication.
+
 Changed:
 
 - Focus an available pane on launch, so that launch behavior follows typical use (e.g. if `dashboard.sidebar.default_action`
