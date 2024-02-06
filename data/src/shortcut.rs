@@ -1,22 +1,23 @@
+use std::hash::Hash;
 use std::ops;
 use std::str::FromStr;
 
-use iced_core::keyboard;
+use iced_core::keyboard::{self, key};
 use serde::Deserialize;
 
 pub fn shortcut(key_bind: KeyBind, command: Command) -> Shortcut {
     Shortcut { key_bind, command }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Shortcut {
     key_bind: KeyBind,
     command: Command,
 }
 
 impl Shortcut {
-    pub fn execute(&self, key_bind: KeyBind) -> Option<Command> {
-        (self.key_bind == key_bind).then_some(self.command)
+    pub fn execute(&self, key_bind: &KeyBind) -> Option<Command> {
+        (self.key_bind == *key_bind).then_some(self.command)
     }
 }
 
@@ -32,44 +33,83 @@ pub enum Command {
     CycleNextBuffer,
     CyclePreviousBuffer,
     ToggleNickList,
+    CommandBar,
 }
 
 macro_rules! default {
     ($name:ident, $k:tt) => {
         pub fn $name() -> KeyBind {
             KeyBind {
-                key_code: KeyCode(iced_core::keyboard::KeyCode::$k),
+                key_code: KeyCode(iced_core::keyboard::Key::Named(
+                    iced_core::keyboard::key::Named::$k,
+                )),
                 modifiers: Modifiers::default(),
+            }
+        }
+    };
+    ($name:ident, $k:literal, $m:expr) => {
+        pub fn $name() -> KeyBind {
+            KeyBind {
+                key_code: KeyCode(iced_core::keyboard::Key::Character($k.into())),
+                modifiers: $m,
             }
         }
     };
     ($name:ident, $k:tt, $m:expr) => {
         pub fn $name() -> KeyBind {
             KeyBind {
-                key_code: KeyCode(iced_core::keyboard::KeyCode::$k),
+                key_code: KeyCode(iced_core::keyboard::Key::Named(
+                    iced_core::keyboard::key::Named::$k,
+                )),
                 modifiers: $m,
             }
         }
     };
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, Ord, PartialOrd)]
 pub struct KeyBind {
     key_code: KeyCode,
     modifiers: Modifiers,
 }
 
+impl PartialEq for KeyBind {
+    fn eq(&self, other: &Self) -> bool {
+        if self.modifiers != other.modifiers {
+            return false;
+        }
+
+        match (&self.key_code.0, &other.key_code.0) {
+            // SHIFT modifier effects if this comes across as `a` or `A`, but
+            // we explicitly define / check modifiers so it doesn't matter if
+            // user defined it as `a` or `A` in their keymap
+            (keyboard::Key::Character(a), keyboard::Key::Character(b)) => {
+                a.to_lowercase() == b.to_lowercase()
+            }
+            (a, b) => a == b,
+        }
+    }
+}
+
+impl Hash for KeyBind {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key_code.hash(state);
+        self.modifiers.hash(state);
+    }
+}
+
 impl KeyBind {
-    default!(move_up, Up, ALT);
-    default!(move_down, Down, ALT);
-    default!(move_left, Left, ALT);
-    default!(move_right, Right, ALT);
-    default!(close_buffer, W, COMMAND);
-    default!(maximize_buffer, Up, COMMAND);
-    default!(restore_buffer, Down, COMMAND);
+    default!(move_up, ArrowUp, ALT);
+    default!(move_down, ArrowDown, ALT);
+    default!(move_left, ArrowLeft, ALT);
+    default!(move_right, ArrowRight, ALT);
+    default!(close_buffer, "w", COMMAND);
+    default!(maximize_buffer, ArrowUp, COMMAND);
+    default!(restore_buffer, ArrowDown, COMMAND);
     default!(cycle_next_buffer, Tab, CTRL);
     default!(cycle_previous_buffer, Tab, CTRL | SHIFT);
-    default!(toggle_nick_list, M, COMMAND | ALT);
+    default!(toggle_nick_list, "m", COMMAND | ALT);
+    default!(command_bar, "k", COMMAND);
 
     pub fn is_pressed(
         &self,
@@ -78,20 +118,10 @@ impl KeyBind {
     ) -> bool {
         self.key_code == key_code.into() && self.modifiers == modifiers.into()
     }
-
-    pub fn from_char(char: char, modifiers: impl Into<Modifiers>) -> Option<Self> {
-        char.to_string()
-            .parse::<KeyCode>()
-            .ok()
-            .map(|key_code| KeyBind {
-                key_code,
-                modifiers: modifiers.into(),
-            })
-    }
 }
 
-impl From<(keyboard::KeyCode, keyboard::Modifiers)> for KeyBind {
-    fn from((key_code, modifiers): (keyboard::KeyCode, keyboard::Modifiers)) -> Self {
+impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {
+    fn from((key_code, modifiers): (keyboard::Key, keyboard::Modifiers)) -> Self {
         Self {
             key_code: KeyCode(key_code),
             modifiers: Modifiers(modifiers),
@@ -138,8 +168,8 @@ impl<'de> Deserialize<'de> for KeyBind {
     }
 }
 
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
-pub struct KeyCode(keyboard::KeyCode);
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone)]
+pub struct KeyCode(keyboard::Key);
 
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Default)]
 pub struct Modifiers(keyboard::Modifiers);
@@ -168,169 +198,63 @@ impl FromStr for KeyCode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self(match s.to_ascii_lowercase().as_str() {
-            "1" => keyboard::KeyCode::Key1,
-            "2" => keyboard::KeyCode::Key2,
-            "3" => keyboard::KeyCode::Key3,
-            "4" => keyboard::KeyCode::Key4,
-            "5" => keyboard::KeyCode::Key5,
-            "6" => keyboard::KeyCode::Key6,
-            "7" => keyboard::KeyCode::Key7,
-            "8" => keyboard::KeyCode::Key8,
-            "9" => keyboard::KeyCode::Key9,
-            "0" => keyboard::KeyCode::Key0,
-            "a" => keyboard::KeyCode::A,
-            "b" => keyboard::KeyCode::B,
-            "c" => keyboard::KeyCode::C,
-            "d" => keyboard::KeyCode::D,
-            "e" => keyboard::KeyCode::E,
-            "f" => keyboard::KeyCode::F,
-            "g" => keyboard::KeyCode::G,
-            "h" => keyboard::KeyCode::H,
-            "i" => keyboard::KeyCode::I,
-            "j" => keyboard::KeyCode::J,
-            "k" => keyboard::KeyCode::K,
-            "l" => keyboard::KeyCode::L,
-            "m" => keyboard::KeyCode::M,
-            "n" => keyboard::KeyCode::N,
-            "o" => keyboard::KeyCode::O,
-            "p" => keyboard::KeyCode::P,
-            "q" => keyboard::KeyCode::Q,
-            "r" => keyboard::KeyCode::R,
-            "s" => keyboard::KeyCode::S,
-            "t" => keyboard::KeyCode::T,
-            "u" => keyboard::KeyCode::U,
-            "v" => keyboard::KeyCode::V,
-            "w" => keyboard::KeyCode::W,
-            "x" => keyboard::KeyCode::X,
-            "y" => keyboard::KeyCode::Y,
-            "z" => keyboard::KeyCode::Z,
-            "escape" => keyboard::KeyCode::Escape,
-            "f1" => keyboard::KeyCode::F1,
-            "f2" => keyboard::KeyCode::F2,
-            "f3" => keyboard::KeyCode::F3,
-            "f4" => keyboard::KeyCode::F4,
-            "f5" => keyboard::KeyCode::F5,
-            "f6" => keyboard::KeyCode::F6,
-            "f7" => keyboard::KeyCode::F7,
-            "f8" => keyboard::KeyCode::F8,
-            "f9" => keyboard::KeyCode::F9,
-            "f10" => keyboard::KeyCode::F10,
-            "f11" => keyboard::KeyCode::F11,
-            "f12" => keyboard::KeyCode::F12,
-            "f13" => keyboard::KeyCode::F13,
-            "f14" => keyboard::KeyCode::F14,
-            "f15" => keyboard::KeyCode::F15,
-            "f16" => keyboard::KeyCode::F16,
-            "f17" => keyboard::KeyCode::F17,
-            "f18" => keyboard::KeyCode::F18,
-            "f19" => keyboard::KeyCode::F19,
-            "f20" => keyboard::KeyCode::F20,
-            "f21" => keyboard::KeyCode::F21,
-            "f22" => keyboard::KeyCode::F22,
-            "f23" => keyboard::KeyCode::F23,
-            "f24" => keyboard::KeyCode::F24,
-            "snapshot" => keyboard::KeyCode::Snapshot,
-            "scroll" => keyboard::KeyCode::Scroll,
-            "pause" => keyboard::KeyCode::Pause,
-            "insert" => keyboard::KeyCode::Insert,
-            "home" => keyboard::KeyCode::Home,
-            "delete" => keyboard::KeyCode::Delete,
-            "end" => keyboard::KeyCode::End,
-            "pagedown" => keyboard::KeyCode::PageDown,
-            "pageup" => keyboard::KeyCode::PageUp,
-            "left" => keyboard::KeyCode::Left,
-            "up" => keyboard::KeyCode::Up,
-            "right" => keyboard::KeyCode::Right,
-            "down" => keyboard::KeyCode::Down,
-            "backspace" => keyboard::KeyCode::Backspace,
-            "enter" => keyboard::KeyCode::Enter,
-            "space" => keyboard::KeyCode::Space,
-            "compose" => keyboard::KeyCode::Compose,
-            "caret" => keyboard::KeyCode::Caret,
-            "numlock" => keyboard::KeyCode::Numlock,
-            "numpad0" => keyboard::KeyCode::Numpad0,
-            "numpad1" => keyboard::KeyCode::Numpad1,
-            "numpad2" => keyboard::KeyCode::Numpad2,
-            "numpad3" => keyboard::KeyCode::Numpad3,
-            "numpad4" => keyboard::KeyCode::Numpad4,
-            "numpad5" => keyboard::KeyCode::Numpad5,
-            "numpad6" => keyboard::KeyCode::Numpad6,
-            "numpad7" => keyboard::KeyCode::Numpad7,
-            "numpad8" => keyboard::KeyCode::Numpad8,
-            "numpad9" => keyboard::KeyCode::Numpad9,
-            "numpadadd" => keyboard::KeyCode::NumpadAdd,
-            "numpaddivide" => keyboard::KeyCode::NumpadDivide,
-            "numpaddecimal" => keyboard::KeyCode::NumpadDecimal,
-            "numpadcomma" => keyboard::KeyCode::NumpadComma,
-            "numpadenter" => keyboard::KeyCode::NumpadEnter,
-            "numpadequals" => keyboard::KeyCode::NumpadEquals,
-            "numpadmultiply" => keyboard::KeyCode::NumpadMultiply,
-            "numpadsubtract" => keyboard::KeyCode::NumpadSubtract,
-            "abntc1" => keyboard::KeyCode::AbntC1,
-            "abntc2" => keyboard::KeyCode::AbntC2,
-            "apostrophe" => keyboard::KeyCode::Apostrophe,
-            "apps" => keyboard::KeyCode::Apps,
-            "asterisk" => keyboard::KeyCode::Asterisk,
-            "at" => keyboard::KeyCode::At,
-            "ax" => keyboard::KeyCode::Ax,
-            "backslash" => keyboard::KeyCode::Backslash,
-            "calculator" => keyboard::KeyCode::Calculator,
-            "capital" => keyboard::KeyCode::Capital,
-            "colon" => keyboard::KeyCode::Colon,
-            "comma" => keyboard::KeyCode::Comma,
-            "convert" => keyboard::KeyCode::Convert,
-            "equals" => keyboard::KeyCode::Equals,
-            "grave" => keyboard::KeyCode::Grave,
-            "kana" => keyboard::KeyCode::Kana,
-            "kanji" => keyboard::KeyCode::Kanji,
-            "lalt" => keyboard::KeyCode::LAlt,
-            "lbracket" => keyboard::KeyCode::LBracket,
-            "lcontrol" => keyboard::KeyCode::LControl,
-            "lshift" => keyboard::KeyCode::LShift,
-            "lwin" => keyboard::KeyCode::LWin,
-            "mail" => keyboard::KeyCode::Mail,
-            "mediaselect" => keyboard::KeyCode::MediaSelect,
-            "mediastop" => keyboard::KeyCode::MediaStop,
-            "minus" => keyboard::KeyCode::Minus,
-            "mute" => keyboard::KeyCode::Mute,
-            "mycomputer" => keyboard::KeyCode::MyComputer,
-            "navigateforward" => keyboard::KeyCode::NavigateForward, // also called "Next"
-            "navigatebackward" => keyboard::KeyCode::NavigateBackward, // also called "Prior"
-            "nexttrack" => keyboard::KeyCode::NextTrack,
-            "noconvert" => keyboard::KeyCode::NoConvert,
-            "oem102" => keyboard::KeyCode::OEM102,
-            "period" => keyboard::KeyCode::Period,
-            "playpause" => keyboard::KeyCode::PlayPause,
-            "plus" => keyboard::KeyCode::Plus,
-            "power" => keyboard::KeyCode::Power,
-            "prevtrack" => keyboard::KeyCode::PrevTrack,
-            "ralt" => keyboard::KeyCode::RAlt,
-            "rbracket" => keyboard::KeyCode::RBracket,
-            "rcontrol" => keyboard::KeyCode::RControl,
-            "rshift" => keyboard::KeyCode::RShift,
-            "rwin" => keyboard::KeyCode::RWin,
-            "semicolon" => keyboard::KeyCode::Semicolon,
-            "slash" => keyboard::KeyCode::Slash,
-            "sleep" => keyboard::KeyCode::Sleep,
-            "stop" => keyboard::KeyCode::Stop,
-            "sysrq" => keyboard::KeyCode::Sysrq,
-            "tab" => keyboard::KeyCode::Tab,
-            "underline" => keyboard::KeyCode::Underline,
-            "unlabeled" => keyboard::KeyCode::Unlabeled,
-            "volumedown" => keyboard::KeyCode::VolumeDown,
-            "volumeup" => keyboard::KeyCode::VolumeUp,
-            "wake" => keyboard::KeyCode::Wake,
-            "webback" => keyboard::KeyCode::WebBack,
-            "webfavorites" => keyboard::KeyCode::WebFavorites,
-            "webforward" => keyboard::KeyCode::WebForward,
-            "webhome" => keyboard::KeyCode::WebHome,
-            "webrefresh" => keyboard::KeyCode::WebRefresh,
-            "websearch" => keyboard::KeyCode::WebSearch,
-            "webstop" => keyboard::KeyCode::WebStop,
-            "yen" => keyboard::KeyCode::Yen,
-            "copy" => keyboard::KeyCode::Copy,
-            "paste" => keyboard::KeyCode::Paste,
-            "cut" => keyboard::KeyCode::Cut,
+            "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "0" | "a" | "b" | "c" | "d"
+            | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r"
+            | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" => keyboard::Key::Character(s.into()),
+            "escape" | "esc" => keyboard::Key::Named(key::Named::Escape),
+            "f1" => keyboard::Key::Named(key::Named::F1),
+            "f2" => keyboard::Key::Named(key::Named::F2),
+            "f3" => keyboard::Key::Named(key::Named::F3),
+            "f4" => keyboard::Key::Named(key::Named::F4),
+            "f5" => keyboard::Key::Named(key::Named::F5),
+            "f6" => keyboard::Key::Named(key::Named::F6),
+            "f7" => keyboard::Key::Named(key::Named::F7),
+            "f8" => keyboard::Key::Named(key::Named::F8),
+            "f9" => keyboard::Key::Named(key::Named::F9),
+            "f10" => keyboard::Key::Named(key::Named::F10),
+            "f11" => keyboard::Key::Named(key::Named::F11),
+            "f12" => keyboard::Key::Named(key::Named::F12),
+            "f13" => keyboard::Key::Named(key::Named::F13),
+            "f14" => keyboard::Key::Named(key::Named::F14),
+            "f15" => keyboard::Key::Named(key::Named::F15),
+            "f16" => keyboard::Key::Named(key::Named::F16),
+            "f17" => keyboard::Key::Named(key::Named::F17),
+            "f18" => keyboard::Key::Named(key::Named::F18),
+            "f19" => keyboard::Key::Named(key::Named::F19),
+            "f20" => keyboard::Key::Named(key::Named::F20),
+            "f21" => keyboard::Key::Named(key::Named::F21),
+            "f22" => keyboard::Key::Named(key::Named::F22),
+            "f23" => keyboard::Key::Named(key::Named::F23),
+            "f24" => keyboard::Key::Named(key::Named::F24),
+            "home" => keyboard::Key::Named(key::Named::Home),
+            "delete" => keyboard::Key::Named(key::Named::Delete),
+            "end" => keyboard::Key::Named(key::Named::End),
+            "pagedown" => keyboard::Key::Named(key::Named::PageDown),
+            "pageup" => keyboard::Key::Named(key::Named::PageUp),
+            "left" => keyboard::Key::Named(key::Named::ArrowLeft),
+            "up" => keyboard::Key::Named(key::Named::ArrowUp),
+            "right" => keyboard::Key::Named(key::Named::ArrowRight),
+            "down" => keyboard::Key::Named(key::Named::ArrowDown),
+            "backspace" => keyboard::Key::Named(key::Named::Backspace),
+            "enter" => keyboard::Key::Named(key::Named::Enter),
+            "space" => keyboard::Key::Named(key::Named::Space),
+            "numlock" => keyboard::Key::Named(key::Named::NumLock),
+            "alt" => keyboard::Key::Named(key::Named::Alt),
+            "tab" => keyboard::Key::Named(key::Named::Tab),
+            "pause" => keyboard::Key::Named(key::Named::Pause),
+            "insert" => keyboard::Key::Named(key::Named::Insert),
+            "cut" => keyboard::Key::Named(key::Named::Cut),
+            "paste" => keyboard::Key::Named(key::Named::Paste),
+            "copy" => keyboard::Key::Named(key::Named::Copy),
+            "volumedown" => keyboard::Key::Named(key::Named::AudioVolumeDown),
+            "volumeup" => keyboard::Key::Named(key::Named::AudioVolumeUp),
+            "shift" => keyboard::Key::Named(key::Named::Shift),
+            "control" => keyboard::Key::Named(key::Named::Control),
+            "mute" => keyboard::Key::Named(key::Named::AudioVolumeMute),
+            "mediastop" => keyboard::Key::Named(key::Named::MediaStop),
+            "mediapause" => keyboard::Key::Named(key::Named::MediaPause),
+            "mediatracknext" => keyboard::Key::Named(key::Named::MediaTrackNext),
+            "mediatrackprev" => keyboard::Key::Named(key::Named::MediaTrackPrevious),
             _ => return Err(ParseError::InvalidKeyCode(s.to_string())),
         }))
     }

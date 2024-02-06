@@ -29,21 +29,32 @@ struct DoublePass<'a, Message> {
     second_pass: Element<'a, Message>,
 }
 
-impl<'a, Message> Widget<Message, Renderer> for DoublePass<'a, Message> {
-    fn width(&self) -> Length {
-        self.second_pass.as_widget().width()
+impl<'a, Message> Widget<Message, Theme, Renderer> for DoublePass<'a, Message> {
+    fn size(&self) -> Size<Length> {
+        self.second_pass.as_widget().size()
     }
 
-    fn height(&self) -> Length {
-        self.second_pass.as_widget().height()
+    fn size_hint(&self) -> Size<Length> {
+        self.second_pass.as_widget().size_hint()
     }
 
-    fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        let layout = self.first_pass.as_widget().layout(renderer, limits);
+    fn layout(
+        &self,
+        tree: &mut widget::Tree,
+        renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        let layout = self.first_pass.as_widget().layout(
+            &mut widget::Tree::new(&self.first_pass),
+            renderer,
+            limits,
+        );
 
         let new_limits = layout::Limits::new(Size::ZERO, layout.size());
 
-        self.second_pass.as_widget().layout(renderer, &new_limits)
+        self.second_pass
+            .as_widget()
+            .layout(tree, renderer, &new_limits)
     }
 
     fn draw(
@@ -123,7 +134,7 @@ impl<'a, Message> Widget<Message, Renderer> for DoublePass<'a, Message> {
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'b, Message, Renderer>> {
+    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         self.second_pass
             .as_widget_mut()
             .overlay(tree, layout, renderer)

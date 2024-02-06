@@ -24,6 +24,8 @@ pub struct Keys {
     pub cycle_previous_buffer: KeyBind,
     #[serde(default = "KeyBind::toggle_nick_list")]
     pub toggle_nick_list: KeyBind,
+    #[serde(default = "KeyBind::command_bar")]
+    pub command_bar: KeyBind,
 }
 
 impl Default for Keys {
@@ -39,6 +41,7 @@ impl Default for Keys {
             cycle_next_buffer: KeyBind::cycle_next_buffer(),
             cycle_previous_buffer: KeyBind::cycle_previous_buffer(),
             toggle_nick_list: KeyBind::toggle_nick_list(),
+            command_bar: KeyBind::command_bar(),
         }
     }
 }
@@ -48,16 +51,17 @@ impl Keys {
         use crate::shortcut::Command::*;
 
         vec![
-            shortcut(self.move_up, MoveUp),
-            shortcut(self.move_down, MoveDown),
-            shortcut(self.move_left, MoveLeft),
-            shortcut(self.move_right, MoveRight),
-            shortcut(self.close_buffer, CloseBuffer),
-            shortcut(self.maximize_buffer, MaximizeBuffer),
-            shortcut(self.restore_buffer, RestoreBuffer),
-            shortcut(self.cycle_next_buffer, CycleNextBuffer),
-            shortcut(self.cycle_previous_buffer, CyclePreviousBuffer),
-            shortcut(self.toggle_nick_list, ToggleNickList),
+            shortcut(self.move_up.clone(), MoveUp),
+            shortcut(self.move_down.clone(), MoveDown),
+            shortcut(self.move_left.clone(), MoveLeft),
+            shortcut(self.move_right.clone(), MoveRight),
+            shortcut(self.close_buffer.clone(), CloseBuffer),
+            shortcut(self.maximize_buffer.clone(), MaximizeBuffer),
+            shortcut(self.restore_buffer.clone(), RestoreBuffer),
+            shortcut(self.cycle_next_buffer.clone(), CycleNextBuffer),
+            shortcut(self.cycle_previous_buffer.clone(), CyclePreviousBuffer),
+            shortcut(self.toggle_nick_list.clone(), ToggleNickList),
+            shortcut(self.command_bar.clone(), CommandBar),
         ]
     }
 }

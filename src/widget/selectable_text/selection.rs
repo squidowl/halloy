@@ -58,25 +58,19 @@ pub struct Selection {
     pub end: usize,
 }
 
-pub fn selection<Renderer>(
+pub fn selection<P: text::Paragraph>(
     raw: Raw,
-    renderer: &Renderer,
-    font: Option<Renderer::Font>,
-    size: Option<f32>,
-    line_height: text::LineHeight,
     bounds: Rectangle,
+    paragraph: &P,
     value: &Value,
-) -> Option<Selection>
-where
-    Renderer: text::Renderer,
-{
+) -> Option<Selection> {
     let resolved = raw.resolve(bounds)?;
 
     let start_pos = relative(resolved.start, bounds);
     let end_pos = relative(resolved.end, bounds);
 
-    let start = find_cursor_position(renderer, font, size, line_height, bounds, value, start_pos)?;
-    let end = find_cursor_position(renderer, font, size, line_height, bounds, value, end_pos)?;
+    let start = find_cursor_position(paragraph, value, start_pos)?;
+    let end = find_cursor_position(paragraph, value, end_pos)?;
 
     (start != end).then(|| Selection {
         start: start.min(end),
@@ -84,35 +78,14 @@ where
     })
 }
 
-fn find_cursor_position<Renderer>(
-    renderer: &Renderer,
-    font: Option<Renderer::Font>,
-    size: Option<f32>,
-    line_height: text::LineHeight,
-    bounds: Rectangle,
+fn find_cursor_position<P: text::Paragraph>(
+    paragraph: &P,
     value: &Value,
     cursor_position: Point,
-) -> Option<usize>
-where
-    Renderer: text::Renderer,
-{
-    let font = font.unwrap_or_else(|| renderer.default_font());
-    let size = size.unwrap_or_else(|| renderer.default_size());
-
+) -> Option<usize> {
     let value = value.to_string();
 
-    let char_offset = renderer
-        .hit_test(
-            &value,
-            size,
-            line_height,
-            font,
-            bounds.size(),
-            text::Shaping::Advanced,
-            cursor_position,
-            true,
-        )
-        .map(text::Hit::cursor)?;
+    let char_offset = paragraph.hit_test(cursor_position).map(text::Hit::cursor)?;
 
     Some(unicode_segmentation::UnicodeSegmentation::graphemes(&value[..char_offset], true).count())
 }

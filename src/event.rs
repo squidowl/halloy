@@ -1,4 +1,4 @@
-use iced::{keyboard, subscription, window, Subscription};
+use iced::{event, keyboard, window, Subscription};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Event {
@@ -7,11 +7,10 @@ pub enum Event {
     Escape,
     Home,
     End,
-    CommandBar,
 }
 
 pub fn events() -> Subscription<Event> {
-    subscription::events_with(filtered_events)
+    event::listen_with(filtered_events)
 }
 
 fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Event> {
@@ -19,26 +18,23 @@ fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Ev
 
     match &event {
         iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key_code: keyboard::KeyCode::Escape,
+            key: keyboard::Key::Named(keyboard::key::Named::Escape),
             ..
         }) => Some(Event::Escape),
         iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key_code: keyboard::KeyCode::C,
+            key: keyboard::Key::Character(c),
             modifiers,
-        }) if modifiers.command() => Some(Event::Copy),
+            ..
+        }) if c.as_str() == "c" && modifiers.command() => Some(Event::Copy),
         iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key_code: keyboard::KeyCode::Home,
+            key: keyboard::Key::Named(keyboard::key::Named::Home),
             ..
         }) if ignored(status) => Some(Event::Home),
         iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key_code: keyboard::KeyCode::End,
+            key: keyboard::Key::Named(keyboard::key::Named::End),
             ..
         }) if ignored(status) => Some(Event::End),
-        iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key_code: keyboard::KeyCode::K,
-            modifiers,
-        }) if modifiers.command() => Some(Event::CommandBar),
-        iced::Event::Window(window::Event::CloseRequested) => Some(Event::CloseRequested),
+        iced::Event::Window(_, window::Event::CloseRequested) => Some(Event::CloseRequested),
         _ => None,
     }
 }

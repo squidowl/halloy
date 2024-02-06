@@ -12,18 +12,18 @@ chrono = { version = "0.4", features = ['serde'] }
 dirs-next = "2.0.0"
 flate2 = "1.0"
 futures = "0.3.21"
-iced_core = "0.9"
+iced_core = "0.12.0"
 log = "0.4.16"
-palette = "=0.7.2"
+palette = "0.7.4"
 rand = "0.8.4"
 rand_chacha = "0.3.0"
 seahash = "4.1.0"
 serde_json = "1.0"
-serde_yaml = "0.8.23"
+serde_yaml = "0.9.30"
 thiserror = "1.0.30"
 tokio = { version = "1.0", features = ["io-util"] }
 tokio-stream = { version = "0.1", features = ["time"] }
-itertools = "0.10.5"
+itertools = "0.12.1"
 
 [dependencies.irc]
 path = "../irc"

@@ -1,11 +1,13 @@
 use std::borrow::Cow;
 
 use iced::advanced::renderer::Quad;
+use iced::advanced::text::Paragraph;
 use iced::advanced::widget::{operation, tree, Operation, Tree};
 use iced::advanced::{layout, mouse, renderer, text, widget, Layout, Widget};
 use iced::widget::text_input::Value;
 use iced::{
-    alignment, event, touch, Color, Command, Element, Length, Pixels, Point, Rectangle, Size,
+    alignment, event, touch, Border, Color, Command, Element, Length, Pixels, Point, Rectangle,
+    Shadow, Size,
 };
 
 use self::selection::selection;
@@ -13,21 +15,21 @@ pub use self::text::{LineHeight, Shaping};
 
 mod selection;
 
-pub fn selectable_text<'a, Renderer>(content: impl ToString) -> Text<'a, Renderer>
+pub fn selectable_text<'a, Theme, Renderer>(content: impl ToString) -> Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Renderer::Theme: StyleSheet,
+    Theme: StyleSheet,
 {
     Text::new(content.to_string())
 }
 
-pub struct Text<'a, Renderer>
+pub struct Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Renderer::Theme: StyleSheet,
+    Theme: StyleSheet,
 {
     content: Cow<'a, str>,
-    size: Option<f32>,
+    size: Option<Pixels>,
     line_height: LineHeight,
     width: Length,
     height: Length,
@@ -35,13 +37,13 @@ where
     vertical_alignment: alignment::Vertical,
     font: Option<Renderer::Font>,
     shaping: Shaping,
-    style: <Renderer::Theme as StyleSheet>::Style,
+    style: <Theme as StyleSheet>::Style,
 }
 
-impl<'a, Renderer> Text<'a, Renderer>
+impl<'a, Theme, Renderer> Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Renderer::Theme: StyleSheet,
+    Theme: StyleSheet,
 {
     pub fn new(content: impl Into<Cow<'a, str>>) -> Self {
         Text {
@@ -62,7 +64,7 @@ where
     }
 
     pub fn size(mut self, size: impl Into<Pixels>) -> Self {
-        self.size = Some(size.into().0);
+        self.size = Some(size.into());
         self
     }
 
@@ -76,7 +78,7 @@ where
         self
     }
 
-    pub fn style(mut self, style: impl Into<<Renderer::Theme as StyleSheet>::Style>) -> Self {
+    pub fn style(mut self, style: impl Into<<Theme as StyleSheet>::Style>) -> Self {
         self.style = style.into();
         self
     }
@@ -107,46 +109,56 @@ where
     }
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer> for Text<'a, Renderer>
+impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Renderer::Theme: StyleSheet,
+    Theme: StyleSheet,
 {
-    fn width(&self) -> Length {
-        self.width
-    }
-
-    fn height(&self) -> Length {
-        self.height
+    fn size(&self) -> Size<Length> {
+        Size {
+            width: self.width,
+            height: self.height,
+        }
     }
 
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<State>()
+        tree::Tag::of::<State<Renderer::Paragraph>>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State::default())
+        tree::State::new(State::<Renderer::Paragraph>::default())
     }
 
-    fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        let limits = limits.width(self.width).height(self.height);
+    fn layout(
+        &self,
+        tree: &mut Tree,
+        renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
-        let size = self.size.unwrap_or_else(|| renderer.default_size());
+        layout::sized(limits, self.width, self.height, |limits| {
+            let bounds = limits.max();
 
-        let bounds = limits.max();
+            let size = self
+                .size
+                .map(Pixels::from)
+                .unwrap_or_else(|| renderer.default_size());
+            let font = self.font.unwrap_or_else(|| renderer.default_font());
 
-        let Size { width, height } = renderer.measure(
-            &self.content,
-            size,
-            self.line_height,
-            self.font.unwrap_or_else(|| renderer.default_font()),
-            bounds,
-            self.shaping,
-        );
+            state.paragraph.update(text::Text {
+                content: &self.content,
+                size,
+                line_height: self.line_height,
+                bounds,
+                font,
+                horizontal_alignment: self.horizontal_alignment,
+                vertical_alignment: self.vertical_alignment,
+                shaping: self.shaping,
+            });
 
-        let size = limits.resolve(Size::new(width, height));
-
-        layout::Node::new(size)
+            state.paragraph.min_bounds()
+        })
     }
 
     fn on_event(
@@ -160,33 +172,33 @@ where
         _shell: &mut iced::advanced::Shell<'_, Message>,
         _viewport: &Rectangle,
     ) -> event::Status {
-        let state = tree.state.downcast_mut::<State>();
+        let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
         match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | iced::Event::Touch(touch::Event::FingerPressed { .. }) => {
                 if let Some(cursor) = cursor.position() {
-                    *state = State::Selecting(selection::Raw {
+                    state.interaction = Interaction::Selecting(selection::Raw {
                         start: cursor,
                         end: cursor,
                     });
                 } else {
-                    *state = State::Idle;
+                    state.interaction = Interaction::Idle;
                 }
             }
             iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
             | iced::Event::Touch(touch::Event::FingerLifted { .. })
             | iced::Event::Touch(touch::Event::FingerLost { .. }) => {
-                if let State::Selecting(raw) = *state {
-                    *state = State::Selected(raw);
+                if let Interaction::Selecting(raw) = state.interaction {
+                    state.interaction = Interaction::Selected(raw);
                 } else {
-                    *state = State::Idle;
+                    state.interaction = Interaction::Idle;
                 }
             }
             iced::Event::Mouse(mouse::Event::CursorMoved { .. })
             | iced::Event::Touch(touch::Event::FingerMoved { .. }) => {
                 if let Some(cursor) = cursor.position() {
-                    if let State::Selecting(raw) = state {
+                    if let Interaction::Selecting(raw) = &mut state.interaction {
                         raw.end = cursor;
                     }
                 }
@@ -201,7 +213,7 @@ where
         &self,
         tree: &Tree,
         renderer: &mut Renderer,
-        theme: &Renderer::Theme,
+        theme: &Theme,
         style: &renderer::Style,
         layout: Layout<'_>,
         _cursor_position: mouse::Cursor,
@@ -215,12 +227,19 @@ where
 
         let appearance = theme.appearance(&self.style);
 
-        let state = tree.state.downcast_ref::<State>();
+        let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
 
-        if let Some(selection) = state.selection().and_then(|raw| raw.resolve(bounds)) {
+        if let Some(selection) = state
+            .interaction
+            .selection()
+            .and_then(|raw| raw.resolve(bounds))
+        {
             let line_height = f32::from(
-                self.line_height
-                    .to_absolute(self.size.unwrap_or_else(|| renderer.default_size()).into()),
+                self.line_height.to_absolute(
+                    self.size
+                        .map(Pixels::from)
+                        .unwrap_or_else(|| renderer.default_size()),
+                ),
             );
 
             let baseline_y =
@@ -249,9 +268,12 @@ where
                 renderer.fill_quad(
                     Quad {
                         bounds: Rectangle::new(Point::new(x, y), Size::new(width, line_height)),
-                        border_radius: 0.0.into(),
-                        border_width: 0.0,
-                        border_color: Color::TRANSPARENT,
+                        border: Border {
+                            radius: 0.0.into(),
+                            width: 0.0,
+                            color: Color::TRANSPARENT,
+                        },
+                        shadow: Shadow::default(),
                     },
                     appearance.selection_color,
                 );
@@ -326,18 +348,7 @@ where
         //     }
         // }
 
-        draw(
-            renderer,
-            layout,
-            &self.content,
-            self.size,
-            self.line_height,
-            self.font,
-            appearance.color.unwrap_or(style.text_color),
-            self.horizontal_alignment,
-            self.vertical_alignment,
-            self.shaping,
-        );
+        draw(renderer, style, layout, state, appearance, viewport);
     }
 
     fn mouse_interaction(
@@ -359,24 +370,18 @@ where
         &self,
         tree: &mut Tree,
         layout: Layout<'_>,
-        renderer: &Renderer,
+        _renderer: &Renderer,
         operation: &mut dyn Operation<Message>,
     ) {
-        let state = tree.state.downcast_ref::<State>();
+        let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
 
         let bounds = layout.bounds();
         let value = Value::new(&self.content);
-        if let Some(selection) = state.selection().and_then(|raw| {
-            selection(
-                raw,
-                renderer,
-                self.font,
-                self.size,
-                self.line_height,
-                bounds,
-                &value,
-            )
-        }) {
+        if let Some(selection) = state
+            .interaction
+            .selection()
+            .and_then(|raw| selection(raw, bounds, &state.paragraph, &value))
+        {
             let content = value.select(selection.start, selection.end).to_string();
             operation.custom(&mut (bounds.y, content), None);
         }
@@ -385,88 +390,85 @@ where
 
 fn draw<Renderer>(
     renderer: &mut Renderer,
+    style: &renderer::Style,
     layout: Layout<'_>,
-    content: &str,
-    size: Option<f32>,
-    line_height: LineHeight,
-    font: Option<Renderer::Font>,
-    value_color: Color,
-    horizontal_alignment: alignment::Horizontal,
-    vertical_alignment: alignment::Vertical,
-    shaping: Shaping,
+    state: &State<Renderer::Paragraph>,
+    appearance: Appearance,
+    viewport: &Rectangle,
 ) where
     Renderer: text::Renderer,
 {
+    let State { paragraph, .. } = &state;
     let bounds = layout.bounds();
 
-    let x = match horizontal_alignment {
+    let x = match paragraph.horizontal_alignment() {
         alignment::Horizontal::Left => bounds.x,
         alignment::Horizontal::Center => bounds.center_x(),
         alignment::Horizontal::Right => bounds.x + bounds.width,
     };
 
-    let y = match vertical_alignment {
+    let y = match paragraph.vertical_alignment() {
         alignment::Vertical::Top => bounds.y,
         alignment::Vertical::Center => bounds.center_y(),
         alignment::Vertical::Bottom => bounds.y + bounds.height,
     };
 
-    let size = size.unwrap_or_else(|| renderer.default_size());
-
-    renderer.fill_text(iced::advanced::Text {
-        content,
-        size,
-        line_height,
-        bounds: Rectangle { x, y, ..bounds },
-        color: value_color,
-        font: font.unwrap_or_else(|| renderer.default_font()),
-        horizontal_alignment,
-        vertical_alignment,
-        shaping,
-    });
+    renderer.fill_paragraph(
+        paragraph,
+        Point::new(x, y),
+        appearance.color.unwrap_or(style.text_color),
+        *viewport,
+    );
 }
 
-impl<'a, Message, Renderer> From<Text<'a, Renderer>> for Element<'a, Message, Renderer>
+impl<'a, Message, Theme, Renderer> From<Text<'a, Theme, Renderer>>
+    for Element<'a, Message, Theme, Renderer>
 where
     Renderer: text::Renderer + 'a,
-    Renderer::Theme: StyleSheet,
+    Theme: StyleSheet + 'a,
 {
-    fn from(text: Text<'a, Renderer>) -> Element<'a, Message, Renderer> {
+    fn from(text: Text<'a, Theme, Renderer>) -> Element<'a, Message, Theme, Renderer> {
         Element::new(text)
     }
 }
 
+#[derive(Debug, Default)]
+pub struct State<P: Paragraph> {
+    paragraph: P,
+    interaction: Interaction,
+}
+
 #[derive(Debug, Clone, Copy, Default)]
-enum State {
+enum Interaction {
     #[default]
     Idle,
     Selecting(selection::Raw),
     Selected(selection::Raw),
 }
 
-impl State {
+impl Interaction {
     fn selection(self) -> Option<selection::Raw> {
         match &self {
-            State::Idle => None,
-            State::Selecting(raw) | State::Selected(raw) => Some(*raw),
+            Interaction::Idle => None,
+            Interaction::Selecting(raw) | Interaction::Selected(raw) => Some(*raw),
         }
     }
 }
 
-fn measure<Renderer>(
-    renderer: &Renderer,
-    value: &Value,
-    size: Option<f32>,
-    font: Option<Renderer::Font>,
-) -> f32
-where
-    Renderer: text::Renderer,
-{
-    let size = size.unwrap_or_else(|| renderer.default_size());
-    let font = font.unwrap_or_else(|| renderer.default_font());
+// fn measure<Renderer>(
+//     renderer: &Renderer,
+//     value: &Value,
+//     size: Option<f32>,
+//     font: Option<Renderer::Font>,
+// ) -> f32
+// where
+//     Renderer: text::Renderer,
+// {
+//     let size = size.unwrap_or_else(|| renderer.default_size());
+//     let font = font.unwrap_or_else(|| renderer.default_font());
 
-    renderer.measure_width(&value.to_string(), size, font, text::Shaping::Advanced)
-}
+//     renderer.measure_width(&value.to_string(), size, font, text::Shaping::Advanced)
+// }
 
 pub fn selected<Message: 'static>(f: fn(Vec<(f32, String)>) -> Message) -> Command<Message> {
     struct Selected<T> {
