@@ -62,7 +62,7 @@ impl Config {
         let dir = environment::config_dir();
 
         if !dir.exists() {
-            std::fs::create_dir(dir.as_path())
+            std::fs::create_dir_all(dir.as_path())
                 .expect("expected permissions to create config folder");
         }
 
@@ -73,7 +73,7 @@ impl Config {
         let dir = Self::config_dir().join("themes");
 
         if !dir.exists() {
-            std::fs::create_dir(dir.as_path())
+            std::fs::create_dir_all(dir.as_path())
                 .expect("expected permissions to create themes folder");
         }
 
