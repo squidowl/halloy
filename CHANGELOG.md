@@ -16,6 +16,7 @@ Fixed:
 
 - Accept '*' as a legal special symbol for usernames
 - Accept '/' in usernames, ensuring correct parsing for bouncers using the nick/server convention
+- Create the configuration directory correctly, if it does not exist yet.
 
 
 # 2023.5 (2023-11-12)
