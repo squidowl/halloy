@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -29,6 +29,6 @@ impl Posix {
         let nanos = (self.0 % 1_000_000_000) as u32;
 
         NaiveDateTime::from_timestamp_opt(seconds, nanos)
-            .map(|datetime| DateTime::from_utc(datetime, Utc))
+            .map(|datetime| Utc.from_utc_datetime(&datetime))
     }
 }

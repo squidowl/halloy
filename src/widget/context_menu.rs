@@ -1,7 +1,7 @@
 use iced::advanced::widget::tree;
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
 use iced::widget::{column, container};
-use iced::{event, mouse, Event, Length, Point, Rectangle, Size};
+use iced::{event, mouse, Event, Length, Point, Rectangle, Size, Vector};
 
 use super::{double_pass, Element, Renderer};
 use crate::{theme, Theme};
@@ -17,11 +17,7 @@ where
 {
     let build_menu = |length, view: &dyn Fn(T, Length) -> Element<'a, Message>| {
         container(column(
-            entries
-                .iter()
-                .copied()
-                .map(|entry| view(entry, length))
-                .collect(),
+            entries.iter().copied().map(|entry| view(entry, length)),
         ))
         .padding(4)
         .style(theme::Container::Context)
@@ -59,17 +55,24 @@ impl State {
     }
 }
 
-impl<'a, Message> Widget<Message, Renderer> for ContextMenu<'a, Message> {
-    fn width(&self) -> Length {
-        self.base.as_widget().width()
+impl<'a, Message> Widget<Message, Theme, Renderer> for ContextMenu<'a, Message> {
+    fn size(&self) -> Size<Length> {
+        self.base.as_widget().size()
     }
 
-    fn height(&self) -> Length {
-        self.base.as_widget().height()
+    fn size_hint(&self) -> Size<Length> {
+        self.base.as_widget().size_hint()
     }
 
-    fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        self.base.as_widget().layout(renderer, limits)
+    fn layout(
+        &self,
+        tree: &mut widget::Tree,
+        renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        self.base
+            .as_widget()
+            .layout(&mut tree.children[0], renderer, limits)
     }
 
     fn draw(
@@ -171,7 +174,7 @@ impl<'a, Message> Widget<Message, Renderer> for ContextMenu<'a, Message> {
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-    ) -> Option<overlay::Element<'b, Message, Renderer>> {
+    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let state = tree.state.downcast_mut::<State>();
 
         let (first, second) = tree.children.split_at_mut(1);
@@ -211,13 +214,22 @@ struct Overlay<'a, 'b, Message> {
     state: &'b mut State,
 }
 
-impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Message> {
-    fn layout(&self, renderer: &Renderer, viewport: Size, position: Point) -> layout::Node {
+impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a, 'b, Message> {
+    fn layout(
+        &mut self,
+        renderer: &Renderer,
+        viewport: Size,
+        position: Point,
+        _translation: Vector,
+    ) -> layout::Node {
         let limits = layout::Limits::new(Size::ZERO, viewport)
             .width(Length::Fill)
             .height(Length::Fill);
 
-        let mut node = self.content.as_widget().layout(renderer, &limits);
+        let node = self
+            .content
+            .as_widget()
+            .layout(self.tree, renderer, &limits);
 
         let viewport = Rectangle::new(Point::ORIGIN, viewport);
         let mut bounds = Rectangle::new(position, node.size());
@@ -234,9 +246,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Renderer> for Overlay<'a, 'b, Me
             bounds.y = viewport.y + viewport.height - bounds.height;
         }
 
-        node.move_to(bounds.position());
-
-        node
+        node.move_to(bounds.position())
     }
 
     fn draw(

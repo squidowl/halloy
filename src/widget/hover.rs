@@ -9,7 +9,10 @@ pub fn hover<'a, Message: 'a>(
 mod component {
     use iced::widget::{component, Component};
 
-    use crate::widget::{Element, Renderer};
+    use crate::{
+        theme::Theme,
+        widget::{Element, Renderer},
+    };
 
     pub enum Event<M> {
         Change(super::widget::Cursor),
@@ -28,7 +31,7 @@ mod component {
         }
     }
 
-    impl<'a, Message> Component<Message, Renderer> for Hover<'a, Message> {
+    impl<'a, Message> Component<Message, Theme, Renderer> for Hover<'a, Message> {
         type State = bool;
         type Event = Event<Message>;
 
@@ -64,6 +67,7 @@ mod component {
 mod widget {
     use iced::advanced::widget::{self, tree};
     use iced::advanced::{layout, mouse, overlay, renderer, Clipboard, Layout, Shell, Widget};
+    use iced::{Length, Size};
 
     use crate::widget::{Element, Renderer};
     use crate::Theme;
@@ -90,17 +94,24 @@ mod widget {
         }
     }
 
-    impl<'a, Message> Widget<Message, Renderer> for Hover<'a, Message> {
-        fn width(&self) -> iced::Length {
-            self.content.as_widget().width()
+    impl<'a, Message> Widget<Message, Theme, Renderer> for Hover<'a, Message> {
+        fn size(&self) -> Size<Length> {
+            self.content.as_widget().size()
         }
 
-        fn height(&self) -> iced::Length {
-            self.content.as_widget().height()
+        fn size_hint(&self) -> Size<Length> {
+            self.content.as_widget().size_hint()
         }
 
-        fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-            self.content.as_widget().layout(renderer, limits)
+        fn layout(
+            &self,
+            tree: &mut widget::Tree,
+            renderer: &Renderer,
+            limits: &layout::Limits,
+        ) -> layout::Node {
+            self.content
+                .as_widget()
+                .layout(&mut tree.children[0], renderer, limits)
         }
 
         fn tag(&self) -> widget::tree::Tag {
@@ -212,7 +223,7 @@ mod widget {
             tree: &'b mut widget::Tree,
             layout: Layout<'_>,
             renderer: &Renderer,
-        ) -> Option<overlay::Element<'b, Message, Renderer>> {
+        ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
             self.content
                 .as_widget_mut()
                 .overlay(&mut tree.children[0], layout, renderer)
