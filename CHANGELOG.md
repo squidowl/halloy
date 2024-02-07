@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2024.1 (2024-02-07)
+
 Added:
 
 - Configuration option `servers.<name>.sasl.external.key` added to support loading a separate PEM PKCS #8 encoded key for SASL authentication.
