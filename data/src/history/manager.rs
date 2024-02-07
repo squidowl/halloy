@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 use futures::{future, Future, FutureExt};
 use itertools::Itertools;
@@ -437,55 +438,28 @@ impl Data {
             return None;
         };
 
+        let mut most_recent_messages = HashMap::<String, DateTime<Utc>>::new();
+
         let filtered = messages
             .iter()
-            .enumerate()
-            .filter(|(message_index, message)| {
-                if let message::Source::Server(Some(source)) = message.target.source() {
-                    match server_messages.get(source).exclude {
+            .filter(|message| match message.target.source() {
+                crate::message::Source::Server(Some(message_source)) => {
+                    match server_messages.get(message_source).exclude {
                         Exclude::All => false,
                         Exclude::None => true,
-                        Exclude::Smart(seconds) => 'search_previous_messages: {
-                            for previous_message in
-                                messages.iter().rev().skip(messages.len() - *message_index)
-                            {
-                                let duration_seconds = message
-                                    .server_time
-                                    .signed_duration_since(previous_message.server_time)
-                                    .num_seconds();
-
-                                if duration_seconds <= seconds {
-                                    if let message::Source::User(previous_message_user) =
-                                        previous_message.target.source()
-                                    {
-                                        let substring = match source {
-                                            message::source::Server::Join => {
-                                                format!("⟶ {}", previous_message_user.nickname())
-                                            }
-                                            message::source::Server::Part => {
-                                                format!("⟵ {}", previous_message_user.nickname())
-                                            }
-                                            message::source::Server::Quit => {
-                                                format!("⟵ {}", previous_message_user.nickname())
-                                            }
-                                        };
-
-                                        if message.text.starts_with(&substring) {
-                                            break 'search_previous_messages true;
-                                        }
-                                    }
-                                } else {
-                                    break 'search_previous_messages false;
-                                }
-                            }
-                            false
+                        Exclude::Smart(seconds) => {
+                            !smart_filter_message(message, &seconds, &most_recent_messages)
                         }
                     }
-                } else {
+                }
+                crate::message::Source::User(message_user) => {
+                    most_recent_messages
+                        .insert(message_user.nickname().to_string(), message.server_time);
+
                     true
                 }
+                _ => true,
             })
-            .map(|(_, message)| message)
             .collect::<Vec<_>>();
 
         let total = filtered.len();
@@ -544,6 +518,30 @@ impl Data {
                 })
             })
             .collect()
+    }
+}
+
+fn smart_filter_message(
+    message: &crate::Message,
+    seconds: &i64,
+    most_recent_messages: &HashMap<String, DateTime<Utc>>,
+) -> bool {
+    if let Some(nickname) = message.text.split(' ').collect::<Vec<_>>().get(1) {
+        if let Some(most_recent_message_server_time) =
+            most_recent_messages.get(&nickname.to_string())
+        {
+            let duration_seconds = message
+                .server_time
+                .signed_duration_since(*most_recent_message_server_time)
+                .num_seconds();
+
+            duration_seconds > *seconds
+        } else {
+            true
+        }
+    } else {
+        // This should never be reached, but in the event it is reached somehow default to not filtering.
+        false
     }
 }
 
