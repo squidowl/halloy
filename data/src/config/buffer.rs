@@ -40,11 +40,11 @@ pub struct ServerMessages {
 }
 
 impl ServerMessages {
-    pub fn get(&self, server: &source::Server) -> ServerMessage {
+    pub fn get(&self, server: &source::Server) -> (ServerMessage, Option<crate::user::Nick>) {
         match server {
-            source::Server::Join => self.join,
-            source::Server::Part => self.part,
-            source::Server::Quit => self.quit,
+            source::Server::Join(nick) => (self.join, nick.to_owned()),
+            source::Server::Part(nick) => (self.part, nick.to_owned()),
+            source::Server::Quit(nick) => (self.quit, nick.to_owned()),
         }
     }
 }
