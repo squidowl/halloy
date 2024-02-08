@@ -127,11 +127,15 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
         }),
         Command::PART(channel, _) => Some(Target::Channel {
             channel,
-            source: source::Source::Server(Some(source::Server::Part)),
+            source: source::Source::Server(Some(source::Server::Part(Some(
+                user?.nickname().to_owned(),
+            )))),
         }),
         Command::JOIN(channel, _) => Some(Target::Channel {
             channel,
-            source: source::Source::Server(Some(source::Server::Join)),
+            source: source::Source::Server(Some(source::Server::Join(Some(
+                user?.nickname().to_owned(),
+            )))),
         }),
         Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME | RPL_CHANNELMODEIS, params) => {
             let channel = params.get(1)?.clone();

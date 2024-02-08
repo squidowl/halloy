@@ -438,23 +438,33 @@ impl Data {
             return None;
         };
 
-        let mut most_recent_messages = HashMap::<String, DateTime<Utc>>::new();
+        let mut most_recent_messages = HashMap::<Nick, DateTime<Utc>>::new();
 
         let filtered = messages
             .iter()
             .filter(|message| match message.target.source() {
                 crate::message::Source::Server(Some(message_source)) => {
-                    match server_messages.get(message_source).exclude {
+                    let (message_source, nick) = server_messages.get(message_source);
+
+                    match message_source.exclude {
                         Exclude::All => false,
                         Exclude::None => true,
                         Exclude::Smart(seconds) => {
-                            !smart_filter_message(message, &seconds, &most_recent_messages)
+                            if nick.is_some() {
+                                !smart_filter_message(
+                                    message,
+                                    &seconds,
+                                    most_recent_messages.get(&nick.to_owned().unwrap()),
+                                )
+                            } else {
+                                true
+                            }
                         }
                     }
                 }
                 crate::message::Source::User(message_user) => {
                     most_recent_messages
-                        .insert(message_user.nickname().to_string(), message.server_time);
+                        .insert(message_user.nickname().to_owned(), message.server_time);
 
                     true
                 }
@@ -524,24 +534,17 @@ impl Data {
 fn smart_filter_message(
     message: &crate::Message,
     seconds: &i64,
-    most_recent_messages: &HashMap<String, DateTime<Utc>>,
+    most_recent_message_server_time: Option<&DateTime<Utc>>,
 ) -> bool {
-    if let Some(nickname) = message.text.split(' ').collect::<Vec<_>>().get(1) {
-        if let Some(most_recent_message_server_time) =
-            most_recent_messages.get(&nickname.to_string())
-        {
-            let duration_seconds = message
-                .server_time
-                .signed_duration_since(*most_recent_message_server_time)
-                .num_seconds();
+    if most_recent_message_server_time.is_some() {
+        let duration_seconds = message
+            .server_time
+            .signed_duration_since(*most_recent_message_server_time.unwrap())
+            .num_seconds();
 
-            duration_seconds > *seconds
-        } else {
-            true
-        }
+        duration_seconds > *seconds
     } else {
-        // This should never be reached, but in the event it is reached somehow default to not filtering.
-        false
+        true
     }
 }
 

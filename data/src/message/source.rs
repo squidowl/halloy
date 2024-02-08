@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::user::Nick;
 use crate::User;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -10,12 +11,12 @@ pub enum Source {
     Internal(Internal),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Server {
-    Join,
-    Part,
-    Quit,
+    Join(Option<Nick>),
+    Part(Option<Nick>),
+    Quit(Option<Nick>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -129,7 +129,7 @@ pub fn quit(
         channels,
         queries,
         false,
-        Cause::Server(Some(source::Server::Quit)),
+        Cause::Server(Some(source::Server::Quit(Some(user.nickname().to_owned())))),
         text,
     )
 }
