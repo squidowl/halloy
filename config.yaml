@@ -98,7 +98,7 @@ buffer:
     part:
       exclude: None
     quit:
-      exclude: None
+      exclude: !Smart 1200
 
   # Channel buffer settings
   channel:
