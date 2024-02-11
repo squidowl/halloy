@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Input not visible on Server and Query (DM) buffers
+
 # 2024.1 (2024-02-07)
 
 Added:
