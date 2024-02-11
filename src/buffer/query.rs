@@ -102,6 +102,7 @@ pub fn view<'a>(
             )
             .map(Message::InputView)
         ]
+        .width(Length::Fill)
     });
 
     let scrollable = column![messages]
