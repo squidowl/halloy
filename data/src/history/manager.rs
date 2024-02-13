@@ -443,10 +443,10 @@ impl Data {
         let filtered = messages
             .iter()
             .filter(|message| match message.target.source() {
-                crate::message::Source::Server(Some(message_source)) => {
-                    let (message_source, nick) = server_messages.get(message_source);
+                crate::message::Source::Server(Some(source)) => {
+                    let (source, nick) = server_messages.get(source);
 
-                    match message_source.exclude {
+                    match source.exclude {
                         Exclude::All => false,
                         Exclude::None => true,
                         Exclude::Smart(seconds) => {
@@ -455,6 +455,16 @@ impl Data {
                                     message,
                                     &seconds,
                                     most_recent_messages.get(&nick.to_owned().unwrap()),
+                                )
+                            } else if let Some(nickname) =
+                                message.text.split(' ').collect::<Vec<_>>().get(1)
+                            {
+                                let nick = Nick::from(*nickname);
+
+                                !smart_filter_message(
+                                    message,
+                                    &seconds,
+                                    most_recent_messages.get(&nick),
                                 )
                             } else {
                                 true
