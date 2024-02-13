@@ -13,10 +13,12 @@ pub enum Source {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
-#[serde(rename_all = "lowercase")]
 pub enum Server {
+    #[serde(rename = "joinwithnick")]
     Join(Option<Nick>),
+    #[serde(rename = "partwithnick")]
     Part(Option<Nick>),
+    #[serde(rename = "quitwithnick")]
     Quit(Option<Nick>),
 }
 
@@ -29,15 +31,15 @@ impl<'de> Deserialize<'de> for Server {
         enum Mapping {
             #[serde(rename = "join")]
             JoinWithoutNick,
-            #[serde(rename = "join")]
+            #[serde(rename = "joinwithnick")]
             Join(Option<Nick>),
             #[serde(rename = "part")]
             PartWithoutNick,
-            #[serde(rename = "part")]
+            #[serde(rename = "partwithnick")]
             Part(Option<Nick>),
             #[serde(rename = "quit")]
             QuitWithoutNick,
-            #[serde(rename = "quit")]
+            #[serde(rename = "quitwithnick")]
             Quit(Option<Nick>),
         }
 
