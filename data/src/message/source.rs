@@ -28,29 +28,24 @@ impl<'de> Deserialize<'de> for Server {
         D: Deserializer<'de>,
     {
         #[derive(Debug, Deserialize)]
+        #[serde(rename_all = "lowercase")]
         enum Mapping {
-            #[serde(rename = "join")]
-            JoinWithoutNick,
-            #[serde(rename = "joinwithnick")]
-            Join(Option<Nick>),
-            #[serde(rename = "part")]
-            PartWithoutNick,
-            #[serde(rename = "partwithnick")]
-            Part(Option<Nick>),
-            #[serde(rename = "quit")]
-            QuitWithoutNick,
-            #[serde(rename = "quitwithnick")]
-            Quit(Option<Nick>),
+            Join,
+            JoinWithNick(Option<Nick>),
+            Part,
+            PartWithNick(Option<Nick>),
+            Quit,
+            QuitWithNick(Option<Nick>),
         }
 
         if let Ok(mapping) = Mapping::deserialize(deserializer) {
             match mapping {
-                Mapping::JoinWithoutNick => Ok(Server::Join(None)),
-                Mapping::Join(nick) => Ok(Server::Join(nick)),
-                Mapping::PartWithoutNick => Ok(Server::Part(None)),
-                Mapping::Part(nick) => Ok(Server::Part(nick)),
-                Mapping::QuitWithoutNick => Ok(Server::Quit(None)),
-                Mapping::Quit(nick) => Ok(Server::Quit(nick)),
+                Mapping::Join => Ok(Server::Join(None)),
+                Mapping::JoinWithNick(nick) => Ok(Server::Join(nick)),
+                Mapping::Part => Ok(Server::Part(None)),
+                Mapping::PartWithNick(nick) => Ok(Server::Part(nick)),
+                Mapping::Quit => Ok(Server::Quit(None)),
+                Mapping::QuitWithNick(nick) => Ok(Server::Quit(nick)),
             }
         } else {
             Err(D::Error::custom("could not map to Server enum"))
