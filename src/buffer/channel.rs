@@ -238,7 +238,7 @@ mod nick_list {
                 theme::Text::Transparent
             } else {
                 theme::Text::Nickname(
-                    user.color_seed(&config.buffer.nickname.color)
+                    user.color_seed(&config.buffer.channel.users.color)
                 )
             });
 
