@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+use crate::buffer::Color;
 use crate::channel::Position;
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -11,6 +12,8 @@ pub struct Users {
     pub(crate) visible: bool,
     #[serde(default)]
     pub position: Position,
+    #[serde(default)]
+    pub color: Color,
 }
 
 impl Default for Users {
@@ -18,6 +21,7 @@ impl Default for Users {
         Self {
             visible: true,
             position: Position::default(),
+            color: Color::default(),
         }
     }
 }

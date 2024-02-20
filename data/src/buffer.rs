@@ -93,7 +93,7 @@ impl Brackets {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
 pub enum Color {
     Solid,
     #[default]
