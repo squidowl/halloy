@@ -443,13 +443,19 @@ impl Data {
         let filtered = messages
             .iter()
             .filter(|message| match message.target.source() {
-                crate::message::Source::Server(Some(source)) => {
-                    let (source, nick) = server_messages.get(source);
+                message::Source::Server(Some(source)) => {
+                    let source_config = server_messages.get(source);
 
-                    match source.exclude {
+                    match source_config.exclude {
                         Exclude::All => false,
                         Exclude::None => true,
                         Exclude::Smart(seconds) => {
+                            let nick = match source {
+                               message::source::Server::Join(nick) => nick,
+                               message::source::Server::Part(nick) => nick,
+                               message::source::Server::Quit(nick) => nick,
+                            };
+
                             if nick.is_some() {
                                 !smart_filter_message(
                                     message,
