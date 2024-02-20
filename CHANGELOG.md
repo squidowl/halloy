@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Option to colorize nicks in the nick list (and an option to control it separately from in the buffer)
+
 Fixed:
 
 - Input not visible on Server and Query (DM) buffers
