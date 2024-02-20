@@ -101,7 +101,7 @@ pub fn view<'a>(
 
     let users = clients.get_channel_users(&state.server, &state.channel);
     let channels = clients.get_channels(&state.server);
-    let nick_list = nick_list::view(users).map(Message::UserContext);
+    let nick_list = nick_list::view(users, config).map(Message::UserContext);
 
     let show_text_input = match config.buffer.input_visibility {
         data::buffer::InputVisibility::Focused => is_focused && status.connected(),
@@ -218,7 +218,7 @@ impl Channel {
 }
 
 mod nick_list {
-    use data::User;
+    use data::{User, Config};
     use iced::widget::{column, container, scrollable, text};
     use iced::Length;
     use user_context::Message;
@@ -227,7 +227,7 @@ mod nick_list {
     use crate::theme;
     use crate::widget::Element;
 
-    pub fn view(users: &[User]) -> Element<Message> {
+    pub fn view<'a>(users: &[User], config: &'a Config) -> Element<'a,Message> {
         let column = column(users.iter().map(|user| {
             let content = text(format!(
                 "{}{}",
@@ -237,7 +237,9 @@ mod nick_list {
             .style(if user.is_away() {
                 theme::Text::Transparent
             } else {
-                theme::Text::Primary
+                theme::Text::Nickname(
+                    user.color_seed(&config.buffer.nickname.color)
+                )
             });
 
             user_context::view(content, user.clone())
