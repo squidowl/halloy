@@ -104,6 +104,11 @@ buffer:
       # - Left: Left side of pane
       # - Right: Right side of pane [default]
       position: Right
+      # User list color settings:
+      # - Unique: Unique user colors [default]
+      # - Solid: Solid user colors
+      color: Unique
+
 
 # Dashboard settings
 dashboard:
