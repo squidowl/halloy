@@ -7,6 +7,7 @@ use self::query::Query;
 use self::server::Server;
 use crate::widget::Element;
 
+mod banner_view;
 pub mod channel;
 pub mod empty;
 mod input_view;

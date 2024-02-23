@@ -1,17 +1,19 @@
+use data::message::source;
 use data::server::Server;
 use data::{channel, client, history, message, Config};
-use iced::widget::{column, container, row, vertical_space};
+use iced::widget::{column, container, row};
 use iced::{Command, Length};
 
-use super::{input_view, scroll_view, user_context};
-use crate::theme;
+use super::{banner_view, input_view, scroll_view, user_context};
 use crate::widget::{selectable_text, Collection, Element};
+use crate::{font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
     ScrollView(scroll_view::Message),
     InputView(input_view::Message),
     UserContext(user_context::Message),
+    BannerView(banner_view::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -117,19 +119,76 @@ pub fn view<'a>(
         data::buffer::InputVisibility::Always => status.connected(),
     };
 
-    let text_input = show_text_input.then(|| {
-        column![
-            vertical_space(4),
-            input_view::view(
-                &state.input_view,
-                buffer,
-                users,
-                channels,
-                input_history,
-                is_focused
+    let topic_banner = config.buffer.topic_banner.enabled.then(|| {
+        column![container(
+            banner_view::view(
+                &state.banner_view,
+                banner_view::Kind::ChannelTopic(&state.server, &state.channel),
+                history,
+                move |message| {
+                    match message.target.source() {
+                        message::Source::Server(Some(source)) => match source.kind() {
+                            source::server::Kind::Topic => {
+                                let topic = selectable_text(source.text()?)
+                                    .font(font::MONO_BOLD.clone())
+                                    .style(theme::Text::Banner);
+
+                                let nick = selectable_text(format!(
+                                    "set by {} at {}",
+                                    source.nick()?,
+                                    message.server_time.to_rfc2822()
+                                ))
+                                .font(font::MONO_BOLD.clone())
+                                .style(theme::Text::Banner);
+
+                                Some(
+                                    container(
+                                        column![].push(row![].push(topic)).push(row![].push(nick)),
+                                    )
+                                    .into(),
+                                )
+                            }
+                            source::server::Kind::ReplyTopic => {
+                                let topic = selectable_text(source.text()?)
+                                    .font(font::MONO_BOLD.clone())
+                                    .style(theme::Text::Banner);
+
+                                Some(container(row![].push(topic)).into())
+                            }
+                            source::server::Kind::ReplyTopicWhoTime => {
+                                let nick = selectable_text(format!(
+                                    "set by {} at {}",
+                                    source.nick()?,
+                                    source.time()?.datetime()?.to_rfc2822()
+                                ))
+                                .font(font::MONO_BOLD.clone())
+                                .style(theme::Text::Banner);
+
+                                Some(container(row![].push(nick)).into())
+                            }
+                            _ => None,
+                        },
+                        _ => None,
+                    }
+                },
             )
-            .map(Message::InputView)
-        ]
+            .map(Message::BannerView),
+        )
+        .style(theme::Container::Banner)
+        .max_height(config.buffer.topic_banner.max_height),]
+        .width(Length::Fill)
+    });
+
+    let text_input = show_text_input.then(|| {
+        column![input_view::view(
+            &state.input_view,
+            buffer,
+            users,
+            channels,
+            input_history,
+            is_focused
+        )
+        .map(Message::InputView)]
         .width(Length::Fill)
     });
 
@@ -143,9 +202,12 @@ pub fn view<'a>(
         (false, _) => { row![messages] }.height(Length::Fill),
     };
 
-    let scrollable = column![container(content).height(Length::Fill)]
+    let scrollable = column![]
+        .push_maybe(topic_banner)
+        .push(container(content).height(Length::Fill))
         .push_maybe(text_input)
-        .height(Length::Fill);
+        .height(Length::Fill)
+        .spacing(4);
 
     container(scrollable)
         .width(Length::Fill)
@@ -158,7 +220,8 @@ pub fn view<'a>(
 pub struct Channel {
     pub server: Server,
     pub channel: String,
-    pub topic: Option<String>,
+
+    pub banner_view: banner_view::State,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
 }
@@ -168,7 +231,7 @@ impl Channel {
         Self {
             server,
             channel,
-            topic: None,
+            banner_view: banner_view::State::new(),
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
         }
@@ -185,6 +248,15 @@ impl Channel {
         history: &mut history::Manager,
     ) -> (Command<Message>, Option<Event>) {
         match message {
+            Message::BannerView(message) => {
+                let (command, event) = self.banner_view.update(message);
+
+                let event = event.map(|event| match event {
+                    banner_view::Event::UserContext(event) => Event::UserContext(event),
+                });
+
+                (command.map(Message::BannerView), event)
+            }
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(message);
 

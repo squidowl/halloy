@@ -132,6 +132,8 @@ pub fn quit(
         Cause::Server(Some(source::Server::new(
             source::server::Kind::Quit,
             Some(user.nickname().to_owned()),
+            None,
+            None,
         ))),
         text,
     )
