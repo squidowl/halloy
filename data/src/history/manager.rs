@@ -6,8 +6,10 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
-use crate::config::buffer::{Exclude, ServerMessages};
+use crate::config;
+use crate::config::buffer::Exclude;
 use crate::history::{self, History};
+use crate::message::source;
 use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -189,24 +191,33 @@ impl Manager {
         server: &Server,
         channel: &str,
         limit: Option<Limit>,
-        server_messages: &ServerMessages,
+        buffer_config: &config::buffer::Buffer,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(
+        self.data.history_scroll_view(
             server,
             &history::Kind::Channel(channel.to_string()),
             limit,
-            server_messages,
+            buffer_config,
         )
+    }
+
+    pub fn get_channel_topic(
+        &self,
+        server: &Server,
+        channel: &str,
+    ) -> Option<history::BannerView<'_>> {
+        self.data
+            .history_banner_view(server, &history::Kind::Channel(channel.to_string()))
     }
 
     pub fn get_server_messages(
         &self,
         server: &Server,
         limit: Option<Limit>,
-        server_messages: &ServerMessages,
+        buffer_config: &config::buffer::Buffer,
     ) -> Option<history::View<'_>> {
         self.data
-            .history_view(server, &history::Kind::Server, limit, server_messages)
+            .history_scroll_view(server, &history::Kind::Server, limit, buffer_config)
     }
 
     pub fn get_query_messages(
@@ -214,13 +225,13 @@ impl Manager {
         server: &Server,
         nick: &Nick,
         limit: Option<Limit>,
-        server_messages: &ServerMessages,
+        buffer_config: &config::buffer::Buffer,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(
+        self.data.history_scroll_view(
             server,
             &history::Kind::Query(nick.clone()),
             limit,
-            server_messages,
+            buffer_config,
         )
     }
 
@@ -422,12 +433,12 @@ impl Data {
         }
     }
 
-    fn history_view(
+    fn history_scroll_view(
         &self,
         server: &server::Server,
         kind: &history::Kind,
         limit: Option<Limit>,
-        server_messages: &ServerMessages,
+        buffer_config: &config::buffer::Buffer,
     ) -> Option<history::View> {
         let History::Full {
             messages,
@@ -444,32 +455,36 @@ impl Data {
             .iter()
             .filter(|message| match message.target.source() {
                 message::Source::Server(Some(source)) => {
-                    let source_config = server_messages.get(source);
+                    if let Some(source_config) = buffer_config.server_messages.get(source) {
+                        match source_config.exclude {
+                            Exclude::All => false,
+                            Exclude::None => true,
+                            Exclude::Smart(seconds) => {
+                                if let Some(nick) = source.nick() {
+                                    !smart_filter_message(
+                                        message,
+                                        &seconds,
+                                        most_recent_messages.get(nick),
+                                    )
+                                } else if let Some(nickname) =
+                                    message.text.split(' ').collect::<Vec<_>>().get(1)
+                                {
+                                    let nick = Nick::from(*nickname);
 
-                    match source_config.exclude {
-                        Exclude::All => false,
-                        Exclude::None => true,
-                        Exclude::Smart(seconds) => {
-                            if let Some(nick) = source.nick() {
-                                !smart_filter_message(
-                                    message,
-                                    &seconds,
-                                    most_recent_messages.get(nick),
-                                )
-                            } else if let Some(nickname) =
-                                message.text.split(' ').collect::<Vec<_>>().get(1)
-                            {
-                                let nick = Nick::from(*nickname);
-
-                                !smart_filter_message(
-                                    message,
-                                    &seconds,
-                                    most_recent_messages.get(&nick),
-                                )
-                            } else {
-                                true
+                                    !smart_filter_message(
+                                        message,
+                                        &seconds,
+                                        most_recent_messages.get(&nick),
+                                    )
+                                } else {
+                                    true
+                                }
                             }
                         }
+                    } else if buffer_config.topic_banner.enabled {
+                        matches!(source.kind(), source::server::Kind::Topic)
+                    } else {
+                        true
                     }
                 }
                 crate::message::Source::User(message_user) => {
@@ -497,6 +512,62 @@ impl Data {
             old_messages: old.to_vec(),
             new_messages: new.to_vec(),
         })
+    }
+
+    fn history_banner_view(
+        &self,
+        server: &server::Server,
+        kind: &history::Kind,
+    ) -> Option<history::BannerView> {
+        let History::Full { messages, .. } = self.map.get(server)?.get(kind)? else {
+            return None;
+        };
+
+        if let Some(topic_messages) =
+            messages
+                .iter()
+                .rev()
+                .find_map(|message| match message.target.source() {
+                    message::Source::Server(Some(source)) => match source.kind() {
+                        source::server::Kind::Topic => Some(vec![message]),
+                        source::server::Kind::ReplyTopicWhoTime => {
+                            messages.iter().rev().find_map(|topic_message| {
+                                match topic_message.target.source() {
+                                    message::Source::Server(Some(source)) => match source.kind() {
+                                        source::server::Kind::ReplyTopic => {
+                                            Some(vec![topic_message, message])
+                                        }
+                                        _ => None,
+                                    },
+                                    _ => None,
+                                }
+                            })
+                        }
+                        source::server::Kind::ReplyTopic => {
+                            messages
+                                .iter()
+                                .rev()
+                                .find_map(|whotime_message| match whotime_message.target.source() {
+                                    message::Source::Server(Some(source)) => match source.kind() {
+                                        source::server::Kind::ReplyTopicWhoTime => {
+                                            Some(vec![message, whotime_message])
+                                        }
+                                        _ => None,
+                                    },
+                                    _ => None,
+                                })
+                        }
+                        _ => None,
+                    },
+                    _ => None,
+                })
+        {
+            Some(history::BannerView {
+                messages: topic_messages,
+            })
+        } else {
+            Some(history::BannerView { messages: vec![] })
+        }
     }
 
     fn add_message(

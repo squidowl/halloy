@@ -86,6 +86,17 @@ buffer:
   # - Focused: Only show input when the buffer is focused
   input_visibility: Always
 
+  # Topic banner settings:
+  topic_banner:
+    # Show topic messages in a topic banner at the topic of a pane instead
+    # of server messages.  Topic changes will still show up as a server
+    # message.
+    # - Default is false.
+    enabled: false
+    # Maximum height of the topic banner.
+    # - Default is 42
+    max_height: 42
+
   # Control different server messages.
   # - exclude [All, None, !Smart seconds]:
   #   - Smart will show a server message if the user has sent a message

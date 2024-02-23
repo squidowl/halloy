@@ -121,7 +121,16 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
             channel: target,
             source: source::Source::Server(None),
         }),
-        Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => Some(Target::Channel {
+        Command::TOPIC(channel, topic) => Some(Target::Channel {
+            channel,
+            source: source::Source::Server(Some(source::Server::new(
+                source::server::Kind::Topic,
+                Some(user?.nickname().to_owned()),
+                topic,
+                None,
+            ))),
+        }),
+        Command::KICK(channel, _, _) => Some(Target::Channel {
             channel,
             source: source::Source::Server(None),
         }),
@@ -130,6 +139,8 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
             source: source::Source::Server(Some(source::Server::new(
                 source::server::Kind::Part,
                 Some(user?.nickname().to_owned()),
+                None,
+                None,
             ))),
         }),
         Command::JOIN(channel, _) => Some(Target::Channel {
@@ -137,9 +148,41 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
             source: source::Source::Server(Some(source::Server::new(
                 source::server::Kind::Join,
                 Some(user?.nickname().to_owned()),
+                None,
+                None,
             ))),
         }),
-        Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME | RPL_CHANNELMODEIS, params) => {
+        Command::Numeric(RPL_TOPIC, params) => {
+            let channel = params.get(1)?.clone();
+            Some(Target::Channel {
+                channel,
+                source: source::Source::Server(Some(source::Server::new(
+                    source::server::Kind::ReplyTopic,
+                    None,
+                    Some(params.get(2)?.to_owned()),
+                    None,
+                ))),
+            })
+        }
+        Command::Numeric(RPL_TOPICWHOTIME, params) => {
+            let channel = params.get(1)?.clone();
+            Some(Target::Channel {
+                channel,
+                source: source::Source::Server(Some(source::Server::new(
+                    source::server::Kind::ReplyTopicWhoTime,
+                    Some(Nick::from(params.get(2)?.to_owned())),
+                    None,
+                    Some(
+                        params
+                            .get(3)?
+                            .parse::<u64>()
+                            .ok()
+                            .map(Posix::from_seconds)?,
+                    ),
+                ))),
+            })
+        }
+        Command::Numeric(RPL_CHANNELMODEIS, params) => {
             let channel = params.get(1)?.clone();
             Some(Target::Channel {
                 channel,

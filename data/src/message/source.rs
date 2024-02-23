@@ -27,6 +27,7 @@ pub mod server {
     #![allow(deprecated)]
     use serde::{Deserialize, Serialize};
 
+    use crate::time::Posix;
     use crate::user::Nick;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -38,8 +39,18 @@ pub mod server {
     }
 
     impl Server {
-        pub fn new(kind: Kind, nick: Option<Nick>) -> Self {
-            Self::Details(Details { kind, nick })
+        pub fn new(
+            kind: Kind,
+            nick: Option<Nick>,
+            text: Option<String>,
+            time: Option<Posix>,
+        ) -> Self {
+            Self::Details(Details {
+                kind,
+                nick,
+                text,
+                time,
+            })
         }
 
         pub fn kind(&self) -> Kind {
@@ -55,6 +66,26 @@ pub mod server {
                 Server::Details(details) => details.nick.as_ref(),
             }
         }
+
+        pub fn text(&self) -> Option<&str> {
+            match self {
+                Server::Kind(_) => None,
+                Server::Details(details) => {
+                    if let Some(text) = &details.text {
+                        Some(text.as_str())
+                    } else {
+                        None
+                    }
+                }
+            }
+        }
+
+        pub fn time(&self) -> Option<&Posix> {
+            match self {
+                Server::Kind(_) => None,
+                Server::Details(details) => details.time.as_ref(),
+            }
+        }
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -63,11 +94,16 @@ pub mod server {
         Join,
         Part,
         Quit,
+        ReplyTopic,
+        ReplyTopicWhoTime,
+        Topic,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub struct Details {
         pub kind: Kind,
         pub nick: Option<Nick>,
+        pub text: Option<String>,
+        pub time: Option<Posix>,
     }
 }

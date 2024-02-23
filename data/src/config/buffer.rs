@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use super::Channel;
 use crate::{
-    buffer::{Color, InputVisibility, Nickname, Timestamp},
+    buffer::{Color, InputVisibility, Nickname, Timestamp, TopicBanner},
     message::source,
 };
 
@@ -19,6 +19,8 @@ pub struct Buffer {
     pub channel: Channel,
     #[serde(default)]
     pub server_messages: ServerMessages,
+    #[serde(default)]
+    pub topic_banner: TopicBanner,
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
@@ -40,11 +42,12 @@ pub struct ServerMessages {
 }
 
 impl ServerMessages {
-    pub fn get(&self, server: &source::Server) -> ServerMessage {
+    pub fn get(&self, server: &source::Server) -> Option<ServerMessage> {
         match server.kind() {
-            source::server::Kind::Join => self.join,
-            source::server::Kind::Part => self.part,
-            source::server::Kind::Quit => self.quit,
+            source::server::Kind::Join => Some(self.join),
+            source::server::Kind::Part => Some(self.part),
+            source::server::Kind::Quit => Some(self.quit),
+            _ => None,
         }
     }
 }
@@ -78,6 +81,7 @@ impl Default for Buffer {
             input_visibility: InputVisibility::default(),
             channel: Channel::default(),
             server_messages: Default::default(),
+            topic_banner: TopicBanner::default(),
         }
     }
 }

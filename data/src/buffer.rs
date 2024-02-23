@@ -66,6 +66,18 @@ pub enum InputVisibility {
     Always,
 }
 
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+pub struct TopicBanner {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_topic_banner_max_height")]
+    pub max_height: u16,
+}
+
+fn default_topic_banner_max_height() -> u16 {
+    42
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Timestamp {
     pub format: String,
