@@ -30,6 +30,7 @@ pub struct Config {
     pub themes: Themes,
     pub servers: ServerMap,
     pub font: Font,
+    pub scale_factor: f64,
     pub buffer: Buffer,
     pub dashboard: Dashboard,
     pub keys: Keys,
@@ -92,6 +93,8 @@ impl Config {
             pub servers: ServerMap,
             #[serde(default)]
             pub font: Font,
+            #[serde(default = "default_scale_factor")]
+            pub scale_factor: f64,
             #[serde(default, alias = "new_buffer")]
             pub buffer: Buffer,
             #[serde(default)]
@@ -109,6 +112,7 @@ impl Config {
             theme,
             servers,
             font,
+            scale_factor,
             buffer,
             dashboard,
             keys,
@@ -122,6 +126,7 @@ impl Config {
             themes,
             servers,
             font,
+            scale_factor,
             buffer,
             dashboard,
             keys,
@@ -202,6 +207,10 @@ pub fn create_themes_dir() {
     if !file.exists() {
         let _ = fs::write(file, CONTENT);
     }
+}
+
+fn default_scale_factor() -> f64 {
+    1.0
 }
 
 #[derive(Debug, Error, Clone)]
