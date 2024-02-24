@@ -48,6 +48,11 @@ font:
   # - Default is 13
   size: 13
 
+# Scale factor
+# A scale factor of 2.0 will make the UI twice as big, while a scale factor of 0.5 will shrink it to half its size.
+# Default is 1.0.
+scale_factor: 1.0
+
 # Buffer settings
 buffer:
   # Nickname settings
