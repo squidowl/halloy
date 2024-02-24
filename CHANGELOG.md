@@ -3,6 +3,7 @@
 Added:
 
 - Option to colorize nicks in the nick list (and an option to control it separately from in the buffer)
+- Option to control application scale factor
 
 Fixed:
 
