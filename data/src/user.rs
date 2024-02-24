@@ -216,6 +216,12 @@ impl fmt::Display for Nick {
     }
 }
 
+impl AsRef<str> for Nick {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
 impl From<String> for Nick {
     fn from(nick: String) -> Self {
         Nick(nick)

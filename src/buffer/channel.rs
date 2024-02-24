@@ -1,8 +1,11 @@
 use data::message::source;
 use data::server::Server;
+use data::user::Nick;
 use data::{channel, client, history, message, Config};
 use iced::widget::{column, container, row};
 use iced::{Command, Length};
+use nom::character::complete::satisfy;
+use nom::multi::many1;
 
 use super::{banner_view, input_view, scroll_view, user_context};
 use crate::widget::{selectable_text, Collection, Element};
@@ -132,21 +135,55 @@ pub fn view<'a>(
                                 let topic = selectable_text(source.text()?)
                                     .font(font::MONO_BOLD.clone())
                                     .style(theme::Text::Banner);
+                                let topic = row![].push(topic);
 
-                                let nick = selectable_text(format!(
-                                    "set by {} at {}",
-                                    source.nick()?,
-                                    message.server_time.to_rfc2822()
-                                ))
-                                .font(font::MONO_BOLD.clone())
-                                .style(theme::Text::Banner);
+                                let nick = if let Some(nick) = source.nick() {
+                                    if let Some(user) =
+                                        users.iter().find(|user| user.nickname() == *nick)
+                                    {
+                                        Some(
+                                            row![]
+                                                .push(
+                                                    selectable_text("set by ")
+                                                        .font(font::MONO_BOLD.clone())
+                                                        .style(theme::Text::Banner),
+                                                )
+                                                .push(
+                                                    user_context::view(
+                                                        selectable_text(nick)
+                                                            .font(font::MONO_BOLD.clone())
+                                                            .style(theme::Text::Banner),
+                                                        user.clone(),
+                                                    )
+                                                    .map(banner_view::Message::UserContext),
+                                                )
+                                                .push(
+                                                    selectable_text(format!(
+                                                        " at {}",
+                                                        message.server_time.to_rfc2822()
+                                                    ))
+                                                    .font(font::MONO_BOLD.clone())
+                                                    .style(theme::Text::Banner),
+                                                ),
+                                        )
+                                    } else {
+                                        Some(
+                                            row![].push(
+                                                selectable_text(format!(
+                                                    "set by {} at {}",
+                                                    nick,
+                                                    message.server_time.to_rfc2822()
+                                                ))
+                                                .font(font::MONO_BOLD.clone())
+                                                .style(theme::Text::Banner),
+                                            ),
+                                        )
+                                    }
+                                } else {
+                                    None
+                                };
 
-                                Some(
-                                    container(
-                                        column![].push(row![].push(topic)).push(row![].push(nick)),
-                                    )
-                                    .into(),
-                                )
+                                Some(container(column![].push(topic).push_maybe(nick)).into())
                             }
                             source::server::Kind::ReplyTopic => {
                                 let topic = selectable_text(source.text()?)
@@ -156,13 +193,54 @@ pub fn view<'a>(
                                 Some(container(row![].push(topic)).into())
                             }
                             source::server::Kind::ReplyTopicWhoTime => {
-                                let nick = selectable_text(format!(
-                                    "set by {} at {}",
-                                    source.nick()?,
-                                    source.time()?.datetime()?.to_rfc2822()
-                                ))
-                                .font(font::MONO_BOLD.clone())
-                                .style(theme::Text::Banner);
+                                let Ok((_, nick)) =
+                                    many1::<&str, char, nom::error::Error<_>, _>(satisfy(|c| {
+                                        c.is_ascii_alphanumeric() || c == '-'
+                                    }))(source.nick()?.as_ref())
+                                else {
+                                    return None;
+                                };
+
+                                let nick: String = nick.into_iter().collect();
+                                let nick = Nick::from(nick);
+
+                                let nick = if let Some(user) =
+                                    users.iter().find(|user| user.nickname() == nick)
+                                {
+                                    row![]
+                                        .push(
+                                            selectable_text("set by ")
+                                                .font(font::MONO_BOLD.clone())
+                                                .style(theme::Text::Banner),
+                                        )
+                                        .push(
+                                            user_context::view(
+                                                selectable_text(source.nick()?)
+                                                    .font(font::MONO_BOLD.clone())
+                                                    .style(theme::Text::Banner),
+                                                user.clone(),
+                                            )
+                                            .map(banner_view::Message::UserContext),
+                                        )
+                                        .push(
+                                            selectable_text(format!(
+                                                " at {}",
+                                                message.server_time.to_rfc2822()
+                                            ))
+                                            .font(font::MONO_BOLD.clone())
+                                            .style(theme::Text::Banner),
+                                        )
+                                } else {
+                                    row![].push(
+                                        selectable_text(format!(
+                                            "set by {} at {}",
+                                            source.nick()?,
+                                            message.server_time.to_rfc2822()
+                                        ))
+                                        .font(font::MONO_BOLD.clone())
+                                        .style(theme::Text::Banner),
+                                    )
+                                };
 
                                 Some(container(row![].push(nick)).into())
                             }
