@@ -1,11 +1,11 @@
-use data::server::Server;
 use data::history;
+use data::server::Server;
 use iced::widget::{column, container, scrollable};
 use iced::{Command, Length};
 
 use super::user_context;
-use crate::widget::Element;
 use crate::theme;
+use crate::widget::Element;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -37,28 +37,20 @@ pub fn view<'a>(
 
     let messages = messages.into_iter().filter_map(format).collect::<Vec<_>>();
 
-    let padding = if messages.is_empty() {
-        [0, 0]
-    } else {
-        [4, 8]
-    };
+    let padding = if messages.is_empty() { [0, 0] } else { [4, 8] };
 
     let content = column![column(messages)];
 
-    scrollable(
-        container(content)
-            .width(Length::Fill)
-            .padding(padding),
-    )
-    .style(theme::Scrollable::Banner)
-    .direction(scrollable::Direction::Vertical(
-        scrollable::Properties::default()
-            .alignment(scrollable::Alignment::Start)
-            .width(5)
-            .scroller_width(5),
-    ))
-    .id(state.scrollable.clone())
-    .into()
+    scrollable(container(content).width(Length::Fill).padding(padding))
+        .style(theme::Scrollable::Banner)
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Properties::default()
+                .alignment(scrollable::Alignment::Start)
+                .width(5)
+                .scroller_width(5),
+        ))
+        .id(state.scrollable.clone())
+        .into()
 }
 
 #[derive(Debug, Clone)]

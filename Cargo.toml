@@ -16,6 +16,7 @@ chrono = { version = "0.4", features = ['serde'] }
 fern = "0.6.1"
 iced = { version = "0.12.0", features = ["tokio", "lazy", "advanced", "image"] }
 log = "0.4.16"
+nom = "7.1"
 once_cell = "1.18"
 palette = "0.7.4"
 thiserror = "1.0.30"
