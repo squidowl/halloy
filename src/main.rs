@@ -464,6 +464,10 @@ impl Application for Halloy {
         self.theme.clone()
     }
 
+    fn scale_factor(&self) -> f64 {
+        self.config.scale_factor
+    }
+
     fn subscription(&self) -> Subscription<Message> {
         let tick = iced::time::every(Duration::from_secs(1)).map(Message::Tick);
 
