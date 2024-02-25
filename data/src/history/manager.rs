@@ -451,9 +451,9 @@ impl Data {
                         Exclude::None => true,
                         Exclude::Smart(seconds) => {
                             let nick = match source {
-                               message::source::Server::Join(nick) => nick,
-                               message::source::Server::Part(nick) => nick,
-                               message::source::Server::Quit(nick) => nick,
+                                message::source::Server::Join(nick) => nick,
+                                message::source::Server::Part(nick) => nick,
+                                message::source::Server::Quit(nick) => nick,
                             };
 
                             if nick.is_some() {
@@ -552,16 +552,16 @@ fn smart_filter_message(
     seconds: &i64,
     most_recent_message_server_time: Option<&DateTime<Utc>>,
 ) -> bool {
-    if most_recent_message_server_time.is_some() {
-        let duration_seconds = message
-            .server_time
-            .signed_duration_since(*most_recent_message_server_time.unwrap())
-            .num_seconds();
+    let Some(server_time) = most_recent_message_server_time else {
+        return true;
+    };
 
-        duration_seconds > *seconds
-    } else {
-        true
-    }
+    let duration_seconds = message
+        .server_time
+        .signed_duration_since(*server_time)
+        .num_seconds();
+
+    duration_seconds > *seconds
 }
 
 #[derive(Debug, Clone)]
