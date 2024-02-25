@@ -121,6 +121,7 @@ impl Config {
             .map_err(|e| Error::Parse(e.to_string()))?;
 
         let themes = Self::load_themes(&theme).unwrap_or_default();
+        let scale_factor = scale_factor.clamp(0.1, 3.0);
 
         Ok(Config {
             themes,
