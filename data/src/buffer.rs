@@ -89,7 +89,7 @@ pub struct Brackets {
 
 impl Brackets {
     pub fn format(&self, content: impl fmt::Display) -> String {
-        format!("{}{}{} ", self.left, content, self.right)
+        format!("{}{}{}", self.left, content, self.right)
     }
 }
 
