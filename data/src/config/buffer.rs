@@ -41,10 +41,10 @@ pub struct ServerMessages {
 
 impl ServerMessages {
     pub fn get(&self, server: &source::Server) -> ServerMessage {
-        match server {
-            source::Server::Join(_) => self.join,
-            source::Server::Part(_) => self.part,
-            source::Server::Quit(_) => self.quit,
+        match server.kind() {
+            source::server::Kind::Join => self.join,
+            source::server::Kind::Part => self.part,
+            source::server::Kind::Quit => self.quit,
         }
     }
 }

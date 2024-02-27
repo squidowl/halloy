@@ -450,17 +450,11 @@ impl Data {
                         Exclude::All => false,
                         Exclude::None => true,
                         Exclude::Smart(seconds) => {
-                            let nick = match source {
-                                message::source::Server::Join(nick) => nick,
-                                message::source::Server::Part(nick) => nick,
-                                message::source::Server::Quit(nick) => nick,
-                            };
-
-                            if nick.is_some() {
+                            if let Some(nick) = source.nick() {
                                 !smart_filter_message(
                                     message,
                                     &seconds,
-                                    most_recent_messages.get(&nick.to_owned().unwrap()),
+                                    most_recent_messages.get(nick),
                                 )
                             } else if let Some(nickname) =
                                 message.text.split(' ').collect::<Vec<_>>().get(1)
