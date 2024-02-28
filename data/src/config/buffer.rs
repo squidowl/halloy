@@ -23,8 +23,8 @@ pub struct Buffer {
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
 pub enum Exclude {
-    #[default]
     All,
+    #[default]
     None,
     Smart(i64),
 }
