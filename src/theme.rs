@@ -1,5 +1,5 @@
 use data::message;
-use data::theme::{randomize_color, Colors};
+use data::theme::{alpha, randomize_color, Colors};
 use iced::widget::{button, container, pane_grid, rule, scrollable, text, text_input};
 use iced::{application, overlay, Background, Border, Color};
 
@@ -108,7 +108,7 @@ pub enum Text {
     Error,
     Transparent,
     Status(message::source::Status),
-    Nickname(Option<String>),
+    Nickname(Option<String>, bool),
 }
 
 impl text::StyleSheet for Theme {
@@ -132,11 +132,18 @@ impl text::StyleSheet for Theme {
             Text::Error => text::Appearance {
                 color: Some(self.colors().error.base),
             },
-            Text::Nickname(seed) => {
+            Text::Nickname(seed, transparent) => {
                 let original_color = self.colors().action.base;
-                let color = seed
+                let randomized_color = seed
                     .map(|seed| randomize_color(original_color, seed.as_str()))
                     .unwrap_or_else(|| original_color);
+
+                let color = if transparent {
+                    let dark_theme = self.colors().is_dark_theme();
+                    alpha(randomized_color, if dark_theme { 0.2 } else { 0.4 })
+                } else {
+                    randomized_color
+                };
 
                 text::Appearance { color: Some(color) }
             }
@@ -226,7 +233,7 @@ impl container::StyleSheet for Theme {
                 border: Border {
                     radius: 4.0.into(),
                     width: 1.0,
-                    color: if self.colors().background.is_dark() {
+                    color: if self.colors().is_dark_theme() {
                         self.colors().background.lighter
                     } else {
                         self.colors().background.darker
@@ -322,7 +329,7 @@ impl button::StyleSheet for Theme {
             Button::Pane { .. } => button::Appearance {
                 background: Some(Background::Color(self.colors().background.dark)),
                 border: Border {
-                    color: if self.colors().background.is_dark() {
+                    color: if self.colors().is_dark_theme() {
                         self.colors().background.lightest
                     } else {
                         self.colors().background.darkest
@@ -394,7 +401,7 @@ impl button::StyleSheet for Theme {
                 ..active
             },
             Button::Pane { .. } => button::Appearance {
-                background: Some(Background::Color(if self.colors().background.is_dark() {
+                background: Some(Background::Color(if self.colors().is_dark_theme() {
                     self.colors().background.light
                 } else {
                     self.colors().background.darker
@@ -654,7 +661,7 @@ impl overlay::menu::StyleSheet for Theme {
                 border: Border {
                     width: 1.0,
                     radius: 4.0.into(),
-                    color: if self.colors().background.is_dark() {
+                    color: if self.colors().is_dark_theme() {
                         self.colors().background.lighter
                     } else {
                         self.colors().background.darker

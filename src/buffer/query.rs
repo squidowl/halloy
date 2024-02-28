@@ -47,6 +47,7 @@ pub fn view<'a>(
                             selectable_text(config.buffer.nickname.brackets.format(user)).style(
                                 theme::Text::Nickname(
                                     user.color_seed(&config.buffer.nickname.color),
+                                    false,
                                 ),
                             ),
                             user.clone(),
