@@ -9,6 +9,9 @@ Fixed:
 
 - Input not visible on Server and Query (DM) buffers
 
+Changed:
+- Improved user experience in text input when auto-completing a nickname.
+
 # 2024.1 (2024-02-07)
 
 Added:

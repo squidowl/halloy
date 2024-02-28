@@ -67,7 +67,7 @@ pub fn view<'a>(
                             }
                             _ => theme::Container::Default,
                         };
-                        let message = selectable_text(&message.text);
+                        let message = selectable_text(format!(" {}", message.text));
 
                         Some(
                             container(row![].push_maybe(timestamp).push(nick).push(message))
