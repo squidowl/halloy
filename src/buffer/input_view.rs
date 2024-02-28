@@ -101,6 +101,8 @@ impl State {
     pub fn insert_user(&mut self, user: User) -> Command<Message> {
         if self.input.is_empty() {
             self.input = format!("{}: ", user.nickname());
+        } else if self.input.ends_with(' ') {
+            self.input = format!("{}{}", self.input, user.nickname());
         } else {
             self.input = format!("{} {}", self.input, user.nickname());
         }

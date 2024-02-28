@@ -85,9 +85,12 @@ impl Default for Buffer {
 impl Buffer {
     pub fn format_timestamp(&self, date_time: &DateTime<Utc>) -> Option<String> {
         self.timestamp.as_ref().map(|timestamp| {
-            timestamp
-                .brackets
-                .format(date_time.with_timezone(&Local).format(&timestamp.format))
+            format!(
+                "{} ",
+                timestamp
+                    .brackets
+                    .format(date_time.with_timezone(&Local).format(&timestamp.format))
+            )
         })
     }
 }
