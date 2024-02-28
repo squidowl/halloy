@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
+use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
-use crate::config::buffer::ServerMessages;
+use crate::config::buffer::{Exclude, ServerMessages};
 use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::time::Posix;
@@ -437,14 +438,47 @@ impl Data {
             return None;
         };
 
+        let mut most_recent_messages = HashMap::<Nick, DateTime<Utc>>::new();
+
         let filtered = messages
             .iter()
-            .filter(|message| {
-                if let message::Source::Server(Some(source)) = message.target.source() {
-                    !server_messages.get(source).exclude
-                } else {
+            .filter(|message| match message.target.source() {
+                message::Source::Server(Some(source)) => {
+                    let source_config = server_messages.get(source);
+
+                    match source_config.exclude {
+                        Exclude::All => false,
+                        Exclude::None => true,
+                        Exclude::Smart(seconds) => {
+                            if let Some(nick) = source.nick() {
+                                !smart_filter_message(
+                                    message,
+                                    &seconds,
+                                    most_recent_messages.get(nick),
+                                )
+                            } else if let Some(nickname) =
+                                message.text.split(' ').collect::<Vec<_>>().get(1)
+                            {
+                                let nick = Nick::from(*nickname);
+
+                                !smart_filter_message(
+                                    message,
+                                    &seconds,
+                                    most_recent_messages.get(&nick),
+                                )
+                            } else {
+                                true
+                            }
+                        }
+                    }
+                }
+                crate::message::Source::User(message_user) => {
+                    most_recent_messages
+                        .insert(message_user.nickname().to_owned(), message.server_time);
+
                     true
                 }
+                _ => true,
             })
             .collect::<Vec<_>>();
 
@@ -505,6 +539,23 @@ impl Data {
             })
             .collect()
     }
+}
+
+fn smart_filter_message(
+    message: &crate::Message,
+    seconds: &i64,
+    most_recent_message_server_time: Option<&DateTime<Utc>>,
+) -> bool {
+    let Some(server_time) = most_recent_message_server_time else {
+        return true;
+    };
+
+    let duration_seconds = message
+        .server_time
+        .signed_duration_since(*server_time)
+        .num_seconds();
+
+    duration_seconds > *seconds
 }
 
 #[derive(Debug, Clone)]
