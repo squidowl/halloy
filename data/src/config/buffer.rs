@@ -21,6 +21,14 @@ pub struct Buffer {
     pub server_messages: ServerMessages,
 }
 
+#[derive(Debug, Copy, Clone, Default, Deserialize)]
+pub enum Exclude {
+    #[default]
+    All,
+    None,
+    Smart(i64),
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ServerMessages {
     #[serde(default)]
@@ -33,10 +41,10 @@ pub struct ServerMessages {
 
 impl ServerMessages {
     pub fn get(&self, server: &source::Server) -> ServerMessage {
-        match server {
-            source::Server::Join => self.join,
-            source::Server::Part => self.part,
-            source::Server::Quit => self.quit,
+        match server.kind() {
+            source::server::Kind::Join => self.join,
+            source::server::Kind::Part => self.part,
+            source::server::Kind::Quit => self.quit,
         }
     }
 }
@@ -44,7 +52,7 @@ impl ServerMessages {
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
 pub struct ServerMessage {
     #[serde(default)]
-    pub exclude: bool,
+    pub exclude: Exclude,
     #[serde(default)]
     pub username_format: UsernameFormat,
 }
