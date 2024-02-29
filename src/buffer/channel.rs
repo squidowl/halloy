@@ -68,12 +68,20 @@ pub fn view<'a>(
                             }
                             _ => theme::Container::Default,
                         };
-                        let message = selectable_text(format!(" {}", message.text));
+
+                        let space = selectable_text(" ");
+                        let message = selectable_text(&message.text);
 
                         Some(
-                            container(row![].push_maybe(timestamp).push(nick).push(message))
-                                .style(row_style)
-                                .into(),
+                            container(
+                                row![]
+                                    .push_maybe(timestamp)
+                                    .push(nick)
+                                    .push(space)
+                                    .push(message),
+                            )
+                            .style(row_style)
+                            .into(),
                         )
                     }
                     message::Source::Server(_) => {

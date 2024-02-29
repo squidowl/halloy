@@ -54,10 +54,18 @@ pub fn view<'a>(
                         )
                         .map(scroll_view::Message::UserContext);
 
-                        let message = selectable_text(format!(" {}", message.text));
+                        let space = selectable_text(" ");
+                        let message = selectable_text(&message.text);
 
                         Some(
-                            container(row![].push_maybe(timestamp).push(nick).push(message)).into(),
+                            container(
+                                row![]
+                                    .push_maybe(timestamp)
+                                    .push(nick)
+                                    .push(space)
+                                    .push(message),
+                            )
+                            .into(),
                         )
                     }
                     message::Source::Server(_) => {
