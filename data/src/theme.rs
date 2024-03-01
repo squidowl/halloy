@@ -55,6 +55,10 @@ impl Colors {
             success: Subpalette::from_color(palette.success, palette),
         }
     }
+
+    pub fn is_dark_theme(&self) -> bool {
+        self.background.is_dark()
+    }
 }
 
 #[derive(Debug, Clone)]
