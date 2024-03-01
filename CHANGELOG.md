@@ -11,6 +11,10 @@ Fixed:
 
 Changed:
 - Improved user experience in text input when auto-completing a nickname.
+- Configuration option `server_messages` changed `exclude` from a boolean value to [`All`, `None` or `!Smart seconds`].
+  - `All` excludes all messages for the specific server message.
+  - `None` [default] excludes no messages for the specific server message.
+  - `!Smart seconds` shows the server message if the user has sent a message in the given time interval (seconds) prior to the server message.
 
 # 2024.1 (2024-02-07)
 
@@ -25,7 +29,6 @@ Changed:
 - `hidden_server_messages` has been changed to `server_messages` and additional customization has been added:
   - Exclude messages [join, part, quit].
   - Adjust username format. 
-  - Exclude server messages for users who have not messaged in the last X seconds
 
 Fixed:
 
