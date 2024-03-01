@@ -465,7 +465,7 @@ impl Application for Halloy {
     }
 
     fn scale_factor(&self) -> f64 {
-        self.config.scale_factor
+        self.config.scale_factor.into()
     }
 
     fn subscription(&self) -> Subscription<Message> {
