@@ -30,11 +30,32 @@ pub struct Config {
     pub themes: Themes,
     pub servers: ServerMap,
     pub font: Font,
-    pub scale_factor: f64,
+    pub scale_factor: ScaleFactor,
     pub buffer: Buffer,
     pub dashboard: Dashboard,
     pub keys: Keys,
     pub notifications: Notifications,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct ScaleFactor(f64);
+
+impl Default for ScaleFactor {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+impl From<f64> for ScaleFactor {
+    fn from(value: f64) -> Self {
+        ScaleFactor(value.clamp(0.1, 3.0))
+    }
+}
+
+impl From<ScaleFactor> for f64 {
+    fn from(value: ScaleFactor) -> Self {
+        value.0
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -93,8 +114,8 @@ impl Config {
             pub servers: ServerMap,
             #[serde(default)]
             pub font: Font,
-            #[serde(default = "default_scale_factor")]
-            pub scale_factor: f64,
+            #[serde(default)]
+            pub scale_factor: ScaleFactor,
             #[serde(default, alias = "new_buffer")]
             pub buffer: Buffer,
             #[serde(default)]
@@ -121,7 +142,6 @@ impl Config {
             .map_err(|e| Error::Parse(e.to_string()))?;
 
         let themes = Self::load_themes(&theme).unwrap_or_default();
-        let scale_factor = scale_factor.clamp(0.1, 3.0);
 
         Ok(Config {
             themes,
@@ -208,10 +228,6 @@ pub fn create_themes_dir() {
     if !file.exists() {
         let _ = fs::write(file, CONTENT);
     }
-}
-
-fn default_scale_factor() -> f64 {
-    1.0
 }
 
 #[derive(Debug, Error, Clone)]
