@@ -50,6 +50,7 @@ pub fn view<'a>(
                             selectable_text(config.buffer.nickname.brackets.format(user)).style(
                                 theme::Text::Nickname(
                                     user.color_seed(&config.buffer.nickname.color),
+                                    false,
                                 ),
                             ),
                             user.clone(),
@@ -218,7 +219,7 @@ impl Channel {
 }
 
 mod nick_list {
-    use data::{User, Config};
+    use data::{Config, User};
     use iced::widget::{column, container, scrollable, text};
     use iced::Length;
     use user_context::Message;
@@ -227,20 +228,17 @@ mod nick_list {
     use crate::theme;
     use crate::widget::Element;
 
-    pub fn view<'a>(users: &[User], config: &'a Config) -> Element<'a,Message> {
+    pub fn view<'a>(users: &[User], config: &'a Config) -> Element<'a, Message> {
         let column = column(users.iter().map(|user| {
             let content = text(format!(
                 "{}{}",
                 user.highest_access_level(),
                 user.nickname()
             ))
-            .style(if user.is_away() {
-                theme::Text::Transparent
-            } else {
-                theme::Text::Nickname(
-                    user.color_seed(&config.buffer.channel.users.color)
-                )
-            });
+            .style(theme::Text::Nickname(
+                user.color_seed(&config.buffer.channel.users.color),
+                user.is_away(),
+            ));
 
             user_context::view(content, user.clone())
         }))
