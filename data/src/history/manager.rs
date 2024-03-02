@@ -6,6 +6,7 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
+use crate::buffer::Topic;
 use crate::config;
 use crate::config::buffer::Exclude;
 use crate::history::{self, History};
@@ -481,7 +482,7 @@ impl Data {
                                 }
                             }
                         }
-                    } else if buffer_config.topic_banner.enabled {
+                    } else if matches!(buffer_config.topic, Topic::Banner { .. }) {
                         matches!(source.kind(), source::server::Kind::Topic)
                     } else {
                         true

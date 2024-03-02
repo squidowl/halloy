@@ -161,7 +161,7 @@ impl text::StyleSheet for Theme {
                 color: Some(self.colors().text.low_alpha),
             },
             Text::Banner => text::Appearance {
-                color: Some(self.colors().background.base),
+                color: Some(self.colors().text.base),
             },
         }
     }
@@ -265,7 +265,11 @@ impl container::StyleSheet for Theme {
                 ..Default::default()
             },
             Container::Banner => container::Appearance {
-                background: Some(Background::Color(self.colors().accent.darkest)),
+                background: Some(Background::Color(if self.colors().is_dark_theme() {
+                    self.colors().background.light
+                } else {
+                    self.colors().background.dark
+                })),
                 border: Border {
                     radius: [4.0, 4.0, 4.0, 4.0].into(),
                     width: 1.0,
@@ -496,14 +500,22 @@ impl scrollable::StyleSheet for Theme {
                 },
             },
             Scrollable::Banner => scrollable::Scrollbar {
-                background: Some(Background::Color(self.colors().accent.darker)),
+                background: Some(Background::Color(if self.colors().is_dark_theme() {
+                    self.colors().background.lighter
+                } else {
+                    self.colors().background.darker
+                })),
                 border: Border {
                     radius: 8.0.into(),
                     width: 1.0,
                     color: Color::TRANSPARENT,
                 },
                 scroller: scrollable::Scroller {
-                    color: self.colors().accent.base,
+                    color: if self.colors().is_dark_theme() {
+                        self.colors().background.lightest
+                    } else {
+                        self.colors().background.darkest
+                    },
                     border: Border {
                         radius: 8.0.into(),
                         width: 0.0,
@@ -656,10 +668,7 @@ impl selectable_text::StyleSheet for Theme {
     fn appearance(&self, style: &Self::Style) -> selectable_text::Appearance {
         let color = <Theme as text::StyleSheet>::appearance(self, style.clone()).color;
 
-        let selection_color = match style {
-            Text::Banner => self.colors().background.low_alpha,
-            _ => self.colors().accent.high_alpha,
-        };
+        let selection_color = self.colors().accent.high_alpha;
 
         selectable_text::Appearance {
             color,

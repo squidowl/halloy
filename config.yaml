@@ -86,14 +86,13 @@ buffer:
   # - Focused: Only show input when the buffer is focused
   input_visibility: Always
 
-  # Topic banner settings:
-  topic_banner:
-    # Show topic messages in a topic banner at the topic of a pane instead
-    # of server messages.  Topic changes will still show up as a server
-    # message.
-    # - Default is false.
-    enabled: false
-    # Maximum height of the topic banner.
+  # Topic settings:
+  # - Inline: Show topic as server messages in each channel. [default]
+  # - !Banner: Show topic as a banner at the topic of each channel.
+  #            Topic changes will still show up as a server
+  #            message in channel.
+  topic: !Banner
+    # Maximum height of the topic banner, when topic is set to !Banner.
     # - Default is 42
     max_height: 42
 

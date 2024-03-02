@@ -67,11 +67,13 @@ pub enum InputVisibility {
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
-pub struct TopicBanner {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default = "default_topic_banner_max_height")]
-    pub max_height: u16,
+pub enum Topic {
+    #[default]
+    Inline,
+    Banner {
+        #[serde(default = "default_topic_banner_max_height")]
+        max_height: u16,
+    },
 }
 
 fn default_topic_banner_max_height() -> u16 {
