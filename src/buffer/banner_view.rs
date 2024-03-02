@@ -1,11 +1,14 @@
+use chrono::{DateTime, Utc};
 use data::history;
 use data::server::Server;
-use iced::widget::{column, container, scrollable};
+use data::user::Nick;
+use data::{Config, User};
+use iced::widget::{column, container, row, scrollable, Row};
 use iced::{Command, Length};
 
 use super::user_context;
-use crate::theme;
-use crate::widget::Element;
+use crate::widget::{selectable_text, Element};
+use crate::{theme, Theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -51,6 +54,35 @@ pub fn view<'a>(
         ))
         .id(state.scrollable.clone())
         .into()
+}
+
+pub fn style_topic_who_time<'a>(
+    who: &str,
+    time: DateTime<Utc>,
+    long_who: Option<&str>,
+    users: &[User],
+    config: &'a Config,
+) -> Row<'a, Message, Theme> {
+    if let Some(user) = users.iter().find(|user| user.nickname() == Nick::from(who)) {
+        row![]
+            .push(selectable_text("set by ").style(theme::Text::Banner))
+            .push(
+                user_context::view(
+                    selectable_text(long_who.unwrap_or(who)).style(theme::Text::Nickname(
+                        user.color_seed(&config.buffer.nickname.color),
+                        false,
+                    )),
+                    user.clone(),
+                )
+                .map(Message::UserContext),
+            )
+            .push(selectable_text(format!(" at {}", time.to_rfc2822())).style(theme::Text::Banner))
+    } else {
+        row![]
+            .push(selectable_text("set by ").style(theme::Text::Banner))
+            .push(selectable_text(long_who.unwrap_or(who)).style(theme::Text::Server))
+            .push(selectable_text(format!(" at {}", time.to_rfc2822())).style(theme::Text::Banner))
+    }
 }
 
 #[derive(Debug, Clone)]

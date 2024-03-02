@@ -1,12 +1,9 @@
 use data::buffer::Topic;
 use data::message::source;
 use data::server::Server;
-use data::user::Nick;
 use data::{channel, client, history, message, Config};
 use iced::widget::{column, container, row};
 use iced::{Command, Length};
-use nom::character::complete::satisfy;
-use nom::multi::many1;
 
 use super::{banner_view, input_view, scroll_view, user_context};
 use crate::theme;
@@ -123,174 +120,69 @@ pub fn view<'a>(
         data::buffer::InputVisibility::Always => status.connected(),
     };
 
-    let topic_banner =
-        if let Topic::Banner {
-            max_height: topic_banner_max_height,
-        } = config.buffer.topic
-        {
-            Some(
-                column![container(
-                    banner_view::view(
-                        &state.banner_view,
-                        banner_view::Kind::ChannelTopic(&state.server, &state.channel),
-                        history,
-                        move |message| {
-                            match message.target.source() {
-                                message::Source::Server(Some(source)) => match source.kind() {
-                                    source::server::Kind::Topic => {
-                                        let topic = selectable_text(source.text()?)
-                                            .style(theme::Text::Banner);
-                                        let topic = row![].push(topic);
+    let topic_banner = if let Topic::Banner {
+        max_height: topic_banner_max_height,
+    } = config.buffer.topic
+    {
+        Some(
+            column![container(
+                banner_view::view(
+                    &state.banner_view,
+                    banner_view::Kind::ChannelTopic(&state.server, &state.channel),
+                    history,
+                    move |message| {
+                        match message.target.source() {
+                            message::Source::Server(Some(source)) => match source.kind() {
+                                source::server::Kind::Topic => {
+                                    let topic = row![].push(
+                                        selectable_text(source.text()?).style(theme::Text::Banner),
+                                    );
 
-                                        let nick = if let Some(nick) = source.nick() {
-                                            if let Some(user) =
-                                                users.iter().find(|user| user.nickname() == *nick)
-                                            {
-                                                Some(
-                                                    row![]
-                                                        .push(
-                                                            selectable_text("set by ")
-                                                                .style(theme::Text::Banner),
-                                                        )
-                                                        .push(
-                                                            user_context::view(
-                                                                selectable_text(nick).style(
-                                                                    theme::Text::Nickname(
-                                                                        user.color_seed(
-                                                                            &config
-                                                                                .buffer
-                                                                                .nickname
-                                                                                .color,
-                                                                        ),
-                                                                        false,
-                                                                    ),
-                                                                ),
-                                                                user.clone(),
-                                                            )
-                                                            .map(banner_view::Message::UserContext),
-                                                        )
-                                                        .push(
-                                                            selectable_text(format!(
-                                                                " at {}",
-                                                                message.server_time.to_rfc2822()
-                                                            ))
-                                                            .style(theme::Text::Banner),
-                                                        ),
-                                                )
-                                            } else {
-                                                Some(
-                                                    row![]
-                                                        .push(
-                                                            selectable_text("set by ")
-                                                                .style(theme::Text::Banner),
-                                                        )
-                                                        .push(
-                                                            selectable_text(nick)
-                                                                .style(theme::Text::Server),
-                                                        )
-                                                        .push(
-                                                            selectable_text(format!(
-                                                                " at {}",
-                                                                message.server_time.to_rfc2822()
-                                                            ))
-                                                            .style(theme::Text::Banner),
-                                                        ),
-                                                )
-                                            }
-                                        } else {
-                                            None
-                                        };
+                                    let nick = banner_view::style_topic_who_time(
+                                        source.nick()?.as_ref(),
+                                        message.server_time,
+                                        None,
+                                        users,
+                                        config,
+                                    );
 
-                                        Some(
-                                            container(column![].push(topic).push_maybe(nick))
-                                                .into(),
-                                        )
-                                    }
-                                    source::server::Kind::ReplyTopic => {
-                                        let topic = selectable_text(source.text()?)
-                                            .style(theme::Text::Banner);
+                                    Some(container(column![].push(topic).push(nick)).into())
+                                }
+                                source::server::Kind::ReplyTopic => {
+                                    let topic = row![].push(
+                                        selectable_text(source.text()?).style(theme::Text::Banner),
+                                    );
 
-                                        Some(container(row![].push(topic)).into())
-                                    }
-                                    source::server::Kind::ReplyTopicWhoTime => {
-                                        let Ok((_, nick)) =
-                                            many1::<&str, char, nom::error::Error<_>, _>(satisfy(
-                                                |c| c.is_ascii_alphanumeric() || c == '-',
-                                            ))(
-                                                source.nick()?.as_ref()
-                                            )
-                                        else {
-                                            return None;
-                                        };
+                                    Some(container(topic).into())
+                                }
+                                source::server::Kind::ReplyTopicWhoTime => {
+                                    let nick = source.nick()?.as_ref().split('!').next()?;
 
-                                        let nick: String = nick.into_iter().collect();
-                                        let nick = Nick::from(nick);
+                                    let nick = banner_view::style_topic_who_time(
+                                        nick,
+                                        source.time()?.datetime()?,
+                                        Some(source.nick()?.as_ref()),
+                                        users,
+                                        config,
+                                    );
 
-                                        let nick = if let Some(user) =
-                                            users.iter().find(|user| user.nickname() == nick)
-                                        {
-                                            row![]
-                                                .push(
-                                                    selectable_text("set by ")
-                                                        .style(theme::Text::Banner),
-                                                )
-                                                .push(
-                                                    user_context::view(
-                                                        selectable_text(source.nick()?).style(
-                                                            theme::Text::Nickname(
-                                                                user.color_seed(
-                                                                    &config.buffer.nickname.color,
-                                                                ),
-                                                                false,
-                                                            ),
-                                                        ),
-                                                        user.clone(),
-                                                    )
-                                                    .map(banner_view::Message::UserContext),
-                                                )
-                                                .push(
-                                                    selectable_text(format!(
-                                                        " at {}",
-                                                        message.server_time.to_rfc2822()
-                                                    ))
-                                                    .style(theme::Text::Banner),
-                                                )
-                                        } else {
-                                            row![]
-                                                .push(
-                                                    selectable_text("set by ")
-                                                        .style(theme::Text::Banner),
-                                                )
-                                                .push(
-                                                    selectable_text(source.nick()?)
-                                                        .style(theme::Text::Server),
-                                                )
-                                                .push(
-                                                    selectable_text(format!(
-                                                        " at {}",
-                                                        message.server_time.to_rfc2822()
-                                                    ))
-                                                    .style(theme::Text::Banner),
-                                                )
-                                        };
-
-                                        Some(container(row![].push(nick)).into())
-                                    }
-                                    _ => None,
-                                },
+                                    Some(container(nick).into())
+                                }
                                 _ => None,
-                            }
-                        },
-                    )
-                    .map(Message::BannerView),
+                            },
+                            _ => None,
+                        }
+                    },
                 )
-                .style(theme::Container::Banner)
-                .max_height(topic_banner_max_height),]
-                .width(Length::Fill),
+                .map(Message::BannerView),
             )
-        } else {
-            None
-        };
+            .style(theme::Container::Banner)
+            .max_height(topic_banner_max_height),]
+            .width(Length::Fill),
+        )
+    } else {
+        None
+    };
 
     let text_input = show_text_input.then(|| {
         column![input_view::view(

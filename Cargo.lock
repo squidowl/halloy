@@ -1461,7 +1461,6 @@ dependencies = [
  "iced",
  "image",
  "log",
- "nom",
  "notify-rust",
  "once_cell",
  "open",
