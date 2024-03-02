@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use super::Channel;
 use crate::{
-    buffer::{Color, InputVisibility, Nickname, Timestamp, TopicBanner},
+    buffer::{Color, InputVisibility, Nickname, Timestamp, Topic},
     message::source,
 };
 
@@ -20,7 +20,7 @@ pub struct Buffer {
     #[serde(default)]
     pub server_messages: ServerMessages,
     #[serde(default)]
-    pub topic_banner: TopicBanner,
+    pub topic: Topic,
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
@@ -81,7 +81,7 @@ impl Default for Buffer {
             input_visibility: InputVisibility::default(),
             channel: Channel::default(),
             server_messages: Default::default(),
-            topic_banner: TopicBanner::default(),
+            topic: Topic::default(),
         }
     }
 }
