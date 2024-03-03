@@ -124,62 +124,56 @@ pub fn view<'a>(
         max_height: topic_banner_max_height,
     } = config.buffer.topic
     {
-        Some(
-            column![container(
-                banner_view::view(
-                    &state.banner_view,
-                    banner_view::Kind::ChannelTopic(&state.server, &state.channel),
-                    history,
-                    move |message| {
-                        match message.target.source() {
-                            message::Source::Server(Some(source)) => match source.kind() {
-                                source::server::Kind::Topic => {
-                                    let topic = row![].push(
-                                        selectable_text(source.text()?).style(theme::Text::Banner),
-                                    );
+        banner_view::view(
+            &state.banner_view,
+            banner_view::Kind::ChannelTopic(&state.server, &state.channel),
+            history,
+            move |message| match message.target.source() {
+                message::Source::Server(Some(source)) => match source.kind() {
+                    source::server::Kind::Topic => {
+                        let topic =
+                            row![].push(selectable_text(source.text()?).style(theme::Text::Banner));
 
-                                    let nick = banner_view::style_topic_who_time(
-                                        source.nick()?.as_ref(),
-                                        message.server_time,
-                                        None,
-                                        users,
-                                        config,
-                                    );
+                        let nick = banner_view::style_topic_who_time(
+                            source.nick()?.as_ref(),
+                            message.server_time,
+                            None,
+                            users,
+                            config,
+                        );
 
-                                    Some(container(column![].push(topic).push(nick)).into())
-                                }
-                                source::server::Kind::ReplyTopic => {
-                                    let topic = row![].push(
-                                        selectable_text(source.text()?).style(theme::Text::Banner),
-                                    );
+                        Some(container(column![].push(topic).push(nick)).into())
+                    }
+                    source::server::Kind::ReplyTopic => {
+                        let topic =
+                            row![].push(selectable_text(source.text()?).style(theme::Text::Banner));
 
-                                    Some(container(topic).into())
-                                }
-                                source::server::Kind::ReplyTopicWhoTime => {
-                                    let nick = source.nick()?.as_ref().split('!').next()?;
+                        Some(container(topic).into())
+                    }
+                    source::server::Kind::ReplyTopicWhoTime => {
+                        let nick = source.nick()?.as_ref().split('!').next()?;
 
-                                    let nick = banner_view::style_topic_who_time(
-                                        nick,
-                                        source.time()?.datetime()?,
-                                        Some(source.nick()?.as_ref()),
-                                        users,
-                                        config,
-                                    );
+                        let nick = banner_view::style_topic_who_time(
+                            nick,
+                            source.time()?.datetime()?,
+                            Some(source.nick()?.as_ref()),
+                            users,
+                            config,
+                        );
 
-                                    Some(container(nick).into())
-                                }
-                                _ => None,
-                            },
-                            _ => None,
-                        }
-                    },
-                )
-                .map(Message::BannerView),
-            )
-            .style(theme::Container::Banner)
-            .max_height(topic_banner_max_height),]
-            .width(Length::Fill),
+                        Some(container(nick).into())
+                    }
+                    _ => None,
+                },
+                _ => None,
+            },
         )
+        .map(|banner| {
+            column![container(banner.map(Message::BannerView))
+                .style(theme::Container::Banner)
+                .max_height(topic_banner_max_height)]
+            .width(Length::Fill)
+        })
     } else {
         None
     };
