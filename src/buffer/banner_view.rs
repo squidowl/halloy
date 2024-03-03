@@ -31,29 +31,33 @@ pub fn view<'a>(
     kind: Kind,
     history: &'a history::Manager,
     format: impl Fn(&'a data::Message) -> Option<Element<'a, Message>> + 'a,
-) -> Element<'a, Message> {
+) -> Option<Element<'a, Message>> {
     let Some(history::BannerView { messages }) = (match kind {
         Kind::ChannelTopic(server, channel) => history.get_channel_topic(server, channel),
     }) else {
-        return column![].into();
+        return None;
     };
 
     let messages = messages.into_iter().filter_map(format).collect::<Vec<_>>();
 
-    let padding = if messages.is_empty() { [0, 0] } else { [4, 8] };
+    if messages.is_empty() {
+        return None;
+    }
 
     let content = column![column(messages)];
 
-    scrollable(container(content).width(Length::Fill).padding(padding))
-        .style(theme::Scrollable::Banner)
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Properties::default()
-                .alignment(scrollable::Alignment::Start)
-                .width(5)
-                .scroller_width(5),
-        ))
-        .id(state.scrollable.clone())
-        .into()
+    Some(
+        scrollable(container(content).width(Length::Fill).padding([4, 8]))
+            .style(theme::Scrollable::Banner)
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Properties::default()
+                    .alignment(scrollable::Alignment::Start)
+                    .width(5)
+                    .scroller_width(5),
+            ))
+            .id(state.scrollable.clone())
+            .into(),
+    )
 }
 
 pub fn style_topic_who_time<'a>(
