@@ -54,6 +54,7 @@ pub fn view<'a>(content: impl Into<Element<'a, Message>>, user: User) -> Element
 
         button(text(content).style(theme::Text::Primary))
             .width(length)
+            .height(length)
             .style(theme::Button::Context)
             .on_press(message)
             .into()
