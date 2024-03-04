@@ -47,7 +47,7 @@ pub fn view<'a>(
     let content = column![column(messages)];
 
     Some(
-        scrollable(container(content).width(Length::Fill).padding([4, 8]))
+        scrollable(container(content).width(Length::Fill).padding(padding()))
             .style(theme::Scrollable::Banner)
             .direction(scrollable::Direction::Vertical(
                 scrollable::Properties::default()
@@ -58,6 +58,10 @@ pub fn view<'a>(
             .id(state.scrollable.clone())
             .into(),
     )
+}
+
+pub fn padding() -> [u16; 2] {
+    [4, 8]
 }
 
 pub fn style_topic_who_time<'a>(

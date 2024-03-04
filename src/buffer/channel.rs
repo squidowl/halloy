@@ -7,7 +7,7 @@ use iced::{Command, Length};
 
 use super::{banner_view, input_view, scroll_view, user_context};
 use crate::theme;
-use crate::widget::{selectable_text, Collection, Element};
+use crate::widget::{double_pass, selectable_text, Collection, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -120,10 +120,7 @@ pub fn view<'a>(
         data::buffer::InputVisibility::Always => status.connected(),
     };
 
-    let topic_banner = if let Topic::Banner {
-        max_height: topic_banner_max_height,
-    } = config.buffer.topic
-    {
+    let topic_banner = if let Topic::Banner { max_lines } = config.buffer.topic {
         banner_view::view(
             &state.banner_view,
             banner_view::Kind::ChannelTopic(&state.server, &state.channel),
@@ -169,10 +166,18 @@ pub fn view<'a>(
             },
         )
         .map(|banner| {
-            column![container(banner.map(Message::BannerView))
-                .style(theme::Container::Banner)
-                .max_height(topic_banner_max_height)]
-            .width(Length::Fill)
+            let mut layout_column = column![];
+            for _ in 0..max_lines {
+                layout_column = layout_column.push(row![].push(selectable_text(" ")));
+            }
+
+            double_pass(
+                container(layout_column)
+                    .width(Length::Fill)
+                    .padding(banner_view::padding()),
+                column![container(banner.map(Message::BannerView)).style(theme::Container::Banner)]
+                    .width(Length::Fill),
+            )
         })
     } else {
         None

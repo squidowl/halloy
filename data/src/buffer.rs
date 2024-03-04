@@ -71,13 +71,13 @@ pub enum Topic {
     #[default]
     Inline,
     Banner {
-        #[serde(default = "default_topic_banner_max_height")]
-        max_height: u16,
+        #[serde(default = "default_topic_banner_max_lines")]
+        max_lines: u16,
     },
 }
 
-fn default_topic_banner_max_height() -> u16 {
-    42
+fn default_topic_banner_max_lines() -> u16 {
+    2
 }
 
 #[derive(Debug, Clone, Deserialize)]

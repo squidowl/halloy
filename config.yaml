@@ -92,9 +92,10 @@ buffer:
   #            Topic changes will still show up as a server
   #            message in channel.
   topic: !Banner
-    # Maximum height of the topic banner, when topic is set to !Banner.
-    # - Default is 42
-    max_height: 42
+    # Maximum visible lines of the topic banner before scrolling, when
+    # topic is set to !Banner.
+    # - Default is 2
+    max_lines: 2
 
   # Control different server messages.
   # - exclude [All, None, !Smart seconds]:
