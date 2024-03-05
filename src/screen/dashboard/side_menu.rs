@@ -240,7 +240,7 @@ fn buffer_button<'a>(
 
             button(text(content).style(theme::Text::Primary))
                 .width(length)
-                .height(length)
+                .height(Length::Fixed(27.0))
                 .style(theme::Button::Context)
                 .on_press(message)
                 .into()
