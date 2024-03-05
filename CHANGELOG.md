@@ -2,13 +2,6 @@
 
 # 2024.3 (2024-03-05)
 
-Fixed:
-
-- Clipped buttons in context menu
-
-
-# 2024.2 (2024-03-05)
-
 Added:
 
 - Option to colorize nicks in the nick list (and an option to control it separately from in the buffer)
