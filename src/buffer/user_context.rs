@@ -1,6 +1,5 @@
 use data::User;
 use iced::widget::{button, text};
-use iced::Length;
 
 use crate::theme;
 use crate::widget::{context_menu, Element};
@@ -55,7 +54,7 @@ pub fn view<'a>(content: impl Into<Element<'a, Message>>, user: User) -> Element
 
         button(text(content).style(theme::Text::Primary))
             .width(length)
-            .height(Length::Fixed(27.0))
+            .height(length)
             .style(theme::Button::Context)
             .on_press(message)
             .into()
