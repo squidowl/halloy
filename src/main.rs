@@ -335,8 +335,8 @@ impl Application for Halloy {
                                             .record_message(&server, message.with_target(target));
                                     }
                                 }
-                                data::client::Event::Brodcast(brodcast) => match brodcast {
-                                    data::client::Brodcast::Quit {
+                                data::client::Event::Broadcast(broadcast) => match broadcast {
+                                    data::client::Broadcast::Quit {
                                         user,
                                         comment,
                                         channels,
@@ -349,7 +349,7 @@ impl Application for Halloy {
                                             &self.config,
                                         );
                                     }
-                                    data::client::Brodcast::Nickname {
+                                    data::client::Broadcast::Nickname {
                                         old_user,
                                         new_nick,
                                         ourself,
@@ -366,7 +366,7 @@ impl Application for Halloy {
                                             &self.config,
                                         );
                                     }
-                                    data::client::Brodcast::Invite {
+                                    data::client::Broadcast::Invite {
                                         inviter,
                                         channel,
                                         user_channels,
