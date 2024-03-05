@@ -38,7 +38,7 @@ pub enum Notification {
 }
 
 #[derive(Debug)]
-pub enum Brodcast {
+pub enum Broadcast {
     Quit {
         user: User,
         comment: Option<String>,
@@ -61,7 +61,7 @@ pub enum Brodcast {
 pub enum Event {
     Single(message::Encoded, Nick),
     WithTarget(message::Encoded, Nick, message::Target),
-    Brodcast(Brodcast),
+    Broadcast(Broadcast),
     Notification(message::Encoded, Nick, Notification),
 }
 
@@ -394,7 +394,7 @@ impl Client {
                 let inviter = message.user()?;
                 let user_channels = self.user_channels(user.nickname());
 
-                return Some(vec![Event::Brodcast(Brodcast::Invite {
+                return Some(vec![Event::Broadcast(Broadcast::Invite {
                     inviter,
                     channel: channel.clone(),
                     user_channels,
@@ -418,7 +418,7 @@ impl Client {
 
                 let channels = self.user_channels(old_user.nickname());
 
-                return Some(vec![Event::Brodcast(Brodcast::Nickname {
+                return Some(vec![Event::Broadcast(Broadcast::Nickname {
                     old_user,
                     new_nick,
                     ourself,
@@ -503,7 +503,7 @@ impl Client {
 
                 let channels = self.user_channels(user.nickname());
 
-                return Some(vec![Event::Brodcast(Brodcast::Quit {
+                return Some(vec![Event::Broadcast(Broadcast::Quit {
                     user,
                     comment: comment.clone(),
                     channels,
