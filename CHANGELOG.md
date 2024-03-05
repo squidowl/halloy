@@ -8,6 +8,7 @@ Added:
 Fixed:
 
 - Input not visible on Server and Query (DM) buffers
+- Clipped buttons in context menu
 
 Changed:
 - Improved user experience in text input when auto-completing a nickname.
