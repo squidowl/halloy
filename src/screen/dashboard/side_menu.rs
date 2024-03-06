@@ -1,5 +1,6 @@
 use data::dashboard::DefaultAction;
 use data::{history, Buffer};
+use iced::widget::text::LineHeight;
 use iced::widget::{
     button, column, container, horizontal_space, pane_grid, row, scrollable, text, vertical_space,
 };
@@ -58,6 +59,7 @@ impl SideMenu {
         panes: &pane_grid::State<Pane>,
         focus: Option<pane_grid::Pane>,
         config: data::config::dashboard::Sidebar,
+        font: &data::config::Font,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -75,6 +77,7 @@ impl SideMenu {
                         false,
                         false,
                         config.default_action,
+                        font,
                     ));
                 }
                 data::client::State::Ready(connection) => {
@@ -85,6 +88,7 @@ impl SideMenu {
                         true,
                         false,
                         config.default_action,
+                        font,
                     ));
 
                     for channel in connection.channels() {
@@ -95,6 +99,7 @@ impl SideMenu {
                             true,
                             history.has_unread(server, &history::Kind::Channel(channel.clone())),
                             config.default_action,
+                            font,
                         ));
                     }
 
@@ -107,6 +112,7 @@ impl SideMenu {
                             true,
                             history.has_unread(server, &history::Kind::Query(user.clone())),
                             config.default_action,
+                            font,
                         ));
                     }
 
@@ -171,7 +177,9 @@ fn buffer_button<'a>(
     connected: bool,
     has_unread: bool,
     default_action: DefaultAction,
+    font: &data::config::Font,
 ) -> Element<'a, Message> {
+    let font = font.clone();
     let open = panes
         .iter()
         .find_map(|(pane, state)| (state.buffer.data().as_ref() == Some(&buffer)).then_some(*pane));
@@ -238,9 +246,12 @@ fn buffer_button<'a>(
                 ),
             };
 
+            // Height based on font size, with some margin added.
+            let height = LineHeight::default().to_absolute((font.size + 8.0).into());
+
             button(text(content).style(theme::Text::Primary))
                 .width(length)
-                .height(length)
+                .height(height)
                 .style(theme::Button::Context)
                 .on_press(message)
                 .into()

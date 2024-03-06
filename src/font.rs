@@ -44,12 +44,10 @@ impl From<Font> for iced::Font {
 }
 
 pub fn set(config: Option<&Config>) {
-    let family = config
-        .and_then(|config| config.font.family.clone())
-        .unwrap_or_else(|| String::from("Iosevka Term"));
+    let font = config.map(|config| config.font.clone()).unwrap_or_default();
 
-    MONO.set(family.clone());
-    MONO_BOLD.set(family);
+    MONO.set(font.family.clone());
+    MONO_BOLD.set(font.family);
 }
 
 pub fn load() -> Vec<Cow<'static, [u8]>> {

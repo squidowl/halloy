@@ -51,6 +51,7 @@ pub fn view<'a>(
                                 ),
                             ),
                             user.clone(),
+                            &config.font,
                         )
                         .map(scroll_view::Message::UserContext);
 

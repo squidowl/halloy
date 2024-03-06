@@ -1,8 +1,9 @@
+use std::default;
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::PathBuf;
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use thiserror::Error;
 
 pub use self::buffer::Buffer;
@@ -58,10 +59,40 @@ impl From<ScaleFactor> for f64 {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Font {
-    pub family: Option<String>,
-    pub size: Option<u8>,
+    pub family: String,
+    pub size: f32,
+}
+
+impl Default for Font {
+    fn default() -> Self {
+        Self { 
+            family: String::from("Iosevka Term"), 
+            size: 13.0
+        }
+    }
+}
+
+impl Font {
+    fn deserialize<'de, D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct MaybeFont {
+            family: Option<String>,
+            size: Option<f32>,
+        }
+
+        let MaybeFont { family, size } = MaybeFont::deserialize(deserializer)?;
+        let Font { family: default_family, size: default_size } = Font::default();
+
+        Ok(Font {
+            family: family.unwrap_or_else(|| default_family),
+            size: size.unwrap_or(default_size),
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -112,7 +143,7 @@ impl Config {
             #[serde(default)]
             pub theme: String,
             pub servers: ServerMap,
-            #[serde(default)]
+            #[serde(deserialize_with = "Font::deserialize")]
             pub font: Font,
             #[serde(default)]
             pub scale_factor: ScaleFactor,

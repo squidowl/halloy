@@ -56,7 +56,7 @@ impl CommandBar {
         config: &'a Config,
     ) -> Element<'a, Message> {
         // 1px larger than default
-        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) + 1.0;
+        let font_size = config.font.size + 1.0;
 
         let combo_box = combo_box(&self.state, "Type a command...", None, Message::Command)
             .on_close(Message::Unfocused)

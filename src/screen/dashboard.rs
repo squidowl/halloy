@@ -509,6 +509,7 @@ impl Dashboard {
                 &self.panes,
                 self.focus,
                 config.dashboard.sidebar,
+                &config.font,
             )
             .map(|e| e.map(Message::SideMenu));
 

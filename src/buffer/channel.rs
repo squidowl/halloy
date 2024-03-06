@@ -54,6 +54,7 @@ pub fn view<'a>(
                                 ),
                             ),
                             user.clone(),
+                            &config.font
                         )
                         .map(scroll_view::Message::UserContext);
                         let row_style = match our_nick {
@@ -248,7 +249,7 @@ mod nick_list {
                 user.is_away(),
             ));
 
-            user_context::view(content, user.clone())
+            user_context::view(content, user.clone(), &config.font)
         }))
         .padding(4)
         .spacing(1);

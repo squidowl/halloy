@@ -7,7 +7,6 @@ use crate::widget::selectable_text;
 
 // TODO: If we use non-standard font sizes, we should consider
 // Config.font.size since it's user configurable
-pub const TEXT_SIZE: f32 = 13.0;
 pub const ICON_SIZE: f32 = 12.0;
 
 #[derive(Debug, Clone)]

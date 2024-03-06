@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Clipped context buttons on Linux when using a non-default font size
+
 # 2024.3 (2024-03-05)
 
 Added:

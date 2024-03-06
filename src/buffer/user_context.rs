@@ -1,4 +1,5 @@
 use data::User;
+use iced::widget::text::LineHeight;
 use iced::widget::{button, text};
 
 use crate::theme;
@@ -38,7 +39,8 @@ pub fn update(message: Message) -> Event {
     }
 }
 
-pub fn view<'a>(content: impl Into<Element<'a, Message>>, user: User) -> Element<'a, Message> {
+pub fn view<'a>(content: impl Into<Element<'a, Message>>, user: User, font: &data::config::Font) -> Element<'a, Message> {
+    let font = font.clone();
     let entries = Entry::list();
 
     let content = button(content)
@@ -52,9 +54,12 @@ pub fn view<'a>(content: impl Into<Element<'a, Message>>, user: User) -> Element
             Entry::Query => ("Message", Message::Query(user.clone())),
         };
 
+        // Height based on font size, with some margin added.
+        let height = LineHeight::default().to_absolute((font.size + 8.0).into());
+
         button(text(content).style(theme::Text::Primary))
             .width(length)
-            .height(length)
+            .height(height)
             .style(theme::Button::Context)
             .on_press(message)
             .into()
