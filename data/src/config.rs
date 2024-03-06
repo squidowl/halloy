@@ -1,4 +1,3 @@
-use std::default;
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -89,7 +88,7 @@ impl Font {
         let Font { family: default_family, size: default_size } = Font::default();
 
         Ok(Font {
-            family: family.unwrap_or_else(|| default_family),
+            family: family.unwrap_or(default_family),
             size: size.unwrap_or(default_size),
         })
     }
