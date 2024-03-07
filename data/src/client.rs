@@ -825,7 +825,7 @@ impl Map {
         }
     }
 
-    pub fn nickname(&self, server: &Server) -> Option<NickRef> {
+    pub fn nickname<'a>(&'a self, server: &Server) -> Option<NickRef<'a>> {
         self.client(server).map(Client::nickname)
     }
 

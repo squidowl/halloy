@@ -20,7 +20,7 @@ where
             entries.iter().copied().map(|entry| view(entry, length)),
         ))
         .padding(4)
-        .style(theme::Container::Context)
+        .style(theme::container::context)
     };
 
     let menu = double_pass(
@@ -174,6 +174,7 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for ContextMenu<'a, Message> 
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let state = tree.state.downcast_mut::<State>();
 
@@ -182,17 +183,15 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for ContextMenu<'a, Message> 
         let base = self
             .base
             .as_widget_mut()
-            .overlay(&mut first[0], layout, renderer);
+            .overlay(&mut first[0], layout, renderer, translation);
 
         let overlay = state.open().map(|position| {
-            overlay::Element::new(
-                position,
-                Box::new(Overlay {
-                    content: &mut self.menu,
-                    tree: &mut second[0],
-                    state,
-                }),
-            )
+            overlay::Element::new(Box::new(Overlay {
+                content: &mut self.menu,
+                tree: &mut second[0],
+                state,
+                position: position + translation,
+            }))
         });
 
         Some(overlay::Group::with_children(base.into_iter().chain(overlay).collect()).overlay())
@@ -212,17 +211,12 @@ struct Overlay<'a, 'b, Message> {
     content: &'b mut Element<'a, Message>,
     tree: &'b mut widget::Tree,
     state: &'b mut State,
+    position: Point,
 }
 
 impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a, 'b, Message> {
-    fn layout(
-        &mut self,
-        renderer: &Renderer,
-        viewport: Size,
-        position: Point,
-        _translation: Vector,
-    ) -> layout::Node {
-        let limits = layout::Limits::new(Size::ZERO, viewport)
+    fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
+        let limits = layout::Limits::new(Size::ZERO, bounds)
             .width(Length::Fill)
             .height(Length::Fill);
 
@@ -231,8 +225,8 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
             .as_widget()
             .layout(self.tree, renderer, &limits);
 
-        let viewport = Rectangle::new(Point::ORIGIN, viewport);
-        let mut bounds = Rectangle::new(position, node.size());
+        let viewport = Rectangle::new(Point::ORIGIN, bounds);
+        let mut bounds = Rectangle::new(self.position, node.size());
 
         if bounds.x < viewport.x {
             bounds.x = viewport.x;

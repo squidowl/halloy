@@ -219,7 +219,11 @@ impl Commands {
                         Element::from(
                             container(content)
                                 .width(width)
-                                .style(theme::Container::Command { selected })
+                                .style(if selected {
+                                    theme::container::command_selected
+                                } else {
+                                    theme::container::command
+                                })
                                 .padding(6)
                                 .center_y(),
                         )
@@ -232,7 +236,7 @@ impl Commands {
 
                     container(double_pass(first_pass, second_pass))
                         .padding(4)
-                        .style(theme::Container::Context)
+                        .style(theme::container::context)
                         .width(Length::Shrink)
                         .into()
                 })
@@ -260,17 +264,17 @@ impl Command {
         let title = Some(Element::from(text(self.title)));
 
         let args = self.args.iter().enumerate().map(|(index, arg)| {
-            let style = if index == active_arg {
-                theme::Text::Accent
-            } else {
-                theme::Text::Default
-            };
-
-            Element::from(text(format!(" {arg}")).style(style))
+            Element::from(text(format!(" {arg}")).style(move |theme| {
+                if index == active_arg {
+                    theme::text::accent(theme)
+                } else {
+                    theme::text::none(theme)
+                }
+            }))
         });
 
         container(row(title.into_iter().chain(args)))
-            .style(theme::Container::Context)
+            .style(theme::container::context)
             .padding(8)
             .center_y()
             .into()

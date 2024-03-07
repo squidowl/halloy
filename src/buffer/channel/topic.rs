@@ -1,19 +1,19 @@
 use chrono::{DateTime, Utc};
 use data::user::Nick;
 use data::{Config, User};
-use iced::widget::{column, container, horizontal_rule, row, scrollable};
+use iced::widget::{column, container, horizontal_rule, row, scrollable, Scrollable};
 use iced::Length;
 
 use super::user_context;
 use crate::theme;
-use crate::widget::{double_pass, selectable_text, Collection, Element};
+use crate::widget::{double_pass, selectable_text, Element};
 
 pub fn view<'a>(
     text: &'a str,
     who: Option<&'a str>,
     time: Option<&'a DateTime<Utc>>,
     max_lines: u16,
-    users: &[User],
+    users: &'a [User],
     config: &'a Config,
 ) -> Element<'a, user_context::Message> {
     let set_by = who.and_then(|who| {
@@ -21,33 +21,33 @@ pub fn view<'a>(
 
         let user = if let Some(user) = users.iter().find(|user| user.nickname() == nick) {
             user_context::view(
-                selectable_text(who).style(theme::Text::Nickname(
-                    user.color_seed(&config.buffer.nickname.color),
-                    false,
-                )),
+                selectable_text(who).style(|theme| {
+                    theme::selectable_text::nickname(
+                        theme,
+                        user.color_seed(&config.buffer.nickname.color),
+                        false,
+                    )
+                }),
                 user.clone(),
             )
         } else {
-            selectable_text(who).style(theme::Text::Server).into()
+            selectable_text(who).style(theme::selectable_text::info).into()
         };
 
         Some(row![
-            selectable_text("set by ").style(theme::Text::Transparent),
+            selectable_text("set by ").style(theme::selectable_text::transparent),
             user,
-            selectable_text(format!(" at {}", time?.to_rfc2822())).style(theme::Text::Transparent),
+            selectable_text(format!(" at {}", time?.to_rfc2822())).style(theme::selectable_text::transparent),
         ])
     });
 
-    let content = column![selectable_text(text).style(theme::Text::Transparent)].push_maybe(set_by);
+    let content = column![selectable_text(text).style(theme::selectable_text::transparent)].push_maybe(set_by);
 
-    let scrollable = scrollable(container(content).width(Length::Fill).padding(padding()))
-        .style(theme::Scrollable::Hidden)
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Properties::default()
-                .alignment(scrollable::Alignment::Start)
-                .width(5)
-                .scroller_width(5),
-        ));
+    let scrollable = Scrollable::with_direction_and_style(
+        container(content).width(Length::Fill).padding(padding()),
+        scrollable::Direction::Vertical(scrollable::Properties::new().width(1).scroller_width(1)),
+        theme::scrollable::hidden,
+    );
 
     // Use double pass to limit layout to `max_lines` of text
     column![

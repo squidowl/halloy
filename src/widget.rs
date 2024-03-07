@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 pub use self::anchored_overlay::anchored_overlay;
-pub use self::collection::Collection;
 pub use self::combo_box::combo_box;
 pub use self::context_menu::context_menu;
 pub use self::double_pass::double_pass;

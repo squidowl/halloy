@@ -67,7 +67,7 @@ mod component {
 mod widget {
     use iced::advanced::widget::{self, tree};
     use iced::advanced::{layout, mouse, overlay, renderer, Clipboard, Layout, Shell, Widget};
-    use iced::{Length, Size};
+    use iced::{Length, Size, Vector};
 
     use crate::widget::{Element, Renderer};
     use crate::Theme;
@@ -223,10 +223,14 @@ mod widget {
             tree: &'b mut widget::Tree,
             layout: Layout<'_>,
             renderer: &Renderer,
+            translation: Vector,
         ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-            self.content
-                .as_widget_mut()
-                .overlay(&mut tree.children[0], layout, renderer)
+            self.content.as_widget_mut().overlay(
+                &mut tree.children[0],
+                layout,
+                renderer,
+                translation,
+            )
         }
     }
 

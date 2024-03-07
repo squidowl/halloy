@@ -44,7 +44,7 @@ pub fn topic<'a>() -> Text<'a> {
 
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
-        .style(theme::Text::Primary)
+        .style(theme::text::primary)
         .line_height(LineHeight::Relative(1.0))
         .size(theme::ICON_SIZE)
         .font(font::ICON)
