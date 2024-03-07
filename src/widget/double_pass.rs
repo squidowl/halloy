@@ -50,7 +50,14 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for DoublePass<'a, Message> {
             limits,
         );
 
-        let new_limits = layout::Limits::new(Size::ZERO, layout.size());
+        let new_limits = layout::Limits::new(
+            Size::ZERO,
+            layout
+                .size()
+                // eliminate float precision issues if second pass
+                // is fill
+                .expand(Size::new(1.0, 1.0)),
+        );
 
         self.second_pass
             .as_widget()
