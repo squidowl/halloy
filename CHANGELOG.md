@@ -1,5 +1,9 @@
 # Unreleased
 
+Fix:
+
+- Context menus now shows buttons as expected
+
 Security:
 
 - `chrono` [RUSTSEC-2020-0071](https://rustsec.org/advisories/RUSTSEC-2020-0071)
