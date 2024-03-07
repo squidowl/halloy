@@ -1,7 +1,7 @@
 use data::server::Server;
 use data::{buffer, User};
 use data::{channel, client, history, message, Config};
-use iced::widget::{column, container, row};
+use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
 use super::{input_view, scroll_view, user_context};
@@ -123,15 +123,18 @@ pub fn view<'a>(
     let topic = topic(state, clients, users, config);
 
     let text_input = show_text_input.then(|| {
-        column![input_view::view(
-            &state.input_view,
-            buffer,
-            users,
-            channels,
-            input_history,
-            is_focused
-        )
-        .map(Message::InputView)]
+        column![
+            vertical_space(4),
+            input_view::view(
+                &state.input_view,
+                buffer,
+                users,
+                channels,
+                input_history,
+                is_focused
+            )
+            .map(Message::InputView)
+        ]
         .width(Length::Fill)
     });
 
