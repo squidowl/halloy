@@ -192,7 +192,7 @@ impl Manager {
         server: &Server,
         channel: &str,
         limit: Option<Limit>,
-        buffer_config: &config::buffer::Buffer,
+        buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
         self.data.history_view(
             server,
@@ -206,7 +206,7 @@ impl Manager {
         &self,
         server: &Server,
         limit: Option<Limit>,
-        buffer_config: &config::buffer::Buffer,
+        buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
         self.data
             .history_view(server, &history::Kind::Server, limit, buffer_config)
@@ -217,7 +217,7 @@ impl Manager {
         server: &Server,
         nick: &Nick,
         limit: Option<Limit>,
-        buffer_config: &config::buffer::Buffer,
+        buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
         self.data.history_view(
             server,
@@ -430,7 +430,7 @@ impl Data {
         server: &server::Server,
         kind: &history::Kind,
         limit: Option<Limit>,
-        buffer_config: &config::buffer::Buffer,
+        buffer_config: &config::Buffer,
     ) -> Option<history::View> {
         let History::Full {
             messages,
