@@ -1,6 +1,10 @@
 # Unreleased
 
-# 2024.3 (2024-03-05)
+Security:
+
+- `chrono` [RUSTSEC-2020-0071](https://rustsec.org/advisories/RUSTSEC-2020-0071)
+
+# 2024.3, 2024.2 (2024-03-05)
 
 Added:
 
