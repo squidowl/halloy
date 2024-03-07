@@ -1,14 +1,12 @@
-use chrono::{DateTime, Utc};
-use data::history;
-use data::server::Server;
+use data::client::Topic;
 use data::user::Nick;
 use data::{Config, User};
-use iced::widget::{column, container, row, scrollable, Row};
+use iced::widget::{column, container, row, scrollable};
 use iced::{Command, Length};
 
 use super::user_context;
-use crate::widget::{selectable_text, Element};
-use crate::{theme, Theme};
+use crate::theme;
+use crate::widget::{selectable_text, Collection, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -21,30 +19,52 @@ pub enum Event {
     UserContext(user_context::Event),
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Kind<'a> {
-    ChannelTopic(&'a Server, &'a str),
-}
-
 pub fn view<'a>(
     state: &State,
-    kind: Kind,
-    history: &'a history::Manager,
-    format: impl Fn(&'a data::Message) -> Option<Element<'a, Message>> + 'a,
+    topic: &Topic,
+    users: &[User],
+    config: &'a Config,
 ) -> Option<Element<'a, Message>> {
-    let Some(history::BannerView { messages }) = (match kind {
-        Kind::ChannelTopic(server, channel) => history.get_channel_topic(server, channel),
-    }) else {
-        return None;
+    let set_by = if let Some(who) = topic.who.clone() {
+        let nick = Nick::from(who.split('!').next()?);
+
+        if let Some(user) = users.iter().find(|user| user.nickname() == nick) {
+            Some(
+                row![]
+                    .push(selectable_text("set by ").style(theme::Text::Banner))
+                    .push(
+                        user_context::view(
+                            selectable_text(who).style(theme::Text::Nickname(
+                                user.color_seed(&config.buffer.nickname.color),
+                                false,
+                            )),
+                            user.clone(),
+                        )
+                        .map(Message::UserContext),
+                    )
+                    .push(
+                        selectable_text(format!(" at {}", topic.time?.to_rfc2822()))
+                            .style(theme::Text::Banner),
+                    ),
+            )
+        } else {
+            Some(
+                row![]
+                    .push(selectable_text("set by ").style(theme::Text::Banner))
+                    .push(selectable_text(who).style(theme::Text::Server))
+                    .push(
+                        selectable_text(format!(" at {}", topic.time?.to_rfc2822()))
+                            .style(theme::Text::Banner),
+                    ),
+            )
+        }
+    } else {
+        None
     };
 
-    let messages = messages.into_iter().filter_map(format).collect::<Vec<_>>();
-
-    if messages.is_empty() {
-        return None;
-    }
-
-    let content = column![column(messages)];
+    let content = column![]
+        .push(row![].push(selectable_text(topic.text.clone()?).style(theme::Text::Banner)))
+        .push_maybe(set_by);
 
     Some(
         scrollable(container(content).width(Length::Fill).padding(padding()))
@@ -62,35 +82,6 @@ pub fn view<'a>(
 
 pub fn padding() -> [u16; 2] {
     [4, 8]
-}
-
-pub fn style_topic_who_time<'a>(
-    who: &str,
-    time: DateTime<Utc>,
-    long_who: Option<&str>,
-    users: &[User],
-    config: &'a Config,
-) -> Row<'a, Message, Theme> {
-    if let Some(user) = users.iter().find(|user| user.nickname() == Nick::from(who)) {
-        row![]
-            .push(selectable_text("set by ").style(theme::Text::Banner))
-            .push(
-                user_context::view(
-                    selectable_text(long_who.unwrap_or(who)).style(theme::Text::Nickname(
-                        user.color_seed(&config.buffer.nickname.color),
-                        false,
-                    )),
-                    user.clone(),
-                )
-                .map(Message::UserContext),
-            )
-            .push(selectable_text(format!(" at {}", time.to_rfc2822())).style(theme::Text::Banner))
-    } else {
-        row![]
-            .push(selectable_text("set by ").style(theme::Text::Banner))
-            .push(selectable_text(long_who.unwrap_or(who)).style(theme::Text::Server))
-            .push(selectable_text(format!(" at {}", time.to_rfc2822())).style(theme::Text::Banner))
-    }
 }
 
 #[derive(Debug, Clone)]

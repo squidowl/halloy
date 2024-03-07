@@ -1,5 +1,4 @@
-use data::buffer::Topic;
-use data::message::source;
+use data::buffer;
 use data::server::Server;
 use data::{channel, client, history, message, Config};
 use iced::widget::{column, container, row};
@@ -120,65 +119,27 @@ pub fn view<'a>(
         data::buffer::InputVisibility::Always => status.connected(),
     };
 
-    let topic_banner = if let Topic::Banner { max_lines } = config.buffer.topic {
-        banner_view::view(
-            &state.banner_view,
-            banner_view::Kind::ChannelTopic(&state.server, &state.channel),
-            history,
-            move |message| match message.target.source() {
-                message::Source::Server(Some(source)) => match source.kind() {
-                    source::server::Kind::Topic => {
-                        let topic =
-                            row![].push(selectable_text(source.text()?).style(theme::Text::Banner));
+    let topic_banner = if let buffer::Topic::Banner { max_lines } = config.buffer.topic {
+        if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
+            banner_view::view(&state.banner_view, topic, users, config).map(|banner| {
+                let mut layout_column = column![];
+                for _ in 0..max_lines {
+                    layout_column = layout_column.push(row![].push(selectable_text(" ")));
+                }
 
-                        let nick = banner_view::style_topic_who_time(
-                            source.nick()?.as_ref(),
-                            message.server_time,
-                            None,
-                            users,
-                            config,
-                        );
-
-                        Some(container(column![].push(topic).push(nick)).into())
-                    }
-                    source::server::Kind::ReplyTopic => {
-                        let topic =
-                            row![].push(selectable_text(source.text()?).style(theme::Text::Banner));
-
-                        Some(container(topic).into())
-                    }
-                    source::server::Kind::ReplyTopicWhoTime => {
-                        let nick = source.nick()?.as_ref().split('!').next()?;
-
-                        let nick = banner_view::style_topic_who_time(
-                            nick,
-                            source.time()?.datetime()?,
-                            Some(source.nick()?.as_ref()),
-                            users,
-                            config,
-                        );
-
-                        Some(container(nick).into())
-                    }
-                    _ => None,
-                },
-                _ => None,
-            },
-        )
-        .map(|banner| {
-            let mut layout_column = column![];
-            for _ in 0..max_lines {
-                layout_column = layout_column.push(row![].push(selectable_text(" ")));
-            }
-
-            double_pass(
-                container(layout_column)
-                    .width(Length::Fill)
-                    .padding(banner_view::padding()),
-                column![container(banner.map(Message::BannerView)).style(theme::Container::Banner)]
+                double_pass(
+                    container(layout_column)
+                        .width(Length::Fill)
+                        .padding(banner_view::padding()),
+                    column![
+                        container(banner.map(Message::BannerView)).style(theme::Container::Banner)
+                    ]
                     .width(Length::Fill),
-            )
-        })
+                )
+            })
+        } else {
+            None
+        }
     } else {
         None
     };

@@ -194,21 +194,12 @@ impl Manager {
         limit: Option<Limit>,
         buffer_config: &config::buffer::Buffer,
     ) -> Option<history::View<'_>> {
-        self.data.history_scroll_view(
+        self.data.history_view(
             server,
             &history::Kind::Channel(channel.to_string()),
             limit,
             buffer_config,
         )
-    }
-
-    pub fn get_channel_topic(
-        &self,
-        server: &Server,
-        channel: &str,
-    ) -> Option<history::BannerView<'_>> {
-        self.data
-            .history_banner_view(server, &history::Kind::Channel(channel.to_string()))
     }
 
     pub fn get_server_messages(
@@ -218,7 +209,7 @@ impl Manager {
         buffer_config: &config::buffer::Buffer,
     ) -> Option<history::View<'_>> {
         self.data
-            .history_scroll_view(server, &history::Kind::Server, limit, buffer_config)
+            .history_view(server, &history::Kind::Server, limit, buffer_config)
     }
 
     pub fn get_query_messages(
@@ -228,7 +219,7 @@ impl Manager {
         limit: Option<Limit>,
         buffer_config: &config::buffer::Buffer,
     ) -> Option<history::View<'_>> {
-        self.data.history_scroll_view(
+        self.data.history_view(
             server,
             &history::Kind::Query(nick.clone()),
             limit,
@@ -434,7 +425,7 @@ impl Data {
         }
     }
 
-    fn history_scroll_view(
+    fn history_view(
         &self,
         server: &server::Server,
         kind: &history::Kind,
@@ -483,7 +474,7 @@ impl Data {
                             }
                         }
                     } else if matches!(buffer_config.topic, Topic::Banner { .. }) {
-                        matches!(source.kind(), source::server::Kind::Topic)
+                        !matches!(source.kind(), source::server::Kind::ReplyTopic)
                     } else {
                         true
                     }
@@ -513,62 +504,6 @@ impl Data {
             old_messages: old.to_vec(),
             new_messages: new.to_vec(),
         })
-    }
-
-    fn history_banner_view(
-        &self,
-        server: &server::Server,
-        kind: &history::Kind,
-    ) -> Option<history::BannerView> {
-        let History::Full { messages, .. } = self.map.get(server)?.get(kind)? else {
-            return None;
-        };
-
-        if let Some(topic_messages) =
-            messages
-                .iter()
-                .rev()
-                .find_map(|message| match message.target.source() {
-                    message::Source::Server(Some(source)) => match source.kind() {
-                        source::server::Kind::Topic => Some(vec![message]),
-                        source::server::Kind::ReplyTopicWhoTime => {
-                            messages.iter().rev().find_map(|topic_message| {
-                                match topic_message.target.source() {
-                                    message::Source::Server(Some(source)) => match source.kind() {
-                                        source::server::Kind::ReplyTopic => {
-                                            Some(vec![topic_message, message])
-                                        }
-                                        _ => None,
-                                    },
-                                    _ => None,
-                                }
-                            })
-                        }
-                        source::server::Kind::ReplyTopic => {
-                            messages
-                                .iter()
-                                .rev()
-                                .find_map(|whotime_message| match whotime_message.target.source() {
-                                    message::Source::Server(Some(source)) => match source.kind() {
-                                        source::server::Kind::ReplyTopicWhoTime => {
-                                            Some(vec![message, whotime_message])
-                                        }
-                                        _ => None,
-                                    },
-                                    _ => None,
-                                })
-                        }
-                        _ => None,
-                    },
-                    _ => None,
-                })
-        {
-            Some(history::BannerView {
-                messages: topic_messages,
-            })
-        } else {
-            Some(history::BannerView { messages: vec![] })
-        }
     }
 
     fn add_message(
