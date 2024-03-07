@@ -43,7 +43,7 @@ pub fn view<'a>(content: impl Into<Element<'a, Message>>, user: User) -> Element
 
     let content = button(content)
         .padding(0)
-        .style(theme::Button::Bare)
+        .style(theme::button::bare)
         .on_press(Message::SingleClick(user.clone()));
 
     context_menu(content, entries, move |entry, length| {
@@ -52,9 +52,10 @@ pub fn view<'a>(content: impl Into<Element<'a, Message>>, user: User) -> Element
             Entry::Query => ("Message", Message::Query(user.clone())),
         };
 
-        button(text(content).style(theme::Text::Primary))
+        button(text(content).style(theme::text::primary))
+            .padding(5)
             .width(length)
-            .style(theme::Button::Context)
+            .style(theme::button::context)
             .on_press(message)
             .into()
     })

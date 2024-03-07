@@ -4,7 +4,7 @@
 
 use iced::advanced::widget::tree;
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::{event, mouse, Event, Length, Rectangle, Size};
+use iced::{event, mouse, Event, Length, Rectangle, Size, Vector};
 
 use super::{Element, Renderer};
 use crate::Theme;
@@ -141,10 +141,11 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for DoublePass<'a, Message> {
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         self.second_pass
             .as_widget_mut()
-            .overlay(tree, layout, renderer)
+            .overlay(tree, layout, renderer, translation)
     }
 }
 

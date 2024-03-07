@@ -198,9 +198,9 @@ where
 
     fn view(&self, state: &Self::State) -> Element<'_, Self::Event> {
         let style = if state.error.is_some() {
-            theme::TextInput::Error
+            theme::text_input::error
         } else {
-            theme::TextInput::Default
+            theme::text_input::primary
         };
 
         let text_input = text_input("Send message...", self.input)
@@ -249,10 +249,10 @@ where
 }
 
 fn error<'a, Message: 'a>(error: impl ToString) -> Element<'a, Message> {
-    container(text(error).style(theme::Text::Error))
+    container(text(error).style(theme::text::error))
         .center_y()
         .padding(8)
-        .style(theme::Container::Primary)
+        .style(theme::container::primary)
         .into()
 }
 

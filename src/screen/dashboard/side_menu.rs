@@ -2,11 +2,12 @@ use data::dashboard::DefaultAction;
 use data::{history, Buffer};
 use iced::widget::{
     button, column, container, horizontal_space, pane_grid, row, scrollable, text, vertical_space,
+    Scrollable,
 };
 use iced::Length;
 
 use super::pane::Pane;
-use crate::widget::{context_menu, Collection, Element};
+use crate::widget::{context_menu, Element};
 use crate::{icon, theme};
 
 #[derive(Debug, Clone)]
@@ -110,19 +111,20 @@ impl SideMenu {
                         ));
                     }
 
-                    column = column.push(vertical_space(12));
+                    column = column.push(vertical_space().height(12));
                 }
             }
         }
 
         Some(
-            container(
-                scrollable(column).direction(scrollable::Direction::Vertical(
+            container(Scrollable::with_direction(
+                column,
+                scrollable::Direction::Vertical(
                     iced::widget::scrollable::Properties::default()
                         .width(0)
                         .scroller_width(0),
-                )),
-            )
+                ),
+            ))
             .padding([8, 0, 6, 6])
             .center_x()
             .max_width(config.width)
@@ -183,28 +185,31 @@ fn buffer_button<'a>(
             } else {
                 icon::wifi_off()
             },
-            text(server.to_string()).style(theme::Text::Primary)
+            text(server.to_string()).style(theme::text::primary)
         ]
         .spacing(8)
         .align_items(iced::Alignment::Center),
         Buffer::Channel(_, channel) => row![]
-            .push(horizontal_space(3))
-            .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::Text::Info)))
-            .push(horizontal_space(if has_unread { 10 } else { 16 }))
-            .push(text(channel).style(theme::Text::Primary))
+            .push(horizontal_space().width(3))
+            .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::text::info)))
+            .push(horizontal_space().width(if has_unread { 10 } else { 16 }))
+            .push(text(channel).style(theme::text::primary))
             .align_items(iced::Alignment::Center),
         Buffer::Query(_, nick) => row![]
-            .push(horizontal_space(3))
-            .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::Text::Info)))
-            .push(horizontal_space(if has_unread { 10 } else { 16 }))
-            .push(text(nick).style(theme::Text::Primary))
+            .push(horizontal_space().width(3))
+            .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::text::info)))
+            .push(horizontal_space().width(if has_unread { 10 } else { 16 }))
+            .push(text(nick).style(theme::text::primary))
             .align_items(iced::Alignment::Center),
     };
 
     let base = button(row)
+        .padding(5)
         .width(Length::Fill)
-        .style(theme::Button::SideMenu {
-            selected: open.is_some(),
+        .style(if open.is_some() {
+            theme::button::side_menu_selected
+        } else {
+            theme::button::side_menu
         })
         .on_press(match default_action {
             DefaultAction::NewPane => Message::Open(buffer.clone()),
@@ -238,9 +243,10 @@ fn buffer_button<'a>(
                 ),
             };
 
-            button(text(content).style(theme::Text::Primary))
+            button(text(content).style(theme::text::primary))
                 .width(length)
-                .style(theme::Button::Context)
+                .padding(5)
+                .style(theme::button::context)
                 .on_press(message)
                 .into()
         })

@@ -61,7 +61,6 @@ impl CommandBar {
         let combo_box = combo_box(&self.state, "Type a command...", None, Message::Command)
             .on_close(Message::Unfocused)
             .on_option_hovered(Message::Hovered)
-            .style(theme::ComboBox::Default)
             .size(font_size)
             .padding([8, 8]);
 
@@ -89,7 +88,7 @@ impl CommandBar {
             .padding([0, 20]),
             container(combo_box)
                 .padding(1)
-                .style(theme::Container::Context)
+                .style(theme::container::context)
                 .width(Length::Fill),
         )
     }

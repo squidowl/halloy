@@ -2,7 +2,7 @@ use data::message::Limit;
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
-use iced::widget::{column, container, horizontal_rule, row, scrollable, text};
+use iced::widget::{column, container, horizontal_rule, row, text, scrollable, Scrollable};
 use iced::{Command, Length};
 
 use super::user_context;
@@ -89,7 +89,7 @@ pub fn view<'a>(
                 .padding([0, 6, 0, 0]),
             text("backlog")
                 .size(font_size)
-                .style(theme::Text::Transparent),
+                .style(theme::text::transparent),
             container(horizontal_rule(1))
                 .width(Length::Fill)
                 .padding([0, 0, 0, 6])
@@ -97,27 +97,29 @@ pub fn view<'a>(
         .padding(2)
         .align_items(iced::Alignment::Center);
 
-        column![column(old), container(divider), column(new)]
+        column![column(old), divider, column(new)]
     } else {
         column![column(old), column(new)]
     };
 
-    scrollable(container(content).width(Length::Fill).padding([0, 8]))
-        .direction(scrollable::Direction::Vertical(
+    Scrollable::with_direction(
+        container(content).width(Length::Fill).padding([0, 8]),
+        scrollable::Direction::Vertical(
             scrollable::Properties::default()
                 .alignment(status.alignment())
                 .width(5)
                 .scroller_width(5),
-        ))
-        .on_scroll(move |viewport| Message::Scrolled {
-            count,
-            remaining,
-            oldest,
-            status,
-            viewport,
-        })
-        .id(state.scrollable.clone())
-        .into()
+        ),
+    )
+    .on_scroll(move |viewport| Message::Scrolled {
+        count,
+        remaining,
+        oldest,
+        status,
+        viewport,
+    })
+    .id(state.scrollable.clone())
+    .into()
 }
 
 #[derive(Debug, Clone)]
