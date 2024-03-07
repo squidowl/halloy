@@ -473,8 +473,10 @@ impl Data {
                                 }
                             }
                         }
-                    } else if matches!(buffer_config.topic, Topic::Banner { .. }) {
-                        !matches!(source.kind(), source::server::Kind::ReplyTopic)
+                    }
+                    // ReplyTopic messages are not shown when topic banner is visible
+                    else if matches!(source.kind(), source::server::Kind::ReplyTopic) {
+                        !matches!(buffer_config.topic, Topic::Banner { .. })
                     } else {
                         true
                     }
