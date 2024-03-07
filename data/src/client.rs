@@ -654,6 +654,9 @@ impl Client {
                 if let Some(channel) = self.chanmap.get_mut(&args[1]) {
                     channel.topic.text = Some(args.get(2)?.to_owned());
                 }
+                // Exclude topic message from history to prevent spam during dev
+                #[cfg(feature = "dev")]
+                return None;
             }
             Command::Numeric(RPL_TOPICWHOTIME, args) => {
                 if let Some(channel) = self.chanmap.get_mut(&args[1]) {
@@ -666,10 +669,10 @@ impl Client {
                             .datetime()?,
                     );
                 }
+                // Exclude topic message from history to prevent spam during dev
+                #[cfg(feature = "dev")]
+                return None;
             }
-            #[cfg(feature = "dev")]
-            // Suppress topic during development to prevent history spam
-            Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME, _) => return None,
             _ => {}
         }
 
