@@ -1,19 +1,20 @@
-use data::buffer;
 use data::server::Server;
+use data::{buffer, User};
 use data::{channel, client, history, message, Config};
 use iced::widget::{column, container, row};
 use iced::{Command, Length};
 
-use super::{banner_view, input_view, scroll_view, user_context};
+use super::{input_view, scroll_view, user_context};
 use crate::theme;
-use crate::widget::{double_pass, selectable_text, Collection, Element};
+use crate::widget::{selectable_text, Collection, Element};
+
+mod topic;
 
 #[derive(Debug, Clone)]
 pub enum Message {
     ScrollView(scroll_view::Message),
     InputView(input_view::Message),
     UserContext(user_context::Message),
-    BannerView(banner_view::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -119,30 +120,7 @@ pub fn view<'a>(
         data::buffer::InputVisibility::Always => status.connected(),
     };
 
-    let topic_banner = if let buffer::Topic::Banner { max_lines } = config.buffer.topic {
-        if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
-            banner_view::view(&state.banner_view, topic, users, config).map(|banner| {
-                let mut layout_column = column![];
-                for _ in 0..max_lines {
-                    layout_column = layout_column.push(row![].push(selectable_text(" ")));
-                }
-
-                double_pass(
-                    container(layout_column)
-                        .width(Length::Fill)
-                        .padding(banner_view::padding()),
-                    column![
-                        container(banner.map(Message::BannerView)).style(theme::Container::Banner)
-                    ]
-                    .width(Length::Fill),
-                )
-            })
-        } else {
-            None
-        }
-    } else {
-        None
-    };
+    let topic = topic(state, clients, users, config);
 
     let text_input = show_text_input.then(|| {
         column![input_view::view(
@@ -167,14 +145,13 @@ pub fn view<'a>(
         (false, _) => { row![messages] }.height(Length::Fill),
     };
 
-    let scrollable = column![]
-        .push_maybe(topic_banner)
+    let body = column![]
+        .push_maybe(topic)
         .push(container(content).height(Length::Fill))
         .push_maybe(text_input)
-        .height(Length::Fill)
-        .spacing(4);
+        .height(Length::Fill);
 
-    container(scrollable)
+    container(body)
         .width(Length::Fill)
         .height(Length::Fill)
         .padding(8)
@@ -186,7 +163,6 @@ pub struct Channel {
     pub server: Server,
     pub channel: String,
 
-    pub banner_view: banner_view::State,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
 }
@@ -196,7 +172,6 @@ impl Channel {
         Self {
             server,
             channel,
-            banner_view: banner_view::State::new(),
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
         }
@@ -213,15 +188,6 @@ impl Channel {
         history: &mut history::Manager,
     ) -> (Command<Message>, Option<Event>) {
         match message {
-            Message::BannerView(message) => {
-                let (command, event) = self.banner_view.update(message);
-
-                let event = event.map(|event| match event {
-                    banner_view::Event::UserContext(event) => Event::UserContext(event),
-                });
-
-                (command.map(Message::BannerView), event)
-            }
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(message);
 
@@ -261,6 +227,35 @@ impl Channel {
     pub fn reset(&self) -> Command<Message> {
         self.input_view.reset().map(Message::InputView)
     }
+}
+
+fn topic<'a>(
+    state: &'a Channel,
+    clients: &'a data::client::Map,
+    users: &'a [User],
+    config: &'a Config,
+) -> Option<Element<'a, Message>> {
+    let buffer::Topic::Banner { max_lines } = config.buffer.topic else {
+        return None;
+    };
+
+    let topic = clients.get_channel_topic(&state.server, &state.channel)?;
+
+    Some(
+        container(
+            topic::view(
+                topic.text.as_deref()?,
+                topic.who.as_deref(),
+                topic.time.as_ref(),
+                max_lines,
+                users,
+                config,
+            )
+            .map(Message::UserContext),
+        )
+        .padding([0, 0, 4, 0])
+        .into(),
+    )
 }
 
 mod nick_list {
