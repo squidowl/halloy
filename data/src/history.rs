@@ -274,11 +274,6 @@ pub struct View<'a> {
     pub new_messages: Vec<&'a Message>,
 }
 
-#[derive(Debug)]
-pub struct BannerView<'a> {
-    pub messages: Vec<&'a Message>,
-}
-
 #[derive(Debug, Clone, Default)]
 struct Input(HashMap<Buffer, Vec<String>>);
 
