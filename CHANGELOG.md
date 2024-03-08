@@ -3,6 +3,7 @@
 Fix:
 
 - Context menus now shows buttons as expected
+- Buttons on help screen is now correctly sized
 
 Security:
 
