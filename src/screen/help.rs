@@ -1,5 +1,5 @@
 use data::{config, Config};
-use iced::widget::{button, column, container, row, text, vertical_space};
+use iced::widget::{button, column, container, text, vertical_space};
 use iced::{alignment, Length};
 
 use crate::widget::Element;
@@ -43,15 +43,16 @@ impl Help {
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
-        .width(Length::Fill)
+        .width(Length::Fixed(250.0))
         .style(theme::Button::Secondary)
         .on_press(Message::OpenConfigurationDirectory);
+
         let refresh_button = button(
             container(text("Refresh"))
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
-        .width(Length::Fill)
+        .width(Length::Fixed(250.0))
         .style(theme::Button::Secondary)
         .on_press(Message::RefreshConfiguration);
 
@@ -64,7 +65,7 @@ impl Help {
             .push(text(self.error.to_string()).style(theme::Text::Error))
             .push(vertical_space(10))
             .push(
-                row![]
+                column![]
                     .width(250)
                     .spacing(4)
                     .push(config_button)
