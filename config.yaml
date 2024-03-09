@@ -117,7 +117,7 @@ buffer:
       color: Unique
     # Topic banner settings:
     topic:
-      # Visible by default
+      # Visibility
       # - Default is false
       visible: true
       # Maximum visible lines of the topic banner before scrolling
