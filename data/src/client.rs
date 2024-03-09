@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
 use itertools::Itertools;
@@ -5,6 +6,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, Instant};
 
+use crate::message::server_time;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{config, message, mode, Buffer, Server, User};
@@ -638,9 +640,39 @@ impl Client {
                     }
                 }
             }
-            #[cfg(feature = "dev")]
-            // Suppress topic during development to prevent history spam
-            Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME, _) => return None,
+            Command::TOPIC(channel, topic) => {
+                if let Some(channel) = self.chanmap.get_mut(channel) {
+                    channel.topic.text = topic.to_owned();
+
+                    channel.topic.who = message
+                        .user()
+                        .map(|user| user.username().unwrap().to_string());
+                    channel.topic.time = Some(server_time(&message));
+                }
+            }
+            Command::Numeric(RPL_TOPIC, args) => {
+                if let Some(channel) = self.chanmap.get_mut(&args[1]) {
+                    channel.topic.text = Some(args.get(2)?.to_owned());
+                }
+                // Exclude topic message from history to prevent spam during dev
+                #[cfg(feature = "dev")]
+                return None;
+            }
+            Command::Numeric(RPL_TOPICWHOTIME, args) => {
+                if let Some(channel) = self.chanmap.get_mut(&args[1]) {
+                    channel.topic.who = Some(args.get(2)?.to_string());
+                    channel.topic.time = Some(
+                        args.get(3)?
+                            .parse::<u64>()
+                            .ok()
+                            .map(Posix::from_seconds)?
+                            .datetime()?,
+                    );
+                }
+                // Exclude topic message from history to prevent spam during dev
+                #[cfg(feature = "dev")]
+                return None;
+            }
             _ => {}
         }
 
@@ -663,6 +695,10 @@ impl Client {
 
     pub fn channels(&self) -> &[String] {
         &self.channels
+    }
+
+    fn topic<'a>(&'a self, channel: &str) -> Option<&'a Topic> {
+        self.chanmap.get(channel).map(|channel| &channel.topic)
     }
 
     fn users<'a>(&'a self, channel: &str) -> &'a [User] {
@@ -823,6 +859,12 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_channel_topic<'a>(&'a self, server: &Server, channel: &str) -> Option<&'a Topic> {
+        self.client(server)
+            .map(|client| client.topic(channel))
+            .unwrap_or_default()
+    }
+
     pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [String] {
         self.client(server)
             .map(|client| client.channels())
@@ -950,6 +992,14 @@ enum RegistrationStep {
 pub struct Channel {
     pub users: HashSet<User>,
     pub last_who: Option<WhoStatus>,
+    pub topic: Topic,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct Topic {
+    pub text: Option<String>,
+    pub who: Option<String>,
+    pub time: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Copy)]

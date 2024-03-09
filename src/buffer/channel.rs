@@ -1,4 +1,5 @@
 use data::server::Server;
+use data::User;
 use data::{channel, client, history, message, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
@@ -6,6 +7,8 @@ use iced::{Command, Length};
 use super::{input_view, scroll_view, user_context};
 use crate::theme;
 use crate::widget::{selectable_text, Collection, Element};
+
+mod topic;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -117,6 +120,10 @@ pub fn view<'a>(
         data::buffer::InputVisibility::Always => status.connected(),
     };
 
+    // If topic toggles from None to Some then it messes with messages' scroll state,
+    // so produce a zero-height placeholder when topic is None.
+    let topic = topic(state, clients, users, settings, config).unwrap_or_else(|| column![].into());
+
     let text_input = show_text_input.then(|| {
         column![
             vertical_space(4),
@@ -133,24 +140,27 @@ pub fn view<'a>(
         .width(Length::Fill)
     });
 
+    let content = column![].push(topic).push(messages);
+
     let content = match (settings.users.visible, config.buffer.channel.users.position) {
         (true, data::channel::Position::Left) => {
-            row![nick_list, messages]
+            row![nick_list, content]
         }
         (true, data::channel::Position::Right) => {
-            row![messages, nick_list]
+            row![content, nick_list]
         }
-        (false, _) => { row![messages] }.height(Length::Fill),
+        (false, _) => { row![content] }.height(Length::Fill),
     };
 
-    let scrollable = column![container(content).height(Length::Fill)]
+    let body = column![]
+        .push(container(content).height(Length::Fill))
         .push_maybe(text_input)
         .height(Length::Fill);
 
-    container(scrollable)
+    container(body)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(8)
+        .padding([4, 8, 8, 8])
         .into()
 }
 
@@ -158,7 +168,7 @@ pub fn view<'a>(
 pub struct Channel {
     pub server: Server,
     pub channel: String,
-    pub topic: Option<String>,
+
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
 }
@@ -168,7 +178,6 @@ impl Channel {
         Self {
             server,
             channel,
-            topic: None,
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
         }
@@ -224,6 +233,36 @@ impl Channel {
     pub fn reset(&self) -> Command<Message> {
         self.input_view.reset().map(Message::InputView)
     }
+}
+
+fn topic<'a>(
+    state: &'a Channel,
+    clients: &'a data::client::Map,
+    users: &'a [User],
+    settings: &'a channel::Settings,
+    config: &'a Config,
+) -> Option<Element<'a, Message>> {
+    if !settings.topic.visible {
+        return None;
+    }
+
+    let topic = clients.get_channel_topic(&state.server, &state.channel)?;
+
+    Some(
+        container(
+            topic::view(
+                topic.text.as_deref()?,
+                topic.who.as_deref(),
+                topic.time.as_ref(),
+                config.buffer.channel.topic.max_lines,
+                users,
+                config,
+            )
+            .map(Message::UserContext),
+        )
+        .padding([0, 0, 3, 0])
+        .into(),
+    )
 }
 
 mod nick_list {

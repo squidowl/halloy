@@ -38,6 +38,10 @@ pub fn people<'a>() -> Text<'a> {
     to_text('\u{f4db}')
 }
 
+pub fn topic<'a>() -> Text<'a> {
+    to_text('\u{f5af}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .style(theme::Text::Primary)

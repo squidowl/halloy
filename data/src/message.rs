@@ -139,7 +139,17 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
                 Some(user?.nickname().to_owned()),
             ))),
         }),
-        Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME | RPL_CHANNELMODEIS, params) => {
+        Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME, params) => {
+            let channel = params.get(1)?.clone();
+            Some(Target::Channel {
+                channel,
+                source: source::Source::Server(Some(source::Server::new(
+                    source::server::Kind::ReplyTopic,
+                    None,
+                ))),
+            })
+        }
+        Command::Numeric(RPL_CHANNELMODEIS, params) => {
             let channel = params.get(1)?.clone();
             Some(Target::Channel {
                 channel,
@@ -253,7 +263,7 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
     }
 }
 
-fn server_time(message: &Encoded) -> DateTime<Utc> {
+pub fn server_time(message: &Encoded) -> DateTime<Utc> {
     message
         .tags
         .iter()

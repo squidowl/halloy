@@ -115,7 +115,14 @@ buffer:
       # - Unique: Unique user colors [default]
       # - Solid: Solid user colors
       color: Unique
-
+    # Topic banner settings:
+    topic:
+      # Visibility
+      # - Default is false
+      visible: true
+      # Maximum visible lines of the topic banner before scrolling
+      # - Default is 2
+      max_lines: 3
 
 # Dashboard settings
 dashboard:
