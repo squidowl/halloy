@@ -66,20 +66,6 @@ pub enum InputVisibility {
     Always,
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize)]
-pub enum Topic {
-    #[default]
-    Inline,
-    Banner {
-        #[serde(default = "default_topic_banner_max_lines")]
-        max_lines: u16,
-    },
-}
-
-fn default_topic_banner_max_lines() -> u16 {
-    2
-}
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct Timestamp {
     pub format: String,
