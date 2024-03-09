@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Configuration option to enable a topic banner in channels. This can be enabled under `buffer.channel.topic`
+
 Fix:
 
 - Context menus now shows buttons as expected
@@ -22,6 +26,7 @@ Fixed:
 - Clipped buttons in context menu
 
 Changed:
+
 - Improved user experience in text input when auto-completing a nickname.
 - Configuration option `server_messages` changed `exclude` from a boolean value to [`All`, `None` or `!Smart seconds`].
   - `All` excludes all messages for the specific server message.
