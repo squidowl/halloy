@@ -32,6 +32,8 @@ pub enum Exclude {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ServerMessages {
     #[serde(default)]
+    pub topic: ServerMessage,
+    #[serde(default)]
     pub join: ServerMessage,
     #[serde(default)]
     pub part: ServerMessage,
@@ -40,11 +42,12 @@ pub struct ServerMessages {
 }
 
 impl ServerMessages {
-    pub fn get(&self, server: &source::Server) -> ServerMessage {
+    pub fn get(&self, server: &source::Server) -> Option<ServerMessage> {
         match server.kind() {
-            source::server::Kind::Join => self.join,
-            source::server::Kind::Part => self.part,
-            source::server::Kind::Quit => self.quit,
+            source::server::Kind::ReplyTopic => Some(self.topic),
+            source::server::Kind::Part => Some(self.part),
+            source::server::Kind::Quit => Some(self.quit),
+            source::server::Kind::Join => Some(self.join),
         }
     }
 }

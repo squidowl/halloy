@@ -16,6 +16,7 @@ pub enum Message {
     SplitPane(pane_grid::Axis),
     MaximizePane,
     ToggleShowUserList,
+    ToggleShowTopic,
 }
 
 #[derive(Clone)]
@@ -80,6 +81,7 @@ impl Pane {
             panes,
             is_focused,
             maximized,
+            clients,
             &self.settings,
         );
 
@@ -127,12 +129,34 @@ impl TitleBar {
         panes: usize,
         _is_focused: bool,
         maximized: bool,
+        clients: &'a data::client::Map,
         settings: &'a buffer::Settings,
     ) -> widget::TitleBar<'a, Message> {
         // Pane controls.
         let mut controls = row![].spacing(2);
 
-        if let Buffer::Channel(_) = &buffer {
+        if let Buffer::Channel(state) = &buffer {
+            // Show topic button only if there is a topic to show
+            if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
+                if topic.text.is_some() {
+                    let topic = button(
+                        container(icon::topic())
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .center_x()
+                            .center_y(),
+                    )
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::ToggleShowTopic)
+                    .style(theme::Button::Pane {
+                        selected: settings.channel.topic.visible,
+                    });
+
+                    controls = controls.push(topic);
+                }
+            }
+
             let users = button(
                 container(icon::people())
                     .width(Length::Fill)

@@ -623,6 +623,7 @@ impl selectable_text::StyleSheet for Theme {
 
     fn appearance(&self, style: &Self::Style) -> selectable_text::Appearance {
         let color = <Theme as text::StyleSheet>::appearance(self, style.clone()).color;
+
         let selection_color = self.colors().accent.high_alpha;
 
         selectable_text::Appearance {

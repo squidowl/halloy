@@ -6,7 +6,8 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
-use crate::config::buffer::{Exclude, ServerMessages};
+use crate::config;
+use crate::config::buffer::Exclude;
 use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::time::Posix;
@@ -189,13 +190,13 @@ impl Manager {
         server: &Server,
         channel: &str,
         limit: Option<Limit>,
-        server_messages: &ServerMessages,
+        buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
         self.data.history_view(
             server,
             &history::Kind::Channel(channel.to_string()),
             limit,
-            server_messages,
+            buffer_config,
         )
     }
 
@@ -203,10 +204,10 @@ impl Manager {
         &self,
         server: &Server,
         limit: Option<Limit>,
-        server_messages: &ServerMessages,
+        buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
         self.data
-            .history_view(server, &history::Kind::Server, limit, server_messages)
+            .history_view(server, &history::Kind::Server, limit, buffer_config)
     }
 
     pub fn get_query_messages(
@@ -214,13 +215,13 @@ impl Manager {
         server: &Server,
         nick: &Nick,
         limit: Option<Limit>,
-        server_messages: &ServerMessages,
+        buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
         self.data.history_view(
             server,
             &history::Kind::Query(nick.clone()),
             limit,
-            server_messages,
+            buffer_config,
         )
     }
 
@@ -427,7 +428,7 @@ impl Data {
         server: &server::Server,
         kind: &history::Kind,
         limit: Option<Limit>,
-        server_messages: &ServerMessages,
+        buffer_config: &config::Buffer,
     ) -> Option<history::View> {
         let History::Full {
             messages,
@@ -444,32 +445,34 @@ impl Data {
             .iter()
             .filter(|message| match message.target.source() {
                 message::Source::Server(Some(source)) => {
-                    let source_config = server_messages.get(source);
+                    if let Some(source_config) = buffer_config.server_messages.get(source) {
+                        match source_config.exclude {
+                            Exclude::All => false,
+                            Exclude::None => true,
+                            Exclude::Smart(seconds) => {
+                                if let Some(nick) = source.nick() {
+                                    !smart_filter_message(
+                                        message,
+                                        &seconds,
+                                        most_recent_messages.get(nick),
+                                    )
+                                } else if let Some(nickname) =
+                                    message.text.split(' ').collect::<Vec<_>>().get(1)
+                                {
+                                    let nick = Nick::from(*nickname);
 
-                    match source_config.exclude {
-                        Exclude::All => false,
-                        Exclude::None => true,
-                        Exclude::Smart(seconds) => {
-                            if let Some(nick) = source.nick() {
-                                !smart_filter_message(
-                                    message,
-                                    &seconds,
-                                    most_recent_messages.get(nick),
-                                )
-                            } else if let Some(nickname) =
-                                message.text.split(' ').collect::<Vec<_>>().get(1)
-                            {
-                                let nick = Nick::from(*nickname);
-
-                                !smart_filter_message(
-                                    message,
-                                    &seconds,
-                                    most_recent_messages.get(&nick),
-                                )
-                            } else {
-                                true
+                                    !smart_filter_message(
+                                        message,
+                                        &seconds,
+                                        most_recent_messages.get(&nick),
+                                    )
+                                } else {
+                                    true
+                                }
                             }
                         }
+                    } else {
+                        true
                     }
                 }
                 crate::message::Source::User(message_user) => {
