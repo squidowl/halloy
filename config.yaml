@@ -86,17 +86,6 @@ buffer:
   # - Focused: Only show input when the buffer is focused
   input_visibility: Always
 
-  # Topic settings:
-  # - Inline: Show topic as server messages in each channel. [default]
-  # - !Banner: Show topic as a banner at the topic of each channel.
-  #            Topic changes will still show up as a server
-  #            message in channel.
-  topic: !Banner
-    # Maximum visible lines of the topic banner before scrolling, when
-    # topic is set to !Banner.
-    # - Default is 2
-    max_lines: 2
-
   # Control different server messages.
   # - exclude [All, None, !Smart seconds]:
   #   - Smart will show a server message if the user has sent a message
@@ -126,7 +115,14 @@ buffer:
       # - Unique: Unique user colors [default]
       # - Solid: Solid user colors
       color: Unique
-
+    # Topic banner settings:
+    topic:
+      # Visible by default
+      # - Default is false
+      visible: true
+      # Maximum visible lines of the topic banner before scrolling
+      # - Default is 2
+      max_lines: 3
 
 # Dashboard settings
 dashboard:
