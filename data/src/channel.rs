@@ -5,12 +5,14 @@ use crate::config;
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Settings {
     pub users: Users,
+    pub topic: Topic,
 }
 
 impl From<config::Channel> for Settings {
     fn from(config: config::Channel) -> Self {
         Self {
             users: Users::from(config.users),
+            topic: Topic::from(config.topic),
         }
     }
 }
@@ -42,6 +44,25 @@ impl Default for Users {
 }
 
 impl Users {
+    pub fn toggle_visibility(&mut self) {
+        self.visible = !self.visible
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+pub struct Topic {
+    pub visible: bool,
+}
+
+impl From<config::channel::Topic> for Topic {
+    fn from(config: config::channel::Topic) -> Self {
+        Topic {
+            visible: config.visible,
+        }
+    }
+}
+
+impl Topic {
     pub fn toggle_visibility(&mut self) {
         self.visible = !self.visible
     }

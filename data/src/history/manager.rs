@@ -6,11 +6,9 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
-use crate::buffer::Topic;
 use crate::config;
 use crate::config::buffer::Exclude;
 use crate::history::{self, History};
-use crate::message::source;
 use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -473,10 +471,6 @@ impl Data {
                                 }
                             }
                         }
-                    }
-                    // ReplyTopic messages are not shown when topic banner is visible
-                    else if matches!(source.kind(), source::server::Kind::ReplyTopic) {
-                        !matches!(buffer_config.topic, Topic::Banner { .. })
                     } else {
                         true
                     }

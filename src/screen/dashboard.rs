@@ -162,6 +162,12 @@ impl Dashboard {
                         self.last_changed = Some(Instant::now());
                     }
                 }
+                pane::Message::ToggleShowTopic => {
+                    if let Some((_, pane)) = self.get_focused_mut() {
+                        pane.update_settings(|settings| settings.channel.topic.toggle_visibility());
+                        self.last_changed = Some(Instant::now());
+                    }
+                }
                 pane::Message::MaximizePane => self.maximize_pane(),
             },
             Message::SideMenu(message) => {

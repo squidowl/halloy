@@ -1,5 +1,5 @@
 use data::server::Server;
-use data::{buffer, User};
+use data::User;
 use data::{channel, client, history, message, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
@@ -120,7 +120,9 @@ pub fn view<'a>(
         data::buffer::InputVisibility::Always => status.connected(),
     };
 
-    let topic = topic(state, clients, users, config);
+    // If topic toggles from None to Some then it messes with messages' scroll state,
+    // so produce a zero-height placeholder when topic is None.
+    let topic = topic(state, clients, users, settings, config).unwrap_or_else(|| column![].into());
 
     let text_input = show_text_input.then(|| {
         column![
@@ -138,18 +140,19 @@ pub fn view<'a>(
         .width(Length::Fill)
     });
 
+    let content = column![].push(topic).push(messages);
+
     let content = match (settings.users.visible, config.buffer.channel.users.position) {
         (true, data::channel::Position::Left) => {
-            row![nick_list, messages]
+            row![nick_list, content]
         }
         (true, data::channel::Position::Right) => {
-            row![messages, nick_list]
+            row![content, nick_list]
         }
-        (false, _) => { row![messages] }.height(Length::Fill),
+        (false, _) => { row![content] }.height(Length::Fill),
     };
 
     let body = column![]
-        .push_maybe(topic)
         .push(container(content).height(Length::Fill))
         .push_maybe(text_input)
         .height(Length::Fill);
@@ -157,7 +160,7 @@ pub fn view<'a>(
     container(body)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(8)
+        .padding([4, 8, 8, 8])
         .into()
 }
 
@@ -236,11 +239,12 @@ fn topic<'a>(
     state: &'a Channel,
     clients: &'a data::client::Map,
     users: &'a [User],
+    settings: &'a channel::Settings,
     config: &'a Config,
 ) -> Option<Element<'a, Message>> {
-    let buffer::Topic::Banner { max_lines } = config.buffer.topic else {
+    if !settings.topic.visible {
         return None;
-    };
+    }
 
     let topic = clients.get_channel_topic(&state.server, &state.channel)?;
 
@@ -250,13 +254,13 @@ fn topic<'a>(
                 topic.text.as_deref()?,
                 topic.who.as_deref(),
                 topic.time.as_ref(),
-                max_lines,
+                config.buffer.channel.topic.max_lines,
                 users,
                 config,
             )
             .map(Message::UserContext),
         )
-        .padding([0, 0, 4, 0])
+        .padding([0, 0, 3, 0])
         .into(),
     )
 }

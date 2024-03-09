@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use data::user::Nick;
 use data::{Config, User};
-use iced::widget::{column, container, row, scrollable};
+use iced::widget::{column, container, horizontal_rule, row, scrollable, vertical_space};
 use iced::Length;
 
 use super::user_context;
@@ -32,16 +32,16 @@ pub fn view<'a>(
         };
 
         Some(row![
-            selectable_text("set by ").style(theme::Text::Banner),
+            selectable_text("set by ").style(theme::Text::Transparent),
             user,
-            selectable_text(format!(" at {}", time?.to_rfc2822())).style(theme::Text::Banner),
+            selectable_text(format!(" at {}", time?.to_rfc2822())).style(theme::Text::Transparent),
         ])
     });
 
-    let content = column![selectable_text(text).style(theme::Text::Banner)].push_maybe(set_by);
+    let content = column![selectable_text(text).style(theme::Text::Transparent)].push_maybe(set_by);
 
     let scrollable = scrollable(container(content).width(Length::Fill).padding(padding()))
-        .style(theme::Scrollable::Banner)
+        .style(theme::Scrollable::Hidden)
         .direction(scrollable::Direction::Vertical(
             scrollable::Properties::default()
                 .alignment(scrollable::Alignment::Start)
@@ -50,14 +50,19 @@ pub fn view<'a>(
         ));
 
     // Use double pass to limit layout to `max_lines` of text
-    double_pass(
-        container(column((0..max_lines).map(|_| "".into())))
-            .width(Length::Fill)
-            .padding(padding()),
-        column![container(scrollable).style(theme::Container::Banner)].width(Length::Fill),
-    )
+    column![
+        double_pass(
+            container(column((0..max_lines).map(|_| "".into())))
+                .width(Length::Fill)
+                .padding(padding()),
+            column![container(scrollable)].width(Length::Fill),
+        ),
+        vertical_space(1),
+        horizontal_rule(1).style(theme::Rule::Default)
+    ]
+    .into()
 }
 
 fn padding() -> [u16; 2] {
-    [4, 8]
+    [0, 8]
 }

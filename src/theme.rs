@@ -109,7 +109,6 @@ pub enum Text {
     Transparent,
     Status(message::source::Status),
     Nickname(Option<String>, bool),
-    Banner,
 }
 
 impl text::StyleSheet for Theme {
@@ -160,9 +159,6 @@ impl text::StyleSheet for Theme {
             Text::Transparent => text::Appearance {
                 color: Some(self.colors().text.low_alpha),
             },
-            Text::Banner => text::Appearance {
-                color: Some(self.colors().text.base),
-            },
         }
     }
 }
@@ -182,7 +178,6 @@ pub enum Container {
     Context,
     Highlight,
     SemiTransparent,
-    Banner,
 }
 
 impl container::StyleSheet for Theme {
@@ -262,19 +257,6 @@ impl container::StyleSheet for Theme {
                     }
                     .into(),
                 ),
-                ..Default::default()
-            },
-            Container::Banner => container::Appearance {
-                background: Some(Background::Color(if self.colors().is_dark_theme() {
-                    self.colors().background.light
-                } else {
-                    self.colors().background.dark
-                })),
-                border: Border {
-                    radius: [4.0, 4.0, 4.0, 4.0].into(),
-                    width: 1.0,
-                    color: Color::TRANSPARENT,
-                },
                 ..Default::default()
             },
         }
@@ -459,7 +441,6 @@ pub enum Scrollable {
     #[default]
     Default,
     Hidden,
-    Banner,
 }
 
 impl scrollable::StyleSheet for Theme {
@@ -499,30 +480,6 @@ impl scrollable::StyleSheet for Theme {
                     },
                 },
             },
-            Scrollable::Banner => scrollable::Scrollbar {
-                background: Some(Background::Color(if self.colors().is_dark_theme() {
-                    self.colors().background.lighter
-                } else {
-                    self.colors().background.darker
-                })),
-                border: Border {
-                    radius: 8.0.into(),
-                    width: 1.0,
-                    color: Color::TRANSPARENT,
-                },
-                scroller: scrollable::Scroller {
-                    color: if self.colors().is_dark_theme() {
-                        self.colors().background.lightest
-                    } else {
-                        self.colors().background.darkest
-                    },
-                    border: Border {
-                        radius: 8.0.into(),
-                        width: 0.0,
-                        color: Color::TRANSPARENT,
-                    },
-                },
-            },
         }
     }
 
@@ -535,7 +492,6 @@ impl scrollable::StyleSheet for Theme {
         match style {
             Scrollable::Default => scrollable::Scrollbar { ..active },
             Scrollable::Hidden => scrollable::Scrollbar { ..active },
-            Scrollable::Banner => scrollable::Scrollbar { ..active },
         }
     }
 }
