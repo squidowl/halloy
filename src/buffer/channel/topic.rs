@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use data::user::Nick;
-use data::{Config, User};
+use data::{Buffer, Config, User};
 use iced::widget::{column, container, horizontal_rule, row, scrollable, Scrollable};
 use iced::Length;
 
@@ -14,6 +14,7 @@ pub fn view<'a>(
     time: Option<&'a DateTime<Utc>>,
     max_lines: u16,
     users: &'a [User],
+    buffer: &Buffer,
     config: &'a Config,
 ) -> Element<'a, user_context::Message> {
     let set_by = who.and_then(|who| {
@@ -29,19 +30,24 @@ pub fn view<'a>(
                     )
                 }),
                 user.clone(),
+                buffer,
             )
         } else {
-            selectable_text(who).style(theme::selectable_text::info).into()
+            selectable_text(who)
+                .style(theme::selectable_text::info)
+                .into()
         };
 
         Some(row![
             selectable_text("set by ").style(theme::selectable_text::transparent),
             user,
-            selectable_text(format!(" at {}", time?.to_rfc2822())).style(theme::selectable_text::transparent),
+            selectable_text(format!(" at {}", time?.to_rfc2822()))
+                .style(theme::selectable_text::transparent),
         ])
     });
 
-    let content = column![selectable_text(text).style(theme::selectable_text::transparent)].push_maybe(set_by);
+    let content = column![selectable_text(text).style(theme::selectable_text::transparent)]
+        .push_maybe(set_by);
 
     let scrollable = Scrollable::with_direction_and_style(
         container(content).width(Length::Fill).padding(padding()),

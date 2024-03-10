@@ -4,6 +4,7 @@ use irc::proto::Command;
 use serde::{Deserialize, Serialize};
 
 pub use self::source::Source;
+use crate::client::Client;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{Config, User};
@@ -91,9 +92,14 @@ impl Message {
             && matches!(self.target.source(), Source::User(_) | Source::Action)
     }
 
-    pub fn received(encoded: Encoded, our_nick: Nick, config: &Config) -> Option<Message> {
+    pub fn received(
+        encoded: Encoded,
+        our_nick: Nick,
+        config: &Config,
+        client: &Client,
+    ) -> Option<Message> {
         let server_time = server_time(&encoded);
-        let text = text(&encoded, &our_nick, config)?;
+        let text = text(&encoded, &our_nick, config, client)?;
         let target = target(encoded, &our_nick)?;
 
         Some(Message {
@@ -274,19 +280,27 @@ pub fn server_time(message: &Encoded) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
-fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
+fn text(message: &Encoded, our_nick: &Nick, config: &Config, client: &Client) -> Option<String> {
     use irc::proto::command::Numeric::*;
 
-    let user = message.user();
     match &message.command {
-        Command::TOPIC(_, topic) => {
-            let user = user?;
+        Command::TOPIC(target, topic) => {
+            let raw_user = message.user()?;
+            let user = client
+                .user_with_channel_attributes(&raw_user, target)
+                .unwrap_or(raw_user);
+
             let topic = topic.as_ref()?;
 
             Some(format!(" ∙ {user} changed topic to {topic}"))
         }
-        Command::PART(_, text) => {
-            let user = user?.formatted(config.buffer.server_messages.part.username_format);
+        Command::PART(target, text) => {
+            let raw_user = message.user()?;
+            let user = client
+                .user_with_channel_attributes(&raw_user, target)
+                .unwrap_or(raw_user)
+                .formatted(config.buffer.server_messages.part.username_format);
+
             let text = text
                 .as_ref()
                 .map(|text| format!(" ({text})"))
@@ -294,8 +308,11 @@ fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
 
             Some(format!("⟵ {user} has left the channel{text}"))
         }
-        Command::JOIN(_, _) => {
-            let user = user?;
+        Command::JOIN(target, _) => {
+            let raw_user = message.user()?;
+            let user = client
+                .user_with_channel_attributes(&raw_user, target)
+                .unwrap_or(raw_user);
 
             (user.nickname() != *our_nick).then(|| {
                 format!(
@@ -304,8 +321,12 @@ fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
                 )
             })
         }
-        Command::KICK(_, victim, comment) => {
-            let user = user?;
+        Command::KICK(channel, victim, comment) => {
+            let raw_user = message.user()?;
+            let user = client
+                .user_with_channel_attributes(&raw_user, channel)
+                .unwrap_or(raw_user);
+
             let comment = comment
                 .as_ref()
                 .map(|comment| format!(" ({comment})"))
@@ -319,7 +340,11 @@ fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
             Some(format!("⟵ {target} been kicked by {user}{comment}"))
         }
         Command::MODE(target, modes, args) if proto::is_channel(target) => {
-            let user = user?;
+            let raw_user = message.user()?;
+            let user = client
+                .user_with_channel_attributes(&raw_user, target)
+                .unwrap_or(raw_user);
+
             let modes = modes
                 .iter()
                 .map(|mode| mode.to_string())
@@ -336,7 +361,7 @@ fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
         }
         Command::PRIVMSG(_, text) => {
             // Check if a synthetic action message
-            if let Some(nick) = user.as_ref().map(User::nickname) {
+            if let Some(nick) = message.user().as_ref().map(User::nickname) {
                 if let Some(action) = parse_action(nick, text) {
                     return Some(action);
                 }

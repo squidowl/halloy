@@ -1,5 +1,5 @@
 use data::input::{Cache, Draft};
-use data::user::User;
+use data::user::{Nick, User};
 use data::{client, history, Buffer, Input};
 use iced::Command;
 
@@ -99,18 +99,18 @@ impl State {
 
     pub fn insert_user(
         &mut self,
-        user: User,
+        nick: Nick,
         buffer: Buffer,
         history: &mut history::Manager,
     ) -> Command<Message> {
         let mut text = history.input(&buffer).draft.to_string();
 
         if text.is_empty() {
-            text = format!("{}: ", user.nickname());
+            text = format!("{}: ", nick);
         } else if text.ends_with(' ') {
-            text = format!("{}{}", text, user.nickname());
+            text = format!("{}{}", text, nick);
         } else {
-            text = format!("{} {}", text, user.nickname());
+            text = format!("{} {}", text, nick);
         }
 
         history.record_draft(Draft { buffer, text });
