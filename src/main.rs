@@ -319,17 +319,22 @@ impl Application for Halloy {
 
                     messages.into_iter().for_each(|message| {
                         for event in self.clients.receive(&server, message) {
+                            let Some(client) = self.clients.client(&server) else {
+                                return;
+                            };
+
                             match event {
                                 data::client::Event::Single(encoded, our_nick) => {
+                                    
                                     if let Some(message) =
-                                        data::Message::received(encoded, our_nick, &self.config)
+                                        data::Message::received(encoded, our_nick, &self.config, client)
                                     {
                                         dashboard.record_message(&server, message);
                                     }
                                 }
                                 data::client::Event::WithTarget(encoded, our_nick, target) => {
                                     if let Some(message) =
-                                        data::Message::received(encoded, our_nick, &self.config)
+                                        data::Message::received(encoded, our_nick, &self.config, client)
                                     {
                                         dashboard
                                             .record_message(&server, message.with_target(target));
@@ -388,7 +393,7 @@ impl Application for Halloy {
                                     notification,
                                 ) => {
                                     if let Some(message) =
-                                        data::Message::received(encoded, our_nick, &self.config)
+                                        data::Message::received(encoded, our_nick, &self.config, client)
                                     {
                                         dashboard.record_message(&server, message);
                                     }

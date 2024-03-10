@@ -155,6 +155,10 @@ impl User {
             .unwrap_or(AccessLevel::Member)
     }
 
+    pub fn has_access_level(&self, access_level: AccessLevel) -> bool {
+        self.access_levels.get(&access_level).is_some()
+    }
+
     pub fn update_access_level(&mut self, operation: mode::Operation, mode: mode::Channel) {
         if let Ok(level) = AccessLevel::try_from(mode) {
             match operation {
@@ -203,7 +207,7 @@ impl From<proto::User> for User {
 
 impl fmt::Display for User {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.nickname())
+        write!(f, "{}{}", self.highest_access_level(), self.nickname())
     }
 }
 
@@ -279,7 +283,7 @@ impl<'a> PartialEq<Nick> for NickRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum AccessLevel {
     Member,
     Voice,
