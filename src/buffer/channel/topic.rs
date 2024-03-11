@@ -58,7 +58,7 @@ pub fn view<'a>(
             column![container(scrollable)].width(Length::Fill),
         ),
         vertical_space(4),
-        horizontal_rule(1).style(theme::Rule::Default)
+        container(horizontal_rule(1)).width(Length::Fill).padding([2, 12])
     ]
     .into()
 }
