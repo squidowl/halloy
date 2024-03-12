@@ -428,7 +428,7 @@ impl Dashboard {
                         let all_buffers = all_buffers(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((pane, state, history)) = self.get_focused_mut_with_history() {
+                        if let Some((pane, state, history)) = self.get_focused_with_history_mut() {
                             if let Some(buffer) = cycle_next_buffer(
                                 state.buffer.data().as_ref(),
                                 all_buffers,
@@ -444,7 +444,7 @@ impl Dashboard {
                         let all_buffers = all_buffers(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((pane, state, history)) = self.get_focused_mut_with_history() {
+                        if let Some((pane, state, history)) = self.get_focused_with_history_mut() {
                             if let Some(buffer) = cycle_previous_buffer(
                                 state.buffer.data().as_ref(),
                                 all_buffers,
@@ -785,7 +785,7 @@ impl Dashboard {
         self.panes.get_mut(pane).map(|state| (pane, state))
     }
 
-    fn get_focused_mut_with_history(
+    fn get_focused_with_history_mut(
         &mut self,
     ) -> Option<(pane_grid::Pane, &mut Pane, &history::Manager)> {
         let pane = self.focus?;
