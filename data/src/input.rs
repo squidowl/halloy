@@ -103,6 +103,26 @@ impl Input {
 }
 
 #[derive(Debug, Clone)]
+pub struct InputDraft {
+    buffer: Buffer,
+    text: String,
+}
+
+impl InputDraft {
+    pub fn new(buffer: Buffer, text: String) -> Self {
+        InputDraft { buffer, text }
+    }
+
+    pub fn buffer(&self) -> &Buffer {
+        &self.buffer
+    }
+
+    pub fn text(&self) -> &str {
+        self.text.as_ref()
+    }
+}
+
+#[derive(Debug, Clone)]
 enum Content {
     Text(String),
     Command(Command),

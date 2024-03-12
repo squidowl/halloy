@@ -93,7 +93,7 @@ pub fn view<'a>(
 pub struct Server {
     pub server: data::server::Server,
     pub scroll_view: scroll_view::State,
-    input_view: input_view::State,
+    pub input_view: input_view::State,
 }
 
 impl Server {
@@ -103,6 +103,12 @@ impl Server {
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
         }
+    }
+
+    pub fn with_draft(server: data::server::Server, history: &history::Manager) -> Self {
+        let mut server = Server::new(server);
+        server.input_view.set(history.input_draft(&server.buffer()));
+        server
     }
 
     pub fn buffer(&self) -> data::Buffer {

@@ -9,6 +9,7 @@ use tokio::time::Instant;
 use crate::config;
 use crate::config::buffer::Exclude;
 use crate::history::{self, History};
+use crate::input::InputDraft;
 use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -177,6 +178,12 @@ impl Manager {
         }
     }
 
+    pub fn record_input_draft(&mut self, input: InputDraft) {
+        self.data
+            .input
+            .store_draft(input.buffer(), input.text().to_string());
+    }
+
     pub fn record_message(&mut self, server: &Server, message: crate::Message) {
         self.data.add_message(
             server.clone(),
@@ -341,6 +348,10 @@ impl Manager {
 
     pub fn input_history<'a>(&'a self, buffer: &Buffer) -> &'a [String] {
         self.data.input.get(buffer)
+    }
+
+    pub fn input_draft<'a>(&'a self, buffer: &Buffer) -> &'a str {
+        self.data.input.load_draft(buffer)
     }
 }
 

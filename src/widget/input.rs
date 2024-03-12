@@ -21,9 +21,9 @@ pub fn input<'a, Message>(
     channels: &'a [String],
     history: &'a [String],
     buffer_focused: bool,
-    on_input: impl Fn(String) -> Message + 'a,
+    on_input: impl Fn(data::input::InputDraft) -> Message + 'a,
     on_submit: impl Fn(data::Input) -> Message + 'a,
-    on_completion: impl Fn(String) -> Message + 'a,
+    on_completion: impl Fn(data::input::InputDraft) -> Message + 'a,
 ) -> Element<'a, Message>
 where
     Message: 'a + Clone,
@@ -66,9 +66,9 @@ pub struct Input<'a, Message> {
     channels: &'a [String],
     history: &'a [String],
     buffer_focused: bool,
-    on_input: Box<dyn Fn(String) -> Message + 'a>,
+    on_input: Box<dyn Fn(data::input::InputDraft) -> Message + 'a>,
     on_submit: Box<dyn Fn(data::Input) -> Message + 'a>,
-    on_completion: Box<dyn Fn(String) -> Message + 'a>,
+    on_completion: Box<dyn Fn(data::input::InputDraft) -> Message + 'a>,
 }
 
 #[derive(Default)]
@@ -95,7 +95,9 @@ where
 
                 state.completion.process(&input, self.users, self.channels);
 
-                Some((self.on_input)(input))
+                let input_draft = data::input::InputDraft::new(self.buffer.clone(), input);
+
+                Some((self.on_input)(input_draft))
             }
             Event::Send => {
                 // Reset error state
@@ -105,7 +107,10 @@ where
 
                 if let Some(entry) = state.completion.select() {
                     let new_input = entry.complete_input(self.input);
-                    Some((self.on_completion)(new_input))
+
+                    let input_draft = data::input::InputDraft::new(self.buffer.clone(), new_input);
+
+                    Some((self.on_completion)(input_draft))
                 } else if !self.input.is_empty() {
                     state.completion.reset();
 
@@ -126,7 +131,10 @@ where
             Event::Tab => {
                 if let Some(entry) = state.completion.tab() {
                     let new_input = entry.complete_input(self.input);
-                    Some((self.on_completion)(new_input))
+
+                    let input_draft = data::input::InputDraft::new(self.buffer.clone(), new_input);
+
+                    Some((self.on_completion)(input_draft))
                 } else {
                     None
                 }
@@ -150,7 +158,9 @@ where
                         .completion
                         .process(&new_input, self.users, self.channels);
 
-                    return Some((self.on_completion)(new_input));
+                    let input_draft = data::input::InputDraft::new(self.buffer.clone(), new_input);
+
+                    return Some((self.on_completion)(input_draft));
                 }
 
                 None
@@ -171,7 +181,9 @@ where
                         new_input
                     };
 
-                    return Some((self.on_completion)(new_input));
+                    let input_draft = data::input::InputDraft::new(self.buffer.clone(), new_input);
+
+                    return Some((self.on_completion)(input_draft));
                 }
 
                 None
