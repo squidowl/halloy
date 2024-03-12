@@ -275,17 +275,32 @@ pub struct View<'a> {
 }
 
 #[derive(Debug, Clone, Default)]
-struct Input(HashMap<Buffer, Vec<String>>);
+struct Input {
+    sent: HashMap<Buffer, Vec<String>>,
+    draft: HashMap<Buffer, String>,
+}
 
 impl Input {
     fn get<'a>(&'a self, buffer: &Buffer) -> &'a [String] {
-        self.0.get(buffer).map(Vec::as_slice).unwrap_or_default()
+        self.sent.get(buffer).map(Vec::as_slice).unwrap_or_default()
     }
 
     fn push(&mut self, buffer: &Buffer, text: String) {
-        let history = self.0.entry(buffer.clone()).or_default();
+        self.draft.remove(buffer);
+        let history = self.sent.entry(buffer.clone()).or_default();
         history.insert(0, text);
         history.truncate(INPUT_HISTORY_LENGTH);
+    }
+
+    fn store_draft(&mut self, buffer: &Buffer, text: String) {
+        self.draft.insert(buffer.clone(), text);
+    }
+
+    fn load_draft<'a>(&'a self, buffer: &Buffer) -> &'a str {
+        self.draft
+            .get(buffer)
+            .map(|d| d.as_ref())
+            .unwrap_or_default()
     }
 }
 

@@ -180,6 +180,14 @@ impl Channel {
         }
     }
 
+    pub fn with_draft(server: Server, channel: String, history: &history::Manager) -> Self {
+        let mut channel = Channel::new(server, channel);
+        channel
+            .input_view
+            .set(history.input_draft(&channel.buffer()));
+        channel
+    }
+
     pub fn buffer(&self) -> data::Buffer {
         data::Buffer::Channel(self.server.clone(), self.channel.clone())
     }

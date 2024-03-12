@@ -1,3 +1,4 @@
+use data::input::InputDraft;
 use data::user::User;
 use data::{client, history, Buffer, Input};
 use iced::Command;
@@ -10,9 +11,9 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Input(String),
+    Input(InputDraft),
     Send(Input),
-    Completion(String),
+    Completion(InputDraft),
 }
 
 pub fn view<'a>(
@@ -65,7 +66,9 @@ impl State {
     ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::Input(input) => {
-                self.input = input;
+                self.input = input.text().to_string();
+
+                history.record_input_draft(input);
 
                 (Command::none(), None)
             }
@@ -83,7 +86,9 @@ impl State {
                 (Command::none(), Some(Event::InputSent))
             }
             Message::Completion(input) => {
-                self.input = input;
+                self.input = input.text().to_string();
+
+                history.record_input_draft(input);
 
                 (input::move_cursor_to_end(self.input_id.clone()), None)
             }
@@ -108,5 +113,9 @@ impl State {
         }
 
         input::move_cursor_to_end(self.input_id.clone())
+    }
+
+    pub fn set(&mut self, text: &str) {
+        self.input = text.to_string();
     }
 }

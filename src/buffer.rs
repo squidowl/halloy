@@ -40,6 +40,18 @@ impl Buffer {
         Self::Empty
     }
 
+    pub fn with_draft(buffer: data::Buffer, history: &history::Manager) -> Self {
+        match buffer {
+            data::Buffer::Server(server) => Self::Server(Server::with_draft(server, history)),
+            data::Buffer::Channel(server, channel) => {
+                Self::Channel(Channel::with_draft(server, channel, history))
+            }
+            data::Buffer::Query(server, user) => {
+                Self::Query(Query::with_draft(server, user, history))
+            }
+        }
+    }
+
     pub fn data(&self) -> Option<data::Buffer> {
         match self {
             Buffer::Empty => None,

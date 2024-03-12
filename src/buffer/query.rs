@@ -143,6 +143,12 @@ impl Query {
         }
     }
 
+    pub fn with_draft(server: Server, nick: Nick, history: &history::Manager) -> Self {
+        let mut query = Query::new(server, nick);
+        query.input_view.set(history.input_draft(&query.buffer()));
+        query
+    }
+
     pub fn buffer(&self) -> data::Buffer {
         data::Buffer::Query(self.server.clone(), self.nick.clone())
     }

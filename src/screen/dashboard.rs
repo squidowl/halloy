@@ -179,7 +179,7 @@ impl Dashboard {
                     }
                     side_menu::Event::Replace(kind, pane) => {
                         if let Some(state) = self.panes.get_mut(pane) {
-                            state.buffer = Buffer::from(kind);
+                            state.buffer = Buffer::with_draft(kind, &self.history);
                             self.last_changed = Some(Instant::now());
                             self.focus = None;
                             return Command::batch(vec![
@@ -342,7 +342,8 @@ impl Dashboard {
 
                                     if let Some(pane) = self.focus.take() {
                                         if let Some(state) = self.panes.get_mut(pane) {
-                                            state.buffer = Buffer::from(buffer);
+                                            state.buffer =
+                                                Buffer::with_draft(buffer, &self.history);
                                             self.last_changed = Some(Instant::now());
 
                                             commands.extend(vec![
@@ -427,13 +428,13 @@ impl Dashboard {
                         let all_buffers = all_buffers(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((pane, state)) = self.get_focused_mut() {
+                        if let Some((pane, state, history)) = self.get_focused_mut_with_history() {
                             if let Some(buffer) = cycle_next_buffer(
                                 state.buffer.data().as_ref(),
                                 all_buffers,
                                 &open_buffers,
                             ) {
-                                state.buffer = Buffer::from(buffer);
+                                state.buffer = Buffer::with_draft(buffer, history);
                                 self.focus = None;
                                 return self.focus_pane(pane);
                             }
@@ -443,13 +444,13 @@ impl Dashboard {
                         let all_buffers = all_buffers(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((pane, state)) = self.get_focused_mut() {
+                        if let Some((pane, state, history)) = self.get_focused_mut_with_history() {
                             if let Some(buffer) = cycle_previous_buffer(
                                 state.buffer.data().as_ref(),
                                 all_buffers,
                                 &open_buffers,
                             ) {
-                                state.buffer = Buffer::from(buffer);
+                                state.buffer = Buffer::with_draft(buffer, history);
                                 self.focus = None;
                                 return self.focus_pane(pane);
                             }
@@ -650,10 +651,9 @@ impl Dashboard {
         if self.panes.len() == 1 {
             for (id, pane) in panes.iter() {
                 if let Buffer::Empty = &pane.buffer {
-                    self.panes
-                        .panes
-                        .entry(*id)
-                        .and_modify(|p| *p = Pane::new(Buffer::from(kind), config));
+                    self.panes.panes.entry(*id).and_modify(|p| {
+                        *p = Pane::new(Buffer::with_draft(kind, &self.history), config)
+                    });
                     self.last_changed = Some(Instant::now());
 
                     return self.focus_pane(*id);
@@ -674,9 +674,11 @@ impl Dashboard {
             }
         };
 
-        let result = self
-            .panes
-            .split(axis, pane_to_split, Pane::new(Buffer::from(kind), config));
+        let result = self.panes.split(
+            axis,
+            pane_to_split,
+            Pane::new(Buffer::with_draft(kind, &self.history), config),
+        );
         self.last_changed = Some(Instant::now());
 
         if let Some((pane, _)) = result {
@@ -781,6 +783,15 @@ impl Dashboard {
     fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {
         let pane = self.focus?;
         self.panes.get_mut(pane).map(|state| (pane, state))
+    }
+
+    fn get_focused_mut_with_history(
+        &mut self,
+    ) -> Option<(pane_grid::Pane, &mut Pane, &history::Manager)> {
+        let pane = self.focus?;
+        self.panes
+            .get_mut(pane)
+            .map(|state| (pane, state, &self.history))
     }
 
     fn focus_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {
