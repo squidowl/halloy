@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use data::user::Nick;
 use data::{Config, User};
-use iced::widget::{column, container, horizontal_rule, row, scrollable, vertical_space};
+use iced::widget::{column, container, horizontal_rule, row, scrollable};
 use iced::Length;
 
 use super::user_context;
@@ -57,8 +57,7 @@ pub fn view<'a>(
                 .padding(padding()),
             column![container(scrollable)].width(Length::Fill),
         ),
-        vertical_space(4),
-        container(horizontal_rule(1)).width(Length::Fill).padding([2, 12])
+        container(horizontal_rule(1)).width(Length::Fill).padding([8, 11])
     ]
     .into()
 }

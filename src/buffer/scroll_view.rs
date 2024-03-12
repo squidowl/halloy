@@ -84,12 +84,20 @@ pub fn view<'a>(
         let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
 
         let divider = row![
-            container(horizontal_rule(1)).width(Length::Fill).padding([0, 6, 0, 0]),
-            text("backlog").size(font_size).style(theme::Text::Transparent),
-            container(horizontal_rule(1)).width(Length::Fill).padding([0, 0, 0, 6])
-        ].padding(5).align_items(iced::Alignment::Center);
+            container(horizontal_rule(1))
+                .width(Length::Fill)
+                .padding([0, 6, 0, 0]),
+            text("backlog")
+                .size(font_size)
+                .style(theme::Text::Transparent),
+            container(horizontal_rule(1))
+                .width(Length::Fill)
+                .padding([0, 0, 0, 6])
+        ]
+        .padding(2)
+        .align_items(iced::Alignment::Center);
 
-        column![column(old), divider, column(new)]
+        column![column(old), container(divider), column(new)]
     } else {
         column![column(old), column(new)]
     };
