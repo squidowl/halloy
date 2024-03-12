@@ -2,7 +2,7 @@ use data::message::Limit;
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
-use iced::widget::{column, container, horizontal_rule, scrollable};
+use iced::widget::{column, container, horizontal_rule, row, scrollable, text};
 use iced::{Command, Length};
 
 use super::user_context;
@@ -81,10 +81,23 @@ pub fn view<'a>(
     let show_divider = !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom));
 
     let content = if show_divider {
-        let divider = container(horizontal_rule(1).style(theme::Rule::Unread))
-            .width(Length::Fill)
-            .padding(5);
-        column![column(old), divider, column(new)]
+        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
+
+        let divider = row![
+            container(horizontal_rule(1))
+                .width(Length::Fill)
+                .padding([0, 6, 0, 0]),
+            text("backlog")
+                .size(font_size)
+                .style(theme::Text::Transparent),
+            container(horizontal_rule(1))
+                .width(Length::Fill)
+                .padding([0, 0, 0, 6])
+        ]
+        .padding(2)
+        .align_items(iced::Alignment::Center);
+
+        column![column(old), container(divider), column(new)]
     } else {
         column![column(old), column(new)]
     };
