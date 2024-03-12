@@ -71,8 +71,7 @@ impl application::StyleSheet for Theme {
 #[derive(Debug, Clone, Default)]
 pub enum Rule {
     #[default]
-    Default,
-    Unread,
+    Default
 }
 
 impl rule::StyleSheet for Theme {
@@ -85,13 +84,7 @@ impl rule::StyleSheet for Theme {
                 width: 1,
                 radius: 0.0.into(),
                 fill_mode: rule::FillMode::Full,
-            },
-            Rule::Unread => rule::Appearance {
-                color: self.colors().accent.base,
-                width: 1,
-                radius: 0.0.into(),
-                fill_mode: rule::FillMode::Full,
-            },
+            }
         }
     }
 }
