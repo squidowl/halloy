@@ -9,6 +9,12 @@ Fix:
 - Context menus now shows buttons as expected
 - Buttons on help screen is now correctly sized
 
+Changed:
+
+- Various UI changes
+  - Ensured consistent padding in channel buffer 
+  - Unified styling for dividers
+
 Security:
 
 - `chrono` [RUSTSEC-2020-0071](https://rustsec.org/advisories/RUSTSEC-2020-0071)
