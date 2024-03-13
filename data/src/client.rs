@@ -710,7 +710,11 @@ impl Client {
         self.chanmap.get(channel).map(|channel| &channel.topic)
     }
 
-    pub fn user_with_channel_attributes<'a>(&self, user: &User, channel: &str) -> Option<&'a User> {
+    pub fn user_with_channel_attributes<'a>(
+        &'a self,
+        user: &User,
+        channel: &str,
+    ) -> Option<&'a User> {
         self.chanmap
             .get(channel)
             .and_then(|channel| channel.users.get(user))

@@ -30,7 +30,6 @@ pub fn view<'a>(
     config: &'a Config,
     is_focused: bool,
 ) -> Element<'a, Message> {
-    let client = clients.client(&state.server);
     let buffer = state.buffer();
     let input = history.input(&buffer);
     let our_nick = clients.nickname(&state.server);
@@ -42,7 +41,6 @@ pub fn view<'a>(
             history,
             config,
             move |message| {
-                let target = state.buffer().target();
                 let timestamp =
                     config
                         .buffer
@@ -53,16 +51,8 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::User(user) => {
-                        let user = client
-                            .and_then(|client| {
-                                target.and_then(|target| {
-                                    client.user_with_channel_attributes(user, &target)
-                                })
-                            })
-                            .unwrap_or(user);
-
                         let nick = user_context::view(
-                            selectable_text(config.buffer.nickname.brackets.format(&user)).style(
+                            selectable_text(config.buffer.nickname.brackets.format(user)).style(
                                 |theme| {
                                     theme::selectable_text::nickname(
                                         theme,
@@ -71,8 +61,8 @@ pub fn view<'a>(
                                     )
                                 },
                             ),
-                            user.clone(),
-                            &state.buffer(),
+                            user,
+                            state.buffer(),
                         )
                         .map(scroll_view::Message::UserContext);
 
@@ -145,7 +135,7 @@ pub fn view<'a>(
     // so produce a zero-height placeholder when topic is None.
     let topic = topic(state, clients, users, settings, config).unwrap_or_else(|| column![].into());
 
-    let text_input = show_text_input.then(|| {
+    let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
             buffer,
@@ -305,7 +295,7 @@ mod nick_list {
                 )
             });
 
-            user_context::view(content, user.clone(), buffer)
+            user_context::view(content, user, buffer.clone())
         }))
         .padding(4)
         .spacing(1);
