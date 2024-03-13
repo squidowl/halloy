@@ -1,7 +1,7 @@
 use data::server::Server;
 use data::User;
 use data::{channel, client, history, message, Config};
-use iced::widget::{column, container, row, vertical_space};
+use iced::widget::{column, container, row};
 use iced::{Command, Length};
 
 use super::{input_view, scroll_view, user_context};
@@ -125,22 +125,18 @@ pub fn view<'a>(
     let topic = topic(state, clients, users, settings, config).unwrap_or_else(|| column![].into());
 
     let text_input = show_text_input.then(|| {
-        column![
-            vertical_space(4),
-            input_view::view(
-                &state.input_view,
-                buffer,
-                users,
-                channels,
-                input_history,
-                is_focused
-            )
-            .map(Message::InputView)
-        ]
-        .width(Length::Fill)
+        input_view::view(
+            &state.input_view,
+            buffer,
+            users,
+            channels,
+            input_history,
+            is_focused,
+        )
+        .map(Message::InputView)
     });
 
-    let content = column![].push(topic).push(messages);
+    let content = column![topic, messages].spacing(4);
 
     let content = match (settings.users.visible, config.buffer.channel.users.position) {
         (true, data::channel::Position::Left) => {
@@ -155,6 +151,7 @@ pub fn view<'a>(
     let body = column![]
         .push(container(content).height(Length::Fill))
         .push_maybe(text_input)
+        .spacing(4)
         .height(Length::Fill);
 
     container(body)
@@ -249,19 +246,15 @@ fn topic<'a>(
     let topic = clients.get_channel_topic(&state.server, &state.channel)?;
 
     Some(
-        container(
-            topic::view(
-                topic.text.as_deref()?,
-                topic.who.as_deref(),
-                topic.time.as_ref(),
-                config.buffer.channel.topic.max_lines,
-                users,
-                config,
-            )
-            .map(Message::UserContext),
+        topic::view(
+            topic.text.as_deref()?,
+            topic.who.as_deref(),
+            topic.time.as_ref(),
+            config.buffer.channel.topic.max_lines,
+            users,
+            config,
         )
-        .padding([0, 0, 3, 0])
-        .into(),
+        .map(Message::UserContext),
     )
 }
 
