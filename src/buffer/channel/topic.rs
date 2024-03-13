@@ -57,8 +57,11 @@ pub fn view<'a>(
                 .padding(padding()),
             column![container(scrollable)].width(Length::Fill),
         ),
-        container(horizontal_rule(1)).width(Length::Fill).padding([8, 11])
+        container(horizontal_rule(1))
+            .width(Length::Fill)
+            .padding([0, 11])
     ]
+    .spacing(8)
     .into()
 }
 
