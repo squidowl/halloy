@@ -46,18 +46,8 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::User(user) => {
-                        let client = clients.client(&state.server);
-                        let target = state.buffer().target();
-                        let user = client
-                            .and_then(|client| {
-                                target.and_then(|target| {
-                                    client.user_with_channel_attributes(user, &target)
-                                })
-                            })
-                            .unwrap_or(user);
-
                         let nick = user_context::view(
-                            selectable_text(config.buffer.nickname.brackets.format(&user)).style(
+                            selectable_text(config.buffer.nickname.brackets.format(user)).style(
                                 |theme| {
                                     theme::selectable_text::nickname(
                                         theme,
@@ -67,7 +57,7 @@ pub fn view<'a>(
                                 },
                             ),
                             user,
-                            &state.buffer(),
+                            state.buffer(),
                         )
                         .map(scroll_view::Message::UserContext);
 
@@ -119,7 +109,7 @@ pub fn view<'a>(
 
     let text_input = show_text_input.then(|| {
         column![
-            vertical_space(4),
+            vertical_space().height(4),
             input_view::view(
                 &state.input_view,
                 buffer,

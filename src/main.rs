@@ -17,7 +17,7 @@ use std::env;
 use std::time::{Duration, Instant};
 
 use data::config::{self, Config};
-use data::{environment, server};
+use data::{environment, server, User};
 use iced::widget::container;
 use iced::{executor, Application, Command, Length, Subscription};
 use screen::{dashboard, help, welcome};
@@ -323,19 +323,29 @@ impl Application for Halloy {
                                 return;
                             };
 
+                            // Resolve a user using client state which stores attributes
+                            let resolve_user_attributes = |user: &User, channel: &str| {
+                                client.user_with_channel_attributes(user, channel).cloned()
+                            };
+
                             match event {
                                 data::client::Event::Single(encoded, our_nick) => {
-                                    
-                                    if let Some(message) =
-                                        data::Message::received(encoded, our_nick, &self.config, client)
-                                    {
+                                    if let Some(message) = data::Message::received(
+                                        encoded,
+                                        our_nick,
+                                        &self.config,
+                                        resolve_user_attributes,
+                                    ) {
                                         dashboard.record_message(&server, message);
                                     }
                                 }
                                 data::client::Event::WithTarget(encoded, our_nick, target) => {
-                                    if let Some(message) =
-                                        data::Message::received(encoded, our_nick, &self.config, client)
-                                    {
+                                    if let Some(message) = data::Message::received(
+                                        encoded,
+                                        our_nick,
+                                        &self.config,
+                                        resolve_user_attributes,
+                                    ) {
                                         dashboard
                                             .record_message(&server, message.with_target(target));
                                     }
@@ -392,9 +402,12 @@ impl Application for Halloy {
                                     our_nick,
                                     notification,
                                 ) => {
-                                    if let Some(message) =
-                                        data::Message::received(encoded, our_nick, &self.config, client)
-                                    {
+                                    if let Some(message) = data::Message::received(
+                                        encoded,
+                                        our_nick,
+                                        &self.config,
+                                        resolve_user_attributes,
+                                    ) {
                                         dashboard.record_message(&server, message);
                                     }
 

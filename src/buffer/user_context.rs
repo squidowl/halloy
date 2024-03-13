@@ -54,10 +54,10 @@ pub fn update(message: Message) -> Event {
 
 pub fn view<'a>(
     content: impl Into<Element<'a, Message>>,
-    user: User,
-    buffer: &Buffer,
+    user: &'a User,
+    buffer: Buffer,
 ) -> Element<'a, Message> {
-    let entries = Entry::list(buffer);
+    let entries = Entry::list(&buffer);
 
     let content = button(content)
         .padding(0)

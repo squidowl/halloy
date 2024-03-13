@@ -29,8 +29,8 @@ pub fn view<'a>(
                         false,
                     )
                 }),
-                user.clone(),
-                buffer,
+                user,
+                buffer.clone(),
             )
         } else {
             selectable_text(who)
