@@ -304,6 +304,20 @@ fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
                 )
             })
         }
+        Command::KICK(_, victim, comment) => {
+            let user = user?;
+            let comment = comment
+                .as_ref()
+                .map(|comment| format!(" ({comment})"))
+                .unwrap_or_default();
+            let target = if victim == our_nick.as_ref() {
+                "you have".to_string()
+            } else {
+                format!("{victim} has")
+            };
+
+            Some(format!("⟵ {target} been kicked by {user}{comment}"))
+        }
         Command::MODE(target, modes, args) if proto::is_channel(target) => {
             let user = user?;
             let modes = modes

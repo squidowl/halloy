@@ -10,6 +10,7 @@ Fix:
 
 - Context menus now shows buttons as expected
 - Buttons on help screen is now correctly sized
+- Text input is now disabled when not connected to a channel
 
 Changed:
 
