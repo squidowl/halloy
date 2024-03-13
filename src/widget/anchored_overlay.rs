@@ -141,24 +141,23 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'a, Messa
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let (first, second) = tree.children.split_at_mut(1);
 
         let base = self
             .base
             .as_widget_mut()
-            .overlay(&mut first[0], layout, renderer);
+            .overlay(&mut first[0], layout, renderer, translation);
 
-        let overlay = overlay::Element::new(
-            layout.position(),
-            Box::new(Overlay {
-                content: &mut self.overlay,
-                tree: &mut second[0],
-                anchor: self.anchor,
-                offset: self.offset,
-                base_layout: layout.bounds(),
-            }),
-        );
+        let overlay = overlay::Element::new(Box::new(Overlay {
+            content: &mut self.overlay,
+            tree: &mut second[0],
+            anchor: self.anchor,
+            offset: self.offset,
+            base_layout: layout.bounds(),
+            position: layout.position(),
+        }));
 
         Some(
             overlay::Group::with_children(base.into_iter().chain(Some(overlay)).collect())
@@ -182,21 +181,16 @@ struct Overlay<'a, 'b, Message> {
     anchor: Anchor,
     offset: f32,
     base_layout: Rectangle,
+    position: Point,
 }
 
 impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a, 'b, Message> {
-    fn layout(
-        &mut self,
-        renderer: &Renderer,
-        bounds: Size,
-        position: Point,
-        _translation: Vector,
-    ) -> layout::Node {
+    fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
         let height = match self.anchor {
             // From top of base to top of viewport
-            Anchor::AboveTop => position.y,
+            Anchor::AboveTop => self.position.y,
             // From top of base to bottom of viewport
-            Anchor::BelowTopCentered => bounds.height - position.y,
+            Anchor::BelowTopCentered => bounds.height - self.position.y,
         };
 
         let limits = layout::Limits::new(
@@ -224,7 +218,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
             ),
         };
 
-        node.move_to(position + translation)
+        node.move_to(self.position + translation)
     }
 
     fn draw(
@@ -301,6 +295,6 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
     ) -> Option<overlay::Element<'c, Message, Theme, Renderer>> {
         self.content
             .as_widget_mut()
-            .overlay(self.tree, layout, renderer)
+            .overlay(self.tree, layout, renderer, Vector::default())
     }
 }

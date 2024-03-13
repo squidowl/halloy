@@ -2,7 +2,7 @@ use std::time;
 
 use iced::advanced::widget::{self, tree, Tree};
 use iced::advanced::{mouse, overlay, renderer, Clipboard, Layout, Shell, Widget};
-use iced::{advanced, event, Length, Rectangle, Size};
+use iced::{advanced, event, Length, Rectangle, Size, Vector};
 
 const TIMEOUT_MILLIS: u64 = 250;
 
@@ -169,10 +169,11 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         self.content
             .as_widget_mut()
-            .overlay(&mut tree.children[0], layout, renderer)
+            .overlay(&mut tree.children[0], layout, renderer, translation)
     }
 }
 

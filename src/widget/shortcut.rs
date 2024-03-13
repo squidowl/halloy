@@ -2,7 +2,7 @@ use data::shortcut;
 pub use data::shortcut::Command;
 use iced::advanced::widget::tree;
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::{event, keyboard, mouse, Event, Length, Rectangle, Size};
+use iced::{event, keyboard, mouse, Event, Length, Rectangle, Size, Vector};
 
 use super::{Element, Renderer};
 use crate::Theme;
@@ -165,10 +165,11 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for Shortcut<'a, Message> {
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         self.content
             .as_widget_mut()
-            .overlay(&mut tree.children[0], layout, renderer)
+            .overlay(&mut tree.children[0], layout, renderer, translation)
     }
 }
 

@@ -43,8 +43,9 @@ impl Help {
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
+        .padding(5)
         .width(Length::Fixed(250.0))
-        .style(theme::Button::Secondary)
+        .style(theme::button::secondary)
         .on_press(Message::OpenConfigurationDirectory);
 
         let refresh_button = button(
@@ -52,18 +53,19 @@ impl Help {
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
+        .padding(5)
         .width(Length::Fixed(250.0))
-        .style(theme::Button::Secondary)
+        .style(theme::button::secondary)
         .on_press(Message::RefreshConfiguration);
 
         let content = column![]
             .spacing(1)
             .push(icon::error().size(45))
-            .push(vertical_space(10))
+            .push(vertical_space().height(10))
             .push(text("Error reading configuration file").font(font::MONO_BOLD.clone()))
-            .push(vertical_space(3))
-            .push(text(self.error.to_string()).style(theme::Text::Error))
-            .push(vertical_space(10))
+            .push(vertical_space().height(3))
+            .push(text(self.error.to_string()).style(theme::text::error))
+            .push(vertical_space().height(10))
             .push(
                 column![]
                     .width(250)

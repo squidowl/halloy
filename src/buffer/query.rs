@@ -5,7 +5,7 @@ use iced::{Command, Length};
 
 use super::{input_view, scroll_view, user_context};
 use crate::theme;
-use crate::widget::{selectable_text, Collection, Element};
+use crate::widget::{selectable_text, Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -36,19 +36,25 @@ pub fn view<'a>(
             history,
             config,
             |message| {
-                let timestamp = config
-                    .buffer
-                    .format_timestamp(&message.server_time)
-                    .map(|timestamp| selectable_text(timestamp).style(theme::Text::Transparent));
+                let timestamp =
+                    config
+                        .buffer
+                        .format_timestamp(&message.server_time)
+                        .map(|timestamp| {
+                            selectable_text(timestamp).style(theme::selectable_text::transparent)
+                        });
 
                 match message.target.source() {
                     message::Source::User(user) => {
                         let nick = user_context::view(
                             selectable_text(config.buffer.nickname.brackets.format(user)).style(
-                                theme::Text::Nickname(
-                                    user.color_seed(&config.buffer.nickname.color),
-                                    false,
-                                ),
+                                |theme| {
+                                    theme::selectable_text::nickname(
+                                        theme,
+                                        user.color_seed(&config.buffer.nickname.color),
+                                        false,
+                                    )
+                                },
                             ),
                             user.clone(),
                         )
@@ -69,18 +75,20 @@ pub fn view<'a>(
                         )
                     }
                     message::Source::Server(_) => {
-                        let message = selectable_text(&message.text).style(theme::Text::Server);
+                        let message =
+                            selectable_text(&message.text).style(theme::selectable_text::info);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Action => {
-                        let message = selectable_text(&message.text).style(theme::Text::Accent);
+                        let message =
+                            selectable_text(&message.text).style(theme::selectable_text::accent);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
-                        let message =
-                            selectable_text(&message.text).style(theme::Text::Status(*status));
+                        let message = selectable_text(&message.text)
+                            .style(|theme| theme::selectable_text::status(theme, *status));
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
@@ -100,7 +108,7 @@ pub fn view<'a>(
 
     let text_input = show_text_input.then(|| {
         column![
-            vertical_space(4),
+            vertical_space().height(4),
             input_view::view(&state.input_view, buffer, input, &[], channels, is_focused)
                 .map(Message::InputView)
         ]

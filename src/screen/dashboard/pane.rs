@@ -91,10 +91,12 @@ impl Pane {
             .map(move |msg| Message::Buffer(id, msg));
 
         widget::Content::new(content)
-            .style(theme::Container::PaneBody {
-                selected: is_focused,
+            .style(if is_focused {
+                theme::container::pane_body_selected
+            } else {
+                theme::container::pane_body
             })
-            .title_bar(title_bar.style(theme::Container::PaneHeader))
+            .title_bar(title_bar.style(theme::container::pane_header))
     }
 
     pub fn resource(&self) -> Option<history::Resource> {
@@ -146,11 +148,14 @@ impl TitleBar {
                             .center_x()
                             .center_y(),
                     )
+                    .padding(5)
                     .width(22)
                     .height(22)
                     .on_press(Message::ToggleShowTopic)
-                    .style(theme::Button::Pane {
-                        selected: settings.channel.topic.visible,
+                    .style(if settings.channel.topic.visible {
+                        theme::button::pane_selected
+                    } else {
+                        theme::button::pane
                     });
 
                     controls = controls.push(topic);
@@ -164,11 +169,14 @@ impl TitleBar {
                     .center_x()
                     .center_y(),
             )
+            .padding(5)
             .width(22)
             .height(22)
             .on_press(Message::ToggleShowUserList)
-            .style(theme::Button::Pane {
-                selected: settings.channel.users.visible,
+            .style(if settings.channel.users.visible {
+                theme::button::pane_selected
+            } else {
+                theme::button::pane
             });
 
             controls = controls.push(users);
@@ -187,11 +195,14 @@ impl TitleBar {
                 .center_x()
                 .center_y(),
             )
+            .padding(5)
             .width(22)
             .height(22)
             .on_press(Message::MaximizePane)
-            .style(theme::Button::Pane {
-                selected: maximized,
+            .style(if maximized {
+                theme::button::pane_selected
+            } else {
+                theme::button::pane
             });
 
             controls = controls.push(maximize);
@@ -206,15 +217,16 @@ impl TitleBar {
                     .center_x()
                     .center_y(),
             )
+            .padding(5)
             .width(22)
             .height(22)
             .on_press(Message::ClosePane)
-            .style(theme::Button::Pane { selected: false });
+            .style(theme::button::pane);
 
             controls = controls.push(delete);
         }
 
-        let title = container(text(value).style(theme::Text::Transparent))
+        let title = container(text(value).style(theme::text::transparent))
             .height(22)
             .padding([0, 4])
             .align_y(iced::alignment::Vertical::Center);

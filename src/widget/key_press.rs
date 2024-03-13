@@ -1,7 +1,7 @@
 use iced::advanced::widget::tree;
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
 pub use iced::keyboard::{key::Named, Key, Modifiers};
-use iced::{event, keyboard, mouse, Event, Length, Rectangle, Size};
+use iced::{event, keyboard, mouse, Event, Length, Rectangle, Size, Vector};
 
 use super::{Element, Renderer};
 use crate::Theme;
@@ -136,8 +136,11 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        self.content.as_widget_mut().overlay(tree, layout, renderer)
+        self.content
+            .as_widget_mut()
+            .overlay(tree, layout, renderer, translation)
     }
 }
 

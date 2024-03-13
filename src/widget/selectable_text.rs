@@ -18,7 +18,7 @@ mod selection;
 pub fn selectable_text<'a, Theme, Renderer>(content: impl ToString) -> Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Theme: StyleSheet,
+    Theme: DefaultStyle + 'a,
 {
     Text::new(content.to_string())
 }
@@ -26,7 +26,7 @@ where
 pub struct Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Theme: StyleSheet,
+    Theme: DefaultStyle + 'a,
 {
     content: Cow<'a, str>,
     size: Option<Pixels>,
@@ -37,13 +37,13 @@ where
     vertical_alignment: alignment::Vertical,
     font: Option<Renderer::Font>,
     shaping: Shaping,
-    style: <Theme as StyleSheet>::Style,
+    style: Style<'a, Theme>,
 }
 
 impl<'a, Theme, Renderer> Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Theme: StyleSheet,
+    Theme: DefaultStyle + 'a,
 {
     pub fn new(content: impl Into<Cow<'a, str>>) -> Self {
         Text {
@@ -59,7 +59,7 @@ where
             shaping: Shaping::Basic,
             #[cfg(not(debug_assertions))]
             shaping: Shaping::Advanced,
-            style: Default::default(),
+            style: Box::new(Theme::default_style),
         }
     }
 
@@ -78,8 +78,8 @@ where
         self
     }
 
-    pub fn style(mut self, style: impl Into<<Theme as StyleSheet>::Style>) -> Self {
-        self.style = style.into();
+    pub fn style(mut self, style: impl Fn(&Theme) -> Appearance + 'a) -> Self {
+        self.style = Box::new(style);
         self
     }
 
@@ -112,7 +112,7 @@ where
 impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Theme: StyleSheet,
+    Theme: DefaultStyle + 'a,
 {
     fn size(&self) -> Size<Length> {
         Size {
@@ -225,7 +225,7 @@ where
             return;
         }
 
-        let appearance = theme.appearance(&self.style);
+        let appearance = (self.style)(theme);
 
         let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
 
@@ -425,7 +425,7 @@ impl<'a, Message, Theme, Renderer> From<Text<'a, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Renderer: text::Renderer + 'a,
-    Theme: StyleSheet + 'a,
+    Theme: DefaultStyle + 'a,
 {
     fn from(text: Text<'a, Theme, Renderer>) -> Element<'a, Message, Theme, Renderer> {
         Element::new(text)
@@ -503,13 +503,29 @@ pub fn selected<Message: 'static>(f: fn(Vec<(f32, String)>) -> Message) -> Comma
     })
 }
 
-pub trait StyleSheet {
-    type Style: Default;
+pub type Style<'a, Theme> = Box<dyn Fn(&Theme) -> Appearance + 'a>;
 
-    fn appearance(&self, style: &Self::Style) -> Appearance;
-}
-
+#[derive(Debug, Clone, Copy)]
 pub struct Appearance {
     pub color: Option<Color>,
     pub selection_color: Color,
+}
+
+impl Default for Appearance {
+    fn default() -> Self {
+        Appearance {
+            color: None,
+            selection_color: Color::WHITE,
+        }
+    }
+}
+
+pub trait DefaultStyle {
+    fn default_style(&self) -> Appearance;
+}
+
+impl DefaultStyle for Appearance {
+    fn default_style(&self) -> Appearance {
+        *self
+    }
 }
