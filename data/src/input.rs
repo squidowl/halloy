@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::Utc;
 use irc::proto;
 use irc::proto::format;
@@ -5,6 +7,8 @@ use irc::proto::format;
 use crate::time::Posix;
 use crate::user::NickRef;
 use crate::{command, message, Buffer, Command, Message, Server, User};
+
+const INPUT_HISTORY_LENGTH: usize = 100;
 
 pub fn parse(buffer: Buffer, input: &str) -> Result<Input, Error> {
     let content = match command::parse(input, Some(&buffer)) {
@@ -103,26 +107,6 @@ impl Input {
 }
 
 #[derive(Debug, Clone)]
-pub struct InputDraft {
-    buffer: Buffer,
-    text: String,
-}
-
-impl InputDraft {
-    pub fn new(buffer: Buffer, text: String) -> Self {
-        InputDraft { buffer, text }
-    }
-
-    pub fn buffer(&self) -> &Buffer {
-        &self.buffer
-    }
-
-    pub fn text(&self) -> &str {
-        self.text.as_ref()
-    }
-}
-
-#[derive(Debug, Clone)]
 enum Content {
     Text(String),
     Command(Command),
@@ -144,6 +128,49 @@ impl Content {
             .and_then(|command| proto::Command::try_from(command).ok())
             .map(proto::Message::from)
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Draft {
+    pub buffer: Buffer,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Storage {
+    sent: HashMap<Buffer, Vec<String>>,
+    draft: HashMap<Buffer, String>,
+}
+
+impl Storage {
+    pub fn get<'a>(&'a self, buffer: &Buffer) -> Cache<'a> {
+        Cache {
+            history: self.sent.get(buffer).map(Vec::as_slice).unwrap_or_default(),
+            draft: self
+                .draft
+                .get(buffer)
+                .map(AsRef::as_ref)
+                .unwrap_or_default(),
+        }
+    }
+
+    pub fn record(&mut self, buffer: &Buffer, text: String) {
+        self.draft.remove(buffer);
+        let history = self.sent.entry(buffer.clone()).or_default();
+        history.insert(0, text);
+        history.truncate(INPUT_HISTORY_LENGTH);
+    }
+
+    pub fn store_draft(&mut self, draft: Draft) {
+        self.draft.insert(draft.buffer, draft.text);
+    }
+}
+
+/// Cached values for a buffers input
+#[derive(Debug, Clone, Copy)]
+pub struct Cache<'a> {
+    pub history: &'a [String],
+    pub draft: &'a str,
 }
 
 #[derive(Debug, thiserror::Error)]
