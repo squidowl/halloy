@@ -1,6 +1,6 @@
 use data::server::Server;
 use data::User;
-use data::{channel, client, history, message, Config};
+use data::{channel, history, message, Config};
 use iced::widget::{column, container, row};
 use iced::{Command, Length};
 
