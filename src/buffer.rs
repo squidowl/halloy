@@ -40,18 +40,6 @@ impl Buffer {
         Self::Empty
     }
 
-    pub fn with_draft(buffer: data::Buffer, history: &history::Manager) -> Self {
-        match buffer {
-            data::Buffer::Server(server) => Self::Server(Server::with_draft(server, history)),
-            data::Buffer::Channel(server, channel) => {
-                Self::Channel(Channel::with_draft(server, channel, history))
-            }
-            data::Buffer::Query(server, user) => {
-                Self::Query(Query::with_draft(server, user, history))
-            }
-        }
-    }
-
     pub fn data(&self) -> Option<data::Buffer> {
         match self {
             Buffer::Empty => None,
@@ -171,17 +159,25 @@ impl Buffer {
         }
     }
 
-    pub fn insert_user_to_input(&mut self, user: User) -> Command<Message> {
-        match self {
-            Buffer::Empty | Buffer::Server(_) => Command::none(),
-            Buffer::Channel(channel) => channel
-                .input_view
-                .insert_user(user)
-                .map(|message| Message::Channel(channel::Message::InputView(message))),
-            Buffer::Query(query) => query
-                .input_view
-                .insert_user(user)
-                .map(|message| Message::Query(query::Message::InputView(message))),
+    pub fn insert_user_to_input(
+        &mut self,
+        user: User,
+        history: &mut history::Manager,
+    ) -> Command<Message> {
+        if let Some(buffer) = self.data() {
+            match self {
+                Buffer::Empty | Buffer::Server(_) => Command::none(),
+                Buffer::Channel(channel) => channel
+                    .input_view
+                    .insert_user(user, buffer, history)
+                    .map(|message| Message::Channel(channel::Message::InputView(message))),
+                Buffer::Query(query) => query
+                    .input_view
+                    .insert_user(user, buffer, history)
+                    .map(|message| Message::Query(query::Message::InputView(message))),
+            }
+        } else {
+            Command::none()
         }
     }
 

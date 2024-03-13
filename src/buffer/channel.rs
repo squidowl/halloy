@@ -32,7 +32,7 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let buffer = state.buffer();
-    let input_history = history.input_history(&buffer);
+    let input = history.input(&buffer);
     let our_nick = clients.nickname(&state.server);
 
     let messages = container(
@@ -125,15 +125,19 @@ pub fn view<'a>(
     let topic = topic(state, clients, users, settings, config).unwrap_or_else(|| column![].into());
 
     let text_input = show_text_input.then(|| {
-        input_view::view(
-            &state.input_view,
-            buffer,
-            users,
-            channels,
-            input_history,
-            is_focused,
-        )
-        .map(Message::InputView)
+        column![
+            vertical_space(4),
+            input_view::view(
+                &state.input_view,
+                buffer,
+                input,
+                users,
+                channels,
+                is_focused
+            )
+            .map(Message::InputView)
+        ]
+        .width(Length::Fill)
     });
 
     let content = column![topic, messages].spacing(4);
@@ -178,14 +182,6 @@ impl Channel {
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
         }
-    }
-
-    pub fn with_draft(server: Server, channel: String, history: &history::Manager) -> Self {
-        let mut channel = Channel::new(server, channel);
-        channel
-            .input_view
-            .set(history.input_draft(&channel.buffer()));
-        channel
     }
 
     pub fn buffer(&self) -> data::Buffer {
