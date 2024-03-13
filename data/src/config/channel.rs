@@ -5,7 +5,9 @@ use crate::channel::Position;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Channel {
+    #[serde(default)]
     pub users: Users,
+    #[serde(default)]
     pub topic: Topic,
 }
 
@@ -31,7 +33,7 @@ impl Default for Users {
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 pub struct Topic {
     #[serde(default)]
-    pub(crate) visible: bool,
+    pub visible: bool,
     #[serde(default = "default_topic_banner_max_lines")]
     pub max_lines: u16,
 }
