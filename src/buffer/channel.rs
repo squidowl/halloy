@@ -125,18 +125,15 @@ pub fn view<'a>(
     let topic = topic(state, clients, users, settings, config).unwrap_or_else(|| column![].into());
 
     let text_input = show_text_input.then(|| {
-        column![
-            input_view::view(
-                &state.input_view,
-                buffer,
-                input,
-                users,
-                channels,
-                is_focused
-            )
-            .map(Message::InputView)
-        ]
-        .width(Length::Fill)
+        input_view::view(
+            &state.input_view,
+            buffer,
+            input,
+            users,
+            channels,
+            is_focused
+        )
+        .map(Message::InputView)
     });
 
     let content = column![topic, messages].spacing(4);
