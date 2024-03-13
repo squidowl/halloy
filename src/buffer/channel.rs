@@ -6,7 +6,7 @@ use iced::{Command, Length};
 
 use super::{input_view, scroll_view, user_context};
 use crate::theme;
-use crate::widget::{selectable_text, Collection, Element};
+use crate::widget::{selectable_text, Element};
 
 mod topic;
 
@@ -42,38 +42,32 @@ pub fn view<'a>(
             history,
             config,
             move |message| {
-                let timestamp = config
-                    .buffer
-                    .format_timestamp(&message.server_time)
-                    .map(|timestamp| selectable_text(timestamp).style(theme::Text::Transparent));
+                let timestamp =
+                    config
+                        .buffer
+                        .format_timestamp(&message.server_time)
+                        .map(|timestamp| {
+                            selectable_text(timestamp).style(theme::selectable_text::transparent)
+                        });
 
                 match message.target.source() {
                     message::Source::User(user) => {
                         let nick = user_context::view(
                             selectable_text(config.buffer.nickname.brackets.format(user)).style(
-                                theme::Text::Nickname(
-                                    user.color_seed(&config.buffer.nickname.color),
-                                    false,
-                                ),
+                                |theme| {
+                                    theme::selectable_text::nickname(
+                                        theme,
+                                        user.color_seed(&config.buffer.nickname.color),
+                                        false,
+                                    )
+                                },
                             ),
                             user.clone(),
                         )
                         .map(scroll_view::Message::UserContext);
-                        let row_style = match our_nick {
-                            Some(nick)
-                                if message::reference_user(
-                                    user.nickname(),
-                                    nick,
-                                    &message.text,
-                                ) =>
-                            {
-                                theme::Container::Highlight
-                            }
-                            _ => theme::Container::Default,
-                        };
 
                         let space = selectable_text(" ");
-                        let message = selectable_text(&message.text);
+                        let text = selectable_text(&message.text);
 
                         Some(
                             container(
@@ -81,25 +75,38 @@ pub fn view<'a>(
                                     .push_maybe(timestamp)
                                     .push(nick)
                                     .push(space)
-                                    .push(message),
+                                    .push(text),
                             )
-                            .style(row_style)
+                            .style(move |theme, status| match our_nick {
+                                Some(nick)
+                                    if message::reference_user(
+                                        user.nickname(),
+                                        nick,
+                                        &message.text,
+                                    ) =>
+                                {
+                                    theme::container::highlight(theme, status)
+                                }
+                                _ => Default::default(),
+                            })
                             .into(),
                         )
                     }
                     message::Source::Server(_) => {
-                        let message = selectable_text(&message.text).style(theme::Text::Server);
+                        let message =
+                            selectable_text(&message.text).style(theme::selectable_text::info);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Action => {
-                        let message = selectable_text(&message.text).style(theme::Text::Accent);
+                        let message =
+                            selectable_text(&message.text).style(theme::selectable_text::accent);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
-                        let message =
-                            selectable_text(&message.text).style(theme::Text::Status(*status));
+                        let message = selectable_text(&message.text)
+                            .style(|theme| theme::selectable_text::status(theme, *status));
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
@@ -260,7 +267,7 @@ fn topic<'a>(
 
 mod nick_list {
     use data::{Config, User};
-    use iced::widget::{column, container, scrollable, text};
+    use iced::widget::{column, container, scrollable, text, Scrollable};
     use iced::Length;
     use user_context::Message;
 
@@ -268,30 +275,33 @@ mod nick_list {
     use crate::theme;
     use crate::widget::Element;
 
-    pub fn view<'a>(users: &[User], config: &'a Config) -> Element<'a, Message> {
+    pub fn view<'a>(users: &'a [User], config: &'a Config) -> Element<'a, Message> {
         let column = column(users.iter().map(|user| {
             let content = text(format!(
                 "{}{}",
                 user.highest_access_level(),
                 user.nickname()
             ))
-            .style(theme::Text::Nickname(
-                user.color_seed(&config.buffer.channel.users.color),
-                user.is_away(),
-            ));
+            .style(|theme| {
+                theme::text::nickname(
+                    theme,
+                    user.color_seed(&config.buffer.channel.users.color),
+                    user.is_away(),
+                )
+            });
 
             user_context::view(content, user.clone())
         }))
         .padding(4)
         .spacing(1);
 
-        container(
-            scrollable(column)
-                .direction(scrollable::Direction::Vertical(
-                    scrollable::Properties::new().width(1).scroller_width(1),
-                ))
-                .style(theme::Scrollable::Hidden),
-        )
+        container(Scrollable::with_direction_and_style(
+            column,
+            scrollable::Direction::Vertical(
+                scrollable::Properties::new().width(1).scroller_width(1),
+            ),
+            theme::scrollable::hidden,
+        ))
         .width(Length::Shrink)
         .max_width(120)
         .height(Length::Fill)

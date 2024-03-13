@@ -15,7 +15,7 @@ use self::command_bar::CommandBar;
 use self::pane::Pane;
 use self::side_menu::SideMenu;
 use crate::buffer::{self, Buffer};
-use crate::widget::{anchored_overlay, selectable_text, shortcut, Collection, Element};
+use crate::widget::{anchored_overlay, selectable_text, shortcut, Element};
 use crate::{event, theme, Theme};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
@@ -538,7 +538,7 @@ impl Dashboard {
                 container(Space::new(Length::Fill, Length::Fill))
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .style(theme::Container::SemiTransparent),
+                    .style(theme::container::semi_transparent),
                 anchored_overlay::Anchor::BelowTopCentered,
                 0.0,
             );

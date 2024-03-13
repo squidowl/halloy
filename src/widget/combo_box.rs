@@ -4,8 +4,8 @@ use iced::advanced::{
 };
 use iced::overlay::menu;
 use iced::widget::text::LineHeight;
-use iced::widget::{container, scrollable, text_input, TextInput};
-use iced::{event, keyboard, Event, Length, Padding, Rectangle};
+use iced::widget::{text_input, TextInput};
+use iced::{event, keyboard, Event, Length, Padding, Rectangle, Vector};
 
 use std::cell::RefCell;
 use std::fmt::Display;
@@ -22,7 +22,6 @@ use crate::Theme;
 pub struct ComboBox<'a, T, Message, Theme = crate::Theme, Renderer = super::Renderer>
 where
     Renderer: text::Renderer,
-    Theme: text_input::StyleSheet + menu::StyleSheet,
 {
     state: &'a State<T>,
     text_input: TextInput<'a, TextInputEvent, Theme, Renderer>,
@@ -32,7 +31,7 @@ where
     on_option_hovered: Option<Box<dyn Fn(T) -> Message>>,
     on_close: Option<Message>,
     on_input: Option<Box<dyn Fn(String) -> Message>>,
-    menu_style: <Theme as menu::StyleSheet>::Style,
+    menu_style: menu::Style<'a, Theme>,
     padding: Padding,
     size: Option<f32>,
 }
@@ -41,7 +40,6 @@ impl<'a, T, Message, Theme, Renderer> ComboBox<'a, T, Message, Theme, Renderer>
 where
     T: std::fmt::Display + Clone,
     Renderer: text::Renderer,
-    Theme: text_input::StyleSheet + menu::StyleSheet,
 {
     /// Creates a new [`ComboBox`] with the given list of options, a placeholder,
     /// the current selected value, and the message to produce when an option is
@@ -51,9 +49,14 @@ where
         placeholder: &str,
         selection: Option<&T>,
         on_selected: impl Fn(T) -> Message + 'static,
-    ) -> Self {
-        let text_input =
-            TextInput::new(placeholder, &state.value()).on_input(TextInputEvent::TextChanged);
+    ) -> Self
+    where
+        Theme: DefaultStyle + 'a,
+    {
+        let style = Theme::default_style();
+
+        let text_input = TextInput::with_style(placeholder, &state.value(), style.text_input)
+            .on_input(TextInputEvent::TextChanged);
 
         let selection = selection.map(T::to_string).unwrap_or_default();
 
@@ -66,7 +69,7 @@ where
             on_option_hovered: None,
             on_input: None,
             on_close: None,
-            menu_style: Default::default(),
+            menu_style: style.menu,
             padding: text_input::DEFAULT_PADDING,
             size: None,
         }
@@ -101,24 +104,14 @@ where
     }
 
     /// Sets the style of the [`ComboBox`].
-    // TODO: Define its own `StyleSheet` trait
-    pub fn style<S>(mut self, style: S) -> Self
+    pub fn style(mut self, style: impl Into<Style<'a, Theme>>) -> Self
     where
-        S: Into<<Theme as text_input::StyleSheet>::Style>
-            + Into<<Theme as menu::StyleSheet>::Style>
-            + Clone,
+        Theme: 'a,
     {
-        self.menu_style = style.clone().into();
-        self.text_input = self.text_input.style(style);
-        self
-    }
+        let style = style.into();
 
-    /// Sets the style of the [`TextInput`] of the [`ComboBox`].
-    pub fn text_input_style<S>(mut self, style: S) -> Self
-    where
-        S: Into<<Theme as text_input::StyleSheet>::Style> + Clone,
-    {
-        self.text_input = self.text_input.style(style);
+        self.text_input = self.text_input.style(style.text_input);
+        self.menu_style = style.menu;
         self
     }
 
@@ -344,8 +337,7 @@ where
     T: Display + Clone + 'static,
     Message: Clone,
     Renderer: text::Renderer,
-    Theme:
-        container::StyleSheet + text_input::StyleSheet + scrollable::StyleSheet + menu::StyleSheet,
+    Theme: 'a,
 {
     fn size(&self) -> iced::Size<Length> {
         Widget::<TextInputEvent, Theme, Renderer>::size(&self.text_input)
@@ -612,6 +604,7 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         _renderer: &Renderer,
+        _translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let Menu {
             menu,
@@ -631,10 +624,10 @@ where
                 hovered_option,
                 |x| (self.on_selected)(x),
                 self.on_option_hovered.as_deref(),
+                &self.menu_style,
             )
             .width(bounds.width)
-            .padding(self.padding)
-            .style(self.menu_style.clone());
+            .padding(self.padding);
 
             if let Some(font) = self.font {
                 menu = menu.font(font);
@@ -717,4 +710,31 @@ where
     T: std::fmt::Display + Clone,
 {
     ComboBox::new(state, placeholder, selection, on_selected)
+}
+
+/// The style of a [`ComboBox`].
+#[allow(missing_debug_implementations)]
+pub struct Style<'a, Theme> {
+    /// The style of the [`TextInput`] of the [`ComboBox`].
+    pub text_input: text_input::Style<'a, Theme>,
+
+    /// The style of the [`Menu`] of the [`ComboBox`].
+    ///
+    /// [`Menu`]: menu::Menu
+    pub menu: menu::Style<'a, Theme>,
+}
+
+/// The default style of a [`ComboBox`].
+pub trait DefaultStyle: Sized {
+    /// Returns the default style of a [`ComboBox`].
+    fn default_style() -> Style<'static, Self>;
+}
+
+impl DefaultStyle for iced::Theme {
+    fn default_style() -> Style<'static, Self> {
+        Style {
+            text_input: Box::new(text_input::default),
+            menu: menu::DefaultStyle::default_style(),
+        }
+    }
 }

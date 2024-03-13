@@ -47,8 +47,9 @@ impl Welcome {
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
+        .padding(5)
         .width(Length::Fill)
-        .style(theme::Button::Secondary)
+        .style(theme::button::secondary)
         .on_press(Message::OpenConfigurationDirectory);
 
         let refresh_button = button(
@@ -56,8 +57,9 @@ impl Welcome {
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
+        .padding(5)
         .width(Length::Fill)
-        .style(theme::Button::Secondary)
+        .style(theme::button::secondary)
         .on_press(Message::RefreshConfiguration);
 
         let content = column![]
@@ -68,42 +70,42 @@ impl Welcome {
                 )))
                 .width(150),
             )
-            .push(vertical_space(10))
+            .push(vertical_space().height(10))
             .push(text("Welcome to Halloy!").font(font::MONO_BOLD.clone()))
-            .push(vertical_space(4))
+            .push(vertical_space().height(4))
             .push(text(
                 "No configuration file found. Please follow the steps below to proceed",
             ))
-            .push(vertical_space(8))
+            .push(vertical_space().height(8))
             .push(
                 column![]
                     .push(row![
-                        text("1. ").style(theme::Text::Accent),
+                        text("1. ").style(theme::text::accent),
                         text("Go to "),
-                        text(config_dir).style(theme::Text::Info)
+                        text(config_dir).style(theme::text::info)
                     ])
                     .push(row![
-                        text("2. ").style(theme::Text::Accent),
+                        text("2. ").style(theme::text::accent),
                         text("Create "),
-                        text("config.yaml").style(theme::Text::Info),
+                        text("config.yaml").style(theme::text::info),
                         text(" - you can use "),
-                        text("config.template.yaml").style(theme::Text::Info),
+                        text("config.template.yaml").style(theme::text::info),
                         text(" as a starting point"),
                     ])
                     .push(row![
-                        text("3. ").style(theme::Text::Accent),
+                        text("3. ").style(theme::text::accent),
                         text("Customize the file with your preferred servers, settings, and theme")
                     ])
                     .push(row![
-                        text("4. ").style(theme::Text::Accent),
+                        text("4. ").style(theme::text::accent),
                         text("Join "),
-                        text("#halloy").style(theme::Text::Info),
+                        text("#halloy").style(theme::text::info),
                         text(" on libera.chat if you have questions or looking for help"),
                     ])
                     .spacing(2)
                     .align_items(iced::Alignment::Start),
             )
-            .push(vertical_space(10))
+            .push(vertical_space().height(10))
             .push(
                 row![]
                     .width(250)

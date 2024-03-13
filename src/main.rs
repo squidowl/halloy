@@ -456,7 +456,7 @@ impl Application for Halloy {
         container(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(theme::Container::Primary)
+            .style(theme::container::primary)
             .into()
     }
 
