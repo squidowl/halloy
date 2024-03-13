@@ -5,7 +5,6 @@ use irc::proto;
 use irc::proto::format;
 
 use crate::time::Posix;
-use crate::user::NickRef;
 use crate::{command, message, Buffer, Command, Message, Server, User};
 
 const INPUT_HISTORY_LENGTH: usize = 100;
@@ -56,7 +55,7 @@ impl Input {
         self.buffer.server()
     }
 
-    pub fn message(&self, our_nick: NickRef) -> Option<Message> {
+    pub fn message(&self, user: User) -> Option<Message> {
         let to_target = |target: String, source| {
             if proto::is_channel(&target) {
                 Some(message::Target::Channel {
@@ -80,10 +79,7 @@ impl Input {
                 received_at: Posix::now(),
                 server_time: Utc::now(),
                 direction: message::Direction::Sent,
-                target: to_target(
-                    target,
-                    message::Source::User(User::from(our_nick.to_owned())),
-                )?,
+                target: to_target(target, message::Source::User(user))?,
                 text,
             }),
             Command::Me(target, action) => Some(Message {
@@ -91,7 +87,7 @@ impl Input {
                 server_time: Utc::now(),
                 direction: message::Direction::Sent,
                 target: to_target(target, message::Source::Action)?,
-                text: message::action_text(our_nick, &action),
+                text: message::action_text(user.nickname(), &action),
             }),
             _ => None,
         }

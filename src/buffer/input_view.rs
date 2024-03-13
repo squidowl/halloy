@@ -75,8 +75,18 @@ impl State {
                     clients.send(input.buffer(), encoded);
                 }
 
-                if let Some(nick) = clients.nickname(input.server()) {
-                    history.record_input(input, nick);
+                if let (Some(client), Some(channel), Some(nick)) = (
+                    clients.client(input.buffer().server()),
+                    input.buffer().target(),
+                    clients.nickname(input.server()),
+                ) {
+                    let fallback_user = &User::from(nick.to_owned());
+                    let user = client
+                        .user_with_channel_attributes(fallback_user, channel.as_str())
+                        .unwrap_or(fallback_user)
+                        .clone();
+
+                    history.record_input(input, user);
                 }
 
                 (Command::none(), Some(Event::InputSent))

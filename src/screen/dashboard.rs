@@ -140,9 +140,10 @@ impl Dashboard {
                                             clients.send(input.buffer(), encoded);
                                         }
 
-                                        if let Some(message) = clients
-                                            .nickname(buffer.server())
-                                            .and_then(|our_nick| input.message(our_nick))
+                                        if let Some(message) =
+                                            clients.nickname(buffer.server()).and_then(|our_nick| {
+                                                input.message(User::from(our_nick.to_owned()))
+                                            })
                                         {
                                             self.history.record_message(input.server(), message);
                                         }
