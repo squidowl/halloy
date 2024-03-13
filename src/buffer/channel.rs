@@ -24,7 +24,6 @@ pub enum Event {
 
 pub fn view<'a>(
     state: &'a Channel,
-    status: client::Status,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
     settings: &'a channel::Settings,
@@ -118,13 +117,17 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
+    let is_connected_to_channel = clients
+        .get_channels(&state.server)
+        .iter()
+        .any(|c| c == &state.channel);
     let users = clients.get_channel_users(&state.server, &state.channel);
     let channels = clients.get_channels(&state.server);
     let nick_list = nick_list::view(users, config).map(Message::UserContext);
 
     let show_text_input = match config.buffer.input_visibility {
-        data::buffer::InputVisibility::Focused => is_focused && status.connected(),
-        data::buffer::InputVisibility::Always => status.connected(),
+        data::buffer::InputVisibility::Focused => is_focused,
+        data::buffer::InputVisibility::Always => true,
     };
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
@@ -138,7 +141,8 @@ pub fn view<'a>(
             input,
             users,
             channels,
-            is_focused
+            is_focused,
+            !is_connected_to_channel,
         )
         .map(Message::InputView)
     });
