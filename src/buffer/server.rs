@@ -1,4 +1,4 @@
-use data::{client, history, message, Config};
+use data::{history, message, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Command, Length};
 
@@ -14,12 +14,12 @@ pub enum Message {
 
 pub fn view<'a>(
     state: &'a Server,
-    status: client::Status,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
     config: &'a Config,
     is_focused: bool,
 ) -> Element<'a, Message> {
+    let status = clients.status(&state.server);
     let buffer = state.buffer();
     let input = history.input(&buffer);
 
@@ -60,8 +60,8 @@ pub fn view<'a>(
     .height(Length::Fill);
 
     let show_text_input = match config.buffer.input_visibility {
-        data::buffer::InputVisibility::Focused => is_focused && status.connected(),
-        data::buffer::InputVisibility::Always => status.connected(),
+        data::buffer::InputVisibility::Focused => is_focused,
+        data::buffer::InputVisibility::Always => true,
     };
 
     let channels = clients.get_channels(&state.server);
@@ -69,8 +69,16 @@ pub fn view<'a>(
     let text_input = show_text_input.then(|| {
         column![
             vertical_space().height(4),
-            input_view::view(&state.input_view, buffer, input, &[], channels, is_focused)
-                .map(Message::InputView)
+            input_view::view(
+                &state.input_view,
+                buffer,
+                input,
+                &[],
+                channels,
+                is_focused,
+                !status.connected()
+            )
+            .map(Message::InputView)
         ]
         .width(Length::Fill)
     });

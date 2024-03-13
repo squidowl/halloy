@@ -536,6 +536,13 @@ impl Client {
                     channel.users.insert(user);
                 }
             }
+            Command::KICK(channel, victim, _) => {
+                if victim == self.nickname().as_ref() {
+                    self.chanmap.remove(channel);
+                } else if let Some(channel) = self.chanmap.get_mut(channel) {
+                    channel.users.remove(&User::from(Nick::from(victim.as_str())));
+                }
+            }
             Command::Numeric(RPL_WHOREPLY, args) => {
                 let target = args.get(1)?;
 

@@ -21,6 +21,7 @@ pub fn input<'a, Message>(
     users: &'a [User],
     channels: &'a [String],
     buffer_focused: bool,
+    disabled: bool,
     on_input: impl Fn(input::Draft) -> Message + 'a,
     on_submit: impl Fn(data::Input) -> Message + 'a,
     on_completion: impl Fn(input::Draft) -> Message + 'a,
@@ -36,6 +37,7 @@ where
         channels,
         history,
         buffer_focused,
+        disabled,
         on_input: Box::new(on_input),
         on_submit: Box::new(on_submit),
         on_completion: Box::new(on_completion),
@@ -66,6 +68,7 @@ pub struct Input<'a, Message> {
     channels: &'a [String],
     history: &'a [String],
     buffer_focused: bool,
+    disabled: bool,
     on_input: Box<dyn Fn(data::input::Draft) -> Message + 'a>,
     on_submit: Box<dyn Fn(data::Input) -> Message + 'a>,
     on_completion: Box<dyn Fn(data::input::Draft) -> Message + 'a>,
@@ -203,12 +206,15 @@ where
             theme::text_input::primary
         };
 
-        let text_input = text_input("Send message...", self.input)
-            .on_input(Event::Input)
+        let mut text_input = text_input("Send message...", self.input)
             .on_submit(Event::Send)
             .id(self.id.clone())
             .padding(8)
             .style(style);
+
+        if !self.disabled {
+            text_input = text_input.on_input(Event::Input);
+        }
 
         // Add tab support
         let mut input = key_press(
@@ -252,7 +258,7 @@ fn error<'a, Message: 'a>(error: impl ToString) -> Element<'a, Message> {
     container(text(error).style(theme::text::error))
         .center_y()
         .padding(8)
-        .style(theme::container::primary)
+        .style(theme::container::context)
         .into()
 }
 

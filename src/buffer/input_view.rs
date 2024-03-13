@@ -23,6 +23,7 @@ pub fn view<'a>(
     users: &'a [User],
     channels: &'a [String],
     buffer_focused: bool,
+    disabled: bool,
 ) -> Element<'a, Message> {
     input(
         state.input_id.clone(),
@@ -32,6 +33,7 @@ pub fn view<'a>(
         users,
         channels,
         buffer_focused,
+        disabled,
         Message::Input,
         Message::Send,
         Message::Completion,
