@@ -30,12 +30,21 @@ impl Default for Users {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 pub struct Topic {
     #[serde(default)]
     pub visible: bool,
     #[serde(default = "default_topic_banner_max_lines")]
     pub max_lines: u16,
+}
+
+impl Default for Topic {
+    fn default() -> Self {
+        Self {
+            visible: false,
+            max_lines: default_topic_banner_max_lines(),
+        }
+    }
 }
 
 fn default_topic_banner_max_lines() -> u16 {
