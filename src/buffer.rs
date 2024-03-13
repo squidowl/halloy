@@ -94,11 +94,8 @@ impl Buffer {
         match self {
             Buffer::Empty => empty::view(),
             Buffer::Channel(state) => {
-                let status = clients.status(&state.server);
-
                 channel::view(
                     state,
-                    status,
                     clients,
                     history,
                     &settings.channel,
@@ -108,15 +105,11 @@ impl Buffer {
                 .map(Message::Channel)
             }
             Buffer::Server(state) => {
-                let status = clients.status(&state.server);
-
-                server::view(state, status, clients, history, config, is_focused)
+                server::view(state, clients, history, config, is_focused)
                     .map(Message::Server)
             }
             Buffer::Query(state) => {
-                let status = clients.status(&state.server);
-
-                query::view(state, status, clients, history, config, is_focused).map(Message::Query)
+                query::view(state, clients, history, config, is_focused).map(Message::Query)
             }
         }
     }

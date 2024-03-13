@@ -20,7 +20,7 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
             color: Color::TRANSPARENT,
             // XXX Not currently displayed in application.
         },
-        icon: theme.colors().info.base,
+        icon: theme.colors().text.base,
         placeholder: theme.colors().text.low_alpha,
         value: theme.colors().text.base,
         selection: theme.colors().accent.high_alpha,
@@ -29,9 +29,9 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
     match status {
         Status::Active | Status::Hovered | Status::Focused => active,
         Status::Disabled => Appearance {
-            background: Background::Color(theme.colors().background.light),
+            background: Background::Color(theme.colors().background.low_alpha),
             border: Border {
-                radius: 0.0.into(),
+                radius: 4.0.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
                 // XXX Not currently displayed in application.
@@ -47,9 +47,9 @@ pub fn error(theme: &Theme, status: Status) -> Appearance {
     match status {
         Status::Active | Status::Hovered | Status::Focused => Appearance {
             border: Border {
+                radius: 4.0.into(),
                 width: 1.0,
                 color: theme.colors().error.base,
-                ..Default::default()
             },
             ..primary
         },
