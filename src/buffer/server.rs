@@ -21,7 +21,7 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let buffer = state.buffer();
-    let input_history = history.input_history(&buffer);
+    let input = history.input(&buffer);
 
     let messages = container(
         scroll_view::view(
@@ -65,15 +65,8 @@ pub fn view<'a>(
     let text_input = show_text_input.then(|| {
         column![
             vertical_space(4),
-            input_view::view(
-                &state.input_view,
-                buffer,
-                &[],
-                channels,
-                input_history,
-                is_focused
-            )
-            .map(Message::InputView)
+            input_view::view(&state.input_view, buffer, input, &[], channels, is_focused)
+                .map(Message::InputView)
         ]
         .width(Length::Fill)
     });
@@ -93,7 +86,7 @@ pub fn view<'a>(
 pub struct Server {
     pub server: data::server::Server,
     pub scroll_view: scroll_view::State,
-    input_view: input_view::State,
+    pub input_view: input_view::State,
 }
 
 impl Server {

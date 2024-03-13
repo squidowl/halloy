@@ -1,3 +1,4 @@
+use data::input::{Cache, Draft};
 use data::user::User;
 use data::{client, history, Buffer, Input};
 use iced::Command;
@@ -10,26 +11,26 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Input(String),
+    Input(Draft),
     Send(Input),
-    Completion(String),
+    Completion(Draft),
 }
 
 pub fn view<'a>(
     state: &'a State,
     buffer: Buffer,
+    cache: Cache<'a>,
     users: &'a [User],
     channels: &'a [String],
-    history: &'a [String],
     buffer_focused: bool,
 ) -> Element<'a, Message> {
     input(
         state.input_id.clone(),
         buffer,
-        &state.input,
+        cache.draft,
+        cache.history,
         users,
         channels,
-        history,
         buffer_focused,
         Message::Input,
         Message::Send,
@@ -40,7 +41,6 @@ pub fn view<'a>(
 #[derive(Debug, Clone)]
 pub struct State {
     input_id: input::Id,
-    input: String,
 }
 
 impl Default for State {
@@ -53,7 +53,6 @@ impl State {
     pub fn new() -> Self {
         Self {
             input_id: input::Id::unique(),
-            input: String::default(),
         }
     }
 
@@ -64,14 +63,12 @@ impl State {
         history: &mut history::Manager,
     ) -> (Command<Message>, Option<Event>) {
         match message {
-            Message::Input(input) => {
-                self.input = input;
+            Message::Input(draft) => {
+                history.record_draft(draft);
 
                 (Command::none(), None)
             }
             Message::Send(input) => {
-                self.input.clear();
-
                 if let Some(encoded) = input.encoded() {
                     clients.send(input.buffer(), encoded);
                 }
@@ -82,8 +79,8 @@ impl State {
 
                 (Command::none(), Some(Event::InputSent))
             }
-            Message::Completion(input) => {
-                self.input = input;
+            Message::Completion(draft) => {
+                history.record_draft(draft);
 
                 (input::move_cursor_to_end(self.input_id.clone()), None)
             }
@@ -98,14 +95,23 @@ impl State {
         input::reset(self.input_id.clone())
     }
 
-    pub fn insert_user(&mut self, user: User) -> Command<Message> {
-        if self.input.is_empty() {
-            self.input = format!("{}: ", user.nickname());
-        } else if self.input.ends_with(' ') {
-            self.input = format!("{}{}", self.input, user.nickname());
+    pub fn insert_user(
+        &mut self,
+        user: User,
+        buffer: Buffer,
+        history: &mut history::Manager,
+    ) -> Command<Message> {
+        let mut text = history.input(&buffer).draft.to_string();
+
+        if text.is_empty() {
+            text = format!("{}: ", user.nickname());
+        } else if text.ends_with(' ') {
+            text = format!("{}{}", text, user.nickname());
         } else {
-            self.input = format!("{} {}", self.input, user.nickname());
+            text = format!("{} {}", text, user.nickname());
         }
+
+        history.record_draft(Draft { buffer, text });
 
         input::move_cursor_to_end(self.input_id.clone())
     }

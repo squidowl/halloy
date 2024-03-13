@@ -6,12 +6,12 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
-use crate::config;
 use crate::config::buffer::Exclude;
 use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
+use crate::{config, input};
 use crate::{server, Buffer, Config, Input, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -173,8 +173,12 @@ impl Manager {
         }
 
         if let Some(text) = input.raw() {
-            self.data.input.push(input.buffer(), text.to_string());
+            self.data.input.record(input.buffer(), text.to_string());
         }
+    }
+
+    pub fn record_draft(&mut self, draft: input::Draft) {
+        self.data.input.store_draft(draft);
     }
 
     pub fn record_message(&mut self, server: &Server, message: crate::Message) {
@@ -339,7 +343,7 @@ impl Manager {
         });
     }
 
-    pub fn input_history<'a>(&'a self, buffer: &Buffer) -> &'a [String] {
+    pub fn input<'a>(&'a self, buffer: &Buffer) -> input::Cache<'a> {
         self.data.input.get(buffer)
     }
 }
@@ -365,7 +369,7 @@ fn with_limit<'a>(
 #[derive(Debug, Default)]
 struct Data {
     map: HashMap<server::Server, HashMap<history::Kind, History>>,
-    input: history::Input,
+    input: input::Storage,
 }
 
 impl Data {

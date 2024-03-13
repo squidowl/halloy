@@ -139,11 +139,13 @@ impl Dashboard {
                                     }
                                 }
                                 buffer::user_context::Event::SingleClick(user) => {
-                                    let Some((_, pane)) = self.get_focused_mut() else {
+                                    let Some((_, pane, history)) =
+                                        self.get_focused_with_history_mut()
+                                    else {
                                         return Command::none();
                                     };
 
-                                    return pane.buffer.insert_user_to_input(user).map(
+                                    return pane.buffer.insert_user_to_input(user, history).map(
                                         move |message| {
                                             Message::Pane(pane::Message::Buffer(id, message))
                                         },
@@ -781,6 +783,15 @@ impl Dashboard {
     fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {
         let pane = self.focus?;
         self.panes.get_mut(pane).map(|state| (pane, state))
+    }
+
+    fn get_focused_with_history_mut(
+        &mut self,
+    ) -> Option<(pane_grid::Pane, &mut Pane, &mut history::Manager)> {
+        let pane = self.focus?;
+        self.panes
+            .get_mut(pane)
+            .map(|state| (pane, state, &mut self.history))
     }
 
     fn focus_pane(&mut self, pane: pane_grid::Pane) -> Command<Message> {

@@ -32,7 +32,7 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let buffer = state.buffer();
-    let input_history = history.input_history(&buffer);
+    let input = history.input(&buffer);
     let our_nick = clients.nickname(&state.server);
 
     let messages = container(
@@ -128,10 +128,10 @@ pub fn view<'a>(
         input_view::view(
             &state.input_view,
             buffer,
+            input,
             users,
             channels,
-            input_history,
-            is_focused,
+            is_focused
         )
         .map(Message::InputView)
     });
