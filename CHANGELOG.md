@@ -14,6 +14,7 @@ Fix:
 - Buttons on help screen is now correctly sized
 - Text input is now disabled when not connected to a channel
 - When someone is kicked, it is now correctly shown
+- Query messages sent by another client will now correctly be displayed
 
 Changed:
 

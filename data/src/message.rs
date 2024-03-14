@@ -193,12 +193,16 @@ fn target(
                     })
                 }
                 (false, Some(user)) => {
-                    let target = User::try_from(target.as_str()).ok()?;
+                    let (nick, source) = if user.nickname() == *our_nick {
+                        // Message from ourself, from another client.
+                        let target = User::try_from(target.as_str()).ok()?;
+                        (target.nickname().to_owned(), source(user))
+                    } else {
+                        // Message from conversation partner.
+                        (user.nickname().to_owned(), source(user))
+                    };
 
-                    (target.nickname() == *our_nick).then(|| Target::Query {
-                        nick: user.nickname().to_owned(),
-                        source: source(user),
-                    })
+                    Some(Target::Query { nick, source })
                 }
                 _ => None,
             }
