@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -487,12 +487,8 @@ impl Client {
                 }
 
                 // Send JOIN
-                for channel in &self.config.channels {
-                    if let Some(keys) = self.config.channel_keys.get(channel) {
-                        let _ = self.sender.try_send(command!("JOIN", channel, keys));
-                    } else {
-                        let _ = self.sender.try_send(command!("JOIN", channel));
-                    }
+                for message in group_joins(&self.config) {
+                    let _ = self.sender.try_send(message);
                 }
             }
             // QUIT
@@ -1032,4 +1028,54 @@ pub enum WhoStatus {
     Requested(Instant),
     Receiving,
     Done(Instant),
+}
+
+/// Group channels together into as few JOIN messages as possible
+fn group_joins(config: &config::Server) -> impl Iterator<Item = proto::Message> + '_ {
+    const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"JOIN \r\n".len();
+
+    let (without_keys, with_keys): (Vec<_>, Vec<_>) =
+        config.channels.iter().partition_map(|channel| {
+            config
+                .channel_keys
+                .get(channel)
+                .map(|key| Either::Right((channel, key)))
+                .unwrap_or(Either::Left(channel))
+        });
+
+    let joins_without_keys = without_keys
+        .into_iter()
+        .scan(0, |count, channel| {
+            // Channel + a comma
+            *count += channel.len() + 1;
+
+            let chunk = *count / MAX_LEN;
+
+            Some((chunk, channel))
+        })
+        .into_group_map()
+        .into_values()
+        .map(|channels| command!("JOIN", channels.into_iter().join(",")));
+
+    let joins_with_keys = with_keys
+        .into_iter()
+        .scan(0, |count, (channel, key)| {
+            // Channel + key + a comma for each
+            *count += channel.len() + key.len() + 2;
+
+            let chunk = *count / MAX_LEN;
+
+            Some((chunk, (channel, key)))
+        })
+        .into_group_map()
+        .into_values()
+        .map(|values| {
+            command!(
+                "JOIN",
+                values.iter().map(|(c, _)| c).join(","),
+                values.iter().map(|(_, k)| k).join(",")
+            )
+        });
+
+    joins_without_keys.chain(joins_with_keys)
 }
