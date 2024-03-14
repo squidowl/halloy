@@ -15,6 +15,7 @@ Fix:
 - Text input is now disabled when not connected to a channel
 - When someone is kicked, it is now correctly shown
 - Query messages sent by another client will now correctly be displayed
+- Prevent flooding server by grouping channels together in as few JOIN messages as possible
 
 Changed:
 
