@@ -283,6 +283,7 @@ impl Application for Halloy {
                     server,
                     is_initial,
                     error,
+                    sent_time,
                 } => {
                     self.clients.disconnected(server.clone());
 
@@ -292,7 +293,7 @@ impl Application for Halloy {
 
                     if is_initial {
                         // Intial is sent when first trying to connect
-                        dashboard.broadcast_connecting(&server, &self.config);
+                        dashboard.broadcast_connecting(&server, &self.config, Some(sent_time));
                     } else {
                         let notification = &self.config.notifications.disconnected;
 
@@ -300,7 +301,12 @@ impl Application for Halloy {
                             notification::show("Disconnected", &server, notification.sound());
                         };
 
-                        dashboard.broadcast_disconnected(&server, error, &self.config);
+                        dashboard.broadcast_disconnected(
+                            &server,
+                            error,
+                            &self.config,
+                            Some(sent_time),
+                        );
                     }
 
                     Command::none()
@@ -309,6 +315,7 @@ impl Application for Halloy {
                     server,
                     client: connection,
                     is_initial,
+                    sent_time,
                 } => {
                     self.clients.ready(server.clone(), connection);
 
@@ -323,7 +330,7 @@ impl Application for Halloy {
                             notification::show("Connected", &server, notification.sound());
                         }
 
-                        dashboard.broadcast_connected(&server, &self.config);
+                        dashboard.broadcast_connected(&server, &self.config, Some(sent_time));
                     } else {
                         let notification = &self.config.notifications.reconnected;
 
@@ -331,17 +338,26 @@ impl Application for Halloy {
                             notification::show("Reconnected", &server, notification.sound());
                         }
 
-                        dashboard.broadcast_reconnected(&server, &self.config);
+                        dashboard.broadcast_reconnected(&server, &self.config, Some(sent_time));
                     }
 
                     Command::none()
                 }
-                stream::Update::ConnectionFailed { server, error } => {
+                stream::Update::ConnectionFailed {
+                    server,
+                    error,
+                    sent_time,
+                } => {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
                         return Command::none();
                     };
 
-                    dashboard.broadcast_connection_failed(&server, error, &self.config);
+                    dashboard.broadcast_connection_failed(
+                        &server,
+                        error,
+                        &self.config,
+                        Some(sent_time),
+                    );
 
                     Command::none()
                 }

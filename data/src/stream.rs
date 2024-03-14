@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use std::time::Duration;
 
 use futures::channel::mpsc;
@@ -25,15 +26,18 @@ pub enum Update {
         server: Server,
         client: Client,
         is_initial: bool,
+        sent_time: DateTime<Utc>,
     },
     Disconnected {
         server: Server,
         is_initial: bool,
         error: Option<String>,
+        sent_time: DateTime<Utc>,
     },
     ConnectionFailed {
         server: Server,
         error: String,
+        sent_time: DateTime<Utc>,
     },
     MessagesReceived(Server, Vec<message::Encoded>),
 }
@@ -77,6 +81,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
             server: server.clone(),
             is_initial,
             error: None,
+            sent_time: Utc::now(),
         })
         .await;
 
@@ -100,6 +105,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                                 server: server.clone(),
                                 client,
                                 is_initial,
+                                sent_time: Utc::now(),
                             })
                             .await;
 
@@ -125,6 +131,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                             .send(Update::ConnectionFailed {
                                 server: server.clone(),
                                 error,
+                                sent_time: Utc::now(),
                             })
                             .await;
 
@@ -177,6 +184,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                                     server: server.clone(),
                                     is_initial,
                                     error: Some(error),
+                                    sent_time: Utc::now(),
                                 })
                                 .await;
                             state = State::Disconnected {
@@ -197,6 +205,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                                 server: server.clone(),
                                 is_initial,
                                 error: Some(e.to_string()),
+                                sent_time: Utc::now(),
                             })
                             .await;
                         state = State::Disconnected {
@@ -228,6 +237,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                                 server: server.clone(),
                                 is_initial,
                                 error: Some("ping timeout".into()),
+                                sent_time: Utc::now(),
                             })
                             .await;
                         state = State::Disconnected {
