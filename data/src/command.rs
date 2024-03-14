@@ -17,6 +17,7 @@ pub enum Kind {
     Part,
     Topic,
     Kick,
+    Mode,
     Raw,
 }
 
@@ -35,6 +36,7 @@ impl FromStr for Kind {
             "part" => Ok(Kind::Part),
             "topic" => Ok(Kind::Topic),
             "kick" => Ok(Kind::Kick),
+            "mode" => Ok(Kind::Mode),
             "raw" => Ok(Kind::Raw),
             _ => Err(()),
         }
@@ -53,6 +55,7 @@ pub enum Command {
     Part(String, Option<String>),
     Topic(String, Option<String>),
     Kick(String, String, Option<String>),
+    Mode(String, Option<String>, Vec<String>),
     Raw(String, Vec<String>),
     Unknown(String, Vec<String>),
 }
@@ -107,6 +110,16 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
             Kind::Kick => validated::<2, 1, true>(args, |[channel, user], [comment]| {
                 Command::Kick(channel, user, comment)
             }),
+            Kind::Mode => {
+                let (channel, rest) = args.split_first().ok_or(Error::MissingCommand)?;
+                let (mode, users) = rest.split_first().ok_or(Error::MissingCommand)?;
+
+                Ok(Command::Mode(
+                    channel.to_string(),
+                    Some(mode.to_string()),
+                    users.iter().map(|s| s.to_string()).collect(),
+                ))
+            }
             Kind::Raw => {
                 let (cmd, args) = args.split_first().ok_or(Error::MissingCommand)?;
 
@@ -176,6 +189,7 @@ impl TryFrom<Command> for proto::Command {
             Command::Part(chanlist, reason) => proto::Command::PART(chanlist, reason),
             Command::Topic(channel, topic) => proto::Command::TOPIC(channel, topic),
             Command::Kick(channel, user, comment) => proto::Command::KICK(channel, user, comment),
+            Command::Mode(channel, mode, users) => proto::Command::MODE(channel, mode, users),
             Command::Raw(command, args) => proto::Command::Unknown(command, args),
             Command::Unknown(command, args) => proto::Command::new(&command, args),
         })

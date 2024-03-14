@@ -91,10 +91,15 @@ impl Message {
             && matches!(self.target.source(), Source::User(_) | Source::Action)
     }
 
-    pub fn received(encoded: Encoded, our_nick: Nick, config: &Config) -> Option<Message> {
+    pub fn received(
+        encoded: Encoded,
+        our_nick: Nick,
+        config: &Config,
+        resolve_attributes: impl Fn(&User, &str) -> Option<User>,
+    ) -> Option<Message> {
         let server_time = server_time(&encoded);
-        let text = text(&encoded, &our_nick, config)?;
-        let target = target(encoded, &our_nick)?;
+        let text = text(&encoded, &our_nick, config, &resolve_attributes)?;
+        let target = target(encoded, &our_nick, &resolve_attributes)?;
 
         Some(Message {
             received_at: Posix::now(),
@@ -110,7 +115,11 @@ impl Message {
     }
 }
 
-fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
+fn target(
+    message: Encoded,
+    our_nick: &Nick,
+    resolve_attributes: &dyn Fn(&User, &str) -> Option<User>,
+) -> Option<Target> {
     use proto::command::Numeric::*;
 
     let user = message.user();
@@ -176,10 +185,13 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
             };
 
             match (proto::is_channel(&target), user) {
-                (true, Some(user)) => Some(Target::Channel {
-                    channel: target,
-                    source: source(user),
-                }),
+                (true, Some(user)) => {
+                    let source = source(resolve_attributes(&user, &target).unwrap_or(user));
+                    Some(Target::Channel {
+                        channel: target,
+                        source,
+                    })
+                }
                 (false, Some(user)) => {
                     let target = User::try_from(target.as_str()).ok()?;
 
@@ -202,10 +214,13 @@ fn target(message: Encoded, our_nick: &Nick) -> Option<Target> {
             };
 
             match (proto::is_channel(&target), user) {
-                (true, Some(user)) => Some(Target::Channel {
-                    channel: target,
-                    source: source(user),
-                }),
+                (true, Some(user)) => {
+                    let source = source(resolve_attributes(&user, &target).unwrap_or(user));
+                    Some(Target::Channel {
+                        channel: target,
+                        source,
+                    })
+                }
                 (false, Some(user)) => {
                     let target = User::try_from(target.as_str()).ok()?;
 
@@ -274,19 +289,29 @@ pub fn server_time(message: &Encoded) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
-fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
+fn text(
+    message: &Encoded,
+    our_nick: &Nick,
+    config: &Config,
+    resolve_attributes: &dyn Fn(&User, &str) -> Option<User>,
+) -> Option<String> {
     use irc::proto::command::Numeric::*;
 
-    let user = message.user();
     match &message.command {
-        Command::TOPIC(_, topic) => {
-            let user = user?;
+        Command::TOPIC(target, topic) => {
+            let raw_user = message.user()?;
+            let user = resolve_attributes(&raw_user, target).unwrap_or(raw_user);
+
             let topic = topic.as_ref()?;
 
             Some(format!(" ∙ {user} changed topic to {topic}"))
         }
-        Command::PART(_, text) => {
-            let user = user?.formatted(config.buffer.server_messages.part.username_format);
+        Command::PART(target, text) => {
+            let raw_user = message.user()?;
+            let user = resolve_attributes(&raw_user, target)
+                .unwrap_or(raw_user)
+                .formatted(config.buffer.server_messages.part.username_format);
+
             let text = text
                 .as_ref()
                 .map(|text| format!(" ({text})"))
@@ -294,8 +319,9 @@ fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
 
             Some(format!("⟵ {user} has left the channel{text}"))
         }
-        Command::JOIN(_, _) => {
-            let user = user?;
+        Command::JOIN(target, _) => {
+            let raw_user = message.user()?;
+            let user = resolve_attributes(&raw_user, target).unwrap_or(raw_user);
 
             (user.nickname() != *our_nick).then(|| {
                 format!(
@@ -304,8 +330,10 @@ fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
                 )
             })
         }
-        Command::KICK(_, victim, comment) => {
-            let user = user?;
+        Command::KICK(channel, victim, comment) => {
+            let raw_user = message.user()?;
+            let user = resolve_attributes(&raw_user, channel).unwrap_or(raw_user);
+
             let comment = comment
                 .as_ref()
                 .map(|comment| format!(" ({comment})"))
@@ -319,7 +347,9 @@ fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
             Some(format!("⟵ {target} been kicked by {user}{comment}"))
         }
         Command::MODE(target, modes, args) if proto::is_channel(target) => {
-            let user = user?;
+            let raw_user = message.user()?;
+            let user = resolve_attributes(&raw_user, target).unwrap_or(raw_user);
+
             let modes = modes
                 .iter()
                 .map(|mode| mode.to_string())
@@ -336,7 +366,7 @@ fn text(message: &Encoded, our_nick: &Nick, config: &Config) -> Option<String> {
         }
         Command::PRIVMSG(_, text) => {
             // Check if a synthetic action message
-            if let Some(nick) = user.as_ref().map(User::nickname) {
+            if let Some(nick) = message.user().as_ref().map(User::nickname) {
                 if let Some(action) = parse_action(nick, text) {
                     return Some(action);
                 }

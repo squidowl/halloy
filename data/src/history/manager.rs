@@ -10,7 +10,7 @@ use crate::config::buffer::Exclude;
 use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::time::Posix;
-use crate::user::{Nick, NickRef};
+use crate::user::Nick;
 use crate::{config, input};
 use crate::{server, Buffer, Config, Input, Server, User};
 
@@ -167,8 +167,8 @@ impl Manager {
         }
     }
 
-    pub fn record_input(&mut self, input: Input, our_nick: NickRef) {
-        if let Some(message) = input.message(our_nick) {
+    pub fn record_input(&mut self, input: Input, user: User) {
+        if let Some(message) = input.message(user) {
             self.record_message(input.server(), message);
         }
 

@@ -57,11 +57,12 @@ pub fn view<'a>(
                                     theme::selectable_text::nickname(
                                         theme,
                                         user.color_seed(&config.buffer.nickname.color),
-                                        false,
+                                        user.is_away(),
                                     )
                                 },
                             ),
-                            user.clone(),
+                            user,
+                            state.buffer(),
                         )
                         .map(scroll_view::Message::UserContext);
 
@@ -123,7 +124,7 @@ pub fn view<'a>(
         .any(|c| c == &state.channel);
     let users = clients.get_channel_users(&state.server, &state.channel);
     let channels = clients.get_channels(&state.server);
-    let nick_list = nick_list::view(users, config).map(Message::UserContext);
+    let nick_list = nick_list::view(users, &buffer, config).map(Message::UserContext);
 
     let show_text_input = match config.buffer.input_visibility {
         data::buffer::InputVisibility::Focused => is_focused,
@@ -134,7 +135,7 @@ pub fn view<'a>(
     // so produce a zero-height placeholder when topic is None.
     let topic = topic(state, clients, users, settings, config).unwrap_or_else(|| column![].into());
 
-    let text_input = show_text_input.then(|| {
+    let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
             buffer,
@@ -263,6 +264,7 @@ fn topic<'a>(
             topic.time.as_ref(),
             config.buffer.channel.topic.max_lines,
             users,
+            &state.buffer(),
             config,
         )
         .map(Message::UserContext),
@@ -270,7 +272,7 @@ fn topic<'a>(
 }
 
 mod nick_list {
-    use data::{Config, User};
+    use data::{Buffer, Config, User};
     use iced::widget::{column, container, scrollable, text, Scrollable};
     use iced::Length;
     use user_context::Message;
@@ -279,14 +281,13 @@ mod nick_list {
     use crate::theme;
     use crate::widget::Element;
 
-    pub fn view<'a>(users: &'a [User], config: &'a Config) -> Element<'a, Message> {
+    pub fn view<'a>(
+        users: &'a [User],
+        buffer: &Buffer,
+        config: &'a Config,
+    ) -> Element<'a, Message> {
         let column = column(users.iter().map(|user| {
-            let content = text(format!(
-                "{}{}",
-                user.highest_access_level(),
-                user.nickname()
-            ))
-            .style(|theme| {
+            let content = text(user).style(|theme| {
                 theme::text::nickname(
                     theme,
                     user.color_seed(&config.buffer.channel.users.color),
@@ -294,7 +295,7 @@ mod nick_list {
                 )
             });
 
-            user_context::view(content, user.clone())
+            user_context::view(content, user, buffer.clone())
         }))
         .padding(4)
         .spacing(1);
