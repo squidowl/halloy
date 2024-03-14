@@ -710,11 +710,7 @@ impl Client {
         self.chanmap.get(channel).map(|channel| &channel.topic)
     }
 
-    pub fn user_with_channel_attributes<'a>(
-        &'a self,
-        user: &User,
-        channel: &str,
-    ) -> Option<&'a User> {
+    fn resolve_user_attributes<'a>(&'a self, channel: &str, user: &User) -> Option<&'a User> {
         self.chanmap
             .get(channel)
             .and_then(|channel| channel.users.get(user))
@@ -864,6 +860,16 @@ impl Map {
         if let Some(client) = self.client_mut(buffer.server()) {
             client.send(buffer, message);
         }
+    }
+
+    pub fn resolve_user_attributes<'a>(
+        &'a self,
+        server: &Server,
+        channel: &str,
+        user: &User,
+    ) -> Option<&'a User> {
+        self.client(server)
+            .and_then(|client| client.resolve_user_attributes(channel, user))
     }
 
     pub fn get_channel_users<'a>(&'a self, server: &Server, channel: &str) -> &'a [User] {

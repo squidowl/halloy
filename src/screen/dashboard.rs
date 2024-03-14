@@ -140,12 +140,23 @@ impl Dashboard {
                                             clients.send(input.buffer(), encoded);
                                         }
 
-                                        if let Some(message) =
-                                            clients.nickname(buffer.server()).and_then(|our_nick| {
-                                                input.message(User::from(our_nick.to_owned()))
-                                            })
-                                        {
-                                            self.history.record_message(input.server(), message);
+                                        if let Some(nick) = clients.nickname(buffer.server()) {
+                                            let mut user = nick.to_owned().into();
+
+                                            // Resolve our attributes if sending this message in a channel
+                                            if let data::Buffer::Channel(server, channel) = &buffer
+                                            {
+                                                if let Some(user_with_attributes) = clients
+                                                    .resolve_user_attributes(server, channel, &user)
+                                                {
+                                                    user = user_with_attributes.clone();
+                                                }
+                                            }
+
+                                            if let Some(message) = input.message(user) {
+                                                self.history
+                                                    .record_message(input.server(), message);
+                                            }
                                         }
                                     }
                                 }
