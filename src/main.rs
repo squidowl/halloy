@@ -319,13 +319,11 @@ impl Application for Halloy {
 
                     messages.into_iter().for_each(|message| {
                         for event in self.clients.receive(&server, message) {
-                            let Some(client) = self.clients.client(&server) else {
-                                return;
-                            };
-
                             // Resolve a user using client state which stores attributes
                             let resolve_user_attributes = |user: &User, channel: &str| {
-                                client.user_with_channel_attributes(user, channel).cloned()
+                                self.clients
+                                    .resolve_user_attributes(&server, channel, user)
+                                    .cloned()
                             };
 
                             match event {

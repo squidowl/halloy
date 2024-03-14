@@ -75,16 +75,17 @@ impl State {
                     clients.send(input.buffer(), encoded);
                 }
 
-                if let (Some(client), Some(channel), Some(nick)) = (
-                    clients.client(input.buffer().server()),
-                    input.buffer().target(),
-                    clients.nickname(input.server()),
-                ) {
-                    let fallback_user = &User::from(nick.to_owned());
-                    let user = client
-                        .user_with_channel_attributes(fallback_user, channel.as_str())
-                        .unwrap_or(fallback_user)
-                        .clone();
+                if let Some(nick) = clients.nickname(input.server()) {
+                    let mut user = nick.to_owned().into();
+
+                    // Resolve our attributes if sending this message in a channel
+                    if let Buffer::Channel(server, channel) = input.buffer() {
+                        if let Some(user_with_attributes) =
+                            clients.resolve_user_attributes(server, channel, &user)
+                        {
+                            user = user_with_attributes.clone();
+                        }
+                    }
 
                     history.record_input(input, user);
                 }
