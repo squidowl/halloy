@@ -5,6 +5,8 @@ Added:
 - Configuration option to enable a topic banner in channels. This can be enabled under `buffer.channel.topic`
 - Messages typed into the input will persist until sent. Typed messages are saved when switching a pane to another buffer, then
   are restored when that buffer is returned to.
+- Added display of highest access level in front of nicks in chat, mirroring the format in the nick list
+- Added ability to toggle Op and Voice from user context menu in channels
 
 Fix:
 

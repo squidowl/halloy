@@ -1,5 +1,6 @@
 pub use data::buffer::Settings;
-use data::{buffer, history, Config, User};
+use data::user::Nick;
+use data::{buffer, history, Config};
 use iced::Command;
 
 use self::channel::Channel;
@@ -154,7 +155,7 @@ impl Buffer {
 
     pub fn insert_user_to_input(
         &mut self,
-        user: User,
+        nick: Nick,
         history: &mut history::Manager,
     ) -> Command<Message> {
         if let Some(buffer) = self.data() {
@@ -162,11 +163,11 @@ impl Buffer {
                 Buffer::Empty | Buffer::Server(_) => Command::none(),
                 Buffer::Channel(channel) => channel
                     .input_view
-                    .insert_user(user, buffer, history)
+                    .insert_user(nick, buffer, history)
                     .map(|message| Message::Channel(channel::Message::InputView(message))),
                 Buffer::Query(query) => query
                     .input_view
-                    .insert_user(user, buffer, history)
+                    .insert_user(nick, buffer, history)
                     .map(|message| Message::Query(query::Message::InputView(message))),
             }
         } else {

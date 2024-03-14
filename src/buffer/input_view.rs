@@ -1,5 +1,5 @@
 use data::input::{Cache, Draft};
-use data::user::User;
+use data::user::{Nick, User};
 use data::{client, history, Buffer, Input};
 use iced::Command;
 
@@ -76,7 +76,18 @@ impl State {
                 }
 
                 if let Some(nick) = clients.nickname(input.server()) {
-                    history.record_input(input, nick);
+                    let mut user = nick.to_owned().into();
+
+                    // Resolve our attributes if sending this message in a channel
+                    if let Buffer::Channel(server, channel) = input.buffer() {
+                        if let Some(user_with_attributes) =
+                            clients.resolve_user_attributes(server, channel, &user)
+                        {
+                            user = user_with_attributes.clone();
+                        }
+                    }
+
+                    history.record_input(input, user);
                 }
 
                 (Command::none(), Some(Event::InputSent))
@@ -99,18 +110,18 @@ impl State {
 
     pub fn insert_user(
         &mut self,
-        user: User,
+        nick: Nick,
         buffer: Buffer,
         history: &mut history::Manager,
     ) -> Command<Message> {
         let mut text = history.input(&buffer).draft.to_string();
 
         if text.is_empty() {
-            text = format!("{}: ", user.nickname());
+            text = format!("{}: ", nick);
         } else if text.ends_with(' ') {
-            text = format!("{}{}", text, user.nickname());
+            text = format!("{}{}", text, nick);
         } else {
-            text = format!("{} {}", text, user.nickname());
+            text = format!("{} {}", text, nick);
         }
 
         history.record_draft(Draft { buffer, text });

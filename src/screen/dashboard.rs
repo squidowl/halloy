@@ -110,42 +110,71 @@ impl Dashboard {
 
                         if let Some(buffer::Event::UserContext(event)) = event {
                             match event {
-                                buffer::user_context::Event::SendWhois(user) => {
-                                    if let Some(buffer) = pane.buffer.data() {
-                                        let command =
-                                            data::Command::Whois(None, user.nickname().to_string());
+                                buffer::user_context::Event::ToggleAccessLevel(nick, mode) => {
+                                    let Some(buffer) = pane.buffer.data() else {
+                                        return Command::none();
+                                    };
 
-                                        let input = data::Input::command(buffer, command);
+                                    let Some(target) = buffer.target() else {
+                                        return Command::none();
+                                    };
+
+                                    let command = data::Command::Mode(
+                                        target,
+                                        Some(mode),
+                                        vec![nick.to_string()],
+                                    );
+                                    let input = data::Input::command(buffer.clone(), command);
+
+                                    if let Some(encoded) = input.encoded() {
+                                        clients.send(input.buffer(), encoded);
+                                    }
+                                }
+                                buffer::user_context::Event::SendWhois(nick) => {
+                                    if let Some(buffer) = pane.buffer.data() {
+                                        let command = data::Command::Whois(None, nick.to_string());
+
+                                        let input = data::Input::command(buffer.clone(), command);
 
                                         if let Some(encoded) = input.encoded() {
                                             clients.send(input.buffer(), encoded);
                                         }
 
-                                        if let Some(message) = clients
-                                            .nickname(input.server())
-                                            .and_then(|nick| input.message(nick))
-                                        {
-                                            self.history.record_message(input.server(), message);
+                                        if let Some(nick) = clients.nickname(buffer.server()) {
+                                            let mut user = nick.to_owned().into();
+
+                                            // Resolve our attributes if sending this message in a channel
+                                            if let data::Buffer::Channel(server, channel) = &buffer
+                                            {
+                                                if let Some(user_with_attributes) = clients
+                                                    .resolve_user_attributes(server, channel, &user)
+                                                {
+                                                    user = user_with_attributes.clone();
+                                                }
+                                            }
+
+                                            if let Some(message) = input.message(user) {
+                                                self.history
+                                                    .record_message(input.server(), message);
+                                            }
                                         }
                                     }
                                 }
-                                buffer::user_context::Event::OpenQuery(user) => {
+                                buffer::user_context::Event::OpenQuery(nick) => {
                                     if let Some(data) = pane.buffer.data() {
-                                        let buffer = data::Buffer::Query(
-                                            data.server().clone(),
-                                            user.nickname().to_owned(),
-                                        );
+                                        let buffer =
+                                            data::Buffer::Query(data.server().clone(), nick);
                                         return self.open_buffer(buffer, config);
                                     }
                                 }
-                                buffer::user_context::Event::SingleClick(user) => {
+                                buffer::user_context::Event::SingleClick(nick) => {
                                     let Some((_, pane, history)) =
                                         self.get_focused_with_history_mut()
                                     else {
                                         return Command::none();
                                     };
 
-                                    return pane.buffer.insert_user_to_input(user, history).map(
+                                    return pane.buffer.insert_user_to_input(nick, history).map(
                                         move |message| {
                                             Message::Pane(pane::Message::Buffer(id, message))
                                         },

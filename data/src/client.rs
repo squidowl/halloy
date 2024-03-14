@@ -540,7 +540,9 @@ impl Client {
                 if victim == self.nickname().as_ref() {
                     self.chanmap.remove(channel);
                 } else if let Some(channel) = self.chanmap.get_mut(channel) {
-                    channel.users.remove(&User::from(Nick::from(victim.as_str())));
+                    channel
+                        .users
+                        .remove(&User::from(Nick::from(victim.as_str())));
                 }
             }
             Command::Numeric(RPL_WHOREPLY, args) => {
@@ -708,7 +710,13 @@ impl Client {
         self.chanmap.get(channel).map(|channel| &channel.topic)
     }
 
-    fn users<'a>(&'a self, channel: &str) -> &'a [User] {
+    fn resolve_user_attributes<'a>(&'a self, channel: &str, user: &User) -> Option<&'a User> {
+        self.chanmap
+            .get(channel)
+            .and_then(|channel| channel.users.get(user))
+    }
+
+    pub fn users<'a>(&'a self, channel: &str) -> &'a [User] {
         self.users
             .get(channel)
             .map(Vec::as_slice)
@@ -852,6 +860,16 @@ impl Map {
         if let Some(client) = self.client_mut(buffer.server()) {
             client.send(buffer, message);
         }
+    }
+
+    pub fn resolve_user_attributes<'a>(
+        &'a self,
+        server: &Server,
+        channel: &str,
+        user: &User,
+    ) -> Option<&'a User> {
+        self.client(server)
+            .and_then(|client| client.resolve_user_attributes(channel, user))
     }
 
     pub fn get_channel_users<'a>(&'a self, server: &Server, channel: &str) -> &'a [User] {
