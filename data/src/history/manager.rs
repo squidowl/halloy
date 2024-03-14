@@ -262,7 +262,13 @@ impl Manager {
             .unwrap_or_default()
     }
 
-    pub fn broadcast(&mut self, server: &Server, broadcast: Broadcast, config: &Config) {
+    pub fn broadcast(
+        &mut self,
+        server: &Server,
+        broadcast: Broadcast,
+        config: &Config,
+        sent_time: Option<DateTime<Utc>>,
+    ) {
         let map = self.data.map.entry(server.clone()).or_default();
 
         let channels = map
@@ -287,13 +293,15 @@ impl Manager {
             .cloned();
 
         let messages = match broadcast {
-            Broadcast::Connecting => message::broadcast::connecting(),
-            Broadcast::Connected => message::broadcast::connected(),
-            Broadcast::ConnectionFailed { error } => message::broadcast::connection_failed(error),
-            Broadcast::Disconnected { error } => {
-                message::broadcast::disconnected(channels, queries, error)
+            Broadcast::Connecting => message::broadcast::connecting(sent_time),
+            Broadcast::Connected => message::broadcast::connected(sent_time),
+            Broadcast::ConnectionFailed { error } => {
+                message::broadcast::connection_failed(error, sent_time)
             }
-            Broadcast::Reconnected => message::broadcast::reconnected(channels, queries),
+            Broadcast::Disconnected { error } => {
+                message::broadcast::disconnected(channels, queries, error, sent_time)
+            }
+            Broadcast::Reconnected => message::broadcast::reconnected(channels, queries, sent_time),
             Broadcast::Quit {
                 user,
                 comment,
