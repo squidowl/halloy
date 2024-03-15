@@ -1,3 +1,4 @@
+use data::environment::WIKI_WEBSITE;
 use data::Config;
 use iced::widget::{button, column, container, image, row, text, vertical_space};
 use iced::{alignment, Length};
@@ -9,6 +10,7 @@ use crate::{font, theme};
 pub enum Message {
     RefreshConfiguration,
     OpenConfigurationDirectory,
+    OpenWikiWebsite,
 }
 
 #[derive(Debug, Clone)]
@@ -31,8 +33,12 @@ impl Welcome {
         match message {
             Message::RefreshConfiguration => Some(Event::RefreshConfiguration),
             Message::OpenConfigurationDirectory => {
-                // Open config directory.
                 let _ = open::that(Config::config_dir());
+
+                None
+            }
+            Message::OpenWikiWebsite => {
+                let _ = open::that(WIKI_WEBSITE);
 
                 None
             }
@@ -43,7 +49,7 @@ impl Welcome {
         let config_dir = String::from(Config::config_dir().to_string_lossy());
 
         let config_button = button(
-            container(text("Open Directory"))
+            container(text("Open Config Directory"))
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
@@ -52,14 +58,24 @@ impl Welcome {
         .style(theme::button::secondary)
         .on_press(Message::OpenConfigurationDirectory);
 
-        let refresh_button = button(
-            container(text("Refresh"))
+        let wiki_button = button(
+            container(text("Open Wiki Website"))
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
         .padding(5)
         .width(Length::Fill)
         .style(theme::button::secondary)
+        .on_press(Message::OpenWikiWebsite);
+
+        let refresh_button = button(
+            container(text("Refresh Halloy"))
+                .align_x(alignment::Horizontal::Center)
+                .width(Length::Fill),
+        )
+        .padding(5)
+        .width(Length::Fill)
+        .style(theme::button::primary)
         .on_press(Message::RefreshConfiguration);
 
         let content = column![]
@@ -74,7 +90,7 @@ impl Welcome {
             .push(text("Welcome to Halloy!").font(font::MONO_BOLD.clone()))
             .push(vertical_space().height(4))
             .push(text(
-                "No configuration file found. Please follow the steps below to proceed",
+                "To get started with, simply follow the steps below",
             ))
             .push(vertical_space().height(8))
             .push(
@@ -87,35 +103,38 @@ impl Welcome {
                     .push(row![
                         text("2. ").style(theme::text::accent),
                         text("Create "),
-                        text("config.yaml").style(theme::text::info),
-                        text(" - you can use "),
-                        text("config.template.yaml").style(theme::text::info),
-                        text(" as a starting point"),
+                        text("config.toml").style(theme::text::info),
+                        text(" using "),
+                        text("config.template.toml").style(theme::text::info),
+                        text(" as a base"),
                     ])
                     .push(row![
                         text("3. ").style(theme::text::accent),
-                        text("Customize the file with your preferred servers, settings, and theme")
-                    ])
-                    .push(row![
-                        text("4. ").style(theme::text::accent),
                         text("Join "),
                         text("#halloy").style(theme::text::info),
-                        text(" on libera.chat if you have questions or looking for help"),
+                        text(" on "),
+                        text("libera.chat").style(theme::text::info),
+                        text(" and say hello"),
                     ])
                     .spacing(2)
                     .align_items(iced::Alignment::Start),
             )
             .push(vertical_space().height(10))
+            .push(text(
+                "For more information, please visit the Wiki website",
+            ))
+            .push(vertical_space().height(10))
             .push(
-                row![]
+                column![]
                     .width(250)
                     .spacing(4)
                     .push(config_button)
+                    .push(wiki_button)
                     .push(refresh_button),
             )
             .align_items(iced::Alignment::Center);
 
-        container(container(content).width(510))
+        container(content)
             .align_x(alignment::Horizontal::Center)
             .align_y(alignment::Vertical::Center)
             .width(Length::Fill)

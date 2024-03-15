@@ -12,6 +12,7 @@ pub struct Dashboard {
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum DefaultAction {
     #[default]
     NewPane,

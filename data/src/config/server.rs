@@ -89,7 +89,7 @@ impl Server {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum Sasl {
     Plain {
         /// Account name

@@ -60,7 +60,14 @@ impl From<config::Buffer> for Settings {
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
-pub enum InputVisibility {
+#[serde(rename_all = "kebab-case")]
+pub struct TextInput {
+    pub visibility: TextInputVisibility,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextInputVisibility {
     Focused,
     #[default]
     Always,
@@ -94,6 +101,7 @@ impl Brackets {
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Color {
     Solid,
     #[default]

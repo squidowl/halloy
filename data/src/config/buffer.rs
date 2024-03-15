@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use super::Channel;
 use crate::{
-    buffer::{Color, InputVisibility, Nickname, Timestamp},
+    buffer::{Color, Nickname, TextInput, Timestamp},
     message::source,
 };
 
@@ -14,19 +14,11 @@ pub struct Buffer {
     #[serde(default)]
     pub nickname: Nickname,
     #[serde(default)]
-    pub input_visibility: InputVisibility,
+    pub text_input: TextInput,
     #[serde(default)]
     pub channel: Channel,
     #[serde(default)]
     pub server_messages: ServerMessages,
-}
-
-#[derive(Debug, Copy, Clone, Default, Deserialize)]
-pub enum Exclude {
-    All,
-    #[default]
-    None,
-    Smart(i64),
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -53,14 +45,18 @@ impl ServerMessages {
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct ServerMessage {
+    #[serde(default = "default_bool_true")]
+    pub enabled: bool,
     #[serde(default)]
-    pub exclude: Exclude,
+    pub smart: Option<i64>,
     #[serde(default)]
     pub username_format: UsernameFormat,
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum UsernameFormat {
     Short,
     #[default]
@@ -78,7 +74,7 @@ impl Default for Buffer {
                 color: Color::Unique,
                 brackets: Default::default(),
             },
-            input_visibility: InputVisibility::default(),
+            text_input: Default::default(),
             channel: Channel::default(),
             server_messages: Default::default(),
         }
@@ -96,4 +92,8 @@ impl Buffer {
             )
         })
     }
+}
+
+fn default_bool_true() -> bool {
+    true
 }
