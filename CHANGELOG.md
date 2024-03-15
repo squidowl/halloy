@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2024.4 (2024-03-15)
+
 Added:
 
 - Configuration option to enable a topic banner in channels. This can be enabled under `buffer.channel.topic`
