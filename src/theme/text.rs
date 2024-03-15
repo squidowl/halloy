@@ -1,6 +1,7 @@
-use super::Theme;
 use data::theme::{alpha, randomize_color};
 use iced::widget::text::{Appearance, DefaultStyle};
+
+use super::Theme;
 
 impl DefaultStyle for Theme {
     fn default_style(&self) -> Appearance {
@@ -49,6 +50,17 @@ pub fn transparent(theme: &Theme) -> Appearance {
 }
 
 pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Appearance {
+    let dark_theme = theme.colors().is_dark_theme();
+
+    if seed.is_none() {
+        let color = match transparent {
+            true => theme.colors().text.med_alpha,
+            false => theme.colors().text.base,
+        };
+
+        return Appearance { color: Some(color) };
+    }
+
     let original_color = theme.colors().action.base;
     let randomized_color = seed
         .as_deref()
@@ -56,7 +68,6 @@ pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Appea
         .unwrap_or_else(|| original_color);
 
     let color = if transparent {
-        let dark_theme = theme.colors().is_dark_theme();
         alpha(randomized_color, if dark_theme { 0.2 } else { 0.4 })
     } else {
         randomized_color
