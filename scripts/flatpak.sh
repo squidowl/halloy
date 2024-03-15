@@ -2,7 +2,7 @@
 set -xe
 
 flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --noninteractive --user flathub org.freedesktop.Platform//22.08 org.freedesktop.Sdk//22.08 org.freedesktop.Sdk.Extension.rust-stable//22.08
+flatpak install --noninteractive --user flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08 org.freedesktop.Sdk.Extension.rust-stable//23.08
 
 flatpak install --noninteractive --user org.freedesktop.appstream-glib
 flatpak run --env=G_DEBUG=fatal-criticals org.freedesktop.appstream-glib validate assets/linux/org.squidowl.halloy.appdata.xml
@@ -14,7 +14,7 @@ python3 /tmp/flatpak-cargo-generator.py Cargo.lock -o assets/flatpak/generated-s
 if [ "${CI}" != "yes" ] ; then
   flatpak-builder \
     --install --force-clean --user -y \
-    --state-dir /var/tmp/halloy-flatpak-builder \
+    --disable-rofiles-fuse --state-dir /var/tmp/halloy-flatpak-builder \
     /var/tmp/halloy-flatpak-repo \
     assets/flatpak/org.squidowl.halloy.json
 fi
