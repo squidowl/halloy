@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::shortcut::{shortcut, KeyBind, Shortcut};
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Keys {
+pub struct Keyboard {
     #[serde(default = "KeyBind::move_up")]
     pub move_up: KeyBind,
     #[serde(default = "KeyBind::move_down")]
@@ -28,7 +28,7 @@ pub struct Keys {
     pub command_bar: KeyBind,
 }
 
-impl Default for Keys {
+impl Default for Keyboard {
     fn default() -> Self {
         Self {
             move_up: KeyBind::move_up(),
@@ -46,7 +46,7 @@ impl Default for Keys {
     }
 }
 
-impl Keys {
+impl Keyboard {
     pub fn shortcuts(&self) -> Vec<Shortcut> {
         use crate::shortcut::Command::*;
 
@@ -60,7 +60,7 @@ impl Keys {
             shortcut(self.restore_buffer.clone(), RestoreBuffer),
             shortcut(self.cycle_next_buffer.clone(), CycleNextBuffer),
             shortcut(self.cycle_previous_buffer.clone(), CyclePreviousBuffer),
-            shortcut(self.toggle_nick_list.clone(), ToggleNickList),
+            shortcut(self.toggle_nick_list.clone(), ToggleNicklist),
             shortcut(self.command_bar.clone(), CommandBar),
         ]
     }

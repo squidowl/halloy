@@ -12,8 +12,8 @@ impl DefaultStyle for Theme {
 pub fn primary(theme: &Theme, status: Status) -> Appearance {
     match status {
         Status::Active | Status::Pressed => Appearance {
-            background: Some(Background::Color(theme.colors().action.high_alpha)),
-            text_color: theme.colors().action.base,
+            background: Some(Background::Color(theme.colors().text.high_alpha)),
+            text_color: theme.colors().text.base,
             border: Border {
                 radius: 3.0.into(),
                 ..Default::default()
@@ -21,8 +21,8 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
             ..Default::default()
         },
         Status::Hovered => Appearance {
-            background: Some(Background::Color(theme.colors().action.med_alpha)),
-            text_color: theme.colors().action.base,
+            background: Some(Background::Color(theme.colors().text.med_alpha)),
+            text_color: theme.colors().text.base,
             border: Border {
                 radius: 3.0.into(),
                 ..Default::default()
@@ -53,8 +53,8 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
 pub fn secondary(theme: &Theme, status: Status) -> Appearance {
     match status {
         Status::Active | Status::Pressed => Appearance {
-            background: Some(Background::Color(theme.colors().text.high_alpha)),
-            text_color: theme.colors().text.base,
+            background: Some(Background::Color(theme.colors().accent.high_alpha)),
+            text_color: theme.colors().accent.base,
             border: Border {
                 radius: 3.0.into(),
                 ..Default::default()
@@ -62,8 +62,8 @@ pub fn secondary(theme: &Theme, status: Status) -> Appearance {
             ..Default::default()
         },
         Status::Hovered => Appearance {
-            background: Some(Background::Color(theme.colors().text.med_alpha)),
-            text_color: theme.colors().text.base,
+            background: Some(Background::Color(theme.colors().accent.med_alpha)),
+            text_color: theme.colors().accent.base,
             border: Border {
                 radius: 3.0.into(),
                 ..Default::default()

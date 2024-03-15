@@ -6,24 +6,25 @@ use crate::channel::Position;
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Channel {
     #[serde(default)]
-    pub users: Users,
+    pub nicklist: Nicklist,
     #[serde(default)]
     pub topic: Topic,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
-pub struct Users {
-    pub(crate) visible: bool,
+pub struct Nicklist {
+    #[serde(default = "default_bool_true")]
+    pub enabled: bool,
     #[serde(default)]
     pub position: Position,
     #[serde(default)]
     pub color: Color,
 }
 
-impl Default for Users {
+impl Default for Nicklist {
     fn default() -> Self {
         Self {
-            visible: true,
+            enabled: true,
             position: Position::default(),
             color: Color::default(),
         }
@@ -33,7 +34,7 @@ impl Default for Users {
 #[derive(Debug, Clone, Copy, Deserialize)]
 pub struct Topic {
     #[serde(default)]
-    pub visible: bool,
+    pub enabled: bool,
     #[serde(default = "default_topic_banner_max_lines")]
     pub max_lines: u16,
 }
@@ -41,7 +42,7 @@ pub struct Topic {
 impl Default for Topic {
     fn default() -> Self {
         Self {
-            visible: false,
+            enabled: false,
             max_lines: default_topic_banner_max_lines(),
         }
     }
@@ -49,4 +50,8 @@ impl Default for Topic {
 
 fn default_topic_banner_max_lines() -> u16 {
     2
+}
+
+fn default_bool_true() -> bool {
+    true
 }

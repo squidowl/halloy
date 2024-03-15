@@ -1,6 +1,6 @@
 mod command_bar;
 pub mod pane;
-pub mod side_menu;
+pub mod sidebar;
 
 use std::time::{Duration, Instant};
 
@@ -13,7 +13,7 @@ use iced::{clipboard, window, Command, Length};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
-use self::side_menu::SideMenu;
+use self::sidebar::Sidebar;
 use crate::buffer::{self, Buffer};
 use crate::widget::{anchored_overlay, selectable_text, shortcut, Element};
 use crate::{event, theme, Theme};
@@ -23,7 +23,7 @@ const SAVE_AFTER: Duration = Duration::from_secs(3);
 pub struct Dashboard {
     panes: pane_grid::State<Pane>,
     focus: Option<pane_grid::Pane>,
-    side_menu: SideMenu,
+    side_menu: Sidebar,
     history: history::Manager,
     last_changed: Option<Instant>,
     command_bar: Option<CommandBar>,
@@ -32,7 +32,7 @@ pub struct Dashboard {
 #[derive(Debug)]
 pub enum Message {
     Pane(pane::Message),
-    SideMenu(side_menu::Message),
+    Sidebar(sidebar::Message),
     SelectedText(Vec<(f32, String)>),
     History(history::manager::Message),
     Close,
@@ -50,7 +50,7 @@ impl Dashboard {
         let mut dashboard = Dashboard {
             panes,
             focus: None,
-            side_menu: SideMenu::new(),
+            side_menu: Sidebar::new(),
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
@@ -189,7 +189,9 @@ impl Dashboard {
                 }
                 pane::Message::ToggleShowUserList => {
                     if let Some((_, pane)) = self.get_focused_mut() {
-                        pane.update_settings(|settings| settings.channel.users.toggle_visibility());
+                        pane.update_settings(|settings| {
+                            settings.channel.nicklist.toggle_visibility()
+                        });
                         self.last_changed = Some(Instant::now());
                     }
                 }
@@ -201,14 +203,14 @@ impl Dashboard {
                 }
                 pane::Message::MaximizePane => self.maximize_pane(),
             },
-            Message::SideMenu(message) => {
+            Message::Sidebar(message) => {
                 let event = self.side_menu.update(message);
 
                 match event {
-                    side_menu::Event::Open(kind) => {
+                    sidebar::Event::Open(kind) => {
                         return self.open_buffer(kind, config);
                     }
-                    side_menu::Event::Replace(kind, pane) => {
+                    sidebar::Event::Replace(kind, pane) => {
                         if let Some(state) = self.panes.get_mut(pane) {
                             state.buffer = Buffer::from(kind);
                             self.last_changed = Some(Instant::now());
@@ -219,7 +221,7 @@ impl Dashboard {
                             ]);
                         }
                     }
-                    side_menu::Event::Close(pane) => {
+                    sidebar::Event::Close(pane) => {
                         self.panes.close(pane);
                         self.last_changed = Some(Instant::now());
 
@@ -227,12 +229,12 @@ impl Dashboard {
                             self.focus = None;
                         }
                     }
-                    side_menu::Event::Swap(from, to) => {
+                    sidebar::Event::Swap(from, to) => {
                         self.panes.swap(from, to);
                         self.last_changed = Some(Instant::now());
                         return self.focus_pane(from);
                     }
-                    side_menu::Event::Leave(buffer) => {
+                    sidebar::Event::Leave(buffer) => {
                         let pane = self.panes.iter().find_map(|(pane, state)| {
                             (state.buffer.data().as_ref() == Some(&buffer)).then_some(*pane)
                         });
@@ -486,10 +488,11 @@ impl Dashboard {
                             }
                         }
                     }
-                    ToggleNickList => {
+                    ToggleNicklist => {
                         if let Some((_, pane)) = self.get_focused_mut() {
                             pane.update_settings(|settings| {
-                                settings.channel.users.visible = !settings.channel.users.visible
+                                settings.channel.nicklist.enabled =
+                                    !settings.channel.nicklist.enabled
                             });
                         }
                     }
@@ -545,9 +548,9 @@ impl Dashboard {
                 &self.history,
                 &self.panes,
                 self.focus,
-                config.dashboard.sidebar,
+                config.sidebar,
             )
-            .map(|e| e.map(Message::SideMenu));
+            .map(|e| e.map(Message::Sidebar));
 
         // The height margin varies across different operating systems due to design differences.
         // For instance, on macOS, the menubar is hidden, resulting in a need for additional padding to accommodate the
@@ -593,7 +596,7 @@ impl Dashboard {
             column![column![base]].into()
         };
 
-        shortcut(base, config.keys.shortcuts(), Message::Shortcut)
+        shortcut(base, config.keyboard.shortcuts(), Message::Shortcut)
     }
 
     pub fn handle_event(
@@ -1034,7 +1037,7 @@ impl From<data::Dashboard> for Dashboard {
         Self {
             panes: pane_grid::State::with_configuration(configuration(dashboard.pane)),
             focus: None,
-            side_menu: SideMenu::new(),
+            side_menu: Sidebar::new(),
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,

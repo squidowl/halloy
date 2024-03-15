@@ -126,9 +126,9 @@ pub fn view<'a>(
     let channels = clients.get_channels(&state.server);
     let nick_list = nick_list::view(users, &buffer, config).map(Message::UserContext);
 
-    let show_text_input = match config.buffer.input_visibility {
-        data::buffer::InputVisibility::Focused => is_focused,
-        data::buffer::InputVisibility::Always => true,
+    let show_text_input = match config.buffer.text_input.visibility {
+        data::buffer::TextInputVisibility::Focused => is_focused,
+        data::buffer::TextInputVisibility::Always => true,
     };
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
@@ -150,7 +150,10 @@ pub fn view<'a>(
 
     let content = column![topic, messages].spacing(4);
 
-    let content = match (settings.users.visible, config.buffer.channel.users.position) {
+    let content = match (
+        settings.nicklist.enabled,
+        config.buffer.channel.nicklist.position,
+    ) {
         (true, data::channel::Position::Left) => {
             row![nick_list, content]
         }
@@ -251,7 +254,7 @@ fn topic<'a>(
     settings: &'a channel::Settings,
     config: &'a Config,
 ) -> Option<Element<'a, Message>> {
-    if !settings.topic.visible {
+    if !settings.topic.enabled {
         return None;
     }
 
@@ -290,7 +293,7 @@ mod nick_list {
             let content = text(user).style(|theme| {
                 theme::text::nickname(
                     theme,
-                    user.color_seed(&config.buffer.channel.users.color),
+                    user.color_seed(&config.buffer.channel.nicklist.color),
                     user.is_away(),
                 )
             });

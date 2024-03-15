@@ -1,7 +1,18 @@
 # Unreleased
 
+**BREAKING** Configuration file format has switched from `YAML` to `TOML`. Please vist the migration guide here: [halloy.squidowl.org/migration/yaml-to-toml](https://halloy.squidowl.org/migration/yaml-to-toml.html).
+
 Changed:
 
+- Configuration file now uses TOML instead of YAML
+  - Renamed `[keys]` section to `[keyboard]`
+  - Renamed `[buffer.channel.users]` section to `[buffer.channel.nicklist]`
+  - Renamed `[buffer.input_visibility]` section to `[buffer.text_input]`
+  - Removed `[dashboard]` section
+    - Renamed `[dashboard.sidebar]` section to `[sidebar]`
+  - Changed `exclude` from `[buffer.server-messages]` to two seperate settings
+    - `enabled = bool`
+    - `smart = number`
 - Use primary text color instead of accent color for `Solid` nicknames
 
 # 2024.4 (2024-03-15)

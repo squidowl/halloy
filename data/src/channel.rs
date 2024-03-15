@@ -4,20 +4,21 @@ use crate::config;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Settings {
-    pub users: Users,
+    pub nicklist: Nicklist,
     pub topic: Topic,
 }
 
 impl From<config::Channel> for Settings {
     fn from(config: config::Channel) -> Self {
         Self {
-            users: Users::from(config.users),
+            nicklist: Nicklist::from(config.nicklist),
             topic: Topic::from(config.topic),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Position {
     Left,
     #[default]
@@ -25,45 +26,45 @@ pub enum Position {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-pub struct Users {
-    pub visible: bool,
+pub struct Nicklist {
+    pub enabled: bool,
 }
 
-impl From<config::channel::Users> for Users {
-    fn from(config: config::channel::Users) -> Self {
-        Users {
-            visible: config.visible,
+impl From<config::channel::Nicklist> for Nicklist {
+    fn from(config: config::channel::Nicklist) -> Self {
+        Nicklist {
+            enabled: config.enabled,
         }
     }
 }
 
-impl Default for Users {
+impl Default for Nicklist {
     fn default() -> Self {
-        Self { visible: true }
+        Self { enabled: true }
     }
 }
 
-impl Users {
+impl Nicklist {
     pub fn toggle_visibility(&mut self) {
-        self.visible = !self.visible
+        self.enabled = !self.enabled
     }
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 pub struct Topic {
-    pub visible: bool,
+    pub enabled: bool,
 }
 
 impl From<config::channel::Topic> for Topic {
     fn from(config: config::channel::Topic) -> Self {
         Topic {
-            visible: config.visible,
+            enabled: config.enabled,
         }
     }
 }
 
 impl Topic {
     pub fn toggle_visibility(&mut self) {
-        self.visible = !self.visible
+        self.enabled = !self.enabled
     }
 }

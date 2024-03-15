@@ -59,9 +59,9 @@ pub fn view<'a>(
     )
     .height(Length::Fill);
 
-    let show_text_input = match config.buffer.input_visibility {
-        data::buffer::InputVisibility::Focused => is_focused,
-        data::buffer::InputVisibility::Always => true,
+    let show_text_input = match config.buffer.text_input.visibility {
+        data::buffer::TextInputVisibility::Focused => is_focused,
+        data::buffer::TextInputVisibility::Always => true,
     };
 
     let channels = clients.get_channels(&state.server);

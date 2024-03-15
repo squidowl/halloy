@@ -1,14 +1,16 @@
+use data::environment::WIKI_WEBSITE;
 use data::{config, Config};
 use iced::widget::{button, column, container, text, vertical_space};
 use iced::{alignment, Length};
 
 use crate::widget::Element;
-use crate::{font, icon, theme};
+use crate::{icon, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
     RefreshConfiguration,
     OpenConfigurationDirectory,
+    OpenWikiWebsite,
 }
 
 #[derive(Debug, Clone)]
@@ -33,13 +35,18 @@ impl Help {
                 let _ = open::that(Config::config_dir());
 
                 None
+            },
+            Message::OpenWikiWebsite => {
+                let _ = open::that(WIKI_WEBSITE);
+
+                None
             }
         }
     }
 
     pub fn view<'a>(&self) -> Element<'a, Message> {
         let config_button = button(
-            container(text("Open Directory"))
+            container(text("Open Config Directory"))
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
@@ -48,22 +55,31 @@ impl Help {
         .style(theme::button::secondary)
         .on_press(Message::OpenConfigurationDirectory);
 
+        let wiki_button = button(
+            container(text("Open Wiki Website"))
+                .align_x(alignment::Horizontal::Center)
+                .width(Length::Fill),
+        )
+        .padding(5)
+        .width(Length::Fill)
+        .style(theme::button::secondary)
+        .on_press(Message::OpenWikiWebsite);
+
         let refresh_button = button(
-            container(text("Refresh"))
+            container(text("Refresh Halloy"))
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
         .padding(5)
         .width(Length::Fixed(250.0))
-        .style(theme::button::secondary)
+        .style(theme::button::primary)
         .on_press(Message::RefreshConfiguration);
 
         let content = column![]
-            .spacing(1)
-            .push(icon::error().size(45))
+            .push(icon::error().style(theme::text::error).size(35))
             .push(vertical_space().height(10))
-            .push(text("Error reading configuration file").font(font::MONO_BOLD.clone()))
-            .push(vertical_space().height(3))
+            .push(text("Error reading configuration file"))
+            .push(vertical_space().height(10))
             .push(text(self.error.to_string()).style(theme::text::error))
             .push(vertical_space().height(10))
             .push(
@@ -71,7 +87,8 @@ impl Help {
                     .width(250)
                     .spacing(4)
                     .push(config_button)
-                    .push(refresh_button),
+                    .push(wiki_button)
+                    .push(refresh_button)
             )
             .align_items(iced::Alignment::Center);
 
