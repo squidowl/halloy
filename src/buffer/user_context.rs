@@ -14,14 +14,20 @@ enum Entry {
 }
 
 impl Entry {
-    fn list(buffer: &Buffer) -> Vec<Self> {
+    fn list(buffer: &Buffer, our_user: Option<&User>) -> Vec<Self> {
         match buffer {
-            Buffer::Channel(_, _) => vec![
-                Entry::Whois,
-                Entry::Query,
-                Entry::ToggleAccessLevelOp,
-                Entry::ToggleAccessLevelVoice,
-            ],
+            Buffer::Channel(_, _) => {
+                if our_user.is_some_and(|u| u.has_access_level(data::user::AccessLevel::Oper)) {
+                    vec![
+                        Entry::Whois,
+                        Entry::Query,
+                        Entry::ToggleAccessLevelOp,
+                        Entry::ToggleAccessLevelVoice,
+                    ]
+                } else {
+                    vec![Entry::Whois, Entry::Query]
+                }
+            }
             Buffer::Server(_) | Buffer::Query(_, _) => vec![Entry::Whois],
         }
     }
@@ -56,8 +62,9 @@ pub fn view<'a>(
     content: impl Into<Element<'a, Message>>,
     user: &'a User,
     buffer: Buffer,
+    our_user: Option<&'a User>,
 ) -> Element<'a, Message> {
-    let entries = Entry::list(&buffer);
+    let entries = Entry::list(&buffer, our_user);
 
     let content = button(content)
         .padding(0)
