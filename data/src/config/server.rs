@@ -11,6 +11,8 @@ pub struct Server {
     pub nickname: String,
     /// The client's NICKSERV password.
     pub nick_password: Option<String>,
+    /// The client's NICKSERV password file.
+    pub nick_password_file: Option<String>,
     /// Alternative nicknames for the client, if the default is taken.
     #[serde(default)]
     pub alt_nicks: Vec<String>,
@@ -25,6 +27,8 @@ pub struct Server {
     pub port: u16,
     /// The password to connect to the server.
     pub password: Option<String>,
+    /// The file with the password to connect to the server.
+    pub password_file: Option<String>,
     /// A list of channels to join on connection.
     #[serde(default)]
     pub channels: Vec<String>,
@@ -108,7 +112,9 @@ pub enum Sasl {
         /// Account name
         username: String,
         /// Account password,
-        password: String,
+        password: Option<String>,
+        /// Account password file
+        password_file: Option<String>
     },
     External {
         /// The path to PEM encoded X509 user certificate for external auth
@@ -128,8 +134,11 @@ impl Sasl {
 
     pub fn param(&self) -> String {
         match self {
-            Sasl::Plain { username, password } => {
+            Sasl::Plain { username, password, .. } => {
                 use base64::engine::Engine;
+
+                let password = password.as_ref().expect("SASL password must exist at this point!");
+
                 base64::engine::general_purpose::STANDARD
                     .encode(format!("{username}\x00{username}\x00{password}"))
             }
