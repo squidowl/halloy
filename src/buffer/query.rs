@@ -58,6 +58,7 @@ pub fn view<'a>(
                             ),
                             user,
                             state.buffer(),
+                            None,
                         )
                         .map(scroll_view::Message::UserContext);
 

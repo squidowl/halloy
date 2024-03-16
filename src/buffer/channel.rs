@@ -34,6 +34,11 @@ pub fn view<'a>(
     let input = history.input(&buffer);
     let our_nick = clients.nickname(&state.server);
 
+    let users = clients.get_channel_users(&state.server, &state.channel);
+    let our_user = users
+        .iter()
+        .find(|user| user.nickname() == our_nick.unwrap());
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
@@ -52,17 +57,17 @@ pub fn view<'a>(
                 match message.target.source() {
                     message::Source::User(user) => {
                         let nick = user_context::view(
-                            selectable_text(config.buffer.nickname.brackets.format(user)).style(
-                                |theme| {
+                            selectable_text(config.buffer.nickname.brackets.format(user))
+                                .style(|theme| {
                                     theme::selectable_text::nickname(
                                         theme,
                                         user.color_seed(&config.buffer.nickname.color),
                                         user.is_away(),
                                     )
-                                },
-                            ),
+                                }),
                             user,
                             state.buffer(),
+                            our_user,
                         )
                         .map(scroll_view::Message::UserContext);
 
@@ -118,22 +123,20 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let is_connected_to_channel = clients
-        .get_channels(&state.server)
-        .iter()
-        .any(|c| c == &state.channel);
-    let users = clients.get_channel_users(&state.server, &state.channel);
-    let channels = clients.get_channels(&state.server);
-    let nick_list = nick_list::view(users, &buffer, config).map(Message::UserContext);
+    let nick_list = nick_list::view(users, &buffer, our_user, config).map(Message::UserContext);
+
+    // If topic toggles from None to Some then it messes with messages' scroll state,
+    // so produce a zero-height placeholder when topic is None.
+    let topic = topic(state, clients, users, our_user, settings, config)
+        .unwrap_or_else(|| column![].into());
 
     let show_text_input = match config.buffer.text_input.visibility {
         data::buffer::TextInputVisibility::Focused => is_focused,
         data::buffer::TextInputVisibility::Always => true,
     };
 
-    // If topic toggles from None to Some then it messes with messages' scroll state,
-    // so produce a zero-height placeholder when topic is None.
-    let topic = topic(state, clients, users, settings, config).unwrap_or_else(|| column![].into());
+    let channels = clients.get_channels(&state.server);
+    let is_connected_to_channel = channels.iter().any(|c| c == &state.channel);
 
     let text_input = show_text_input.then(move || {
         input_view::view(
@@ -251,6 +254,7 @@ fn topic<'a>(
     state: &'a Channel,
     clients: &'a data::client::Map,
     users: &'a [User],
+    our_user: Option<&'a User>,
     settings: &'a channel::Settings,
     config: &'a Config,
 ) -> Option<Element<'a, Message>> {
@@ -268,6 +272,7 @@ fn topic<'a>(
             config.buffer.channel.topic.max_lines,
             users,
             &state.buffer(),
+            our_user,
             config,
         )
         .map(Message::UserContext),
@@ -287,6 +292,7 @@ mod nick_list {
     pub fn view<'a>(
         users: &'a [User],
         buffer: &Buffer,
+        our_user: Option<&'a User>,
         config: &'a Config,
     ) -> Element<'a, Message> {
         let column = column(users.iter().map(|user| {
@@ -298,7 +304,7 @@ mod nick_list {
                 )
             });
 
-            user_context::view(content, user, buffer.clone())
+            user_context::view(content, user, buffer.clone(), our_user)
         }))
         .padding(4)
         .spacing(1);
