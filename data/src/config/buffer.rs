@@ -44,7 +44,7 @@ impl ServerMessages {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default, Deserialize)]
+#[derive(Debug, Copy, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ServerMessage {
     #[serde(default = "default_bool_true")]
@@ -53,6 +53,16 @@ pub struct ServerMessage {
     pub smart: Option<i64>,
     #[serde(default)]
     pub username_format: UsernameFormat,
+}
+
+impl Default for ServerMessage {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            smart: Default::default(),
+            username_format: UsernameFormat::default(),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
