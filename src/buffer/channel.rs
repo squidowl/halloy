@@ -1,4 +1,5 @@
 use data::server::Server;
+use data::user::Nick;
 use data::User;
 use data::{channel, history, message, Config};
 use iced::widget::{column, container, row};
@@ -34,10 +35,9 @@ pub fn view<'a>(
     let input = history.input(&buffer);
     let our_nick = clients.nickname(&state.server);
 
-    let users = clients.get_channel_users(&state.server, &state.channel);
-    let our_user = users
-        .iter()
-        .find(|user| user.nickname() == our_nick.unwrap());
+    let our_user = our_nick
+        .map(|our_nick| User::from(Nick::from(our_nick.as_ref())))
+        .and_then(|user| clients.resolve_user_attributes(&state.server, &state.channel, &user));
 
     let messages = container(
         scroll_view::view(
@@ -57,14 +57,15 @@ pub fn view<'a>(
                 match message.target.source() {
                     message::Source::User(user) => {
                         let nick = user_context::view(
-                            selectable_text(config.buffer.nickname.brackets.format(user))
-                                .style(|theme| {
+                            selectable_text(config.buffer.nickname.brackets.format(user)).style(
+                                |theme| {
                                     theme::selectable_text::nickname(
                                         theme,
                                         user.color_seed(&config.buffer.nickname.color),
                                         user.is_away(),
                                     )
-                                }),
+                                },
+                            ),
                             user,
                             state.buffer(),
                             our_user,
@@ -122,6 +123,8 @@ pub fn view<'a>(
     )
     .width(Length::FillPortion(2))
     .height(Length::Fill);
+
+    let users = clients.get_channel_users(&state.server, &state.channel);
 
     let nick_list = nick_list::view(users, &buffer, our_user, config).map(Message::UserContext);
 
