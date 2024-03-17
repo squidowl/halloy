@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug, Clone, Deserialize)]
 pub struct Buffer {
     #[serde(default)]
-    pub timestamp: Option<Timestamp>,
+    pub timestamp: Timestamp,
     #[serde(default)]
     pub nickname: Nickname,
     #[serde(default)]
@@ -66,10 +66,7 @@ pub enum UsernameFormat {
 impl Default for Buffer {
     fn default() -> Self {
         Buffer {
-            timestamp: Some(Timestamp {
-                format: "%T".into(),
-                brackets: Default::default(),
-            }),
+            timestamp: Timestamp::default(),
             nickname: Nickname {
                 color: Color::Unique,
                 brackets: Default::default(),
@@ -83,14 +80,18 @@ impl Default for Buffer {
 
 impl Buffer {
     pub fn format_timestamp(&self, date_time: &DateTime<Utc>) -> Option<String> {
-        self.timestamp.as_ref().map(|timestamp| {
-            format!(
-                "{} ",
-                timestamp
-                    .brackets
-                    .format(date_time.with_timezone(&Local).format(&timestamp.format))
+        if self.timestamp.format.is_empty() {
+            return None;
+        }
+
+        Some(format!(
+            "{} ",
+            self.timestamp.brackets.format(
+                date_time
+                    .with_timezone(&Local)
+                    .format(&self.timestamp.format)
             )
-        })
+        ))
     }
 }
 

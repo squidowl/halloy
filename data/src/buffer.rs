@@ -75,9 +75,19 @@ pub enum TextInputVisibility {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Timestamp {
+    #[serde(default = "default_timestamp")]
     pub format: String,
     #[serde(default)]
     pub brackets: Brackets,
+}
+
+impl Default for Timestamp {
+    fn default() -> Self {
+        Self {
+            format: default_timestamp(),
+            brackets: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -127,4 +137,8 @@ impl Resize {
             Self::None
         }
     }
+}
+
+fn default_timestamp() -> String {
+    "%R".to_string()
 }
