@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{client, history, server, Config, Server, User};
+use data::{client, environment, history, server, Config, Server, User};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, window, Command, Length};
@@ -389,10 +389,14 @@ impl Dashboard {
                                 }
                             },
                             command_bar::Command::Configuration(command) => match command {
-                                command_bar::Configuration::Open => {
+                                command_bar::Configuration::OpenDirectory => {
                                     let _ = open::that(Config::config_dir());
                                     Command::none()
                                 }
+                                command_bar::Configuration::OpenWebsite => {
+                                    let _ = open::that(environment::WIKI_WEBSITE);
+                                    Command::none()
+                                },
                             },
                             command_bar::Command::UI(command) => match command {
                                 command_bar::Ui::ToggleSidebarVisibility => {
