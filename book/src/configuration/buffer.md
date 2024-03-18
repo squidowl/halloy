@@ -62,7 +62,7 @@ color = "unique" | "solid"
 ```toml
 [buffer.channel.topic]
 enabled = true | false
-max-lines = <integer>
+max_lines = <integer>
 ```
 
 | Key         | Description                                                        | Default |
@@ -76,21 +76,21 @@ max-lines = <integer>
 [buffer.server_messages.join]
 enabled = true | false
 smart = <integer>
-username-format = "full" | "short"
+username_format = "full" | "short"
 ```
 
 ```toml
 [buffer.server_messages.part]
 enabled = true | false
 smart = <integer>
-username-format = "full" | "short"
+username_format = "full" | "short"
 ```
 
 ```toml
 [buffer.server_messages.quit]
 enabled = true | false
 smart = <integer>
-username-format = "full" | "short"
+username_format = "full" | "short"
 ```
 
 ```toml
@@ -98,8 +98,9 @@ username-format = "full" | "short"
 enabled = true | false
 ```
 
-| Key               | Description                                                                                                                                                      | Default    |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `enabled`         | Control if the server message should appear in buffers or not                                                                                                    | `true`     |
-| `smart`           | Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.                                        | `not set`  |
-| `username-format` | Adjust how the username should look. Can be `"full"` (shows the longest username available (nickname, username and hostname) or `"short"` (only shows nickname). | `"unique"` |
+| Key                                                      | Description                                                                                                                                                      | Default   |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `enabled`                                                | Contr                                                                                                                                                            |
+| ol if the server message should appear in buffers or not | `true`                                                                                                                                                           |
+| `smart`                                                  | Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.                                        | `not set` |
+| `username-format`                                        | Adjust how the username should look. Can be `"full"` (shows the longest username available (nickname, username and hostname) or `"short"` (only shows nickname). | `"full"`  |

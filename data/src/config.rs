@@ -11,6 +11,7 @@ pub use self::keys::Keyboard;
 pub use self::notification::{Notification, Notifications};
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
+use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
 use crate::theme::Palette;
 use crate::{environment, Theme};
@@ -22,7 +23,7 @@ pub mod notification;
 pub mod server;
 pub mod sidebar;
 
-const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.toml");
+const CONFIG_TEMPLATE: &str = include_str!("../../config.toml");
 const DEFAULT_THEME_FILE_NAME: &str = "ferra.toml";
 
 #[derive(Debug, Clone, Default)]
@@ -219,8 +220,7 @@ impl Config {
         let rand_nick = format!("halloy{rand_digit}");
 
         // Replace placeholder nick with unique nick
-        let config_template_string =
-            String::from_utf8_lossy(CONFIG_TEMPLATE).replace("__NICKNAME__", rand_nick.as_str());
+        let config_template_string = CONFIG_TEMPLATE.replace("__NICKNAME__", rand_nick.as_str());
         let config_template_bytes = config_template_string.as_bytes();
 
         // Create configuration template path.
@@ -238,6 +238,11 @@ pub fn create_themes_dir() {
     if !file.exists() {
         let _ = fs::write(file, CONTENT);
     }
+}
+
+/// Has YAML configuration file.
+pub fn has_yaml_config() -> bool {
+    config_dir().join("config.yaml").exists()
 }
 
 #[derive(Debug, Error, Clone)]

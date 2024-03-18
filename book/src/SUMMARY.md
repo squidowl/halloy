@@ -3,11 +3,7 @@
 [Halloy](README.md)
 
 - [Installation](installation.md)
-- [Building from source](build-from-source.md)
 - [Get in touch](get-in-touch.md)
-
-- [YAML to TOML](migration/yaml-to-toml.md)
-
 - [Configuration](configuration/README.md)
     - [Servers](configuration/servers.md)
     - [Buffer](configuration/buffer.md)
@@ -20,5 +16,6 @@
       - [Community](configuration/themes/community.md)
 
 # Guides
+- [Migrating from YAML](guides/migrating-from-yaml.md)
 - [Connect with soju](guides/connect-with-soju.md)
 - [Connect with ZNC](guides/connect-with-znc.md)

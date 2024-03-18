@@ -1,6 +1,6 @@
 # Unreleased
 
-**BREAKING** Configuration file format has switched from `YAML` to `TOML`. Please vist the migration guide here: [halloy.squidowl.org/migration/yaml-to-toml](https://halloy.squidowl.org/migration/yaml-to-toml.html).
+**BREAKING** Configuration file format has switched from `YAML` to `TOML`. Please vist the migration guide here: [halloy.squidowl.org/guides/migrating-from-yaml](https://halloy.squidowl.org/guides/migrating-from-yaml.html).
 
 Added:
 
@@ -14,7 +14,7 @@ Changed:
   - Renamed `[buffer.input_visibility]` section to `[buffer.text_input]`
   - Removed `[dashboard]` section
     - Renamed `[dashboard.sidebar]` section to `[sidebar]`
-  - Changed `exclude` from `[buffer.server-messages]` to two seperate settings
+  - Changed `exclude` from `[buffer.server_messages]` to two seperate settings
     - `enabled = bool`
     - `smart = number`
 - Use primary text color instead of accent color for `Solid` nicknames

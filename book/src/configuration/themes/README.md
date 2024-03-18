@@ -7,9 +7,9 @@ theme = "<string>"
 ```
 
 
-| Key            | Description                                             | Default |
-| -------------- | ------------------------------------------------------- | ------- |
-| `theme` | Name of the theme to use[^1] | `""`[^2]   |
+| Key     | Description                  | Default  |
+| ------- | ---------------------------- | -------- |
+| `theme` | Name of the theme to use[^1] | `""`[^2] |
 
 
 [^1]: Name of theme file inside `themes` folder 
@@ -19,7 +19,7 @@ theme = "<string>"
 
 To create a custom theme for Halloy, simply place a theme file (with a `.toml` extension) inside the themes folder within the configuration directory.
 
-> 💡  The configuration direction can be found [here](../configuration/).
+> 💡  The configuration direction can be found [here](../../configuration/).
 
 A custom theme is structured as follows.
 
@@ -37,7 +37,7 @@ info = "<string>"
 success = "<string>"
 ```
 
-| Key            | Description                                             |
-| -------------- | ------------------------------------------------------- |
-| `name` | Name of the theme to use |
+| Key       | Description                                       |
+| --------- | ------------------------------------------------- |
+| `name`    | Name of the theme to use                          |
 | `palette` | Colors expect a hex color string. Eg: `"#2b292d"` |
