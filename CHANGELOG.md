@@ -2,6 +2,10 @@
 
 **BREAKING** Configuration file format has switched from `YAML` to `TOML`. Please vist the migration guide here: [halloy.squidowl.org/migration/yaml-to-toml](https://halloy.squidowl.org/migration/yaml-to-toml.html).
 
+Added:
+
+- Added command bar entry to open wiki website.
+
 Changed:
 
 - Configuration file now uses TOML instead of YAML
