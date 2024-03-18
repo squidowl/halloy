@@ -19,16 +19,17 @@ command_bar = "<string>"
 
 | Key                     | Description              | Default MacOS                                       | Default Other                                       |
 | ----------------------- | ------------------------ | --------------------------------------------------- | --------------------------------------------------- |
-| `move_up`               | Moves focus up           | <kbd>⌥</kbd> + <kbd>↑</kbd>                         | <kbd>alt</kbd> + <kbd>↑</kbd>                        |
-| `move_down`             | Moves focus down         | <kbd>⌥</kbd> + <kbd>↓</kbd>                         | <kbd>alt</kbd> + <kbd>↓</kbd>                        |
-| `move_left`             | Moves focus left         | <kbd>⌥</kbd> + <kbd>←</kbd>                         | <kbd>alt</kbd> + <kbd>←</kbd>                        |
-| `move_right`            | Moves focus right        | <kbd>⌥</kbd> + <kbd>→</kbd>                         | <kbd>alt</kbd> + <kbd>→</kbd>                        |
+| `move_up`               | Moves focus up           | <kbd>⌥</kbd> + <kbd>↑</kbd>                         | <kbd>alt</kbd> + <kbd>↑</kbd>                       |
+| `move_down`             | Moves focus down         | <kbd>⌥</kbd> + <kbd>↓</kbd>                         | <kbd>alt</kbd> + <kbd>↓</kbd>                       |
+| `move_left`             | Moves focus left         | <kbd>⌥</kbd> + <kbd>←</kbd>                         | <kbd>alt</kbd> + <kbd>←</kbd>                       |
+| `move_right`            | Moves focus right        | <kbd>⌥</kbd> + <kbd>→</kbd>                         | <kbd>alt</kbd> + <kbd>→</kbd>                       |
 | `close_buffer`          | Close focused buffer     | <kbd>⌘</kbd> + <kbd>w</kbd>                         | <kbd>ctrl</kbd> + <kbd>w</kbd>                      |
 | `maximize_buffer`       | Maximize focused buffer  | <kbd>⌘</kbd> + <kbd>↑</kbd>                         | <kbd>ctrl</kbd> + <kbd>↑</kbd>                      |
 | `restore_buffer`        | Restore focused buffer   | <kbd>⌘</kbd> + <kbd>↓</kbd>                         | <kbd>ctrl</kbd> + <kbd>↓</kbd>                      |
 | `cycle_next_buffer`     | Cycle to next buffer     | <kbd>ctrl</kbd> + <kbd>tab</kbd>                    | <kbd>ctrl</kbd> + <kbd>tab</kbd>                    |
 | `cycle_previous_buffer` | Cycle to previous buffer | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> |
 | `toggle_nick_list`      | Toggle nick list         | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd>     |
+| `command_bar`           | Toggle command bar       | <kbd>⌘</kbd> + <kbd>k</kbd>                         | <kbd>ctrl</kbd> + <kbd>k</kbd>                      |
 
 Example for vim like movement
 
