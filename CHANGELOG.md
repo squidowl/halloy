@@ -18,6 +18,7 @@ Changed:
     - `enabled = bool`
     - `smart = number`
 - Use primary text color instead of accent color for `Solid` nicknames
+- Op and Voice context menu items hidden in channels where the user is not an Op
 
 # 2024.4 (2024-03-15)
 
