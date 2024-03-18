@@ -60,7 +60,6 @@ impl From<config::Buffer> for Settings {
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
-#[serde(rename_all = "kebab-case")]
 pub struct TextInput {
     pub visibility: TextInputVisibility,
 }

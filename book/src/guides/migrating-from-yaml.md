@@ -1,4 +1,4 @@
-# YAML to TOML
+# Migrating from YAML
 
 Halloy recently switched configuration file format from YAML to TOML ([PR-278](https://github.com/squidowl/halloy/pull/278))
 This page will help you migrate your old `config.yaml` to a new `config.toml` file. 
