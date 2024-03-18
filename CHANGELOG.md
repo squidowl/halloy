@@ -1,5 +1,9 @@
 # Unreleased
 
+Changed:
+
+- Use primary text color instead of accent color for `Solid` nicknames
+
 # 2024.4 (2024-03-15)
 
 Added:
