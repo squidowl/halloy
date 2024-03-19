@@ -15,7 +15,7 @@
 
 Download pre-built binaries from [GitHub](https://github.com/squidowl/halloy/releases) page.
 
-### Pre-built binaries
+### Packaging status
 
 <a href="https://repology.org/project/halloy/versions">
     <img src="https://repology.org/badge/vertical-allrepos/halloy.svg" alt="Packaging status">
