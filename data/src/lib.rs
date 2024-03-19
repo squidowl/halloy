@@ -21,6 +21,7 @@ pub mod command;
 mod compression;
 pub mod config;
 pub mod dashboard;
+pub mod dcc;
 pub mod environment;
 pub mod history;
 pub mod input;
