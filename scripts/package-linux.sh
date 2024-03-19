@@ -26,8 +26,11 @@ archive_path() {
 package() {
   build
 
-  install -D $ASSETS_DIR/* -t $ARCHIVE_DIR
-  install -Dm755 $BINARY $ARCHIVE_DIR
+  install -Dm755 $BINARY -t $ARCHIVE_DIR/bin
+  install -Dm644 $ASSETS_DIR/org.squidowl.halloy.appdata.xml -t $ARCHIVE_DIR/share/metainfo
+  install -Dm644 $ASSETS_DIR/org.squidowl.halloy.desktop -t $ARCHIVE_DIR/share/applications
+  cp -r $ASSETS_DIR/icons $ARCHIVE_DIR/share/
+
   tar czvf $ARCHIVE_PATH -C $ARCHIVE_DIR .
 
   echo "Packaged archive: $ARCHIVE_PATH"
