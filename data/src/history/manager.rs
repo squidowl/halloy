@@ -267,7 +267,7 @@ impl Manager {
         server: &Server,
         broadcast: Broadcast,
         config: &Config,
-        sent_time: Option<DateTime<Utc>>,
+        sent_time: DateTime<Utc>,
     ) {
         let map = self.data.map.entry(server.clone()).or_default();
 
@@ -309,7 +309,7 @@ impl Manager {
             } => {
                 let user_query = queries.find(|nick| user.nickname() == *nick);
 
-                message::broadcast::quit(user_channels, user_query, &user, &comment, config)
+                message::broadcast::quit(user_channels, user_query, &user, &comment, config, sent_time)
             }
             Broadcast::Nickname {
                 old_nick,
@@ -325,6 +325,7 @@ impl Manager {
                         &old_nick,
                         &new_nick,
                         ourself,
+                        sent_time,
                     )
                 } else {
                     // Otherwise just the query channel of the user w/ nick change
@@ -335,6 +336,7 @@ impl Manager {
                         &old_nick,
                         &new_nick,
                         ourself,
+                        sent_time,
                     )
                 }
             }
@@ -342,7 +344,7 @@ impl Manager {
                 inviter,
                 channel,
                 user_channels,
-            } => message::broadcast::invite(inviter, channel, user_channels),
+            } => message::broadcast::invite(inviter, channel, user_channels, sent_time),
         };
 
         messages.into_iter().for_each(|message| {

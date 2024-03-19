@@ -736,6 +736,7 @@ impl Dashboard {
         comment: Option<String>,
         user_channels: Vec<String>,
         config: &Config,
+        sent_time: DateTime<Utc>,
     ) {
         self.history.broadcast(
             server,
@@ -745,7 +746,7 @@ impl Dashboard {
                 user_channels,
             },
             config,
-            None,
+            sent_time,
         );
     }
 
@@ -757,6 +758,7 @@ impl Dashboard {
         ourself: bool,
         user_channels: Vec<String>,
         config: &Config,
+        sent_time: DateTime<Utc>,
     ) {
         self.history.broadcast(
             server,
@@ -767,7 +769,7 @@ impl Dashboard {
                 user_channels,
             },
             config,
-            None,
+            sent_time,
         );
     }
 
@@ -778,6 +780,7 @@ impl Dashboard {
         channel: String,
         user_channels: Vec<String>,
         config: &Config,
+        sent_time: DateTime<Utc>,
     ) {
         self.history.broadcast(
             server,
@@ -787,7 +790,7 @@ impl Dashboard {
                 user_channels,
             },
             config,
-            None,
+            sent_time,
         );
     }
 
@@ -795,7 +798,7 @@ impl Dashboard {
         &mut self,
         server: &Server,
         config: &Config,
-        sent_time: Option<DateTime<Utc>>,
+        sent_time: DateTime<Utc>,
     ) {
         self.history
             .broadcast(server, Broadcast::Connecting, config, sent_time);
@@ -805,7 +808,7 @@ impl Dashboard {
         &mut self,
         server: &Server,
         config: &Config,
-        sent_time: Option<DateTime<Utc>>,
+        sent_time: DateTime<Utc>,
     ) {
         self.history
             .broadcast(server, Broadcast::Connected, config, sent_time);
@@ -816,7 +819,7 @@ impl Dashboard {
         server: &Server,
         error: Option<String>,
         config: &Config,
-        sent_time: Option<DateTime<Utc>>,
+        sent_time: DateTime<Utc>,
     ) {
         self.history
             .broadcast(server, Broadcast::Disconnected { error }, config, sent_time);
@@ -826,7 +829,7 @@ impl Dashboard {
         &mut self,
         server: &Server,
         config: &Config,
-        sent_time: Option<DateTime<Utc>>,
+        sent_time: DateTime<Utc>,
     ) {
         self.history
             .broadcast(server, Broadcast::Reconnected, config, sent_time);
@@ -837,7 +840,7 @@ impl Dashboard {
         server: &Server,
         error: String,
         config: &Config,
-        sent_time: Option<DateTime<Utc>>,
+        sent_time: DateTime<Utc>,
     ) {
         self.history.broadcast(
             server,
