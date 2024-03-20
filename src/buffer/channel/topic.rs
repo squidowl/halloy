@@ -15,6 +15,7 @@ pub fn view<'a>(
     max_lines: u16,
     users: &'a [User],
     buffer: &Buffer,
+    our_user: Option<&'a User>,
     config: &'a Config,
 ) -> Element<'a, user_context::Message> {
     let set_by = who.and_then(|who| {
@@ -31,6 +32,7 @@ pub fn view<'a>(
                 }),
                 user,
                 buffer.clone(),
+                our_user,
             )
         } else {
             selectable_text(who)
