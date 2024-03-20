@@ -19,22 +19,12 @@ jobs:
           mdbook-version: 'latest'
 
       - run: mdbook build book
-      
-      - name: Set output directory
-        run: |
-          OUTDIR=$(basename ${{ github.ref }})
-          echo "OUTDIR=$OUTDIR" >> $GITHUB_ENV
 
-      - name: Deploy stable
-        uses: peaceiris/actions-gh-pages@v3
-        if: startswith(github.ref, 'refs/tags/')
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./book/book
+      - name: Copy CNAME
+        run: cp CNAME ./book/.
 
-      - name: Deploy
+      - name: Publish book
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./book/book
-          destination_dir: ./${{ env.OUTDIR }}
+          publish_dir: ./book
