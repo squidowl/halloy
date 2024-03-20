@@ -1,0 +1,11 @@
+name = "tomorrow night"
+
+[palette]
+background = "#1d1f21"
+text = "#c5c8c6"
+action = "#81a2be"
+accent = "#b294bb"
+alert = "#e6db74"
+error = "#cc6666"
+info = "#8abeb7"
+success = "#b5bd68"

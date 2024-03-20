@@ -6,7 +6,6 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
-use crate::config::buffer::Exclude;
 use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::time::Posix;
@@ -449,35 +448,32 @@ impl Data {
             .iter()
             .filter(|message| match message.target.source() {
                 message::Source::Server(Some(source)) => {
-                    if let Some(source_config) = buffer_config.server_messages.get(source) {
-                        match source_config.exclude {
-                            Exclude::All => false,
-                            Exclude::None => true,
-                            Exclude::Smart(seconds) => {
-                                if let Some(nick) = source.nick() {
-                                    !smart_filter_message(
-                                        message,
-                                        &seconds,
-                                        most_recent_messages.get(nick),
-                                    )
-                                } else if let Some(nickname) =
-                                    message.text.split(' ').collect::<Vec<_>>().get(1)
-                                {
-                                    let nick = Nick::from(*nickname);
-
-                                    !smart_filter_message(
-                                        message,
-                                        &seconds,
-                                        most_recent_messages.get(&nick),
-                                    )
-                                } else {
-                                    true
-                                }
-                            }
+                    if let Some(server_message) = buffer_config.server_messages.get(source) {
+                        if !server_message.enabled {
+                            return false;
                         }
-                    } else {
-                        true
+
+                        if let Some(seconds) = server_message.smart {
+                            let nick = match source.nick() {
+                                Some(nick) => nick.clone(),
+                                None => {
+                                    if let Some(nickname) = message.text.split(' ').nth(1) {
+                                        Nick::from(nickname)
+                                    } else {
+                                        return true;
+                                    }
+                                }
+                            };
+
+                            return !smart_filter_message(
+                                message,
+                                &seconds,
+                                most_recent_messages.get(&nick),
+                            );
+                        }
                     }
+
+                    true
                 }
                 crate::message::Source::User(message_user) => {
                     most_recent_messages

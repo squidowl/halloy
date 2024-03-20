@@ -3,30 +3,22 @@ use serde::Deserialize;
 
 use super::Channel;
 use crate::{
-    buffer::{Color, InputVisibility, Nickname, Timestamp},
+    buffer::{Color, Nickname, TextInput, Timestamp},
     message::source,
 };
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Buffer {
     #[serde(default)]
-    pub timestamp: Option<Timestamp>,
+    pub timestamp: Timestamp,
     #[serde(default)]
     pub nickname: Nickname,
     #[serde(default)]
-    pub input_visibility: InputVisibility,
+    pub text_input: TextInput,
     #[serde(default)]
     pub channel: Channel,
     #[serde(default)]
     pub server_messages: ServerMessages,
-}
-
-#[derive(Debug, Copy, Clone, Default, Deserialize)]
-pub enum Exclude {
-    All,
-    #[default]
-    None,
-    Smart(i64),
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -52,15 +44,29 @@ impl ServerMessages {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default, Deserialize)]
+#[derive(Debug, Copy, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct ServerMessage {
+    #[serde(default = "default_bool_true")]
+    pub enabled: bool,
     #[serde(default)]
-    pub exclude: Exclude,
+    pub smart: Option<i64>,
     #[serde(default)]
     pub username_format: UsernameFormat,
 }
 
+impl Default for ServerMessage {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            smart: Default::default(),
+            username_format: UsernameFormat::default(),
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum UsernameFormat {
     Short,
     #[default]
@@ -70,15 +76,12 @@ pub enum UsernameFormat {
 impl Default for Buffer {
     fn default() -> Self {
         Buffer {
-            timestamp: Some(Timestamp {
-                format: "%T".into(),
-                brackets: Default::default(),
-            }),
+            timestamp: Timestamp::default(),
             nickname: Nickname {
                 color: Color::Unique,
                 brackets: Default::default(),
             },
-            input_visibility: InputVisibility::default(),
+            text_input: Default::default(),
             channel: Channel::default(),
             server_messages: Default::default(),
         }
@@ -87,13 +90,21 @@ impl Default for Buffer {
 
 impl Buffer {
     pub fn format_timestamp(&self, date_time: &DateTime<Utc>) -> Option<String> {
-        self.timestamp.as_ref().map(|timestamp| {
-            format!(
-                "{} ",
-                timestamp
-                    .brackets
-                    .format(date_time.with_timezone(&Local).format(&timestamp.format))
+        if self.timestamp.format.is_empty() {
+            return None;
+        }
+
+        Some(format!(
+            "{} ",
+            self.timestamp.brackets.format(
+                date_time
+                    .with_timezone(&Local)
+                    .format(&self.timestamp.format)
             )
-        })
+        ))
     }
+}
+
+fn default_bool_true() -> bool {
+    true
 }

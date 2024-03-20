@@ -20,7 +20,7 @@ use data::config::{self, Config};
 use data::{environment, server, User};
 use iced::widget::container;
 use iced::{executor, Application, Command, Length, Subscription};
-use screen::{dashboard, help, welcome};
+use screen::{dashboard, help, migration, welcome};
 
 use self::event::{events, Event};
 use self::theme::Theme;
@@ -134,11 +134,24 @@ impl Halloy {
                     Config::default(),
                     Command::none(),
                 ),
-                _ => (
-                    Screen::Welcome(screen::Welcome::new()),
-                    Config::default(),
-                    Command::none(),
-                ),
+                _ => {
+                    // If we have a YAML file, but end up in this arm
+                    // it means the user tried to load Halloy with a YAML configuration, but it expected TOML.
+                    if config::has_yaml_config() {
+                        (
+                            Screen::Migration(screen::Migration::new()),
+                            Config::default(),
+                            Command::none(),
+                        )
+                    } else {
+                        // Otherwise, show regular welcome screen for new users.
+                        (
+                            Screen::Welcome(screen::Welcome::new()),
+                            Config::default(),
+                            Command::none(),
+                        )
+                    }
+                }
             },
         };
 
@@ -159,6 +172,7 @@ pub enum Screen {
     Dashboard(screen::Dashboard),
     Help(screen::Help),
     Welcome(screen::Welcome),
+    Migration(screen::Migration),
 }
 
 #[derive(Debug)]
@@ -167,6 +181,7 @@ pub enum Message {
     Stream(stream::Update),
     Help(help::Message),
     Welcome(welcome::Message),
+    Migration(migration::Message),
     Event(Event),
     Tick(Instant),
 }
@@ -235,6 +250,24 @@ impl Application for Halloy {
                 if let Some(event) = welcome.update(message) {
                     match event {
                         welcome::Event::RefreshConfiguration => {
+                            let (halloy, command) = Halloy::load_from_state(Config::load());
+                            *self = halloy;
+
+                            return command;
+                        }
+                    }
+                }
+
+                Command::none()
+            }
+            Message::Migration(message) => {
+                let Screen::Migration(migration) = &mut self.screen else {
+                    return Command::none();
+                };
+
+                if let Some(event) = migration.update(message) {
+                    match event {
+                        migration::Event::RefreshConfiguration => {
                             let (halloy, command) = Halloy::load_from_state(Config::load());
                             *self = halloy;
 
@@ -467,6 +500,7 @@ impl Application for Halloy {
                 .map(Message::Dashboard),
             Screen::Help(help) => help.view().map(Message::Help),
             Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
+            Screen::Migration(migration) => migration.view().map(Message::Migration),
         };
 
         container(content)

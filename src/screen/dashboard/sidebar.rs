@@ -29,11 +29,11 @@ pub enum Event {
 }
 
 #[derive(Clone)]
-pub struct SideMenu {
+pub struct Sidebar {
     hidden: bool,
 }
 
-impl SideMenu {
+impl Sidebar {
     pub fn new() -> Self {
         Self { hidden: false }
     }
@@ -58,7 +58,7 @@ impl SideMenu {
         history: &'a history::Manager,
         panes: &pane_grid::State<Pane>,
         focus: Option<pane_grid::Pane>,
-        config: data::config::dashboard::Sidebar,
+        config: data::config::Sidebar,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;

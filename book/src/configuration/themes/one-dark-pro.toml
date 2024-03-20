@@ -1,0 +1,11 @@
+name = "one dark pro"
+
+[palette]
+background = "#282c34"
+text = "#abb2bf"
+action = "#61afef"
+accent = "#c678dd"
+alert = "#d19a66"
+error = "#e06c75"
+info = "#56b6c2"
+success = "#98c379"

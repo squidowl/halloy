@@ -1,0 +1,11 @@
+name = "catpuccin-mocha"
+
+[palette]
+background = "#1e1e2e"
+text = "#cdd6f4"
+action = "#f5e0dc"
+accent = "#bac2de"
+alert = "#f9e2af"
+error = "#f38ba8"
+info = "#89b4fa"
+success = "#a6e3a1"
