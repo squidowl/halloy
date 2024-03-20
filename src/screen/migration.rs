@@ -1,4 +1,4 @@
-use data::environment::WIKI_WEBSITE;
+use data::environment::MIGRATION_WEBSITE;
 use data::Config;
 use iced::widget::{button, column, container, text, vertical_space};
 use iced::{alignment, Length};
@@ -10,7 +10,7 @@ use crate::{font, theme};
 pub enum Message {
     RefreshConfiguration,
     OpenConfigurationDirectory,
-    OpenWikiWebsite,
+    OpenMigrationWebsite,
 }
 
 #[derive(Debug, Clone)]
@@ -37,8 +37,8 @@ impl Migration {
 
                 None
             }
-            Message::OpenWikiWebsite => {
-                let _ = open::that(WIKI_WEBSITE);
+            Message::OpenMigrationWebsite => {
+                let _ = open::that(MIGRATION_WEBSITE);
 
                 None
             }
@@ -57,14 +57,14 @@ impl Migration {
         .on_press(Message::OpenConfigurationDirectory);
 
         let wiki_button = button(
-            container(text("Open Wiki Website"))
+            container(text("Open Migration Guide"))
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
         .padding(5)
         .width(Length::Fill)
         .style(theme::button::secondary)
-        .on_press(Message::OpenWikiWebsite);
+        .on_press(Message::OpenMigrationWebsite);
 
         let refresh_button = button(
             container(text("Refresh Halloy"))
@@ -85,7 +85,7 @@ impl Migration {
                 "Halloy recently switched configuration file format from YAML to TOML. This was done in an effort to make it easier to work with as a user.",
             ))
             .push(vertical_space().height(8))
-            .push(text("To migrate your configuration file, please visit the Wiki below for a guide."))
+            .push(text("To migrate your configuration file, please visit the migration guide below."))
             .push(vertical_space().height(10))
             .push(
                 column![]
