@@ -42,6 +42,30 @@ pub fn topic<'a>() -> Text<'a> {
     to_text('\u{f5af}')
 }
 
+pub fn file_transfer<'a>() -> Text<'a> {
+    to_text('\u{f30a}')
+}
+
+pub fn arrow_down<'a>() -> Text<'a> {
+    to_text('\u{f128}')
+}
+
+pub fn arrow_up<'a>() -> Text<'a> {
+    to_text('\u{f148}')
+}
+
+pub fn checkmark<'a>() -> Text<'a> {
+    to_text('\u{f272}')
+}
+
+pub fn trashcan<'a>() -> Text<'a> {
+    to_text('\u{f5de}')
+}
+
+pub fn folder<'a>() -> Text<'a> {
+    to_text('\u{f3d8}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .style(theme::text::primary)

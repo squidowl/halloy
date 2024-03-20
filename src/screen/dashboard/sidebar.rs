@@ -17,6 +17,7 @@ pub enum Message {
     Close(pane_grid::Pane),
     Swap(pane_grid::Pane, pane_grid::Pane),
     Leave(Buffer),
+    ToggleFileTransfers,
 }
 
 #[derive(Debug, Clone)]
@@ -26,6 +27,7 @@ pub enum Event {
     Close(pane_grid::Pane),
     Swap(pane_grid::Pane, pane_grid::Pane),
     Leave(Buffer),
+    ToggleFileTransfers,
 }
 
 #[derive(Clone)]
@@ -49,6 +51,7 @@ impl Sidebar {
             Message::Close(pane) => Event::Close(pane),
             Message::Swap(from, to) => Event::Swap(from, to),
             Message::Leave(buffer) => Event::Leave(buffer),
+            Message::ToggleFileTransfers => Event::ToggleFileTransfers,
         }
     }
 
@@ -116,19 +119,52 @@ impl Sidebar {
             }
         }
 
+        let mut menu_buttons = row![].padding([0, 0, 4, 0]);
+
+        if config.buttons.file_transfer {
+            let file_transfers_open = panes.iter().any(|(_, pane)| match pane.buffer {
+                crate::buffer::Buffer::FileTransfers(_) => true,
+                _ => false,
+            });
+
+            let file_transfers_button = button(
+                container(icon::file_transfer())
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x()
+                    .center_y(),
+            )
+            .on_press(Message::ToggleFileTransfers)
+            .padding(5)
+            .width(22)
+            .height(22)
+            .style(if file_transfers_open {
+                theme::button::side_menu_selected
+            } else {
+                theme::button::side_menu
+            });
+
+            menu_buttons = menu_buttons.push(file_transfers_button);
+        }
+
+        let content = column![Scrollable::with_direction(
+            column,
+            scrollable::Direction::Vertical(
+                iced::widget::scrollable::Properties::default()
+                    .width(0)
+                    .scroller_width(0),
+            ),
+        ),];
+
+        let body = column![menu_buttons, container(content).height(Length::Fill)];
+
         Some(
-            container(Scrollable::with_direction(
-                column,
-                scrollable::Direction::Vertical(
-                    iced::widget::scrollable::Properties::default()
-                        .width(0)
-                        .scroller_width(0),
-                ),
-            ))
-            .padding([8, 0, 6, 6])
-            .center_x()
-            .max_width(config.width)
-            .into(),
+            container(body)
+                .height(Length::Fill)
+                .padding([8, 0, 6, 6])
+                .center_x()
+                .max_width(config.width)
+                .into(),
         )
     }
 }
