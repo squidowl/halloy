@@ -1,0 +1,65 @@
+# Community
+
+This is a list of community created themes for Halloy.
+
+> 💡 Have a great theme you want to share? Open a pull-request [here](https://github.com/squidowl/halloy/pulls).
+
+## Zenburn - [Save](zenburn.toml)
+
+<img src="zenburn.png">
+
+## Material - [Save](material.toml)
+
+<img src="material.png">
+
+## Oceanic Next - [Save](oceanic-next.toml)
+
+<img src="oceanic-next.png">
+
+## Tomorrow Night - [Save](tomorrow-night.toml)
+
+<img src="tomorrow-night.png">
+
+## Monokai Pro - [Save](monokai-pro.toml)
+
+<img src="monokai-pro.png">
+
+## One Dark Pro - [Save](one-dark-pro.toml)
+
+<img src="one-dark-pro.png">
+
+## Nord - [Save](nord.toml)
+
+<img src="nord.png">
+
+## Solarized (Dark) - [Save](solarized-dark.toml)
+
+<img src="solarized-dark.png">
+
+## Harmony (Dark) - [Save](harmony-dark.toml)
+
+<img src="harmony-dark.png">
+
+## Dracula - [Save](dracula.toml)
+
+<img src="dracula.png">
+
+## Kanagawa - [Save](kanagawa.toml)
+
+<img src="kanagawa.png">
+
+## Boo berry - [Save](boo-berry.toml)
+
+<img src="boo-berry.png">
+
+## Catpuccin Frappe - [Save](catpuccin-frappe.toml)
+
+<img src="catpuccin-frappe.png">
+
+## Catpuccin Macchiato - [Save](catpuccin-macchiato.toml)
+
+<img src="catpuccin-macchiato.png">
+
+## Catpuccin Mocha - [Save](catpuccin-mocha.toml)
+
+<img src="catpuccin-mocha.png">
