@@ -8,6 +8,8 @@ pub struct Sidebar {
     pub default_action: DefaultAction,
     #[serde(default = "default_sidebar_width")]
     pub width: u16,
+    #[serde(default)]
+    pub buttons: Buttons,
 }
 
 impl Default for Sidebar {
@@ -15,8 +17,15 @@ impl Default for Sidebar {
         Sidebar {
             default_action: Default::default(),
             width: default_sidebar_width(),
+            buttons: Default::default(),
         }
     }
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+pub struct Buttons {
+    #[serde(default)]
+    pub file_transfer: bool,
 }
 
 fn default_sidebar_width() -> u16 {

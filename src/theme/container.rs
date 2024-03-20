@@ -9,6 +9,20 @@ impl DefaultStyle for Theme {
     }
 }
 
+pub fn table_row(theme: &Theme, _status: Status, idx: usize) -> Appearance {
+    let background = if idx % 2 != 0 {
+        theme.colors().background.base
+    } else {
+        theme.colors().background.light
+    };
+
+    Appearance {
+        background: Some(Background::Color(background)),
+        text_color: Some(theme.colors().text.base),
+        ..Default::default()
+    }
+}
+
 pub fn primary(theme: &Theme, _status: Status) -> Appearance {
     Appearance {
         background: Some(Background::Color(theme.colors().background.base)),

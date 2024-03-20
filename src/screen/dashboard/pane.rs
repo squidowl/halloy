@@ -72,6 +72,7 @@ impl Pane {
 
                 format!("{nick} @ {server}")
             }
+            Buffer::FileTransfers(_) => "File Transfers".to_string(),
         };
 
         let title_bar = self.title_bar.view(
@@ -114,6 +115,7 @@ impl Pane {
                 server: query.server.clone(),
                 kind: history::Kind::Query(query.nick.clone()),
             }),
+            Buffer::FileTransfers(_) => None,
         }
     }
 
@@ -242,6 +244,7 @@ impl From<Pane> for data::Pane {
             Buffer::Channel(state) => data::Buffer::Channel(state.server, state.channel),
             Buffer::Server(state) => data::Buffer::Server(state.server),
             Buffer::Query(state) => data::Buffer::Query(state.server, state.nick),
+            Buffer::FileTransfers(_) => return data::Pane::FileTransfers,
         };
 
         data::Pane::Buffer {

@@ -16,6 +16,7 @@ use iced::{clipboard, window, Command, Length};
 use self::command_bar::CommandBar;
 use self::pane::Pane;
 use self::sidebar::Sidebar;
+use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
 use crate::widget::{anchored_overlay, selectable_text, shortcut, Element};
 use crate::{event, theme, Theme};
@@ -309,6 +310,9 @@ impl Dashboard {
                             }
                         }
                     }
+                    sidebar::Event::ToggleFileTransfers => {
+                        return self.toggle_file_transfers(config);
+                    }
                 }
             }
             Message::SelectedText(contents) => {
@@ -395,6 +399,9 @@ impl Dashboard {
                                     }
 
                                     Command::batch(commands)
+                                }
+                                command_bar::Buffer::ToggleFileTransfers => {
+                                    self.toggle_file_transfers(config)
                                 }
                             },
                             command_bar::Command::Configuration(command) => match command {
@@ -694,6 +701,46 @@ impl Dashboard {
                 Command::perform(task, |_| Message::Close)
             }
         }
+    }
+
+    // TODO: Perhaps rewrite this, i just did this quickly.
+    fn toggle_file_transfers(&mut self, config: &Config) -> Command<Message> {
+        let panes = self.panes.clone();
+
+        // If file transfers already is open, we close it.
+        for (id, pane) in panes.iter() {
+            if let Buffer::FileTransfers(_) = pane.buffer {
+                return self.close_pane(*id);
+            }
+        }
+
+        // If we only have one pane, and its empty, we replace it.
+        if self.panes.len() == 1 {
+            for (id, pane) in panes.iter() {
+                if let Buffer::Empty = &pane.buffer {
+                    self.panes.panes.entry(*id).and_modify(|p| {
+                        *p = Pane::new(Buffer::FileTransfers(FileTransfers::new()), config)
+                    });
+                    self.last_changed = Some(Instant::now());
+
+                    return self.focus_pane(*id);
+                }
+            }
+        }
+
+        let mut commands = vec![];
+        let _ = self.new_pane(pane_grid::Axis::Vertical, config);
+
+        if let Some(pane) = self.focus.take() {
+            if let Some(state) = self.panes.get_mut(pane) {
+                state.buffer = Buffer::FileTransfers(FileTransfers::new());
+                self.last_changed = Some(Instant::now());
+
+                commands.extend(vec![self.reset_pane(pane), self.focus_pane(pane)]);
+            }
+        }
+
+        Command::batch(commands)
     }
 
     fn open_buffer(&mut self, kind: data::Buffer, config: &Config) -> Command<Message> {
@@ -1091,6 +1138,10 @@ impl From<data::Dashboard> for Dashboard {
                 }
                 data::Pane::Empty => Configuration::Pane(Pane::with_settings(
                     Buffer::empty(),
+                    buffer::Settings::default(),
+                )),
+                data::Pane::FileTransfers => Configuration::Pane(Pane::with_settings(
+                    Buffer::FileTransfers(FileTransfers::new()),
                     buffer::Settings::default(),
                 )),
             }
