@@ -60,7 +60,13 @@ impl From<config::Buffer> for Settings {
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
-pub enum InputVisibility {
+pub struct TextInput {
+    pub visibility: TextInputVisibility,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextInputVisibility {
     Focused,
     #[default]
     Always,
@@ -68,9 +74,19 @@ pub enum InputVisibility {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Timestamp {
+    #[serde(default = "default_timestamp")]
     pub format: String,
     #[serde(default)]
     pub brackets: Brackets,
+}
+
+impl Default for Timestamp {
+    fn default() -> Self {
+        Self {
+            format: default_timestamp(),
+            brackets: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -94,6 +110,7 @@ impl Brackets {
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Color {
     Solid,
     #[default]
@@ -119,4 +136,8 @@ impl Resize {
             Self::None
         }
     }
+}
+
+fn default_timestamp() -> String {
+    "%R".to_string()
 }

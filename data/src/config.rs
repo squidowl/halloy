@@ -1,29 +1,30 @@
-use std::fs::{self, File};
-use std::io::BufReader;
+use std::fs;
 use std::path::PathBuf;
 
+use rand::Rng;
 use serde::Deserialize;
 use thiserror::Error;
 
 pub use self::buffer::Buffer;
 pub use self::channel::Channel;
-pub use self::dashboard::Dashboard;
-pub use self::keys::Keys;
+pub use self::keys::Keyboard;
 pub use self::notification::{Notification, Notifications};
 pub use self::server::Server;
+pub use self::sidebar::Sidebar;
+use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
 use crate::theme::Palette;
 use crate::{environment, Theme};
 
 pub mod buffer;
 pub mod channel;
-pub mod dashboard;
 mod keys;
 pub mod notification;
 pub mod server;
+pub mod sidebar;
 
-const CONFIG_TEMPLATE: &[u8] = include_bytes!("../../config.yaml");
-const DEFAULT_THEME_FILE_NAME: &str = "ferra.yaml";
+const CONFIG_TEMPLATE: &str = include_str!("../../config.toml");
+const DEFAULT_THEME_FILE_NAME: &str = "ferra.toml";
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
@@ -32,8 +33,8 @@ pub struct Config {
     pub font: Font,
     pub scale_factor: ScaleFactor,
     pub buffer: Buffer,
-    pub dashboard: Dashboard,
-    pub keys: Keys,
+    pub sidebar: Sidebar,
+    pub keyboard: Keyboard,
     pub notifications: Notifications,
 }
 
@@ -116,18 +117,18 @@ impl Config {
             pub font: Font,
             #[serde(default)]
             pub scale_factor: ScaleFactor,
-            #[serde(default, alias = "new_buffer")]
+            #[serde(default)]
             pub buffer: Buffer,
             #[serde(default)]
-            pub dashboard: Dashboard,
+            pub sidebar: Sidebar,
             #[serde(default)]
-            pub keys: Keys,
+            pub keyboard: Keyboard,
             #[serde(default)]
             pub notifications: Notifications,
         }
 
         let path = Self::path();
-        let file = File::open(path).map_err(|e| Error::Read(e.to_string()))?;
+        let content = fs::read_to_string(path).map_err(|e| Error::Read(e.to_string()))?;
 
         let Configuration {
             theme,
@@ -135,11 +136,10 @@ impl Config {
             font,
             scale_factor,
             buffer,
-            dashboard,
-            keys,
+            sidebar,
+            keyboard,
             notifications,
-        } = serde_yaml::from_reader(BufReader::new(file))
-            .map_err(|e| Error::Parse(e.to_string()))?;
+        } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         let themes = Self::load_themes(&theme).unwrap_or_default();
 
@@ -149,8 +149,8 @@ impl Config {
             font,
             scale_factor,
             buffer,
-            dashboard,
-            keys,
+            sidebar,
+            keyboard,
             notifications,
         })
     }
@@ -165,10 +165,10 @@ impl Config {
         }
 
         let read_entry = |entry: fs::DirEntry| {
-            let content = fs::read(entry.path())?;
+            let content = fs::read_to_string(entry.path())?;
 
             let Data { name, palette } =
-                serde_yaml::from_slice(&content).map_err(|e| Error::Parse(e.to_string()))?;
+                toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
             Ok::<Theme, Error>(Theme::new(name, &palette))
         };
@@ -186,9 +186,9 @@ impl Config {
                 continue;
             };
 
-            if file_name.ends_with(".yaml") {
+            if file_name.ends_with(".toml") {
                 if let Ok(theme) = read_entry(entry) {
-                    if file_name.strip_suffix(".yaml").unwrap_or_default() == default_key {
+                    if file_name.strip_suffix(".toml").unwrap_or_default() == default_key {
                         default = theme.clone();
                     }
                     if file_name == DEFAULT_THEME_FILE_NAME {
@@ -214,20 +214,35 @@ impl Config {
             return;
         }
 
-        // Create template configuration file.
-        let config_template_file = Self::config_dir().join("config.template.yaml");
-        let _ = fs::write(config_template_file, CONFIG_TEMPLATE);
+        // Generate a unique nick
+        let mut rng = rand::thread_rng();
+        let rand_digit: u16 = rng.gen_range(1000..=9999);
+        let rand_nick = format!("halloy{rand_digit}");
+
+        // Replace placeholder nick with unique nick
+        let config_template_string = CONFIG_TEMPLATE.replace("__NICKNAME__", rand_nick.as_str());
+        let config_template_bytes = config_template_string.as_bytes();
+
+        // Create configuration template path.
+        let config_template_path = Self::config_dir().join("config.template.toml");
+
+        let _ = fs::write(config_template_path, config_template_bytes);
     }
 }
 
 pub fn create_themes_dir() {
-    const CONTENT: &[u8] = include_bytes!("../../assets/themes/ferra.yaml");
+    const CONTENT: &[u8] = include_bytes!("../../assets/themes/ferra.toml");
 
     // Create default theme file.
     let file = Config::themes_dir().join(DEFAULT_THEME_FILE_NAME);
     if !file.exists() {
         let _ = fs::write(file, CONTENT);
     }
+}
+
+/// Has YAML configuration file.
+pub fn has_yaml_config() -> bool {
+    config_dir().join("config.yaml").exists()
 }
 
 #[derive(Debug, Error, Clone)]

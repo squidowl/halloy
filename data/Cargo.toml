@@ -1,5 +1,6 @@
 [package]
 name = "data"
+authors = ["Casper Rogild Storm", "Cory Forsstrom"]
 version = "0.1.0"
 edition = "2021"
 
@@ -19,7 +20,7 @@ rand = "0.8.4"
 rand_chacha = "0.3.0"
 seahash = "4.1.0"
 serde_json = "1.0"
-serde_yaml = "0.9.30"
+toml = "0.8.11"
 thiserror = "1.0.30"
 tokio = { version = "1.0", features = ["io-util"] }
 tokio-stream = { version = "0.1", features = ["time"] }

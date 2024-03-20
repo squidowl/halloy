@@ -1,0 +1,11 @@
+name = "dracula"
+
+[palette]
+background = "#282a36"
+text = "#f8f8f2"
+action = "#50fa7b"
+accent = "#8be9fd"
+alert = "#ff79c6"
+error = "#ff5555"
+info = "#6272a4"
+success = "#f1fa8c"

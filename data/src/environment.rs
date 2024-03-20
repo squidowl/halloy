@@ -3,8 +3,10 @@ use std::path::PathBuf;
 
 pub const VERSION: &str = env!("VERSION");
 pub const GIT_HASH: Option<&str> = option_env!("GIT_HASH");
-pub const CONFIG_FILE_NAME: &str = "config.yaml";
+pub const CONFIG_FILE_NAME: &str = "config.toml";
 pub const APPLICATION_ID: &str = "org.squidowl.halloy";
+pub const WIKI_WEBSITE: &str = "https://halloy.squidowl.org";
+pub const MIGRATION_WEBSITE: &str = "https://halloy.squidowl.org/guides/migrating-from-yaml.html";
 
 pub fn formatted_version() -> String {
     let hash = GIT_HASH

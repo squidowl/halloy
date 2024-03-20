@@ -1,0 +1,11 @@
+name = "boo berry"
+
+[palette]
+background = "#3A2A4D"
+text = "#C7B8E0"
+action = "#C78DFC"
+accent = "#C78DFC"
+alert = "#E3C0A8"
+error = "#D678B5"
+info = "#C7B8E0"
+success = "#7FC9AB"

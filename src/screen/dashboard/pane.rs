@@ -152,7 +152,7 @@ impl TitleBar {
                     .width(22)
                     .height(22)
                     .on_press(Message::ToggleShowTopic)
-                    .style(if settings.channel.topic.visible {
+                    .style(if settings.channel.topic.enabled {
                         theme::button::pane_selected
                     } else {
                         theme::button::pane
@@ -173,7 +173,7 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(Message::ToggleShowUserList)
-            .style(if settings.channel.users.visible {
+            .style(if settings.channel.nicklist.enabled {
                 theme::button::pane_selected
             } else {
                 theme::button::pane

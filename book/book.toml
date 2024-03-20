@@ -1,0 +1,13 @@
+[book]
+authors = ["Casper Rogild Storm", "Cory Forsstrom"]
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+cname = "halloy.squidowl.org"
+default-theme = "ferra"
+preferred-dark-theme = "ferra"
+git-repository-url = "https://github.com/squidowl/halloy"
+edit-url-template = "https://github.com/squidowl/halloy/edit/main/book/{path}"
+additional-css = ["custom.css"]

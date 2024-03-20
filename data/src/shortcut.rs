@@ -32,7 +32,7 @@ pub enum Command {
     RestoreBuffer,
     CycleNextBuffer,
     CyclePreviousBuffer,
-    ToggleNickList,
+    ToggleNicklist,
     CommandBar,
 }
 
