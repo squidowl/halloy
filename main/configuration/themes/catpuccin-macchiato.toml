@@ -1,0 +1,11 @@
+name = "catpuccin-macchiato"
+
+[palette]
+background = "#24273a"
+text = "#cad3f5"
+action = "#f4dbd6"
+accent = "#b8c0e0"
+alert = "#eed49f"
+error = "#ed8796"
+info = "#8aadf4"
+success = "#a6da95"
