@@ -20,11 +20,8 @@ jobs:
 
       - run: mdbook build book
 
-      - name: Copy CNAME
-        run: cp CNAME ./book/.
-
       - name: Publish book
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./book
+          publish_dir: ./book/book
