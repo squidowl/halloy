@@ -120,9 +120,27 @@ impl Manager {
                     item.file_transfer_mut().size = size;
                 }
             }
-            task::Update::Failed(id, error) => {
+            task::Update::Progress {
+                id,
+                transferred,
+                elapsed,
+            } => {
                 if let Some(item) = self.0.get_mut(&id) {
-                    item.file_transfer_mut().status = Status::Failed { error };
+                    let file_transfer = item.file_transfer_mut();
+                    log::trace!(
+                        "File transfer progress {} {} for {:?}: {:>4.1}%",
+                        match file_transfer.direction {
+                            Direction::Sent => "to",
+                            Direction::Received => "from",
+                        },
+                        file_transfer.remote_user,
+                        file_transfer.filename,
+                        transferred as f32 / file_transfer.size as f32 * 100.0,
+                    );
+                    file_transfer.status = Status::Active {
+                        transferred,
+                        elapsed,
+                    };
                 }
             }
             task::Update::Finished {
@@ -149,6 +167,11 @@ impl Manager {
                             ..file_transfer
                         }),
                     );
+                }
+            }
+            task::Update::Failed(id, error) => {
+                if let Some(item) = self.0.get_mut(&id) {
+                    item.file_transfer_mut().status = Status::Failed { error };
                 }
             }
         }
