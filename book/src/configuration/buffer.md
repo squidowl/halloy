@@ -102,4 +102,4 @@ enabled = true | false
 | ----------- | ------------------------------------------------------------------ | ------- |
 | `enabled`   | Control if the server message should appear in buffers or not      | `true` |
 | `smart`                                                  | Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.                                        | `not set` |
-| `username-format`                                        | Adjust how the username should look. Can be `"full"` (shows the longest username available (nickname, username and hostname) or `"short"` (only shows nickname). | `"full"`  |
+| `username_format`                                        | Adjust how the username should look. Can be `"full"` (shows the longest username available (nickname, username and hostname) or `"short"` (only shows nickname). | `"full"`  |
