@@ -23,6 +23,7 @@ pub mod config;
 pub mod dashboard;
 pub mod dcc;
 pub mod environment;
+pub mod file_transfer;
 pub mod history;
 pub mod input;
 pub mod log;
