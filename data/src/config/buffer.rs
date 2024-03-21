@@ -45,7 +45,6 @@ impl ServerMessages {
 }
 
 #[derive(Debug, Copy, Clone, Deserialize)]
-#[serde(rename_all = "kebab-case")]
 pub struct ServerMessage {
     #[serde(default = "default_bool_true")]
     pub enabled: bool,
