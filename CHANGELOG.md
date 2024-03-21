@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2024.5 (2024-03-21)
+
 **BREAKING** Configuration file format has switched from `YAML` to `TOML`. Please vist the migration guide here: [halloy.squidowl.org/guides/migrating-from-yaml](https://halloy.squidowl.org/guides/migrating-from-yaml.html).
 
 Added:
@@ -17,7 +19,7 @@ Changed:
   - Changed `exclude` from `[buffer.server_messages]` to two seperate settings
     - `enabled = bool`
     - `smart = number`
-- Use primary text color instead of accent color for `Solid` nicknames
+- Use primary text color instead of accent color for `solid` nicknames
 - Op and Voice context menu items hidden in channels where the user is not an Op
 
 Fixed:
