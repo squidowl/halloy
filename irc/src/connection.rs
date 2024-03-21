@@ -1,20 +1,14 @@
 use std::io;
 use std::path::PathBuf;
 
-use futures::stream::{SplitSink, SplitStream};
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use tokio::fs;
 use tokio::net::TcpStream;
 use tokio_native_tls::native_tls::{Certificate, Identity};
 use tokio_native_tls::{native_tls, TlsConnector, TlsStream};
-use tokio_util::codec::Framed;
+use tokio_util::codec::{self, Framed};
 
-use crate::{codec, Codec};
-
-pub type Sender = SplitSink<Connection, proto::Message>;
-pub type Receiver = SplitStream<Connection>;
-
-pub enum Connection {
+pub enum Connection<Codec> {
     Tls(Framed<TlsStream<TcpStream>, Codec>),
     Unsecured(Framed<TcpStream, Codec>),
 }
@@ -37,8 +31,8 @@ pub struct Config<'a> {
     pub security: Security<'a>,
 }
 
-impl Connection {
-    pub async fn new(config: Config<'_>) -> Result<Self, Error> {
+impl<Codec> Connection<Codec> {
+    pub async fn new(config: Config<'_>, codec: Codec) -> Result<Self, Error> {
         let tcp = TcpStream::connect((config.server, config.port)).await?;
 
         if let Security::Secured {
@@ -68,14 +62,10 @@ impl Connection {
                 .connect(config.server, tcp)
                 .await?;
 
-            Ok(Self::Tls(Framed::new(tls, Codec)))
+            Ok(Self::Tls(Framed::new(tls, codec)))
         } else {
-            Ok(Self::Unsecured(Framed::new(tcp, Codec)))
+            Ok(Self::Unsecured(Framed::new(tcp, codec)))
         }
-    }
-
-    pub fn split(self) -> (Sender, Receiver) {
-        <Self as StreamExt>::split(self)
     }
 }
 
@@ -87,14 +77,6 @@ pub enum Error {
     Io(#[from] io::Error),
 }
 
-impl From<codec::Error> for Error {
-    fn from(error: codec::Error) -> Self {
-        match error {
-            codec::Error::Io(error) => Error::Io(error),
-        }
-    }
-}
-
 macro_rules! delegate {
     ($e:expr, $($t:tt)*) => {
         match $e {
@@ -104,8 +86,11 @@ macro_rules! delegate {
     };
 }
 
-impl Stream for Connection {
-    type Item = Result<Result<proto::Message, proto::parse::Error>, codec::Error>;
+impl<Codec> Stream for Connection<Codec>
+where
+    Codec: codec::Decoder,
+{
+    type Item = Result<Codec::Item, Codec::Error>;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
@@ -115,8 +100,11 @@ impl Stream for Connection {
     }
 }
 
-impl Sink<proto::Message> for Connection {
-    type Error = codec::Error;
+impl<Item, Codec> Sink<Item> for Connection<Codec>
+where
+    Codec: codec::Encoder<Item>,
+{
+    type Error = Codec::Error;
 
     fn poll_ready(
         self: std::pin::Pin<&mut Self>,
@@ -125,11 +113,8 @@ impl Sink<proto::Message> for Connection {
         delegate!(self.get_mut(), poll_ready_unpin(cx))
     }
 
-    fn start_send(
-        self: std::pin::Pin<&mut Self>,
-        message: proto::Message,
-    ) -> Result<(), Self::Error> {
-        delegate!(self.get_mut(), start_send_unpin(message))
+    fn start_send(self: std::pin::Pin<&mut Self>, item: Item) -> Result<(), Self::Error> {
+        delegate!(self.get_mut(), start_send_unpin(item))
     }
 
     fn poll_flush(

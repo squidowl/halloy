@@ -832,6 +832,7 @@ name = "data"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "bytes",
  "chrono",
  "dirs-next",
  "flate2",

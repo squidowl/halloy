@@ -2,11 +2,15 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
 
+use futures::channel::mpsc::Sender;
+use irc::proto;
 use serde::{Deserialize, Serialize};
 
 use crate::config;
 use crate::config::Error;
 use crate::config::server::Sasl;
+
+pub type Handle = Sender<proto::Message>;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Server(String);
