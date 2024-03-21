@@ -99,12 +99,17 @@ pub enum Action {
 #[derive(Debug)]
 pub enum Update {
     Metadata(Id, u64),
-    Failed(Id, String),
+    Progress {
+        id: Id,
+        transferred: u64,
+        elapsed: Duration,
+    },
     Finished {
         id: Id,
         elapsed: Duration,
         sha256: String,
     },
+    Failed(Id, String),
 }
 
 async fn receive(
@@ -119,17 +124,17 @@ async fn receive(
         return Ok(());
     };
 
+    // TODO: Handle reverse side (send reverse message to remote user
+    // and wait for confirmation w/ host / port info)
     let dcc::Send::Direct { host, port, .. } = dcc_send else {
         return Ok(());
     };
-
-    let host = host.to_string();
 
     let started_at = Instant::now();
 
     let mut connection = Connection::new(
         connection::Config {
-            server: &host,
+            server: &host.to_string(),
             port: port.get(),
             // TODO: TLS?
             security: connection::Security::Unsecured,
@@ -140,25 +145,38 @@ async fn receive(
 
     let mut file = File::create(&save_to).await?;
 
-    let mut bytes_received = 0;
+    let mut transferred = 0;
+    let mut last_progress = started_at;
 
     while let Some(bytes) = connection.next().await {
         let bytes = bytes?;
 
-        bytes_received += bytes.len();
+        transferred += bytes.len();
 
+        // Write bytes to file
         file.write_all(&bytes).await?;
 
-        let ack = Bytes::from_iter(((bytes_received as u64 & 0xFFFFFFFF) as u32).to_be_bytes());
+        // Reply w/ ack
+        let ack = Bytes::from_iter(((transferred as u64 & 0xFFFFFFFF) as u32).to_be_bytes());
         connection.send(ack).await?;
-    }
 
-    let elapsed = started_at.elapsed();
+        // Send progress at 60fps
+        if last_progress.elapsed() >= Duration::from_millis(16) {
+            let _ = update
+                .send(Update::Progress {
+                    id,
+                    elapsed: started_at.elapsed(),
+                    transferred: transferred as u64,
+                })
+                .await;
+            last_progress = Instant::now();
+        }
+    }
 
     let _ = update
         .send(Update::Finished {
             id,
-            elapsed,
+            elapsed: started_at.elapsed(),
             // TODO
             sha256: String::default(),
         })

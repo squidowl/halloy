@@ -58,11 +58,15 @@ pub enum Direction {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
-    // Waiting to get processed by
+    /// Waiting to get processed by
     Pending,
+    /// Waiting for open port or if reverse, for confirmation
     Queued,
+    /// Transfer is actively sending / receiving
     Active { transferred: u64, elapsed: Duration },
+    /// Transfer is complete
     Completed { elapsed: Duration, sha256: String },
+    /// An error occured
     Failed { error: String },
 }
 
