@@ -384,6 +384,67 @@ fn text(
 
             Some(format!(" ∙ topic is {topic}"))
         }
+        Command::Numeric(RPL_ENDOFWHOIS, _) => {
+            // We skip the end message of a WHOIS.
+            None
+        }
+        Command::Numeric(RPL_WHOISIDLE, params) => {
+            let nick = params.get(1)?;
+            let idle = params.get(2)?.parse::<u64>().ok()?;
+            let sign_on = params.get(3)?.parse::<u64>().ok()?;
+
+            let sign_on = Posix::from_seconds(sign_on);
+            let sign_on_datetime = sign_on.datetime()?.to_string();
+
+            let mut formatter = timeago::Formatter::new();
+            // Remove "ago" from relative time.
+            formatter.ago("");
+
+            let duration = std::time::Duration::from_secs(idle);
+            let idle_readable = formatter.convert(duration);
+
+            Some(format!(" ∙ {nick} signed on at {sign_on_datetime} and has been idle for {idle_readable}"))
+        }
+        Command::Numeric(RPL_WHOISSERVER, params) => {
+            let nick = params.get(1)?;
+            let server = params.get(2)?;
+            let region = params.get(3)?;
+
+            Some(format!(" ∙ {nick} is connected on {server} ({region})"))
+        }
+        Command::Numeric(RPL_WHOISUSER, params) => {
+            let nick = params.get(1)?;
+            let userhost = format!("{}@{}", params.get(2)?, params.get(3)?);
+            let real_name = params.get(5)?;
+
+            Some(format!(" ∙ {nick} has userhost {userhost} and real name '{real_name}'"))
+        }
+        Command::Numeric(RPL_WHOISCHANNELS, params) => {
+            let nick = params.get(1)?;
+            let channels = params.get(2)?;
+
+            Some(format!(" ∙ {nick} is in {channels}"))
+        }
+        Command::Numeric(RPL_WHOISACTUALLY, params) => {
+            let nick = params.get(1)?;
+            let ip = params.get(2)?;
+            let status_text = params.get(3)?;
+
+            Some(format!(" ∙ {nick} {status_text} {ip}"))
+        }
+        Command::Numeric(RPL_WHOISSECURE, params) => {
+            let nick = params.get(1)?;
+            let status_text = params.get(2)?;
+
+            Some(format!(" ∙ {nick} {status_text}"))
+        }
+        Command::Numeric(RPL_WHOISACCOUNT, params) => {
+            let nick = params.get(1)?;
+            let account = params.get(2)?;
+            let status_text = params.get(3)?;
+
+            Some(format!(" ∙ {nick} {status_text} {account}"))
+        }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
             let nick = params.get(2)?;
             let datetime = params
