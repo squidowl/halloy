@@ -25,6 +25,7 @@ thiserror = "1.0.30"
 tokio = { version = "1.0", features = ["io-util"] }
 tokio-stream = { version = "0.1", features = ["time"] }
 itertools = "0.12.1"
+timeago = "0.4.2"
 
 [dependencies.irc]
 path = "../irc"
