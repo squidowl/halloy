@@ -178,7 +178,17 @@ impl Manager {
             }
             task::Update::Failed(id, error) => {
                 if let Some(item) = self.0.get_mut(&id) {
-                    item.file_transfer_mut().status = Status::Failed { error };
+                    let file_transfer = item.file_transfer_mut();
+                    log::error!(
+                        "File transfer failed {} {} for {:?}: {error}",
+                        match file_transfer.direction {
+                            Direction::Sent => "to",
+                            Direction::Received => "from",
+                        },
+                        &file_transfer.remote_user,
+                        &file_transfer.filename,
+                    );
+                    file_transfer.status = Status::Failed { error };
                 }
             }
         }
