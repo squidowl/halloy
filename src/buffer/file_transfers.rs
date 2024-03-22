@@ -107,9 +107,8 @@ mod transfer_row {
             file_transfer::Status::Completed { elapsed, sha256 } => {
                 text("TODO").style(theme::text::transparent)
             }
-            // file_transfer::Status::Failed { error } => text(error).style(theme::text::error),
             file_transfer::Status::Failed { error } => {
-                text("Queued").style(theme::text::transparent)
+                text(format!("Failed: {error}")).style(theme::text::transparent)
             }
         });
 
@@ -184,7 +183,7 @@ mod transfer_row {
     }
 }
 
-fn transfer_row_button<'a>(icon: Text<'a>, message: Message) -> Element<'a, Message> {
+fn transfer_row_button(icon: Text, message: Message) -> Element<Message> {
     button(
         container(icon)
             .width(Length::Fill)
