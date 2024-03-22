@@ -33,6 +33,16 @@ pub struct FileTransfer {
     pub status: Status,
 }
 
+impl FileTransfer {
+    pub fn progress(&self) -> f64 {
+        match self.status {
+            Status::Pending | Status::Queued | Status::Failed { .. } => 0.0,
+            Status::Active { transferred, .. } => transferred as f64 / self.size as f64,
+            Status::Completed { .. } => 1.0,
+        }
+    }
+}
+
 impl PartialOrd for FileTransfer {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))

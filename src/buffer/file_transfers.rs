@@ -113,15 +113,7 @@ mod transfer_row {
             }
         });
 
-        let progress = match &transfer.status {
-            file_transfer::Status::Active { .. } => 22.0, // TODO
-            file_transfer::Status::Completed { .. } => 100.0,
-            file_transfer::Status::Pending
-            | file_transfer::Status::Queued
-            | file_transfer::Status::Failed { .. } => 0.0,
-        };
-
-        let progress_bar = container(progress_bar(0.0..=100.0, progress))
+        let progress_bar = container(progress_bar(0.0..=1.0, transfer.progress() as f32))
             .padding([4, 0])
             .height(11);
 
