@@ -5,7 +5,7 @@ use futures::{stream::BoxStream, StreamExt};
 use itertools::Itertools;
 use rand::Rng;
 
-use super::{task, Direction, FileTransfer, Id, ReceiveRequest, Status, Task};
+use super::{task, Direction, FileTransfer, Id, ReceiveRequest, SendRequest, Status, Task};
 use crate::dcc;
 
 enum Item {
@@ -50,6 +50,53 @@ impl Manager {
                 return id;
             }
         }
+    }
+
+    pub fn send(&mut self, request: SendRequest) -> Option<Event> {
+        let SendRequest {
+            to,
+            path,
+            server,
+            server_handle,
+        } = request;
+
+        let filename = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default()
+            .replace(' ', "_");
+
+        log::debug!("File transfer send request to {to} for {filename:?}");
+
+        let id = self.get_random_id();
+
+        // Otherwise this must be a new request
+        let file_transfer = FileTransfer {
+            id,
+            server,
+            created_at: Utc::now(),
+            direction: Direction::Sent,
+            remote_user: to.clone(),
+            // TODO: Do we want to support this?
+            secure: false,
+            filename: filename.clone(),
+            // Will be updated by task
+            size: 0,
+            status: Status::Pending,
+        };
+
+        let task = Task::send(id, path, filename, to, server_handle);
+        let (handle, stream) = task.spawn();
+
+        self.0.insert(
+            id,
+            Item::Working {
+                file_transfer,
+                task: handle,
+            },
+        );
+
+        Some(Event::RunTask(stream.boxed()))
     }
 
     pub fn receive(&mut self, request: ReceiveRequest) -> Option<Event> {

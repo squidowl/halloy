@@ -11,6 +11,7 @@ enum Entry {
     Query,
     ToggleAccessLevelOp,
     ToggleAccessLevelVoice,
+    SendFile,
 }
 
 impl Entry {
@@ -23,12 +24,13 @@ impl Entry {
                         Entry::Query,
                         Entry::ToggleAccessLevelOp,
                         Entry::ToggleAccessLevelVoice,
+                        Entry::SendFile,
                     ]
                 } else {
-                    vec![Entry::Whois, Entry::Query]
+                    vec![Entry::Whois, Entry::Query, Entry::SendFile]
                 }
             }
-            Buffer::Server(_) | Buffer::Query(_, _) => vec![Entry::Whois],
+            Buffer::Server(_) | Buffer::Query(_, _) => vec![Entry::Whois, Entry::SendFile],
         }
     }
 }
@@ -39,6 +41,7 @@ pub enum Message {
     Query(Nick),
     SingleClick(Nick),
     ToggleAccessLevel(Nick, String),
+    SendFile(Nick),
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +50,7 @@ pub enum Event {
     OpenQuery(Nick),
     SingleClick(Nick),
     ToggleAccessLevel(Nick, String),
+    SendFile(Nick),
 }
 
 pub fn update(message: Message) -> Event {
@@ -55,6 +59,7 @@ pub fn update(message: Message) -> Event {
         Message::Query(nick) => Event::OpenQuery(nick),
         Message::SingleClick(nick) => Event::SingleClick(nick),
         Message::ToggleAccessLevel(nick, mode) => Event::ToggleAccessLevel(nick, mode),
+        Message::SendFile(nick) => Event::SendFile(nick),
     }
 }
 
@@ -103,6 +108,7 @@ pub fn view<'a>(
                     )
                 }
             }
+            Entry::SendFile => ("Send File", Message::SendFile(nickname)),
         };
 
         button(text(content).style(theme::text::primary))
