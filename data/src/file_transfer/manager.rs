@@ -75,12 +75,21 @@ impl Manager {
                 }) = self.0.get_mut(&id)
                 {
                     if file_transfer.filename == *filename {
+                        log::debug!(
+                            "File transfer received reverse confirmation from {from} for {:?}",
+                            filename,
+                        );
                         task.confirm_reverse(*host, *port);
                         return None;
                     }
                 }
             }
         }
+
+        log::debug!(
+            "File transfer request received from {from} for {:?}",
+            dcc_send.filename()
+        );
 
         let id = self.get_random_id();
 
@@ -89,14 +98,14 @@ impl Manager {
             server,
             created_at: Utc::now(),
             direction: Direction::Received,
-            remote_user: from,
+            remote_user: from.clone(),
             secure: dcc_send.secure(),
             filename: dcc_send.filename().to_string(),
             size: dcc_send.size(),
             status: Status::Pending,
         };
 
-        let task = Task::receive(id, dcc_send, server_handle);
+        let task = Task::receive(id, dcc_send, from, server_handle);
         let (mut handle, stream) = task.spawn();
 
         // TODO:
@@ -170,6 +179,7 @@ impl Manager {
                 }
             }
             task::Update::Failed(id, error) => {
+                dbg!((&id, &error));
                 if let Some(item) = self.0.get_mut(&id) {
                     item.file_transfer_mut().status = Status::Failed { error };
                 }
