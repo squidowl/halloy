@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use data::environment::RELEASE_WEBSITE;
 use std::time::{Duration, Instant};
 
+use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
 use data::{client, environment, history, server, Config, Server, User, Version};
@@ -540,6 +541,7 @@ impl Dashboard {
     pub fn view<'a>(
         &'a self,
         clients: &'a client::Map,
+        file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
         config: &'a Config,
     ) -> Element<'a, Message> {
@@ -554,6 +556,7 @@ impl Dashboard {
                 is_focused,
                 maximized,
                 clients,
+                &file_transfers,
                 &self.history,
                 config,
             )
