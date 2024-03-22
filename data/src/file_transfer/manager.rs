@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, VecDeque},
+    num::NonZeroU16,
+    path::PathBuf,
+};
 
 use chrono::Utc;
 use futures::{stream::BoxStream, StreamExt};
@@ -37,7 +41,12 @@ pub enum Event {
 }
 
 #[derive(Default)]
-pub struct Manager(HashMap<Id, Item>);
+pub struct Manager {
+    items: HashMap<Id, Item>,
+    /// Queued = waiting for port assignment
+    queued: VecDeque<Id>,
+    used_ports: HashMap<Id, NonZeroU16>,
+}
 
 impl Manager {
     fn get_random_id(&self) -> Id {
@@ -46,7 +55,7 @@ impl Manager {
         loop {
             let id = Id(rng.gen());
 
-            if !self.0.contains_key(&id) {
+            if !self.items.contains_key(&id) {
                 return id;
             }
         }
@@ -83,13 +92,18 @@ impl Manager {
             filename: filename.clone(),
             // Will be updated by task
             size: 0,
-            status: Status::Pending,
+            status: if reverse {
+                Status::PendingReverseConfirmation
+            } else {
+                // Task will trigger queued update
+                Status::Queued
+            },
         };
 
         let task = Task::send(id, path, filename, to, reverse, server_handle);
         let (handle, stream) = task.spawn();
 
-        self.0.insert(
+        self.items.insert(
             id,
             Item::Working {
                 file_transfer,
@@ -120,7 +134,7 @@ impl Manager {
                 if let Some(Item::Working {
                     file_transfer,
                     task,
-                }) = self.0.get_mut(&id)
+                }) = self.items.get_mut(&id)
                 {
                     if file_transfer.filename == *filename {
                         log::debug!(
@@ -151,13 +165,13 @@ impl Manager {
             secure: dcc_send.secure(),
             filename: dcc_send.filename().to_string(),
             size: dcc_send.size(),
-            status: Status::Pending,
+            status: Status::PendingApproval,
         };
 
         let task = Task::receive(id, dcc_send, from, server_handle);
         let (handle, stream) = task.spawn();
 
-        self.0.insert(
+        self.items.insert(
             id,
             Item::Working {
                 file_transfer,
@@ -171,8 +185,32 @@ impl Manager {
     pub fn update(&mut self, update: task::Update) {
         match update {
             task::Update::Metadata(id, size) => {
-                if let Some(item) = self.0.get_mut(&id) {
+                if let Some(item) = self.items.get_mut(&id) {
                     item.file_transfer_mut().size = size;
+                }
+            }
+            task::Update::Queued(id) => {
+                let available_port = self.get_available_port();
+
+                if let Some(Item::Working {
+                    file_transfer,
+                    task,
+                }) = self.items.get_mut(&id)
+                {
+                    if let Some(port) = available_port {
+                        task.port_available(port);
+                        self.used_ports.insert(id, port);
+                    } else {
+                        // If port is not available, queue the item so it
+                        // can be assigned the next available port
+                        file_transfer.status = Status::Queued;
+                        self.queued.push_back(id);
+                    }
+                }
+            }
+            task::Update::Ready(id) => {
+                if let Some(item) = self.items.get_mut(&id) {
+                    item.file_transfer_mut().status = Status::Ready;
                 }
             }
             task::Update::Progress {
@@ -180,7 +218,7 @@ impl Manager {
                 transferred,
                 elapsed,
             } => {
-                if let Some(item) = self.0.get_mut(&id) {
+                if let Some(item) = self.items.get_mut(&id) {
                     let file_transfer = item.file_transfer_mut();
                     log::trace!(
                         "File transfer progress {} {} for {:?}: {:>4.1}%",
@@ -203,7 +241,7 @@ impl Manager {
                 elapsed,
                 sha256,
             } => {
-                if let Some(Item::Working { file_transfer, .. }) = self.0.remove(&id) {
+                if let Some(Item::Working { file_transfer, .. }) = self.items.remove(&id) {
                     log::debug!(
                         "File transfer completed {} {} for {:?} in {:.2}s",
                         match file_transfer.direction {
@@ -215,17 +253,19 @@ impl Manager {
                         elapsed.as_secs_f32()
                     );
 
-                    self.0.insert(
+                    self.items.insert(
                         id,
                         Item::Finished(FileTransfer {
                             status: Status::Completed { elapsed, sha256 },
                             ..file_transfer
                         }),
                     );
+
+                    self.recycle_port(id);
                 }
             }
             task::Update::Failed(id, error) => {
-                if let Some(item) = self.0.get_mut(&id) {
+                if let Some(item) = self.items.get_mut(&id) {
                     let file_transfer = item.file_transfer_mut();
                     log::error!(
                         "File transfer failed {} {} for {:?}: {error}",
@@ -237,22 +277,51 @@ impl Manager {
                         &file_transfer.filename,
                     );
                     file_transfer.status = Status::Failed { error };
+
+                    self.recycle_port(id);
                 }
             }
         }
     }
 
+    fn get_available_port(&self) -> Option<NonZeroU16> {
+        // TODO: Add config for port range
+        let port = NonZeroU16::new(9090).unwrap();
+
+        if !self.used_ports.values().any(|used| *used == port) {
+            Some(port)
+        } else {
+            None
+        }
+    }
+
+    fn recycle_port(&mut self, id: Id) {
+        if let Some(port) = self.used_ports.remove(&id) {
+            if let Some(Item::Working {
+                task,
+                file_transfer,
+            }) = self
+                .queued
+                .pop_front()
+                .and_then(|id| self.items.get_mut(&id))
+            {
+                task.port_available(port);
+                self.used_ports.insert(file_transfer.id, port);
+            }
+        }
+    }
+
     pub fn approve(&mut self, id: &Id, save_to: PathBuf) {
-        if let Some(Item::Working { task, .. }) = self.0.get_mut(id) {
+        if let Some(Item::Working { task, .. }) = self.items.get_mut(id) {
             task.approve(save_to);
         }
     }
 
     pub fn get<'a>(&'a self, id: &Id) -> Option<&'a FileTransfer> {
-        self.0.get(id).map(Item::file_transfer)
+        self.items.get(id).map(Item::file_transfer)
     }
 
     pub fn list(&self) -> impl Iterator<Item = &'_ FileTransfer> {
-        self.0.values().map(Item::file_transfer).sorted()
+        self.items.values().map(Item::file_transfer).sorted()
     }
 }

@@ -98,8 +98,12 @@ mod transfer_row {
 
     pub fn view<'a>(transfer: &FileTransfer, idx: usize) -> Element<'a, Message> {
         let status = container(match &transfer.status {
-            file_transfer::Status::Pending => text("Pending").style(theme::text::transparent),
+            file_transfer::Status::PendingApproval
+            | file_transfer::Status::PendingReverseConfirmation => {
+                text("Pending").style(theme::text::transparent)
+            }
             file_transfer::Status::Queued => text("Queued").style(theme::text::transparent),
+            file_transfer::Status::Ready => text("Ready").style(theme::text::transparent),
             file_transfer::Status::Active {
                 transferred,
                 elapsed,
@@ -154,13 +158,18 @@ mod transfer_row {
         let content = column![filename, status, progress_bar].spacing(0);
 
         match &transfer.status {
-            file_transfer::Status::Pending => {
+            file_transfer::Status::PendingApproval => {
+                // TODO: Reject button
                 buttons = buttons.push(transfer_row_button(
                     icon::download(),
                     Message::Approve(transfer.id),
                 ));
             }
-            file_transfer::Status::Queued => {}
+            file_transfer::Status::PendingReverseConfirmation
+            | file_transfer::Status::Queued
+            | file_transfer::Status::Ready => {
+                // TODO: Cancel button
+            }
             file_transfer::Status::Active { .. } | file_transfer::Status::Completed { .. } => {
                 buttons = buttons.push(transfer_row_button(icon::folder(), Message::OpenDirectory));
                 buttons = buttons.push(transfer_row_button(icon::close(), Message::Clear));

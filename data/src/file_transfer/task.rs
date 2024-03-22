@@ -41,6 +41,10 @@ impl Handle {
             .sender
             .try_send(Action::ReverseConfirmed { host, port });
     }
+
+    pub fn port_available(&mut self, port: NonZeroU16) {
+        let _ = self.sender.try_send(Action::PortAvailable { port });
+    }
 }
 
 impl Drop for Handle {
@@ -166,11 +170,14 @@ impl Task {
 pub enum Action {
     Approve { save_to: PathBuf },
     ReverseConfirmed { host: IpAddr, port: NonZeroU16 },
+    PortAvailable { port: NonZeroU16 },
 }
 
 #[derive(Debug)]
 pub enum Update {
     Metadata(Id, u64),
+    Queued(Id),
+    Ready(Id),
     Progress {
         id: Id,
         transferred: u64,
@@ -208,7 +215,12 @@ async fn receive(
         } => {
             // TODO: We need to configure these
             let host = IpAddr::V4([127, 0, 0, 1].into());
-            let port = NonZeroU16::new(9090).unwrap();
+
+            let _ = update.send(Update::Queued(id)).await;
+
+            let Some(Action::PortAvailable { port }) = action.next().await else {
+                unreachable!();
+            };
 
             let _ = server_handle
                 .send(
@@ -229,6 +241,8 @@ async fn receive(
     };
 
     let started_at = Instant::now();
+
+    let _ = update.send(Update::Ready(id)).await;
 
     let mut connection = if reverse {
         Connection::listen_and_accept(
@@ -310,6 +324,7 @@ async fn send(
     let _ = update.send(Update::Metadata(id, size)).await;
 
     let mut connection = if reverse {
+        // Host doesn't matter for reverse connection
         let host = IpAddr::V4([127, 0, 0, 1].into());
         let token = u16::from(id).to_string();
 
@@ -328,8 +343,10 @@ async fn send(
             .await;
 
         let Some(Action::ReverseConfirmed { host, port }) = action.next().await else {
-            unreachable!("only action for send");
+            unreachable!();
         };
+
+        let _ = update.send(Update::Ready(id)).await;
 
         Connection::new(
             connection::Config {
@@ -343,7 +360,12 @@ async fn send(
     } else {
         // TODO: We need to configure these
         let host = IpAddr::V4([127, 0, 0, 1].into());
-        let port = NonZeroU16::new(9090).unwrap();
+
+        let _ = update.send(Update::Queued(id)).await;
+
+        let Some(Action::PortAvailable { port }) = action.next().await else {
+            unreachable!();
+        };
 
         let _ = server_handle
             .send(
@@ -357,6 +379,8 @@ async fn send(
                 .encode(remote_user),
             )
             .await;
+
+        let _ = update.send(Update::Ready(id)).await;
 
         Connection::listen_and_accept(
             host,
