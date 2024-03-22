@@ -82,6 +82,7 @@ impl Dashboard {
         message: Message,
         clients: &mut client::Map,
         servers: &mut server::Map,
+        file_transfers: &mut file_transfer::Manager,
         theme: &mut Theme,
         version: &Version,
         config: &Config,
@@ -111,7 +112,8 @@ impl Dashboard {
                 pane::Message::Buffer(id, message) => {
                     if let Some(pane) = self.panes.get_mut(id) {
                         let (command, event) =
-                            pane.buffer.update(message, clients, &mut self.history);
+                            pane.buffer
+                                .update(message, clients, &mut self.history, file_transfers);
 
                         if let Some(buffer::Event::UserContext(event)) = event {
                             match event {
@@ -320,7 +322,7 @@ impl Dashboard {
                             config,
                             theme,
                         );
-                    },
+                    }
                 }
             }
             Message::SelectedText(contents) => {
@@ -563,7 +565,7 @@ impl Dashboard {
                 is_focused,
                 maximized,
                 clients,
-                &file_transfers,
+                file_transfers,
                 &self.history,
                 config,
             )

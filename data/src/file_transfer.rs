@@ -22,6 +22,7 @@ impl From<u32> for Id {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileTransfer {
+    pub id: Id,
     pub server: Server,
     pub created_at: DateTime<Utc>,
     pub direction: Direction,

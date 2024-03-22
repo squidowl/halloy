@@ -60,6 +60,7 @@ impl Buffer {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
+        file_transfers: &mut file_transfer::Manager,
     ) -> (Command<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
@@ -84,6 +85,11 @@ impl Buffer {
                 });
 
                 (command.map(Message::Query), event)
+            }
+            (Buffer::FileTransfers(state), Message::FileTransfers(message)) => {
+                let command = state.update(message, file_transfers);
+
+                (command.map(Message::FileTransfers), None)
             }
             _ => (Command::none(), None),
         }
@@ -115,7 +121,9 @@ impl Buffer {
             Buffer::Query(state) => {
                 query::view(state, clients, history, config, is_focused).map(Message::Query)
             }
-            Buffer::FileTransfers(state) => file_transfers::view(state, file_transfers).map(Message::FileTransfers),
+            Buffer::FileTransfers(state) => {
+                file_transfers::view(state, file_transfers).map(Message::FileTransfers)
+            }
         }
     }
 
