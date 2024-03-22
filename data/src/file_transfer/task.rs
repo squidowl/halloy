@@ -17,7 +17,7 @@ use tokio::{fs::File, io::AsyncWriteExt, task::JoinHandle};
 use tokio_stream::StreamExt;
 
 use super::Id;
-use crate::{dcc, server};
+use crate::{dcc, server, user::Nick};
 
 pub struct Handle {
     sender: Sender<Action>,
@@ -47,14 +47,21 @@ pub enum Task {
         id: Id,
         dcc_send: dcc::Send,
         server_handle: server::Handle,
+        remote_user: Nick,
     },
 }
 
 impl Task {
-    pub fn receive(id: Id, dcc_send: dcc::Send, server_handle: server::Handle) -> Self {
+    pub fn receive(
+        id: Id,
+        dcc_send: dcc::Send,
+        remote_user: Nick,
+        server_handle: server::Handle,
+    ) -> Self {
         Self::Receive {
             id,
             dcc_send,
+            remote_user,
             server_handle,
         }
     }
@@ -70,10 +77,18 @@ impl Task {
                 Task::Receive {
                     id,
                     dcc_send,
+                    remote_user,
                     server_handle,
                 } => {
-                    if let Err(error) =
-                        receive(id, dcc_send, server_handle, action_receiver, update_sender).await
+                    if let Err(error) = receive(
+                        id,
+                        dcc_send,
+                        remote_user,
+                        server_handle,
+                        action_receiver,
+                        update_sender,
+                    )
+                    .await
                     {
                         let _ = update.send(Update::Failed(id, error.to_string())).await;
                     }
@@ -115,7 +130,8 @@ pub enum Update {
 async fn receive(
     id: Id,
     dcc_send: dcc::Send,
-    _server_handle: server::Handle,
+    remote_user: Nick,
+    mut server_handle: server::Handle,
     mut action: Receiver<Action>,
     mut update: Sender<Update>,
 ) -> Result<(), Error> {
@@ -124,24 +140,60 @@ async fn receive(
         return Ok(());
     };
 
-    // TODO: Handle reverse side (send reverse message to remote user
-    // and wait for confirmation w/ host / port info)
-    let dcc::Send::Direct { host, port, .. } = dcc_send else {
-        return Ok(());
+    let (host, port, reverse) = match dcc_send {
+        dcc::Send::Direct { host, port, .. } => (host, port, false),
+        dcc::Send::Reverse {
+            secure,
+            filename,
+            size,
+            token,
+            ..
+        } => {
+            // TODO: We need to configure these
+            let host = IpAddr::V4([127, 0, 0, 1].into());
+            let port = NonZeroU16::new(9090).unwrap();
+
+            let _ = server_handle
+                .send(
+                    dcc::Send::Reverse {
+                        secure,
+                        filename,
+                        host,
+                        port: Some(port),
+                        size,
+                        token,
+                    }
+                    .encode(remote_user),
+                )
+                .await;
+
+            (host, port, true)
+        }
     };
 
     let started_at = Instant::now();
 
-    let mut connection = Connection::new(
-        connection::Config {
-            server: &host.to_string(),
-            port: port.get(),
-            // TODO: TLS?
-            security: connection::Security::Unsecured,
-        },
-        BytesCodec::new(),
-    )
-    .await?;
+    let mut connection = if reverse {
+        Connection::listen_and_accept(
+            host,
+            port.get(),
+            // TODO: SSL
+            connection::Security::Unsecured,
+            BytesCodec::new(),
+        )
+        .await?
+    } else {
+        Connection::new(
+            connection::Config {
+                server: &host.to_string(),
+                port: port.get(),
+                // TODO: TLS?
+                security: connection::Security::Unsecured,
+            },
+            BytesCodec::new(),
+        )
+        .await?
+    };
 
     let mut file = File::create(&save_to).await?;
 

@@ -1,9 +1,10 @@
 use std::io;
+use std::net::IpAddr;
 use std::path::PathBuf;
 
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use tokio::fs;
-use tokio::net::TcpStream;
+use tokio::net::{TcpListener, TcpStream};
 use tokio_native_tls::native_tls::{Certificate, Identity};
 use tokio_native_tls::{native_tls, TlsConnector, TlsStream};
 use tokio_util::codec::{self, Framed};
@@ -65,6 +66,26 @@ impl<Codec> Connection<Codec> {
             Ok(Self::Tls(Framed::new(tls, codec)))
         } else {
             Ok(Self::Unsecured(Framed::new(tcp, codec)))
+        }
+    }
+
+    /// Binds a listener and returns a single connection
+    /// once accepted. Useful for DCC flow.
+    pub async fn listen_and_accept(
+        address: IpAddr,
+        port: u16,
+        security: Security<'_>,
+        codec: Codec,
+    ) -> Result<Self, Error> {
+        let listener = TcpListener::bind((address, port)).await?;
+
+        let (tcp, _remote) = listener.accept().await?;
+
+        match security {
+            Security::Unsecured => Ok(Self::Unsecured(Framed::new(tcp, codec))),
+            Security::Secured { .. } => {
+                todo!();
+            }
         }
     }
 }

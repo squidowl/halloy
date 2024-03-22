@@ -31,6 +31,8 @@ pub enum Send {
     Reverse {
         secure: bool,
         filename: String,
+        host: IpAddr,
+        port: Option<NonZeroU16>,
         size: u64,
         token: String,
     },
@@ -40,7 +42,6 @@ pub enum Send {
         host: IpAddr,
         port: NonZeroU16,
         size: u64,
-        token: Option<String>,
     },
 }
 
@@ -69,38 +70,34 @@ impl Send {
     pub fn token(&self) -> Option<&str> {
         match self {
             Send::Reverse { token, .. } => Some(token),
-            Send::Direct { token, .. } => token.as_deref(),
+            Send::Direct { .. } => None,
         }
     }
 
     fn decode<'a>(secure: bool, mut args: impl Iterator<Item = &'a str>) -> Option<Self> {
         let filename = args.next()?.to_string();
-        let port_or_host = args.next()?;
+        let host = args.next().and_then(decode_host)?;
+        let port = NonZeroU16::new(args.next()?.parse().ok()?);
+        let size = args.next()?.parse().ok()?;
+        let token = args.next();
 
-        if port_or_host == "0" {
-            let size = args.next()?.parse().ok()?;
-            let token = args.next()?.to_string();
-
-            Some(Self::Reverse {
-                secure,
-                filename,
-                size,
-                token,
-            })
-        } else {
-            let host = decode_host(port_or_host)?;
-            let port = args.next().and_then(decode_port)?;
-            let size = args.next()?.parse().ok()?;
-            let token = args.next().map(String::from);
-
-            Some(Self::Direct {
+        match (port, token) {
+            (_, Some(token)) => Some(Self::Reverse {
                 secure,
                 filename,
                 host,
                 port,
                 size,
-                token,
-            })
+                token: token.to_string(),
+            }),
+            (Some(port), None) => Some(Self::Direct {
+                secure,
+                filename,
+                host,
+                port,
+                size,
+            }),
+            _ => None,
         }
     }
 
@@ -109,15 +106,19 @@ impl Send {
             Self::Reverse {
                 secure,
                 filename,
-                token,
+                host,
+                port,
                 size,
+                token,
             } => {
                 let kind = if secure { "SSEND" } else { "SEND" };
+                let host = encode_host(host);
+                let port = port.map(NonZeroU16::get).unwrap_or(0);
 
                 command!(
                     "PRIVMSG",
                     target.to_string(),
-                    format!("\u{0}DCC {kind} {filename} 0 {size} {token}\u{0}")
+                    format!("\u{1}DCC {kind} {filename} {host} {port} {size} {token}\u{1}")
                 )
             }
             Self::Direct {
@@ -126,19 +127,14 @@ impl Send {
                 host,
                 port,
                 size,
-                token,
             } => {
                 let kind = if secure { "SSEND" } else { "SEND" };
-                let host = match host {
-                    IpAddr::V4(v4) => u32::from(v4).to_string(),
-                    IpAddr::V6(v6) => v6.to_string(),
-                };
-                let token = token.map(|t| format!(" {t}")).unwrap_or_default();
+                let host = encode_host(host);
 
                 command!(
                     "PRIVMSG",
                     target.to_string(),
-                    format!("\u{0}DCC {kind} {filename} {host} {port} {size}{token}\u{0}")
+                    format!("\u{1}DCC {kind} {filename} {host} {port} {size}\u{1}")
                 )
             }
         }
@@ -152,8 +148,11 @@ fn decode_host(host: &str) -> Option<IpAddr> {
     }
 }
 
-fn decode_port(port: &str) -> Option<NonZeroU16> {
-    NonZeroU16::new(port.parse().ok()?)
+fn encode_host(host: IpAddr) -> String {
+    match host {
+        IpAddr::V4(v4) => u32::from(v4).to_string(),
+        IpAddr::V6(v6) => v6.to_string(),
+    }
 }
 
 fn ctcp_payload(content: &str) -> Option<&str> {
