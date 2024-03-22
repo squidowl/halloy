@@ -26,6 +26,8 @@ impl Default for Sidebar {
 pub struct Buttons {
     #[serde(default)]
     pub file_transfer: bool,
+    #[serde(default)]
+    pub command_bar: bool,
 }
 
 fn default_sidebar_width() -> u16 {

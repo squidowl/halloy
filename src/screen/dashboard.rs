@@ -314,6 +314,13 @@ impl Dashboard {
                     sidebar::Event::ToggleFileTransfers => {
                         return self.toggle_file_transfers(config);
                     }
+                    sidebar::Event::ToggleCommandBar => {
+                        return self.toggle_command_bar(
+                            &closed_buffers(self, clients),
+                            config,
+                            theme,
+                        );
+                    },
                 }
             }
             Message::SelectedText(contents) => {

@@ -61,22 +61,12 @@ mod transfer_row {
     use iced::{alignment, Length};
 
     use crate::buffer::file_transfers::transfer_row_button;
+    use crate::theme::TEXT_SIZE;
     use crate::widget::Element;
     use crate::{icon, theme};
 
     pub fn view<'a>(transfer: &FileTransfer, idx: usize) -> Element<'a, Message> {
         println!("{:?}", transfer);
-        let direction_icon = container(match transfer.direction {
-            file_transfer::Direction::Sent => icon::arrow_up(),
-            file_transfer::Direction::Received => icon::arrow_down(),
-        });
-
-        let filename = row![
-            text(transfer.filename.clone()),
-            text(format!("({})", ByteSize::b(transfer.size))).style(theme::text::transparent)
-        ]
-        .spacing(4)
-        .align_items(iced::Alignment::Center);
 
         let status = container(match &transfer.status {
             file_transfer::Status::Pending => text("Pending").style(theme::text::transparent),
@@ -89,13 +79,13 @@ mod transfer_row {
                 text("TODO").style(theme::text::transparent)
             }
             // file_transfer::Status::Failed { error } => text(error).style(theme::text::error),
-            file_transfer::Status::Failed { error } => text("Queued").style(theme::text::transparent),
+            file_transfer::Status::Failed { error } => {
+                text("Queued").style(theme::text::transparent)
+            }
         });
 
         let progress = match &transfer.status {
-            file_transfer::Status::Active {
-                ..
-            } => 22.0, // TODO
+            file_transfer::Status::Active { .. } => 22.0, // TODO
             file_transfer::Status::Completed { .. } => 100.0,
             file_transfer::Status::Pending
             | file_transfer::Status::Queued
@@ -106,11 +96,31 @@ mod transfer_row {
             .padding([4, 0])
             .height(11);
 
-        let filename = container(
-            row![direction_icon, filename]
-                .spacing(4)
-                .align_items(iced::Alignment::Center),
-        );
+        let filename = {
+            let filename = text(transfer.filename.clone());
+            let secure = transfer.secure.then(|| container(icon::secure().size(TEXT_SIZE).style(theme::text::transparent)).padding([1, 0, 0, 0]));
+            let direction = text(format!(
+                "{} {}",
+                match &transfer.direction {
+                    file_transfer::Direction::Sent => "to",
+                    file_transfer::Direction::Received => "from",
+                },
+                transfer.remote_user
+            ))
+            .style(theme::text::transparent);
+            let file_size =
+                text(format!("({})", ByteSize::b(transfer.size))).style(theme::text::transparent);
+
+            container(
+                row![]
+                    .push(filename)
+                    .push(direction)
+                    .push(file_size)
+                    .push_maybe(secure)
+                    .spacing(4)
+                    .align_items(iced::Alignment::Center),
+            )
+        };
 
         let mut buttons = row![].align_items(iced::Alignment::Center).spacing(2);
 
