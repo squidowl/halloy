@@ -142,10 +142,9 @@ impl Sidebar {
         }
 
         if config.buttons.file_transfer {
-            let file_transfers_open = panes.iter().any(|(_, pane)| match pane.buffer {
-                crate::buffer::Buffer::FileTransfers(_) => true,
-                _ => false,
-            });
+            let file_transfers_open = panes
+                .iter()
+                .any(|(_, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
 
             let file_transfers_button = button(
                 container(icon::file_transfer())
