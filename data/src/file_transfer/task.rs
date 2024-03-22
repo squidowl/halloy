@@ -60,8 +60,9 @@ pub enum Task {
         id: Id,
         path: PathBuf,
         sanitized_filename: String,
-        server_handle: server::Handle,
         remote_user: Nick,
+        reverse: bool,
+        server_handle: server::Handle,
     },
 }
 
@@ -85,6 +86,7 @@ impl Task {
         path: PathBuf,
         sanitized_filename: String,
         remote_user: Nick,
+        reverse: bool,
         server_handle: server::Handle,
     ) -> Self {
         Self::Send {
@@ -92,6 +94,7 @@ impl Task {
             path,
             sanitized_filename,
             remote_user,
+            reverse,
             server_handle,
         }
     }
@@ -128,6 +131,7 @@ impl Task {
                     path,
                     sanitized_filename,
                     remote_user,
+                    reverse,
                     server_handle,
                 } => {
                     if let Err(error) = send(
@@ -135,6 +139,8 @@ impl Task {
                         path,
                         sanitized_filename,
                         remote_user,
+                        // TODO: Config
+                        reverse,
                         server_handle,
                         action_receiver,
                         update_sender,
@@ -293,6 +299,7 @@ async fn send(
     path: PathBuf,
     sanitized_filename: String,
     remote_user: Nick,
+    reverse: bool,
     mut server_handle: server::Handle,
     mut action: Receiver<Action>,
     mut update: Sender<Update>,
@@ -302,33 +309,64 @@ async fn send(
 
     let _ = update.send(Update::Metadata(id, size)).await;
 
-    // TODO: We need to configure these
-    let host = IpAddr::V4([127, 0, 0, 1].into());
-    let port = NonZeroU16::new(9090).unwrap();
+    let mut connection = if reverse {
+        let host = IpAddr::V4([127, 0, 0, 1].into());
+        let token = u16::from(id).to_string();
 
-    let _ = server_handle
-        .send(
-            dcc::Send::Direct {
-                secure: false,
-                filename: sanitized_filename,
-                host,
-                port,
-                size,
-            }
-            .encode(remote_user),
+        let _ = server_handle
+            .send(
+                dcc::Send::Reverse {
+                    secure: false,
+                    filename: sanitized_filename,
+                    host,
+                    port: None,
+                    size,
+                    token,
+                }
+                .encode(remote_user),
+            )
+            .await;
+
+        let Some(Action::ReverseConfirmed { host, port }) = action.next().await else {
+            unreachable!("only action for send");
+        };
+
+        Connection::new(
+            connection::Config {
+                server: &host.to_string(),
+                port: port.get(),
+                security: connection::Security::Unsecured,
+            },
+            BytesCodec::new(),
         )
-        .await;
+        .await?
+    } else {
+        // TODO: We need to configure these
+        let host = IpAddr::V4([127, 0, 0, 1].into());
+        let port = NonZeroU16::new(9090).unwrap();
 
-    // TODO: Handle reverse
-    // TODO: Timeout
-    let mut connection = Connection::listen_and_accept(
-        host,
-        port.get(),
-        // TODO: SSL
-        connection::Security::Unsecured,
-        BytesCodec::new(),
-    )
-    .await?;
+        let _ = server_handle
+            .send(
+                dcc::Send::Direct {
+                    secure: false,
+                    filename: sanitized_filename,
+                    host,
+                    port,
+                    size,
+                }
+                .encode(remote_user),
+            )
+            .await;
+
+        Connection::listen_and_accept(
+            host,
+            port.get(),
+            // TODO: SSL
+            connection::Security::Unsecured,
+            BytesCodec::new(),
+        )
+        .await?
+    };
 
     let started_at = Instant::now();
 
