@@ -561,7 +561,12 @@ impl Application for Halloy {
     fn view(&self) -> Element<Message> {
         let content = match &self.screen {
             Screen::Dashboard(dashboard) => dashboard
-                .view(&self.clients, &self.version, &self.config)
+                .view(
+                    &self.clients,
+                    &self.file_transfers,
+                    &self.version,
+                    &self.config,
+                )
                 .map(Message::Dashboard),
             Screen::Help(help) => help.view().map(Message::Help),
             Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),

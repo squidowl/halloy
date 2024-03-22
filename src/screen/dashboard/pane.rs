@@ -1,4 +1,4 @@
-use data::{history, Config};
+use data::{file_transfer, history, Config};
 use iced::widget::{button, container, pane_grid, row, text};
 use iced::Length;
 use uuid::Uuid;
@@ -51,6 +51,7 @@ impl Pane {
         is_focused: bool,
         maximized: bool,
         clients: &'a data::client::Map,
+        file_transfers: &'a file_transfer::Manager,
         history: &'a history::Manager,
         config: &'a Config,
     ) -> widget::Content<'a, Message> {
@@ -88,7 +89,7 @@ impl Pane {
 
         let content = self
             .buffer
-            .view(clients, history, &self.settings, config, is_focused)
+            .view(clients, file_transfers, history, &self.settings, config, is_focused)
             .map(move |msg| Message::Buffer(id, msg));
 
         widget::Content::new(content)

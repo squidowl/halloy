@@ -1,89 +1,32 @@
-use iced::widget::{column, container, scrollable, Scrollable};
+use data::file_transfer;
+use iced::widget::{button, column, container, scrollable, Scrollable};
 use iced::{Command, Length};
 
 use crate::theme;
-use crate::widget::Element;
+use crate::widget::{Element, Text};
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    ApproveIncomingTransfer,
-    RejectIncomingTransfer,
-    ClearFinishedTransfer,
+    ApproveTransfer,
+    RejectTransfer,
+    ClearTransfer,
+    OpenTransferDirectory,
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {}
 
-#[derive(Debug, Clone)]
-struct FileTransferEvent {
-    direction: Direction,
-    filename: String,
-    size: f32,
-}
+pub fn view<'a>(
+    _state: &FileTransfers,
+    file_transfers: &'a file_transfer::Manager,
+) -> Element<'a, Message> {
+    let transfers = file_transfers.list();
 
-#[derive(Debug, Clone)]
-enum Direction {
-    Upload(Status),
-    Download(Status),
-}
-
-impl Direction {
-    pub fn status(&self) -> &Status {
-        match self {
-            Direction::Upload(status) => status,
-            Direction::Download(status) => status,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-enum Status {
-    Waiting,
-    Failed,
-    Process(f32),
-    Success,
-}
-
-pub fn view(_state: &FileTransfers) -> Element<'_, Message> {
-    let transfers = vec![
-        FileTransferEvent {
-            direction: Direction::Download(Status::Waiting),
-            filename: "Ubunutu.zip".to_string(),
-            size: 123221.0,
-        },
-        FileTransferEvent {
-            direction: Direction::Upload(Status::Failed),
-            filename: "Arch.zip".to_string(),
-            size: 423221.0,
-        },
-        FileTransferEvent {
-            direction: Direction::Upload(Status::Process(12.5)),
-            filename: "Solus.zip".to_string(),
-            size: 2123.0,
-        },
-        FileTransferEvent {
-            direction: Direction::Upload(Status::Process(99.0)),
-            filename: "Solus2.zip".to_string(),
-            size: 21232.0,
-        },
-        FileTransferEvent {
-            direction: Direction::Upload(Status::Success),
-            filename: "Solus2.zip".to_string(),
-            size: 21232.0,
-        },
-        FileTransferEvent {
-            direction: Direction::Download(Status::Success),
-            filename: "Solus52.zip".to_string(),
-            size: 1232.0,
-        },
-    ];
-
-    let column = column(transfers.iter().enumerate().map(|(idx, transfer)| {
-        container(transfer_row::view(transfer, idx))
-            .width(Length::Fill)
-            .height(35)
-            .into()
-    }))
+    let column = column(
+        transfers
+            .enumerate()
+            .map(|(idx, transfer)| container(transfer_row::view(transfer, idx)).into()),
+    )
     .spacing(1)
     .padding([0, 2]);
 
@@ -111,195 +54,113 @@ impl FileTransfers {
 }
 
 mod transfer_row {
-    use super::{FileTransferEvent, Message};
-    use iced::widget::{button, container, horizontal_space, row, text};
+    use super::Message;
+    use bytesize::ByteSize;
+    use data::file_transfer::{self, FileTransfer};
+    use iced::widget::{column, container, progress_bar, row, text};
     use iced::{alignment, Length};
 
+    use crate::buffer::file_transfers::transfer_row_button;
     use crate::widget::Element;
     use crate::{icon, theme};
 
-    pub fn view<'a>(transfer: &FileTransferEvent, idx: usize) -> Element<'a, Message> {
-        let status = container(match transfer.direction.status() {
-            super::Status::Waiting => match transfer.direction {
-                super::Direction::Upload(_) => {
-                    container(text("Waiting for them to accept".to_string())
-                        .style(theme::text::transparent))
-                }
-                super::Direction::Download(_) => {
-                    container(text("Waiting to begin".to_string()).style(theme::text::transparent))
-                }
-            },
-            super::Status::Failed => {
-                container(text("Failed".to_string()).style(theme::text::transparent))
-            }
-            super::Status::Process(progress) => container(row![
-                container(text(format!("{progress}%")).style(theme::text::transparent))
-                    .center_x()
-                    .width(30),
-                horizontal_space(),
-                text("-"),
-                horizontal_space(),
-                text("24 MiB/s").style(theme::text::transparent)
-            ]
-            .width(105)
-            .align_items(iced::Alignment::Center)),
-            super::Status::Success => {
-                container(text("Completed".to_string()).style(theme::text::transparent))
-            },
-        })
-        .width(Length::Shrink);
+    pub fn view<'a>(transfer: &FileTransfer, idx: usize) -> Element<'a, Message> {
+        println!("{:?}", transfer);
+        let direction_icon = container(match transfer.direction {
+            file_transfer::Direction::Sent => icon::arrow_up(),
+            file_transfer::Direction::Received => icon::arrow_down(),
+        });
 
-        let mut buttons = row![]
-            .height(Length::Fill)
-            .align_items(iced::Alignment::Center)
-            .spacing(2);
-
-        match transfer.direction.status() {
-            super::Status::Waiting => {
-                let approve_button = button(
-                    container(icon::checkmark())
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .center_x()
-                        .center_y(),
-                )
-                .on_press(Message::ApproveIncomingTransfer)
-                .padding(5)
-                .width(25)
-                .height(25)
-                .style(theme::button::pane);
-
-                let reject_button = button(
-                    container(icon::close())
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .center_x()
-                        .center_y(),
-                )
-                .on_press(Message::RejectIncomingTransfer)
-                .padding(5)
-                .width(25)
-                .height(25)
-                .style(theme::button::pane);
-
-                buttons = buttons.push(approve_button);
-                buttons = buttons.push(reject_button);
-            }
-            super::Status::Failed => {
-                let clear_button = button(
-                    container(icon::trashcan())
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .center_x()
-                        .center_y(),
-                )
-                .on_press(Message::ClearFinishedTransfer)
-                .padding(5)
-                .width(25)
-                .height(25)
-                .style(theme::button::pane);
-
-                buttons = buttons.push(clear_button)
-            }
-            super::Status::Process(_) => {
-                let reject_button = button(
-                    container(icon::close())
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .center_x()
-                        .center_y(),
-                )
-                .on_press(Message::RejectIncomingTransfer)
-                .padding(5)
-                .width(25)
-                .height(25)
-                .style(theme::button::pane);
-
-                buttons = buttons.push(reject_button);
-            },
-            super::Status::Success => {
-
-                match transfer.direction {
-                    super::Direction::Download(_) => {
-                        let folder_button = button(
-                            container(icon::folder())
-                                .width(Length::Fill)
-                                .height(Length::Fill)
-                                .center_x()
-                                .center_y(),
-                        )
-                        .on_press(Message::ClearFinishedTransfer)
-                        .padding(5)
-                        .width(25)
-                        .height(25)
-                        .style(theme::button::pane);
-
-                        buttons = buttons.push(folder_button);
-                    },
-                    _ => {}
-                }
-
-
-                let clear_button = button(
-                    container(icon::trashcan())
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .center_x()
-                        .center_y(),
-                )
-                .on_press(Message::ClearFinishedTransfer)
-                .padding(5)
-                .width(25)
-                .height(25)
-                .style(theme::button::pane);
-
-                buttons = buttons.push(clear_button);
-            },
-        }
-
-        let icon = container(match transfer.direction {
-            super::Direction::Upload(_) => icon::arrow_up(),
-            super::Direction::Download(_) => icon::arrow_down(),
-        })
-        .width(22)
-        .height(22)
-        .center_x()
-        .center_y();
-
-        let left_side = container(
-            row![
-                icon,
-                text(transfer.filename.clone()),
-                text(format!("({:?} mb)", transfer.size)).style(theme::text::transparent)
-            ]
-            .align_items(iced::Alignment::Center)
-            .width(Length::Fill)
-            .spacing(4),
-        );
-
-        let right_side = container(
-            row![
-                status,
-                buttons
-            ]
-            .align_items(iced::Alignment::Center)
-            .spacing(4)
-        );
-
-        let row = row![
-            left_side,
-            right_side
+        let filename = row![
+            text(transfer.filename.clone()),
+            text(format!("({})", ByteSize::b(transfer.size))).style(theme::text::transparent)
         ]
-        .spacing(0)
+        .spacing(4)
         .align_items(iced::Alignment::Center);
 
-        let content = container(row)
+        let status = container(match &transfer.status {
+            file_transfer::Status::Pending => text("Pending").style(theme::text::transparent),
+            file_transfer::Status::Queued => text("Queued").style(theme::text::transparent),
+            file_transfer::Status::Active {
+                transferred,
+                elapsed,
+            } => text("TODO").style(theme::text::transparent),
+            file_transfer::Status::Completed { elapsed, sha256 } => {
+                text("TODO").style(theme::text::transparent)
+            }
+            // file_transfer::Status::Failed { error } => text(error).style(theme::text::error),
+            file_transfer::Status::Failed { error } => text("Queued").style(theme::text::transparent),
+        });
+
+        let progress = match &transfer.status {
+            file_transfer::Status::Active {
+                ..
+            } => 22.0, // TODO
+            file_transfer::Status::Completed { .. } => 100.0,
+            file_transfer::Status::Pending
+            | file_transfer::Status::Queued
+            | file_transfer::Status::Failed { .. } => 0.0,
+        };
+
+        let progress_bar = container(progress_bar(0.0..=100.0, progress))
+            .padding([4, 0])
+            .height(11);
+
+        let filename = container(
+            row![direction_icon, filename]
+                .spacing(4)
+                .align_items(iced::Alignment::Center),
+        );
+
+        let mut buttons = row![].align_items(iced::Alignment::Center).spacing(2);
+
+        let content = column![filename, status, progress_bar].spacing(0);
+
+        match &transfer.status {
+            file_transfer::Status::Pending => {}
+            file_transfer::Status::Queued => {
+                buttons = buttons.push(transfer_row_button(
+                    icon::download(),
+                    Message::ApproveTransfer,
+                ));
+            }
+            file_transfer::Status::Active { .. } | file_transfer::Status::Completed { .. } => {
+                buttons = buttons.push(transfer_row_button(
+                    icon::folder(),
+                    Message::OpenTransferDirectory,
+                ));
+                buttons = buttons.push(transfer_row_button(icon::close(), Message::ClearTransfer));
+            }
+            file_transfer::Status::Failed { .. } => {
+                buttons = buttons.push(transfer_row_button(icon::close(), Message::ClearTransfer));
+            }
+        }
+
+        let row = row![content, buttons]
+            .spacing(6)
+            .align_items(iced::Alignment::Center);
+
+        container(row)
+            .padding(6)
+            .width(Length::Fill)
+            .align_y(alignment::Vertical::Center)
+            .style(move |theme, status| theme::container::table_row(theme, status, idx))
+            .into()
+    }
+}
+
+fn transfer_row_button<'a>(icon: Text<'a>, message: Message) -> Element<'a, Message> {
+    button(
+        container(icon)
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding([0, 4])
-            .align_y(alignment::Vertical::Center)
-            .style(move |theme, status| theme::container::table_row(theme, status, idx));
-
-        return content.into();
-    }
+            .center_x()
+            .center_y(),
+    )
+    .on_press(message)
+    .padding(5)
+    .width(25)
+    .height(25)
+    .style(theme::button::side_menu)
+    .into()
 }

@@ -54,8 +54,8 @@ pub fn arrow_up<'a>() -> Text<'a> {
     to_text('\u{f148}')
 }
 
-pub fn checkmark<'a>() -> Text<'a> {
-    to_text('\u{f272}')
+pub fn download<'a>() -> Text<'a> {
+    to_text('\u{f30a}')
 }
 
 pub fn trashcan<'a>() -> Text<'a> {

@@ -1,6 +1,6 @@
 pub use data::buffer::Settings;
 use data::user::Nick;
-use data::{buffer, history, Config};
+use data::{buffer, file_transfer, history, Config};
 use iced::Command;
 
 use self::channel::Channel;
@@ -92,6 +92,7 @@ impl Buffer {
     pub fn view<'a>(
         &'a self,
         clients: &'a data::client::Map,
+        file_transfers: &'a file_transfer::Manager,
         history: &'a history::Manager,
         settings: &'a buffer::Settings,
         config: &'a Config,
@@ -114,7 +115,7 @@ impl Buffer {
             Buffer::Query(state) => {
                 query::view(state, clients, history, config, is_focused).map(Message::Query)
             }
-            Buffer::FileTransfers(state) => file_transfers::view(state).map(Message::FileTransfers),
+            Buffer::FileTransfers(state) => file_transfers::view(state, file_transfers).map(Message::FileTransfers),
         }
     }
 

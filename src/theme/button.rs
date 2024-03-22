@@ -157,6 +157,7 @@ pub fn bare(_theme: &Theme, status: Status) -> Appearance {
     }
 }
 
+// TODO: This should be renamed to tertiary, and combined with side_menu_selected
 pub fn side_menu(theme: &Theme, status: Status) -> Appearance {
     match status {
         Status::Active | Status::Pressed => Appearance {
