@@ -43,9 +43,9 @@ pub struct FileTransfer {
 impl FileTransfer {
     pub fn progress(&self) -> f64 {
         match self.status {
-            Status::Pending | Status::Queued | Status::Failed { .. } => 0.0,
             Status::Active { transferred, .. } => transferred as f64 / self.size as f64,
             Status::Completed { .. } => 1.0,
+            _ => 0.0,
         }
     }
 }
@@ -76,10 +76,14 @@ pub enum Direction {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
-    /// Waiting to get processed by
-    Pending,
-    /// Waiting for open port or if reverse, for confirmation
+    /// Pending appoval
+    PendingApproval,
+    /// Pending reverse confirmation
+    PendingReverseConfirmation,
+    /// Queued (needs an open port to begin)
     Queued,
+    /// Ready (waiting for remote user to connect)
+    Ready,
     /// Transfer is actively sending / receiving
     Active { transferred: u64, elapsed: Duration },
     /// Transfer is complete
