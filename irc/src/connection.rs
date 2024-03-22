@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use tokio::fs;
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_native_tls::native_tls::{Certificate, Identity};
 use tokio_native_tls::{native_tls, TlsConnector, TlsStream};
@@ -87,6 +88,18 @@ impl<Codec> Connection<Codec> {
                 todo!();
             }
         }
+    }
+
+    pub async fn shutdown(self) -> Result<(), Error> {
+        match self {
+            Connection::Tls(framed) => {
+                framed.into_inner().shutdown().await?;
+            }
+            Connection::Unsecured(framed) => {
+                framed.into_inner().shutdown().await?;
+            }
+        }
+        Ok(())
     }
 }
 

@@ -4,8 +4,10 @@ pub mod sidebar;
 
 use chrono::{DateTime, Utc};
 use data::environment::RELEASE_WEBSITE;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use chrono::{DateTime, Utc};
 use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
@@ -21,6 +23,10 @@ use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
 use crate::widget::{anchored_overlay, selectable_text, shortcut, Element};
 use crate::{event, theme, Theme};
+
+mod command_bar;
+pub mod pane;
+pub mod sidebar;
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
@@ -45,6 +51,8 @@ pub enum Message {
     QuitServer,
     Command(command_bar::Message),
     Shortcut(shortcut::Command),
+    FileTransfer(file_transfer::task::Update),
+    SendFileSelected(Server, Nick, Option<PathBuf>),
 }
 
 impl Dashboard {
@@ -186,6 +194,25 @@ impl Dashboard {
                                             Message::Pane(pane::Message::Buffer(id, message))
                                         },
                                     );
+                                }
+                                buffer::user_context::Event::SendFile(nick) => {
+                                    if let Some(buffer) = pane.buffer.data() {
+                                        let server = buffer.server().clone();
+
+                                        return Command::perform(
+                                            async {
+                                                rfd::AsyncFileDialog::new()
+                                                    // TODO: Config default directory
+                                                    .set_directory("/tmp")
+                                                    .pick_file()
+                                                    .await
+                                                    .map(|handle| handle.path().to_path_buf())
+                                            },
+                                            move |file| {
+                                                Message::SendFileSelected(server, nick, file)
+                                            },
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -539,6 +566,27 @@ impl Dashboard {
                             config,
                             theme,
                         );
+                    }
+                }
+            }
+            Message::FileTransfer(update) => {
+                file_transfers.update(update);
+            }
+            Message::SendFileSelected(server, to, path) => {
+                if let Some(server_handle) = clients.get_server_handle(&server) {
+                    if let Some(path) = path {
+                        if let Some(event) = file_transfers.send(file_transfer::SendRequest {
+                            to,
+                            path,
+                            server,
+                            server_handle: server_handle.clone(),
+                        }) {
+                            match event {
+                                file_transfer::manager::Event::RunTask(task) => {
+                                    return Command::run(task, Message::FileTransfer)
+                                }
+                            }
+                        }
                     }
                 }
             }

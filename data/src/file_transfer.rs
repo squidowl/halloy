@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -85,6 +86,14 @@ pub enum Status {
 pub struct ReceiveRequest {
     pub from: Nick,
     pub dcc_send: dcc::Send,
+    pub server: Server,
+    pub server_handle: server::Handle,
+}
+
+#[derive(Debug)]
+pub struct SendRequest {
+    pub to: Nick,
+    pub path: PathBuf,
     pub server: Server,
     pub server_handle: server::Handle,
 }

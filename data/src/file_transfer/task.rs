@@ -6,18 +6,25 @@ use std::{
     time::{Duration, Instant},
 };
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use futures::{
     channel::mpsc::{self, Receiver, Sender},
     SinkExt, Stream,
 };
 use irc::{connection, BytesCodec, Connection};
 use thiserror::Error;
-use tokio::{fs::File, io::AsyncWriteExt, task::JoinHandle};
+use tokio::{
+    fs::File,
+    io::{AsyncReadExt, AsyncWriteExt},
+    task::JoinHandle,
+};
 use tokio_stream::StreamExt;
 
 use super::Id;
 use crate::{dcc, server, user::Nick};
+
+/// 16 KiB
+pub const BUFFER_SIZE: usize = 16 * 1024;
 
 pub struct Handle {
     sender: Sender<Action>,
@@ -49,6 +56,13 @@ pub enum Task {
         server_handle: server::Handle,
         remote_user: Nick,
     },
+    Send {
+        id: Id,
+        path: PathBuf,
+        sanitized_filename: String,
+        server_handle: server::Handle,
+        remote_user: Nick,
+    },
 }
 
 impl Task {
@@ -61,6 +75,22 @@ impl Task {
         Self::Receive {
             id,
             dcc_send,
+            remote_user,
+            server_handle,
+        }
+    }
+
+    pub fn send(
+        id: Id,
+        path: PathBuf,
+        sanitized_filename: String,
+        remote_user: Nick,
+        server_handle: server::Handle,
+    ) -> Self {
+        Self::Send {
+            id,
+            path,
+            sanitized_filename,
             remote_user,
             server_handle,
         }
@@ -83,6 +113,27 @@ impl Task {
                     if let Err(error) = receive(
                         id,
                         dcc_send,
+                        remote_user,
+                        server_handle,
+                        action_receiver,
+                        update_sender,
+                    )
+                    .await
+                    {
+                        let _ = update.send(Update::Failed(id, error.to_string())).await;
+                    }
+                }
+                Task::Send {
+                    id,
+                    path,
+                    sanitized_filename,
+                    remote_user,
+                    server_handle,
+                } => {
+                    if let Err(error) = send(
+                        id,
+                        path,
+                        sanitized_filename,
                         remote_user,
                         server_handle,
                         action_receiver,
@@ -224,6 +275,92 @@ async fn receive(
             last_progress = Instant::now();
         }
     }
+
+    let _ = update
+        .send(Update::Finished {
+            id,
+            elapsed: started_at.elapsed(),
+            // TODO
+            sha256: String::default(),
+        })
+        .await;
+
+    Ok(())
+}
+
+async fn send(
+    id: Id,
+    path: PathBuf,
+    sanitized_filename: String,
+    remote_user: Nick,
+    mut server_handle: server::Handle,
+    mut action: Receiver<Action>,
+    mut update: Sender<Update>,
+) -> Result<(), Error> {
+    let mut file = File::open(path).await?;
+    let size = file.metadata().await?.len();
+
+    let _ = update.send(Update::Metadata(id, size)).await;
+
+    // TODO: We need to configure these
+    let host = IpAddr::V4([127, 0, 0, 1].into());
+    let port = NonZeroU16::new(9090).unwrap();
+
+    let _ = server_handle
+        .send(
+            dcc::Send::Direct {
+                secure: false,
+                filename: sanitized_filename,
+                host,
+                port,
+                size,
+            }
+            .encode(remote_user),
+        )
+        .await;
+
+    // TODO: Handle reverse
+    // TODO: Timeout
+    let mut connection = Connection::listen_and_accept(
+        host,
+        port.get(),
+        // TODO: SSL
+        connection::Security::Unsecured,
+        BytesCodec::new(),
+    )
+    .await?;
+
+    let started_at = Instant::now();
+
+    let mut buffer = BytesMut::with_capacity(BUFFER_SIZE);
+
+    let mut transferred = 0;
+    let mut last_progress = started_at;
+
+    while transferred < size {
+        let n = file.read_buf(&mut buffer).await?;
+
+        // Write bytes to file
+        connection.send(buffer.split().freeze()).await?;
+
+        transferred += n as u64;
+
+        buffer.reserve(BUFFER_SIZE);
+
+        // Send progress at 60fps
+        if last_progress.elapsed() >= Duration::from_millis(16) {
+            let _ = update
+                .send(Update::Progress {
+                    id,
+                    elapsed: started_at.elapsed(),
+                    transferred,
+                })
+                .await;
+            last_progress = Instant::now();
+        }
+    }
+
+    connection.shutdown().await?;
 
     let _ = update
         .send(Update::Finished {

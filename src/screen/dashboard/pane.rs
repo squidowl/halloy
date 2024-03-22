@@ -89,7 +89,14 @@ impl Pane {
 
         let content = self
             .buffer
-            .view(clients, file_transfers, history, &self.settings, config, is_focused)
+            .view(
+                clients,
+                file_transfers,
+                history,
+                &self.settings,
+                config,
+                is_focused,
+            )
             .map(move |msg| Message::Buffer(id, msg));
 
         widget::Content::new(content)

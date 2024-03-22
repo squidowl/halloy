@@ -914,6 +914,10 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_server_handle(&self, server: &Server) -> Option<&server::Handle> {
+        self.client(server).map(|client| &client.handle)
+    }
+
     pub fn connected_servers(&self) -> impl Iterator<Item = &Server> {
         self.0.iter().filter_map(|(server, state)| {
             if let State::Ready(_) = state {
