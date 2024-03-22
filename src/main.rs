@@ -224,6 +224,7 @@ impl Application for Halloy {
                     message,
                     &mut self.clients,
                     &mut self.servers,
+                    &mut self.file_transfers,
                     &mut self.theme,
                     &self.version,
                     &self.config,

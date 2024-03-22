@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use data::file_transfer;
 use iced::widget::{button, column, container, scrollable, Scrollable};
 use iced::{Command, Length};
@@ -7,14 +9,12 @@ use crate::widget::{Element, Text};
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    ApproveTransfer,
-    RejectTransfer,
-    ClearTransfer,
-    OpenTransferDirectory,
+    Approve(file_transfer::Id),
+    SavePathSelected(file_transfer::Id, Option<PathBuf>),
+    Reject(file_transfer::Id),
+    Clear,
+    OpenDirectory,
 }
-
-#[derive(Debug, Clone)]
-pub enum Event {}
 
 pub fn view<'a>(
     _state: &FileTransfers,
@@ -48,8 +48,39 @@ impl FileTransfers {
         FileTransfers
     }
 
-    pub fn update(&mut self, _message: Message) -> (Command<Message>, Option<Event>) {
-        (Command::none(), None)
+    pub fn update(
+        &mut self,
+        message: Message,
+        file_transfers: &mut file_transfer::Manager,
+    ) -> Command<Message> {
+        match message {
+            Message::Approve(id) => {
+                if let Some(transfer) = file_transfers.get(&id).cloned() {
+                    return Command::perform(
+                        async move {
+                            // TODO: Config default save directory
+                            rfd::AsyncFileDialog::new()
+                                .set_directory("/tmp/")
+                                .set_file_name(transfer.filename)
+                                .save_file()
+                                .await
+                                .map(|handle| handle.path().to_path_buf())
+                        },
+                        move |path| Message::SavePathSelected(id, path),
+                    );
+                }
+            }
+            Message::SavePathSelected(id, path) => {
+                if let Some(path) = path {
+                    file_transfers.approve(&id, path);
+                }
+            }
+            Message::Reject(_) => {}
+            Message::Clear => {}
+            Message::OpenDirectory => {}
+        }
+
+        Command::none()
     }
 }
 
@@ -66,8 +97,6 @@ mod transfer_row {
     use crate::{icon, theme};
 
     pub fn view<'a>(transfer: &FileTransfer, idx: usize) -> Element<'a, Message> {
-        println!("{:?}", transfer);
-
         let status = container(match &transfer.status {
             file_transfer::Status::Pending => text("Pending").style(theme::text::transparent),
             file_transfer::Status::Queued => text("Queued").style(theme::text::transparent),
@@ -98,7 +127,14 @@ mod transfer_row {
 
         let filename = {
             let filename = text(transfer.filename.clone());
-            let secure = transfer.secure.then(|| container(icon::secure().size(TEXT_SIZE).style(theme::text::transparent)).padding([1, 0, 0, 0]));
+            let secure = transfer.secure.then(|| {
+                container(
+                    icon::secure()
+                        .size(TEXT_SIZE)
+                        .style(theme::text::transparent),
+                )
+                .padding([1, 0, 0, 0])
+            });
             let direction = text(format!(
                 "{} {}",
                 match &transfer.direction {
@@ -127,22 +163,19 @@ mod transfer_row {
         let content = column![filename, status, progress_bar].spacing(0);
 
         match &transfer.status {
-            file_transfer::Status::Pending => {}
-            file_transfer::Status::Queued => {
+            file_transfer::Status::Pending => {
                 buttons = buttons.push(transfer_row_button(
                     icon::download(),
-                    Message::ApproveTransfer,
+                    Message::Approve(transfer.id),
                 ));
             }
+            file_transfer::Status::Queued => {}
             file_transfer::Status::Active { .. } | file_transfer::Status::Completed { .. } => {
-                buttons = buttons.push(transfer_row_button(
-                    icon::folder(),
-                    Message::OpenTransferDirectory,
-                ));
-                buttons = buttons.push(transfer_row_button(icon::close(), Message::ClearTransfer));
+                buttons = buttons.push(transfer_row_button(icon::folder(), Message::OpenDirectory));
+                buttons = buttons.push(transfer_row_button(icon::close(), Message::Clear));
             }
             file_transfer::Status::Failed { .. } => {
-                buttons = buttons.push(transfer_row_button(icon::close(), Message::ClearTransfer));
+                buttons = buttons.push(transfer_row_button(icon::close(), Message::Clear));
             }
         }
 

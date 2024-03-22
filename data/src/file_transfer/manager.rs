@@ -95,6 +95,7 @@ impl Manager {
 
         // Otherwise this must be a new request
         let file_transfer = FileTransfer {
+            id,
             server,
             created_at: Utc::now(),
             direction: Direction::Received,
@@ -106,10 +107,7 @@ impl Manager {
         };
 
         let task = Task::receive(id, dcc_send, from, server_handle);
-        let (mut handle, stream) = task.spawn();
-
-        // TODO:
-        handle.approve(PathBuf::from("/tmp/temp-file-transfer"));
+        let (handle, stream) = task.spawn();
 
         self.0.insert(
             id,
@@ -179,12 +177,21 @@ impl Manager {
                 }
             }
             task::Update::Failed(id, error) => {
-                dbg!((&id, &error));
                 if let Some(item) = self.0.get_mut(&id) {
                     item.file_transfer_mut().status = Status::Failed { error };
                 }
             }
         }
+    }
+
+    pub fn approve(&mut self, id: &Id, save_to: PathBuf) {
+        if let Some(Item::Working { task, .. }) = self.0.get_mut(id) {
+            task.approve(save_to);
+        }
+    }
+
+    pub fn get<'a>(&'a self, id: &Id) -> Option<&'a FileTransfer> {
+        self.0.get(id).map(Item::file_transfer)
     }
 
     pub fn list(&self) -> impl Iterator<Item = &'_ FileTransfer> {
