@@ -18,6 +18,7 @@ pub enum Message {
     Swap(pane_grid::Pane, pane_grid::Pane),
     Leave(Buffer),
     ToggleFileTransfers,
+    ToggleCommandBar,
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +29,7 @@ pub enum Event {
     Swap(pane_grid::Pane, pane_grid::Pane),
     Leave(Buffer),
     ToggleFileTransfers,
+    ToggleCommandBar,
 }
 
 #[derive(Clone)]
@@ -52,6 +54,7 @@ impl Sidebar {
             Message::Swap(from, to) => Event::Swap(from, to),
             Message::Leave(buffer) => Event::Leave(buffer),
             Message::ToggleFileTransfers => Event::ToggleFileTransfers,
+            Message::ToggleCommandBar => Event::ToggleCommandBar,
         }
     }
 
@@ -119,7 +122,24 @@ impl Sidebar {
             }
         }
 
-        let mut menu_buttons = row![].padding([0, 0, 4, 0]);
+        let mut menu_buttons = row![].spacing(1).padding([0, 0, 4, 0]);
+
+        if config.buttons.command_bar {
+            let command_bar_button = button(
+                container(icon::search())
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x()
+                    .center_y(),
+            )
+            .on_press(Message::ToggleCommandBar)
+            .padding(5)
+            .width(22)
+            .height(22)
+            .style(theme::button::side_menu);
+
+            menu_buttons = menu_buttons.push(command_bar_button);
+        }
 
         if config.buttons.file_transfer {
             let file_transfers_open = panes.iter().any(|(_, pane)| match pane.buffer {

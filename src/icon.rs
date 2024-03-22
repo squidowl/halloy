@@ -66,6 +66,14 @@ pub fn folder<'a>() -> Text<'a> {
     to_text('\u{f3d8}')
 }
 
+pub fn search<'a>() -> Text<'a> {
+    to_text('\u{f52a}')
+}
+
+pub fn secure<'a>() -> Text<'a> {
+    to_text('\u{f538}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .style(theme::text::primary)
