@@ -13,11 +13,17 @@ pub mod manager;
 pub mod task;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Id(u32);
+pub struct Id(u16);
 
-impl From<u32> for Id {
-    fn from(value: u32) -> Self {
+impl From<u16> for Id {
+    fn from(value: u16) -> Self {
         Id(value)
+    }
+}
+
+impl From<Id> for u16 {
+    fn from(id: Id) -> Self {
+        id.0
     }
 }
 
@@ -94,6 +100,7 @@ pub struct ReceiveRequest {
 pub struct SendRequest {
     pub to: Nick,
     pub path: PathBuf,
+    pub reverse: bool,
     pub server: Server,
     pub server_handle: server::Handle,
 }

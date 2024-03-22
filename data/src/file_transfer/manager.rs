@@ -56,6 +56,7 @@ impl Manager {
         let SendRequest {
             to,
             path,
+            reverse,
             server,
             server_handle,
         } = request;
@@ -85,7 +86,7 @@ impl Manager {
             status: Status::Pending,
         };
 
-        let task = Task::send(id, path, filename, to, server_handle);
+        let task = Task::send(id, path, filename, to, reverse, server_handle);
         let (handle, stream) = task.spawn();
 
         self.0.insert(
@@ -109,10 +110,10 @@ impl Manager {
 
         // Check if this is the response to a reverse send we sent
         if let Some(id) = dcc_send.token().and_then(|s| s.parse().ok().map(Id)) {
-            if let dcc::Send::Direct {
+            if let dcc::Send::Reverse {
                 filename,
                 host,
-                port,
+                port: Some(port),
                 ..
             } = &dcc_send
             {
