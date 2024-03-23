@@ -33,6 +33,10 @@ channels = ["#halloy"]
 | `dangerously_accept_invalid_certs` | On `true`, all certificate validations are skipped. Defaults to `false`.                            | `false`     |
 | `root_cert_path`                   | The path to the root TLS certificate for this server in PEM format.                                 | `""`        |
 | `on_connect`                       | Commands which are executed once connected. Example. `["/msg NickServ IDENTIFY foo bar"]`.          | `[]`        |
+| `who_poll_interval`                | WHO poll interval (in seconds) for servers without away-notify.                                     | `180`[^1]   |
+| `who_retry_interval`               | WHO retry interval (in seconds) for servers without away-notify.                                    | `10`[^1]    |
+
+[^1]: Limited between `5` and `3600` seconds.
 
 ## `[servers.sasl]` Section
 
