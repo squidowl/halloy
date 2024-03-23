@@ -578,9 +578,6 @@ impl Dashboard {
                         if let Some(event) = file_transfers.send(file_transfer::SendRequest {
                             to,
                             path,
-                            // TODO: Should this be config driven only or should we have
-                            // a specific Send File (passive) entrypoint?
-                            reverse: false,
                             server,
                             server_handle: server_handle.clone(),
                         }) {

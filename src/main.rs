@@ -165,8 +165,8 @@ impl Halloy {
                 theme: config.themes.default.clone().into(),
                 clients: Default::default(),
                 servers: config.servers.clone(),
+                file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
                 config,
-                file_transfers: file_transfer::Manager::default(),
             },
             command,
         )

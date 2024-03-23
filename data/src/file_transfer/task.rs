@@ -17,6 +17,7 @@ use tokio::{
     fs::File,
     io::{AsyncReadExt, AsyncWriteExt},
     task::JoinHandle,
+    time,
 };
 use tokio_stream::StreamExt;
 
@@ -103,7 +104,11 @@ impl Task {
         }
     }
 
-    pub fn spawn(self) -> (Handle, impl Stream<Item = Update>) {
+    pub fn spawn(
+        self,
+        bind_address: Option<IpAddr>,
+        timeout: Duration,
+    ) -> (Handle, impl Stream<Item = Update>) {
         let (action_sender, action_receiver) = mpsc::channel(1);
         let (update_sender, update_receiver) = mpsc::channel(100);
 
@@ -124,6 +129,8 @@ impl Task {
                         server_handle,
                         action_receiver,
                         update_sender,
+                        bind_address,
+                        timeout,
                     )
                     .await
                     {
@@ -148,6 +155,8 @@ impl Task {
                         server_handle,
                         action_receiver,
                         update_sender,
+                        bind_address,
+                        timeout,
                     )
                     .await
                     {
@@ -198,6 +207,8 @@ async fn receive(
     mut server_handle: server::Handle,
     mut action: Receiver<Action>,
     mut update: Sender<Update>,
+    bind_address: Option<IpAddr>,
+    timeout: Duration,
 ) -> Result<(), Error> {
     // Wait for approval
     let Some(Action::Approve { save_to }) = action.next().await else {
@@ -213,8 +224,7 @@ async fn receive(
             token,
             ..
         } => {
-            // TODO: We need to configure these
-            let host = IpAddr::V4([127, 0, 0, 1].into());
+            let host = bind_address.ok_or(Error::ReverseReceiveNoBindAddress)?;
 
             let _ = update.send(Update::Queued(id)).await;
 
@@ -245,14 +255,18 @@ async fn receive(
     let _ = update.send(Update::Ready(id)).await;
 
     let mut connection = if reverse {
-        Connection::listen_and_accept(
-            host,
-            port.get(),
-            // TODO: SSL
-            connection::Security::Unsecured,
-            BytesCodec::new(),
+        time::timeout(
+            timeout,
+            Connection::listen_and_accept(
+                host,
+                port.get(),
+                // TODO: SSL
+                connection::Security::Unsecured,
+                BytesCodec::new(),
+            ),
         )
-        .await?
+        .await
+        .map_err(|_| Error::TimeoutConnection)??
     } else {
         Connection::new(
             connection::Config {
@@ -317,6 +331,8 @@ async fn send(
     mut server_handle: server::Handle,
     mut action: Receiver<Action>,
     mut update: Sender<Update>,
+    bind_address: Option<IpAddr>,
+    timeout: Duration,
 ) -> Result<(), Error> {
     let mut file = File::open(path).await?;
     let size = file.metadata().await?.len();
@@ -342,7 +358,10 @@ async fn send(
             )
             .await;
 
-        let Some(Action::ReverseConfirmed { host, port }) = action.next().await else {
+        let Some(Action::ReverseConfirmed { host, port }) = time::timeout(timeout, action.next())
+            .await
+            .map_err(|_| Error::TimeoutPassive)?
+        else {
             unreachable!();
         };
 
@@ -358,8 +377,7 @@ async fn send(
         )
         .await?
     } else {
-        // TODO: We need to configure these
-        let host = IpAddr::V4([127, 0, 0, 1].into());
+        let host = bind_address.ok_or(Error::NonPassiveSendNoBindAdress)?;
 
         let _ = update.send(Update::Queued(id)).await;
 
@@ -382,14 +400,18 @@ async fn send(
 
         let _ = update.send(Update::Ready(id)).await;
 
-        Connection::listen_and_accept(
-            host,
-            port.get(),
-            // TODO: SSL
-            connection::Security::Unsecured,
-            BytesCodec::new(),
+        time::timeout(
+            timeout,
+            Connection::listen_and_accept(
+                host,
+                port.get(),
+                // TODO: SSL
+                connection::Security::Unsecured,
+                BytesCodec::new(),
+            ),
         )
-        .await?
+        .await
+        .map_err(|_| Error::TimeoutConnection)??
     };
 
     let started_at = Instant::now();
@@ -438,8 +460,16 @@ async fn send(
 
 #[derive(Debug, Error)]
 enum Error {
+    #[error("sender requested passive send but no bind address configured")]
+    ReverseReceiveNoBindAddress,
+    #[error("bind address must be configured to send file when passive is disabled")]
+    NonPassiveSendNoBindAdress,
     #[error("connection error: {0}")]
     Connection(#[from] connection::Error),
     #[error("io error: {0}")]
     Io(#[from] io::Error),
+    #[error("timed out waiting for remote to connect")]
+    TimeoutConnection,
+    #[error("timed out waiting for remote to confirm passive request")]
+    TimeoutPassive,
 }
