@@ -7,6 +7,7 @@ use thiserror::Error;
 
 pub use self::buffer::Buffer;
 pub use self::channel::Channel;
+pub use self::file_transfer::FileTransfer;
 pub use self::keys::Keyboard;
 pub use self::notification::{Notification, Notifications};
 pub use self::server::Server;
@@ -18,6 +19,7 @@ use crate::{environment, Theme};
 
 pub mod buffer;
 pub mod channel;
+pub mod file_transfer;
 mod keys;
 pub mod notification;
 pub mod server;
@@ -36,6 +38,7 @@ pub struct Config {
     pub sidebar: Sidebar,
     pub keyboard: Keyboard,
     pub notifications: Notifications,
+    pub file_transfer: FileTransfer,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -125,6 +128,8 @@ impl Config {
             pub keyboard: Keyboard,
             #[serde(default)]
             pub notifications: Notifications,
+            #[serde(default)]
+            pub file_transfer: FileTransfer,
         }
 
         let path = Self::path();
@@ -139,6 +144,7 @@ impl Config {
             sidebar,
             keyboard,
             notifications,
+            file_transfer,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_password_files()?;
@@ -154,6 +160,7 @@ impl Config {
             sidebar,
             keyboard,
             notifications,
+            file_transfer,
         })
     }
 

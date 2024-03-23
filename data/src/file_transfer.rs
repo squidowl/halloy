@@ -104,7 +104,6 @@ pub struct ReceiveRequest {
 pub struct SendRequest {
     pub to: Nick,
     pub path: PathBuf,
-    pub reverse: bool,
     pub server: Server,
     pub server_handle: server::Handle,
 }

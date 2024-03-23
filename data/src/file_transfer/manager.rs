@@ -1,7 +1,9 @@
 use std::{
     collections::{HashMap, VecDeque},
+    net::IpAddr,
     num::NonZeroU16,
     path::PathBuf,
+    time::Duration,
 };
 
 use chrono::Utc;
@@ -10,7 +12,7 @@ use itertools::Itertools;
 use rand::Rng;
 
 use super::{task, Direction, FileTransfer, Id, ReceiveRequest, SendRequest, Status, Task};
-use crate::dcc;
+use crate::{config, dcc};
 
 enum Item {
     Working {
@@ -40,8 +42,8 @@ pub enum Event {
     RunTask(BoxStream<'static, task::Update>),
 }
 
-#[derive(Default)]
 pub struct Manager {
+    config: config::FileTransfer,
     items: HashMap<Id, Item>,
     /// Queued = waiting for port assignment
     queued: VecDeque<Id>,
@@ -49,6 +51,15 @@ pub struct Manager {
 }
 
 impl Manager {
+    pub fn new(config: config::FileTransfer) -> Self {
+        Self {
+            config,
+            items: HashMap::new(),
+            queued: VecDeque::new(),
+            used_ports: HashMap::new(),
+        }
+    }
+
     fn get_random_id(&self) -> Id {
         let mut rng = rand::thread_rng();
 
@@ -61,14 +72,19 @@ impl Manager {
         }
     }
 
+    fn bind_address(&self) -> Option<IpAddr> {
+        self.config.bind.as_ref().map(|b| b.address)
+    }
+
     pub fn send(&mut self, request: SendRequest) -> Option<Event> {
         let SendRequest {
             to,
             path,
-            reverse,
             server,
             server_handle,
         } = request;
+
+        let reverse = self.config.passive;
 
         let filename = path
             .file_name()
@@ -101,7 +117,10 @@ impl Manager {
         };
 
         let task = Task::send(id, path, filename, to, reverse, server_handle);
-        let (handle, stream) = task.spawn();
+        let (handle, stream) = task.spawn(
+            self.bind_address(),
+            Duration::from_secs(self.config.timeout),
+        );
 
         self.items.insert(
             id,
@@ -169,7 +188,10 @@ impl Manager {
         };
 
         let task = Task::receive(id, dcc_send, from, server_handle);
-        let (handle, stream) = task.spawn();
+        let (handle, stream) = task.spawn(
+            self.bind_address(),
+            Duration::from_secs(self.config.timeout),
+        );
 
         self.items.insert(
             id,
@@ -285,14 +307,14 @@ impl Manager {
     }
 
     fn get_available_port(&self) -> Option<NonZeroU16> {
-        // TODO: Add config for port range
-        let port = NonZeroU16::new(9090).unwrap();
+        let Some(bind) = &self.config.bind else {
+            return None;
+        };
 
-        if !self.used_ports.values().any(|used| *used == port) {
-            Some(port)
-        } else {
-            None
-        }
+        bind.ports
+            .clone()
+            .find(|port| !self.used_ports.values().any(|used| used.get() == *port))
+            .and_then(NonZeroU16::new)
     }
 
     fn recycle_port(&mut self, id: Id) {
