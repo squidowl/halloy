@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Accept '@' in usernames to support bouncers that use the user@identifier/network convention
+
 # 2024.5 (2024-03-21)
 
 **BREAKING** Configuration file format has switched from `YAML` to `TOML`. Please vist the migration guide here: [halloy.squidowl.org/guides/migrating-from-yaml](https://halloy.squidowl.org/guides/migrating-from-yaml.html).
