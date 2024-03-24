@@ -126,8 +126,8 @@ fn space(input: &str) -> IResult<&str, ()> {
 fn user(input: &str) -> IResult<&str, User> {
     // <sequence of any characters except NUL, CR, LF, and SPACE> and @
     let username = recognize(many1_count(none_of("\0\r\n @")));
-    // "-", "[", "]", "\", "`", "_", "^", "{", "|", "}", "*", "/"
-    let special = one_of("-[]\\`_^{|}*/");
+    // "-", "[", "]", "\", "`", "_", "^", "{", "|", "}", "*", "/", "@"
+    let special = one_of("-[]\\`_^{|}*/@");
     // *( <letter> | <number> | <special> )
     let nickname = recognize(many1_count(alt((
         satisfy(|c| c.is_ascii_alphanumeric()),
@@ -168,6 +168,7 @@ mod test {
     fn user() {
         let tests = [
             "dan!d@localhost",
+            "dan@id/network!d@remote.host",
             "test!test@5555:5555:0:55:5555:5555:5555:5555",
             "[asdf]!~asdf@user/asdf/x-5555555",
         ];
@@ -190,6 +191,14 @@ mod test {
                     nickname: "dan".into(),
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
+                }),
+            ),
+            (
+                ":dan@id/network!d@remote.host ",
+                Source::User(User {
+                    nickname: "dan@id/network".into(),
+                    username: Some("d".into()),
+                    hostname: Some("remote.host".into()),
                 }),
             ),
             (
