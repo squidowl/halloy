@@ -350,4 +350,8 @@ impl Manager {
     pub fn list(&self) -> impl Iterator<Item = &'_ FileTransfer> {
         self.items.values().map(Item::file_transfer).sorted()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.items.values().len() == 0
+    }
 }
