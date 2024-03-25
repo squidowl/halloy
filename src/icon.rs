@@ -42,10 +42,6 @@ pub fn topic<'a>() -> Text<'a> {
     to_text('\u{f5af}')
 }
 
-pub fn file_transfer<'a>() -> Text<'a> {
-    to_text('\u{f30a}')
-}
-
 pub fn folder<'a>() -> Text<'a> {
     to_text('\u{f3d8}')
 }
@@ -56,6 +52,10 @@ pub fn search<'a>() -> Text<'a> {
 
 pub fn checkmark<'a>() -> Text<'a> {
     to_text('\u{f633}')
+}
+
+pub fn file_transfer<'a>() -> Text<'a> {
+    to_text('\u{f1c7}')
 }
 
 fn to_text<'a>(unicode: char) -> Text<'a> {

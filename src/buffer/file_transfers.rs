@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use data::{file_transfer, Config};
-use iced::widget::{button, column, container, scrollable, Scrollable};
+use iced::widget::{button, column, container, scrollable, text, Scrollable};
 use iced::{Command, Length};
 
-use crate::theme;
 use crate::widget::{Element, Text};
+use crate::{icon, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -20,10 +20,27 @@ pub fn view<'a>(
     _state: &FileTransfers,
     file_transfers: &'a file_transfer::Manager,
 ) -> Element<'a, Message> {
-    let transfers = file_transfers.list();
+    if file_transfers.is_empty() {
+        return container(container(
+            column![
+                icon::file_transfer()
+                    .size(theme::TEXT_SIZE + 3.0)
+                    .style(theme::text::transparent),
+                text("No transfers found").style(theme::text::transparent)
+            ]
+            .spacing(8)
+            .align_items(iced::Alignment::Center),
+        ))
+        .center_x()
+        .center_y()
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into();
+    }
 
     let column = column(
-        transfers
+        file_transfers
+            .list()
             .enumerate()
             .map(|(idx, transfer)| container(transfer_row::view(transfer, idx)).into()),
     )
