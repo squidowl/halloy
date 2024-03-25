@@ -1,5 +1,5 @@
 //! Generate messages that can be broadcast into every buffer
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 
 use super::{source, Direction, Message, Source, Target};
 use crate::time::Posix;
@@ -17,11 +17,12 @@ fn expand(
     include_server: bool,
     cause: Cause,
     text: String,
+    sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let message = |target, text| -> Message {
         Message {
             received_at: Posix::now(),
-            server_time: Utc::now(),
+            server_time: sent_time,
             direction: Direction::Received,
             target,
             text,
@@ -64,25 +65,47 @@ fn expand(
         .collect()
 }
 
-pub fn connecting() -> Vec<Message> {
+pub fn connecting(sent_time: DateTime<Utc>) -> Vec<Message> {
     let text = " ∙ connecting to server...".into();
-    expand([], [], true, Cause::Status(source::Status::Success), text)
+    expand(
+        [],
+        [],
+        true,
+        Cause::Status(source::Status::Success),
+        text,
+        sent_time,
+    )
 }
 
-pub fn connected() -> Vec<Message> {
+pub fn connected(sent_time: DateTime<Utc>) -> Vec<Message> {
     let text = " ∙ connected".into();
-    expand([], [], true, Cause::Status(source::Status::Success), text)
+    expand(
+        [],
+        [],
+        true,
+        Cause::Status(source::Status::Success),
+        text,
+        sent_time,
+    )
 }
 
-pub fn connection_failed(error: String) -> Vec<Message> {
+pub fn connection_failed(error: String, sent_time: DateTime<Utc>) -> Vec<Message> {
     let text = format!(" ∙ connection to server failed ({error})");
-    expand([], [], true, Cause::Status(source::Status::Error), text)
+    expand(
+        [],
+        [],
+        true,
+        Cause::Status(source::Status::Error),
+        text,
+        sent_time,
+    )
 }
 
 pub fn disconnected(
     channels: impl IntoIterator<Item = String>,
     queries: impl IntoIterator<Item = Nick>,
     error: Option<String>,
+    sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let error = error.map(|error| format!(" ({error})")).unwrap_or_default();
     let text = format!(" ∙ connection to server lost{error}");
@@ -92,12 +115,14 @@ pub fn disconnected(
         true,
         Cause::Status(source::Status::Error),
         text,
+        sent_time,
     )
 }
 
 pub fn reconnected(
     channels: impl IntoIterator<Item = String>,
     queries: impl IntoIterator<Item = Nick>,
+    sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let text = " ∙ connection to server restored".into();
     expand(
@@ -106,6 +131,7 @@ pub fn reconnected(
         true,
         Cause::Status(source::Status::Success),
         text,
+        sent_time,
     )
 }
 
@@ -115,6 +141,7 @@ pub fn quit(
     user: &User,
     comment: &Option<String>,
     config: &Config,
+    sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let comment = comment
         .as_ref()
@@ -134,6 +161,7 @@ pub fn quit(
             Some(user.nickname().to_owned()),
         ))),
         text,
+        sent_time,
     )
 }
 
@@ -143,6 +171,7 @@ pub fn nickname(
     old_nick: &Nick,
     new_nick: &Nick,
     ourself: bool,
+    sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let text = if ourself {
         format!(" ∙ You're now known as {new_nick}")
@@ -150,15 +179,16 @@ pub fn nickname(
         format!(" ∙ {old_nick} is now known as {new_nick}")
     };
 
-    expand(channels, queries, false, Cause::Server(None), text)
+    expand(channels, queries, false, Cause::Server(None), text, sent_time)
 }
 
 pub fn invite(
     inviter: Nick,
     channel: String,
     channels: impl IntoIterator<Item = String>,
+    sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let text = format!(" ∙ {inviter} invited you to join {channel}");
 
-    expand(channels, [], false, Cause::Server(None), text)
+    expand(channels, [], false, Cause::Server(None), text, sent_time)
 }

@@ -262,7 +262,13 @@ impl Manager {
             .unwrap_or_default()
     }
 
-    pub fn broadcast(&mut self, server: &Server, broadcast: Broadcast, config: &Config) {
+    pub fn broadcast(
+        &mut self,
+        server: &Server,
+        broadcast: Broadcast,
+        config: &Config,
+        sent_time: DateTime<Utc>,
+    ) {
         let map = self.data.map.entry(server.clone()).or_default();
 
         let channels = map
@@ -287,13 +293,15 @@ impl Manager {
             .cloned();
 
         let messages = match broadcast {
-            Broadcast::Connecting => message::broadcast::connecting(),
-            Broadcast::Connected => message::broadcast::connected(),
-            Broadcast::ConnectionFailed { error } => message::broadcast::connection_failed(error),
-            Broadcast::Disconnected { error } => {
-                message::broadcast::disconnected(channels, queries, error)
+            Broadcast::Connecting => message::broadcast::connecting(sent_time),
+            Broadcast::Connected => message::broadcast::connected(sent_time),
+            Broadcast::ConnectionFailed { error } => {
+                message::broadcast::connection_failed(error, sent_time)
             }
-            Broadcast::Reconnected => message::broadcast::reconnected(channels, queries),
+            Broadcast::Disconnected { error } => {
+                message::broadcast::disconnected(channels, queries, error, sent_time)
+            }
+            Broadcast::Reconnected => message::broadcast::reconnected(channels, queries, sent_time),
             Broadcast::Quit {
                 user,
                 comment,
@@ -301,7 +309,7 @@ impl Manager {
             } => {
                 let user_query = queries.find(|nick| user.nickname() == *nick);
 
-                message::broadcast::quit(user_channels, user_query, &user, &comment, config)
+                message::broadcast::quit(user_channels, user_query, &user, &comment, config, sent_time)
             }
             Broadcast::Nickname {
                 old_nick,
@@ -317,6 +325,7 @@ impl Manager {
                         &old_nick,
                         &new_nick,
                         ourself,
+                        sent_time,
                     )
                 } else {
                     // Otherwise just the query channel of the user w/ nick change
@@ -327,6 +336,7 @@ impl Manager {
                         &old_nick,
                         &new_nick,
                         ourself,
+                        sent_time,
                     )
                 }
             }
@@ -334,7 +344,7 @@ impl Manager {
                 inviter,
                 channel,
                 user_channels,
-            } => message::broadcast::invite(inviter, channel, user_channels),
+            } => message::broadcast::invite(inviter, channel, user_channels, sent_time),
         };
 
         messages.into_iter().for_each(|message| {

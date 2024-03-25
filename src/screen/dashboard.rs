@@ -2,6 +2,7 @@ mod command_bar;
 pub mod pane;
 pub mod sidebar;
 
+use chrono::{DateTime, Utc};
 use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
@@ -735,6 +736,7 @@ impl Dashboard {
         comment: Option<String>,
         user_channels: Vec<String>,
         config: &Config,
+        sent_time: DateTime<Utc>,
     ) {
         self.history.broadcast(
             server,
@@ -744,6 +746,7 @@ impl Dashboard {
                 user_channels,
             },
             config,
+            sent_time,
         );
     }
 
@@ -755,6 +758,7 @@ impl Dashboard {
         ourself: bool,
         user_channels: Vec<String>,
         config: &Config,
+        sent_time: DateTime<Utc>,
     ) {
         self.history.broadcast(
             server,
@@ -765,6 +769,7 @@ impl Dashboard {
                 user_channels,
             },
             config,
+            sent_time,
         );
     }
 
@@ -775,6 +780,7 @@ impl Dashboard {
         channel: String,
         user_channels: Vec<String>,
         config: &Config,
+        sent_time: DateTime<Utc>,
     ) {
         self.history.broadcast(
             server,
@@ -784,16 +790,28 @@ impl Dashboard {
                 user_channels,
             },
             config,
+            sent_time,
         );
     }
 
-    pub fn broadcast_connecting(&mut self, server: &Server, config: &Config) {
+    pub fn broadcast_connecting(
+        &mut self,
+        server: &Server,
+        config: &Config,
+        sent_time: DateTime<Utc>,
+    ) {
         self.history
-            .broadcast(server, Broadcast::Connecting, config);
+            .broadcast(server, Broadcast::Connecting, config, sent_time);
     }
 
-    pub fn broadcast_connected(&mut self, server: &Server, config: &Config) {
-        self.history.broadcast(server, Broadcast::Connected, config);
+    pub fn broadcast_connected(
+        &mut self,
+        server: &Server,
+        config: &Config,
+        sent_time: DateTime<Utc>,
+    ) {
+        self.history
+            .broadcast(server, Broadcast::Connected, config, sent_time);
     }
 
     pub fn broadcast_disconnected(
@@ -801,19 +819,35 @@ impl Dashboard {
         server: &Server,
         error: Option<String>,
         config: &Config,
+        sent_time: DateTime<Utc>,
     ) {
         self.history
-            .broadcast(server, Broadcast::Disconnected { error }, config);
+            .broadcast(server, Broadcast::Disconnected { error }, config, sent_time);
     }
 
-    pub fn broadcast_reconnected(&mut self, server: &Server, config: &Config) {
+    pub fn broadcast_reconnected(
+        &mut self,
+        server: &Server,
+        config: &Config,
+        sent_time: DateTime<Utc>,
+    ) {
         self.history
-            .broadcast(server, Broadcast::Reconnected, config);
+            .broadcast(server, Broadcast::Reconnected, config, sent_time);
     }
 
-    pub fn broadcast_connection_failed(&mut self, server: &Server, error: String, config: &Config) {
-        self.history
-            .broadcast(server, Broadcast::ConnectionFailed { error }, config);
+    pub fn broadcast_connection_failed(
+        &mut self,
+        server: &Server,
+        error: String,
+        config: &Config,
+        sent_time: DateTime<Utc>,
+    ) {
+        self.history.broadcast(
+            server,
+            Broadcast::ConnectionFailed { error },
+            config,
+            sent_time,
+        );
     }
 
     fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {
