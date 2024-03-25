@@ -333,6 +333,10 @@ impl Manager {
         }
     }
 
+    pub fn remove(&mut self, id: &Id) {
+        let _ = self.items.remove(id);
+    }
+
     pub fn approve(&mut self, id: &Id, save_to: PathBuf) {
         if let Some(Item::Working { task, .. }) = self.items.get_mut(id) {
             task.approve(save_to);

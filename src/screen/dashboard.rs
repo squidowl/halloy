@@ -119,9 +119,13 @@ impl Dashboard {
                 }
                 pane::Message::Buffer(id, message) => {
                     if let Some(pane) = self.panes.get_mut(id) {
-                        let (command, event) =
-                            pane.buffer
-                                .update(message, clients, &mut self.history, file_transfers);
+                        let (command, event) = pane.buffer.update(
+                            message,
+                            clients,
+                            &mut self.history,
+                            file_transfers,
+                            config,
+                        );
 
                         if let Some(buffer::Event::UserContext(event)) = event {
                             match event {

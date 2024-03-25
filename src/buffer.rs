@@ -61,6 +61,7 @@ impl Buffer {
         clients: &mut data::client::Map,
         history: &mut history::Manager,
         file_transfers: &mut file_transfer::Manager,
+        config: &Config,
     ) -> (Command<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
@@ -87,7 +88,7 @@ impl Buffer {
                 (command.map(Message::Query), event)
             }
             (Buffer::FileTransfers(state), Message::FileTransfers(message)) => {
-                let command = state.update(message, file_transfers);
+                let command = state.update(message, file_transfers, config);
 
                 (command.map(Message::FileTransfers), None)
             }

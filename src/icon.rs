@@ -46,22 +46,6 @@ pub fn file_transfer<'a>() -> Text<'a> {
     to_text('\u{f30a}')
 }
 
-pub fn arrow_down<'a>() -> Text<'a> {
-    to_text('\u{f128}')
-}
-
-pub fn arrow_up<'a>() -> Text<'a> {
-    to_text('\u{f148}')
-}
-
-pub fn download<'a>() -> Text<'a> {
-    to_text('\u{f30a}')
-}
-
-pub fn trashcan<'a>() -> Text<'a> {
-    to_text('\u{f5de}')
-}
-
 pub fn folder<'a>() -> Text<'a> {
     to_text('\u{f3d8}')
 }
@@ -70,8 +54,8 @@ pub fn search<'a>() -> Text<'a> {
     to_text('\u{f52a}')
 }
 
-pub fn secure<'a>() -> Text<'a> {
-    to_text('\u{f538}')
+pub fn checkmark<'a>() -> Text<'a> {
+    to_text('\u{f633}')
 }
 
 fn to_text<'a>(unicode: char) -> Text<'a> {
