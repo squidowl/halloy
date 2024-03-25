@@ -45,17 +45,20 @@ pub enum Broadcast {
         user: User,
         comment: Option<String>,
         channels: Vec<String>,
+        sent_time: DateTime<Utc>,
     },
     Nickname {
         old_user: User,
         new_nick: Nick,
         ourself: bool,
         channels: Vec<String>,
+        sent_time: DateTime<Utc>,
     },
     Invite {
         inviter: User,
         channel: String,
         user_channels: Vec<String>,
+        sent_time: DateTime<Utc>,
     },
 }
 
@@ -400,6 +403,7 @@ impl Client {
                     inviter,
                     channel: channel.clone(),
                     user_channels,
+                    sent_time: server_time(&message),
                 })]);
             }
             Command::NICK(nick) => {
@@ -425,6 +429,7 @@ impl Client {
                     new_nick,
                     ourself,
                     channels,
+                    sent_time: server_time(&message)
                 })]);
             }
             Command::Numeric(ERR_NICKNAMEINUSE | ERR_ERRONEUSNICKNAME, _)
@@ -505,6 +510,7 @@ impl Client {
                     user,
                     comment: comment.clone(),
                     channels,
+                    sent_time: server_time(&message)
                 })]);
             }
             Command::PART(channel, _) => {
