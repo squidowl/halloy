@@ -91,6 +91,66 @@ pub fn secondary(theme: &Theme, status: Status) -> Appearance {
     }
 }
 
+pub fn tertiary(theme: &Theme, status: Status, selected: bool) -> Appearance {
+    match status {
+        Status::Active | Status::Pressed => Appearance {
+            background: Some(Background::Color(if selected {
+                theme.colors().action.med_alpha
+            } else {
+                theme.colors().background.dark
+            })),
+            border: Border {
+                color: if selected {
+                    theme.colors().action.low_alpha
+                } else {
+                    if theme.colors().is_dark_theme() {
+                        theme.colors().background.lightest
+                    } else {
+                        theme.colors().background.darkest
+                    }
+                },
+                width: 1.0,
+                radius: 3.0.into(),
+            },
+            ..Default::default()
+        },
+        Status::Hovered => {
+            let active = tertiary(theme, Status::Active, selected);
+
+            Appearance {
+                background: Some(Background::Color(if selected {
+                    theme.colors().action.high_alpha
+                } else {
+                    if theme.colors().is_dark_theme() {
+                        theme.colors().background.light
+                    } else {
+                        theme.colors().background.darker
+                    }
+                })),
+                ..active
+            }
+        }
+        Status::Disabled => {
+            let active = tertiary(theme, Status::Active, selected);
+
+            Appearance {
+                text_color: Color {
+                    a: 0.2,
+                    ..active.text_color
+                },
+                border: Border {
+                    color: Color {
+                        a: 0.2,
+                        ..active.text_color
+                    },
+                    ..Default::default()
+                },
+                ..active
+            }
+        }
+    }
+}
+
 pub fn context(theme: &Theme, status: Status) -> Appearance {
     match status {
         Status::Active | Status::Pressed => Appearance {
@@ -157,7 +217,6 @@ pub fn bare(_theme: &Theme, status: Status) -> Appearance {
     }
 }
 
-// TODO: This should be renamed to tertiary, and combined with side_menu_selected
 pub fn side_menu(theme: &Theme, status: Status) -> Appearance {
     match status {
         Status::Active | Status::Pressed => Appearance {
@@ -217,94 +276,6 @@ pub fn side_menu_selected(theme: &Theme, status: Status) -> Appearance {
         }
         Status::Disabled => {
             let active = side_menu_selected(theme, Status::Active);
-
-            Appearance {
-                text_color: Color {
-                    a: 0.2,
-                    ..active.text_color
-                },
-                border: Border {
-                    color: Color {
-                        a: 0.2,
-                        ..active.text_color
-                    },
-                    ..Default::default()
-                },
-                ..active
-            }
-        }
-    }
-}
-
-pub fn pane(theme: &Theme, status: Status) -> Appearance {
-    match status {
-        Status::Active | Status::Pressed => Appearance {
-            background: Some(Background::Color(theme.colors().background.dark)),
-            border: Border {
-                color: if theme.colors().is_dark_theme() {
-                    theme.colors().background.lightest
-                } else {
-                    theme.colors().background.darkest
-                },
-                width: 1.0,
-                radius: 3.0.into(),
-            },
-            ..Default::default()
-        },
-        Status::Hovered => {
-            let active = pane(theme, Status::Active);
-
-            Appearance {
-                background: Some(Background::Color(if theme.colors().is_dark_theme() {
-                    theme.colors().background.light
-                } else {
-                    theme.colors().background.darker
-                })),
-                ..active
-            }
-        }
-        Status::Disabled => {
-            let active = pane(theme, Status::Active);
-
-            Appearance {
-                text_color: Color {
-                    a: 0.2,
-                    ..active.text_color
-                },
-                border: Border {
-                    color: Color {
-                        a: 0.2,
-                        ..active.text_color
-                    },
-                    ..Default::default()
-                },
-                ..active
-            }
-        }
-    }
-}
-
-pub fn pane_selected(theme: &Theme, status: Status) -> Appearance {
-    match status {
-        Status::Active | Status::Pressed => Appearance {
-            background: Some(Background::Color(theme.colors().action.med_alpha)),
-            border: Border {
-                color: theme.colors().action.low_alpha,
-                width: 1.0,
-                radius: 3.0.into(),
-            },
-            ..Default::default()
-        },
-        Status::Hovered => {
-            let active = pane_selected(theme, Status::Active);
-
-            Appearance {
-                background: Some(Background::Color(theme.colors().action.high_alpha)),
-                ..active
-            }
-        }
-        Status::Disabled => {
-            let active = pane_selected(theme, Status::Active);
 
             Appearance {
                 text_color: Color {

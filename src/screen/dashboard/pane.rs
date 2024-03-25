@@ -162,10 +162,8 @@ impl TitleBar {
                     .width(22)
                     .height(22)
                     .on_press(Message::ToggleShowTopic)
-                    .style(if settings.channel.topic.enabled {
-                        theme::button::pane_selected
-                    } else {
-                        theme::button::pane
+                    .style(|theme, status| {
+                        theme::button::tertiary(theme, status, settings.channel.topic.enabled)
                     });
 
                     controls = controls.push(topic);
@@ -183,10 +181,8 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(Message::ToggleShowUserList)
-            .style(if settings.channel.nicklist.enabled {
-                theme::button::pane_selected
-            } else {
-                theme::button::pane
+            .style(|theme, status| {
+                theme::button::tertiary(theme, status, settings.channel.nicklist.enabled)
             });
 
             controls = controls.push(users);
@@ -209,11 +205,7 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(Message::MaximizePane)
-            .style(if maximized {
-                theme::button::pane_selected
-            } else {
-                theme::button::pane
-            });
+            .style(move |theme, status| theme::button::tertiary(theme, status, maximized));
 
             controls = controls.push(maximize);
         }
@@ -231,7 +223,7 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(Message::ClosePane)
-            .style(theme::button::pane);
+            .style(|theme, status| theme::button::tertiary(theme, status, false));
 
             controls = controls.push(delete);
         }
