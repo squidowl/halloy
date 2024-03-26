@@ -92,7 +92,7 @@ pub enum Status {
     Failed { error: String },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ReceiveRequest {
     pub from: Nick,
     pub dcc_send: dcc::Send,

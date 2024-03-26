@@ -501,7 +501,25 @@ impl Application for Halloy {
                                         }
                                     }
                                     data::client::Event::FileTransferRequest(request) => {
-                                        if let Some(event) = self.file_transfers.receive(request) {
+                                        if let Some(event) =
+                                            self.file_transfers.receive(request.clone())
+                                        {
+                                            let notification =
+                                                &self.config.notifications.file_transfer_request;
+
+                                            if notification.enabled {
+                                                let text = format!(
+                                                    "File Transfer Request: {}",
+                                                    request.from.to_string()
+                                                );
+
+                                                notification::show(
+                                                    text.as_str(),
+                                                    &server,
+                                                    notification.sound(),
+                                                );
+                                            };
+
                                             match event {
                                                 file_transfer::manager::Event::RunTask(task) => {
                                                     commands.push(Command::run(

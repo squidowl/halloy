@@ -1,5 +1,5 @@
 use data::dashboard::DefaultAction;
-use data::{history, Buffer};
+use data::{file_transfer, history, Buffer};
 use iced::widget::{
     button, column, container, horizontal_space, pane_grid, row, scrollable, text, vertical_space,
     Scrollable,
@@ -65,6 +65,7 @@ impl Sidebar {
         panes: &pane_grid::State<Pane>,
         focus: Option<pane_grid::Pane>,
         config: data::config::Sidebar,
+        file_transfers: &'a file_transfer::Manager,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -147,11 +148,15 @@ impl Sidebar {
                 .any(|(_, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
 
             let file_transfers_button = button(
-                container(icon::file_transfer())
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .center_x()
-                    .center_y(),
+                container(icon::file_transfer().style(if file_transfers.is_empty() {
+                    theme::text::primary
+                } else {
+                    theme::text::alert
+                }))
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x()
+                .center_y(),
             )
             .on_press(Message::ToggleFileTransfers)
             .padding(5)
@@ -175,7 +180,7 @@ impl Sidebar {
             ),
         ),];
 
-        let body = column![menu_buttons, container(content).height(Length::Fill)];
+        let body = column![container(content).height(Length::Fill), menu_buttons];
 
         Some(
             container(body)
