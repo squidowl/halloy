@@ -1,7 +1,7 @@
 # Halloy config template.
 #
 # For a complete list of available options,
-# please visit https://halloy.squidowl.org/.
+# please visit https://halloy.squidowl.org/configuration/index.html.
 
 theme = "ferra"
 
