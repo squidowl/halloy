@@ -12,6 +12,7 @@ use futures::{
     SinkExt, Stream,
 };
 use irc::{connection, BytesCodec, Connection};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 use tokio::{
     fs::File,
@@ -286,6 +287,7 @@ async fn receive(
     };
 
     let mut file = File::create(&save_to).await?;
+    let mut hasher = Sha256::new();
 
     let mut transferred = 0;
     let mut last_progress = started_at;
@@ -294,6 +296,9 @@ async fn receive(
         let bytes = bytes?;
 
         transferred += bytes.len();
+
+        // Update hasher
+        hasher.update(&bytes);
 
         // Write bytes to file
         file.write_all(&bytes).await?;
@@ -315,12 +320,13 @@ async fn receive(
         }
     }
 
+    let sha256 = hex::encode(hasher.finalize());
+
     let _ = update
         .send(Update::Finished {
             id,
             elapsed: started_at.elapsed(),
-            // TODO
-            sha256: String::default(),
+            sha256,
         })
         .await;
 
@@ -422,14 +428,19 @@ async fn send(
     let started_at = Instant::now();
 
     let mut buffer = BytesMut::with_capacity(BUFFER_SIZE);
+    let mut hasher = Sha256::new();
 
     let mut transferred = 0;
     let mut last_progress = started_at;
 
     while transferred < size {
+        // Read bytes from file
         let n = file.read_buf(&mut buffer).await?;
 
-        // Write bytes to file
+        // Update hasher
+        hasher.update(&buffer);
+
+        // Send bytes
         connection.send(buffer.split().freeze()).await?;
 
         transferred += n as u64;
@@ -451,12 +462,13 @@ async fn send(
 
     connection.shutdown().await?;
 
+    let sha256 = hex::encode(hasher.finalize());
+
     let _ = update
         .send(Update::Finished {
             id,
             elapsed: started_at.elapsed(),
-            // TODO
-            sha256: String::default(),
+            sha256,
         })
         .await;
 
