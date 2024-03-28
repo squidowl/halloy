@@ -12,6 +12,7 @@ pub use self::server::Server;
 pub use self::shortcut::Shortcut;
 pub use self::theme::Theme;
 pub use self::user::User;
+pub use self::version::Version;
 
 pub mod buffer;
 pub mod channel;
@@ -33,3 +34,4 @@ pub mod stream;
 pub mod theme;
 pub mod time;
 pub mod user;
+pub mod version;

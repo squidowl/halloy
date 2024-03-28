@@ -3,6 +3,7 @@
 Added:
 
 - Configuration to adjust WHO polling for servers without away-notify (see [server configuration](https://halloy.squidowl.org/configuration/servers.html))
+- Display current version, and latest remote version in command bar
 
 Fixed:
 
@@ -61,7 +62,7 @@ Fix:
 Changed:
 
 - Various UI changes
-  - Ensured consistent padding in channel buffer 
+  - Ensured consistent padding in channel buffer
   - Unified styling for dividers
 
 Security:
@@ -100,14 +101,13 @@ Changed:
   is set to `replacePane`, then selecting a channel in the sidebar will replace the focused pane instead of opening a new pane)
 - `hidden_server_messages` has been changed to `server_messages` and additional customization has been added:
   - Exclude messages [join, part, quit].
-  - Adjust username format. 
+  - Adjust username format.
 
 Fixed:
 
-- Accept '*' as a legal special symbol for usernames
+- Accept '\*' as a legal special symbol for usernames
 - Accept '/' in usernames, ensuring correct parsing for bouncers using the nick/server convention
 - Create the configuration directory correctly, if it does not exist yet.
-
 
 # 2023.5 (2023-11-12)
 
@@ -128,11 +128,11 @@ Changed:
 Added:
 
 - Command bar (opened by pressing (<kbd>Ctrl</kbd> + <kbd>k</kbd> (macOS: <kbd>⌘</kbd> + <kbd>k</kbd>)))
-- Configurable keyboard shortcuts for common actions, such as changing buffer focus, maximize / restoring buffer size, 
-  cycling channels in the buffer and more! A new `keys` section has been added to the config file, reference the 
+- Configurable keyboard shortcuts for common actions, such as changing buffer focus, maximize / restoring buffer size,
+  cycling channels in the buffer and more! A new `keys` section has been added to the config file, reference the
   [wiki](https://github.com/squidowl/halloy/wiki/Keyboard-shortcuts) for more details.
 - Single clicking on a user will insert nickname to input
-- Configuration option `on_connect` to execute commands once connected to a server, reference the 
+- Configuration option `on_connect` to execute commands once connected to a server, reference the
   [wiki](https://github.com/squidowl/halloy/wiki/Configuration#on-connect-commands) for more details.
 
 Changed:
@@ -146,7 +146,7 @@ Fixed:
 
 # 2023.3 (2023-07-27)
 
-**Message history and dashboard state will be reset due to a breaking change. We've switched to a more flexible storage format 
+**Message history and dashboard state will be reset due to a breaking change. We've switched to a more flexible storage format
 to ensure future breakages won't occur.**
 
 Added:
@@ -208,7 +208,7 @@ Fixed:
 - Correctly load image on welcome screen
 
 # 2023.1-alpha1 (2023-06-30)
- 
+
 Added:
 
 - First release 🎉

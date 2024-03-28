@@ -17,7 +17,8 @@ use std::env;
 use std::time::{Duration, Instant};
 
 use data::config::{self, Config};
-use data::{environment, server, User};
+use data::version::Version;
+use data::{environment, server, version, User};
 use iced::widget::container;
 use iced::{executor, Application, Command, Length, Subscription};
 use screen::{dashboard, help, migration, welcome};
@@ -96,6 +97,7 @@ fn settings(
 }
 
 struct Halloy {
+    version: Version,
     screen: Screen,
     theme: Theme,
     config: Config,
@@ -157,6 +159,7 @@ impl Halloy {
 
         (
             Halloy {
+                version: Version::new(),
                 screen,
                 theme: config.themes.default.clone().into(),
                 clients: Default::default(),
@@ -184,6 +187,7 @@ pub enum Message {
     Migration(migration::Message),
     Event(Event),
     Tick(Instant),
+    Version(Option<String>),
 }
 
 impl Application for Halloy {
@@ -194,6 +198,10 @@ impl Application for Halloy {
 
     fn new(config_load: Self::Flags) -> (Halloy, Command<Self::Message>) {
         let (halloy, command) = Halloy::load_from_state(config_load);
+        let latest_remote_version =
+            Command::perform(version::latest_remote_version(), Message::Version);
+
+        let command = Command::batch(vec![command, latest_remote_version]);
 
         (halloy, command)
     }
@@ -214,6 +222,7 @@ impl Application for Halloy {
                     &mut self.clients,
                     &mut self.servers,
                     &mut self.theme,
+                    &self.version,
                     &self.config,
                 );
                 // Retrack after dashboard state changes
@@ -223,6 +232,12 @@ impl Application for Halloy {
                     command.map(Message::Dashboard),
                     track.map(Message::Dashboard),
                 ])
+            }
+            Message::Version(remote) => {
+                // Set latest known remote version
+                self.version.remote = remote;
+
+                Command::none()
             }
             Message::Help(message) => {
                 let Screen::Help(help) = &mut self.screen else {
@@ -301,12 +316,7 @@ impl Application for Halloy {
                             notification::show("Disconnected", &server, notification.sound());
                         };
 
-                        dashboard.broadcast_disconnected(
-                            &server,
-                            error,
-                            &self.config,
-                            sent_time,
-                        );
+                        dashboard.broadcast_disconnected(&server, error, &self.config, sent_time);
                     }
 
                     Command::none()
@@ -352,12 +362,7 @@ impl Application for Halloy {
                         return Command::none();
                     };
 
-                    dashboard.broadcast_connection_failed(
-                        &server,
-                        error,
-                        &self.config,
-                        sent_time,
-                    );
+                    dashboard.broadcast_connection_failed(&server, error, &self.config, sent_time);
 
                     Command::none()
                 }
@@ -495,7 +500,13 @@ impl Application for Halloy {
             Message::Event(event) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
-                        .handle_event(event, &self.clients, &self.config, &mut self.theme)
+                        .handle_event(
+                            event,
+                            &self.clients,
+                            &self.version,
+                            &self.config,
+                            &mut self.theme,
+                        )
                         .map(Message::Dashboard)
                 } else if let event::Event::CloseRequested = event {
                     window::close(window::Id::MAIN)
@@ -518,7 +529,7 @@ impl Application for Halloy {
     fn view(&self) -> Element<Message> {
         let content = match &self.screen {
             Screen::Dashboard(dashboard) => dashboard
-                .view(&self.clients, &self.config)
+                .view(&self.clients, &self.version, &self.config)
                 .map(Message::Dashboard),
             Screen::Help(help) => help.view().map(Message::Help),
             Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
