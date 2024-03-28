@@ -14,6 +14,7 @@
     - [Keyboard](configuration/keyboard.md)
     - [Themes](configuration/themes/README.md)
       - [Community](configuration/themes/community.md)
+    - [File Transfer](configuration/file_transfer.md)
 
 # Guides
 - [Migrating from YAML](guides/migrating-from-yaml.md)
