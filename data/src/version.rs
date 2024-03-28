@@ -9,6 +9,12 @@ pub struct Version {
     pub remote: Option<String>,
 }
 
+impl Default for Version {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Version {
     pub fn new() -> Version {
         let current = VERSION.to_owned();
