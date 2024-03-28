@@ -106,7 +106,7 @@ impl Task {
 
     pub fn spawn(
         self,
-        bind_address: Option<IpAddr>,
+        server: Option<Server>,
         timeout: Duration,
     ) -> (Handle, impl Stream<Item = Update>) {
         let (action_sender, action_receiver) = mpsc::channel(1);
@@ -129,7 +129,7 @@ impl Task {
                         server_handle,
                         action_receiver,
                         update_sender,
-                        bind_address,
+                        server,
                         timeout,
                     )
                     .await
@@ -155,7 +155,7 @@ impl Task {
                         server_handle,
                         action_receiver,
                         update_sender,
-                        bind_address,
+                        server,
                         timeout,
                     )
                     .await
@@ -200,6 +200,11 @@ pub enum Update {
     Failed(Id, String),
 }
 
+pub struct Server {
+    pub public_address: IpAddr,
+    pub bind_address: IpAddr,
+}
+
 async fn receive(
     id: Id,
     dcc_send: dcc::Send,
@@ -207,7 +212,7 @@ async fn receive(
     mut server_handle: server::Handle,
     mut action: Receiver<Action>,
     mut update: Sender<Update>,
-    bind_address: Option<IpAddr>,
+    server: Option<Server>,
     timeout: Duration,
 ) -> Result<(), Error> {
     // Wait for approval
@@ -224,7 +229,7 @@ async fn receive(
             token,
             ..
         } => {
-            let host = bind_address.ok_or(Error::ReverseReceiveNoBindAddress)?;
+            let server = server.ok_or(Error::ReverseReceiveNoServerConfig)?;
 
             let _ = update.send(Update::Queued(id)).await;
 
@@ -237,7 +242,7 @@ async fn receive(
                     dcc::Send::Reverse {
                         secure,
                         filename,
-                        host,
+                        host: server.public_address,
                         port: Some(port),
                         size,
                         token,
@@ -246,7 +251,7 @@ async fn receive(
                 )
                 .await;
 
-            (host, port, true)
+            (server.bind_address, port, true)
         }
     };
 
@@ -331,7 +336,7 @@ async fn send(
     mut server_handle: server::Handle,
     mut action: Receiver<Action>,
     mut update: Sender<Update>,
-    bind_address: Option<IpAddr>,
+    server: Option<Server>,
     timeout: Duration,
 ) -> Result<(), Error> {
     let mut file = File::open(path).await?;
@@ -377,7 +382,7 @@ async fn send(
         )
         .await?
     } else {
-        let host = bind_address.ok_or(Error::NonPassiveSendNoBindAdress)?;
+        let server = server.ok_or(Error::NonPassiveSendNoServerConfig)?;
 
         let _ = update.send(Update::Queued(id)).await;
 
@@ -390,7 +395,7 @@ async fn send(
                 dcc::Send::Direct {
                     secure: false,
                     filename: sanitized_filename,
-                    host,
+                    host: server.public_address,
                     port,
                     size,
                 }
@@ -403,7 +408,7 @@ async fn send(
         time::timeout(
             timeout,
             Connection::listen_and_accept(
-                host,
+                server.bind_address,
                 port.get(),
                 // TODO: SSL
                 connection::Security::Unsecured,
@@ -460,10 +465,10 @@ async fn send(
 
 #[derive(Debug, Error)]
 enum Error {
-    #[error("sender requested passive send but no bind address configured")]
-    ReverseReceiveNoBindAddress,
-    #[error("bind address must be configured to send file when passive is disabled")]
-    NonPassiveSendNoBindAdress,
+    #[error("sender requested passive send but [file_transfer.server] is not configured")]
+    ReverseReceiveNoServerConfig,
+    #[error("[file_transfer.server] must be configured to send a file when passive is disabled")]
+    NonPassiveSendNoServerConfig,
     #[error("connection error: {0}")]
     Connection(#[from] connection::Error),
     #[error("io error: {0}")]

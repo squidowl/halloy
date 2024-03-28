@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, VecDeque},
-    net::IpAddr,
     num::NonZeroU16,
     path::PathBuf,
     time::Duration,
@@ -72,8 +71,11 @@ impl Manager {
         }
     }
 
-    fn bind_address(&self) -> Option<IpAddr> {
-        self.config.bind.as_ref().map(|b| b.address)
+    fn server(&self) -> Option<task::Server> {
+        self.config.server.as_ref().map(|server| task::Server {
+            public_address: server.public_address,
+            bind_address: server.bind_address,
+        })
     }
 
     pub fn send(&mut self, request: SendRequest) -> Option<Event> {
@@ -117,10 +119,7 @@ impl Manager {
         };
 
         let task = Task::send(id, path, filename, to, reverse, server_handle);
-        let (handle, stream) = task.spawn(
-            self.bind_address(),
-            Duration::from_secs(self.config.timeout),
-        );
+        let (handle, stream) = task.spawn(self.server(), Duration::from_secs(self.config.timeout));
 
         self.items.insert(
             id,
@@ -188,10 +187,7 @@ impl Manager {
         };
 
         let task = Task::receive(id, dcc_send, from, server_handle);
-        let (handle, stream) = task.spawn(
-            self.bind_address(),
-            Duration::from_secs(self.config.timeout),
-        );
+        let (handle, stream) = task.spawn(self.server(), Duration::from_secs(self.config.timeout));
 
         self.items.insert(
             id,
@@ -307,11 +303,11 @@ impl Manager {
     }
 
     fn get_available_port(&self) -> Option<NonZeroU16> {
-        let Some(bind) = &self.config.bind else {
+        let Some(bind) = &self.config.server else {
             return None;
         };
 
-        bind.ports
+        bind.bind_ports
             .clone()
             .find(|port| !self.used_ports.values().any(|used| used.get() == *port))
             .and_then(NonZeroU16::new)

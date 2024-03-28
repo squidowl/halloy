@@ -510,7 +510,7 @@ impl Application for Halloy {
                                             if notification.enabled {
                                                 let text = format!(
                                                     "File Transfer Request: {}",
-                                                    request.from.to_string()
+                                                    request.from
                                                 );
 
                                                 notification::show(
