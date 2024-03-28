@@ -1,13 +1,10 @@
 use std::{net::IpAddr, num::NonZeroU16, ops::RangeInclusive, path::PathBuf};
 
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FileTransfer {
-    #[serde(
-        default = "default_save_directory",
-        deserialize_with = "deserialize_pathbuf_from_string"
-    )]
+    #[serde(default = "default_save_directory")]
     pub save_directory: PathBuf,
     #[serde(default = "default_passive")]
     pub passive: bool,
@@ -75,12 +72,4 @@ impl<'de> Deserialize<'de> for Bind {
             ports: port_first.get()..=port_last.get(),
         })
     }
-}
-
-fn deserialize_pathbuf_from_string<'de, D>(deserializer: D) -> Result<PathBuf, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let path = String::deserialize(deserializer)?;
-    Ok(PathBuf::from(path))
 }

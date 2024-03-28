@@ -202,12 +202,13 @@ impl Dashboard {
                                 buffer::user_context::Event::SendFile(nick) => {
                                     if let Some(buffer) = pane.buffer.data() {
                                         let server = buffer.server().clone();
+                                        let starting_directory =
+                                            config.file_transfer.save_directory.clone();
 
                                         return Command::perform(
-                                            async {
+                                            async move {
                                                 rfd::AsyncFileDialog::new()
-                                                    // TODO: Config default directory
-                                                    .set_directory("/tmp")
+                                                    .set_directory(starting_directory)
                                                     .pick_file()
                                                     .await
                                                     .map(|handle| handle.path().to_path_buf())
