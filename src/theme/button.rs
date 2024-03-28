@@ -102,12 +102,10 @@ pub fn tertiary(theme: &Theme, status: Status, selected: bool) -> Appearance {
             border: Border {
                 color: if selected {
                     theme.colors().action.low_alpha
+                } else if theme.colors().is_dark_theme() {
+                    theme.colors().background.lightest
                 } else {
-                    if theme.colors().is_dark_theme() {
-                        theme.colors().background.lightest
-                    } else {
-                        theme.colors().background.darkest
-                    }
+                    theme.colors().background.darkest
                 },
                 width: 1.0,
                 radius: 3.0.into(),
@@ -120,12 +118,10 @@ pub fn tertiary(theme: &Theme, status: Status, selected: bool) -> Appearance {
             Appearance {
                 background: Some(Background::Color(if selected {
                     theme.colors().action.high_alpha
+                } else if theme.colors().is_dark_theme() {
+                    theme.colors().background.light
                 } else {
-                    if theme.colors().is_dark_theme() {
-                        theme.colors().background.light
-                    } else {
-                        theme.colors().background.darker
-                    }
+                    theme.colors().background.darker
                 })),
                 ..active
             }

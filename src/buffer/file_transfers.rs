@@ -183,7 +183,7 @@ mod transfer_row {
                 let mut formatter = timeago::Formatter::new();
                 // Remove "ago" from relative time.
                 formatter.ago("");
-                let elapsed = formatter.convert(elapsed.clone());
+                let elapsed = formatter.convert(*elapsed);
 
                 container(
                     text(format!(
@@ -219,16 +219,10 @@ mod transfer_row {
             }
             file_transfer::Status::Active { .. } | file_transfer::Status::Completed { .. } => {
                 buttons = buttons.push(row_button(icon::folder(), Message::OpenDirectory));
-                buttons = buttons.push(row_button(
-                    icon::close(),
-                    Message::Clear(transfer.id.clone()),
-                ));
+                buttons = buttons.push(row_button(icon::close(), Message::Clear(transfer.id)));
             }
             file_transfer::Status::Failed { .. } => {
-                buttons = buttons.push(row_button(
-                    icon::close(),
-                    Message::Clear(transfer.id.clone()),
-                ));
+                buttons = buttons.push(row_button(icon::close(), Message::Clear(transfer.id)));
             }
         }
 
