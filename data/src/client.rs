@@ -11,8 +11,6 @@ use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{config, message, mode, Buffer, Server, User};
 
-const WHO_POLL_INTERVAL: Duration = Duration::from_secs(60);
-const WHO_RETRY_INTERVAL: Duration = Duration::from_secs(10);
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Copy)]
@@ -764,11 +762,12 @@ impl Client {
 
             let request = match state.last_who {
                 Some(WhoStatus::Done(last)) if !self.supports_away_notify => {
-                    (now.duration_since(last) >= WHO_POLL_INTERVAL).then_some(Request::Poll)
+                    (now.duration_since(last) >= self.config.who_poll_interval)
+                        .then_some(Request::Poll)
                 }
-                Some(WhoStatus::Requested(requested)) => {
-                    (now.duration_since(requested) >= WHO_RETRY_INTERVAL).then_some(Request::Retry)
-                }
+                Some(WhoStatus::Requested(requested)) => (now.duration_since(requested)
+                    >= self.config.who_retry_interval)
+                    .then_some(Request::Retry),
                 _ => None,
             };
 
