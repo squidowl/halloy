@@ -11,7 +11,6 @@ use crate::{icon, theme};
 pub enum Message {
     Approve(file_transfer::Id),
     SavePathSelected(file_transfer::Id, Option<PathBuf>),
-    Reject(file_transfer::Id),
     Clear(file_transfer::Id),
     OpenDirectory,
 }
@@ -93,9 +92,6 @@ impl FileTransfers {
                     file_transfers.approve(&id, path);
                 }
             }
-            Message::Reject(_) => {
-                // TODO.
-            }
             Message::Clear(id) => {
                 file_transfers.remove(&id);
             }
@@ -136,20 +132,34 @@ mod transfer_row {
                     .style(theme::text::transparent),
                 ),
             },
-            file_transfer::Status::Queued => container(
-                text(format!(
-                    "Transfer to {}. Waiting for open port.",
-                    transfer.remote_user
-                ))
-                .style(theme::text::transparent),
-            ),
-            file_transfer::Status::Ready => container(
-                text(format!(
-                    "Transfer to {}. Waiting for remote user to connect.",
-                    transfer.remote_user
-                ))
-                .style(theme::text::transparent),
-            ),
+            file_transfer::Status::Queued => {
+                let direction = match transfer.direction {
+                    file_transfer::Direction::Sent => "to",
+                    file_transfer::Direction::Received => "from",
+                };
+
+                container(
+                    text(format!(
+                        "Transfer {} {}. Waiting for open port.",
+                        direction, transfer.remote_user,
+                    ))
+                    .style(theme::text::transparent),
+                )
+            }
+            file_transfer::Status::Ready => {
+                let direction = match transfer.direction {
+                    file_transfer::Direction::Sent => "to",
+                    file_transfer::Direction::Received => "from",
+                };
+
+                container(
+                    text(format!(
+                        "Transfer {} {}. Waiting for remote user to connect.",
+                        direction, transfer.remote_user
+                    ))
+                    .style(theme::text::transparent),
+                )
+            }
             file_transfer::Status::Active {
                 transferred,
                 elapsed,
@@ -181,14 +191,21 @@ mod transfer_row {
             }
             file_transfer::Status::Completed { elapsed, sha256 } => {
                 let mut formatter = timeago::Formatter::new();
-                // Remove "ago" from relative time.
-                formatter.ago("");
+                formatter
+                    .ago("")
+                    .min_unit(timeago::TimeUnit::Seconds)
+                    .too_low("under a second");
                 let elapsed = formatter.convert(*elapsed);
+
+                let direction = match transfer.direction {
+                    file_transfer::Direction::Sent => "to",
+                    file_transfer::Direction::Received => "from",
+                };
 
                 container(
                     text(format!(
-                        "Completed to {} completed in {elapsed}. Checksum: {sha256}",
-                        transfer.remote_user,
+                        "Completed {} {} in {elapsed}. Checksum: {sha256}",
+                        direction, transfer.remote_user,
                     ))
                     .style(theme::text::transparent),
                 )
@@ -208,13 +225,11 @@ mod transfer_row {
             file_transfer::Status::PendingApproval => {
                 buttons =
                     buttons.push(row_button(icon::checkmark(), Message::Approve(transfer.id)));
-                // TODO: Reject message instead?
                 buttons = buttons.push(row_button(icon::close(), Message::Clear(transfer.id)));
             }
             file_transfer::Status::PendingReverseConfirmation
             | file_transfer::Status::Queued
             | file_transfer::Status::Ready => {
-                // TODO: Reject message instead?
                 buttons = buttons.push(row_button(icon::close(), Message::Clear(transfer.id)));
             }
             file_transfer::Status::Active { .. } | file_transfer::Status::Completed { .. } => {
