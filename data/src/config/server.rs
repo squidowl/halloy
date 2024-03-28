@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use irc::connection;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Server {
@@ -65,6 +66,18 @@ pub struct Server {
     /// Commands which are executed once connected.
     #[serde(default)]
     pub on_connect: Vec<String>,
+    /// WHO poll interval for servers without away-notify.
+    #[serde(
+        default = "default_who_poll_interval",
+        deserialize_with = "deserialize_duration_from_u64"
+    )]
+    pub who_poll_interval: Duration,
+    /// WHO retry interval for servers without away-notify.
+    #[serde(
+        default = "default_who_retry_interval",
+        deserialize_with = "deserialize_duration_from_u64"
+    )]
+    pub who_retry_interval: Duration,
 }
 
 impl Server {
@@ -141,6 +154,14 @@ impl Sasl {
     }
 }
 
+fn deserialize_duration_from_u64<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let seconds: u64 = Deserialize::deserialize(deserializer)?;
+    Ok(Duration::from_secs(seconds.clamp(5, 3600)))
+}
+
 fn default_use_tls() -> bool {
     true
 }
@@ -163,4 +184,12 @@ fn default_reconnect_delay() -> u64 {
 
 fn default_ghost_sequence() -> Vec<String> {
     vec!["GHOST".into()]
+}
+
+fn default_who_poll_interval() -> Duration {
+    Duration::from_secs(180)
+}
+
+fn default_who_retry_interval() -> Duration {
+    Duration::from_secs(10)
 }

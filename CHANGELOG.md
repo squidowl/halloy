@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Configuration to adjust WHO polling for servers without away-notify (see [server configuration](https://halloy.squidowl.org/configuration/servers.html))
+
 Fixed:
 
 - Accept '@' in usernames to support bouncers that use the user@identifier/network convention
