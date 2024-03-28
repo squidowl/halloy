@@ -53,6 +53,22 @@ jobs:
       - name: Build
         run: ${{ matrix.target.make }}
 
+      - name: Sign macOS
+        if: matrix.target.target == 'macos'
+        env: 
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_CERTIFICATE_NAME: ${{ secrets.MACOS_CERTIFICATE_NAME }}
+          MACOS_CI_KEYCHAIN_PWD: ${{ secrets.MACOS_CI_KEYCHAIN_PWD }}
+          MACOS_NOTARIZATION_APPLE_ID: ${{ secrets.MACOS_NOTARIZATION_APPLE_ID }}
+          MACOS_NOTARIZATION_TEAM_ID: ${{ secrets.MACOS_NOTARIZATION_TEAM_ID }}
+          MACOS_NOTARIZATION_PWD: ${{ secrets.MACOS_NOTARIZATION_PWD }}
+        run: bash scripts/sign-macos.sh
+
+      - name: Package macOS
+        if: matrix.target.target == 'macos'
+        run: bash scripts/package-macos.sh
+
       - name: Set artifact path
         run: ${{ matrix.target.artifact_path }}
 
