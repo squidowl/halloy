@@ -303,11 +303,10 @@ impl Manager {
     }
 
     fn get_available_port(&self) -> Option<NonZeroU16> {
-        let Some(bind) = &self.config.server else {
-            return None;
-        };
+        let server = self.config.server.as_ref()?;
 
-        bind.bind_ports
+        server
+            .bind_ports
             .clone()
             .find(|port| !self.used_ports.values().any(|used| used.get() == *port))
             .and_then(NonZeroU16::new)
