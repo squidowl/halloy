@@ -218,7 +218,12 @@ channels = ["#halloy"]
 <tr><td style="text-align: left"><code>dangerously_accept_invalid_certs</code></td><td style="text-align: left">On <code>true</code>, all certificate validations are skipped. Defaults to <code>false</code>.</td><td style="text-align: left"><code>false</code></td></tr>
 <tr><td style="text-align: left"><code>root_cert_path</code></td><td style="text-align: left">The path to the root TLS certificate for this server in PEM format.</td><td style="text-align: left"><code>""</code></td></tr>
 <tr><td style="text-align: left"><code>on_connect</code></td><td style="text-align: left">Commands which are executed once connected. Example. <code>["/msg NickServ IDENTIFY foo bar"]</code>.</td><td style="text-align: left"><code>[]</code></td></tr>
+<tr><td style="text-align: left"><code>who_poll_interval</code></td><td style="text-align: left">WHO poll interval (in seconds) for servers without away-notify.</td><td style="text-align: left"><code>180</code><sup class="footnote-reference"><a href="#1">1</a></sup></td></tr>
+<tr><td style="text-align: left"><code>who_retry_interval</code></td><td style="text-align: left">WHO retry interval (in seconds) for servers without away-notify.</td><td style="text-align: left"><code>10</code><sup class="footnote-reference"><a href="#1">1</a></sup></td></tr>
 </tbody></table>
+</div>
+<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
+<p>Limited between <code>5</code> and <code>3600</code> seconds.</p>
 </div>
 <h2 id="serverssasl-section"><a class="header" href="#serverssasl-section"><code>[servers.sasl]</code> Section</a></h2>
 <h3 id="saslplain"><a class="header" href="#saslplain"><code>[sasl.plain]</code>:</a></h3>
