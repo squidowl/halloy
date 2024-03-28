@@ -331,6 +331,8 @@ impl Manager {
 
     pub fn remove(&mut self, id: &Id) {
         let _ = self.items.remove(id);
+        self.queued.retain(|i| i != id);
+        self.recycle_port(*id);
     }
 
     pub fn approve(&mut self, id: &Id, save_to: PathBuf) {
