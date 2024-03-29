@@ -151,7 +151,6 @@ impl Task {
                         path,
                         sanitized_filename,
                         remote_user,
-                        // TODO: Config
                         reverse,
                         server_handle,
                         action_receiver,
@@ -226,7 +225,6 @@ async fn receive(
             host, port, size, ..
         } => (host, port, size, false),
         dcc::Send::Reverse {
-            secure,
             filename,
             size,
             token,
@@ -243,7 +241,6 @@ async fn receive(
             let _ = server_handle
                 .send(
                     dcc::Send::Reverse {
-                        secure,
                         filename,
                         host: server.public_address,
                         port: Some(port),
@@ -268,7 +265,6 @@ async fn receive(
             Connection::listen_and_accept(
                 host,
                 port.get(),
-                // TODO: SSL
                 connection::Security::Unsecured,
                 BytesCodec::new(),
             ),
@@ -280,7 +276,6 @@ async fn receive(
             connection::Config {
                 server: &host.to_string(),
                 port: port.get(),
-                // TODO: TLS?
                 security: connection::Security::Unsecured,
             },
             BytesCodec::new(),
@@ -363,7 +358,6 @@ async fn send(
         let _ = server_handle
             .send(
                 dcc::Send::Reverse {
-                    secure: false,
                     filename: sanitized_filename,
                     host,
                     port: None,
@@ -404,7 +398,6 @@ async fn send(
         let _ = server_handle
             .send(
                 dcc::Send::Direct {
-                    secure: false,
                     filename: sanitized_filename,
                     host: server.public_address,
                     port,
@@ -421,7 +414,6 @@ async fn send(
             Connection::listen_and_accept(
                 server.bind_address,
                 port.get(),
-                // TODO: SSL
                 connection::Security::Unsecured,
                 BytesCodec::new(),
             ),

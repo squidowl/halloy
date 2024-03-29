@@ -105,8 +105,6 @@ impl Manager {
             created_at: Utc::now(),
             direction: Direction::Sent,
             remote_user: to.clone(),
-            // TODO: Do we want to support this?
-            secure: false,
             filename: filename.clone(),
             // Will be updated by task
             size: 0,
@@ -180,7 +178,6 @@ impl Manager {
             created_at: Utc::now(),
             direction: Direction::Received,
             remote_user: from.clone(),
-            secure: dcc_send.secure(),
             filename: dcc_send.filename().to_string(),
             size: dcc_send.size(),
             status: Status::PendingApproval,
