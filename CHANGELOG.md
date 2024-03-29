@@ -4,6 +4,7 @@ Added:
 
 - Configuration to adjust WHO polling for servers without away-notify (see [server configuration](https://halloy.squidowl.org/configuration/servers.html))
 - Display current version, and latest remote version in command bar
+- Allow reading passwords from files in server configuration.
 
 Fixed:
 

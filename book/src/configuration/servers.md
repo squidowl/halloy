@@ -15,12 +15,14 @@ channels = ["#halloy"]
 | :--------------------------------- | :-------------------------------------------------------------------------------------------------- | :---------- |
 | `nickname`                         | The client's nickname.                                                                              | `""`        |
 | `nick_password`                    | The client's NICKSERV password.                                                                     | `""`        |
+| `nick_password_file`               | Alternatively read `nick_password` from the file at the given path.                                 | `""`        |
 | `alt_nicks`                        | Alternative nicknames for the client, if the default is taken.                                      | `[""]`      |
 | `username`                         | The client's username.                                                                              | `""`        |
 | `realname`                         | The client's real name.                                                                             | `""`        |
 | `server`                           | The server to connect to.                                                                           | `""`        |
 | `port`                             | The port to connect on.                                                                             | `6697`      |
 | `password`                         | The password to connect to the server.                                                              | `""`        |
+| `password_file`                    | Alternatively read `password` from the file at the given path.                                      | `""`        |
 | `channels`                         | A list of channels to join on connection.                                                           | `[""]`      |
 | `channel_keys`                     | A mapping of channel names to keys for join-on-connect.                                             | `{}`        |
 | `ping_time`                        | The amount of inactivity in seconds before the client will ping the server.                         | `180`       |
@@ -48,10 +50,11 @@ username = "<string>"
 password = "<string>"
 ```
 
-| Key        | Description                                                       | Default |
-| :--------- | :---------------------------------------------------------------- | :------ |
-| `username` | The account name used for authentication.                         | `""`    |
-| `password` | The password associated with the account used for authentication. | `""`    |
+| Key             | Description                                                       | Default |
+| :---------------| :---------------------------------------------------------------- | :------ |
+| `username`      | The account name used for authentication.                         | `""`    |
+| `password`      | The password associated with the account used for authentication. | `""`    |
+| `password_file` | Alternatively read `password` from the file at the given path.    | `""`    |
 
 
 ### `[sasl.external]`
