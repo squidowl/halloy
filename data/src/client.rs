@@ -392,6 +392,10 @@ impl Client {
                                     },
                                 )]);
                             }
+                            dcc::Command::Unsupported(command) => {
+                                log::debug!("Unsupported DCC command: {command}",);
+                                return None;
+                            }
                         }
                     }
                     // Highlight notification
@@ -444,7 +448,7 @@ impl Client {
                     new_nick,
                     ourself,
                     channels,
-                    sent_time: server_time(&message)
+                    sent_time: server_time(&message),
                 })]);
             }
             Command::Numeric(ERR_NICKNAMEINUSE | ERR_ERRONEUSNICKNAME, _)
@@ -525,7 +529,7 @@ impl Client {
                     user,
                     comment: comment.clone(),
                     channels,
-                    sent_time: server_time(&message)
+                    sent_time: server_time(&message),
                 })]);
             }
             Command::PART(channel, _) => {
