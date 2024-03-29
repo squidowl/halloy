@@ -303,8 +303,10 @@ async fn receive(
         // Write bytes to file
         file.write_all(&bytes).await?;
 
+        // Send ack, infallible in-case remote client closes
+        // stream without checking ack
         let ack = Bytes::from_iter(((transferred & 0xFFFFFFFF) as u32).to_be_bytes());
-        connection.send(ack).await?;
+        let _ = connection.send(ack).await;
 
         // Send progress at 60fps
         if last_progress.elapsed() >= Duration::from_millis(16) {
