@@ -307,7 +307,7 @@ async fn receive(
             file.write_all(&bytes).await?;
 
             let ack = Bytes::from_iter(((transferred & 0xFFFFFFFF) as u32).to_be_bytes());
-            connection.send(ack).await?;
+            let _ = connection.send(ack).await;
 
             // Send progress at 60fps
             if last_progress.elapsed() >= Duration::from_millis(16) {
@@ -323,7 +323,7 @@ async fn receive(
         }
     }
 
-    connection.shutdown().await?;
+    let _ = connection.shutdown().await;
 
     let sha256 = hex::encode(hasher.finalize());
 
