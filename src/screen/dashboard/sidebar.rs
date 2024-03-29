@@ -142,7 +142,7 @@ impl Sidebar {
 
             let button_with_tooltip = tooltip(
                 button,
-                show_tooltips.then(|| "Toggle command bar"),
+                show_tooltips.then_some("Toggle command bar"),
                 tooltip::Position::Top,
             );
 
@@ -177,7 +177,7 @@ impl Sidebar {
 
             let button_with_tooltip = tooltip(
                 button,
-                show_tooltips.then(|| "Toggle file transfers buffer"),
+                show_tooltips.then_some("Toggle file transfers buffer"),
                 tooltip::Position::Top,
             );
 

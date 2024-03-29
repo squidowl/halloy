@@ -7,7 +7,6 @@ use data::environment::RELEASE_WEBSITE;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Utc};
 use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
@@ -23,10 +22,6 @@ use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
 use crate::widget::{anchored_overlay, selectable_text, shortcut, Element};
 use crate::{event, theme, Theme};
-
-mod command_bar;
-pub mod pane;
-pub mod sidebar;
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
@@ -351,6 +346,7 @@ impl Dashboard {
                     sidebar::Event::ToggleCommandBar => {
                         return self.toggle_command_bar(
                             &closed_buffers(self, clients),
+                            version,
                             config,
                             theme,
                         );
