@@ -4,6 +4,7 @@ use iced::Length;
 use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
+use crate::widget::tooltip;
 use crate::{icon, theme, widget};
 
 #[derive(Debug, Clone)]
@@ -85,6 +86,7 @@ impl Pane {
             maximized,
             clients,
             &self.settings,
+            config.tooltips,
         );
 
         let content = self
@@ -143,6 +145,7 @@ impl TitleBar {
         maximized: bool,
         clients: &'a data::client::Map,
         settings: &'a buffer::Settings,
+        show_tooltips: bool,
     ) -> widget::TitleBar<'a, Message> {
         // Pane controls.
         let mut controls = row![].spacing(2);
@@ -151,7 +154,7 @@ impl TitleBar {
             // Show topic button only if there is a topic to show
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
                 if topic.text.is_some() {
-                    let topic = button(
+                    let topic_button = button(
                         container(icon::topic())
                             .width(Length::Fill)
                             .height(Length::Fill)
@@ -166,11 +169,17 @@ impl TitleBar {
                         theme::button::tertiary(theme, status, settings.channel.topic.enabled)
                     });
 
-                    controls = controls.push(topic);
+                    let topic_button_with_tooltip = tooltip(
+                        topic_button,
+                        show_tooltips.then(|| "Toggle topic banner"),
+                        tooltip::Position::Bottom,
+                    );
+
+                    controls = controls.push(topic_button_with_tooltip);
                 }
             }
 
-            let users = button(
+            let nicklist_button = button(
                 container(icon::people())
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -185,12 +194,18 @@ impl TitleBar {
                 theme::button::tertiary(theme, status, settings.channel.nicklist.enabled)
             });
 
-            controls = controls.push(users);
+            let nicklist_button_with_tooltip = tooltip(
+                nicklist_button,
+                show_tooltips.then(|| "Toggle nicklist"),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(nicklist_button_with_tooltip);
         }
 
         // If we have more than one pane open, show maximize button.
         if panes > 1 {
-            let maximize = button(
+            let maximize_button = button(
                 container(if maximized {
                     icon::restore()
                 } else {
@@ -207,12 +222,24 @@ impl TitleBar {
             .on_press(Message::MaximizePane)
             .style(move |theme, status| theme::button::tertiary(theme, status, maximized));
 
-            controls = controls.push(maximize);
+            let maximize_button_with_tooltip = tooltip(
+                maximize_button,
+                show_tooltips.then(|| {
+                    if maximized {
+                        "Restore buffer"
+                    } else {
+                        "Maximize buffer"
+                    }
+                }),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(maximize_button_with_tooltip);
         }
 
         // Add delete as long as it's not a single empty buffer
         if !(panes == 1 && matches!(buffer, Buffer::Empty)) {
-            let delete = button(
+            let close_button = button(
                 container(icon::close())
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -225,7 +252,13 @@ impl TitleBar {
             .on_press(Message::ClosePane)
             .style(|theme, status| theme::button::tertiary(theme, status, false));
 
-            controls = controls.push(delete);
+            let close_button_with_tooltip = tooltip(
+                close_button,
+                show_tooltips.then(|| "Close buffer"),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(close_button_with_tooltip);
         }
 
         let title = container(text(value).style(theme::text::transparent))

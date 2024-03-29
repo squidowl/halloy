@@ -7,6 +7,7 @@ pub use self::input::input;
 pub use self::key_press::key_press;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
+pub use self::tooltip::tooltip;
 use crate::Theme;
 
 pub mod anchored_overlay;
@@ -20,6 +21,7 @@ pub mod input;
 pub mod key_press;
 pub mod selectable_text;
 pub mod shortcut;
+pub mod tooltip;
 
 pub type Renderer = iced::Renderer;
 pub type Element<'a, Message> = iced::Element<'a, Message, Theme, Renderer>;
