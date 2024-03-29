@@ -308,12 +308,14 @@ channels = ["#halloy"]
 <div class="table-wrapper"><table><thead><tr><th style="text-align: left">Key</th><th style="text-align: left">Description</th><th style="text-align: left">Default</th></tr></thead><tbody>
 <tr><td style="text-align: left"><code>nickname</code></td><td style="text-align: left">The client's nickname.</td><td style="text-align: left"><code>""</code></td></tr>
 <tr><td style="text-align: left"><code>nick_password</code></td><td style="text-align: left">The client's NICKSERV password.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>nick_password_file</code></td><td style="text-align: left">Alternatively read <code>nick_password</code> from the file at the given path.</td><td style="text-align: left"><code>""</code></td></tr>
 <tr><td style="text-align: left"><code>alt_nicks</code></td><td style="text-align: left">Alternative nicknames for the client, if the default is taken.</td><td style="text-align: left"><code>[""]</code></td></tr>
 <tr><td style="text-align: left"><code>username</code></td><td style="text-align: left">The client's username.</td><td style="text-align: left"><code>""</code></td></tr>
 <tr><td style="text-align: left"><code>realname</code></td><td style="text-align: left">The client's real name.</td><td style="text-align: left"><code>""</code></td></tr>
 <tr><td style="text-align: left"><code>server</code></td><td style="text-align: left">The server to connect to.</td><td style="text-align: left"><code>""</code></td></tr>
 <tr><td style="text-align: left"><code>port</code></td><td style="text-align: left">The port to connect on.</td><td style="text-align: left"><code>6697</code></td></tr>
 <tr><td style="text-align: left"><code>password</code></td><td style="text-align: left">The password to connect to the server.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>password_file</code></td><td style="text-align: left">Alternatively read <code>password</code> from the file at the given path.</td><td style="text-align: left"><code>""</code></td></tr>
 <tr><td style="text-align: left"><code>channels</code></td><td style="text-align: left">A list of channels to join on connection.</td><td style="text-align: left"><code>[""]</code></td></tr>
 <tr><td style="text-align: left"><code>channel_keys</code></td><td style="text-align: left">A mapping of channel names to keys for join-on-connect.</td><td style="text-align: left"><code>{}</code></td></tr>
 <tr><td style="text-align: left"><code>ping_time</code></td><td style="text-align: left">The amount of inactivity in seconds before the client will ping the server.</td><td style="text-align: left"><code>180</code></td></tr>
@@ -342,6 +344,7 @@ password = "&lt;string&gt;"
 <div class="table-wrapper"><table><thead><tr><th style="text-align: left">Key</th><th style="text-align: left">Description</th><th style="text-align: left">Default</th></tr></thead><tbody>
 <tr><td style="text-align: left"><code>username</code></td><td style="text-align: left">The account name used for authentication.</td><td style="text-align: left"><code>""</code></td></tr>
 <tr><td style="text-align: left"><code>password</code></td><td style="text-align: left">The password associated with the account used for authentication.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>password_file</code></td><td style="text-align: left">Alternatively read <code>password</code> from the file at the given path.</td><td style="text-align: left"><code>""</code></td></tr>
 </tbody></table>
 </div>
 <h3 id="saslexternal"><a class="header" href="#saslexternal"><code>[sasl.external]</code></a></h3>
