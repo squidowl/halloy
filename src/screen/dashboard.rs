@@ -21,7 +21,7 @@ use self::sidebar::Sidebar;
 use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
 use crate::widget::{anchored_overlay, selectable_text, shortcut, Element};
-use crate::{event, theme, Theme};
+use crate::{event, notification, theme, Theme};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
@@ -32,6 +32,7 @@ pub struct Dashboard {
     history: history::Manager,
     last_changed: Option<Instant>,
     command_bar: Option<CommandBar>,
+    file_transfers: file_transfer::Manager,
 }
 
 #[derive(Debug)]
@@ -61,6 +62,7 @@ impl Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
+            file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
         };
 
         let command = dashboard.track();
@@ -68,8 +70,8 @@ impl Dashboard {
         (dashboard, command)
     }
 
-    pub fn restore(dashboard: data::Dashboard) -> (Self, Command<Message>) {
-        let mut dashboard = Dashboard::from(dashboard);
+    pub fn restore(dashboard: data::Dashboard, config: &Config) -> (Self, Command<Message>) {
+        let mut dashboard = Dashboard::from_data(dashboard, config);
 
         let command = if let Some((pane, _)) = dashboard.panes.panes.iter().next() {
             Command::batch(vec![dashboard.focus_pane(*pane), dashboard.track()])
@@ -85,7 +87,6 @@ impl Dashboard {
         message: Message,
         clients: &mut client::Map,
         servers: &mut server::Map,
-        file_transfers: &mut file_transfer::Manager,
         theme: &mut Theme,
         version: &Version,
         config: &Config,
@@ -118,7 +119,7 @@ impl Dashboard {
                             message,
                             clients,
                             &mut self.history,
-                            file_transfers,
+                            &mut self.file_transfers,
                             config,
                         );
 
@@ -571,22 +572,18 @@ impl Dashboard {
                 }
             }
             Message::FileTransfer(update) => {
-                file_transfers.update(update);
+                self.file_transfers.update(update);
             }
             Message::SendFileSelected(server, to, path) => {
                 if let Some(server_handle) = clients.get_server_handle(&server) {
                     if let Some(path) = path {
-                        if let Some(event) = file_transfers.send(file_transfer::SendRequest {
+                        if let Some(event) = self.file_transfers.send(file_transfer::SendRequest {
                             to,
                             path,
-                            server,
+                            server: server.clone(),
                             server_handle: server_handle.clone(),
                         }) {
-                            match event {
-                                file_transfer::manager::Event::NewTransfer(_, task) => {
-                                    return Command::run(task, Message::FileTransfer)
-                                }
-                            }
+                            return self.handle_file_transfer_event(&server, event);
                         }
                     }
                 }
@@ -599,7 +596,6 @@ impl Dashboard {
     pub fn view<'a>(
         &'a self,
         clients: &'a client::Map,
-        file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
         config: &'a Config,
     ) -> Element<'a, Message> {
@@ -614,7 +610,7 @@ impl Dashboard {
                 is_focused,
                 maximized,
                 clients,
-                file_transfers,
+                &self.file_transfers,
                 &self.history,
                 config,
             )
@@ -639,7 +635,7 @@ impl Dashboard {
                 self.focus,
                 config.sidebar,
                 config.tooltips,
-                file_transfers,
+                &self.file_transfers,
             )
             .map(|e| e.map(Message::Sidebar));
 
@@ -1179,10 +1175,51 @@ impl Dashboard {
         let can_resize_buffer = self.focus.is_some() && self.panes.len() > 1;
         data::buffer::Resize::action(can_resize_buffer, self.is_pane_maximized())
     }
-}
 
-impl From<data::Dashboard> for Dashboard {
-    fn from(dashboard: data::Dashboard) -> Self {
+    pub fn receive_file_transfer(
+        &mut self,
+        server: &Server,
+        request: file_transfer::ReceiveRequest,
+        config: &Config,
+    ) -> Option<Command<Message>> {
+        if let Some(event) = self.file_transfers.receive(request.clone()) {
+            let notification = &config.notifications.file_transfer_request;
+
+            if notification.enabled {
+                let text = format!("File Transfer Request: {}", request.from);
+
+                notification::show(text.as_str(), server, notification.sound());
+            };
+
+            return Some(self.handle_file_transfer_event(server, event));
+        }
+
+        None
+    }
+
+    pub fn handle_file_transfer_event(
+        &mut self,
+        server: &Server,
+        event: file_transfer::manager::Event,
+    ) -> Command<Message> {
+        match event {
+            file_transfer::manager::Event::NewTransfer(transfer, task) => {
+                if transfer.direction.is_received() {
+                    self.record_message(
+                        server,
+                        data::Message::file_transfer_received(
+                            &transfer.remote_user,
+                            &transfer.filename,
+                        ),
+                    );
+                }
+
+                Command::run(task, Message::FileTransfer)
+            }
+        }
+    }
+
+    fn from_data(dashboard: data::Dashboard, config: &Config) -> Self {
         use pane_grid::Configuration;
 
         fn configuration(pane: data::Pane) -> Configuration<Pane> {
@@ -1217,6 +1254,7 @@ impl From<data::Dashboard> for Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
+            file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
         }
     }
 }
