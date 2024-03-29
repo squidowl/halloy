@@ -217,7 +217,12 @@ mod transfer_row {
         let filename = container(text(format!("{} ({file_size})", transfer.filename)));
 
         let mut buttons = row![].align_items(iced::Alignment::Center).spacing(2);
-        let content = column![filename, status].width(Length::Fill).spacing(0);
+        let content = column![filename, status]
+            // Add 1 padding to make container odd sized
+            // for proper icon centering
+            .padding([1, 0, 0, 0])
+            .width(Length::Fill)
+            .spacing(0);
 
         match &transfer.status {
             file_transfer::Status::PendingApproval => {
