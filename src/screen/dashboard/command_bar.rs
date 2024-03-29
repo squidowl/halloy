@@ -21,6 +21,7 @@ pub enum Message {
 impl CommandBar {
     pub fn new(
         buffers: &[data::Buffer],
+        version: &data::Version,
         config: &Config,
         is_focused_buffer: bool,
         resize_buffer: data::buffer::Resize,
@@ -30,6 +31,7 @@ impl CommandBar {
             config,
             is_focused_buffer,
             resize_buffer,
+            version,
         ));
         state.focus();
 
@@ -53,6 +55,7 @@ impl CommandBar {
         buffers: &[data::Buffer],
         focused_buffer: bool,
         resize_buffer: data::buffer::Resize,
+        version: &data::Version,
         config: &'a Config,
     ) -> Element<'a, Message> {
         // 1px larger than default
@@ -78,7 +81,7 @@ impl CommandBar {
             column(
                 std::iter::once(text("Type a command...").size(font_size))
                     .chain(
-                        Command::list(buffers, config, focused_buffer, resize_buffer)
+                        Command::list(buffers, config, focused_buffer, resize_buffer, version)
                             .iter()
                             .map(|command| text(command).size(font_size)),
                     )
@@ -102,10 +105,16 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Command {
+    Version(Version),
     Buffer(Buffer),
     Configuration(Configuration),
     UI(Ui),
     Theme(Theme),
+}
+
+#[derive(Debug, Clone)]
+pub enum Version {
+    Application(data::Version),
 }
 
 #[derive(Debug, Clone)]
@@ -138,6 +147,7 @@ impl Command {
         config: &Config,
         is_focused_buffer: bool,
         resize_buffer: data::buffer::Resize,
+        version: &data::Version,
     ) -> Vec<Self> {
         let buffers = Buffer::list(buffers, is_focused_buffer, resize_buffer)
             .into_iter()
@@ -151,7 +161,14 @@ impl Command {
 
         let themes = Theme::list(config).into_iter().map(Command::Theme);
 
-        buffers.chain(configs).chain(themes).chain(uis).collect()
+        let version = Version::list(version).into_iter().map(Command::Version);
+
+        version
+            .chain(buffers)
+            .chain(configs)
+            .chain(themes)
+            .chain(uis)
+            .collect()
     }
 }
 
@@ -162,6 +179,7 @@ impl std::fmt::Display for Command {
             Command::Configuration(config) => write!(f, "Configuration: {}", config),
             Command::UI(ui) => write!(f, "UI: {}", ui),
             Command::Theme(theme) => write!(f, "Theme: {}", theme),
+            Command::Version(application) => write!(f, "Version: {}", application),
         }
     }
 }
@@ -190,6 +208,12 @@ impl Buffer {
     }
 }
 
+impl Version {
+    fn list(version: &data::Version) -> Vec<Self> {
+        vec![Version::Application(version.clone())]
+    }
+}
+
 impl Configuration {
     fn list() -> Vec<Self> {
         vec![Configuration::OpenDirectory, Configuration::OpenWebsite]
@@ -211,6 +235,23 @@ impl Theme {
             .cloned()
             .map(Self::Switch)
             .collect()
+    }
+}
+
+impl std::fmt::Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Version::Application(version) => {
+                let latest = version
+                    .remote
+                    .as_ref()
+                    .filter(|remote| remote != &&version.current)
+                    .map(|remote| format!("(Latest: {})", remote))
+                    .unwrap_or("(Latest release)".to_owned());
+
+                write!(f, "{} {}", version.current, latest)
+            }
+        }
     }
 }
 

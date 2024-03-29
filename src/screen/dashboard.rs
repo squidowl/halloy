@@ -3,11 +3,12 @@ pub mod pane;
 pub mod sidebar;
 
 use chrono::{DateTime, Utc};
+use data::environment::RELEASE_WEBSITE;
 use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{client, environment, history, server, Config, Server, User};
+use data::{client, environment, history, server, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, window, Command, Length};
@@ -80,6 +81,7 @@ impl Dashboard {
         clients: &mut client::Map,
         servers: &mut server::Map,
         theme: &mut Theme,
+        version: &Version,
         config: &Config,
     ) -> Command<Message> {
         match message {
@@ -356,6 +358,12 @@ impl Dashboard {
                     },
                     Some(command_bar::Event::Command(command)) => {
                         let command = match command {
+                            command_bar::Command::Version(command) => match command {
+                                command_bar::Version::Application(_) => {
+                                    let _ = open::that(RELEASE_WEBSITE);
+                                    Command::none()
+                                }
+                            },
                             command_bar::Command::Buffer(command) => match command {
                                 command_bar::Buffer::Maximize(_) => {
                                     self.maximize_pane();
@@ -397,7 +405,7 @@ impl Dashboard {
                                 command_bar::Configuration::OpenWebsite => {
                                     let _ = open::that(environment::WIKI_WEBSITE);
                                     Command::none()
-                                },
+                                }
                             },
                             command_bar::Command::UI(command) => match command {
                                 command_bar::Ui::ToggleSidebarVisibility => {
@@ -415,12 +423,18 @@ impl Dashboard {
 
                         return Command::batch(vec![
                             command,
-                            self.toggle_command_bar(&closed_buffers(self, clients), config, theme),
+                            self.toggle_command_bar(
+                                &closed_buffers(self, clients),
+                                version,
+                                config,
+                                theme,
+                            ),
                         ]);
                     }
                     Some(command_bar::Event::Unfocused) => {
                         return self.toggle_command_bar(
                             &closed_buffers(self, clients),
+                            version,
                             config,
                             theme,
                         );
@@ -504,6 +518,7 @@ impl Dashboard {
                     CommandBar => {
                         return self.toggle_command_bar(
                             &closed_buffers(self, clients),
+                            version,
                             config,
                             theme,
                         );
@@ -518,6 +533,7 @@ impl Dashboard {
     pub fn view<'a>(
         &'a self,
         clients: &'a client::Map,
+        version: &'a Version,
         config: &'a Config,
     ) -> Element<'a, Message> {
         let focus = self.focus;
@@ -588,6 +604,7 @@ impl Dashboard {
                         &all_buffers(clients, &self.history),
                         self.focus.is_some(),
                         self.buffer_resize_action(),
+                        version,
                         config,
                     )
                     .map(Message::Command),
@@ -608,6 +625,7 @@ impl Dashboard {
         &mut self,
         event: event::Event,
         clients: &data::client::Map,
+        version: &Version,
         config: &Config,
         theme: &mut Theme,
     ) -> Command<Message> {
@@ -621,7 +639,12 @@ impl Dashboard {
                 // - Restore maximized pane
                 // - Unfocus
                 if self.command_bar.is_some() {
-                    return self.toggle_command_bar(&closed_buffers(self, clients), config, theme);
+                    return self.toggle_command_bar(
+                        &closed_buffers(self, clients),
+                        version,
+                        config,
+                        theme,
+                    );
                 } else if self.is_pane_maximized() {
                     self.panes.restore();
                 } else {
@@ -1008,6 +1031,7 @@ impl Dashboard {
     pub fn toggle_command_bar(
         &mut self,
         buffers: &[data::Buffer],
+        version: &Version,
         config: &Config,
         theme: &mut Theme,
     ) -> Command<Message> {
@@ -1022,15 +1046,15 @@ impl Dashboard {
                 .map(|pane| self.focus_pane(pane))
                 .unwrap_or(Command::none())
         } else {
-            self.open_command_bar(buffers, config);
-
+            self.open_command_bar(buffers, version, config);
             Command::none()
         }
     }
 
-    fn open_command_bar(&mut self, buffers: &[data::Buffer], config: &Config) {
+    fn open_command_bar(&mut self, buffers: &[data::Buffer], version: &Version, config: &Config) {
         self.command_bar = Some(CommandBar::new(
             buffers,
+            version,
             config,
             self.focus.is_some(),
             self.buffer_resize_action(),
