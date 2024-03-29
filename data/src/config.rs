@@ -132,7 +132,7 @@ impl Config {
 
         let Configuration {
             theme,
-            servers,
+            mut servers,
             font,
             scale_factor,
             buffer,
@@ -140,6 +140,8 @@ impl Config {
             keyboard,
             notifications,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
+
+        servers.read_password_files()?;
 
         let themes = Self::load_themes(&theme).unwrap_or_default();
 
