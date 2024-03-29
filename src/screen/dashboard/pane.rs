@@ -171,7 +171,7 @@ impl TitleBar {
 
                     let topic_button_with_tooltip = tooltip(
                         topic_button,
-                        show_tooltips.then_some("Toggle topic banner"),
+                        show_tooltips.then_some("Topic Banner"),
                         tooltip::Position::Bottom,
                     );
 
@@ -196,7 +196,7 @@ impl TitleBar {
 
             let nicklist_button_with_tooltip = tooltip(
                 nicklist_button,
-                show_tooltips.then_some("Toggle nicklist"),
+                show_tooltips.then_some("Nicklist"),
                 tooltip::Position::Bottom,
             );
 
@@ -226,9 +226,9 @@ impl TitleBar {
                 maximize_button,
                 show_tooltips.then_some({
                     if maximized {
-                        "Restore buffer"
+                        "Restore"
                     } else {
-                        "Maximize buffer"
+                        "Maximize"
                     }
                 }),
                 tooltip::Position::Bottom,
@@ -254,7 +254,7 @@ impl TitleBar {
 
             let close_button_with_tooltip = tooltip(
                 close_button,
-                show_tooltips.then_some("Close buffer"),
+                show_tooltips.then_some("Close"),
                 tooltip::Position::Bottom,
             );
 
