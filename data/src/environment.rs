@@ -7,6 +7,7 @@ pub const CONFIG_FILE_NAME: &str = "config.toml";
 pub const APPLICATION_ID: &str = "org.squidowl.halloy";
 pub const WIKI_WEBSITE: &str = "https://halloy.squidowl.org";
 pub const MIGRATION_WEBSITE: &str = "https://halloy.squidowl.org/guides/migrating-from-yaml.html";
+pub const RELEASE_WEBSITE: &str = "https://github.com/squidowl/halloy/releases/latest";
 
 pub fn formatted_version() -> String {
     let hash = GIT_HASH
