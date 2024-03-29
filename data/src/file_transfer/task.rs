@@ -321,7 +321,7 @@ async fn receive(
         }
     }
 
-    connection.shutdown().await?;
+    let _ = connection.shutdown().await;
 
     let sha256 = hex::encode(hasher.finalize());
 
@@ -476,7 +476,7 @@ async fn send(
         }
     }
 
-    connection.shutdown().await?;
+    let _ = connection.shutdown().await;
 
     let sha256 = hex::encode(hasher.finalize());
 
