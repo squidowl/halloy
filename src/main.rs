@@ -521,7 +521,20 @@ impl Application for Halloy {
                                             };
 
                                             match event {
-                                                file_transfer::manager::Event::RunTask(task) => {
+                                                file_transfer::manager::Event::NewTransfer(
+                                                    transfer,
+                                                    task,
+                                                ) => {
+                                                    if transfer.direction.is_received() {
+                                                        dashboard.record_message(
+                                                            &server,
+                                                            data::Message::file_transfer_received(
+                                                                &transfer.remote_user,
+                                                                &transfer.filename,
+                                                            ),
+                                                        );
+                                                    }
+
                                                     commands.push(Command::run(
                                                         task,
                                                         Message::FileTransfer,

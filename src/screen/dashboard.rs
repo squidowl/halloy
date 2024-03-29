@@ -583,7 +583,7 @@ impl Dashboard {
                             server_handle: server_handle.clone(),
                         }) {
                             match event {
-                                file_transfer::manager::Event::RunTask(task) => {
+                                file_transfer::manager::Event::NewTransfer(_, task) => {
                                     return Command::run(task, Message::FileTransfer)
                                 }
                             }
