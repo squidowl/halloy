@@ -295,7 +295,7 @@ async fn receive(
     while let Some(bytes) = connection.next().await {
         let bytes = bytes?;
 
-        transferred += bytes.len();
+        transferred += bytes.len() as u64;
 
         // Update hasher
         hasher.update(&bytes);
@@ -303,8 +303,7 @@ async fn receive(
         // Write bytes to file
         file.write_all(&bytes).await?;
 
-        // Reply w/ ack
-        let ack = Bytes::from_iter(((transferred as u64 & 0xFFFFFFFF) as u32).to_be_bytes());
+        let ack = Bytes::from_iter(((transferred & 0xFFFFFFFF) as u32).to_be_bytes());
         connection.send(ack).await?;
 
         // Send progress at 60fps
@@ -313,12 +312,14 @@ async fn receive(
                 .send(Update::Progress {
                     id,
                     elapsed: started_at.elapsed(),
-                    transferred: transferred as u64,
+                    transferred,
                 })
                 .await;
             last_progress = Instant::now();
         }
     }
+
+    connection.shutdown().await?;
 
     let sha256 = hex::encode(hasher.finalize());
 
@@ -457,6 +458,19 @@ async fn send(
                 })
                 .await;
             last_progress = Instant::now();
+        }
+    }
+
+    // Ensure we receive ack
+    'ack: while let Some(bytes) = connection.next().await {
+        let bytes = bytes?;
+        for chunk in bytes.chunks(4) {
+            if chunk.len() == 4 {
+                let ack = u32::from_be_bytes(chunk.try_into().unwrap());
+                if ack == (size & 0xFFFFFFFF) as u32 {
+                    break 'ack;
+                }
+            }
         }
     }
 
