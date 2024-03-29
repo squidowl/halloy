@@ -12,7 +12,6 @@ pub enum Message {
     Approve(file_transfer::Id),
     SavePathSelected(file_transfer::Id, Option<PathBuf>),
     Clear(file_transfer::Id),
-    OpenDirectory,
 }
 
 pub fn view<'a>(
@@ -95,7 +94,6 @@ impl FileTransfers {
             Message::Clear(id) => {
                 file_transfers.remove(&id);
             }
-            Message::OpenDirectory => {}
         }
 
         Command::none()
@@ -233,7 +231,6 @@ mod transfer_row {
                 buttons = buttons.push(row_button(icon::close(), Message::Clear(transfer.id)));
             }
             file_transfer::Status::Active { .. } | file_transfer::Status::Completed { .. } => {
-                buttons = buttons.push(row_button(icon::folder(), Message::OpenDirectory));
                 buttons = buttons.push(row_button(icon::close(), Message::Clear(transfer.id)));
             }
             file_transfer::Status::Failed { .. } => {

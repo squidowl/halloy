@@ -42,10 +42,6 @@ pub fn topic<'a>() -> Text<'a> {
     to_text('\u{f5af}')
 }
 
-pub fn folder<'a>() -> Text<'a> {
-    to_text('\u{f3d8}')
-}
-
 pub fn search<'a>() -> Text<'a> {
     to_text('\u{f52a}')
 }
