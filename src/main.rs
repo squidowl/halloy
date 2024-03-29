@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use data::config::{self, Config};
 use data::version::Version;
-use data::{environment, file_transfer, server, version, User};
+use data::{environment, server, version, User};
 use iced::widget::container;
 use iced::{executor, Application, Command, Length, Subscription};
 use screen::{dashboard, help, migration, welcome};
@@ -103,7 +103,6 @@ struct Halloy {
     config: Config,
     clients: data::client::Map,
     servers: server::Map,
-    file_transfers: file_transfer::Manager,
 }
 
 impl Halloy {
@@ -111,7 +110,7 @@ impl Halloy {
         config_load: Result<Config, config::Error>,
     ) -> (Halloy, Command<Message>) {
         let load_dashboard = |config| match data::Dashboard::load() {
-            Ok(dashboard) => screen::Dashboard::restore(dashboard),
+            Ok(dashboard) => screen::Dashboard::restore(dashboard, config),
             Err(error) => {
                 // TODO: Show this in error screen too? Maybe w/ option to report bug on GH
                 // and reset settings to continue loading?
@@ -165,7 +164,6 @@ impl Halloy {
                 theme: config.themes.default.clone().into(),
                 clients: Default::default(),
                 servers: config.servers.clone(),
-                file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
                 config,
             },
             command,
@@ -190,7 +188,6 @@ pub enum Message {
     Event(Event),
     Tick(Instant),
     Version(Option<String>),
-    FileTransfer(file_transfer::task::Update),
 }
 
 impl Application for Halloy {
@@ -224,7 +221,6 @@ impl Application for Halloy {
                     message,
                     &mut self.clients,
                     &mut self.servers,
-                    &mut self.file_transfers,
                     &mut self.theme,
                     &self.version,
                     &self.config,
@@ -501,46 +497,12 @@ impl Application for Halloy {
                                         }
                                     }
                                     data::client::Event::FileTransferRequest(request) => {
-                                        if let Some(event) =
-                                            self.file_transfers.receive(request.clone())
-                                        {
-                                            let notification =
-                                                &self.config.notifications.file_transfer_request;
-
-                                            if notification.enabled {
-                                                let text = format!(
-                                                    "File Transfer Request: {}",
-                                                    request.from
-                                                );
-
-                                                notification::show(
-                                                    text.as_str(),
-                                                    &server,
-                                                    notification.sound(),
-                                                );
-                                            };
-
-                                            match event {
-                                                file_transfer::manager::Event::NewTransfer(
-                                                    transfer,
-                                                    task,
-                                                ) => {
-                                                    if transfer.direction.is_received() {
-                                                        dashboard.record_message(
-                                                            &server,
-                                                            data::Message::file_transfer_received(
-                                                                &transfer.remote_user,
-                                                                &transfer.filename,
-                                                            ),
-                                                        );
-                                                    }
-
-                                                    commands.push(Command::run(
-                                                        task,
-                                                        Message::FileTransfer,
-                                                    ));
-                                                }
-                                            }
+                                        if let Some(command) = dashboard.receive_file_transfer(
+                                            &server,
+                                            request,
+                                            &self.config,
+                                        ) {
+                                            commands.push(command.map(Message::Dashboard));
                                         }
                                     }
                                 }
@@ -583,22 +545,13 @@ impl Application for Halloy {
                     Command::none()
                 }
             }
-            Message::FileTransfer(update) => {
-                self.file_transfers.update(update);
-                Command::none()
-            }
         }
     }
 
     fn view(&self) -> Element<Message> {
         let content = match &self.screen {
             Screen::Dashboard(dashboard) => dashboard
-                .view(
-                    &self.clients,
-                    &self.file_transfers,
-                    &self.version,
-                    &self.config,
-                )
+                .view(&self.clients, &self.version, &self.config)
                 .map(Message::Dashboard),
             Screen::Help(help) => help.view().map(Message::Help),
             Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
