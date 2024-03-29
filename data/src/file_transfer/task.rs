@@ -221,8 +221,10 @@ async fn receive(
         return Ok(());
     };
 
-    let (host, port, reverse) = match dcc_send {
-        dcc::Send::Direct { host, port, .. } => (host, port, false),
+    let (host, port, size, reverse) = match dcc_send {
+        dcc::Send::Direct {
+            host, port, size, ..
+        } => (host, port, size, false),
         dcc::Send::Reverse {
             secure,
             filename,
@@ -252,7 +254,7 @@ async fn receive(
                 )
                 .await;
 
-            (server.bind_address, port, true)
+            (server.bind_address, port, size, true)
         }
     };
 
@@ -292,36 +294,36 @@ async fn receive(
     let mut transferred = 0;
     let mut last_progress = started_at;
 
-    while let Some(bytes) = connection.next().await {
-        let bytes = bytes?;
+    while transferred < size {
+        if let Some(bytes) = connection.next().await {
+            let bytes = bytes?;
 
-        transferred += bytes.len() as u64;
+            transferred += bytes.len() as u64;
 
-        // Update hasher
-        hasher.update(&bytes);
+            // Update hasher
+            hasher.update(&bytes);
 
-        // Write bytes to file
-        file.write_all(&bytes).await?;
+            // Write bytes to file
+            file.write_all(&bytes).await?;
 
-        // Send ack, infallible in-case remote client closes
-        // stream without checking ack
-        let ack = Bytes::from_iter(((transferred & 0xFFFFFFFF) as u32).to_be_bytes());
-        let _ = connection.send(ack).await;
+            let ack = Bytes::from_iter(((transferred & 0xFFFFFFFF) as u32).to_be_bytes());
+            connection.send(ack).await?;
 
-        // Send progress at 60fps
-        if last_progress.elapsed() >= Duration::from_millis(16) {
-            let _ = update
-                .send(Update::Progress {
-                    id,
-                    elapsed: started_at.elapsed(),
-                    transferred,
-                })
-                .await;
-            last_progress = Instant::now();
+            // Send progress at 60fps
+            if last_progress.elapsed() >= Duration::from_millis(16) {
+                let _ = update
+                    .send(Update::Progress {
+                        id,
+                        elapsed: started_at.elapsed(),
+                        transferred,
+                    })
+                    .await;
+                last_progress = Instant::now();
+            }
         }
     }
 
-    let _ = connection.shutdown().await;
+    connection.shutdown().await?;
 
     let sha256 = hex::encode(hasher.finalize());
 
