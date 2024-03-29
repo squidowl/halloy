@@ -17,13 +17,14 @@ pub fn decode(content: &str) -> Option<Command> {
     match args.next()?.to_lowercase().as_str() {
         "send" => Send::decode(false, args).map(Command::Send),
         "ssend" => Send::decode(true, args).map(Command::Send),
-        _ => None,
+        cmd => Some(Command::Unsupported(cmd.to_string())),
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum Command {
     Send(Send),
+    Unsupported(String),
 }
 
 #[derive(Debug, Clone)]
