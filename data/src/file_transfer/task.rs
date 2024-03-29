@@ -11,7 +11,7 @@ use futures::{
     channel::mpsc::{self, Receiver, Sender},
     SinkExt, Stream,
 };
-use irc::{connection, BytesCodec, Connection};
+use irc::{connection, proto::command, BytesCodec, Connection};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 use tokio::{
@@ -247,7 +247,7 @@ async fn receive(
                         size,
                         token,
                     }
-                    .encode(remote_user),
+                    .encode(&remote_user),
                 )
                 .await;
 
@@ -358,13 +358,13 @@ async fn send(
         let _ = server_handle
             .send(
                 dcc::Send::Reverse {
-                    filename: sanitized_filename,
+                    filename: sanitized_filename.clone(),
                     host,
                     port: None,
                     size,
                     token,
                 }
-                .encode(remote_user),
+                .encode(&remote_user),
             )
             .await;
 
@@ -398,12 +398,12 @@ async fn send(
         let _ = server_handle
             .send(
                 dcc::Send::Direct {
-                    filename: sanitized_filename,
+                    filename: sanitized_filename.clone(),
                     host: server.public_address,
                     port,
                     size,
                 }
-                .encode(remote_user),
+                .encode(&remote_user),
             )
             .await;
 
@@ -473,6 +473,14 @@ async fn send(
     let _ = connection.shutdown().await;
 
     let sha256 = hex::encode(hasher.finalize());
+
+    let _ = server_handle
+        .send(command!(
+            "PRIVMSG",
+            remote_user.to_string(),
+            format!("Finished sending \"{sanitized_filename}\", sha256: {sha256}")
+        ))
+        .await;
 
     let _ = update
         .send(Update::Finished {

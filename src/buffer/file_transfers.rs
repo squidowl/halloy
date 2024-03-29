@@ -202,7 +202,7 @@ mod transfer_row {
 
                 container(
                     text(format!(
-                        "Completed {} {} in {elapsed}. Checksum: {sha256}",
+                        "Completed {} {} in {elapsed}. sha256: {sha256}",
                         direction, transfer.remote_user,
                     ))
                     .style(theme::text::transparent),

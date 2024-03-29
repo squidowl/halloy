@@ -38,7 +38,7 @@ impl Item {
 }
 
 pub enum Event {
-    RunTask(BoxStream<'static, task::Update>),
+    NewTransfer(FileTransfer, BoxStream<'static, task::Update>),
 }
 
 pub struct Manager {
@@ -122,12 +122,12 @@ impl Manager {
         self.items.insert(
             id,
             Item::Working {
-                file_transfer,
+                file_transfer: file_transfer.clone(),
                 task: handle,
             },
         );
 
-        Some(Event::RunTask(stream.boxed()))
+        Some(Event::NewTransfer(file_transfer, stream.boxed()))
     }
 
     pub fn receive(&mut self, request: ReceiveRequest) -> Option<Event> {
@@ -189,12 +189,12 @@ impl Manager {
         self.items.insert(
             id,
             Item::Working {
-                file_transfer,
+                file_transfer: file_transfer.clone(),
                 task: handle,
             },
         );
 
-        Some(Event::RunTask(stream.boxed()))
+        Some(Event::NewTransfer(file_transfer, stream.boxed()))
     }
 
     pub fn update(&mut self, update: task::Update) {

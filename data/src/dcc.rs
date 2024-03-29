@@ -90,7 +90,7 @@ impl Send {
         }
     }
 
-    pub fn encode(self, target: impl ToString) -> proto::Message {
+    pub fn encode(self, target: &dyn ToString) -> proto::Message {
         match self {
             Self::Reverse {
                 filename,

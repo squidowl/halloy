@@ -110,6 +110,19 @@ impl Message {
         })
     }
 
+    pub fn file_transfer_received(from: &Nick, filename: &str) -> Message {
+        Message {
+            received_at: Posix::now(),
+            server_time: Utc::now(),
+            direction: Direction::Received,
+            target: Target::Query {
+                nick: from.clone(),
+                source: Source::Action,
+            },
+            text: format!(" ∙ {from} wants to send you \"{filename}\""),
+        }
+    }
+
     pub fn with_target(self, target: Target) -> Self {
         Self { target, ..self }
     }
@@ -403,7 +416,9 @@ fn text(
             let duration = std::time::Duration::from_secs(idle);
             let idle_readable = formatter.convert(duration);
 
-            Some(format!(" ∙ {nick} signed on at {sign_on_datetime} and has been idle for {idle_readable}"))
+            Some(format!(
+                " ∙ {nick} signed on at {sign_on_datetime} and has been idle for {idle_readable}"
+            ))
         }
         Command::Numeric(RPL_WHOISSERVER, params) => {
             let nick = params.get(1)?;
@@ -417,7 +432,9 @@ fn text(
             let userhost = format!("{}@{}", params.get(2)?, params.get(3)?);
             let real_name = params.get(5)?;
 
-            Some(format!(" ∙ {nick} has userhost {userhost} and real name '{real_name}'"))
+            Some(format!(
+                " ∙ {nick} has userhost {userhost} and real name '{real_name}'"
+            ))
         }
         Command::Numeric(RPL_WHOISCHANNELS, params) => {
             let nick = params.get(1)?;
