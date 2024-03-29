@@ -15,8 +15,7 @@ pub fn decode(content: &str) -> Option<Command> {
     }
 
     match args.next()?.to_lowercase().as_str() {
-        "send" => Send::decode(false, args).map(Command::Send),
-        "ssend" => Send::decode(true, args).map(Command::Send),
+        "send" => Send::decode(args).map(Command::Send),
         cmd => Some(Command::Unsupported(cmd.to_string())),
     }
 }
@@ -30,7 +29,6 @@ pub enum Command {
 #[derive(Debug, Clone)]
 pub enum Send {
     Reverse {
-        secure: bool,
         filename: String,
         host: IpAddr,
         port: Option<NonZeroU16>,
@@ -38,7 +36,6 @@ pub enum Send {
         token: String,
     },
     Direct {
-        secure: bool,
         filename: String,
         host: IpAddr,
         port: NonZeroU16,
@@ -47,13 +44,6 @@ pub enum Send {
 }
 
 impl Send {
-    pub fn secure(&self) -> bool {
-        match self {
-            Send::Reverse { secure, .. } => *secure,
-            Send::Direct { secure, .. } => *secure,
-        }
-    }
-
     pub fn filename(&self) -> &str {
         match self {
             Send::Reverse { filename, .. } => filename,
@@ -75,7 +65,7 @@ impl Send {
         }
     }
 
-    fn decode<'a>(secure: bool, mut args: impl Iterator<Item = &'a str>) -> Option<Self> {
+    fn decode<'a>(mut args: impl Iterator<Item = &'a str>) -> Option<Self> {
         let filename = args.next()?.to_string();
         let host = args.next().and_then(decode_host)?;
         let port = NonZeroU16::new(args.next()?.parse().ok()?);
@@ -84,7 +74,6 @@ impl Send {
 
         match (port, token) {
             (_, Some(token)) => Some(Self::Reverse {
-                secure,
                 filename,
                 host,
                 port,
@@ -92,7 +81,6 @@ impl Send {
                 token: token.to_string(),
             }),
             (Some(port), None) => Some(Self::Direct {
-                secure,
                 filename,
                 host,
                 port,
@@ -105,37 +93,33 @@ impl Send {
     pub fn encode(self, target: impl ToString) -> proto::Message {
         match self {
             Self::Reverse {
-                secure,
                 filename,
                 host,
                 port,
                 size,
                 token,
             } => {
-                let kind = if secure { "SSEND" } else { "SEND" };
                 let host = encode_host(host);
                 let port = port.map(NonZeroU16::get).unwrap_or(0);
 
                 command!(
                     "PRIVMSG",
                     target.to_string(),
-                    format!("\u{1}DCC {kind} {filename} {host} {port} {size} {token}\u{1}")
+                    format!("\u{1}DCC SEND {filename} {host} {port} {size} {token}\u{1}")
                 )
             }
             Self::Direct {
-                secure,
                 filename,
                 host,
                 port,
                 size,
             } => {
-                let kind = if secure { "SSEND" } else { "SEND" };
                 let host = encode_host(host);
 
                 command!(
                     "PRIVMSG",
                     target.to_string(),
-                    format!("\u{1}DCC {kind} {filename} {host} {port} {size}\u{1}")
+                    format!("\u{1}DCC SEND {filename} {host} {port} {size}\u{1}")
                 )
             }
         }

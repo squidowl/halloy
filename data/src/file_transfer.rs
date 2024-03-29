@@ -34,7 +34,6 @@ pub struct FileTransfer {
     pub created_at: DateTime<Utc>,
     pub direction: Direction,
     pub remote_user: Nick,
-    pub secure: bool,
     pub filename: String,
     pub size: u64,
     pub status: Status,
@@ -63,7 +62,6 @@ impl Ord for FileTransfer {
             .reverse()
             .then_with(|| self.direction.cmp(&other.direction))
             .then_with(|| self.remote_user.cmp(&other.remote_user))
-            .then_with(|| self.secure.cmp(&other.secure))
             .then_with(|| self.filename.cmp(&other.filename))
     }
 }
