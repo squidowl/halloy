@@ -7,7 +7,7 @@ use iced::widget::{
 use iced::Length;
 
 use super::pane::Pane;
-use crate::widget::{context_menu, Element};
+use crate::widget::{context_menu, tooltip, Element};
 use crate::{icon, theme};
 
 #[derive(Debug, Clone)]
@@ -65,6 +65,7 @@ impl Sidebar {
         panes: &pane_grid::State<Pane>,
         focus: Option<pane_grid::Pane>,
         config: data::config::Sidebar,
+        show_tooltips: bool,
         file_transfers: &'a file_transfer::Manager,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
@@ -126,7 +127,7 @@ impl Sidebar {
         let mut menu_buttons = row![].spacing(1).padding([0, 0, 4, 0]);
 
         if config.buttons.command_bar {
-            let command_bar_button = button(
+            let button = button(
                 container(icon::search())
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -139,7 +140,13 @@ impl Sidebar {
             .height(22)
             .style(theme::button::side_menu);
 
-            menu_buttons = menu_buttons.push(command_bar_button);
+            let button_with_tooltip = tooltip(
+                button,
+                show_tooltips.then(|| "Toggle command bar"),
+                tooltip::Position::Top,
+            );
+
+            menu_buttons = menu_buttons.push(button_with_tooltip);
         }
 
         if config.buttons.file_transfer {
@@ -147,7 +154,7 @@ impl Sidebar {
                 .iter()
                 .any(|(_, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
 
-            let file_transfers_button = button(
+            let button = button(
                 container(icon::file_transfer().style(if file_transfers.is_empty() {
                     theme::text::primary
                 } else {
@@ -168,7 +175,13 @@ impl Sidebar {
                 theme::button::side_menu
             });
 
-            menu_buttons = menu_buttons.push(file_transfers_button);
+            let button_with_tooltip = tooltip(
+                button,
+                show_tooltips.then(|| "Toggle file transfers buffer"),
+                tooltip::Position::Top,
+            );
+
+            menu_buttons = menu_buttons.push(button_with_tooltip);
         }
 
         let content = column![Scrollable::with_direction(

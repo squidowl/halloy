@@ -39,6 +39,7 @@ pub struct Config {
     pub keyboard: Keyboard,
     pub notifications: Notifications,
     pub file_transfer: FileTransfer,
+    pub tooltips: bool,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -130,6 +131,8 @@ impl Config {
             pub notifications: Notifications,
             #[serde(default)]
             pub file_transfer: FileTransfer,
+            #[serde(default = "default_tooltip")]
+            pub tooltips: bool,
         }
 
         let path = Self::path();
@@ -145,6 +148,7 @@ impl Config {
             keyboard,
             notifications,
             file_transfer,
+            tooltips,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_password_files()?;
@@ -161,6 +165,7 @@ impl Config {
             keyboard,
             notifications,
             file_transfer,
+            tooltips,
         })
     }
 
@@ -252,6 +257,10 @@ pub fn create_themes_dir() {
 /// Has YAML configuration file.
 pub fn has_yaml_config() -> bool {
     config_dir().join("config.yaml").exists()
+}
+
+fn default_tooltip() -> bool {
+    true
 }
 
 #[derive(Debug, Error, Clone)]
