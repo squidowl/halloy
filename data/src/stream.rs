@@ -63,7 +63,7 @@ enum Input {
 }
 
 struct Stream {
-    connection: Connection,
+    connection: Connection<irc::Codec>,
     receiver: mpsc::Receiver<proto::Message>,
 }
 
@@ -254,7 +254,7 @@ async fn connect(
     server: Server,
     config: config::Server,
 ) -> Result<(Stream, Client), connection::Error> {
-    let connection = Connection::new(config.connection()).await?;
+    let connection = Connection::new(config.connection(), irc::Codec).await?;
 
     let (sender, receiver) = mpsc::channel(100);
 

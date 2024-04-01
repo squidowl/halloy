@@ -33,6 +33,7 @@ Join **#halloy** on libera.chat if you have questions or looking for help.
     * [userhost-in-names](https://ircv3.net/specs/extensions/userhost-in-names)
     * [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)
 * SASL support
+* DCC Send
 * Keyboard shortcuts
 * Auto-completion for nicknames, commands, and channels
 * Notifications support

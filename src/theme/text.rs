@@ -25,6 +25,12 @@ pub fn accent(theme: &Theme) -> Appearance {
     }
 }
 
+pub fn alert(theme: &Theme) -> Appearance {
+    Appearance {
+        color: Some(theme.colors().alert.base),
+    }
+}
+
 pub fn info(theme: &Theme) -> Appearance {
     Appearance {
         color: Some(theme.colors().info.base),

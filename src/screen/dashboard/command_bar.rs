@@ -123,6 +123,7 @@ pub enum Buffer {
     New,
     Close,
     Replace(data::Buffer),
+    ToggleFileTransfers,
 }
 
 #[derive(Debug, Clone)]
@@ -190,7 +191,7 @@ impl Buffer {
         is_focused_buffer: bool,
         resize_buffer: data::buffer::Resize,
     ) -> Vec<Self> {
-        let mut list = vec![Buffer::New];
+        let mut list = vec![Buffer::New, Buffer::ToggleFileTransfers];
 
         if is_focused_buffer {
             list.push(Buffer::Close);
@@ -278,6 +279,7 @@ impl std::fmt::Display for Buffer {
                 }
                 data::Buffer::Query(_, nick) => write!(f, "Change to {}", nick),
             },
+            Buffer::ToggleFileTransfers => write!(f, "Toggle File Transfers"),
         }
     }
 }

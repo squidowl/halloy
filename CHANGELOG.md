@@ -2,7 +2,10 @@
 
 Added:
 
-- Configuration to adjust WHO polling for servers without away-notify (see [server configuration](https://halloy.squidowl.org/configuration/servers.html))
+- File transfer support (see [file transfer configuration](https://halloy.squidowl.org/configuration/file_transfer.html))
+- Adjust WHO polling for servers without away-notify (see [server configuration](https://halloy.squidowl.org/configuration/servers.html))
+- Tooltips on application buttons (see [tooltips configuration](https://halloy.squidowl.org/configuration/tooltips.html)).
+- Sidebar menu buttons (see [sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html#sidebarbuttons-section)).
 - Display current version, and latest remote version in command bar
 - Allow reading passwords from files in server configuration.
 
