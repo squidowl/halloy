@@ -1,9 +1,10 @@
-use data::{history, Config};
+use data::{file_transfer, history, Config};
 use iced::widget::{button, container, pane_grid, row, text};
 use iced::Length;
 use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
+use crate::widget::tooltip;
 use crate::{icon, theme, widget};
 
 #[derive(Debug, Clone)]
@@ -51,6 +52,7 @@ impl Pane {
         is_focused: bool,
         maximized: bool,
         clients: &'a data::client::Map,
+        file_transfers: &'a file_transfer::Manager,
         history: &'a history::Manager,
         config: &'a Config,
     ) -> widget::Content<'a, Message> {
@@ -72,6 +74,7 @@ impl Pane {
 
                 format!("{nick} @ {server}")
             }
+            Buffer::FileTransfers(_) => "File Transfers".to_string(),
         };
 
         let title_bar = self.title_bar.view(
@@ -83,11 +86,19 @@ impl Pane {
             maximized,
             clients,
             &self.settings,
+            config.tooltips,
         );
 
         let content = self
             .buffer
-            .view(clients, history, &self.settings, config, is_focused)
+            .view(
+                clients,
+                file_transfers,
+                history,
+                &self.settings,
+                config,
+                is_focused,
+            )
             .map(move |msg| Message::Buffer(id, msg));
 
         widget::Content::new(content)
@@ -114,6 +125,7 @@ impl Pane {
                 server: query.server.clone(),
                 kind: history::Kind::Query(query.nick.clone()),
             }),
+            Buffer::FileTransfers(_) => None,
         }
     }
 
@@ -133,6 +145,7 @@ impl TitleBar {
         maximized: bool,
         clients: &'a data::client::Map,
         settings: &'a buffer::Settings,
+        show_tooltips: bool,
     ) -> widget::TitleBar<'a, Message> {
         // Pane controls.
         let mut controls = row![].spacing(2);
@@ -141,7 +154,7 @@ impl TitleBar {
             // Show topic button only if there is a topic to show
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
                 if topic.text.is_some() {
-                    let topic = button(
+                    let topic_button = button(
                         container(icon::topic())
                             .width(Length::Fill)
                             .height(Length::Fill)
@@ -152,17 +165,21 @@ impl TitleBar {
                     .width(22)
                     .height(22)
                     .on_press(Message::ToggleShowTopic)
-                    .style(if settings.channel.topic.enabled {
-                        theme::button::pane_selected
-                    } else {
-                        theme::button::pane
+                    .style(|theme, status| {
+                        theme::button::tertiary(theme, status, settings.channel.topic.enabled)
                     });
 
-                    controls = controls.push(topic);
+                    let topic_button_with_tooltip = tooltip(
+                        topic_button,
+                        show_tooltips.then_some("Topic Banner"),
+                        tooltip::Position::Bottom,
+                    );
+
+                    controls = controls.push(topic_button_with_tooltip);
                 }
             }
 
-            let users = button(
+            let nicklist_button = button(
                 container(icon::people())
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -173,18 +190,22 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(Message::ToggleShowUserList)
-            .style(if settings.channel.nicklist.enabled {
-                theme::button::pane_selected
-            } else {
-                theme::button::pane
+            .style(|theme, status| {
+                theme::button::tertiary(theme, status, settings.channel.nicklist.enabled)
             });
 
-            controls = controls.push(users);
+            let nicklist_button_with_tooltip = tooltip(
+                nicklist_button,
+                show_tooltips.then_some("Nicklist"),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(nicklist_button_with_tooltip);
         }
 
         // If we have more than one pane open, show maximize button.
         if panes > 1 {
-            let maximize = button(
+            let maximize_button = button(
                 container(if maximized {
                     icon::restore()
                 } else {
@@ -199,18 +220,26 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(Message::MaximizePane)
-            .style(if maximized {
-                theme::button::pane_selected
-            } else {
-                theme::button::pane
-            });
+            .style(move |theme, status| theme::button::tertiary(theme, status, maximized));
 
-            controls = controls.push(maximize);
+            let maximize_button_with_tooltip = tooltip(
+                maximize_button,
+                show_tooltips.then_some({
+                    if maximized {
+                        "Restore"
+                    } else {
+                        "Maximize"
+                    }
+                }),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(maximize_button_with_tooltip);
         }
 
         // Add delete as long as it's not a single empty buffer
         if !(panes == 1 && matches!(buffer, Buffer::Empty)) {
-            let delete = button(
+            let close_button = button(
                 container(icon::close())
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -221,9 +250,15 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(Message::ClosePane)
-            .style(theme::button::pane);
+            .style(|theme, status| theme::button::tertiary(theme, status, false));
 
-            controls = controls.push(delete);
+            let close_button_with_tooltip = tooltip(
+                close_button,
+                show_tooltips.then_some("Close"),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(close_button_with_tooltip);
         }
 
         let title = container(text(value).style(theme::text::transparent))
@@ -242,6 +277,7 @@ impl From<Pane> for data::Pane {
             Buffer::Channel(state) => data::Buffer::Channel(state.server, state.channel),
             Buffer::Server(state) => data::Buffer::Server(state.server),
             Buffer::Query(state) => data::Buffer::Query(state.server, state.nick),
+            Buffer::FileTransfers(_) => return data::Pane::FileTransfers,
         };
 
         data::Pane::Buffer {

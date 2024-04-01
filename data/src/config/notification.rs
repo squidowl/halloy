@@ -33,6 +33,8 @@ pub struct Notifications {
     pub reconnected: Notification,
     #[serde(default)]
     pub highlight: Notification,
+    #[serde(default)]
+    pub file_transfer_request: Notification,
 }
 
 fn default_sound() -> String {

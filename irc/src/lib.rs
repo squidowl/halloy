@@ -1,3 +1,5 @@
+pub use tokio_util::codec::BytesCodec;
+
 pub use self::codec::Codec;
 pub use self::connection::Connection;
 

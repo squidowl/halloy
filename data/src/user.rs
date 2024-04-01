@@ -211,7 +211,7 @@ impl fmt::Display for User {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Nick(String);
 
 impl fmt::Display for Nick {

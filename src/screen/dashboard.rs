@@ -4,8 +4,10 @@ pub mod sidebar;
 
 use chrono::{DateTime, Utc};
 use data::environment::RELEASE_WEBSITE;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
 use data::{client, environment, history, server, Config, Server, User, Version};
@@ -16,9 +18,10 @@ use iced::{clipboard, window, Command, Length};
 use self::command_bar::CommandBar;
 use self::pane::Pane;
 use self::sidebar::Sidebar;
+use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
 use crate::widget::{anchored_overlay, selectable_text, shortcut, Element};
-use crate::{event, theme, Theme};
+use crate::{event, notification, theme, Theme};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
@@ -29,6 +32,7 @@ pub struct Dashboard {
     history: history::Manager,
     last_changed: Option<Instant>,
     command_bar: Option<CommandBar>,
+    file_transfers: file_transfer::Manager,
 }
 
 #[derive(Debug)]
@@ -43,6 +47,8 @@ pub enum Message {
     QuitServer,
     Command(command_bar::Message),
     Shortcut(shortcut::Command),
+    FileTransfer(file_transfer::task::Update),
+    SendFileSelected(Server, Nick, Option<PathBuf>),
 }
 
 impl Dashboard {
@@ -56,6 +62,7 @@ impl Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
+            file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
         };
 
         let command = dashboard.track();
@@ -63,8 +70,8 @@ impl Dashboard {
         (dashboard, command)
     }
 
-    pub fn restore(dashboard: data::Dashboard) -> (Self, Command<Message>) {
-        let mut dashboard = Dashboard::from(dashboard);
+    pub fn restore(dashboard: data::Dashboard, config: &Config) -> (Self, Command<Message>) {
+        let mut dashboard = Dashboard::from_data(dashboard, config);
 
         let command = if let Some((pane, _)) = dashboard.panes.panes.iter().next() {
             Command::batch(vec![dashboard.focus_pane(*pane), dashboard.track()])
@@ -108,8 +115,13 @@ impl Dashboard {
                 }
                 pane::Message::Buffer(id, message) => {
                     if let Some(pane) = self.panes.get_mut(id) {
-                        let (command, event) =
-                            pane.buffer.update(message, clients, &mut self.history);
+                        let (command, event) = pane.buffer.update(
+                            message,
+                            clients,
+                            &mut self.history,
+                            &mut self.file_transfers,
+                            config,
+                        );
 
                         if let Some(buffer::Event::UserContext(event)) = event {
                             match event {
@@ -182,6 +194,26 @@ impl Dashboard {
                                             Message::Pane(pane::Message::Buffer(id, message))
                                         },
                                     );
+                                }
+                                buffer::user_context::Event::SendFile(nick) => {
+                                    if let Some(buffer) = pane.buffer.data() {
+                                        let server = buffer.server().clone();
+                                        let starting_directory =
+                                            config.file_transfer.save_directory.clone();
+
+                                        return Command::perform(
+                                            async move {
+                                                rfd::AsyncFileDialog::new()
+                                                    .set_directory(starting_directory)
+                                                    .pick_file()
+                                                    .await
+                                                    .map(|handle| handle.path().to_path_buf())
+                                            },
+                                            move |file| {
+                                                Message::SendFileSelected(server, nick, file)
+                                            },
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -309,6 +341,17 @@ impl Dashboard {
                             }
                         }
                     }
+                    sidebar::Event::ToggleFileTransfers => {
+                        return self.toggle_file_transfers(config);
+                    }
+                    sidebar::Event::ToggleCommandBar => {
+                        return self.toggle_command_bar(
+                            &closed_buffers(self, clients),
+                            version,
+                            config,
+                            theme,
+                        );
+                    }
                 }
             }
             Message::SelectedText(contents) => {
@@ -395,6 +438,9 @@ impl Dashboard {
                                     }
 
                                     Command::batch(commands)
+                                }
+                                command_bar::Buffer::ToggleFileTransfers => {
+                                    self.toggle_file_transfers(config)
                                 }
                             },
                             command_bar::Command::Configuration(command) => match command {
@@ -525,6 +571,23 @@ impl Dashboard {
                     }
                 }
             }
+            Message::FileTransfer(update) => {
+                self.file_transfers.update(update);
+            }
+            Message::SendFileSelected(server, to, path) => {
+                if let Some(server_handle) = clients.get_server_handle(&server) {
+                    if let Some(path) = path {
+                        if let Some(event) = self.file_transfers.send(file_transfer::SendRequest {
+                            to,
+                            path,
+                            server: server.clone(),
+                            server_handle: server_handle.clone(),
+                        }) {
+                            return self.handle_file_transfer_event(&server, event);
+                        }
+                    }
+                }
+            }
         }
 
         Command::none()
@@ -547,6 +610,7 @@ impl Dashboard {
                 is_focused,
                 maximized,
                 clients,
+                &self.file_transfers,
                 &self.history,
                 config,
             )
@@ -570,6 +634,8 @@ impl Dashboard {
                 &self.panes,
                 self.focus,
                 config.sidebar,
+                config.tooltips,
+                &self.file_transfers,
             )
             .map(|e| e.map(Message::Sidebar));
 
@@ -694,6 +760,46 @@ impl Dashboard {
                 Command::perform(task, |_| Message::Close)
             }
         }
+    }
+
+    // TODO: Perhaps rewrite this, i just did this quickly.
+    fn toggle_file_transfers(&mut self, config: &Config) -> Command<Message> {
+        let panes = self.panes.clone();
+
+        // If file transfers already is open, we close it.
+        for (id, pane) in panes.iter() {
+            if let Buffer::FileTransfers(_) = pane.buffer {
+                return self.close_pane(*id);
+            }
+        }
+
+        // If we only have one pane, and its empty, we replace it.
+        if self.panes.len() == 1 {
+            for (id, pane) in panes.iter() {
+                if let Buffer::Empty = &pane.buffer {
+                    self.panes.panes.entry(*id).and_modify(|p| {
+                        *p = Pane::new(Buffer::FileTransfers(FileTransfers::new()), config)
+                    });
+                    self.last_changed = Some(Instant::now());
+
+                    return self.focus_pane(*id);
+                }
+            }
+        }
+
+        let mut commands = vec![];
+        let _ = self.new_pane(pane_grid::Axis::Vertical, config);
+
+        if let Some(pane) = self.focus.take() {
+            if let Some(state) = self.panes.get_mut(pane) {
+                state.buffer = Buffer::FileTransfers(FileTransfers::new());
+                self.last_changed = Some(Instant::now());
+
+                commands.extend(vec![self.reset_pane(pane), self.focus_pane(pane)]);
+            }
+        }
+
+        Command::batch(commands)
     }
 
     fn open_buffer(&mut self, kind: data::Buffer, config: &Config) -> Command<Message> {
@@ -1069,10 +1175,62 @@ impl Dashboard {
         let can_resize_buffer = self.focus.is_some() && self.panes.len() > 1;
         data::buffer::Resize::action(can_resize_buffer, self.is_pane_maximized())
     }
-}
 
-impl From<data::Dashboard> for Dashboard {
-    fn from(dashboard: data::Dashboard) -> Self {
+    pub fn receive_file_transfer(
+        &mut self,
+        server: &Server,
+        request: file_transfer::ReceiveRequest,
+        config: &Config,
+    ) -> Option<Command<Message>> {
+        if let Some(event) = self.file_transfers.receive(request.clone()) {
+            let notification = &config.notifications.file_transfer_request;
+
+            if notification.enabled {
+                let text = format!("File Transfer Request: {}", request.from);
+
+                notification::show(text.as_str(), server, notification.sound());
+            };
+
+            return Some(self.handle_file_transfer_event(server, event));
+        }
+
+        None
+    }
+
+    pub fn handle_file_transfer_event(
+        &mut self,
+        server: &Server,
+        event: file_transfer::manager::Event,
+    ) -> Command<Message> {
+        match event {
+            file_transfer::manager::Event::NewTransfer(transfer, task) => {
+                match transfer.direction {
+                    file_transfer::Direction::Received => {
+                        self.record_message(
+                            server,
+                            data::Message::file_transfer_request_received(
+                                &transfer.remote_user,
+                                &transfer.filename,
+                            ),
+                        );
+                    }
+                    file_transfer::Direction::Sent => {
+                        self.record_message(
+                            server,
+                            data::Message::file_transfer_request_sent(
+                                &transfer.remote_user,
+                                &transfer.filename,
+                            ),
+                        );
+                    }
+                }
+
+                Command::run(task, Message::FileTransfer)
+            }
+        }
+    }
+
+    fn from_data(dashboard: data::Dashboard, config: &Config) -> Self {
         use pane_grid::Configuration;
 
         fn configuration(pane: data::Pane) -> Configuration<Pane> {
@@ -1093,6 +1251,10 @@ impl From<data::Dashboard> for Dashboard {
                     Buffer::empty(),
                     buffer::Settings::default(),
                 )),
+                data::Pane::FileTransfers => Configuration::Pane(Pane::with_settings(
+                    Buffer::FileTransfers(FileTransfers::new()),
+                    buffer::Settings::default(),
+                )),
             }
         }
 
@@ -1103,6 +1265,7 @@ impl From<data::Dashboard> for Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
+            file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
         }
     }
 }
