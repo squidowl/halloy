@@ -489,48 +489,38 @@ impl Client {
                         }
                     }
 
-                    let _ = if self.resolved_nick == Some(self.config.nickname.clone()) {
-                        // Use nickname-less identification if possible, since it has
-                        // no possible argument order issues.
-                        self.sender.try_send(command!(
-                            "PRIVMSG",
-                            "NickServ",
-                            format!("IDENTIFY {nick_pass}")
-                        ))
-                    } else {
-                        match self.config.server.as_ref() {
-                            "irc.oftc.net" | "irc4.oftc.net" => {
-                                // Servers known to have `IDENTIFY nickname password` syntax
-                                self.sender.try_send(command!(
+                    let _ = if let Some(identify_syntax) = &self.config.nick_identify_syntax {
+                        match identify_syntax {
+                            config::server::IdentifySyntax::PasswordThenNick => {
+                                self.handle.try_send(command!(
                                     "PRIVMSG",
                                     "NickServ",
                                     format!("IDENTIFY {nick_pass} {}", &self.config.nickname)
                                 ))
                             }
-                            "chat.freednode.net"
-                            | "irc.libera.chat"
-                            | "irc.eu.libera.chat"
-                            | "irc.us.libera.chat"
-                            | "irc.au.libera.chat"
-                            | "irc.ea.libera.chat"
-                            | "irc.ipv4.libera.chat"
-                            | "irc.ipv6.libera.chat" => {
-                                // Servers known to have `IDENTIFY password nickname` syntax
-                                self.sender.try_send(command!(
-                                    "PRIVMSG",
-                                    "NickServ",
-                                    format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                                ))
-                            }
-                            _ => {
-                                // Default to most common syntax if unknown
-                                self.sender.try_send(command!(
+                            config::server::IdentifySyntax::NickThenPassword => {
+                                self.handle.try_send(command!(
                                     "PRIVMSG",
                                     "NickServ",
                                     format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
                                 ))
                             }
                         }
+                    } else if self.resolved_nick == Some(self.config.nickname.clone()) {
+                        // Use nickname-less identification if possible, since it has
+                        // no possible argument order issues.
+                        self.handle.try_send(command!(
+                            "PRIVMSG",
+                            "NickServ",
+                            format!("IDENTIFY {nick_pass}")
+                        ))
+                    } else {
+                        // Default to most common syntax if unknown
+                        self.handle.try_send(command!(
+                            "PRIVMSG",
+                            "NickServ",
+                            format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
+                        ))
                     };
                 }
 
