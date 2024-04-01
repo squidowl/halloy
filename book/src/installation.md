@@ -23,7 +23,7 @@ Download pre-built binaries from [GitHub](https://github.com/squidowl/halloy/rel
 
 ### macOS
 
-The following third party repositories are available for Linux
+The following third party repositories are available for macOS
 
 #### MacPorts
 
