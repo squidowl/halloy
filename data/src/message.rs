@@ -110,7 +110,7 @@ impl Message {
         })
     }
 
-    pub fn file_transfer_received(from: &Nick, filename: &str) -> Message {
+    pub fn file_transfer_request_received(from: &Nick, filename: &str) -> Message {
         Message {
             received_at: Posix::now(),
             server_time: Utc::now(),
@@ -120,6 +120,19 @@ impl Message {
                 source: Source::Action,
             },
             text: format!(" ∙ {from} wants to send you \"{filename}\""),
+        }
+    }
+
+    pub fn file_transfer_request_sent(to: &Nick, filename: &str) -> Message {
+        Message {
+            received_at: Posix::now(),
+            server_time: Utc::now(),
+            direction: Direction::Sent,
+            target: Target::Query {
+                nick: to.clone(),
+                source: Source::Action,
+            },
+            text: format!(" ∙ offering to send {to} \"{filename}\""),
         }
     }
 

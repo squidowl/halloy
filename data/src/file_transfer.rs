@@ -72,12 +72,6 @@ pub enum Direction {
     Received,
 }
 
-impl Direction {
-    pub fn is_received(&self) -> bool {
-        matches!(self, Self::Received)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
     /// Pending appoval

@@ -220,10 +220,14 @@ async fn receive(
         return Ok(());
     };
 
-    let (host, port, size, reverse) = match dcc_send {
+    let (host, port, filename, size, reverse) = match dcc_send {
         dcc::Send::Direct {
-            host, port, size, ..
-        } => (host, port, size, false),
+            host,
+            port,
+            filename,
+            size,
+            ..
+        } => (host, port, filename, size, false),
         dcc::Send::Reverse {
             filename,
             size,
@@ -241,7 +245,7 @@ async fn receive(
             let _ = server_handle
                 .send(
                     dcc::Send::Reverse {
-                        filename,
+                        filename: filename.clone(),
                         host: server.public_address,
                         port: Some(port),
                         size,
@@ -251,7 +255,7 @@ async fn receive(
                 )
                 .await;
 
-            (server.bind_address, port, size, true)
+            (server.bind_address, port, filename, size, true)
         }
     };
 
@@ -321,6 +325,14 @@ async fn receive(
     let _ = connection.shutdown().await;
 
     let sha256 = hex::encode(hasher.finalize());
+
+    let _ = server_handle
+        .send(command!(
+            "PRIVMSG",
+            remote_user.to_string(),
+            format!("Finished receiving \"{filename}\", sha256: {sha256}")
+        ))
+        .await;
 
     let _ = update
         .send(Update::Finished {
