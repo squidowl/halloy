@@ -1204,14 +1204,25 @@ impl Dashboard {
     ) -> Command<Message> {
         match event {
             file_transfer::manager::Event::NewTransfer(transfer, task) => {
-                if transfer.direction.is_received() {
-                    self.record_message(
-                        server,
-                        data::Message::file_transfer_received(
-                            &transfer.remote_user,
-                            &transfer.filename,
-                        ),
-                    );
+                match transfer.direction {
+                    file_transfer::Direction::Received => {
+                        self.record_message(
+                            server,
+                            data::Message::file_transfer_request_received(
+                                &transfer.remote_user,
+                                &transfer.filename,
+                            ),
+                        );
+                    }
+                    file_transfer::Direction::Sent => {
+                        self.record_message(
+                            server,
+                            data::Message::file_transfer_request_sent(
+                                &transfer.remote_user,
+                                &transfer.filename,
+                            ),
+                        );
+                    }
                 }
 
                 Command::run(task, Message::FileTransfer)
