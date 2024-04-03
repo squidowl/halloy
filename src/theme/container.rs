@@ -1,38 +1,44 @@
-use iced::widget::container::{Appearance, DefaultStyle, Status};
+use iced::widget::container::{transparent, Catalog, Style, StyleFn};
 use iced::{Background, Border, Color};
 
 use super::Theme;
 
-impl DefaultStyle for Theme {
-    fn default_style(&self, _status: Status) -> Appearance {
-        Appearance::default()
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(transparent)
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> Style {
+        class(self)
     }
 }
 
-pub fn table_row(theme: &Theme, _status: Status, idx: usize) -> Appearance {
+pub fn table_row(theme: &Theme, idx: usize) -> Style {
     let background = if idx % 2 != 0 {
         theme.colors().background.base
     } else {
         theme.colors().background.light
     };
 
-    Appearance {
+    Style {
         background: Some(Background::Color(background)),
         text_color: Some(theme.colors().text.base),
         ..Default::default()
     }
 }
 
-pub fn primary(theme: &Theme, _status: Status) -> Appearance {
-    Appearance {
+pub fn primary(theme: &Theme) -> Style {
+    Style {
         background: Some(Background::Color(theme.colors().background.base)),
         text_color: Some(theme.colors().text.base),
         ..Default::default()
     }
 }
 
-pub fn pane_body(theme: &Theme, _status: Status) -> Appearance {
-    Appearance {
+pub fn pane_body(theme: &Theme) -> Style {
+    Style {
         background: Some(Background::Color(theme.colors().background.dark)),
         border: Border {
             radius: 4.0.into(),
@@ -43,10 +49,10 @@ pub fn pane_body(theme: &Theme, _status: Status) -> Appearance {
     }
 }
 
-pub fn pane_body_selected(theme: &Theme, status: Status) -> Appearance {
-    let pane_body = pane_body(theme, status);
+pub fn pane_body_selected(theme: &Theme) -> Style {
+    let pane_body = pane_body(theme);
 
-    Appearance {
+    Style {
         border: Border {
             color: theme.colors().action.base,
             ..pane_body.border
@@ -55,8 +61,8 @@ pub fn pane_body_selected(theme: &Theme, status: Status) -> Appearance {
     }
 }
 
-pub fn pane_header(theme: &Theme, _status: Status) -> Appearance {
-    Appearance {
+pub fn pane_header(theme: &Theme) -> Style {
+    Style {
         background: Some(Background::Color(theme.colors().background.darker)),
         border: Border {
             radius: [4.0, 4.0, 0.0, 0.0].into(),
@@ -67,15 +73,15 @@ pub fn pane_header(theme: &Theme, _status: Status) -> Appearance {
     }
 }
 
-pub fn command(_theme: &Theme, _status: Status) -> Appearance {
-    Appearance {
+pub fn command(_theme: &Theme) -> Style {
+    Style {
         background: None,
         ..Default::default()
     }
 }
 
-pub fn command_selected(theme: &Theme, _status: Status) -> Appearance {
-    Appearance {
+pub fn command_selected(theme: &Theme) -> Style {
+    Style {
         background: Some(Background::Color(theme.colors().background.darker)),
         border: Border {
             radius: 3.0.into(),
@@ -85,8 +91,8 @@ pub fn command_selected(theme: &Theme, _status: Status) -> Appearance {
     }
 }
 
-pub fn context(theme: &Theme, _status: Status) -> Appearance {
-    Appearance {
+pub fn context(theme: &Theme) -> Style {
+    Style {
         //TODO: Blur background when possible?
         background: Some(Background::Color(theme.colors().background.base)),
         border: Border {
@@ -98,8 +104,8 @@ pub fn context(theme: &Theme, _status: Status) -> Appearance {
     }
 }
 
-pub fn highlight(theme: &Theme, _status: Status) -> Appearance {
-    Appearance {
+pub fn highlight(theme: &Theme) -> Style {
+    Style {
         background: Some(Background::Color(theme.colors().info.high_alpha)),
         border: Border {
             radius: 0.0.into(),
@@ -109,8 +115,8 @@ pub fn highlight(theme: &Theme, _status: Status) -> Appearance {
     }
 }
 
-pub fn semi_transparent(theme: &Theme, _status: Status) -> Appearance {
-    Appearance {
+pub fn semi_transparent(theme: &Theme) -> Style {
+    Style {
         background: Some(
             Color {
                 a: 0.80,

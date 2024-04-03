@@ -8,7 +8,7 @@ use super::Element;
 
 pub fn tooltip<'a, Message: 'a>(
     content: impl Into<Element<'a, Message>>,
-    tooltip: Option<&str>,
+    tooltip: Option<&'a str>,
     position: Position,
 ) -> Element<'a, Message> {
     match tooltip {

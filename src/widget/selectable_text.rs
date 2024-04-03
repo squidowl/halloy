@@ -1,9 +1,8 @@
-use std::borrow::Cow;
-
 use iced::advanced::renderer::Quad;
 use iced::advanced::text::Paragraph;
 use iced::advanced::widget::{operation, tree, Operation, Tree};
 use iced::advanced::{layout, mouse, renderer, text, widget, Layout, Widget};
+use iced::widget::text::{Fragment, IntoFragment};
 use iced::widget::text_input::Value;
 use iced::{
     alignment, event, touch, Border, Color, Command, Element, Length, Pixels, Point, Rectangle,
@@ -15,20 +14,22 @@ pub use self::text::{LineHeight, Shaping};
 
 mod selection;
 
-pub fn selectable_text<'a, Theme, Renderer>(content: impl ToString) -> Text<'a, Theme, Renderer>
+pub fn selectable_text<'a, Theme, Renderer>(
+    fragment: impl IntoFragment<'a>,
+) -> Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Theme: DefaultStyle + 'a,
+    Theme: Catalog,
 {
-    Text::new(content.to_string())
+    Text::new(fragment)
 }
 
 pub struct Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Theme: DefaultStyle + 'a,
+    Theme: Catalog,
 {
-    content: Cow<'a, str>,
+    fragment: Fragment<'a>,
     size: Option<Pixels>,
     line_height: LineHeight,
     width: Length,
@@ -37,17 +38,17 @@ where
     vertical_alignment: alignment::Vertical,
     font: Option<Renderer::Font>,
     shaping: Shaping,
-    style: Style<'a, Theme>,
+    class: Theme::Class<'a>,
 }
 
 impl<'a, Theme, Renderer> Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Theme: DefaultStyle + 'a,
+    Theme: Catalog,
 {
-    pub fn new(content: impl Into<Cow<'a, str>>) -> Self {
+    pub fn new(fragment: impl IntoFragment<'a>) -> Self {
         Text {
-            content: content.into(),
+            fragment: fragment.into_fragment(),
             size: None,
             line_height: LineHeight::default(),
             font: None,
@@ -59,7 +60,7 @@ where
             shaping: Shaping::Basic,
             #[cfg(not(debug_assertions))]
             shaping: Shaping::Advanced,
-            style: Box::new(Theme::default_style),
+            class: Theme::default(),
         }
     }
 
@@ -78,8 +79,11 @@ where
         self
     }
 
-    pub fn style(mut self, style: impl Fn(&Theme) -> Appearance + 'a) -> Self {
-        self.style = Box::new(style);
+    pub fn style(mut self, style: impl Fn(&Theme) -> Style + 'a) -> Self
+    where
+        Theme::Class<'a>: From<StyleFn<'a, Theme>>,
+    {
+        self.class = (Box::new(style) as StyleFn<'a, Theme>).into();
         self
     }
 
@@ -107,12 +111,17 @@ where
         self.shaping = shaping;
         self
     }
+
+    pub fn class(mut self, class: impl Into<Theme::Class<'a>>) -> Self {
+        self.class = class.into();
+        self
+    }
 }
 
 impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Text<'a, Theme, Renderer>
 where
     Renderer: text::Renderer,
-    Theme: DefaultStyle + 'a,
+    Theme: Catalog,
 {
     fn size(&self) -> Size<Length> {
         Size {
@@ -147,7 +156,7 @@ where
             let font = self.font.unwrap_or_else(|| renderer.default_font());
 
             state.paragraph.update(text::Text {
-                content: &self.content,
+                content: &self.fragment,
                 size,
                 line_height: self.line_height,
                 bounds,
@@ -225,7 +234,7 @@ where
             return;
         }
 
-        let appearance = (self.style)(theme);
+        let appearance = theme.style(&self.class);
 
         let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
 
@@ -376,7 +385,7 @@ where
         let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
 
         let bounds = layout.bounds();
-        let value = Value::new(&self.content);
+        let value = Value::new(&self.fragment);
         if let Some(selection) = state
             .interaction
             .selection()
@@ -393,7 +402,7 @@ fn draw<Renderer>(
     style: &renderer::Style,
     layout: Layout<'_>,
     state: &State<Renderer::Paragraph>,
-    appearance: Appearance,
+    appearance: Style,
     viewport: &Rectangle,
 ) where
     Renderer: text::Renderer,
@@ -425,7 +434,7 @@ impl<'a, Message, Theme, Renderer> From<Text<'a, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Renderer: text::Renderer + 'a,
-    Theme: DefaultStyle + 'a,
+    Theme: Catalog + 'a,
 {
     fn from(text: Text<'a, Theme, Renderer>) -> Element<'a, Message, Theme, Renderer> {
         Element::new(text)
@@ -503,29 +512,47 @@ pub fn selected<Message: 'static>(f: fn(Vec<(f32, String)>) -> Message) -> Comma
     })
 }
 
-pub type Style<'a, Theme> = Box<dyn Fn(&Theme) -> Appearance + 'a>;
-
+/// The appearance of some text.
 #[derive(Debug, Clone, Copy)]
-pub struct Appearance {
+pub struct Style {
     pub color: Option<Color>,
     pub selection_color: Color,
 }
 
-impl Default for Appearance {
+impl Default for Style {
     fn default() -> Self {
-        Appearance {
+        Self {
             color: None,
             selection_color: Color::WHITE,
         }
     }
 }
 
-pub trait DefaultStyle {
-    fn default_style(&self) -> Appearance;
+/// The theme catalog of a [`Text`].
+pub trait Catalog: Sized {
+    /// The item class of this [`Catalog`].
+    type Class<'a>;
+
+    /// The default class produced by this [`Catalog`].
+    fn default<'a>() -> Self::Class<'a>;
+
+    /// The [`Style`] of a class with the given status.
+    fn style(&self, item: &Self::Class<'_>) -> Style;
 }
 
-impl DefaultStyle for Appearance {
-    fn default_style(&self) -> Appearance {
-        *self
+/// A styling function for a [`Text`].
+///
+/// This is just a boxed closure: `Fn(&Theme, Status) -> Style`.
+pub type StyleFn<'a, Theme> = Box<dyn Fn(&Theme) -> Style + 'a>;
+
+impl Catalog for iced::Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(|_theme| Style::default())
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> Style {
+        class(self)
     }
 }

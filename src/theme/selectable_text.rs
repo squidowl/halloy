@@ -1,61 +1,67 @@
 use data::message;
 
-use crate::widget::selectable_text::{Appearance, DefaultStyle};
+use crate::widget::selectable_text::{Catalog, Style, StyleFn};
 
 use super::{text, Theme};
 
-impl DefaultStyle for Theme {
-    fn default_style(&self) -> Appearance {
-        Appearance {
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(|theme| Style {
             color: None,
-            selection_color: self.colors().accent.high_alpha,
-        }
+            selection_color: theme.colors().accent.high_alpha,
+        })
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> Style {
+        class(self)
     }
 }
 
-pub fn transparent(theme: &Theme) -> Appearance {
+pub fn transparent(theme: &Theme) -> Style {
     let color = text::transparent(theme).color;
 
-    Appearance {
+    Style {
         color,
         selection_color: theme.colors().accent.high_alpha,
     }
 }
 
-pub fn info(theme: &Theme) -> Appearance {
+pub fn info(theme: &Theme) -> Style {
     let color = text::info(theme).color;
 
-    Appearance {
+    Style {
         color,
         selection_color: theme.colors().accent.high_alpha,
     }
 }
 
-pub fn accent(theme: &Theme) -> Appearance {
+pub fn accent(theme: &Theme) -> Style {
     let color = text::accent(theme).color;
 
-    Appearance {
+    Style {
         color,
         selection_color: theme.colors().accent.high_alpha,
     }
 }
 
-pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Appearance {
+pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Style {
     let color = text::nickname(theme, seed, transparent).color;
 
-    Appearance {
+    Style {
         color,
         selection_color: theme.colors().accent.high_alpha,
     }
 }
 
-pub fn status(theme: &Theme, status: message::source::Status) -> Appearance {
+pub fn status(theme: &Theme, status: message::source::Status) -> Style {
     let color = match status {
         message::source::Status::Success => text::success(theme).color,
         message::source::Status::Error => text::error(theme).color,
     };
 
-    Appearance {
+    Style {
         color,
         selection_color: theme.colors().accent.high_alpha,
     }
