@@ -13,6 +13,8 @@ pub struct Server {
     pub nick_password: Option<String>,
     /// The client's NICKSERV password file.
     pub nick_password_file: Option<String>,
+    /// The server's NICKSERV IDENTIFY syntax.
+    pub nick_identify_syntax: Option<IdentifySyntax>,
     /// Alternative nicknames for the client, if the default is taken.
     #[serde(default)]
     pub alt_nicks: Vec<String>,
@@ -103,6 +105,13 @@ impl Server {
             security,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum IdentifySyntax {
+    NickPassword,
+    PasswordNick,
 }
 
 #[derive(Debug, Clone, Deserialize)]

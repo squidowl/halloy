@@ -8,6 +8,7 @@ Added:
 - Sidebar menu buttons (see [sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html#sidebarbuttons-section)).
 - Display current version, and latest remote version in command bar
 - Allow reading passwords from files in server configuration.
+- Allow configuration to specify a server's NickServ IDENTIFY command syntax.
 
 Fixed:
 
