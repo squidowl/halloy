@@ -51,11 +51,11 @@ pub fn view<'a>(
     let content = column![selectable_text(text).style(theme::selectable_text::transparent)]
         .push_maybe(set_by);
 
-    let scrollable = Scrollable::with_direction_and_style(
+    let scrollable = Scrollable::with_direction(
         container(content).width(Length::Fill).padding(padding()),
         scrollable::Direction::Vertical(scrollable::Properties::new().width(1).scroller_width(1)),
-        theme::scrollable::hidden,
-    );
+    )
+    .style(theme::scrollable::hidden);
 
     // Use double pass to limit layout to `max_lines` of text
     column![

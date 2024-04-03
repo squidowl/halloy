@@ -19,8 +19,9 @@ use std::time::{Duration, Instant};
 use data::config::{self, Config};
 use data::version::Version;
 use data::{environment, server, version, User};
+use iced::advanced::Application;
 use iced::widget::container;
-use iced::{executor, Application, Command, Length, Subscription};
+use iced::{executor, Command, Length, Renderer, Subscription};
 use screen::{dashboard, help, migration, welcome};
 
 use self::event::{events, Event};
@@ -191,6 +192,7 @@ pub enum Message {
 }
 
 impl Application for Halloy {
+    type Renderer = Renderer;
     type Executor = executor::Default;
     type Message = Message;
     type Theme = Theme;

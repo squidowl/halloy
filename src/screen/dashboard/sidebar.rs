@@ -266,13 +266,13 @@ fn buffer_button<'a>(
             .push(horizontal_space().width(3))
             .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::text::info)))
             .push(horizontal_space().width(if has_unread { 10 } else { 16 }))
-            .push(text(channel).style(theme::text::primary))
+            .push(text(channel.clone()).style(theme::text::primary))
             .align_items(iced::Alignment::Center),
         Buffer::Query(_, nick) => row![]
             .push(horizontal_space().width(3))
             .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::text::info)))
             .push(horizontal_space().width(if has_unread { 10 } else { 16 }))
-            .push(text(nick).style(theme::text::primary))
+            .push(text(nick.to_string()).style(theme::text::primary))
             .align_items(iced::Alignment::Center),
     };
 

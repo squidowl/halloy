@@ -1,15 +1,21 @@
-use iced::widget::progress_bar::{Appearance, DefaultStyle};
+use iced::widget::progress_bar::{Catalog, Style, StyleFn};
 
 use super::Theme;
 
-impl DefaultStyle for Theme {
-    fn default_style(&self) -> Appearance {
-        primary(self)
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(primary)
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> Style {
+        class(self)
     }
 }
 
-pub fn primary(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn primary(theme: &Theme) -> Style {
+    Style {
         background: iced::Background::Color(theme.colors().background.darker),
         bar: iced::Background::Color(theme.colors().accent.low_alpha),
         border: iced::Border {
