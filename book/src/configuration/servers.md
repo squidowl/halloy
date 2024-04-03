@@ -16,6 +16,7 @@ channels = ["#halloy"]
 | `nickname`                         | The client's nickname.                                                                              | `""`        |
 | `nick_password`                    | The client's NICKSERV password.                                                                     | `""`        |
 | `nick_password_file`               | Alternatively read `nick_password` from the file at the given path.                                 | `""`        |
+| `nick_identify_syntax`             | The server's NICKSERV IDENTIFY syntax. Can be `"nick-password"` or `"password-nick"`.               | `""`        |
 | `alt_nicks`                        | Alternative nicknames for the client, if the default is taken.                                      | `[""]`      |
 | `username`                         | The client's username.                                                                              | `""`        |
 | `realname`                         | The client's real name.                                                                             | `""`        |

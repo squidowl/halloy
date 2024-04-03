@@ -489,11 +489,39 @@ impl Client {
                         }
                     }
 
-                    let _ = self.handle.try_send(command!(
-                        "PRIVMSG",
-                        "NickServ",
-                        format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                    ));
+                    let _ = if let Some(identify_syntax) = &self.config.nick_identify_syntax {
+                        match identify_syntax {
+                            config::server::IdentifySyntax::PasswordNick => {
+                                self.handle.try_send(command!(
+                                    "PRIVMSG",
+                                    "NickServ",
+                                    format!("IDENTIFY {nick_pass} {}", &self.config.nickname)
+                                ))
+                            }
+                            config::server::IdentifySyntax::NickPassword => {
+                                self.handle.try_send(command!(
+                                    "PRIVMSG",
+                                    "NickServ",
+                                    format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
+                                ))
+                            }
+                        }
+                    } else if self.resolved_nick == Some(self.config.nickname.clone()) {
+                        // Use nickname-less identification if possible, since it has
+                        // no possible argument order issues.
+                        self.handle.try_send(command!(
+                            "PRIVMSG",
+                            "NickServ",
+                            format!("IDENTIFY {nick_pass}")
+                        ))
+                    } else {
+                        // Default to most common syntax if unknown
+                        self.handle.try_send(command!(
+                            "PRIVMSG",
+                            "NickServ",
+                            format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
+                        ))
+                    };
                 }
 
                 // Send user modestring
