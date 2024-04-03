@@ -110,8 +110,8 @@ impl Server {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum IdentifySyntax {
-    NickThenPassword,
-    PasswordThenNick,
+    NickPassword,
+    PasswordNick,
 }
 
 #[derive(Debug, Clone, Deserialize)]
