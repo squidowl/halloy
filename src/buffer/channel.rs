@@ -39,6 +39,8 @@ pub fn view<'a>(
         .map(|our_nick| User::from(Nick::from(our_nick.as_ref())))
         .and_then(|user| clients.resolve_user_attributes(&state.server, &state.channel, &user));
 
+    let users = clients.get_channel_users(&state.server, &state.channel);
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
@@ -67,6 +69,7 @@ pub fn view<'a>(
                                 },
                             ),
                             user,
+                            Some(users.iter().find(|current_user| *current_user == user)),
                             state.buffer(),
                             our_user,
                         )
@@ -123,8 +126,6 @@ pub fn view<'a>(
     )
     .width(Length::FillPortion(2))
     .height(Length::Fill);
-
-    let users = clients.get_channel_users(&state.server, &state.channel);
 
     let nick_list = nick_list::view(users, &buffer, our_user, config).map(Message::UserContext);
 
@@ -307,7 +308,7 @@ mod nick_list {
                 )
             });
 
-            user_context::view(content, user, buffer.clone(), our_user)
+            user_context::view(content, user, Some(Some(user)), buffer.clone(), our_user)
         }))
         .padding(4)
         .spacing(1);

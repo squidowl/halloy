@@ -57,6 +57,7 @@ pub fn view<'a>(
                                 },
                             ),
                             user,
+                            None,
                             state.buffer(),
                             None,
                         )
