@@ -7,7 +7,7 @@ pub fn view<'a, Message: 'a>() -> Element<'a, Message> {
     // TODO: Consider if we can completetly remove this buffer.
 
     let content = column![]
-        .push(text("⟵ select buffer"))
+        .push(text("⟵ select buffer").shaping(text::Shaping::Advanced))
         .align_items(iced::Alignment::Center);
 
     container(content)
