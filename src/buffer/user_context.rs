@@ -146,46 +146,10 @@ pub fn view<'a>(
                     .align_items(iced::Alignment::Center)
             };
 
-            let user_access_levels = column![]
-                .push_maybe(
-                    current_user
-                        .has_access_level(data::user::AccessLevel::Owner)
-                        .then(move || row![].push(text("~ Owner").style(theme::text::transparent))),
-                )
-                .push_maybe(
-                    current_user
-                        .has_access_level(data::user::AccessLevel::Admin)
-                        .then(move || {
-                            row![].push(text("& Administrator").style(theme::text::transparent))
-                        }),
-                )
-                .push_maybe(
-                    current_user
-                        .has_access_level(data::user::AccessLevel::Oper)
-                        .then(move || {
-                            row![].push(text("@ Operator").style(theme::text::transparent))
-                        }),
-                )
-                .push_maybe(
-                    current_user
-                        .has_access_level(data::user::AccessLevel::HalfOp)
-                        .then(move || {
-                            row![].push(text("% Half-Operator").style(theme::text::transparent))
-                        }),
-                )
-                .push_maybe(
-                    current_user
-                        .has_access_level(data::user::AccessLevel::Voice)
-                        .then(move || {
-                            row![].push(text("+ Voiced").style(theme::text::transparent))
-                        }),
-                );
-
             container(
                 column![]
                     .push_maybe(user_hostname)
-                    .push(user_status)
-                    .push(user_access_levels),
+                    .push(user_status),
             )
         } else {
             container(
