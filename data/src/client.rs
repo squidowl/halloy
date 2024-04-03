@@ -491,14 +491,14 @@ impl Client {
 
                     let _ = if let Some(identify_syntax) = &self.config.nick_identify_syntax {
                         match identify_syntax {
-                            config::server::IdentifySyntax::PasswordThenNick => {
+                            config::server::IdentifySyntax::PasswordNick => {
                                 self.handle.try_send(command!(
                                     "PRIVMSG",
                                     "NickServ",
                                     format!("IDENTIFY {nick_pass} {}", &self.config.nickname)
                                 ))
                             }
-                            config::server::IdentifySyntax::NickThenPassword => {
+                            config::server::IdentifySyntax::NickPassword => {
                                 self.handle.try_send(command!(
                                     "PRIVMSG",
                                     "NickServ",
