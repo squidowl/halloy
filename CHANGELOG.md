@@ -14,6 +14,7 @@ Fixed:
 
 - Accept '@' in usernames to support bouncers that use the user@identifier/network convention
 - Prevent rare scenario where broadcast messages' timestamp would not match time the messages are received
+- Fix SASL on macos by using RUSTLS backend
 
 Changed:
 
