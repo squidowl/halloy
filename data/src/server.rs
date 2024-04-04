@@ -77,6 +77,7 @@ impl Map {
                         *password = Some(pass);
                     },
                     Sasl::Plain { password: Some(_), password_file: None, .. } => {},
+                    Sasl::External { .. } => {},
                     _ => {
                         return Err(Error::Parse("Exactly one of sasl.plain.password or sasl.plain.password_file must be set.".to_string()));
                     }
