@@ -164,8 +164,8 @@ impl Sasl {
     }
 
     fn external_key(&self) -> Option<&PathBuf> {
-        if let Self::External { cert, key, .. } = self {
-            Some(key.as_ref().unwrap_or(cert))
+        if let Self::External { key, .. } = self {
+            key.as_ref()
         } else {
             None
         }
