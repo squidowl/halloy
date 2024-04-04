@@ -5,5 +5,4 @@ pub use self::connection::Connection;
 
 pub mod codec;
 pub mod connection;
-mod invalid_cert_verifier;
 pub use proto;
