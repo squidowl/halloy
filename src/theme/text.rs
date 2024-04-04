@@ -1,61 +1,67 @@
 use data::theme::{alpha, randomize_color};
-use iced::widget::text::{Appearance, DefaultStyle};
+use iced::widget::text::{Catalog, Style, StyleFn};
 
 use super::Theme;
 
-impl DefaultStyle for Theme {
-    fn default_style(&self) -> Appearance {
-        none(self)
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(none)
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> Style {
+        class(self)
     }
 }
 
-pub fn none(_theme: &Theme) -> Appearance {
-    Appearance { color: None }
+pub fn none(_theme: &Theme) -> Style {
+    Style { color: None }
 }
 
-pub fn primary(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn primary(theme: &Theme) -> Style {
+    Style {
         color: Some(theme.colors().text.base),
     }
 }
 
-pub fn accent(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn accent(theme: &Theme) -> Style {
+    Style {
         color: Some(theme.colors().accent.base),
     }
 }
 
-pub fn alert(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn alert(theme: &Theme) -> Style {
+    Style {
         color: Some(theme.colors().alert.base),
     }
 }
 
-pub fn info(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn info(theme: &Theme) -> Style {
+    Style {
         color: Some(theme.colors().info.base),
     }
 }
 
-pub fn error(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn error(theme: &Theme) -> Style {
+    Style {
         color: Some(theme.colors().error.base),
     }
 }
 
-pub fn success(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn success(theme: &Theme) -> Style {
+    Style {
         color: Some(theme.colors().success.base),
     }
 }
 
-pub fn transparent(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn transparent(theme: &Theme) -> Style {
+    Style {
         color: Some(theme.colors().text.low_alpha),
     }
 }
 
-pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Appearance {
+pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Style {
     let dark_theme = theme.colors().is_dark_theme();
 
     if seed.is_none() {
@@ -64,7 +70,7 @@ pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Appea
             false => theme.colors().text.base,
         };
 
-        return Appearance { color: Some(color) };
+        return Style { color: Some(color) };
     }
 
     let original_color = theme.colors().action.base;
@@ -79,5 +85,5 @@ pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Appea
         randomized_color
     };
 
-    Appearance { color: Some(color) }
+    Style { color: Some(color) }
 }

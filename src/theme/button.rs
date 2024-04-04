@@ -1,17 +1,23 @@
-use iced::widget::button::{Appearance, DefaultStyle, Status};
+use iced::widget::button::{Catalog, Status, Style, StyleFn};
 use iced::{Background, Border, Color};
 
 use super::Theme;
 
-impl DefaultStyle for Theme {
-    fn default_style(&self, status: Status) -> Appearance {
-        primary(self, status)
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(primary)
+    }
+
+    fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {
+        class(self, status)
     }
 }
 
-pub fn primary(theme: &Theme, status: Status) -> Appearance {
+pub fn primary(theme: &Theme, status: Status) -> Style {
     match status {
-        Status::Active | Status::Pressed => Appearance {
+        Status::Active | Status::Pressed => Style {
             background: Some(Background::Color(theme.colors().text.high_alpha)),
             text_color: theme.colors().text.base,
             border: Border {
@@ -20,7 +26,7 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
             },
             ..Default::default()
         },
-        Status::Hovered => Appearance {
+        Status::Hovered => Style {
             background: Some(Background::Color(theme.colors().text.med_alpha)),
             text_color: theme.colors().text.base,
             border: Border {
@@ -32,7 +38,7 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
         Status::Disabled => {
             let active = primary(theme, Status::Active);
 
-            Appearance {
+            Style {
                 text_color: Color {
                     a: 0.2,
                     ..active.text_color
@@ -50,9 +56,9 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
     }
 }
 
-pub fn secondary(theme: &Theme, status: Status) -> Appearance {
+pub fn secondary(theme: &Theme, status: Status) -> Style {
     match status {
-        Status::Active | Status::Pressed => Appearance {
+        Status::Active | Status::Pressed => Style {
             background: Some(Background::Color(theme.colors().accent.high_alpha)),
             text_color: theme.colors().accent.base,
             border: Border {
@@ -61,7 +67,7 @@ pub fn secondary(theme: &Theme, status: Status) -> Appearance {
             },
             ..Default::default()
         },
-        Status::Hovered => Appearance {
+        Status::Hovered => Style {
             background: Some(Background::Color(theme.colors().accent.med_alpha)),
             text_color: theme.colors().accent.base,
             border: Border {
@@ -73,7 +79,7 @@ pub fn secondary(theme: &Theme, status: Status) -> Appearance {
         Status::Disabled => {
             let active = secondary(theme, Status::Active);
 
-            Appearance {
+            Style {
                 text_color: Color {
                     a: 0.2,
                     ..active.text_color
@@ -91,9 +97,9 @@ pub fn secondary(theme: &Theme, status: Status) -> Appearance {
     }
 }
 
-pub fn tertiary(theme: &Theme, status: Status, selected: bool) -> Appearance {
+pub fn tertiary(theme: &Theme, status: Status, selected: bool) -> Style {
     match status {
-        Status::Active | Status::Pressed => Appearance {
+        Status::Active | Status::Pressed => Style {
             background: Some(Background::Color(if selected {
                 theme.colors().action.med_alpha
             } else {
@@ -115,7 +121,7 @@ pub fn tertiary(theme: &Theme, status: Status, selected: bool) -> Appearance {
         Status::Hovered => {
             let active = tertiary(theme, Status::Active, selected);
 
-            Appearance {
+            Style {
                 background: Some(Background::Color(if selected {
                     theme.colors().action.high_alpha
                 } else if theme.colors().is_dark_theme() {
@@ -129,7 +135,7 @@ pub fn tertiary(theme: &Theme, status: Status, selected: bool) -> Appearance {
         Status::Disabled => {
             let active = tertiary(theme, Status::Active, selected);
 
-            Appearance {
+            Style {
                 text_color: Color {
                     a: 0.2,
                     ..active.text_color
@@ -147,9 +153,9 @@ pub fn tertiary(theme: &Theme, status: Status, selected: bool) -> Appearance {
     }
 }
 
-pub fn context(theme: &Theme, status: Status) -> Appearance {
+pub fn context(theme: &Theme, status: Status) -> Style {
     match status {
-        Status::Active | Status::Pressed => Appearance {
+        Status::Active | Status::Pressed => Style {
             background: Some(Background::Color(Color::TRANSPARENT)),
             border: Border {
                 radius: 4.0.into(),
@@ -160,7 +166,7 @@ pub fn context(theme: &Theme, status: Status) -> Appearance {
         Status::Hovered => {
             let active = context(theme, Status::Active);
 
-            Appearance {
+            Style {
                 background: Some(Background::Color(theme.colors().background.darker)),
                 ..active
             }
@@ -168,7 +174,7 @@ pub fn context(theme: &Theme, status: Status) -> Appearance {
         Status::Disabled => {
             let active = context(theme, Status::Active);
 
-            Appearance {
+            Style {
                 text_color: Color {
                     a: 0.2,
                     ..active.text_color
@@ -186,16 +192,16 @@ pub fn context(theme: &Theme, status: Status) -> Appearance {
     }
 }
 
-pub fn bare(_theme: &Theme, status: Status) -> Appearance {
+pub fn bare(_theme: &Theme, status: Status) -> Style {
     match status {
-        Status::Active | Status::Pressed | Status::Hovered => Appearance {
+        Status::Active | Status::Pressed | Status::Hovered => Style {
             background: Some(Background::Color(Color::TRANSPARENT)),
             ..Default::default()
         },
         Status::Disabled => {
             let active = bare(_theme, Status::Active);
 
-            Appearance {
+            Style {
                 text_color: Color {
                     a: 0.2,
                     ..active.text_color
@@ -213,9 +219,9 @@ pub fn bare(_theme: &Theme, status: Status) -> Appearance {
     }
 }
 
-pub fn side_menu(theme: &Theme, status: Status) -> Appearance {
+pub fn side_menu(theme: &Theme, status: Status) -> Style {
     match status {
-        Status::Active | Status::Pressed => Appearance {
+        Status::Active | Status::Pressed => Style {
             background: None,
             border: Border {
                 radius: 3.0.into(),
@@ -226,7 +232,7 @@ pub fn side_menu(theme: &Theme, status: Status) -> Appearance {
         Status::Hovered => {
             let active = side_menu(theme, Status::Active);
 
-            Appearance {
+            Style {
                 background: Some(Background::Color(theme.colors().background.dark)),
                 ..active
             }
@@ -234,7 +240,7 @@ pub fn side_menu(theme: &Theme, status: Status) -> Appearance {
         Status::Disabled => {
             let active = side_menu(theme, Status::Active);
 
-            Appearance {
+            Style {
                 text_color: Color {
                     a: 0.2,
                     ..active.text_color
@@ -252,9 +258,9 @@ pub fn side_menu(theme: &Theme, status: Status) -> Appearance {
     }
 }
 
-pub fn side_menu_selected(theme: &Theme, status: Status) -> Appearance {
+pub fn side_menu_selected(theme: &Theme, status: Status) -> Style {
     match status {
-        Status::Active | Status::Pressed => Appearance {
+        Status::Active | Status::Pressed => Style {
             background: Some(Background::Color(theme.colors().background.darker)),
             border: Border {
                 radius: 3.0.into(),
@@ -265,7 +271,7 @@ pub fn side_menu_selected(theme: &Theme, status: Status) -> Appearance {
         Status::Hovered => {
             let active = side_menu_selected(theme, Status::Active);
 
-            Appearance {
+            Style {
                 background: Some(Background::Color(theme.colors().background.darkest)),
                 ..active
             }
@@ -273,7 +279,7 @@ pub fn side_menu_selected(theme: &Theme, status: Status) -> Appearance {
         Status::Disabled => {
             let active = side_menu_selected(theme, Status::Active);
 
-            Appearance {
+            Style {
                 text_color: Color {
                     a: 0.2,
                     ..active.text_color

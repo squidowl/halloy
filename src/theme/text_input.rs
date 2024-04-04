@@ -1,18 +1,24 @@
 use iced::{
-    widget::text_input::{Appearance, DefaultStyle, Status},
+    widget::text_input::{Catalog, Status, Style, StyleFn},
     Background, Border, Color,
 };
 
 use super::Theme;
 
-impl DefaultStyle for Theme {
-    fn default_style(&self, status: Status) -> Appearance {
-        primary(self, status)
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(primary)
+    }
+
+    fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {
+        class(self, status)
     }
 }
 
-pub fn primary(theme: &Theme, status: Status) -> Appearance {
-    let active = Appearance {
+pub fn primary(theme: &Theme, status: Status) -> Style {
+    let active = Style {
         background: Background::Color(theme.colors().background.darker),
         border: Border {
             radius: 4.0.into(),
@@ -28,7 +34,7 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
 
     match status {
         Status::Active | Status::Hovered | Status::Focused => active,
-        Status::Disabled => Appearance {
+        Status::Disabled => Style {
             background: Background::Color(theme.colors().background.low_alpha),
             border: Border {
                 radius: 4.0.into(),
@@ -41,11 +47,11 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
     }
 }
 
-pub fn error(theme: &Theme, status: Status) -> Appearance {
+pub fn error(theme: &Theme, status: Status) -> Style {
     let primary = primary(theme, status);
 
     match status {
-        Status::Active | Status::Hovered | Status::Focused => Appearance {
+        Status::Active | Status::Hovered | Status::Focused => Style {
             border: Border {
                 radius: 4.0.into(),
                 width: 1.0,

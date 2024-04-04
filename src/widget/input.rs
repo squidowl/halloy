@@ -241,7 +241,7 @@ where
 
         let overlay = state
             .error
-            .as_ref()
+            .as_deref()
             .map(error)
             .or_else(|| state.completion.view(self.input))
             .unwrap_or_else(|| row![].into());
@@ -254,8 +254,8 @@ where
     }
 }
 
-fn error<'a, Message: 'a>(error: impl ToString) -> Element<'a, Message> {
-    container(text(error).style(theme::text::error))
+fn error<'a, 'b, Message: 'a>(error: &'b str) -> Element<'a, Message> {
+    container(text(error.to_string()).style(theme::text::error))
         .center_y()
         .padding(8)
         .style(theme::container::context)

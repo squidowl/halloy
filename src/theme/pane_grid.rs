@@ -1,18 +1,24 @@
 use iced::{
-    widget::pane_grid::{Appearance, DefaultStyle, Highlight, Line},
+    widget::pane_grid::{Catalog, Highlight, Line, Style, StyleFn},
     Background, Border,
 };
 
 use super::Theme;
 
-impl DefaultStyle for Theme {
-    fn default_style(&self) -> Appearance {
-        primary(self)
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> StyleFn<'a, Self> {
+        Box::new(primary)
+    }
+
+    fn style(&self, class: &StyleFn<'_, Self>) -> Style {
+        class(self)
     }
 }
 
-pub fn primary(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn primary(theme: &Theme) -> Style {
+    Style {
         hovered_region: Highlight {
             background: Background::Color(theme.colors().action.high_alpha),
             border: Border {

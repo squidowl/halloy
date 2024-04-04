@@ -35,6 +35,17 @@ checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
 name = "ahash"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "891477e0c6a8957309ee5c45a6368af3ae14bb510732d2684ffa19af310920f9"
+dependencies = [
+ "getrandom",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
+name = "ahash"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
@@ -221,6 +232,17 @@ dependencies = [
  "autocfg",
  "blocking",
  "futures-lite 1.13.0",
+]
+
+[[package]]
+name = "async-fs"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc19683171f287921f2405677dd2ed2549c3b3bda697a563ebc3a121ace2aba1"
+dependencies = [
+ "async-lock 3.3.0",
+ "blocking",
+ "futures-lite 2.3.0",
 ]
 
 [[package]]
@@ -881,6 +903,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "dark-light"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb02ff40e6d65b7fcda0089104559e5a32f67c04d00ba4c392ce2d77ec9752c7"
+dependencies = [
+ "dconf_rs",
+ "detect-desktop-environment",
+ "dirs",
+ "objc",
+ "rust-ini",
+ "web-sys",
+ "winreg 0.10.1",
+ "zbus 4.1.2",
+ "zvariant 3.15.1",
+]
+
+[[package]]
 name = "data"
 version = "0.1.0"
 dependencies = [
@@ -911,6 +950,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dconf_rs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7046468a81e6a002061c01e6a7c83139daf91b11c30e66795b13217c2d885c8b"
+
+[[package]]
 name = "deranged"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -931,6 +976,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "detect-desktop-environment"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21d8ad60dd5b13a4ee6bd8fa2d5d88965c597c67bce32b5fc49c94f55cb50810"
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -941,6 +992,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca3aa72a6f96ea37bbc5aa912f6788242832f75369bdfdadcb0e38423f100059"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -948,6 +1008,17 @@ checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
 dependencies = [
  "cfg-if",
  "dirs-sys-next",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b1d1d91c932ef41c0f2663aa8b0ca0342d444d842c06914aa0a7e352d0bada6"
+dependencies = [
+ "libc",
+ "redox_users",
+ "winapi",
 ]
 
 [[package]]
@@ -975,6 +1046,12 @@ checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
  "libloading 0.8.3",
 ]
+
+[[package]]
+name = "dlv-list"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0688c2a7f92e427f44895cd63841bff7b29f8d7a1648b9e7e07a4a365b2e1257"
 
 [[package]]
 name = "downcast-rs"
@@ -1543,12 +1620,12 @@ dependencies = [
 [[package]]
 name = "glyphon"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a62d0338e4056db6a73221c2fb2e30619452f6ea9651bac4110f51b0f7a7581"
+source = "git+https://github.com/hecrj/glyphon.git?rev=ceed55403ce53e120ce9d1fae17dcfe388726118#ceed55403ce53e120ce9d1fae17dcfe388726118"
 dependencies = [
  "cosmic-text",
  "etagere",
  "lru",
+ "rustc-hash",
  "wgpu",
 ]
 
@@ -1592,7 +1669,7 @@ checksum = "cc11df1ace8e7e564511f53af41f3e42ddc95b56fd07b3f4445d2a6048bc682c"
 dependencies = [
  "bitflags 2.5.0",
  "gpu-descriptor-types",
- "hashbrown",
+ "hashbrown 0.14.3",
 ]
 
 [[package]]
@@ -1669,11 +1746,20 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
+dependencies = [
+ "ahash 0.7.8",
+]
+
+[[package]]
+name = "hashbrown"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "allocator-api2",
 ]
 
@@ -1838,8 +1924,9 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=3d915d3cb30e5d08829aa2928676a53c505a601e#3d915d3cb30e5d08829aa2928676a53c505a601e"
+source = "git+https://github.com/iced-rs/iced?rev=31d1d5fecbef50fa319cabd5d4194f1e4aaefa21#31d1d5fecbef50fa319cabd5d4194f1e4aaefa21"
 dependencies = [
+ "iced_core",
  "iced_futures",
  "iced_renderer",
  "iced_widget",
@@ -1851,29 +1938,31 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=3d915d3cb30e5d08829aa2928676a53c505a601e#3d915d3cb30e5d08829aa2928676a53c505a601e"
+source = "git+https://github.com/iced-rs/iced?rev=31d1d5fecbef50fa319cabd5d4194f1e4aaefa21#31d1d5fecbef50fa319cabd5d4194f1e4aaefa21"
 dependencies = [
  "bitflags 2.5.0",
+ "dark-light",
  "glam",
  "log",
  "num-traits",
  "once_cell",
  "palette",
  "raw-window-handle",
+ "rustc-hash",
  "smol_str",
  "thiserror",
  "web-time",
- "xxhash-rust",
 ]
 
 [[package]]
 name = "iced_futures"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=3d915d3cb30e5d08829aa2928676a53c505a601e#3d915d3cb30e5d08829aa2928676a53c505a601e"
+source = "git+https://github.com/iced-rs/iced?rev=31d1d5fecbef50fa319cabd5d4194f1e4aaefa21#31d1d5fecbef50fa319cabd5d4194f1e4aaefa21"
 dependencies = [
  "futures",
  "iced_core",
  "log",
+ "rustc-hash",
  "tokio",
  "wasm-bindgen-futures",
  "wasm-timer",
@@ -1882,7 +1971,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=3d915d3cb30e5d08829aa2928676a53c505a601e#3d915d3cb30e5d08829aa2928676a53c505a601e"
+source = "git+https://github.com/iced-rs/iced?rev=31d1d5fecbef50fa319cabd5d4194f1e4aaefa21#31d1d5fecbef50fa319cabd5d4194f1e4aaefa21"
 dependencies = [
  "bitflags 2.5.0",
  "bytemuck",
@@ -1898,13 +1987,12 @@ dependencies = [
  "rustc-hash",
  "thiserror",
  "unicode-segmentation",
- "xxhash-rust",
 ]
 
 [[package]]
 name = "iced_renderer"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=3d915d3cb30e5d08829aa2928676a53c505a601e#3d915d3cb30e5d08829aa2928676a53c505a601e"
+source = "git+https://github.com/iced-rs/iced?rev=31d1d5fecbef50fa319cabd5d4194f1e4aaefa21#31d1d5fecbef50fa319cabd5d4194f1e4aaefa21"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -1916,7 +2004,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=3d915d3cb30e5d08829aa2928676a53c505a601e#3d915d3cb30e5d08829aa2928676a53c505a601e"
+source = "git+https://github.com/iced-rs/iced?rev=31d1d5fecbef50fa319cabd5d4194f1e4aaefa21#31d1d5fecbef50fa319cabd5d4194f1e4aaefa21"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -1927,7 +2015,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=3d915d3cb30e5d08829aa2928676a53c505a601e#3d915d3cb30e5d08829aa2928676a53c505a601e"
+source = "git+https://github.com/iced-rs/iced?rev=31d1d5fecbef50fa319cabd5d4194f1e4aaefa21#31d1d5fecbef50fa319cabd5d4194f1e4aaefa21"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -1937,13 +2025,12 @@ dependencies = [
  "rustc-hash",
  "softbuffer",
  "tiny-skia",
- "xxhash-rust",
 ]
 
 [[package]]
 name = "iced_wgpu"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=3d915d3cb30e5d08829aa2928676a53c505a601e#3d915d3cb30e5d08829aa2928676a53c505a601e"
+source = "git+https://github.com/iced-rs/iced?rev=31d1d5fecbef50fa319cabd5d4194f1e4aaefa21#31d1d5fecbef50fa319cabd5d4194f1e4aaefa21"
 dependencies = [
  "bitflags 2.5.0",
  "bytemuck",
@@ -1954,18 +2041,21 @@ dependencies = [
  "iced_graphics",
  "log",
  "once_cell",
+ "rustc-hash",
+ "thiserror",
  "wgpu",
 ]
 
 [[package]]
 name = "iced_widget"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=3d915d3cb30e5d08829aa2928676a53c505a601e#3d915d3cb30e5d08829aa2928676a53c505a601e"
+source = "git+https://github.com/iced-rs/iced?rev=31d1d5fecbef50fa319cabd5d4194f1e4aaefa21#31d1d5fecbef50fa319cabd5d4194f1e4aaefa21"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
  "num-traits",
  "ouroboros",
+ "rustc-hash",
  "thiserror",
  "unicode-segmentation",
 ]
@@ -1973,11 +2063,12 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=3d915d3cb30e5d08829aa2928676a53c505a601e#3d915d3cb30e5d08829aa2928676a53c505a601e"
+source = "git+https://github.com/iced-rs/iced?rev=31d1d5fecbef50fa319cabd5d4194f1e4aaefa21#31d1d5fecbef50fa319cabd5d4194f1e4aaefa21"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
  "log",
+ "rustc-hash",
  "thiserror",
  "tracing",
  "web-sys",
@@ -2032,7 +2123,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "168fb715dda47215e360912c096649d23d58bf392ac62f73919e831745e40f26"
 dependencies = [
  "equivalent",
- "hashbrown",
+ "hashbrown 0.14.3",
 ]
 
 [[package]]
@@ -2316,9 +2407,6 @@ name = "lru"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3262e75e648fce39813cb56ac41f3c3e3f65217ebf3844d818d1f9398cfb0dc"
-dependencies = [
- "hashbrown",
-]
 
 [[package]]
 name = "mac-notification-sys"
@@ -2738,6 +2826,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52f0d54bde9774d3a51dcf281a5def240c71996bc6ca05d2c847ec8b2b216166"
 dependencies = [
  "libredox 0.0.2",
+]
+
+[[package]]
+name = "ordered-multimap"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccd746e37177e1711c20dd619a1620f34f5c8b569c53590a72dedd5344d8924a"
+dependencies = [
+ "dlv-list",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -3341,6 +3439,16 @@ name = "roxmltree"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cd14fd5e3b777a7422cca79358c57a8f6e3a703d9ac187448d0daf220c2407f"
+
+[[package]]
+name = "rust-ini"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6d5f2436026b4f6e79dc829837d467cc7e9a55ee40e750d716713540715a2df"
+dependencies = [
+ "cfg-if",
+ "ordered-multimap",
+]
 
 [[package]]
 name = "rustc-demangle"
@@ -4969,10 +5077,10 @@ checksum = "32b752e52a2da0ddfbdbcc6fceadfeede4c939ed16d13e648833a61dfb611ed8"
 
 [[package]]
 name = "winit"
-version = "0.29.10"
-source = "git+https://github.com/iced-rs/winit.git?rev=b91e39ece2c0d378c3b80da7f3ab50e17bb798a5#b91e39ece2c0d378c3b80da7f3ab50e17bb798a5"
+version = "0.29.15"
+source = "git+https://github.com/iced-rs/winit.git?rev=592bd152f6d5786fae7d918532d7db752c0d164f#592bd152f6d5786fae7d918532d7db752c0d164f"
 dependencies = [
- "ahash",
+ "ahash 0.8.11",
  "android-activity",
  "atomic-waker",
  "bitflags 2.5.0",
@@ -5030,6 +5138,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dffa400e67ed5a4dd237983829e66475f0a4a26938c4b04c21baede6262215b8"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "winreg"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
+dependencies = [
+ "winapi",
 ]
 
 [[package]]
@@ -5126,12 +5243,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fcb9cbac069e033553e8bb871be2fbdffcab578eb25bd0f7c508cedc6dcd75a"
 
 [[package]]
-name = "xxhash-rust"
-version = "0.8.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "927da81e25be1e1a2901d59b81b37dd2efd1fc9c9345a55007f09bf5a2d3ee03"
-
-[[package]]
 name = "yansi"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5151,7 +5262,7 @@ checksum = "5acecd3f8422f198b1a2f954bcc812fe89f3fa4281646f3da1da7925db80085d"
 dependencies = [
  "async-broadcast 0.5.1",
  "async-executor",
- "async-fs",
+ "async-fs 1.6.0",
  "async-io 1.13.0",
  "async-lock 2.8.0",
  "async-process 1.8.1",
@@ -5191,9 +5302,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9ff46f2a25abd690ed072054733e0bc3157e3d4c45f41bd183dce09c2ff8ab9"
 dependencies = [
  "async-broadcast 0.7.0",
+ "async-executor",
+ "async-fs 2.1.1",
+ "async-io 2.3.2",
+ "async-lock 3.3.0",
  "async-process 2.1.0",
  "async-recursion",
+ "async-task",
  "async-trait",
+ "blocking",
  "derivative",
  "enumflags2",
  "event-listener 5.2.0",

@@ -1,15 +1,21 @@
-use iced::widget::rule::{Appearance, DefaultStyle, FillMode};
+use iced::widget::rule::{Catalog, FillMode, Style, StyleFn};
 
 use super::Theme;
 
-impl DefaultStyle for Theme {
-    fn default_style(&self) -> Appearance {
-        primary(self)
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(primary)
+    }
+
+    fn style(&self, class: &Self::Class<'_>) -> Style {
+        class(self)
     }
 }
 
-pub fn primary(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn primary(theme: &Theme) -> Style {
+    Style {
         color: theme.colors().background.light,
         width: 1,
         radius: 0.0.into(),

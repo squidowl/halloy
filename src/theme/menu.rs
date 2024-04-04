@@ -1,22 +1,25 @@
 pub use iced::widget::overlay::menu::Style;
 use iced::{
-    widget::overlay::menu::{Appearance, DefaultStyle},
+    widget::overlay::menu::{Catalog, StyleFn},
     Background, Border,
 };
 
-use super::{scrollable, Theme};
+use super::Theme;
 
-impl DefaultStyle for Theme {
-    fn default_style() -> Style<'static, Self> {
-        Style {
-            list: Box::new(primary),
-            scrollable: Box::new(scrollable::primary),
-        }
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> StyleFn<'a, Self> {
+        Box::new(primary)
+    }
+
+    fn style(&self, class: &StyleFn<'_, Self>) -> Style {
+        class(self)
     }
 }
 
-pub fn primary(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn primary(theme: &Theme) -> Style {
+    Style {
         text_color: theme.colors().text.base,
         background: Background::Color(theme.colors().background.base),
         border: Border {
@@ -29,8 +32,8 @@ pub fn primary(theme: &Theme) -> Appearance {
     }
 }
 
-pub fn combo_box(theme: &Theme) -> Appearance {
-    Appearance {
+pub fn combo_box(theme: &Theme) -> Style {
+    Style {
         text_color: theme.colors().text.base,
         background: Background::Color(theme.colors().background.base),
         border: Border {
