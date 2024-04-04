@@ -1,20 +1,26 @@
 use iced::{
     widget::{
         container,
-        scrollable::{Appearance, DefaultStyle, Scrollbar, Scroller, Status},
+        scrollable::{Catalog, Scrollbar, Scroller, Status, Style, StyleFn},
     },
     Background, Border, Color, Shadow,
 };
 
 use super::Theme;
 
-impl DefaultStyle for Theme {
-    fn default_style(&self, status: Status) -> Appearance {
-        primary(self, status)
+impl Catalog for Theme {
+    type Class<'a> = StyleFn<'a, Self>;
+
+    fn default<'a>() -> Self::Class<'a> {
+        Box::new(primary)
+    }
+
+    fn style(&self, class: &Self::Class<'_>, status: Status) -> Style {
+        class(self, status)
     }
 }
 
-pub fn primary(theme: &Theme, status: Status) -> Appearance {
+pub fn primary(theme: &Theme, status: Status) -> Style {
     let scrollbar = Scrollbar {
         background: None,
         border: Border::default(),
@@ -29,8 +35,8 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
     };
 
     match status {
-        Status::Active | Status::Hovered { .. } | Status::Dragged { .. } => Appearance {
-            container: container::Appearance {
+        Status::Active | Status::Hovered { .. } | Status::Dragged { .. } => Style {
+            container: container::Style {
                 text_color: None,
                 background: None,
                 border: Border {
@@ -47,7 +53,7 @@ pub fn primary(theme: &Theme, status: Status) -> Appearance {
     }
 }
 
-pub fn hidden(_theme: &Theme, status: Status) -> Appearance {
+pub fn hidden(_theme: &Theme, status: Status) -> Style {
     let scrollbar = Scrollbar {
         background: None,
         border: Border::default(),
@@ -62,8 +68,8 @@ pub fn hidden(_theme: &Theme, status: Status) -> Appearance {
     };
 
     match status {
-        Status::Active | Status::Hovered { .. } | Status::Dragged { .. } => Appearance {
-            container: container::Appearance {
+        Status::Active | Status::Hovered { .. } | Status::Dragged { .. } => Style {
+            container: container::Style {
                 text_color: None,
                 background: Some(Background::Color(Color::TRANSPARENT)),
                 border: Border {

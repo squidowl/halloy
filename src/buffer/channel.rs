@@ -83,7 +83,7 @@ pub fn view<'a>(
                                     .push(space)
                                     .push(text),
                             )
-                            .style(move |theme, status| match our_nick {
+                            .style(move |theme| match our_nick {
                                 Some(nick)
                                     if message::reference_user(
                                         user.nickname(),
@@ -91,7 +91,7 @@ pub fn view<'a>(
                                         &message.text,
                                     ) =>
                                 {
-                                    theme::container::highlight(theme, status)
+                                    theme::container::highlight(theme)
                                 }
                                 _ => Default::default(),
                             })
@@ -299,7 +299,7 @@ mod nick_list {
         config: &'a Config,
     ) -> Element<'a, Message> {
         let column = column(users.iter().map(|user| {
-            let content = text(user).style(|theme| {
+            let content = text(user.to_string()).style(|theme| {
                 theme::text::nickname(
                     theme,
                     user.color_seed(&config.buffer.channel.nicklist.color),
@@ -312,13 +312,15 @@ mod nick_list {
         .padding(4)
         .spacing(1);
 
-        container(Scrollable::with_direction_and_style(
-            column,
-            scrollable::Direction::Vertical(
-                scrollable::Properties::new().width(1).scroller_width(1),
-            ),
-            theme::scrollable::hidden,
-        ))
+        container(
+            Scrollable::with_direction(
+                column,
+                scrollable::Direction::Vertical(
+                    scrollable::Properties::new().width(1).scroller_width(1),
+                ),
+            )
+            .style(theme::scrollable::hidden),
+        )
         .width(Length::Shrink)
         .max_width(120)
         .height(Length::Fill)

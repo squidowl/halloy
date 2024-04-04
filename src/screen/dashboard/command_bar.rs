@@ -65,6 +65,7 @@ impl CommandBar {
             .on_close(Message::Unfocused)
             .on_option_hovered(Message::Hovered)
             .size(font_size)
+            .menu_style(theme::menu::combo_box)
             .padding([8, 8]);
 
         // Capture ESC so we can close the combobox manually from application
@@ -83,7 +84,7 @@ impl CommandBar {
                     .chain(
                         Command::list(buffers, config, focused_buffer, resize_buffer, version)
                             .iter()
-                            .map(|command| text(command).size(font_size)),
+                            .map(|command| text(command.to_string()).size(font_size)),
                     )
                     .map(Element::from),
             )

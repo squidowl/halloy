@@ -45,11 +45,15 @@ pub fn view<'a>(
     .spacing(1)
     .padding([0, 2]);
 
-    container(Scrollable::with_direction_and_style(
-        column,
-        scrollable::Direction::Vertical(scrollable::Properties::new().width(1).scroller_width(1)),
-        theme::scrollable::hidden,
-    ))
+    container(
+        Scrollable::with_direction(
+            column,
+            scrollable::Direction::Vertical(
+                scrollable::Properties::new().width(1).scroller_width(1),
+            ),
+        )
+        .style(theme::scrollable::hidden),
+    )
     .width(Length::Fill)
     .height(Length::Fill)
     .into()
@@ -251,7 +255,7 @@ mod transfer_row {
             .padding([6, 4, 6, 8])
             .width(Length::Fill)
             .align_y(alignment::Vertical::Center)
-            .style(move |theme, status| theme::container::table_row(theme, status, idx))
+            .style(move |theme| theme::container::table_row(theme, idx))
             .into()
     }
 }
