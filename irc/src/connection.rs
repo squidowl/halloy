@@ -63,9 +63,7 @@ impl<Codec> Connection<Codec> {
             let builder = if accept_invalid_certs {
                 builder
                     .dangerous()
-                    .with_custom_certificate_verifier(Arc::new(InvalidServerCertVerifier::new(
-                        roots,
-                    )))
+                    .with_custom_certificate_verifier(Arc::new(InvalidServerCertVerifier {}))
             } else {
                 builder.with_root_certificates(roots)
             };
