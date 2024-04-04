@@ -72,14 +72,22 @@ impl Map {
             }
             if let Some(sasl) = &mut config.sasl {
                 match sasl {
-                    Sasl::Plain { password: password @ None, password_file: Some(pass_file), .. } => {
-                        let pass = fs::read_to_string(pass_file)?;
-                        *password = Some(pass);
-                    },
-                    Sasl::Plain { password: Some(_), password_file: None, .. } => {},
-                    _ => {
+                    Sasl::Plain {
+                        password: Some(_),
+                        password_file: Some(_),
+                        ..
+                    } => {
                         return Err(Error::Parse("Exactly one of sasl.plain.password or sasl.plain.password_file must be set.".to_string()));
                     }
+                    Sasl::Plain {
+                        password: password @ None,
+                        password_file: Some(pass_file),
+                        ..
+                    } => {
+                        let pass = fs::read_to_string(pass_file)?;
+                        *password = Some(pass);
+                    }
+                    _ => {}
                 }
             }
         }

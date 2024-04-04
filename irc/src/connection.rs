@@ -1,14 +1,14 @@
-use std::io;
 use std::net::IpAddr;
 use std::path::PathBuf;
 
 use futures::{Sink, SinkExt, Stream, StreamExt};
-use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
-use tokio_native_tls::native_tls::{Certificate, Identity};
-use tokio_native_tls::{native_tls, TlsConnector, TlsStream};
-use tokio_util::codec::{self, Framed};
+use tokio_rustls::client::TlsStream;
+use tokio_util::codec;
+use tokio_util::codec::Framed;
+
+mod tls;
 
 pub enum Connection<Codec> {
     Tls(Framed<TlsStream<TcpStream>, Codec>),
@@ -44,25 +44,15 @@ impl<Codec> Connection<Codec> {
             client_key_path,
         } = config.security
         {
-            let mut builder = native_tls::TlsConnector::builder();
-            builder.danger_accept_invalid_certs(accept_invalid_certs);
-
-            if let Some(path) = root_cert_path {
-                let bytes = fs::read(path).await?;
-                let cert = Certificate::from_pem(&bytes)?;
-                builder.add_root_certificate(cert);
-            }
-
-            if let (Some(cert_path), Some(pkcs8_key_path)) = (client_cert_path, client_key_path) {
-                let cert_bytes = fs::read(cert_path).await?;
-                let pkcs8_key_bytes = fs::read(pkcs8_key_path).await?;
-                let identity = Identity::from_pkcs8(&cert_bytes, &pkcs8_key_bytes)?;
-                builder.identity(identity);
-            }
-
-            let tls = TlsConnector::from(builder.build()?)
-                .connect(config.server, tcp)
-                .await?;
+            let tls = tls::connect(
+                tcp,
+                config.server,
+                accept_invalid_certs,
+                root_cert_path,
+                client_cert_path,
+                client_key_path,
+            )
+            .await?;
 
             Ok(Self::Tls(Framed::new(tls, codec)))
         } else {
@@ -106,9 +96,9 @@ impl<Codec> Connection<Codec> {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("tls error: {0}")]
-    Tls(#[from] tokio_native_tls::native_tls::Error),
+    Tls(#[from] tls::Error),
     #[error("io error: {0}")]
-    Io(#[from] io::Error),
+    Io(#[from] std::io::Error),
 }
 
 macro_rules! delegate {
