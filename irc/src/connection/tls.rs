@@ -20,23 +20,24 @@ pub async fn connect<'a>(
     client_cert_path: Option<&'a PathBuf>,
     client_key_path: Option<&'a PathBuf>,
 ) -> Result<TlsStream<TcpStream>, Error> {
-    let mut roots = rustls::RootCertStore::empty();
-
-    for cert in rustls_native_certs::load_native_certs()? {
-        roots.add(cert).unwrap();
-    }
-    if let Some(cert_path) = root_cert_path {
-        let cert_bytes = fs::read(&cert_path).await?;
-        let certs =
-            rustls_pemfile::certs(&mut Cursor::new(&cert_bytes)).collect::<Result<Vec<_>, _>>()?;
-        roots.add_parsable_certificates(certs);
-    }
-
     let builder = if accept_invalid_certs {
         rustls::ClientConfig::builder()
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(AcceptInvalidCerts))
     } else {
+        let mut roots = rustls::RootCertStore::empty();
+
+        for cert in rustls_native_certs::load_native_certs()? {
+            roots.add(cert).unwrap();
+        }
+
+        if let Some(cert_path) = root_cert_path {
+            let cert_bytes = fs::read(&cert_path).await?;
+            let certs = rustls_pemfile::certs(&mut Cursor::new(&cert_bytes))
+                .collect::<Result<Vec<_>, _>>()?;
+            roots.add_parsable_certificates(certs);
+        }
+
         rustls::ClientConfig::builder().with_root_certificates(roots)
     };
 
