@@ -64,8 +64,6 @@ pub mod server {
         Part,
         Quit,
         ReplyTopic,
-        StatusSuccess,
-        StatusError,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -7,7 +7,7 @@ use itertools::Itertools;
 use tokio::time::Instant;
 
 use crate::history::{self, History};
-use crate::message::{self, source, Limit, Source};
+use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::Nick;
 use crate::{config, input};
@@ -498,38 +498,14 @@ impl Data {
 
                     true
                 }
-                Source::Internal(source::Internal::Status(status)) => {
-                    let source: source::Server;
-                    match status {
-                        source::Status::Success => {
-                            source = source::Server::new(source::server::Kind::StatusSuccess, None);
-                        }
-                        source::Status::Error => {
-                            source = source::Server::new(source::server::Kind::StatusError, None);
-                        }
-                    };
-                    if let Some(server_message) = buffer_config.server_messages.get(&source) {
-                        if !server_message.enabled {
+                message::Source::Internal(message::source::Internal::Status(status)) => {
+                    if let Some(internal_message) = buffer_config.internal_messages.get(status) {
+                        if !internal_message.enabled {
                             return false;
                         }
 
-                        if let Some(seconds) = server_message.smart {
-                            let nick = match source.nick() {
-                                Some(nick) => nick.clone(),
-                                None => {
-                                    if let Some(nickname) = message.text.split(' ').nth(1) {
-                                        Nick::from(nickname)
-                                    } else {
-                                        return true;
-                                    }
-                                }
-                            };
-
-                            return !smart_filter_message(
-                                message,
-                                &seconds,
-                                most_recent_messages.get(&nick),
-                            );
+                        if let Some(seconds) = internal_message.smart {
+                            return !smart_filter_internal_message(message, &seconds);
                         }
                     }
 
@@ -610,6 +586,16 @@ fn smart_filter_message(
     let duration_seconds = message
         .server_time
         .signed_duration_since(*server_time)
+        .num_seconds();
+
+    duration_seconds > *seconds
+}
+
+fn smart_filter_internal_message(message: &crate::Message, seconds: &i64) -> bool {
+    let current_time = Utc::now();
+
+    let duration_seconds = current_time
+        .signed_duration_since(message.server_time)
         .num_seconds();
 
     duration_seconds > *seconds
