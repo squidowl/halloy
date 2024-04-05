@@ -2,7 +2,7 @@
 
 ## `[buffer]` Section
 
-## `[buffer.nickname]` Section 
+## `[buffer.nickname]` Section
 
 ```toml
 [buffer.nickname]
@@ -15,7 +15,6 @@ brackets = { left = "<string>", right = "<string>" }
 | `color`    | Nickname colors. Can be `"unique"` or `"solid"`. | `"unique"`                  |
 | `brackets` | Brackets for nicknames.                          | `{ left = "", right = "" }` |
 
-
 ## `[buffer.timestamp]` Section
 
 ```toml
@@ -24,10 +23,10 @@ format = "<string>"
 brackets = { left = "<string>", right = "<string>" }
 ```
 
-| Key        | Description                                                                                                                                     | Default                     |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `format`   | Format expected is  [strftime]( https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html ). To disable, simply pass empty string `""`. | `"%R"`                      |
-| `brackets` | Brackets for nicknames                                                                                                                          | `{ left = "", right = "" }` |
+| Key        | Description                                                                                                                                  | Default                     |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `format`   | Format expected is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html). To disable, simply pass empty string `""`. | `"%R"`                      |
+| `brackets` | Brackets for nicknames                                                                                                                       | `{ left = "", right = "" }` |
 
 ## `[buffer.text_input]` Section
 
@@ -98,20 +97,27 @@ username_format = "full" | "short"
 enabled = true | false
 ```
 
+| Key               | Description                                                                                                                                                      | Default   |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `enabled`         | Control if the server message should appear in buffers or not                                                                                                    | `true`    |
+| `smart`           | Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.                                        | `not set` |
+| `username_format` | Adjust how the username should look. Can be `"full"` (shows the longest username available (nickname, username and hostname) or `"short"` (only shows nickname). | `"full"`  |
+
+## `[buffer.internal_messages]` Section
+
 ```toml
-[buffer.server_messages.status_success]
+[buffer.internal_messages.success]
 enabled = true | false
 smart = <integer>
 ```
 
 ```toml
-[buffer.server_messages.status_error]
+[buffer.internal_messages.error]
 enabled = true | false
 smart = <integer>
 ```
 
-| Key         | Description                                                        | Default |
-| ----------- | ------------------------------------------------------------------ | ------- |
-| `enabled`   | Control if the server message should appear in buffers or not      | `true` |
-| `smart`                                                  | Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.                                        | `not set` |
-| `username_format`                                        | Adjust how the username should look. Can be `"full"` (shows the longest username available (nickname, username and hostname) or `"short"` (only shows nickname). | `"full"`  |
+| Key       | Description                                                                      | Default   |
+| --------- | -------------------------------------------------------------------------------- | --------- |
+| `enabled` | Control if the internal message should appear in buffers or not                  | `true`    |
+| `smart`   | Only show internal message if received within the given time duration (seconds). | `not set` |

@@ -1,4 +1,5 @@
 # Unreleased
+- Allow configuration of internal messages in buffer (see [buffer configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferinternal_messages-section))
 
 # 2024.6 (2024-04-05)
 
