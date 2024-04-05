@@ -91,7 +91,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Halloy</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="get-in-touch.html"><strong aria-hidden="true">2.</strong> Get in touch</a></li><li class="chapter-item expanded "><a href="configuration/index.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/servers.html"><strong aria-hidden="true">3.1.</strong> Servers</a></li><li class="chapter-item expanded "><a href="configuration/buffer.html"><strong aria-hidden="true">3.2.</strong> Buffer</a></li><li class="chapter-item expanded "><a href="configuration/scale-factor.html"><strong aria-hidden="true">3.3.</strong> Scale factor</a></li><li class="chapter-item expanded "><a href="configuration/font.html"><strong aria-hidden="true">3.4.</strong> Font</a></li><li class="chapter-item expanded "><a href="configuration/sidebar.html"><strong aria-hidden="true">3.5.</strong> Sidebar</a></li><li class="chapter-item expanded "><a href="configuration/notifications.html"><strong aria-hidden="true">3.6.</strong> Notifications</a></li><li class="chapter-item expanded "><a href="configuration/keyboard.html"><strong aria-hidden="true">3.7.</strong> Keyboard</a></li><li class="chapter-item expanded "><a href="configuration/themes/index.html"><strong aria-hidden="true">3.8.</strong> Themes</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/themes/community.html"><strong aria-hidden="true">3.8.1.</strong> Community</a></li></ol></li></ol></li><li class="chapter-item expanded "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="guides/migrating-from-yaml.html"><strong aria-hidden="true">4.</strong> Migrating from YAML</a></li><li class="chapter-item expanded "><a href="guides/connect-with-soju.html"><strong aria-hidden="true">5.</strong> Connect with soju</a></li><li class="chapter-item expanded "><a href="guides/connect-with-znc.html"><strong aria-hidden="true">6.</strong> Connect with ZNC</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Halloy</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="get-in-touch.html"><strong aria-hidden="true">2.</strong> Get in touch</a></li><li class="chapter-item expanded "><a href="configuration/index.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer.html"><strong aria-hidden="true">3.1.</strong> Buffer</a></li><li class="chapter-item expanded "><a href="configuration/file_transfer.html"><strong aria-hidden="true">3.2.</strong> File Transfer</a></li><li class="chapter-item expanded "><a href="configuration/font.html"><strong aria-hidden="true">3.3.</strong> Font</a></li><li class="chapter-item expanded "><a href="configuration/keyboard.html"><strong aria-hidden="true">3.4.</strong> Keyboard</a></li><li class="chapter-item expanded "><a href="configuration/notifications.html"><strong aria-hidden="true">3.5.</strong> Notifications</a></li><li class="chapter-item expanded "><a href="configuration/scale-factor.html"><strong aria-hidden="true">3.6.</strong> Scale factor</a></li><li class="chapter-item expanded "><a href="configuration/servers.html"><strong aria-hidden="true">3.7.</strong> Servers</a></li><li class="chapter-item expanded "><a href="configuration/sidebar.html"><strong aria-hidden="true">3.8.</strong> Sidebar</a></li><li class="chapter-item expanded "><a href="configuration/themes/index.html"><strong aria-hidden="true">3.9.</strong> Themes</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/themes/community.html"><strong aria-hidden="true">3.9.1.</strong> Community</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/tooltips.html"><strong aria-hidden="true">3.10.</strong> Tooltips</a></li></ol></li><li class="chapter-item expanded "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="guides/migrating-from-yaml.html"><strong aria-hidden="true">4.</strong> Migrating from YAML</a></li><li class="chapter-item expanded "><a href="guides/connect-with-soju.html"><strong aria-hidden="true">5.</strong> Connect with soju</a></li><li class="chapter-item expanded "><a href="guides/connect-with-znc.html"><strong aria-hidden="true">6.</strong> Connect with ZNC</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -204,6 +204,7 @@
 </ul>
 </li>
 <li>SASL support</li>
+<li>DCC Send</li>
 <li>Keyboard shortcuts</li>
 <li>Auto-completion for nicknames, commands, and channels</li>
 <li>Notifications support</li>
@@ -297,69 +298,7 @@ channels = ["#halloy"]
 enabled = true
 </code></pre>
 <p>You can also run Halloy in portable mode, if there is a <code>config.toml</code> configuration file in the same directory as the running executable.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="servers"><a class="header" href="#servers">Servers</a></h1>
-<h2 id="servers-section"><a class="header" href="#servers-section"><code>[servers]</code> Section</a></h2>
-<p>Example</p>
-<pre><code class="language-toml">[servers.liberachat]
-nickname = "halloy-user"
-server = "irc.libera.chat"
-channels = ["#halloy"]
-</code></pre>
-<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Key</th><th style="text-align: left">Description</th><th style="text-align: left">Default</th></tr></thead><tbody>
-<tr><td style="text-align: left"><code>nickname</code></td><td style="text-align: left">The client's nickname.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>nick_password</code></td><td style="text-align: left">The client's NICKSERV password.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>nick_password_file</code></td><td style="text-align: left">Alternatively read <code>nick_password</code> from the file at the given path.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>alt_nicks</code></td><td style="text-align: left">Alternative nicknames for the client, if the default is taken.</td><td style="text-align: left"><code>[""]</code></td></tr>
-<tr><td style="text-align: left"><code>username</code></td><td style="text-align: left">The client's username.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>realname</code></td><td style="text-align: left">The client's real name.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>server</code></td><td style="text-align: left">The server to connect to.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>port</code></td><td style="text-align: left">The port to connect on.</td><td style="text-align: left"><code>6697</code></td></tr>
-<tr><td style="text-align: left"><code>password</code></td><td style="text-align: left">The password to connect to the server.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>password_file</code></td><td style="text-align: left">Alternatively read <code>password</code> from the file at the given path.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>channels</code></td><td style="text-align: left">A list of channels to join on connection.</td><td style="text-align: left"><code>[""]</code></td></tr>
-<tr><td style="text-align: left"><code>channel_keys</code></td><td style="text-align: left">A mapping of channel names to keys for join-on-connect.</td><td style="text-align: left"><code>{}</code></td></tr>
-<tr><td style="text-align: left"><code>ping_time</code></td><td style="text-align: left">The amount of inactivity in seconds before the client will ping the server.</td><td style="text-align: left"><code>180</code></td></tr>
-<tr><td style="text-align: left"><code>ping_timeout</code></td><td style="text-align: left">The amount of time in seconds for a client to reconnect due to no ping response.</td><td style="text-align: left"><code>20</code></td></tr>
-<tr><td style="text-align: left"><code>reconnect_delay</code></td><td style="text-align: left">The amount of time in seconds before attempting to reconnect to the server when disconnected.</td><td style="text-align: left"><code>10</code></td></tr>
-<tr><td style="text-align: left"><code>should_ghost</code></td><td style="text-align: left">Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in use.</td><td style="text-align: left"><code>false</code></td></tr>
-<tr><td style="text-align: left"><code>ghost_sequence</code></td><td style="text-align: left">The command(s) that should be sent to NickServ to recover a nickname.</td><td style="text-align: left"><code>["GHOST"]</code></td></tr>
-<tr><td style="text-align: left"><code>umodes</code></td><td style="text-align: left">User modestring to set on connect. Example: <code>"+RB-x"</code>.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>use_tls</code></td><td style="text-align: left">Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.</td><td style="text-align: left"><code>true</code></td></tr>
-<tr><td style="text-align: left"><code>dangerously_accept_invalid_certs</code></td><td style="text-align: left">On <code>true</code>, all certificate validations are skipped. Defaults to <code>false</code>.</td><td style="text-align: left"><code>false</code></td></tr>
-<tr><td style="text-align: left"><code>root_cert_path</code></td><td style="text-align: left">The path to the root TLS certificate for this server in PEM format.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>on_connect</code></td><td style="text-align: left">Commands which are executed once connected. Example. <code>["/msg NickServ IDENTIFY foo bar"]</code>.</td><td style="text-align: left"><code>[]</code></td></tr>
-<tr><td style="text-align: left"><code>who_poll_interval</code></td><td style="text-align: left">WHO poll interval (in seconds) for servers without away-notify.</td><td style="text-align: left"><code>180</code><sup class="footnote-reference"><a href="#1">1</a></sup></td></tr>
-<tr><td style="text-align: left"><code>who_retry_interval</code></td><td style="text-align: left">WHO retry interval (in seconds) for servers without away-notify.</td><td style="text-align: left"><code>10</code><sup class="footnote-reference"><a href="#1">1</a></sup></td></tr>
-</tbody></table>
-</div>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Limited between <code>5</code> and <code>3600</code> seconds.</p>
-</div>
-<h2 id="serverssasl-section"><a class="header" href="#serverssasl-section"><code>[servers.sasl]</code> Section</a></h2>
-<h3 id="saslplain"><a class="header" href="#saslplain"><code>[sasl.plain]</code>:</a></h3>
-<pre><code class="language-toml">[servers.liberachat.sasl.plain]
-username = "&lt;string&gt;"
-password = "&lt;string&gt;"
-</code></pre>
-<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Key</th><th style="text-align: left">Description</th><th style="text-align: left">Default</th></tr></thead><tbody>
-<tr><td style="text-align: left"><code>username</code></td><td style="text-align: left">The account name used for authentication.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>password</code></td><td style="text-align: left">The password associated with the account used for authentication.</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>password_file</code></td><td style="text-align: left">Alternatively read <code>password</code> from the file at the given path.</td><td style="text-align: left"><code>""</code></td></tr>
-</tbody></table>
-</div>
-<h3 id="saslexternal"><a class="header" href="#saslexternal"><code>[sasl.external]</code></a></h3>
-<pre><code class="language-toml">[servers.liberachat.sasl.external]
-cert = "&lt;string&gt;"
-key = "&lt;string&gt;"
-</code></pre>
-<blockquote>
-<p>💡 External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
-</blockquote>
-<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Key</th><th style="text-align: left">Description</th><th style="text-align: left">Value</th></tr></thead><tbody>
-<tr><td style="text-align: left"><code>cert</code></td><td style="text-align: left">The path to PEM encoded X509 user certificate for external auth</td><td style="text-align: left"><code>""</code></td></tr>
-<tr><td style="text-align: left"><code>key</code></td><td style="text-align: left">The path to PEM encoded PKCS#8 private key for external auth (optional)</td><td style="text-align: left"><code>""</code></td></tr>
-</tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="buffer"><a class="header" href="#buffer">Buffer</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="buffer"><a class="header" href="#buffer">Buffer</a></h1>
 <h2 id="buffer-section"><a class="header" href="#buffer-section"><code>[buffer]</code> Section</a></h2>
 <h2 id="buffernickname-section"><a class="header" href="#buffernickname-section"><code>[buffer.nickname]</code> Section</a></h2>
 <pre><code class="language-toml">[buffer.nickname]
@@ -436,18 +375,35 @@ enabled = true | false
 <tr><td><code>smart</code></td><td>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</td><td><code>not set</code></td></tr>
 <tr><td><code>username_format</code></td><td>Adjust how the username should look. Can be <code>"full"</code> (shows the longest username available (nickname, username and hostname) or <code>"short"</code> (only shows nickname).</td><td><code>"full"</code></td></tr>
 </tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="scale-factor"><a class="header" href="#scale-factor">Scale factor</a></h1>
-<h2 id="scale_factor-section"><a class="header" href="#scale_factor-section"><code>[scale_factor]</code> Section</a></h2>
-<pre><code class="language-toml">scale_factor = &lt;float&gt;
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="file-transfer"><a class="header" href="#file-transfer">File Transfer</a></h1>
+<h2 id="file_transfer-section"><a class="header" href="#file_transfer-section"><code>[file_transfer]</code> Section</a></h2>
+<pre><code class="language-toml">[file_transfer]
+save_directory = "&lt;string&gt;"
+passive = true | false
+timeout = &lt;integer&gt;
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
-<tr><td><code>scale_factor</code></td><td>Control the scale factor of the entire application.</td><td><code>1.0</code><sup class="footnote-reference"><a href="#1">1</a></sup></td></tr>
+<tr><td><code>save_directory</code></td><td>Directory opened when prompted to save a file</td><td><code>$HOME/Downloads</code></td></tr>
+<tr><td><code>passive</code></td><td>If true, act as the "client" for the transfer. Requires the remote user act as the <a href="configuration/file_transfer.html#file_transferserver-section">server</a></td><td><code>true</code></td></tr>
+<tr><td><code>timeout</code></td><td>Time (in seconds) to wait before timing out a transfer waiting to be accepted</td><td><code>300</code></td></tr>
 </tbody></table>
 </div>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Limited between <code>0.1</code> and <code>3.0</code>.</p>
-</div>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="font"><a class="header" href="#font">Font</a></h1>
+<h2 id="file_transferserver-section"><a class="header" href="#file_transferserver-section"><code>[file_transfer.server]</code> Section</a></h2>
+<p>This section is <strong>required</strong> if <code>passive = false</code>. One side of the file transfer must
+operate as the "server", who the other user connects with to establish a connection.</p>
+<pre><code class="language-toml">[file_transfer.server]
+public_address = "&lt;string&gt;"
+bind_address = "&lt;string&gt;"
+bind_port_first = &lt;integer&gt;
+bind_port_last = &lt;integer&gt;
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>public_address</code></td><td>Address advertised to the remote user to connect to</td><td><code>""</code></td></tr>
+<tr><td><code>bind_address</code></td><td>Address to bind to when accepting connections</td><td><code>""</code></td></tr>
+<tr><td><code>bind_port_first</code></td><td>First port in port range to bind to</td><td><code>""</code></td></tr>
+<tr><td><code>bind_port_last</code></td><td>Last port in port range to bind to</td><td><code>""</code></td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="font"><a class="header" href="#font">Font</a></h1>
 <h2 id="font-section"><a class="header" href="#font-section"><code>[font]</code> Section</a></h2>
 <pre><code class="language-toml">[font]
 family = "&lt;string&gt;"
@@ -461,17 +417,43 @@ size = &lt;integer&gt;
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
 <p>Iosevka Term is provided by the application, and used by default.</p>
 </div>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar">Sidebar</a></h1>
-<h2 id="sidebar-section"><a class="header" href="#sidebar-section"><code>[sidebar]</code> Section</a></h2>
-<pre><code class="language-toml">[sidebar]
-default_action = "new-pane" | "replace-pane"
-width = &lt;integer&gt;
+<div style="break-before: page; page-break-before: always;"></div><h1 id="keyboard"><a class="header" href="#keyboard">Keyboard</a></h1>
+<h2 id="keyboard-section"><a class="header" href="#keyboard-section"><code>[keyboard]</code> Section</a></h2>
+<pre><code class="language-toml">[keyboard]
+move_up = "&lt;string&gt;"
+move_down = "&lt;string&gt;"
+move_left = "&lt;string&gt;"
+move_right = "&lt;string&gt;"
+close_buffer = "&lt;string&gt;"
+maximize_buffer = "&lt;string&gt;"
+restore_buffer = "&lt;string&gt;"
+cycle_next_buffer = "&lt;string&gt;"
+cycle_previous_buffer = "&lt;string&gt;"
+toggle_nick_list = "&lt;string&gt;"
+command_bar = "&lt;string&gt;"
 </code></pre>
-<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
-<tr><td><code>default_action</code></td><td>Action when selecting buffers in the sidebar. Can be <code>"new-pane"</code> or <code>"replace-pane"</code>.</td><td><code>"new-pane"</code></td></tr>
-<tr><td><code>width</code></td><td>Specify sidebar width in pixels.</td><td><code>120</code></td></tr>
+<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default MacOS</th><th>Default Other</th></tr></thead><tbody>
+<tr><td><code>move_up</code></td><td>Moves focus up</td><td><kbd>⌥</kbd> + <kbd>↑</kbd></td><td><kbd>alt</kbd> + <kbd>↑</kbd></td></tr>
+<tr><td><code>move_down</code></td><td>Moves focus down</td><td><kbd>⌥</kbd> + <kbd>↓</kbd></td><td><kbd>alt</kbd> + <kbd>↓</kbd></td></tr>
+<tr><td><code>move_left</code></td><td>Moves focus left</td><td><kbd>⌥</kbd> + <kbd>←</kbd></td><td><kbd>alt</kbd> + <kbd>←</kbd></td></tr>
+<tr><td><code>move_right</code></td><td>Moves focus right</td><td><kbd>⌥</kbd> + <kbd>→</kbd></td><td><kbd>alt</kbd> + <kbd>→</kbd></td></tr>
+<tr><td><code>close_buffer</code></td><td>Close focused buffer</td><td><kbd>⌘</kbd> + <kbd>w</kbd></td><td><kbd>ctrl</kbd> + <kbd>w</kbd></td></tr>
+<tr><td><code>maximize_buffer</code></td><td>Maximize focused buffer</td><td><kbd>⌘</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>↑</kbd></td></tr>
+<tr><td><code>restore_buffer</code></td><td>Restore focused buffer</td><td><kbd>⌘</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>↓</kbd></td></tr>
+<tr><td><code>cycle_next_buffer</code></td><td>Cycle to next buffer</td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td></tr>
+<tr><td><code>cycle_previous_buffer</code></td><td>Cycle to previous buffer</td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td></tr>
+<tr><td><code>toggle_nick_list</code></td><td>Toggle nick list</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd></td></tr>
+<tr><td><code>command_bar</code></td><td>Toggle command bar</td><td><kbd>⌘</kbd> + <kbd>k</kbd></td><td><kbd>ctrl</kbd> + <kbd>k</kbd></td></tr>
 </tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="notifications"><a class="header" href="#notifications">Notifications</a></h1>
+</div>
+<p>Example for vim like movement</p>
+<pre><code class="language-toml">[keyboard]
+move_up = "alt+k"
+move_down = "alt+j"
+move_left = "alt+h"
+move_right = "alt+l"
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="notifications"><a class="header" href="#notifications">Notifications</a></h1>
 <h2 id="notifications-section"><a class="header" href="#notifications-section"><code>[notifications]</code> Section</a></h2>
 <pre><code class="language-toml">[notifications.connected]
 enabled = true | false
@@ -489,6 +471,11 @@ sound = "&lt;string&gt;"
 mute = true | false
 
 [notifications.highlight]
+enabled = true | false
+sound = "&lt;string&gt;"
+mute = true | false
+
+[notifications.file_transfer_request]
 enabled = true | false
 sound = "&lt;string&gt;"
 mute = true | false
@@ -535,43 +522,101 @@ mute = true | false
 <li><code>"message-new-instant"</code></li>
 </ul>
 </div>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="keyboard"><a class="header" href="#keyboard">Keyboard</a></h1>
-<h2 id="keyboard-section"><a class="header" href="#keyboard-section"><code>[keyboard]</code> Section</a></h2>
-<pre><code class="language-toml">[keyboard]
-move_up = "&lt;string&gt;"
-move_down = "&lt;string&gt;"
-move_left = "&lt;string&gt;"
-move_right = "&lt;string&gt;"
-close_buffer = "&lt;string&gt;"
-maximize_buffer = "&lt;string&gt;"
-restore_buffer = "&lt;string&gt;"
-cycle_next_buffer = "&lt;string&gt;"
-cycle_previous_buffer = "&lt;string&gt;"
-toggle_nick_list = "&lt;string&gt;"
-command_bar = "&lt;string&gt;"
+<div style="break-before: page; page-break-before: always;"></div><h1 id="scale-factor"><a class="header" href="#scale-factor">Scale factor</a></h1>
+<h2 id="scale_factor-section"><a class="header" href="#scale_factor-section"><code>[scale_factor]</code> Section</a></h2>
+<pre><code class="language-toml">scale_factor = &lt;float&gt;
 </code></pre>
-<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default MacOS</th><th>Default Other</th></tr></thead><tbody>
-<tr><td><code>move_up</code></td><td>Moves focus up</td><td><kbd>⌥</kbd> + <kbd>↑</kbd></td><td><kbd>alt</kbd> + <kbd>↑</kbd></td></tr>
-<tr><td><code>move_down</code></td><td>Moves focus down</td><td><kbd>⌥</kbd> + <kbd>↓</kbd></td><td><kbd>alt</kbd> + <kbd>↓</kbd></td></tr>
-<tr><td><code>move_left</code></td><td>Moves focus left</td><td><kbd>⌥</kbd> + <kbd>←</kbd></td><td><kbd>alt</kbd> + <kbd>←</kbd></td></tr>
-<tr><td><code>move_right</code></td><td>Moves focus right</td><td><kbd>⌥</kbd> + <kbd>→</kbd></td><td><kbd>alt</kbd> + <kbd>→</kbd></td></tr>
-<tr><td><code>close_buffer</code></td><td>Close focused buffer</td><td><kbd>⌘</kbd> + <kbd>w</kbd></td><td><kbd>ctrl</kbd> + <kbd>w</kbd></td></tr>
-<tr><td><code>maximize_buffer</code></td><td>Maximize focused buffer</td><td><kbd>⌘</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>↑</kbd></td></tr>
-<tr><td><code>restore_buffer</code></td><td>Restore focused buffer</td><td><kbd>⌘</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>↓</kbd></td></tr>
-<tr><td><code>cycle_next_buffer</code></td><td>Cycle to next buffer</td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td></tr>
-<tr><td><code>cycle_previous_buffer</code></td><td>Cycle to previous buffer</td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td></tr>
-<tr><td><code>toggle_nick_list</code></td><td>Toggle nick list</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd></td></tr>
-<tr><td><code>command_bar</code></td><td>Toggle command bar</td><td><kbd>⌘</kbd> + <kbd>k</kbd></td><td><kbd>ctrl</kbd> + <kbd>k</kbd></td></tr>
+<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>scale_factor</code></td><td>Control the scale factor of the entire application.</td><td><code>1.0</code><sup class="footnote-reference"><a href="#1">1</a></sup></td></tr>
 </tbody></table>
 </div>
-<p>Example for vim like movement</p>
-<pre><code class="language-toml">[keyboard]
-move_up = "alt+k"
-move_down = "alt+j"
-move_left = "alt+h"
-move_right = "alt+l"
+<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
+<p>Limited between <code>0.1</code> and <code>3.0</code>.</p>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="servers"><a class="header" href="#servers">Servers</a></h1>
+<h2 id="servers-section"><a class="header" href="#servers-section"><code>[servers]</code> Section</a></h2>
+<p>Example</p>
+<pre><code class="language-toml">[servers.liberachat]
+nickname = "halloy-user"
+server = "irc.libera.chat"
+channels = ["#halloy"]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Key</th><th style="text-align: left">Description</th><th style="text-align: left">Default</th></tr></thead><tbody>
+<tr><td style="text-align: left"><code>nickname</code></td><td style="text-align: left">The client's nickname.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>nick_password</code></td><td style="text-align: left">The client's NICKSERV password.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>nick_password_file</code></td><td style="text-align: left">Alternatively read <code>nick_password</code> from the file at the given path.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>nick_identify_syntax</code></td><td style="text-align: left">The server's NICKSERV IDENTIFY syntax. Can be <code>"nick-password"</code> or <code>"password-nick"</code>.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>alt_nicks</code></td><td style="text-align: left">Alternative nicknames for the client, if the default is taken.</td><td style="text-align: left"><code>[""]</code></td></tr>
+<tr><td style="text-align: left"><code>username</code></td><td style="text-align: left">The client's username.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>realname</code></td><td style="text-align: left">The client's real name.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>server</code></td><td style="text-align: left">The server to connect to.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>port</code></td><td style="text-align: left">The port to connect on.</td><td style="text-align: left"><code>6697</code></td></tr>
+<tr><td style="text-align: left"><code>password</code></td><td style="text-align: left">The password to connect to the server.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>password_file</code></td><td style="text-align: left">Alternatively read <code>password</code> from the file at the given path.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>channels</code></td><td style="text-align: left">A list of channels to join on connection.</td><td style="text-align: left"><code>[""]</code></td></tr>
+<tr><td style="text-align: left"><code>channel_keys</code></td><td style="text-align: left">A mapping of channel names to keys for join-on-connect.</td><td style="text-align: left"><code>{}</code></td></tr>
+<tr><td style="text-align: left"><code>ping_time</code></td><td style="text-align: left">The amount of inactivity in seconds before the client will ping the server.</td><td style="text-align: left"><code>180</code></td></tr>
+<tr><td style="text-align: left"><code>ping_timeout</code></td><td style="text-align: left">The amount of time in seconds for a client to reconnect due to no ping response.</td><td style="text-align: left"><code>20</code></td></tr>
+<tr><td style="text-align: left"><code>reconnect_delay</code></td><td style="text-align: left">The amount of time in seconds before attempting to reconnect to the server when disconnected.</td><td style="text-align: left"><code>10</code></td></tr>
+<tr><td style="text-align: left"><code>should_ghost</code></td><td style="text-align: left">Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in use.</td><td style="text-align: left"><code>false</code></td></tr>
+<tr><td style="text-align: left"><code>ghost_sequence</code></td><td style="text-align: left">The command(s) that should be sent to NickServ to recover a nickname.</td><td style="text-align: left"><code>["GHOST"]</code></td></tr>
+<tr><td style="text-align: left"><code>umodes</code></td><td style="text-align: left">User modestring to set on connect. Example: <code>"+RB-x"</code>.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>use_tls</code></td><td style="text-align: left">Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.</td><td style="text-align: left"><code>true</code></td></tr>
+<tr><td style="text-align: left"><code>dangerously_accept_invalid_certs</code></td><td style="text-align: left">On <code>true</code>, all certificate validations are skipped. Defaults to <code>false</code>.</td><td style="text-align: left"><code>false</code></td></tr>
+<tr><td style="text-align: left"><code>root_cert_path</code></td><td style="text-align: left">The path to the root TLS certificate for this server in PEM format.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>on_connect</code></td><td style="text-align: left">Commands which are executed once connected. Example. <code>["/msg NickServ IDENTIFY foo bar"]</code>.</td><td style="text-align: left"><code>[]</code></td></tr>
+<tr><td style="text-align: left"><code>who_poll_interval</code></td><td style="text-align: left">WHO poll interval (in seconds) for servers without away-notify.</td><td style="text-align: left"><code>180</code><sup class="footnote-reference"><a href="#1">1</a></sup></td></tr>
+<tr><td style="text-align: left"><code>who_retry_interval</code></td><td style="text-align: left">WHO retry interval (in seconds) for servers without away-notify.</td><td style="text-align: left"><code>10</code><sup class="footnote-reference"><a href="#1">1</a></sup></td></tr>
+</tbody></table>
+</div>
+<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
+<p>Limited between <code>5</code> and <code>3600</code> seconds.</p>
+</div>
+<h2 id="serverssasl-section"><a class="header" href="#serverssasl-section"><code>[servers.sasl]</code> Section</a></h2>
+<h3 id="saslplain"><a class="header" href="#saslplain"><code>[sasl.plain]</code>:</a></h3>
+<pre><code class="language-toml">[servers.liberachat.sasl.plain]
+username = "&lt;string&gt;"
+password = "&lt;string&gt;"
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Key</th><th style="text-align: left">Description</th><th style="text-align: left">Default</th></tr></thead><tbody>
+<tr><td style="text-align: left"><code>username</code></td><td style="text-align: left">The account name used for authentication.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>password</code></td><td style="text-align: left">The password associated with the account used for authentication.</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>password_file</code></td><td style="text-align: left">Alternatively read <code>password</code> from the file at the given path.</td><td style="text-align: left"><code>""</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="saslexternal"><a class="header" href="#saslexternal"><code>[sasl.external]</code></a></h3>
+<pre><code class="language-toml">[servers.liberachat.sasl.external]
+cert = "&lt;string&gt;"
+key = "&lt;string&gt;"
+</code></pre>
+<blockquote>
+<p>💡 External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
+</blockquote>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Key</th><th style="text-align: left">Description</th><th style="text-align: left">Value</th></tr></thead><tbody>
+<tr><td style="text-align: left"><code>cert</code></td><td style="text-align: left">The path to PEM encoded X509 user certificate for external auth</td><td style="text-align: left"><code>""</code></td></tr>
+<tr><td style="text-align: left"><code>key</code></td><td style="text-align: left">The path to PEM encoded PKCS#8 private key for external auth (optional)</td><td style="text-align: left"><code>""</code></td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar">Sidebar</a></h1>
+<h2 id="sidebar-section"><a class="header" href="#sidebar-section"><code>[sidebar]</code> Section</a></h2>
+<pre><code class="language-toml">[sidebar]
+default_action = "new-pane" | "replace-pane"
+width = &lt;integer&gt;
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>default_action</code></td><td>Action when selecting buffers in the sidebar. Can be <code>"new-pane"</code> or <code>"replace-pane"</code>.</td><td><code>"new-pane"</code></td></tr>
+<tr><td><code>width</code></td><td>Specify sidebar width in pixels.</td><td><code>120</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="sidebarbuttons-section"><a class="header" href="#sidebarbuttons-section"><code>[sidebar.buttons]</code> Section</a></h2>
+<pre><code class="language-toml">[sidebar.buttons]
+file_transfer = true | false
+command_bar = true | false
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>file_transfer</code></td><td>File transfer button in sidebar.</td><td><code>true</code></td></tr>
+<tr><td><code>command_bar</code></td><td>Command bar button in sidebar.</td><td><code>true</code></td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
 <h2 id="theme-section"><a class="header" href="#theme-section"><code>[theme]</code> Section</a></h2>
 <pre><code class="language-toml">theme = "&lt;string&gt;"
 </code></pre>
@@ -642,7 +687,14 @@ success = "&lt;string&gt;"
 <img src="configuration/themes/catpuccin-macchiato.png">
 <h2 id="catpuccin-mocha---save"><a class="header" href="#catpuccin-mocha---save">Catpuccin Mocha - <a href="configuration/themes/catpuccin-mocha.toml">Save</a></a></h2>
 <img src="configuration/themes/catpuccin-mocha.png">
-<div style="break-before: page; page-break-before: always;"></div><h1 id="migrating-from-yaml"><a class="header" href="#migrating-from-yaml">Migrating from YAML</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="tooltips"><a class="header" href="#tooltips">Tooltips</a></h1>
+<h2 id="tooltips-section"><a class="header" href="#tooltips-section"><code>[tooltips]</code> Section</a></h2>
+<pre><code class="language-toml">tooltips = true | false
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>tooltips</code></td><td>Control if tooltips are displayed or not.</td><td><code>true</code></td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="migrating-from-yaml"><a class="header" href="#migrating-from-yaml">Migrating from YAML</a></h1>
 <p>Halloy recently switched configuration file format from YAML to TOML (<a href="https://github.com/squidowl/halloy/pull/278">PR-278</a>)
 This page will help you migrate your old <code>config.yaml</code> to a new <code>config.toml</code> file.</p>
 <p>The basic structure of a TOML file consists of key-value pairs, where keys are strings. There are no nested indentations like YAML, which makes it easier to read and write. Consider the following old YAML config with of two servers in Halloy:</p>
