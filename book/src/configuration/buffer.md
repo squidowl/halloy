@@ -98,6 +98,18 @@ username_format = "full" | "short"
 enabled = true | false
 ```
 
+```toml
+[buffer.server_messages.status_success]
+enabled = true | false
+smart = <integer>
+```
+
+```toml
+[buffer.server_messages.status_error]
+enabled = true | false
+smart = <integer>
+```
+
 | Key         | Description                                                        | Default |
 | ----------- | ------------------------------------------------------------------ | ------- |
 | `enabled`   | Control if the server message should appear in buffers or not      | `true` |

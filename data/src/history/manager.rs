@@ -7,7 +7,7 @@ use itertools::Itertools;
 use tokio::time::Instant;
 
 use crate::history::{self, History};
-use crate::message::{self, Limit};
+use crate::message::{self, source, Limit, Source};
 use crate::time::Posix;
 use crate::user::Nick;
 use crate::{config, input};
@@ -309,7 +309,14 @@ impl Manager {
             } => {
                 let user_query = queries.find(|nick| user.nickname() == *nick);
 
-                message::broadcast::quit(user_channels, user_query, &user, &comment, config, sent_time)
+                message::broadcast::quit(
+                    user_channels,
+                    user_query,
+                    &user,
+                    &comment,
+                    config,
+                    sent_time,
+                )
             }
             Broadcast::Nickname {
                 old_nick,
@@ -488,6 +495,43 @@ impl Data {
                 crate::message::Source::User(message_user) => {
                     most_recent_messages
                         .insert(message_user.nickname().to_owned(), message.server_time);
+
+                    true
+                }
+                Source::Internal(source::Internal::Status(status)) => {
+                    let source: source::Server;
+                    match status {
+                        source::Status::Success => {
+                            source = source::Server::new(source::server::Kind::StatusSuccess, None);
+                        }
+                        source::Status::Error => {
+                            source = source::Server::new(source::server::Kind::StatusError, None);
+                        }
+                    };
+                    if let Some(server_message) = buffer_config.server_messages.get(&source) {
+                        if !server_message.enabled {
+                            return false;
+                        }
+
+                        if let Some(seconds) = server_message.smart {
+                            let nick = match source.nick() {
+                                Some(nick) => nick.clone(),
+                                None => {
+                                    if let Some(nickname) = message.text.split(' ').nth(1) {
+                                        Nick::from(nickname)
+                                    } else {
+                                        return true;
+                                    }
+                                }
+                            };
+
+                            return !smart_filter_message(
+                                message,
+                                &seconds,
+                                most_recent_messages.get(&nick),
+                            );
+                        }
+                    }
 
                     true
                 }
