@@ -38,14 +38,8 @@ pub mod server {
     }
 
     impl Server {
-        pub fn new(
-            kind: Kind,
-            nick: Option<Nick>,
-        ) -> Self {
-            Self::Details(Details {
-                kind,
-                nick,
-            })
+        pub fn new(kind: Kind, nick: Option<Nick>) -> Self {
+            Self::Details(Details { kind, nick })
         }
 
         pub fn kind(&self) -> Kind {
@@ -70,6 +64,8 @@ pub mod server {
         Part,
         Quit,
         ReplyTopic,
+        StatusSuccess,
+        StatusError,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

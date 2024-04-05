@@ -31,6 +31,10 @@ pub struct ServerMessages {
     pub part: ServerMessage,
     #[serde(default)]
     pub quit: ServerMessage,
+    #[serde(default)]
+    pub status_success: ServerMessage,
+    #[serde(default)]
+    pub status_error: ServerMessage,
 }
 
 impl ServerMessages {
@@ -40,6 +44,8 @@ impl ServerMessages {
             source::server::Kind::Part => Some(self.part),
             source::server::Kind::Quit => Some(self.quit),
             source::server::Kind::Join => Some(self.join),
+            source::server::Kind::StatusSuccess => Some(self.status_success),
+            source::server::Kind::StatusError => Some(self.status_error),
         }
     }
 }
