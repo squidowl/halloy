@@ -19,6 +19,8 @@
 
 # Guides
 
+- [Getting started](guides/getting-started.md)
 - [Migrating from YAML](guides/migrating-from-yaml.md)
 - [Connect with soju](guides/connect-with-soju.md)
 - [Connect with ZNC](guides/connect-with-znc.md)
+- [Portable mode](guides/portable-mode.md)
