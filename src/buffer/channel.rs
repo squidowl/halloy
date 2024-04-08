@@ -69,7 +69,11 @@ pub fn view<'a>(
                                 },
                             ),
                             user,
-                            Some(users.iter().find(|current_user| *current_user == user)),
+                            if config.tooltips.user {
+                                Some(users.iter().find(|current_user| *current_user == user))
+                            } else {
+                                None
+                            },
                             state.buffer(),
                             our_user,
                         )
@@ -308,7 +312,17 @@ mod nick_list {
                 )
             });
 
-            user_context::view(content, user, Some(Some(user)), buffer.clone(), our_user)
+            user_context::view(
+                content,
+                user,
+                if config.tooltips.user {
+                    Some(Some(user))
+                } else {
+                    None
+                },
+                buffer.clone(),
+                our_user,
+            )
         }))
         .padding(4)
         .spacing(1);

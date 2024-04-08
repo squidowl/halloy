@@ -86,7 +86,7 @@ impl Pane {
             maximized,
             clients,
             &self.settings,
-            config.tooltips,
+            config.tooltips.button,
         );
 
         let content = self
