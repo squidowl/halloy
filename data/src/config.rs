@@ -221,7 +221,7 @@ impl Config {
         Ok(Themes { default, all })
     }
 
-    pub fn create_template_config() {
+    pub fn create_initial_config() {
         // Checks if a config file is there
         let config_file = Self::path();
         if config_file.exists() {
@@ -234,13 +234,13 @@ impl Config {
         let rand_nick = format!("halloy{rand_digit}");
 
         // Replace placeholder nick with unique nick
-        let config_template_string = CONFIG_TEMPLATE.replace("__NICKNAME__", rand_nick.as_str());
-        let config_template_bytes = config_template_string.as_bytes();
+        let config_string = CONFIG_TEMPLATE.replace("__NICKNAME__", rand_nick.as_str());
+        let config_bytes = config_string.as_bytes();
 
-        // Create configuration template path.
-        let config_template_path = Self::config_dir().join("config.template.toml");
+        // Create configuration path.
+        let config_path = Self::config_dir().join("config.toml");
 
-        let _ = fs::write(config_template_path, config_template_bytes);
+        let _ = fs::write(config_path, config_bytes);
     }
 }
 

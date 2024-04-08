@@ -23,8 +23,8 @@ pub struct Welcome;
 
 impl Welcome {
     pub fn new() -> Self {
-        // Create template config file.
-        Config::create_template_config();
+        // Create initial config file.
+        Config::create_initial_config();
 
         Welcome
     }
@@ -49,27 +49,27 @@ impl Welcome {
         let config_dir = String::from(Config::config_dir().to_string_lossy());
 
         let config_button = button(
-            container(text("Open Config Directory"))
+            container(text(config_dir))
                 .align_x(alignment::Horizontal::Center)
-                .width(Length::Fill),
+                .width(Length::Shrink),
         )
-        .padding(5)
-        .width(Length::Fill)
+        .padding([5, 20])
+        .width(Length::Shrink)
         .style(theme::button::secondary)
         .on_press(Message::OpenConfigurationDirectory);
 
-        let wiki_button = button(
-            container(text("Open Wiki Website"))
+        let documentation_button = button(
+            container(text("Open Documentation Website"))
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
         .padding(5)
         .width(Length::Fill)
-        .style(theme::button::secondary)
+        .style(theme::button::primary)
         .on_press(Message::OpenWikiWebsite);
 
-        let refresh_button = button(
-            container(text("Refresh Halloy"))
+        let reload_button = button(
+            container(text("Reload Config File"))
                 .align_x(alignment::Horizontal::Center)
                 .width(Length::Fill),
         )
@@ -89,48 +89,25 @@ impl Welcome {
             .push(vertical_space().height(10))
             .push(text("Welcome to Halloy!").font(font::MONO_BOLD.clone()))
             .push(vertical_space().height(4))
-            .push(text(
-                "To get started with, simply follow the steps below",
-            ))
-            .push(vertical_space().height(8))
+            .push(text("Halloy is configured through a config file."))
             .push(
-                column![]
-                    .push(row![
-                        text("1. ").style(theme::text::accent),
-                        text("Go to "),
-                        text(config_dir).style(theme::text::info)
-                    ])
-                    .push(row![
-                        text("2. ").style(theme::text::accent),
-                        text("Create "),
+                row![
+                        text("You can find the "),
                         text("config.toml").style(theme::text::info),
-                        text(" using "),
-                        text("config.template.toml").style(theme::text::info),
-                        text(" as a base"),
-                    ])
-                    .push(row![
-                        text("3. ").style(theme::text::accent),
-                        text("Join "),
-                        text("#halloy").style(theme::text::info),
-                        text(" on "),
-                        text("libera.chat").style(theme::text::info),
-                        text(" and say hello"),
-                    ])
-                    .spacing(2)
-                    .align_items(iced::Alignment::Start),
+                        text(" file at the following path:"),
+                    ]
             )
+            .push(vertical_space().height(8))
+            .push(config_button)
             .push(vertical_space().height(10))
-            .push(text(
-                "For more information, please visit the Wiki website",
-            ))
+            .push(text("To begin and view config options, see below."))
             .push(vertical_space().height(10))
             .push(
                 column![]
                     .width(250)
                     .spacing(4)
-                    .push(config_button)
-                    .push(wiki_button)
-                    .push(refresh_button),
+                    .push(documentation_button)
+                    .push(reload_button),
             )
             .align_items(iced::Alignment::Center);
 
