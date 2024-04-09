@@ -12,7 +12,6 @@ pub use self::keys::Keyboard;
 pub use self::notification::{Notification, Notifications};
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
-pub use self::tooltips::Tooltips;
 use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
 use crate::theme::Palette;
@@ -25,7 +24,6 @@ mod keys;
 pub mod notification;
 pub mod server;
 pub mod sidebar;
-pub mod tooltips;
 
 const CONFIG_TEMPLATE: &str = include_str!("../../config.toml");
 const DEFAULT_THEME_FILE_NAME: &str = "ferra.toml";
@@ -41,7 +39,7 @@ pub struct Config {
     pub keyboard: Keyboard,
     pub notifications: Notifications,
     pub file_transfer: FileTransfer,
-    pub tooltips: Tooltips,
+    pub tooltips: bool,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -133,8 +131,8 @@ impl Config {
             pub notifications: Notifications,
             #[serde(default)]
             pub file_transfer: FileTransfer,
-            #[serde(default)]
-            pub tooltips: Tooltips,
+            #[serde(default = "default_tooltip")]
+            pub tooltips: bool,
         }
 
         let path = Self::path();
@@ -259,6 +257,10 @@ pub fn create_themes_dir() {
 /// Has YAML configuration file.
 pub fn has_yaml_config() -> bool {
     config_dir().join("config.yaml").exists()
+}
+
+fn default_tooltip() -> bool {
+    true
 }
 
 #[derive(Debug, Error, Clone)]

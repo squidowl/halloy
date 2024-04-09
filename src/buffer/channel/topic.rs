@@ -31,7 +31,7 @@ pub fn view<'a>(
                     )
                 }),
                 user,
-                Some(Some(user)),
+                Some(user),
                 buffer.clone(),
                 our_user,
             )
