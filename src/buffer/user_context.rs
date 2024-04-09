@@ -1,6 +1,6 @@
 use data::user::Nick;
 use data::{Buffer, User};
-use iced::widget::{button, column, container, row, text, tooltip};
+use iced::widget::{button, column, container, horizontal_rule, row, text};
 
 use crate::theme;
 use crate::widget::{context_menu, Element};
@@ -12,6 +12,7 @@ enum Entry {
     ToggleAccessLevelOp,
     ToggleAccessLevelVoice,
     SendFile,
+    UserInfo,
 }
 
 impl Entry {
@@ -20,6 +21,7 @@ impl Entry {
             Buffer::Channel(_, _) => {
                 if our_user.is_some_and(|u| u.has_access_level(data::user::AccessLevel::Oper)) {
                     vec![
+                        Entry::UserInfo,
                         Entry::Whois,
                         Entry::Query,
                         Entry::ToggleAccessLevelOp,
@@ -27,7 +29,7 @@ impl Entry {
                         Entry::SendFile,
                     ]
                 } else {
-                    vec![Entry::Whois, Entry::Query, Entry::SendFile]
+                    vec![Entry::UserInfo, Entry::Whois, Entry::Query, Entry::SendFile]
                 }
             }
             Buffer::Server(_) | Buffer::Query(_, _) => vec![Entry::Whois, Entry::SendFile],
@@ -66,7 +68,7 @@ pub fn update(message: Message) -> Event {
 pub fn view<'a>(
     content: impl Into<Element<'a, Message>>,
     user: &'a User,
-    current_user: Option<Option<&'a User>>,
+    current_user: Option<&'a User>,
     buffer: Buffer,
     our_user: Option<&'a User>,
 ) -> Element<'a, Message> {
@@ -77,100 +79,102 @@ pub fn view<'a>(
         .style(theme::button::bare)
         .on_press(Message::SingleClick(user.nickname().to_owned()));
 
-    let content = context_menu(content, entries, move |entry, length| {
+    context_menu(content, entries, move |entry, length| {
         let nickname = user.nickname().to_owned();
 
         let (content, message) = match entry {
-            Entry::Whois => ("Whois", Message::Whois(nickname)),
-            Entry::Query => ("Message", Message::Query(nickname)),
+            Entry::Whois => (button_text("Whois"), Some(Message::Whois(nickname))),
+            Entry::Query => (button_text("Message"), Some(Message::Query(nickname))),
             Entry::ToggleAccessLevelOp => {
                 if user.has_access_level(data::user::AccessLevel::Oper) {
                     (
-                        "Take Op (-o)",
-                        Message::ToggleAccessLevel(nickname, "-o".to_owned()),
+                        button_text("Take Op (-o)"),
+                        Some(Message::ToggleAccessLevel(nickname, "-o".to_owned())),
                     )
                 } else {
                     (
-                        "Give Op (+o)",
-                        Message::ToggleAccessLevel(nickname, "+o".to_owned()),
+                        button_text("Give Op (+o)"),
+                        Some(Message::ToggleAccessLevel(nickname, "+o".to_owned())),
                     )
                 }
             }
             Entry::ToggleAccessLevelVoice => {
                 if user.has_access_level(data::user::AccessLevel::Voice) {
                     (
-                        "Take Voice (-v)",
-                        Message::ToggleAccessLevel(nickname, "-v".to_owned()),
+                        button_text("Take Voice (-v)"),
+                        Some(Message::ToggleAccessLevel(nickname, "-v".to_owned())),
                     )
                 } else {
                     (
-                        "Give Voice (+v)",
-                        Message::ToggleAccessLevel(nickname, "+v".to_owned()),
+                        button_text("Give Voice (+v)"),
+                        Some(Message::ToggleAccessLevel(nickname, "+v".to_owned())),
                     )
                 }
             }
-            Entry::SendFile => ("Send File", Message::SendFile(nickname)),
+            Entry::SendFile => (button_text("Send File"), Some(Message::SendFile(nickname))),
+            Entry::UserInfo => (user_info(current_user), None),
         };
 
-        button(text(content).style(theme::text::primary))
-            .padding(5)
-            .width(length)
-            .style(theme::button::context)
-            .on_press(message)
-            .into()
-    });
-
-    if let Some(current_user) = current_user {
-        let tooltip_content = if let Some(current_user) = current_user {
-            let user_hostname = current_user
-                .hostname()
-                .map(|hostname| row![].push(text(hostname).style(theme::text::transparent)));
-
-            let user_status = if current_user.is_away() {
-                row![]
-                    .push(
-                        text("⬤")
-                            .style(theme::text::info)
-                            .shaping(text::Shaping::Advanced),
-                    )
-                    .push(text(" Away").style(theme::text::transparent))
-                    .align_items(iced::Alignment::Center)
-            } else {
-                row![]
-                    .push(
-                        text("⬤")
-                            .style(theme::text::success)
-                            .shaping(text::Shaping::Advanced),
-                    )
-                    .push(text(" Online").style(theme::text::transparent))
-                    .align_items(iced::Alignment::Center)
-            };
-
-            container(
-                column![]
-                    .push_maybe(user_hostname)
-                    .push(user_status),
-            )
+        if let Some(message) = message {
+            button(content)
+                .padding(5)
+                .width(length)
+                .style(theme::button::context)
+                .on_press(message)
+                .into()
         } else {
-            container(
-                row![]
-                    .push(
-                        text("⬤")
-                            .style(theme::text::error)
-                            .shaping(text::Shaping::Advanced),
-                    )
-                    .push(text(" Not in Channel").style(theme::text::transparent))
-                    .align_items(iced::Alignment::Center),
-            )
+            column![]
+                .push(container(content).padding(5).width(length))
+                .push(
+                    row![]
+                        .push(horizontal_rule(1))
+                        .padding([0, 5])
+                        .width(length),
+                )
+                .into()
+        }
+    })
+}
+
+fn button_text(content: &str) -> Element<'_, Message> {
+    text(content).style(theme::text::primary).into()
+}
+
+fn user_info(current_user: Option<&User>) -> Element<'_, Message> {
+    if let Some(current_user) = current_user {
+        let user_hostname = current_user
+            .hostname()
+            .map(|hostname| row![].push(text(hostname).style(theme::text::transparent)));
+
+        let user_status = if current_user.is_away() {
+            row![]
+                .push(
+                    text("⬤")
+                        .style(theme::text::info)
+                        .shaping(text::Shaping::Advanced),
+                )
+                .push(text(" Away").style(theme::text::transparent))
+        } else {
+            row![]
+                .push(
+                    text("⬤")
+                        .style(theme::text::success)
+                        .shaping(text::Shaping::Advanced),
+                )
+                .push(text(" Online").style(theme::text::transparent))
         };
 
-        iced::widget::tooltip(
-            content,
-            tooltip_content.style(theme::container::context).padding(8),
-            tooltip::Position::Top,
+        container(column![].push_maybe(user_hostname).push(user_status)).into()
+    } else {
+        container(
+            row![]
+                .push(
+                    text("⬤")
+                        .style(theme::text::error)
+                        .shaping(text::Shaping::Advanced),
+                )
+                .push(text(" Not in Channel").style(theme::text::transparent)),
         )
         .into()
-    } else {
-        content
     }
 }

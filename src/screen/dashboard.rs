@@ -634,7 +634,7 @@ impl Dashboard {
                 &self.panes,
                 self.focus,
                 config.sidebar,
-                config.tooltips.button,
+                config.tooltips,
                 &self.file_transfers,
             )
             .map(|e| e.map(Message::Sidebar));

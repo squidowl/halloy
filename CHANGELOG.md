@@ -3,7 +3,7 @@
 Added:
 
 - Allow configuration of internal messages in buffer (see [buffer configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferinternal_messages-section))
-- Tooltips on user names in channels (see [tooltips configuration](https://halloy.squidowl.org/configuration/tooltips.html)).
+- User information added to context menu.
 
 Changed:
 

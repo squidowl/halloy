@@ -3,11 +3,9 @@
 ## `[tooltips]` Section
 
 ```toml
-button = true | false
-user = true | false
+tooltips = true | false
 ```
 
-| Key      | Description                                       | Default |
-| -------- | ------------------------------------------------- | ------- |
-| `button` | Control if tooltips are displayed for buttons.    | `true`  |
-| `user`   | Control if tooltips are displayed for user names. | `true`  |
+| Key        | Description                               | Default |
+| ---------- | ----------------------------------------- | ------- |
+| `tooltips` | Control if tooltips are displayed or not. | `true`  |
