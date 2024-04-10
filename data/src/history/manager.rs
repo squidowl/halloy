@@ -309,7 +309,14 @@ impl Manager {
             } => {
                 let user_query = queries.find(|nick| user.nickname() == *nick);
 
-                message::broadcast::quit(user_channels, user_query, &user, &comment, config, sent_time)
+                message::broadcast::quit(
+                    user_channels,
+                    user_query,
+                    &user,
+                    &comment,
+                    config,
+                    sent_time,
+                )
             }
             Broadcast::Nickname {
                 old_nick,
@@ -491,6 +498,19 @@ impl Data {
 
                     true
                 }
+                message::Source::Internal(message::source::Internal::Status(status)) => {
+                    if let Some(internal_message) = buffer_config.internal_messages.get(status) {
+                        if !internal_message.enabled {
+                            return false;
+                        }
+
+                        if let Some(seconds) = internal_message.smart {
+                            return !smart_filter_internal_message(message, &seconds);
+                        }
+                    }
+
+                    true
+                }
                 _ => true,
             })
             .collect::<Vec<_>>();
@@ -566,6 +586,16 @@ fn smart_filter_message(
     let duration_seconds = message
         .server_time
         .signed_duration_since(*server_time)
+        .num_seconds();
+
+    duration_seconds > *seconds
+}
+
+fn smart_filter_internal_message(message: &crate::Message, seconds: &i64) -> bool {
+    let current_time = Utc::now();
+
+    let duration_seconds = current_time
+        .signed_duration_since(message.server_time)
         .num_seconds();
 
     duration_seconds > *seconds

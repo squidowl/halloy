@@ -19,6 +19,8 @@ pub struct Buffer {
     pub channel: Channel,
     #[serde(default)]
     pub server_messages: ServerMessages,
+    #[serde(default)]
+    pub internal_messages: InternalMessages,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -64,6 +66,40 @@ impl Default for ServerMessage {
     }
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct InternalMessages {
+    #[serde(default)]
+    pub success: InternalMessage,
+    #[serde(default)]
+    pub error: InternalMessage,
+}
+
+impl InternalMessages {
+    pub fn get(&self, server: &source::Status) -> Option<InternalMessage> {
+        match server {
+            source::Status::Success => Some(self.success),
+            source::Status::Error => Some(self.error),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct InternalMessage {
+    #[serde(default = "default_bool_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub smart: Option<i64>,
+}
+
+impl Default for InternalMessage {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            smart: Default::default(),
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum UsernameFormat {
@@ -83,6 +119,7 @@ impl Default for Buffer {
             text_input: Default::default(),
             channel: Channel::default(),
             server_messages: Default::default(),
+            internal_messages: Default::default(),
         }
     }
 }
