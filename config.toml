@@ -1,13 +1,9 @@
-# Halloy config template.
+# Halloy config.
 #
 # For a complete list of available options,
 # please visit https://halloy.squidowl.org/configuration/index.html
 
-theme = "ferra"
-
 [servers.liberachat]
 nickname = "__NICKNAME__"
 server = "irc.libera.chat"
-port = 6697
-use_tls = true
 channels = ["#halloy"]

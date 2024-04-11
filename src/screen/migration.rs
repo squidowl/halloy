@@ -24,7 +24,7 @@ pub struct Migration;
 impl Migration {
     pub fn new() -> Self {
         // Create template config file.
-        Config::create_template_config();
+        Config::create_initial_config();
 
         Migration
     }
