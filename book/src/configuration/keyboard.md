@@ -15,6 +15,7 @@ cycle_next_buffer = "<string>"
 cycle_previous_buffer = "<string>"
 toggle_nick_list = "<string>"
 command_bar = "<string>"
+refresh_configuration = "<string>"
 ```
 
 | Key                     | Description              | Default MacOS                                       | Default Other                                       |
@@ -30,6 +31,7 @@ command_bar = "<string>"
 | `cycle_previous_buffer` | Cycle to previous buffer | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> |
 | `toggle_nick_list`      | Toggle nick list         | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd>     |
 | `command_bar`           | Toggle command bar       | <kbd>⌘</kbd> + <kbd>k</kbd>                         | <kbd>ctrl</kbd> + <kbd>k</kbd>                      |
+| `reload_configuration`           | Refresh configuration file       | <kbd>⌘</kbd> + <kbd>r</kbd>                         | <kbd>ctrl</kbd> + <kbd>r</kbd>                      |
 
 Example for vim like movement
 
