@@ -52,6 +52,11 @@ pub enum Message {
     CloseContextMenu(bool),
 }
 
+#[derive(Debug)]
+pub enum Event {
+    ReloadConfiguration,
+}
+
 impl Dashboard {
     pub fn empty(config: &Config) -> (Self, Command<Message>) {
         let (panes, _) = pane_grid::State::new(Pane::new(Buffer::Empty, config));
@@ -91,11 +96,11 @@ impl Dashboard {
         theme: &mut Theme,
         version: &Version,
         config: &Config,
-    ) -> Command<Message> {
+    ) -> (Command<Message>, Option<Event>) {
         match message {
             Message::Pane(message) => match message {
                 pane::Message::PaneClicked(pane) => {
-                    return self.focus_pane(pane);
+                    return (self.focus_pane(pane), None);
                 }
                 pane::Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
                     self.panes.resize(split, ratio);
@@ -108,11 +113,11 @@ impl Dashboard {
                 pane::Message::PaneDragged(_) => {}
                 pane::Message::ClosePane => {
                     if let Some(pane) = self.focus {
-                        return self.close_pane(pane);
+                        return (self.close_pane(pane), None);
                     }
                 }
                 pane::Message::SplitPane(axis) => {
-                    return self.split_pane(axis, config);
+                    return (self.split_pane(axis, config), None);
                 }
                 pane::Message::Buffer(id, message) => {
                     if let Some(pane) = self.panes.get_mut(id) {
@@ -128,11 +133,11 @@ impl Dashboard {
                             match event {
                                 buffer::user_context::Event::ToggleAccessLevel(nick, mode) => {
                                     let Some(buffer) = pane.buffer.data() else {
-                                        return Command::none();
+                                        return (Command::none(), None);
                                     };
 
                                     let Some(target) = buffer.target() else {
-                                        return Command::none();
+                                        return (Command::none(), None);
                                     };
 
                                     let command = data::Command::Mode(
@@ -180,20 +185,23 @@ impl Dashboard {
                                     if let Some(data) = pane.buffer.data() {
                                         let buffer =
                                             data::Buffer::Query(data.server().clone(), nick);
-                                        return self.open_buffer(buffer, config);
+                                        return (self.open_buffer(buffer, config), None);
                                     }
                                 }
                                 buffer::user_context::Event::SingleClick(nick) => {
                                     let Some((_, pane, history)) =
                                         self.get_focused_with_history_mut()
                                     else {
-                                        return Command::none();
+                                        return (Command::none(), None);
                                     };
 
-                                    return pane.buffer.insert_user_to_input(nick, history).map(
-                                        move |message| {
-                                            Message::Pane(pane::Message::Buffer(id, message))
-                                        },
+                                    return (
+                                        pane.buffer.insert_user_to_input(nick, history).map(
+                                            move |message| {
+                                                Message::Pane(pane::Message::Buffer(id, message))
+                                            },
+                                        ),
+                                        None,
                                     );
                                 }
                                 buffer::user_context::Event::SendFile(nick) => {
@@ -202,25 +210,32 @@ impl Dashboard {
                                         let starting_directory =
                                             config.file_transfer.save_directory.clone();
 
-                                        return Command::perform(
-                                            async move {
-                                                rfd::AsyncFileDialog::new()
-                                                    .set_directory(starting_directory)
-                                                    .pick_file()
-                                                    .await
-                                                    .map(|handle| handle.path().to_path_buf())
-                                            },
-                                            move |file| {
-                                                Message::SendFileSelected(server, nick, file)
-                                            },
+                                        return (
+                                            Command::perform(
+                                                async move {
+                                                    rfd::AsyncFileDialog::new()
+                                                        .set_directory(starting_directory)
+                                                        .pick_file()
+                                                        .await
+                                                        .map(|handle| handle.path().to_path_buf())
+                                                },
+                                                move |file| {
+                                                    Message::SendFileSelected(server, nick, file)
+                                                },
+                                            ),
+                                            None,
                                         );
                                     }
                                 }
                             }
                         }
 
-                        return command
-                            .map(move |message| Message::Pane(pane::Message::Buffer(id, message)));
+                        return (
+                            command.map(move |message| {
+                                Message::Pane(pane::Message::Buffer(id, message))
+                            }),
+                            None,
+                        );
                     }
                 }
                 pane::Message::ToggleShowUserList => {
@@ -244,17 +259,17 @@ impl Dashboard {
 
                 match event {
                     sidebar::Event::Open(kind) => {
-                        return self.open_buffer(kind, config);
+                        return (self.open_buffer(kind, config), None);
                     }
                     sidebar::Event::Replace(kind, pane) => {
                         if let Some(state) = self.panes.get_mut(pane) {
                             state.buffer = Buffer::from(kind);
                             self.last_changed = Some(Instant::now());
                             self.focus = None;
-                            return Command::batch(vec![
-                                self.reset_pane(pane),
-                                self.focus_pane(pane),
-                            ]);
+                            return (
+                                Command::batch(vec![self.reset_pane(pane), self.focus_pane(pane)]),
+                                None,
+                            );
                         }
                     }
                     sidebar::Event::Close(pane) => {
@@ -268,7 +283,7 @@ impl Dashboard {
                     sidebar::Event::Swap(from, to) => {
                         self.panes.swap(from, to);
                         self.last_changed = Some(Instant::now());
-                        return self.focus_pane(from);
+                        return (self.focus_pane(from), None);
                     }
                     sidebar::Event::Leave(buffer) => {
                         let pane = self.panes.iter().find_map(|(pane, state)| {
@@ -315,7 +330,7 @@ impl Dashboard {
                                     .map(|task| Command::perform(task, |_| Message::CloseHistory))
                                     .unwrap_or_else(Command::none);
 
-                                return Command::batch(vec![quit, close_history]);
+                                return (Command::batch(vec![quit, close_history]), None);
                             }
                             data::Buffer::Channel(server, channel) => {
                                 // Send part & close history file
@@ -326,31 +341,42 @@ impl Dashboard {
                                     clients.send(&buffer, encoded);
                                 }
 
-                                return self
-                                    .history
-                                    .close(server, history::Kind::Channel(channel))
-                                    .map(|task| Command::perform(task, |_| Message::CloseHistory))
-                                    .unwrap_or_else(Command::none);
+                                return (
+                                    self.history
+                                        .close(server, history::Kind::Channel(channel))
+                                        .map(|task| {
+                                            Command::perform(task, |_| Message::CloseHistory)
+                                        })
+                                        .unwrap_or_else(Command::none),
+                                    None,
+                                );
                             }
                             data::Buffer::Query(server, nick) => {
                                 // No PART to send, just close history
-                                return self
-                                    .history
-                                    .close(server, history::Kind::Query(nick))
-                                    .map(|task| Command::perform(task, |_| Message::CloseHistory))
-                                    .unwrap_or_else(Command::none);
+                                return (
+                                    self.history
+                                        .close(server, history::Kind::Query(nick))
+                                        .map(|task| {
+                                            Command::perform(task, |_| Message::CloseHistory)
+                                        })
+                                        .unwrap_or_else(Command::none),
+                                    None,
+                                );
                             }
                         }
                     }
                     sidebar::Event::ToggleFileTransfers => {
-                        return self.toggle_file_transfers(config);
+                        return (self.toggle_file_transfers(config), None);
                     }
                     sidebar::Event::ToggleCommandBar => {
-                        return self.toggle_command_bar(
-                            &closed_buffers(self, clients),
-                            version,
-                            config,
-                            theme,
+                        return (
+                            self.toggle_command_bar(
+                                &closed_buffers(self, clients),
+                                version,
+                                config,
+                                theme,
+                            ),
+                            None,
                         );
                     }
                 }
@@ -373,14 +399,14 @@ impl Dashboard {
                     });
 
                 if !contents.is_empty() {
-                    return clipboard::write(contents);
+                    return (clipboard::write(contents), None);
                 }
             }
             Message::History(message) => {
                 self.history.update(message);
             }
             Message::Close => {
-                return window::close(window::Id::MAIN);
+                return (window::close(window::Id::MAIN), None);
             }
             Message::DashboardSaved(Ok(_)) => {
                 log::info!("dashboard saved");
@@ -392,7 +418,7 @@ impl Dashboard {
             Message::QuitServer => {}
             Message::Command(message) => {
                 let Some(command_bar) = &mut self.command_bar else {
-                    return Command::none();
+                    return (Command::none(), None);
                 };
 
                 match command_bar.update(message) {
@@ -401,26 +427,26 @@ impl Dashboard {
                         None => *theme = theme.selected(),
                     },
                     Some(command_bar::Event::Command(command)) => {
-                        let command = match command {
+                        let (command, event) = match command {
                             command_bar::Command::Version(command) => match command {
                                 command_bar::Version::Application(_) => {
                                     let _ = open::that(RELEASE_WEBSITE);
-                                    Command::none()
+                                    (Command::none(), None)
                                 }
                             },
                             command_bar::Command::Buffer(command) => match command {
                                 command_bar::Buffer::Maximize(_) => {
                                     self.maximize_pane();
-                                    Command::none()
+                                    (Command::none(), None)
                                 }
                                 command_bar::Buffer::New => {
-                                    self.new_pane(pane_grid::Axis::Horizontal, config)
+                                    (self.new_pane(pane_grid::Axis::Horizontal, config), None)
                                 }
                                 command_bar::Buffer::Close => {
                                     if let Some(pane) = self.focus {
-                                        self.close_pane(pane)
+                                        (self.close_pane(pane), None)
                                     } else {
-                                        Command::none()
+                                        (Command::none(), None)
                                     }
                                 }
                                 command_bar::Buffer::Replace(buffer) => {
@@ -438,52 +464,61 @@ impl Dashboard {
                                         }
                                     }
 
-                                    Command::batch(commands)
+                                    (Command::batch(commands), None)
                                 }
                                 command_bar::Buffer::ToggleFileTransfers => {
-                                    self.toggle_file_transfers(config)
+                                    (self.toggle_file_transfers(config), None)
                                 }
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::OpenDirectory => {
                                     let _ = open::that(Config::config_dir());
-                                    Command::none()
+                                    (Command::none(), None)
                                 }
                                 command_bar::Configuration::OpenWebsite => {
                                     let _ = open::that(environment::WIKI_WEBSITE);
-                                    Command::none()
+                                    (Command::none(), None)
+                                }
+                                command_bar::Configuration::Reload => {
+                                    (Command::none(), Some(Event::ReloadConfiguration))
                                 }
                             },
                             command_bar::Command::UI(command) => match command {
                                 command_bar::Ui::ToggleSidebarVisibility => {
                                     self.side_menu.toggle_visibility();
-                                    Command::none()
+                                    (Command::none(), None)
                                 }
                             },
                             command_bar::Command::Theme(command) => match command {
                                 command_bar::Theme::Switch(new) => {
                                     *theme = Theme::from(new);
-                                    Command::none()
+                                    (Command::none(), None)
                                 }
                             },
                         };
 
-                        return Command::batch(vec![
-                            command,
+                        return (
+                            Command::batch(vec![
+                                command,
+                                self.toggle_command_bar(
+                                    &closed_buffers(self, clients),
+                                    version,
+                                    config,
+                                    theme,
+                                ),
+                            ]),
+                            event,
+                        );
+                    }
+                    Some(command_bar::Event::Unfocused) => {
+                        return (
                             self.toggle_command_bar(
                                 &closed_buffers(self, clients),
                                 version,
                                 config,
                                 theme,
                             ),
-                        ]);
-                    }
-                    Some(command_bar::Event::Unfocused) => {
-                        return self.toggle_command_bar(
-                            &closed_buffers(self, clients),
-                            version,
-                            config,
-                            theme,
+                            None,
                         );
                     }
                     None => {}
@@ -505,13 +540,13 @@ impl Dashboard {
                 };
 
                 match shortcut {
-                    MoveUp => return move_focus(pane_grid::Direction::Up),
-                    MoveDown => return move_focus(pane_grid::Direction::Down),
-                    MoveLeft => return move_focus(pane_grid::Direction::Left),
-                    MoveRight => return move_focus(pane_grid::Direction::Right),
+                    MoveUp => return (move_focus(pane_grid::Direction::Up), None),
+                    MoveDown => return (move_focus(pane_grid::Direction::Down), None),
+                    MoveLeft => return (move_focus(pane_grid::Direction::Left), None),
+                    MoveRight => return (move_focus(pane_grid::Direction::Right), None),
                     CloseBuffer => {
                         if let Some(pane) = self.focus {
-                            return self.close_pane(pane);
+                            return (self.close_pane(pane), None);
                         }
                     }
                     MaximizeBuffer => {
@@ -534,7 +569,7 @@ impl Dashboard {
                             ) {
                                 state.buffer = Buffer::from(buffer);
                                 self.focus = None;
-                                return self.focus_pane(pane);
+                                return (self.focus_pane(pane), None);
                             }
                         }
                     }
@@ -550,7 +585,7 @@ impl Dashboard {
                             ) {
                                 state.buffer = Buffer::from(buffer);
                                 self.focus = None;
-                                return self.focus_pane(pane);
+                                return (self.focus_pane(pane), None);
                             }
                         }
                     }
@@ -563,12 +598,18 @@ impl Dashboard {
                         }
                     }
                     CommandBar => {
-                        return self.toggle_command_bar(
-                            &closed_buffers(self, clients),
-                            version,
-                            config,
-                            theme,
+                        return (
+                            self.toggle_command_bar(
+                                &closed_buffers(self, clients),
+                                version,
+                                config,
+                                theme,
+                            ),
+                            None,
                         );
+                    }
+                    ReloadConfiguration => {
+                        return (Command::none(), Some(Event::ReloadConfiguration))
                     }
                 }
             }
@@ -584,7 +625,7 @@ impl Dashboard {
                             server: server.clone(),
                             server_handle: server_handle.clone(),
                         }) {
-                            return self.handle_file_transfer_event(&server, event);
+                            return (self.handle_file_transfer_event(&server, event), None);
                         }
                     }
                 }
@@ -600,7 +641,7 @@ impl Dashboard {
             }
         }
 
-        Command::none()
+        (Command::none(), None)
     }
 
     pub fn view<'a>(

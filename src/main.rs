@@ -113,8 +113,6 @@ impl Halloy {
         let load_dashboard = |config| match data::Dashboard::load() {
             Ok(dashboard) => screen::Dashboard::restore(dashboard, config),
             Err(error) => {
-                // TODO: Show this in error screen too? Maybe w/ option to report bug on GH
-                // and reset settings to continue loading?
                 log::warn!("failed to load dashboard: {error}");
 
                 screen::Dashboard::empty(config)
@@ -219,7 +217,7 @@ impl Application for Halloy {
                     return Command::none();
                 };
 
-                let command = dashboard.update(
+                let (command, event) = dashboard.update(
                     message,
                     &mut self.clients,
                     &mut self.servers,
@@ -227,13 +225,29 @@ impl Application for Halloy {
                     &self.version,
                     &self.config,
                 );
+
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
-                Command::batch(vec![
+                if let Some(event) = event {
+                    match event {
+                        dashboard::Event::ReloadConfiguration => {
+                            // TODO: 
+                            // 1. show error screen if fails.
+                            // 2. what to do with server updates.
+                            if let Ok(updated) = Config::load() {
+                                self.config = updated;
+                            }
+                        }
+                    }
+                }
+
+                let commands = vec![
                     command.map(Message::Dashboard),
                     track.map(Message::Dashboard),
-                ])
+                ];
+
+                Command::batch(commands)
             }
             Message::Version(remote) => {
                 // Set latest known remote version
