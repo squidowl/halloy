@@ -4,7 +4,7 @@ use iced::widget::{button, column, container, horizontal_rule, row, text};
 use iced::Length;
 
 use crate::theme;
-use crate::widget::{context_menu, Element};
+use crate::widget::{context_menu, double_pass, Element};
 
 #[derive(Debug, Clone, Copy)]
 enum Entry {
@@ -141,8 +141,8 @@ fn button_text(content: &str) -> Element<'_, Message> {
     text(content).style(theme::text::primary).into()
 }
 
-fn symbol_padding() -> [u16; 4] {
-    [0, 1, 0, 0]
+fn right_justified_padding() -> [f32; 4] {
+    [0.0, double_pass::horizontal_expansion(), 0.0, 0.0]
 }
 
 fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message> {
@@ -159,7 +159,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                         .style(theme::text::info)
                         .shaping(text::Shaping::Advanced),
                 )
-                .padding(symbol_padding())
+                .padding(right_justified_padding())
         } else {
             row![]
                 .push(text("Online").style(theme::text::transparent).width(length))
@@ -168,7 +168,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                         .style(theme::text::success)
                         .shaping(text::Shaping::Advanced),
                 )
-                .padding(symbol_padding())
+                .padding(right_justified_padding())
         };
 
         let user_access_levels = column![]
@@ -179,7 +179,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                         row![]
                             .push(text("Owner").style(theme::text::transparent).width(length))
                             .push(text("~").style(theme::text::transparent))
-                            .padding(symbol_padding())
+                            .padding(right_justified_padding())
                     }),
             )
             .push_maybe(
@@ -193,7 +193,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                                     .width(length),
                             )
                             .push(text("&").style(theme::text::transparent))
-                            .padding(symbol_padding())
+                            .padding(right_justified_padding())
                     }),
             )
             .push_maybe(
@@ -207,7 +207,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                                     .width(length),
                             )
                             .push(text("@").style(theme::text::transparent))
-                            .padding(symbol_padding())
+                            .padding(right_justified_padding())
                     }),
             )
             .push_maybe(
@@ -221,7 +221,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                                     .width(length),
                             )
                             .push(text("%").style(theme::text::transparent))
-                            .padding(symbol_padding())
+                            .padding(right_justified_padding())
                     }),
             )
             .push_maybe(
@@ -231,7 +231,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                         row![]
                             .push(text("Voiced").style(theme::text::transparent).width(length))
                             .push(text("+").style(theme::text::transparent))
-                            .padding(symbol_padding())
+                            .padding(right_justified_padding())
                     }),
             );
 
@@ -252,7 +252,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                     .style(theme::text::error)
                     .shaping(text::Shaping::Advanced),
             )
-            .padding(symbol_padding())
+            .padding(right_justified_padding())
             .into()
     }
 }
