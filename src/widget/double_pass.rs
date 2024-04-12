@@ -56,7 +56,7 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for DoublePass<'a, Message> {
                 .size()
                 // eliminate float precision issues if second pass
                 // is fill
-                .expand(Size::new(1.0, 1.0)),
+                .expand(Size::new(horizontal_expansion(), 1.0)),
         );
 
         self.second_pass
@@ -156,4 +156,8 @@ where
     fn from(double_pass: DoublePass<'a, Message>) -> Self {
         Element::new(double_pass)
     }
+}
+
+pub fn horizontal_expansion() -> f32 {
+    1.0
 }

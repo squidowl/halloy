@@ -15,7 +15,7 @@ pub mod collection;
 pub mod combo_box;
 pub mod context_menu;
 pub mod double_click;
-mod double_pass;
+pub mod double_pass;
 pub mod hover;
 pub mod input;
 pub mod key_press;
