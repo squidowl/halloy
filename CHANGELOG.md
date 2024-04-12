@@ -1,9 +1,13 @@
 # Unreleased
+
+Added:
+
 - Allow configuration of internal messages in buffer (see [buffer configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferinternal_messages-section))
 
 Changed:
 
 - Simplified onboarding experience for users without a `config.toml` file
+- MacOS will now also look in `$HOME/.config/halloy` for `config.toml`.
 
 # 2024.6 (2024-04-05)
 
