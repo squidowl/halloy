@@ -1,6 +1,7 @@
 use data::user::Nick;
 use data::{Buffer, User};
 use iced::widget::{button, column, container, horizontal_rule, row, text};
+use iced::Length;
 
 use crate::theme;
 use crate::widget::{context_menu, Element};
@@ -112,7 +113,7 @@ pub fn view<'a>(
                 }
             }
             Entry::SendFile => (button_text("Send File"), Some(Message::SendFile(nickname))),
-            Entry::UserInfo => (user_info(current_user), None),
+            Entry::UserInfo => (user_info(current_user, length), None),
         };
 
         if let Some(message) = message {
@@ -140,41 +141,118 @@ fn button_text(content: &str) -> Element<'_, Message> {
     text(content).style(theme::text::primary).into()
 }
 
-fn user_info(current_user: Option<&User>) -> Element<'_, Message> {
+fn symbol_padding() -> [u16; 4] {
+    [0, 1, 0, 0]
+}
+
+fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message> {
     if let Some(current_user) = current_user {
-        let user_hostname = current_user
-            .hostname()
-            .map(|hostname| row![].push(text(hostname).style(theme::text::transparent)));
+        let user_hostname = current_user.hostname().map(|hostname| {
+            row![].push(text(hostname).style(theme::text::transparent).width(length))
+        });
 
         let user_status = if current_user.is_away() {
             row![]
+                .push(text("Away").style(theme::text::transparent).width(length))
                 .push(
                     text("⬤")
                         .style(theme::text::info)
                         .shaping(text::Shaping::Advanced),
                 )
-                .push(text(" Away").style(theme::text::transparent))
+                .padding(symbol_padding())
         } else {
             row![]
+                .push(text("Online").style(theme::text::transparent).width(length))
                 .push(
                     text("⬤")
                         .style(theme::text::success)
                         .shaping(text::Shaping::Advanced),
                 )
-                .push(text(" Online").style(theme::text::transparent))
+                .padding(symbol_padding())
         };
 
-        container(column![].push_maybe(user_hostname).push(user_status)).into()
+        let user_access_levels = column![]
+            .push_maybe(
+                current_user
+                    .has_access_level(data::user::AccessLevel::Owner)
+                    .then(move || {
+                        row![]
+                            .push(text("Owner").style(theme::text::transparent).width(length))
+                            .push(text("~").style(theme::text::transparent))
+                            .padding(symbol_padding())
+                    }),
+            )
+            .push_maybe(
+                current_user
+                    .has_access_level(data::user::AccessLevel::Admin)
+                    .then(move || {
+                        row![]
+                            .push(
+                                text("Administrator")
+                                    .style(theme::text::transparent)
+                                    .width(length),
+                            )
+                            .push(text("&").style(theme::text::transparent))
+                            .padding(symbol_padding())
+                    }),
+            )
+            .push_maybe(
+                current_user
+                    .has_access_level(data::user::AccessLevel::Oper)
+                    .then(move || {
+                        row![]
+                            .push(
+                                text("Operator")
+                                    .style(theme::text::transparent)
+                                    .width(length),
+                            )
+                            .push(text("@").style(theme::text::transparent))
+                            .padding(symbol_padding())
+                    }),
+            )
+            .push_maybe(
+                current_user
+                    .has_access_level(data::user::AccessLevel::HalfOp)
+                    .then(move || {
+                        row![]
+                            .push(
+                                text("Half-Operator")
+                                    .style(theme::text::transparent)
+                                    .width(length),
+                            )
+                            .push(text("%").style(theme::text::transparent))
+                            .padding(symbol_padding())
+                    }),
+            )
+            .push_maybe(
+                current_user
+                    .has_access_level(data::user::AccessLevel::Voice)
+                    .then(move || {
+                        row![]
+                            .push(text("Voiced").style(theme::text::transparent).width(length))
+                            .push(text("+").style(theme::text::transparent))
+                            .padding(symbol_padding())
+                    }),
+            );
+
+        column![]
+            .push_maybe(user_hostname)
+            .push(user_access_levels)
+            .push(user_status)
+            .into()
     } else {
-        container(
-            row![]
-                .push(
-                    text("⬤")
-                        .style(theme::text::error)
-                        .shaping(text::Shaping::Advanced),
-                )
-                .push(text(" Not in Channel").style(theme::text::transparent)),
-        )
-        .into()
+        row![]
+            .push(
+                text("Offline")
+                    .style(theme::text::transparent)
+                    .width(length),
+            )
+            .push(
+                text("⬤")
+                    .style(theme::text::error)
+                    .shaping(text::Shaping::Advanced),
+            )
+            .padding(symbol_padding())
+            .into()
     }
 }
