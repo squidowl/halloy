@@ -1,19 +1,16 @@
 # Themes
 
-## `[theme]` Section
-
 ```toml
 theme = "<string>"
 ```
 
-
 | Key     | Description                  | Default  |
 | ------- | ---------------------------- | -------- |
-| `theme` | Name of the theme to use[^1] | `""`[^2] |
+| `theme`[^1] | Name of the theme to use[^2] | `""`[^3] |
 
-
-[^1]: Name of theme file inside `themes` folder 
-[^2]: Using [Ferra](https://github.com/casperstorm/ferra/) by default.
+[^1]: `theme` is a root key, so it must be placed before any section.
+[^2]: Name of theme file inside `themes` folder.
+[^3]: Using [Ferra](https://github.com/casperstorm/ferra/) by default.
 
 ## Custom themes
 
