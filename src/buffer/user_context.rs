@@ -1,6 +1,6 @@
 use data::user::Nick;
 use data::{Buffer, User};
-use iced::widget::{button, column, container, horizontal_rule, row, text};
+use iced::widget::{button, container, horizontal_rule, row, text, Space};
 use iced::Length;
 
 use crate::theme;
@@ -14,6 +14,7 @@ enum Entry {
     ToggleAccessLevelVoice,
     SendFile,
     UserInfo,
+    HorizontalRule,
 }
 
 impl Entry {
@@ -23,6 +24,7 @@ impl Entry {
                 if our_user.is_some_and(|u| u.has_access_level(data::user::AccessLevel::Oper)) {
                     vec![
                         Entry::UserInfo,
+                        Entry::HorizontalRule,
                         Entry::Whois,
                         Entry::Query,
                         Entry::ToggleAccessLevelOp,
@@ -30,7 +32,13 @@ impl Entry {
                         Entry::SendFile,
                     ]
                 } else {
-                    vec![Entry::UserInfo, Entry::Whois, Entry::Query, Entry::SendFile]
+                    vec![
+                        Entry::UserInfo,
+                        Entry::HorizontalRule,
+                        Entry::Whois,
+                        Entry::Query,
+                        Entry::SendFile,
+                    ]
                 }
             }
             Buffer::Server(_) | Buffer::Query(_, _) => vec![Entry::Whois, Entry::SendFile],
@@ -114,6 +122,13 @@ pub fn view<'a>(
             }
             Entry::SendFile => (button_text("Send File"), Some(Message::SendFile(nickname))),
             Entry::UserInfo => (user_info(current_user, length), None),
+            Entry::HorizontalRule => (
+                match length {
+                    Length::Fill => container(horizontal_rule(1)).padding([0, 6]).into(),
+                    _ => Space::new(length, 1).into(),
+                },
+                None,
+            ),
         };
 
         if let Some(message) = message {
@@ -124,15 +139,7 @@ pub fn view<'a>(
                 .on_press(message)
                 .into()
         } else {
-            column![]
-                .push(container(content).padding(5).width(length))
-                .push(
-                    row![]
-                        .push(horizontal_rule(1))
-                        .padding([0, 5])
-                        .width(length),
-                )
-                .into()
+            content
         }
     })
 }
@@ -142,7 +149,7 @@ fn button_text(content: &str) -> Element<'_, Message> {
 }
 
 fn right_justified_padding() -> [f32; 4] {
-    [0.0, double_pass::horizontal_expansion(), 0.0, 0.0]
+    [5.0, 5.0 + double_pass::horizontal_expansion(), 5.0, 5.0]
 }
 
 fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message> {
