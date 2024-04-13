@@ -147,11 +147,7 @@ fn right_justified_padding() -> [f32; 4] {
 
 fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message> {
     if let Some(current_user) = current_user {
-        let user_hostname = current_user.hostname().map(|hostname| {
-            row![].push(text(hostname).style(theme::text::transparent).width(length))
-        });
-
-        let user_status = if current_user.is_away() {
+        if current_user.is_away() {
             row![]
                 .push(text("Away").style(theme::text::transparent).width(length))
                 .push(
@@ -160,6 +156,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                         .shaping(text::Shaping::Advanced),
                 )
                 .padding(right_justified_padding())
+                .into()
         } else {
             row![]
                 .push(text("Online").style(theme::text::transparent).width(length))
@@ -169,77 +166,8 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                         .shaping(text::Shaping::Advanced),
                 )
                 .padding(right_justified_padding())
-        };
-
-        let user_access_levels = column![]
-            .push_maybe(
-                current_user
-                    .has_access_level(data::user::AccessLevel::Owner)
-                    .then(move || {
-                        row![]
-                            .push(text("Owner").style(theme::text::transparent).width(length))
-                            .push(text("~").style(theme::text::transparent))
-                            .padding(right_justified_padding())
-                    }),
-            )
-            .push_maybe(
-                current_user
-                    .has_access_level(data::user::AccessLevel::Admin)
-                    .then(move || {
-                        row![]
-                            .push(
-                                text("Administrator")
-                                    .style(theme::text::transparent)
-                                    .width(length),
-                            )
-                            .push(text("&").style(theme::text::transparent))
-                            .padding(right_justified_padding())
-                    }),
-            )
-            .push_maybe(
-                current_user
-                    .has_access_level(data::user::AccessLevel::Oper)
-                    .then(move || {
-                        row![]
-                            .push(
-                                text("Operator")
-                                    .style(theme::text::transparent)
-                                    .width(length),
-                            )
-                            .push(text("@").style(theme::text::transparent))
-                            .padding(right_justified_padding())
-                    }),
-            )
-            .push_maybe(
-                current_user
-                    .has_access_level(data::user::AccessLevel::HalfOp)
-                    .then(move || {
-                        row![]
-                            .push(
-                                text("Half-Operator")
-                                    .style(theme::text::transparent)
-                                    .width(length),
-                            )
-                            .push(text("%").style(theme::text::transparent))
-                            .padding(right_justified_padding())
-                    }),
-            )
-            .push_maybe(
-                current_user
-                    .has_access_level(data::user::AccessLevel::Voice)
-                    .then(move || {
-                        row![]
-                            .push(text("Voiced").style(theme::text::transparent).width(length))
-                            .push(text("+").style(theme::text::transparent))
-                            .padding(right_justified_padding())
-                    }),
-            );
-
-        column![]
-            .push_maybe(user_hostname)
-            .push(user_access_levels)
-            .push(user_status)
-            .into()
+                .into()
+        }
     } else {
         row![]
             .push(
