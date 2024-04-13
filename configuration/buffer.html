@@ -207,7 +207,7 @@ format = "&lt;string&gt;"
 brackets = { left = "&lt;string&gt;", right = "&lt;string&gt;" }
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
-<tr><td><code>format</code></td><td>Format expected is  <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>. To disable, simply pass empty string <code>""</code>.</td><td><code>"%R"</code></td></tr>
+<tr><td><code>format</code></td><td>Format expected is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>. To disable, simply pass empty string <code>""</code>.</td><td><code>"%R"</code></td></tr>
 <tr><td><code>brackets</code></td><td>Brackets for nicknames</td><td><code>{ left = "", right = "" }</code></td></tr>
 </tbody></table>
 </div>
@@ -265,6 +265,20 @@ enabled = true | false
 <tr><td><code>enabled</code></td><td>Control if the server message should appear in buffers or not</td><td><code>true</code></td></tr>
 <tr><td><code>smart</code></td><td>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</td><td><code>not set</code></td></tr>
 <tr><td><code>username_format</code></td><td>Adjust how the username should look. Can be <code>"full"</code> (shows the longest username available (nickname, username and hostname) or <code>"short"</code> (only shows nickname).</td><td><code>"full"</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="bufferinternal_messages-section"><a class="header" href="#bufferinternal_messages-section"><code>[buffer.internal_messages]</code> Section</a></h2>
+<pre><code class="language-toml">[buffer.internal_messages.success]
+enabled = true | false
+smart = &lt;integer&gt;
+</code></pre>
+<pre><code class="language-toml">[buffer.internal_messages.error]
+enabled = true | false
+smart = &lt;integer&gt;
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>enabled</code></td><td>Control if the internal message should appear in buffers or not</td><td><code>true</code></td></tr>
+<tr><td><code>smart</code></td><td>Only show internal message if received within the given time duration (seconds).</td><td><code>not set</code></td></tr>
 </tbody></table>
 </div>
                     </main>

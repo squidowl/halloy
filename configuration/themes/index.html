@@ -190,17 +190,19 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
-<h2 id="theme-section"><a class="header" href="#theme-section"><code>[theme]</code> Section</a></h2>
 <pre><code class="language-toml">theme = "&lt;string&gt;"
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
-<tr><td><code>theme</code></td><td>Name of the theme to use<sup class="footnote-reference"><a href="#1">1</a></sup></td><td><code>""</code><sup class="footnote-reference"><a href="#2">2</a></sup></td></tr>
+<tr><td><code>theme</code><sup class="footnote-reference"><a href="#1">1</a></sup></td><td>Name of the theme to use<sup class="footnote-reference"><a href="#2">2</a></sup></td><td><code>""</code><sup class="footnote-reference"><a href="#3">3</a></sup></td></tr>
 </tbody></table>
 </div>
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Name of theme file inside <code>themes</code> folder</p>
+<p><code>theme</code> is a root key, so it must be placed before any section.</p>
 </div>
 <div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
+<p>Name of theme file inside <code>themes</code> folder.</p>
+</div>
+<div class="footnote-definition" id="3"><sup class="footnote-definition-label">3</sup>
 <p>Using <a href="https://github.com/casperstorm/ferra/">Ferra</a> by default.</p>
 </div>
 <h2 id="custom-themes"><a class="header" href="#custom-themes">Custom themes</a></h2>
