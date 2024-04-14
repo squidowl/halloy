@@ -127,3 +127,15 @@ pub fn semi_transparent(theme: &Theme) -> Style {
         ..Default::default()
     }
 }
+
+pub fn error_banner(theme: &Theme) -> Style {
+    Style {
+        background: Some(Background::Color(theme.colors().background.dark)),
+        border: Border {
+            radius: 4.0.into(),
+            width: 1.0,
+            color: theme.colors().error.base,
+        },
+        ..Default::default()
+    }
+}
