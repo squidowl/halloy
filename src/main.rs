@@ -12,6 +12,7 @@ mod stream;
 mod theme;
 mod widget;
 mod window;
+mod modal;
 
 use std::env;
 use std::time::{Duration, Instant};
@@ -104,6 +105,7 @@ struct Halloy {
     config: Config,
     clients: data::client::Map,
     servers: server::Map,
+    modal: Modal,
 }
 
 impl Halloy {
@@ -164,6 +166,7 @@ impl Halloy {
                 clients: Default::default(),
                 servers: config.servers.clone(),
                 config,
+                modal: Modal::None,
             },
             command,
         )
@@ -187,6 +190,7 @@ pub enum Message {
     Event(Event),
     Tick(Instant),
     Version(Option<String>),
+    Modal(modal::Message),
 }
 
 impl Application for Halloy {
@@ -212,6 +216,17 @@ impl Application for Halloy {
 
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
+            Message::Modal(message) => {
+                match message {
+                    modal::Message::ReloadConfigurationError(message) => match message {
+                        modal::reload_configuration_error::Message::CloseModal => {
+                            self.modal.close();
+                        },
+                    },
+                }
+
+                Command::none()
+            }
             Message::Dashboard(message) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
                     return Command::none();
@@ -232,11 +247,14 @@ impl Application for Halloy {
                 if let Some(event) = event {
                     match event {
                         dashboard::Event::ReloadConfiguration => {
-                            // TODO: 
-                            // 1. show error screen if fails.
-                            // 2. what to do with server updates.
-                            if let Ok(updated) = Config::load() {
-                                self.config = updated;
+                            match Config::load() {
+                                Ok(updated) => {
+                                    self.servers = updated.servers.clone();
+                                    self.config = updated;
+                                }
+                                Err(error) => {
+                                    self.modal = Modal::ReloadConfigurationError(error);
+                                }
                             }
                         }
                     }
@@ -565,7 +583,7 @@ impl Application for Halloy {
     }
 
     fn view(&self) -> Element<Message> {
-        let content = match &self.screen {
+        let screen = match &self.screen {
             Screen::Dashboard(dashboard) => dashboard
                 .view(&self.clients, &self.version, &self.config)
                 .map(Message::Dashboard),
@@ -574,11 +592,23 @@ impl Application for Halloy {
             Screen::Migration(migration) => migration.view().map(Message::Migration),
         };
 
-        container(content)
+        let modal: Option<Element<'_, _>> = match &self.modal {
+            Modal::None => None,
+            Modal::ReloadConfigurationError(error) => Some(
+                modal::reload_configuration_error::view(error).map(|message| Message::Modal(message.into()))
+            ),
+        };
+
+        let content = container(screen)
             .width(Length::Fill)
             .height(Length::Fill)
             .style(theme::container::primary)
-            .into()
+            .into();
+
+        match modal {
+            Some(modal) => widget::modal(content, modal).into(),
+            None => content,
+        }
     }
 
     fn theme(&self) -> Theme {
@@ -596,5 +626,16 @@ impl Application for Halloy {
             Subscription::batch(self.servers.entries().map(stream::run)).map(Message::Stream);
 
         Subscription::batch(vec![tick, streams, events().map(Message::Event)])
+    }
+}
+
+enum Modal {
+    None,
+    ReloadConfigurationError(config::Error),
+}
+
+impl Modal {
+    fn close(&mut self) {
+        *self = Modal::None;
     }
 }
