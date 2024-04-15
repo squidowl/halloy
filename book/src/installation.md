@@ -8,6 +8,8 @@
 - [Linux](#linux)
     - [Flatpak](#flatpak)
     - [Snapcraft](#snapcraft)
+- [Windows](#windows)
+    - [Winget](#winget)
 - [Build from source](#build-from-source)
 
 > 💡 To get the latest nightly version of Halloy, you can [build from source](#build-from-source).
@@ -49,6 +51,14 @@ The following third party repositories are available for Linux
 #### Snapcraft
 
 [https://snapcraft.io/halloy](https://snapcraft.io/halloy)
+
+### Windows
+
+#### Winget
+
+```sh
+winget install squidowl.halloy
+```
 
 ### Build from source
 
