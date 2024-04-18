@@ -1,7 +1,7 @@
-use iced::advanced::widget::tree;
+use iced::advanced::widget::{operation, tree, Operation};
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
 use iced::widget::{column, container};
-use iced::{event, mouse, Event, Length, Point, Rectangle, Size, Vector};
+use iced::{event, mouse, Command, Event, Length, Point, Rectangle, Size, Vector};
 
 use super::{double_pass, Element, Renderer};
 use crate::{theme, Theme};
@@ -119,6 +119,10 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for ContextMenu<'a, Message> 
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<Message>,
     ) {
+        let state = tree.state.downcast_mut::<State>();
+
+        operation.custom(state, None);
+
         self.base
             .as_widget()
             .operate(&mut tree.children[0], layout, renderer, operation);
@@ -196,6 +200,42 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for ContextMenu<'a, Message> 
 
         Some(overlay::Group::with_children(base.into_iter().chain(overlay).collect()).overlay())
     }
+}
+
+pub fn close<Message: 'static>(f: fn(bool) -> Message) -> Command<Message> {
+    struct Close<T> {
+        any_closed: bool,
+        f: fn(bool) -> T,
+    }
+
+    impl<T> Operation<T> for Close<T> {
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
+        ) {
+            operate_on_children(self)
+        }
+
+        fn custom(&mut self, state: &mut dyn std::any::Any, _id: Option<&widget::Id>) {
+            if let Some(state) = state.downcast_mut::<State>() {
+                if let State::Open(_) = *state {
+                    *state = State::Closed;
+                    self.any_closed = true;
+                }
+            }
+        }
+
+        fn finish(&self) -> operation::Outcome<T> {
+            operation::Outcome::Some((self.f)(self.any_closed))
+        }
+    }
+
+    Command::widget(Close {
+        any_closed: false,
+        f,
+    })
 }
 
 impl<'a, Message> From<ContextMenu<'a, Message>> for Element<'a, Message>

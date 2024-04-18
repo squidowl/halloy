@@ -20,7 +20,7 @@ use self::pane::Pane;
 use self::sidebar::Sidebar;
 use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
-use crate::widget::{anchored_overlay, selectable_text, shortcut, Element};
+use crate::widget::{anchored_overlay, context_menu, selectable_text, shortcut, Element};
 use crate::{event, notification, theme, Theme};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
@@ -49,6 +49,7 @@ pub enum Message {
     Shortcut(shortcut::Command),
     FileTransfer(file_transfer::task::Update),
     SendFileSelected(Server, Nick, Option<PathBuf>),
+    CloseContextMenu(bool),
 }
 
 impl Dashboard {
@@ -588,6 +589,15 @@ impl Dashboard {
                     }
                 }
             }
+            Message::CloseContextMenu(any_closed) => {
+                if !any_closed {
+                    if self.is_pane_maximized() {
+                        self.panes.restore();
+                    } else {
+                        self.focus = None;
+                    }
+                }
+            }
         }
 
         Command::none()
@@ -702,22 +712,14 @@ impl Dashboard {
                 // Order of operations
                 //
                 // - Close command bar
+                // - Close context menu
                 // - Restore maximized pane
                 // - Unfocus
                 if self.command_bar.is_some() {
-                    return self.toggle_command_bar(
-                        &closed_buffers(self, clients),
-                        version,
-                        config,
-                        theme,
-                    );
-                } else if self.is_pane_maximized() {
-                    self.panes.restore();
+                    self.toggle_command_bar(&closed_buffers(self, clients), version, config, theme)
                 } else {
-                    self.focus = None;
+                    context_menu::close(Message::CloseContextMenu)
                 }
-
-                Command::none()
             }
             Copy => selectable_text::selected(Message::SelectedText),
             Home => self
