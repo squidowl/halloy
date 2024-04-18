@@ -9,6 +9,7 @@ Changed:
 
 - Simplified onboarding experience for users without a `config.toml` file
 - MacOS will now also look in `$HOME/.config/halloy` for `config.toml`.
+- Context menus can be dismissed by pressing Escape
 
 # 2024.6 (2024-04-05)
 
