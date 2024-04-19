@@ -205,8 +205,8 @@ pub enum Message {
     Event(Event),
     Tick(Instant),
     Version(Option<String>),
-    Modal(modal::Message),
     QuitServer(Server),
+    CloseModal,
 }
 
 impl Application for Halloy {
@@ -232,17 +232,6 @@ impl Application for Halloy {
 
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
-            Message::Modal(message) => {
-                match message {
-                    modal::Message::ReloadConfigurationError(message) => match message {
-                        modal::reload_configuration_error::Message::CloseModal => {
-                            self.modal = None;
-                        }
-                    },
-                }
-
-                Command::none()
-            }
             Message::Dashboard(message) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
                     return Command::none();
@@ -610,6 +599,11 @@ impl Application for Halloy {
                 log::info!("[{server}] quit");
                 Command::none()
             }
+            Message::CloseModal => {
+                self.modal = None;
+
+                Command::none()
+            }
         }
     }
 
@@ -629,7 +623,9 @@ impl Application for Halloy {
             .style(theme::container::primary);
 
         if let Some(modal) = &self.modal {
-            widget::modal(content, modal.view().map(Message::Modal)).into()
+            widget::modal(content, modal.view().map(|_| Message::CloseModal), || {
+                Message::CloseModal
+            })
         } else {
             // Align `content` into same view tree shape as `modal`
             // to prevent diff from firing when displaying modal
