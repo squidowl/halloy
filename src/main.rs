@@ -6,13 +6,13 @@ mod event;
 mod font;
 mod icon;
 mod logger;
+mod modal;
 mod notification;
 mod screen;
 mod stream;
 mod theme;
 mod widget;
 mod window;
-mod modal;
 
 use std::env;
 use std::time::{Duration, Instant};
@@ -21,11 +21,12 @@ use data::config::{self, Config};
 use data::version::Version;
 use data::{environment, server, version, User};
 use iced::advanced::Application;
-use iced::widget::container;
+use iced::widget::{column, container};
 use iced::{executor, Command, Length, Renderer, Subscription};
 use screen::{dashboard, help, migration, welcome};
 
 use self::event::{events, Event};
+use self::modal::Modal;
 use self::theme::Theme;
 use self::widget::Element;
 
@@ -105,7 +106,7 @@ struct Halloy {
     config: Config,
     clients: data::client::Map,
     servers: server::Map,
-    modal: Modal,
+    modal: Option<Modal>,
 }
 
 impl Halloy {
@@ -166,7 +167,7 @@ impl Halloy {
                 clients: Default::default(),
                 servers: config.servers.clone(),
                 config,
-                modal: Modal::None,
+                modal: None,
             },
             command,
         )
@@ -220,8 +221,8 @@ impl Application for Halloy {
                 match message {
                     modal::Message::ReloadConfigurationError(message) => match message {
                         modal::reload_configuration_error::Message::CloseModal => {
-                            self.modal.close();
-                        },
+                            self.modal = None;
+                        }
                     },
                 }
 
@@ -246,17 +247,18 @@ impl Application for Halloy {
 
                 if let Some(event) = event {
                     match event {
-                        dashboard::Event::ReloadConfiguration => {
-                            match Config::load() {
-                                Ok(updated) => {
-                                    self.servers = updated.servers.clone();
-                                    self.config = updated;
-                                }
-                                Err(error) => {
-                                    self.modal = Modal::ReloadConfigurationError(error);
-                                }
+                        dashboard::Event::ReloadConfiguration => match Config::load() {
+                            Ok(updated) => {
+                                self.servers = updated.servers.clone();
+                                self.config = updated;
+
+                                // TODO: We need to safely close / shutdown the old
+                                // servers that no longer exist
                             }
-                        }
+                            Err(error) => {
+                                self.modal = Some(Modal::ReloadConfigurationError(error));
+                            }
+                        },
                     }
                 }
 
@@ -592,22 +594,17 @@ impl Application for Halloy {
             Screen::Migration(migration) => migration.view().map(Message::Migration),
         };
 
-        let modal: Option<Element<'_, _>> = match &self.modal {
-            Modal::None => None,
-            Modal::ReloadConfigurationError(error) => Some(
-                modal::reload_configuration_error::view(error).map(|message| Message::Modal(message.into()))
-            ),
-        };
-
         let content = container(screen)
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(theme::container::primary)
-            .into();
+            .style(theme::container::primary);
 
-        match modal {
-            Some(modal) => widget::modal(content, modal).into(),
-            None => content,
+        if let Some(modal) = &self.modal {
+            widget::modal(content, modal.view().map(Message::Modal)).into()
+        } else {
+            // Align `content` into same view tree shape as `modal`
+            // to prevent diff from firing when displaying modal
+            column![content].into()
         }
     }
 
@@ -626,16 +623,5 @@ impl Application for Halloy {
             Subscription::batch(self.servers.entries().map(stream::run)).map(Message::Stream);
 
         Subscription::batch(vec![tick, streams, events().map(Message::Event)])
-    }
-}
-
-enum Modal {
-    None,
-    ReloadConfigurationError(config::Error),
-}
-
-impl Modal {
-    fn close(&mut self) {
-        *self = Modal::None;
     }
 }
