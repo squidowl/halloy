@@ -316,6 +316,9 @@ impl Client {
                     if self.listed_caps.iter().any(|cap| cap.starts_with("sasl")) {
                         requested.push("sasl");
                     }
+                    if contains("multi-prefix") {
+                        requested.push("multi-prefix");
+                    }
 
                     if !requested.is_empty() {
                         // Request
@@ -400,6 +403,9 @@ impl Client {
                     if newly_contains("echo-message") {
                         requested.push("echo-message");
                     }
+                }
+                if newly_contains("multi-prefix") {
+                    requested.push("multi-prefix");
                 }
 
                 if !requested.is_empty() {
