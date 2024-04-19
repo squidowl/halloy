@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 
 use data::config::{self, Config};
 use data::version::Version;
-use data::{environment, server, version, User};
+use data::{environment, server, version, Server, User};
 use iced::advanced::Application;
 use iced::widget::{column, container};
 use iced::{executor, Command, Length, Renderer, Subscription};
@@ -172,6 +172,20 @@ impl Halloy {
             command,
         )
     }
+
+    fn quit_server(&mut self, server: Server) -> Command<Message> {
+        // Removing from servers kills stream subscription
+        self.servers.remove(&server);
+
+        // Remove from clients pool to fully drop it
+        self.clients
+            .remove(&server)
+            .map(move |connection| async move {
+                connection.quit().await;
+            })
+            .map(|task| Command::perform(task, |_| Message::QuitServer(server)))
+            .unwrap_or_else(Command::none)
+    }
 }
 
 pub enum Screen {
@@ -192,6 +206,7 @@ pub enum Message {
     Tick(Instant),
     Version(Option<String>),
     Modal(modal::Message),
+    QuitServer(Server),
 }
 
 impl Application for Halloy {
@@ -236,7 +251,6 @@ impl Application for Halloy {
                 let (command, event) = dashboard.update(
                     message,
                     &mut self.clients,
-                    &mut self.servers,
                     &mut self.theme,
                     &self.version,
                     &self.config,
@@ -245,27 +259,38 @@ impl Application for Halloy {
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
+                let mut commands = vec![
+                    command.map(Message::Dashboard),
+                    track.map(Message::Dashboard),
+                ];
+
                 if let Some(event) = event {
                     match event {
                         dashboard::Event::ReloadConfiguration => match Config::load() {
                             Ok(updated) => {
+                                let removed_servers = self
+                                    .servers
+                                    .keys()
+                                    .filter(|server| !updated.servers.contains(server))
+                                    .cloned()
+                                    .collect::<Vec<_>>();
+
                                 self.servers = updated.servers.clone();
                                 self.config = updated;
 
-                                // TODO: We need to safely close / shutdown the old
-                                // servers that no longer exist
+                                for server in removed_servers {
+                                    commands.push(self.quit_server(server));
+                                }
                             }
                             Err(error) => {
                                 self.modal = Some(Modal::ReloadConfigurationError(error));
                             }
                         },
+                        dashboard::Event::QuitServer(server) => {
+                            commands.push(self.quit_server(server));
+                        }
                     }
                 }
-
-                let commands = vec![
-                    command.map(Message::Dashboard),
-                    track.map(Message::Dashboard),
-                ];
 
                 Command::batch(commands)
             }
@@ -580,6 +605,10 @@ impl Application for Halloy {
                 } else {
                     Command::none()
                 }
+            }
+            Message::QuitServer(server) => {
+                log::info!("[{server}] quit");
+                Command::none()
             }
         }
     }
