@@ -757,6 +757,24 @@ impl Client {
                             channel.users.insert(user);
                         }
                     }
+
+                    // Don't save to history if names list was triggered by JOIN
+                    if !channel.names_init {
+                        return None;
+                    }
+                }
+            }
+            Command::Numeric(RPL_ENDOFNAMES, args) => {
+                let target = args.get(1)?;
+
+                if proto::is_channel(target) {
+                    if let Some(channel) = self.chanmap.get_mut(target) {
+                        if !channel.names_init {
+                            channel.names_init = true;
+
+                            return None;
+                        }
+                    }
                 }
             }
             Command::TOPIC(channel, topic) => {
@@ -1133,6 +1151,7 @@ pub struct Channel {
     pub users: HashSet<User>,
     pub last_who: Option<WhoStatus>,
     pub topic: Topic,
+    pub names_init: bool,
 }
 
 #[derive(Default, Debug, Clone)]
