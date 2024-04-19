@@ -265,6 +265,7 @@ impl Application for Halloy {
                                     .collect::<Vec<_>>();
 
                                 self.servers = updated.servers.clone();
+                                self.theme = updated.themes.default.clone().into();
                                 self.config = updated;
 
                                 for server in removed_servers {
