@@ -365,6 +365,67 @@ impl Client {
                     let _ = self.handle.try_send(command!("CAP", "END"));
                 }
             }
+            Command::CAP(_, sub, a, b) if sub == "NEW" => {
+                let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+
+                let new_caps = caps.split(' ').map(String::from).collect::<Vec<String>>();
+
+                let mut requested = vec![];
+
+                let newly_contains = |s| new_caps.iter().any(|cap| cap == s);
+
+                let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
+
+                if newly_contains("invite-notify") {
+                    requested.push("invite-notify");
+                }
+                if newly_contains("userhost-in-names") {
+                    requested.push("userhost-in-names");
+                }
+                if newly_contains("away-notify") {
+                    requested.push("away-notify");
+                }
+                if newly_contains("server-time") {
+                    requested.push("server-time");
+                }
+                if newly_contains("batch") {
+                    requested.push("batch");
+                }
+                if contains("labeled-response") || newly_contains("labeled-response") {
+                    if newly_contains("labeled-response") {
+                        requested.push("labeled-response");
+                    }
+
+                    // We require labeled-response so we can properly tag echo-messages
+                    if newly_contains("echo-message") {
+                        requested.push("echo-message");
+                    }
+                }
+
+                if !requested.is_empty() {
+                    // Request
+                    let _ = self
+                        .handle
+                        .try_send(command!("CAP", "REQ", requested.join(" ")));
+                }
+
+                self.listed_caps.extend(new_caps);
+            }
+            Command::CAP(_, sub, a, b) if sub == "DEL" => {
+                let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+
+                let del_caps = caps.split(' ').collect::<Vec<_>>();
+
+                if del_caps.contains(&"labeled-response") {
+                    self.supports_labels = false;
+                }
+                if del_caps.contains(&"away-notify") {
+                    self.supports_away_notify = false;
+                }
+
+                self.listed_caps
+                    .retain(|cap| !del_caps.iter().any(|del_cap| del_cap == cap));
+            }
             Command::AUTHENTICATE(param) if param == "+" => {
                 if let Some(sasl) = self.config.sasl.as_ref() {
                     log::info!("[{}] sasl auth: {}", self.server, sasl.command());

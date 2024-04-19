@@ -32,6 +32,7 @@ Join **#halloy** on libera.chat if you have questions or looking for help.
     * [invite-notify](https://ircv3.net/specs/extensions/invite-notify)
     * [userhost-in-names](https://ircv3.net/specs/extensions/userhost-in-names)
     * [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)
+    * [cap-notify](https://ircv3.net/specs/extensions/capability-negotiation.html#cap-notify)
 * SASL support
 * DCC Send
 * Keyboard shortcuts
