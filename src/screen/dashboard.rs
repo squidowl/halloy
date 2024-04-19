@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{client, environment, history, server, Config, Server, User, Version};
+use data::{client, environment, history, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, window, Command, Length};
@@ -44,7 +44,6 @@ pub enum Message {
     Close,
     DashboardSaved(Result<(), data::dashboard::Error>),
     CloseHistory,
-    QuitServer,
     Command(command_bar::Message),
     Shortcut(shortcut::Command),
     FileTransfer(file_transfer::task::Update),
@@ -55,6 +54,7 @@ pub enum Message {
 #[derive(Debug)]
 pub enum Event {
     ReloadConfiguration,
+    QuitServer(Server),
 }
 
 impl Dashboard {
@@ -92,7 +92,6 @@ impl Dashboard {
         &mut self,
         message: Message,
         clients: &mut client::Map,
-        servers: &mut server::Map,
         theme: &mut Theme,
         version: &Version,
         config: &Config,
@@ -306,31 +305,7 @@ impl Dashboard {
 
                         match buffer.clone() {
                             data::Buffer::Server(server) => {
-                                // Remove server connection
-
-                                // Removing from servers kills stream subscription
-                                servers.remove(&server);
-
-                                // Remove from clients pool to fully drop it
-                                let _server = server.clone();
-                                let quit = clients
-                                    .remove(&server)
-                                    .map(move |connection| async move {
-                                        connection.quit().await;
-
-                                        log::info!("[{_server}] quit");
-                                    })
-                                    .map(|task| Command::perform(task, |_| Message::QuitServer))
-                                    .unwrap_or_else(Command::none);
-
-                                // Close history for server
-                                let close_history = self
-                                    .history
-                                    .close_server(server)
-                                    .map(|task| Command::perform(task, |_| Message::CloseHistory))
-                                    .unwrap_or_else(Command::none);
-
-                                return (Command::batch(vec![quit, close_history]), None);
+                                return (Command::none(), Some(Event::QuitServer(server)));
                             }
                             data::Buffer::Channel(server, channel) => {
                                 // Send part & close history file
@@ -415,7 +390,6 @@ impl Dashboard {
                 log::warn!("error saving dashboard: {error}");
             }
             Message::CloseHistory => {}
-            Message::QuitServer => {}
             Message::Command(message) => {
                 let Some(command_bar) = &mut self.command_bar else {
                     return (Command::none(), None);
