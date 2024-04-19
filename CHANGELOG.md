@@ -4,6 +4,7 @@ Added:
 
 - Allow configuration of internal messages in buffer (see [buffer configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferinternal_messages-section))
 - User information added to context menu.
+- Support for IRCv3 CAP NEW and CAP DEL subcommands.
 
 Changed:
 
