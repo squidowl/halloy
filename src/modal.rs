@@ -10,16 +10,12 @@ pub enum Modal {
 }
 
 impl Modal {
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self) -> Element<Close> {
         match self {
-            Modal::ReloadConfigurationError(error) => {
-                reload_configuration_error::view(error).map(Message::ReloadConfigurationError)
-            }
+            Modal::ReloadConfigurationError(error) => reload_configuration_error::view(error),
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Message {
-    ReloadConfigurationError(reload_configuration_error::Message),
-}
+#[derive(Debug, Clone, Copy)]
+pub struct Close;

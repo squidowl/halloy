@@ -4,21 +4,29 @@ use iced::advanced::renderer;
 use iced::advanced::widget::{self, Widget};
 use iced::advanced::{self, Clipboard, Shell};
 use iced::alignment::Alignment;
-use iced::event;
+use iced::keyboard::key;
 use iced::mouse;
+use iced::{event, keyboard};
 use iced::{Color, Element, Event, Length, Point, Rectangle, Size, Vector};
 
 pub fn modal<'a, Message, Theme, Renderer>(
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     modal: impl Into<Element<'a, Message, Theme, Renderer>>,
-) -> Modal<'a, Message, Theme, Renderer> {
-    Modal::new(base, modal)
+    on_blur: impl Fn() -> Message + 'a,
+) -> Element<'a, Message, Theme, Renderer>
+where
+    Theme: 'a,
+    Renderer: 'a + advanced::Renderer,
+    Message: 'a,
+{
+    Modal::new(base, modal, on_blur).into()
 }
 
 /// A widget that centers a modal element over some base element
 pub struct Modal<'a, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
     modal: Element<'a, Message, Theme, Renderer>,
+    on_blur: Box<dyn Fn() -> Message + 'a>,
 }
 
 impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
@@ -26,10 +34,12 @@ impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
     pub fn new(
         base: impl Into<Element<'a, Message, Theme, Renderer>>,
         modal: impl Into<Element<'a, Message, Theme, Renderer>>,
+        on_blur: impl Fn() -> Message + 'a,
     ) -> Self {
         Self {
             base: base.into(),
             modal: modal.into(),
+            on_blur: Box::new(on_blur),
         }
     }
 }
@@ -121,6 +131,7 @@ where
             content: &mut self.modal,
             tree: &mut state.children[1],
             size: layout.bounds().size(),
+            on_blur: &self.on_blur,
         })))
     }
 
@@ -159,6 +170,7 @@ struct Overlay<'a, 'b, Message, Theme, Renderer> {
     content: &'b mut Element<'a, Message, Theme, Renderer>,
     tree: &'b mut widget::Tree,
     size: Size,
+    on_blur: &'b dyn Fn() -> Message,
 }
 
 impl<'a, 'b, Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
@@ -189,6 +201,25 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) -> event::Status {
+        match event {
+            Event::Keyboard(keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(key::Named::Escape),
+                ..
+            }) => {
+                shell.publish((self.on_blur)());
+                return event::Status::Captured;
+            }
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+                let bounds = layout.children().next().unwrap().bounds();
+
+                if !cursor.is_over(bounds) {
+                    shell.publish((self.on_blur)());
+                    return event::Status::Captured;
+                }
+            }
+            _ => {}
+        }
+
         self.content.as_widget_mut().on_event(
             self.tree,
             event,
@@ -279,8 +310,8 @@ impl<'a, Message, Theme, Renderer> From<Modal<'a, Message, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Theme: 'a,
-    Message: 'a,
     Renderer: 'a + advanced::Renderer,
+    Message: 'a,
 {
     fn from(modal: Modal<'a, Message, Theme, Renderer>) -> Self {
         Element::new(modal)
