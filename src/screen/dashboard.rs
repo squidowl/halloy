@@ -670,7 +670,8 @@ impl Dashboard {
         let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
 
         let base = row![]
-            .push_maybe(side_menu)
+            // Prevent diff when hiding side_menu
+            .push(side_menu.unwrap_or_else(|| column![].into()))
             .push(pane_grid)
             .width(Length::Fill)
             .height(Length::Fill)
