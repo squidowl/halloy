@@ -1,0 +1,26 @@
+name: Generate SHA256 checksums
+on:
+  workflow_dispatch:
+
+jobs:
+  generate_checksums:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Generate SHA256 checksums
+        run: |
+          find . -type f -exec sha256sum {} + > SHA256SUM.txt
+
+      - name: Commit checksum file
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Add SHA256 checksums"
+          commit_options: "-no-verify --signoff"
+          commit_files: "SHA256SUM.txt"
+          commit_user_name: My GitHub Actions Bot # defaults to "github-actions[bot]"
+          commit_user_email: my-github-actions-bot@example.org # defaults to "41898282+github-actions[bot]@users.noreply.github.com"
+          commit_author: Author <actions@github.com>
+          repository: .
+          branch: main
