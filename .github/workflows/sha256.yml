@@ -18,7 +18,6 @@ jobs:
         with:
           commit_message: "Add SHA256 checksums"
           commit_options: "-no-verify --signoff"
-          commit_files: "SHA256SUM.txt"
           commit_user_name: My GitHub Actions Bot # defaults to "github-actions[bot]"
           commit_user_email: my-github-actions-bot@example.org # defaults to "41898282+github-actions[bot]@users.noreply.github.com"
           commit_author: Author <actions@github.com>
