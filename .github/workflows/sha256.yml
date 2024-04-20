@@ -11,8 +11,7 @@ jobs:
 
       - name: Generate SHA256 checksums
         run: |
-          find . -type f -exec sha256sum {} + | sed 's|^./||' > SHA256SUM.txt
-
+          find . -type f -exec sha256sum {} + | sed 's/^\.\///' | sed 's/^\(.*\) .\/\(.*\)/\1 \2/' > SHA256SUM.txt
       - name: Commit checksum file
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
