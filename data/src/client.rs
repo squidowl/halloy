@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use crate::message::server_time;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{config, dcc, message, mode, Buffer, Server, User};
+use crate::{config, dcc, isupport, message, mode, Buffer, Server, User};
 use crate::{file_transfer, server};
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
@@ -88,6 +88,7 @@ pub struct Client {
     supports_away_notify: bool,
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<String>,
+    isupport_parameters: HashMap<String, isupport::Parameter>,
 }
 
 impl fmt::Debug for Client {
@@ -137,6 +138,7 @@ impl Client {
             supports_away_notify: false,
             highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
+            isupport_parameters: HashMap::new(),
         }
     }
 
@@ -844,6 +846,45 @@ impl Client {
                 {
                     self.registration_required_channels.push(channel.clone());
                 }
+            }
+            Command::Numeric(RPL_ISUPPORT, args) => {
+                args[1..].iter().for_each(|arg| {
+                    if arg != "are supported by this server" {
+                        let isupport_parameter = isupport::Parameter::try_from(arg.clone());
+
+                        match isupport_parameter {
+                            Ok(isupport_parameter) => {
+                                match isupport_parameter {
+                                    isupport::Parameter::Negation(key) => {
+                                        log::info!(
+                                            "[{}] removing ISUPPORT parameter: {}",
+                                            self.server,
+                                            key
+                                        );
+                                        self.isupport_parameters.remove(&key)
+                                    }
+                                    _ => {
+                                        log::info!(
+                                            "[{}] adding ISUPPORT parameter: {:?}",
+                                            self.server,
+                                            isupport_parameter
+                                        );
+                                        self.isupport_parameters.insert(
+                                            isupport_parameter.key().to_string(),
+                                            isupport_parameter,
+                                        )
+                                    }
+                                };
+                            }
+                            Err(error) => log::debug!(
+                                "[{}] unable to parse ISUPPORT parameter: {} ({})",
+                                self.server,
+                                arg,
+                                error
+                            ),
+                        }
+                    }
+                });
             }
             _ => {}
         }

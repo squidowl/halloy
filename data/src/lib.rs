@@ -26,6 +26,7 @@ pub mod environment;
 pub mod file_transfer;
 pub mod history;
 pub mod input;
+pub mod isupport;
 pub mod log;
 pub mod message;
 pub mod mode;
