@@ -6,6 +6,7 @@ mod event;
 mod font;
 mod icon;
 mod logger;
+mod modal;
 mod notification;
 mod screen;
 mod stream;
@@ -18,13 +19,14 @@ use std::time::{Duration, Instant};
 
 use data::config::{self, Config};
 use data::version::Version;
-use data::{environment, server, version, User};
+use data::{environment, server, version, Server, User};
 use iced::advanced::Application;
-use iced::widget::container;
+use iced::widget::{column, container};
 use iced::{executor, Command, Length, Renderer, Subscription};
 use screen::{dashboard, help, migration, welcome};
 
 use self::event::{events, Event};
+use self::modal::Modal;
 use self::theme::Theme;
 use self::widget::Element;
 
@@ -104,6 +106,7 @@ struct Halloy {
     config: Config,
     clients: data::client::Map,
     servers: server::Map,
+    modal: Option<Modal>,
 }
 
 impl Halloy {
@@ -113,8 +116,6 @@ impl Halloy {
         let load_dashboard = |config| match data::Dashboard::load() {
             Ok(dashboard) => screen::Dashboard::restore(dashboard, config),
             Err(error) => {
-                // TODO: Show this in error screen too? Maybe w/ option to report bug on GH
-                // and reset settings to continue loading?
                 log::warn!("failed to load dashboard: {error}");
 
                 screen::Dashboard::empty(config)
@@ -166,9 +167,24 @@ impl Halloy {
                 clients: Default::default(),
                 servers: config.servers.clone(),
                 config,
+                modal: None,
             },
             command,
         )
+    }
+
+    fn quit_server(&mut self, server: Server) -> Command<Message> {
+        // Removing from servers kills stream subscription
+        self.servers.remove(&server);
+
+        // Remove from clients pool to fully drop it
+        self.clients
+            .remove(&server)
+            .map(move |connection| async move {
+                connection.quit().await;
+            })
+            .map(|task| Command::perform(task, |_| Message::QuitServer(server)))
+            .unwrap_or_else(Command::none)
     }
 }
 
@@ -189,6 +205,8 @@ pub enum Message {
     Event(Event),
     Tick(Instant),
     Version(Option<String>),
+    QuitServer(Server),
+    CloseModal,
 }
 
 impl Application for Halloy {
@@ -219,21 +237,52 @@ impl Application for Halloy {
                     return Command::none();
                 };
 
-                let command = dashboard.update(
+                let (command, event) = dashboard.update(
                     message,
                     &mut self.clients,
-                    &mut self.servers,
                     &mut self.theme,
                     &self.version,
                     &self.config,
                 );
+
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
-                Command::batch(vec![
+                let mut commands = vec![
                     command.map(Message::Dashboard),
                     track.map(Message::Dashboard),
-                ])
+                ];
+
+                if let Some(event) = event {
+                    match event {
+                        dashboard::Event::ReloadConfiguration => match Config::load() {
+                            Ok(updated) => {
+                                let removed_servers = self
+                                    .servers
+                                    .keys()
+                                    .filter(|server| !updated.servers.contains(server))
+                                    .cloned()
+                                    .collect::<Vec<_>>();
+
+                                self.servers = updated.servers.clone();
+                                self.theme = updated.themes.default.clone().into();
+                                self.config = updated;
+
+                                for server in removed_servers {
+                                    commands.push(self.quit_server(server));
+                                }
+                            }
+                            Err(error) => {
+                                self.modal = Some(Modal::ReloadConfigurationError(error));
+                            }
+                        },
+                        dashboard::Event::QuitServer(server) => {
+                            commands.push(self.quit_server(server));
+                        }
+                    }
+                }
+
+                Command::batch(commands)
             }
             Message::Version(remote) => {
                 // Set latest known remote version
@@ -547,11 +596,20 @@ impl Application for Halloy {
                     Command::none()
                 }
             }
+            Message::QuitServer(server) => {
+                log::info!("[{server}] quit");
+                Command::none()
+            }
+            Message::CloseModal => {
+                self.modal = None;
+
+                Command::none()
+            }
         }
     }
 
     fn view(&self) -> Element<Message> {
-        let content = match &self.screen {
+        let screen = match &self.screen {
             Screen::Dashboard(dashboard) => dashboard
                 .view(&self.clients, &self.version, &self.config)
                 .map(Message::Dashboard),
@@ -560,11 +618,20 @@ impl Application for Halloy {
             Screen::Migration(migration) => migration.view().map(Message::Migration),
         };
 
-        container(content)
+        let content = container(screen)
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(theme::container::primary)
-            .into()
+            .style(theme::container::primary);
+
+        if let Some(modal) = &self.modal {
+            widget::modal(content, modal.view().map(|_| Message::CloseModal), || {
+                Message::CloseModal
+            })
+        } else {
+            // Align `content` into same view tree shape as `modal`
+            // to prevent diff from firing when displaying modal
+            column![content].into()
+        }
     }
 
     fn theme(&self) -> Theme {

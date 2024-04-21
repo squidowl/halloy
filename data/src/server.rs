@@ -50,6 +50,14 @@ impl Map {
         self.0.remove(server);
     }
 
+    pub fn contains(&self, server: &Server) -> bool {
+        self.0.contains_key(server)
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &Server> {
+        self.0.keys()
+    }
+
     pub fn entries(&self) -> impl Iterator<Item = Entry> + '_ {
         self.0.iter().map(Entry::from)
     }

@@ -129,6 +129,7 @@ pub enum Buffer {
 
 #[derive(Debug, Clone)]
 pub enum Configuration {
+    Reload,
     OpenDirectory,
     OpenWebsite,
 }
@@ -218,7 +219,11 @@ impl Version {
 
 impl Configuration {
     fn list() -> Vec<Self> {
-        vec![Configuration::OpenDirectory, Configuration::OpenWebsite]
+        vec![
+            Configuration::OpenDirectory,
+            Configuration::OpenWebsite,
+            Configuration::Reload,
+        ]
     }
 }
 
@@ -290,6 +295,7 @@ impl std::fmt::Display for Configuration {
         match self {
             Configuration::OpenDirectory => write!(f, "Open config directory"),
             Configuration::OpenWebsite => write!(f, "Open wiki website"),
+            Configuration::Reload => write!(f, "Reload config file"),
         }
     }
 }
