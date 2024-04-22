@@ -7,8 +7,9 @@ use irc::proto;
 use serde::{Deserialize, Serialize};
 
 use crate::config;
-use crate::config::Error;
+use crate::config::server::ProxyConfig;
 use crate::config::server::Sasl;
+use crate::config::Error;
 
 pub type Handle = Sender<proto::Message>;
 
@@ -62,18 +63,29 @@ impl Map {
         self.0.iter().map(Entry::from)
     }
 
+    pub fn update_proxy(&mut self, proxy: &Option<ProxyConfig>) -> Result<(), Error> {
+        for (_, config) in self.0.iter_mut() {
+            config.proxy = proxy.clone();
+        }
+        Ok(())
+    }
+
     pub fn read_password_files(&mut self) -> Result<(), Error> {
         for (_, config) in self.0.iter_mut() {
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some() {
-                    return Err(Error::Parse("Only one of password and password_file can be set.".to_string()));
+                    return Err(Error::Parse(
+                        "Only one of password and password_file can be set.".to_string(),
+                    ));
                 }
                 let pass = fs::read_to_string(pass_file)?;
                 config.password = Some(pass);
             }
             if let Some(nick_pass_file) = &config.nick_password_file {
                 if config.nick_password.is_some() {
-                    return Err(Error::Parse("Only one of nick_password and nick_password_file can be set.".to_string()));
+                    return Err(Error::Parse(
+                        "Only one of nick_password and nick_password_file can be set.".to_string(),
+                    ));
                 }
                 let nick_pass = fs::read_to_string(nick_pass_file)?;
                 config.nick_password = Some(nick_pass);

@@ -10,6 +10,7 @@ pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
 pub use self::keys::Keyboard;
 pub use self::notification::{Notification, Notifications};
+use self::server::ProxyConfig;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
 use crate::environment::config_dir;
@@ -32,6 +33,7 @@ const DEFAULT_THEME_FILE_NAME: &str = "ferra.toml";
 pub struct Config {
     pub themes: Themes,
     pub servers: ServerMap,
+    pub proxy: Option<ProxyConfig>,
     pub font: Font,
     pub scale_factor: ScaleFactor,
     pub buffer: Buffer,
@@ -117,6 +119,7 @@ impl Config {
             #[serde(default)]
             pub theme: String,
             pub servers: ServerMap,
+            pub proxy: Option<ProxyConfig>,
             #[serde(default)]
             pub font: Font,
             #[serde(default)]
@@ -142,6 +145,7 @@ impl Config {
             theme,
             mut servers,
             font,
+            proxy,
             scale_factor,
             buffer,
             sidebar,
@@ -152,6 +156,7 @@ impl Config {
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_password_files()?;
+        servers.update_proxy(&proxy)?;
 
         let themes = Self::load_themes(&theme).unwrap_or_default();
 
@@ -159,6 +164,7 @@ impl Config {
             themes,
             servers,
             font,
+            proxy,
             scale_factor,
             buffer,
             sidebar,
