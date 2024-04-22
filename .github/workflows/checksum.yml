@@ -1,0 +1,33 @@
+name: Checksum
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Specify tag to generate checksum"
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: robinraju/release-downloader@v1.10
+        with:
+          tag: ${{ github.event.inputs.tag }}
+          fileName: h*
+
+      - name: Generate checksum
+        uses: jmgilman/actions-generate-checksum@v1
+        with:
+          patterns: h*
+          method: sha256
+          output: checksums.sha256.txt
+
+      - name: Publish checksums
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: checksums.sha256.txt
+          tag: ${{ github.event.inputs.tag }}
+          overwrite: true
