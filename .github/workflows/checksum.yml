@@ -22,12 +22,12 @@ jobs:
         with:
           patterns: h*
           method: sha256
-          output: checksums.sha256.txt
+          output: checksums.txt
 
       - name: Publish checksums
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: checksums.sha256.txt
+          file: checksums.txt
           tag: ${{ github.event.inputs.tag }}
           overwrite: true
