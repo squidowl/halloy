@@ -27,6 +27,8 @@ pub struct Server {
     /// The port to connect on.
     #[serde(default = "default_port")]
     pub port: u16,
+    /// Proxy configuration to use for connecting to the server.
+    pub proxy: Option<ProxyConfig>,
     /// The password to connect to the server.
     pub password: Option<String>,
     /// The file with the password to connect to the server.
@@ -105,6 +107,24 @@ impl Server {
             security,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProxyConfigType {
+    Socks5,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProxyConfig {
+    #[serde(rename = "type")]
+    pub proxy_type: ProxyConfigType,
+    pub host: String,
+    pub port: u16,
+    #[serde(default)]
+    pub username: String,
+    #[serde(default)]
+    pub password: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
