@@ -5,6 +5,7 @@ use futures::{Sink, SinkExt, Stream, StreamExt};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::client::TlsStream;
+use tokio_socks::tcp::Socks5Stream;
 use tokio_util::codec;
 use tokio_util::codec::Framed;
 
@@ -27,15 +28,44 @@ pub enum Security<'a> {
 }
 
 #[derive(Debug, Clone)]
+pub enum Proxy {
+    Socks5 {
+        host: String,
+        port: u16,
+        username: String,
+        password: String,
+    },
+}
+
+#[derive(Debug, Clone)]
 pub struct Config<'a> {
     pub server: &'a str,
     pub port: u16,
     pub security: Security<'a>,
+    pub proxy: Option<Proxy>,
 }
 
 impl<Codec> Connection<Codec> {
     pub async fn new(config: Config<'_>, codec: Codec) -> Result<Self, Error> {
-        let tcp = TcpStream::connect((config.server, config.port)).await?;
+        let target = (config.server, config.port);
+        let tcp = match config.proxy {
+            None => TcpStream::connect(target).await?,
+            Some(Proxy::Socks5 {
+                host,
+                port,
+                username,
+                password,
+            }) => {
+                let proxy = (host.as_str(), port);
+                if username.trim().is_empty() {
+                    Socks5Stream::connect(proxy, target).await?.into_inner()
+                } else {
+                    Socks5Stream::connect_with_password(proxy, target, &username, &password)
+                        .await?
+                        .into_inner()
+                }
+            }
+        };
 
         if let Security::Secured {
             accept_invalid_certs,
@@ -99,6 +129,8 @@ pub enum Error {
     Tls(#[from] tls::Error),
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("proxy error: {0}")]
+    Proxy(#[from] tokio_socks::Error),
 }
 
 macro_rules! delegate {

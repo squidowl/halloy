@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use irc::connection;
+use irc::connection::{self, Proxy};
 use serde::{Deserialize, Deserializer};
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -101,10 +101,13 @@ impl Server {
             connection::Security::Unsecured
         };
 
+        let proxy = self.proxy.clone().map(|p| p.into());
+
         connection::Config {
             server: &self.server,
             port: self.port,
             security,
+            proxy,
         }
     }
 }
@@ -125,6 +128,19 @@ pub struct ProxyConfig {
     pub username: String,
     #[serde(default)]
     pub password: String,
+}
+
+impl Into<Proxy> for ProxyConfig {
+    fn into(self) -> Proxy {
+        match self.proxy_type {
+            ProxyConfigType::Socks5 => irc::connection::Proxy::Socks5 {
+                host: self.host,
+                port: self.port,
+                username: self.username,
+                password: self.password,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
