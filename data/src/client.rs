@@ -664,11 +664,11 @@ impl Client {
                                 "WHO",
                                 channel,
                                 "tcnf",
-                                format!("{}", who_polling_tag())
+                                format!("{}", who_polling_token())
                             ));
                             state.last_who = Some(WhoStatus::Requested(
                                 Instant::now(),
-                                Some(who_polling_tag()),
+                                Some(who_polling_token()),
                             ));
                         } else {
                             let _ = self.handle.try_send(command!("WHO", channel));
@@ -1028,11 +1028,11 @@ impl Client {
                         "WHO",
                         channel,
                         "tcnf",
-                        format!("{}", who_polling_tag())
+                        format!("{}", who_polling_token())
                     ));
                     state.last_who = Some(WhoStatus::Requested(
                         Instant::now(),
-                        Some(who_polling_tag()),
+                        Some(who_polling_token()),
                     ));
                 } else {
                     let _ = self.handle.try_send(command!("WHO", channel));
@@ -1310,7 +1310,7 @@ pub enum WhoStatus {
     Done(Instant),
 }
 
-fn who_polling_tag() -> u16 {
+fn who_polling_token() -> u16 {
     9
 }
 
