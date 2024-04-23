@@ -1,5 +1,5 @@
 use data::user::User;
-use data::{input, Buffer, Command};
+use data::{input, isupport, Buffer, Command};
 use iced::advanced::widget::{self, Operation};
 pub use iced::widget::text_input::{focus, move_cursor_to_end};
 use iced::widget::{component, container, row, text, text_input, Component};
@@ -20,6 +20,7 @@ pub fn input<'a, Message>(
     history: &'a [String],
     users: &'a [User],
     channels: &'a [String],
+    isupport_parameters: Vec<&'a isupport::Parameter>,
     buffer_focused: bool,
     disabled: bool,
     on_input: impl Fn(input::Draft) -> Message + 'a,
@@ -35,6 +36,7 @@ where
         input,
         users,
         channels,
+        isupport_parameters,
         history,
         buffer_focused,
         disabled,
@@ -66,6 +68,7 @@ pub struct Input<'a, Message> {
     input: &'a str,
     users: &'a [User],
     channels: &'a [String],
+    isupport_parameters: Vec<&'a isupport::Parameter>,
     history: &'a [String],
     buffer_focused: bool,
     disabled: bool,
@@ -96,7 +99,12 @@ where
                 // Reset selected history
                 state.selected_history = None;
 
-                state.completion.process(&input, self.users, self.channels);
+                state.completion.process(
+                    &input,
+                    self.users,
+                    self.channels,
+                    &self.isupport_parameters,
+                );
 
                 Some((self.on_input)(input::Draft {
                     buffer: self.buffer.clone(),
@@ -160,9 +168,12 @@ where
                         .get(state.selected_history.unwrap())
                         .unwrap()
                         .clone();
-                    state
-                        .completion
-                        .process(&new_input, self.users, self.channels);
+                    state.completion.process(
+                        &new_input,
+                        self.users,
+                        self.channels,
+                        &self.isupport_parameters,
+                    );
 
                     return Some((self.on_completion)(input::Draft {
                         buffer: self.buffer.clone(),
@@ -182,9 +193,12 @@ where
                     } else {
                         *index -= 1;
                         let new_input = self.history.get(*index).unwrap().clone();
-                        state
-                            .completion
-                            .process(&new_input, self.users, self.channels);
+                        state.completion.process(
+                            &new_input,
+                            self.users,
+                            self.channels,
+                            &self.isupport_parameters,
+                        );
                         new_input
                     };
 
