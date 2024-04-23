@@ -7,8 +7,8 @@ use irc::proto;
 use serde::{Deserialize, Serialize};
 
 use crate::config;
-use crate::config::server::Sasl;
 use crate::config::Error;
+use crate::config::server::Sasl;
 
 pub type Handle = Sender<proto::Message>;
 
@@ -63,26 +63,20 @@ impl Map {
     }
 
     pub fn read_password_files(&mut self) -> Result<(), Error> {
-        let trimmed = |s: String| s.trim().to_string();
-
         for (_, config) in self.0.iter_mut() {
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some() {
-                    return Err(Error::Parse(
-                        "Only one of password and password_file can be set.".to_string(),
-                    ));
+                    return Err(Error::Parse("Only one of password and password_file can be set.".to_string()));
                 }
                 let pass = fs::read_to_string(pass_file)?;
-                config.password = Some(trimmed(pass));
+                config.password = Some(pass);
             }
             if let Some(nick_pass_file) = &config.nick_password_file {
                 if config.nick_password.is_some() {
-                    return Err(Error::Parse(
-                        "Only one of nick_password and nick_password_file can be set.".to_string(),
-                    ));
+                    return Err(Error::Parse("Only one of nick_password and nick_password_file can be set.".to_string()));
                 }
                 let nick_pass = fs::read_to_string(nick_pass_file)?;
-                config.nick_password = Some(trimmed(nick_pass));
+                config.nick_password = Some(nick_pass);
             }
             if let Some(sasl) = &mut config.sasl {
                 match sasl {
@@ -99,7 +93,7 @@ impl Map {
                         ..
                     } => {
                         let pass = fs::read_to_string(pass_file)?;
-                        *password = Some(trimmed(pass));
+                        *password = Some(pass);
                     }
                     _ => {}
                 }
