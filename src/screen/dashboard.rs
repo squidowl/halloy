@@ -60,6 +60,7 @@ pub enum Event {
 impl Dashboard {
     pub fn empty(config: &Config) -> (Self, Command<Message>) {
         let (panes, _) = pane_grid::State::new(Pane::new(Buffer::Empty, config));
+        let proxy = config.proxy.clone().map(|p| p.into());
 
         let mut dashboard = Dashboard {
             panes,
@@ -68,7 +69,7 @@ impl Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
-            file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
+            file_transfers: file_transfer::Manager::new(config.file_transfer.clone(), proxy),
         };
 
         let command = dashboard.track();
@@ -1276,6 +1277,8 @@ impl Dashboard {
             }
         }
 
+        let proxy = config.proxy.clone().map(|p| p.into());
+
         Self {
             panes: pane_grid::State::with_configuration(configuration(dashboard.pane)),
             focus: None,
@@ -1283,7 +1286,7 @@ impl Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
-            file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
+            file_transfers: file_transfer::Manager::new(config.file_transfer.clone(), proxy),
         }
     }
 }
