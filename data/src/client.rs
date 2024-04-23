@@ -659,8 +659,21 @@ impl Client {
 
                     if let Some(state) = self.chanmap.get_mut(channel) {
                         // Sends WHO to get away state on users.
-                        let _ = self.handle.try_send(command!("WHO", channel));
-                        state.last_who = Some(WhoStatus::Requested(Instant::now()));
+                        if self.isupport_parameters.get("WHOX").is_some() {
+                            let _ = self.handle.try_send(command!(
+                                "WHO",
+                                channel,
+                                "tcnf",
+                                format!("{}", who_polling_tag())
+                            ));
+                            state.last_who = Some(WhoStatus::Requested(
+                                Instant::now(),
+                                Some(who_polling_tag()),
+                            ));
+                        } else {
+                            let _ = self.handle.try_send(command!("WHO", channel));
+                            state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
+                        }
                         log::debug!("[{}] {channel} - WHO requested", self.server);
                     }
                 } else if let Some(channel) = self.chanmap.get_mut(channel) {
@@ -681,7 +694,7 @@ impl Client {
 
                 if proto::is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
-                        if matches!(channel.last_who, Some(WhoStatus::Requested(_)) | None) {
+                        if matches!(channel.last_who, Some(WhoStatus::Requested(_, None)) | None) {
                             channel.last_who = Some(WhoStatus::Receiving);
                             log::debug!("[{}] {target} - WHO receiving...", self.server);
                         }
@@ -699,6 +712,38 @@ impl Client {
 
                         // We requested, don't save to history
                         if matches!(channel.last_who, Some(WhoStatus::Receiving)) {
+                            return None;
+                        }
+                    }
+                }
+            }
+            Command::Numeric(RPL_WHOSPCRPL, args) => {
+                let target = args.get(2)?;
+
+                if proto::is_channel(target) {
+                    if let Some(channel) = self.chanmap.get_mut(target) {
+                        let tag = args.get(1)?.parse::<u16>().ok();
+
+                        if let Some(WhoStatus::Requested(_, request_tag)) = channel.last_who {
+                            if request_tag == tag {
+                                channel.last_who = Some(WhoStatus::Receiving);
+                                log::debug!("[{}] {target} - WHO receiving...", self.server);
+                            }
+                        }
+
+                        // We requested, don't save to history
+                        if matches!(channel.last_who, Some(WhoStatus::Receiving)) {
+                            // H = Here, G = gone (away)
+                            let flags = args.get(4)?.chars().collect::<Vec<char>>();
+                            let away = *(flags.first()?) == 'G';
+
+                            let lookup = User::from(Nick::from(args[3].clone()));
+
+                            if let Some(mut user) = channel.users.take(&lookup) {
+                                user.update_away(away);
+                                channel.users.insert(user);
+                            }
+
                             return None;
                         }
                     }
@@ -971,15 +1016,28 @@ impl Client {
                     (now.duration_since(last) >= self.config.who_poll_interval)
                         .then_some(Request::Poll)
                 }
-                Some(WhoStatus::Requested(requested)) => (now.duration_since(requested)
+                Some(WhoStatus::Requested(requested, _)) => (now.duration_since(requested)
                     >= self.config.who_retry_interval)
                     .then_some(Request::Retry),
                 _ => None,
             };
 
             if let Some(request) = request {
-                let _ = self.handle.try_send(command!("WHO", channel));
-                state.last_who = Some(WhoStatus::Requested(Instant::now()));
+                if self.isupport_parameters.get("WHOX").is_some() {
+                    let _ = self.handle.try_send(command!(
+                        "WHO",
+                        channel,
+                        "tcnf",
+                        format!("{}", who_polling_tag())
+                    ));
+                    state.last_who = Some(WhoStatus::Requested(
+                        Instant::now(),
+                        Some(who_polling_tag()),
+                    ));
+                } else {
+                    let _ = self.handle.try_send(command!("WHO", channel));
+                    state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
+                }
                 log::debug!(
                     "[{}] {channel} - WHO {}",
                     self.server,
@@ -1247,9 +1305,13 @@ pub struct Topic {
 
 #[derive(Debug, Clone, Copy)]
 pub enum WhoStatus {
-    Requested(Instant),
+    Requested(Instant, Option<u16>),
     Receiving,
     Done(Instant),
+}
+
+fn who_polling_tag() -> u16 {
+    9
 }
 
 /// Group channels together into as few JOIN messages as possible
