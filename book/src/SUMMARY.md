@@ -24,3 +24,4 @@
 - [Connect with soju](guides/connect-with-soju.md)
 - [Connect with ZNC](guides/connect-with-znc.md)
 - [Portable mode](guides/portable-mode.md)
+- [Multiple servers](guides/multiple-servers.md)
