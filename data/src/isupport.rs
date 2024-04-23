@@ -209,7 +209,7 @@ impl<'a> TryFrom<&'a str> for Parameter {
                             value,
                             Some(default_deaf_letter()),
                         )?)),
-                        "ELIST" => Ok(Parameter::ELIST(parse_required_string(value)?)),
+                        "ELIST" => Ok(Parameter::ELIST(parse_required_non_empty_string(value)?)),
                         "ESILENCE" => Ok(Parameter::ESILENCE(parse_optional_string(value))),
                         "ETRACE" => Ok(Parameter::ETRACE),
                         "EXCEPTS" => Ok(Parameter::EXCEPTS(parse_required_letter(
@@ -363,7 +363,7 @@ impl<'a> TryFrom<&'a str> for Parameter {
                             Ok(Parameter::USERLEN(parse_required_positive_integer(value)?))
                         }
                         "UTF8ONLY" => Ok(Parameter::UTF8ONLY),
-                        "VLIST" => Ok(Parameter::VLIST(parse_required_string(value)?)),
+                        "VLIST" => Ok(Parameter::VLIST(parse_required_non_empty_string(value)?)),
                         "WATCH" => Ok(Parameter::WATCH(parse_required_positive_integer(value)?)),
                         "WHOX" => Ok(Parameter::WHOX),
                         _ => Err("unknown ISUPPORT parameter"),
@@ -597,18 +597,18 @@ fn parse_required_letter(value: &str, default_value: Option<char>) -> Result<cha
     }
 }
 
+fn parse_required_non_empty_string(value: &str) -> Result<String, &'static str> {
+    if !value.is_empty() {
+        Ok(value.to_string())
+    } else {
+        Err("value required")
+    }
+}
+
 fn parse_required_positive_integer(value: &str) -> Result<u16, &'static str> {
     if let Ok(value) = value.parse::<u16>() {
         Ok(value)
     } else {
         Err("value required to be a positive integer")
-    }
-}
-
-fn parse_required_string(value: &str) -> Result<String, &'static str> {
-    if !value.is_empty() {
-        Ok(value.to_string())
-    } else {
-        Err("value required")
     }
 }
