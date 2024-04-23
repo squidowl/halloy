@@ -447,7 +447,10 @@ impl Client {
                 log::info!("[{}] logged in", self.server);
 
                 if !self.registration_required_channels.is_empty() {
-                    for message in group_joins(&self.config, &self.registration_required_channels) {
+                    for message in group_joins(
+                        &self.registration_required_channels,
+                        &self.config.channel_keys,
+                    ) {
                         let _ = self.handle.try_send(message);
                     }
 
@@ -616,7 +619,7 @@ impl Client {
                 }
 
                 // Send JOIN
-                for message in group_joins(&self.config, &self.config.channels) {
+                for message in group_joins(&self.config.channels, &self.config.channel_keys) {
                     let _ = self.handle.try_send(message);
                 }
             }
@@ -1202,15 +1205,13 @@ pub enum WhoStatus {
 
 /// Group channels together into as few JOIN messages as possible
 fn group_joins<'a>(
-    config: &'a config::Server,
     channels: &'a [String],
+    keys: &'a HashMap<String, String>,
 ) -> impl Iterator<Item = proto::Message> + 'a {
     const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"JOIN \r\n".len();
 
     let (without_keys, with_keys): (Vec<_>, Vec<_>) = channels.iter().partition_map(|channel| {
-        config
-            .channel_keys
-            .get(channel)
+        keys.get(channel)
             .map(|key| Either::Right((channel, key)))
             .unwrap_or(Either::Left(channel))
     });
