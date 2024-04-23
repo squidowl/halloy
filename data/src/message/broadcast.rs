@@ -179,7 +179,14 @@ pub fn nickname(
         format!(" ∙ {old_nick} is now known as {new_nick}")
     };
 
-    expand(channels, queries, false, Cause::Server(None), text, sent_time)
+    expand(
+        channels,
+        queries,
+        false,
+        Cause::Server(None),
+        text,
+        sent_time,
+    )
 }
 
 pub fn invite(

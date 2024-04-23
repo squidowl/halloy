@@ -69,8 +69,8 @@ pub enum Command {
     NOTICE(String, String),
 
     /* User-Based Queries */
-    /// <mask>
-    WHO(String),
+    /// <mask> [%<fields>[,<token>]]
+    WHO(String, Option<String>, Option<String>),
     /// [<target>] <nick>
     WHOIS(Option<String>, String),
     /// <nick> [<count>]
@@ -96,6 +96,14 @@ pub enum Command {
 
     /* IRC extensions */
     BATCH(String, Vec<String>),
+    /// <nickname> <channel> :<message>
+    CNOTICE(String, String, String),
+    /// <nickname> <channel> :<message>
+    CPRIVMSG(String, String, String),
+    /// <channel> [<message>]
+    KNOCK(String, Option<String>),
+    /// <nickname>
+    USERIP(String),
 
     Numeric(Numeric, Vec<String>),
     Unknown(String, Vec<String>),
@@ -164,7 +172,7 @@ impl Command {
             "MODE" if len > 0 => MODE(req!(), opt!(), params.collect()),
             "PRIVMSG" if len > 1 => PRIVMSG(req!(), req!()),
             "NOTICE" if len > 1 => NOTICE(req!(), req!()),
-            "WHO" if len > 0 => WHO(req!()),
+            "WHO" if len > 0 => WHO(req!(), opt!(), opt!()),
             "WHOIS" => {
                 let a = req!();
                 match opt!() {
@@ -182,6 +190,10 @@ impl Command {
             "USERHOST" => USERHOST(params.collect()),
             "WALLOPS" if len > 0 => WALLOPS(req!()),
             "BATCH" if len > 0 => BATCH(req!(), params.collect()),
+            "CNOTICE" if len > 2 => CNOTICE(req!(), req!(), req!()),
+            "CPRIVMSG" if len > 2 => CPRIVMSG(req!(), req!(), req!()),
+            "KNOCK" if len > 0 => KNOCK(req!(), opt!()),
+            "USERIP" if len > 0 => USERIP(req!()),
             _ => Self::Unknown(tag, params.collect()),
         }
     }
@@ -217,7 +229,9 @@ impl Command {
             Command::MODE(a, b, c) => std::iter::once(a).chain(b).chain(c).collect(),
             Command::PRIVMSG(a, b) => vec![a, b],
             Command::NOTICE(a, b) => vec![a, b],
-            Command::WHO(a) => vec![a],
+            Command::WHO(a, b, c) => std::iter::once(a)
+                .chain(b.map(|b| c.map_or_else(|| format!("%{}", b), |c| format!("%{},{}", b, c))))
+                .collect(),
             Command::WHOIS(a, b) => a.into_iter().chain(Some(b)).collect(),
             Command::WHOWAS(a, b) => std::iter::once(a).chain(b).collect(),
             Command::KILL(a, b) => vec![a, b],
@@ -229,6 +243,10 @@ impl Command {
             Command::USERHOST(params) => params,
             Command::WALLOPS(a) => vec![a],
             Command::BATCH(a, rest) => std::iter::once(a).chain(rest).collect(),
+            Command::CNOTICE(a, b, c) => vec![a, b, format!(":{}", c)],
+            Command::CPRIVMSG(a, b, c) => vec![a, b, format!(":{}", c)],
+            Command::KNOCK(a, b) => std::iter::once(a).chain(b).collect(),
+            Command::USERIP(a) => vec![a],
             Command::Numeric(_, params) => params,
             Command::Unknown(_, params) => params,
         }
@@ -267,7 +285,7 @@ impl Command {
             MODE(_, _, _) => "MODE".to_string(),
             PRIVMSG(_, _) => "PRIVMSG".to_string(),
             NOTICE(_, _) => "NOTICE".to_string(),
-            WHO(_) => "WHO".to_string(),
+            WHO(_, _, _) => "WHO".to_string(),
             WHOIS(_, _) => "WHOIS".to_string(),
             WHOWAS(_, _) => "WHOWAS".to_string(),
             KILL(_, _) => "KILL".to_string(),
@@ -279,6 +297,10 @@ impl Command {
             USERHOST(_) => "USERHOST".to_string(),
             WALLOPS(_) => "WALLOPS".to_string(),
             BATCH(_, _) => "BATCH".to_string(),
+            CNOTICE(_, _, _) => "CNOTICE".to_string(),
+            CPRIVMSG(_, _, _) => "CPRIVMSG".to_string(),
+            KNOCK(_, _) => "KNOCK".to_string(),
+            USERIP(_) => "USERIP".to_string(),
             Numeric(numeric, _) => format!("{:03}", *numeric as u16),
             Unknown(tag, _) => tag.clone(),
         }
@@ -347,6 +369,7 @@ pub enum Numeric {
     RPL_ENDOFEXCEPTLIST = 349,
     RPL_VERSION = 351,
     RPL_NAMREPLY = 353,
+    RPL_WHOSPCRPL = 354,
     RPL_ENDOFNAMES = 366,
     RPL_LINKS = 364,
     RPL_ENDOFLINKS = 365,
@@ -487,6 +510,7 @@ impl TryFrom<u16> for Numeric {
             349 => RPL_ENDOFEXCEPTLIST,
             351 => RPL_VERSION,
             353 => RPL_NAMREPLY,
+            354 => RPL_WHOSPCRPL,
             366 => RPL_ENDOFNAMES,
             364 => RPL_LINKS,
             365 => RPL_ENDOFLINKS,

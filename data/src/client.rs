@@ -885,6 +885,8 @@ impl Client {
                         }
                     }
                 });
+
+                return None;
             }
             _ => {}
         }
@@ -1098,6 +1100,12 @@ impl Map {
     pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [String] {
         self.client(server)
             .map(|client| client.channels())
+            .unwrap_or_default()
+    }
+
+    pub fn get_isupport_parameters<'a>(&'a self, server: &Server) -> Vec<&'a isupport::Parameter> {
+        self.client(server)
+            .map(|client| client.isupport_parameters.values().collect::<Vec<_>>())
             .unwrap_or_default()
     }
 

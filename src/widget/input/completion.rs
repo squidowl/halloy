@@ -1,5 +1,6 @@
 use std::fmt;
 
+use data::isupport;
 use data::user::User;
 use iced::widget::{column, container, row, text};
 use iced::Length;
@@ -22,11 +23,17 @@ impl Completion {
     }
 
     /// Process input and update the completion state
-    pub fn process(&mut self, input: &str, users: &[User], channels: &[String]) {
+    pub fn process(
+        &mut self,
+        input: &str,
+        users: &[User],
+        channels: &[String],
+        isupport_parameters: &[&isupport::Parameter],
+    ) {
         let is_command = input.starts_with('/');
 
         if is_command {
-            self.commands.process(input);
+            self.commands.process(input, isupport_parameters);
 
             // Disallow user completions when selecting a command
             if matches!(self.commands, Commands::Selecting { .. }) {
@@ -94,7 +101,7 @@ impl Default for Commands {
 }
 
 impl Commands {
-    fn process(&mut self, input: &str) {
+    fn process(&mut self, input: &str, isupport_parameters: &[&isupport::Parameter]) {
         let Some((head, rest)) = input.split_once('/') else {
             *self = Self::Idle;
             return;
@@ -112,11 +119,30 @@ impl Commands {
             (rest, false)
         };
 
+        let command_list =
+            COMMAND_LIST
+                .iter()
+                .map(|command| {
+                    if command.title == "WHO"
+                        && isupport_parameters.iter().any(|isupport_parameter| {
+                            matches!(isupport_parameter, isupport::Parameter::WHOX)
+                        })
+                    {
+                        &WHOX_COMMAND
+                    } else {
+                        command
+                    }
+                })
+                .chain(isupport_parameters.iter().filter_map(|isupport_parameter| {
+                    isupport_parameter_to_command(isupport_parameter)
+                }))
+                .collect::<Vec<_>>();
+
         match self {
             // Command not fully typed, show filtered entries
             _ if !has_space => {
-                let filtered = COMMAND_LIST
-                    .iter()
+                let filtered = command_list
+                    .into_iter()
                     .filter(|command| {
                         command
                             .title
@@ -133,8 +159,8 @@ impl Commands {
             }
             // Command fully typed, transition to showing known entry
             Self::Idle | Self::Selecting { .. } => {
-                if let Some(command) = COMMAND_LIST
-                    .iter()
+                if let Some(command) = command_list
+                    .into_iter()
                     .find(|command| command.title.to_lowercase() == cmd.to_lowercase())
                     .cloned()
                 {
@@ -484,6 +510,13 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             ],
         },
         Command {
+            title: "WHO",
+            args: vec![Arg {
+                text: "target",
+                optional: false,
+            }],
+        },
+        Command {
             title: "KICK",
             args: vec![
                 Arg {
@@ -514,4 +547,105 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             ],
         },
     ]
+});
+
+fn isupport_parameter_to_command(isupport_parameter: &isupport::Parameter) -> Option<&Command> {
+    match isupport_parameter {
+        isupport::Parameter::KNOCK => Some(&KNOCK_COMMAND),
+        isupport::Parameter::USERIP => Some(&USERIP_COMMAND),
+        isupport::Parameter::CNOTICE => Some(&CNOTICE_COMMAND),
+        isupport::Parameter::CPRIVMSG => Some(&CPRIVMSG_COMMAND),
+        isupport::Parameter::SAFELIST => Some(&LIST_COMMAND),
+        _ => None,
+    }
+}
+
+static CNOTICE_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+    title: "CNOTICE",
+    args: vec![
+        Arg {
+            text: "nickname",
+            optional: false,
+        },
+        Arg {
+            text: "channel",
+            optional: false,
+        },
+        Arg {
+            text: "message",
+            optional: false,
+        },
+    ],
+});
+
+static CPRIVMSG_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+    title: "CPRIVMSG",
+    args: vec![
+        Arg {
+            text: "nickname",
+            optional: false,
+        },
+        Arg {
+            text: "channel",
+            optional: false,
+        },
+        Arg {
+            text: "message",
+            optional: false,
+        },
+    ],
+});
+
+static KNOCK_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+    title: "KNOCK",
+    args: vec![
+        Arg {
+            text: "channel",
+            optional: false,
+        },
+        Arg {
+            text: "message",
+            optional: true,
+        },
+    ],
+});
+
+static LIST_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+    title: "LIST",
+    args: vec![
+        Arg {
+            text: "channels",
+            optional: true,
+        },
+        Arg {
+            text: "server",
+            optional: true,
+        },
+    ],
+});
+
+static USERIP_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+    title: "USERIP",
+    args: vec![Arg {
+        text: "nickname",
+        optional: false,
+    }],
+});
+
+static WHOX_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+    title: "WHO",
+    args: vec![
+        Arg {
+            text: "target",
+            optional: false,
+        },
+        Arg {
+            text: "fields",
+            optional: true,
+        },
+        Arg {
+            text: "token",
+            optional: true,
+        },
+    ],
 });

@@ -75,6 +75,7 @@ pub fn view<'a>(
                 input,
                 &[],
                 channels,
+                clients.get_isupport_parameters(&state.server),
                 is_focused,
                 !status.connected()
             )

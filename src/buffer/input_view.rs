@@ -1,4 +1,5 @@
 use data::input::{Cache, Draft};
+use data::isupport;
 use data::user::{Nick, User};
 use data::{client, history, Buffer, Input};
 use iced::Command;
@@ -22,6 +23,7 @@ pub fn view<'a>(
     cache: Cache<'a>,
     users: &'a [User],
     channels: &'a [String],
+    isupport_parameters: Vec<&'a isupport::Parameter>,
     buffer_focused: bool,
     disabled: bool,
 ) -> Element<'a, Message> {
@@ -32,6 +34,7 @@ pub fn view<'a>(
         cache.history,
         users,
         channels,
+        isupport_parameters,
         buffer_focused,
         disabled,
         Message::Input,
