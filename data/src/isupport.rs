@@ -84,18 +84,12 @@ impl<'a> TryFrom<&'a str> for Parameter {
             return Err("empty ISUPPORT parameter not allowed");
         }
 
-        match isupport.chars().nth(0) {
+        match isupport.chars().next() {
             Some('-') => Ok(Parameter::Negation(isupport[1..].to_string())),
             _ => {
                 if let Some((parameter, value)) = isupport.split_once('=') {
                     match parameter {
-                        "ACCEPT" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::ACCEPT(value))
-                            } else {
-                                Err("ACCEPT value must be a positive integer")
-                            }
-                        }
+                        "ACCEPT" => Ok(Parameter::ACCEPT(parse_required_positive_integer(value)?)),
                         "ACCOUNTEXTBAN" => {
                             let account_based_extended_ban_masks =
                                 value.split(',').map(String::from).collect::<Vec<_>>();
@@ -107,28 +101,13 @@ impl<'a> TryFrom<&'a str> for Parameter {
                             }
                         }
                         "AWAYLEN" => {
-                            if value.is_empty() {
-                                Ok(Parameter::AWAYLEN(None))
-                            } else if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::AWAYLEN(Some(value)))
-                            } else {
-                                Err("AWAYLEN value must be a positive integer if specified")
-                            }
+                            Ok(Parameter::AWAYLEN(parse_optional_positive_integer(value)?))
                         }
-                        "BOT" => {
-                            if let Some(value) = value.chars().nth(0) {
-                                Ok(Parameter::BOT(value))
-                            } else {
-                                Err("BOT value must be a character")
-                            }
-                        }
-                        "CALLERID" => {
-                            if let Some(value) = value.chars().nth(0) {
-                                Ok(Parameter::CALLERID(value))
-                            } else {
-                                Ok(Parameter::CALLERID(default_caller_id_letter()))
-                            }
-                        }
+                        "BOT" => Ok(Parameter::BOT(parse_required_letter(value, None)?)),
+                        "CALLERID" => Ok(Parameter::CALLERID(parse_required_letter(
+                            value,
+                            Some(default_caller_id_letter()),
+                        )?)),
                         "CASEMAPPING" => match value {
                             "ascii" => Ok(Parameter::CASEMAPPING(CaseMap::ASCII)),
                             "rfc1459" => Ok(Parameter::CASEMAPPING(CaseMap::RFC1459)),
@@ -179,34 +158,20 @@ impl<'a> TryFrom<&'a str> for Parameter {
                                 Err("no valid channel modes")
                             }
                         }
-                        "CHANNELLEN" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::CHANNELLEN(value))
-                            } else {
-                                Err("CHANNELLEN value must be a positive integer")
-                            }
-                        }
-                        "CHANTYPES" => {
-                            if value.is_empty() {
-                                Ok(Parameter::CHANTYPES(None))
-                            } else {
-                                Ok(Parameter::CHANTYPES(Some(String::from(value))))
-                            }
-                        }
-                        "CHATHISTORY" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::CHATHISTORY(value))
-                            } else {
-                                Err("CHATHISTORY value must be a positive integer")
-                            }
-                        }
+                        "CHANNELLEN" => Ok(Parameter::CHANNELLEN(parse_required_positive_integer(
+                            value,
+                        )?)),
+                        "CHANTYPES" => Ok(Parameter::CHANTYPES(parse_optional_string(value))),
+                        "CHATHISTORY" => Ok(Parameter::CHATHISTORY(
+                            parse_required_positive_integer(value)?,
+                        )),
                         "CLIENTTAGDENY" => {
                             let mut client_tag_denials = vec![];
 
                             value
                                 .split(',')
                                 .for_each(|client_tag_denial| {
-                                    match client_tag_denial.chars().nth(0) {
+                                    match client_tag_denial.chars().next() {
                                         Some('*') => {
                                             client_tag_denials.push(ClientOnlyTags::DenyAll)
                                         }
@@ -236,45 +201,27 @@ impl<'a> TryFrom<&'a str> for Parameter {
                                 }
                             }
 
-                            Err("CLIENTVER value must be a <major>.<minor> version number")
+                            Err("value must be a <major>.<minor> version number")
                         }
                         "CNOTICE" => Ok(Parameter::CNOTICE),
                         "CPRIVMSG" => Ok(Parameter::CPRIVMSG),
-                        "DEAF" => {
-                            if let Some(value) = value.chars().nth(0) {
-                                Ok(Parameter::DEAF(value))
-                            } else {
-                                Ok(Parameter::DEAF(default_deaf_letter()))
-                            }
-                        }
-                        "ELIST" => {
-                            if !value.is_empty() {
-                                Ok(Parameter::ELIST(value.to_string()))
-                            } else {
-                                Err("ELIST value required")
-                            }
-                        }
-                        "ESILENCE" => {
-                            if value.is_empty() {
-                                Ok(Parameter::ESILENCE(None))
-                            } else {
-                                Ok(Parameter::ESILENCE(Some(value.to_string())))
-                            }
-                        }
+                        "DEAF" => Ok(Parameter::DEAF(parse_required_letter(
+                            value,
+                            Some(default_deaf_letter()),
+                        )?)),
+                        "ELIST" => Ok(Parameter::ELIST(parse_required_string(value)?)),
+                        "ESILENCE" => Ok(Parameter::ESILENCE(parse_optional_string(value))),
                         "ETRACE" => Ok(Parameter::ETRACE),
-                        "EXCEPTS" => {
-                            if let Some(value) = value.chars().nth(0) {
-                                Ok(Parameter::EXCEPTS(value))
-                            } else {
-                                Ok(Parameter::EXCEPTS(default_ban_exception_channel_letter()))
-                            }
-                        }
+                        "EXCEPTS" => Ok(Parameter::EXCEPTS(parse_required_letter(
+                            value,
+                            Some(default_ban_exception_channel_letter()),
+                        )?)),
                         "EXTBAN" => {
                             if let Some((prefix, types)) = value.split_once(',') {
                                 if prefix.is_empty() {
                                     Ok(Parameter::EXTBAN(None, types.to_string()))
                                 } else {
-                                    Ok(Parameter::EXTBAN(prefix.chars().nth(0), types.to_string()))
+                                    Ok(Parameter::EXTBAN(prefix.chars().next(), types.to_string()))
                                 }
                             } else {
                                 Err("no valid extended ban masks")
@@ -282,56 +229,27 @@ impl<'a> TryFrom<&'a str> for Parameter {
                         }
                         "FNC" => Ok(Parameter::FNC),
                         "HOSTLEN" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::HOSTLEN(value))
-                            } else {
-                                Err("HOSTLEN value must be a positive integer")
-                            }
+                            Ok(Parameter::HOSTLEN(parse_required_positive_integer(value)?))
                         }
-                        "INVEX" => {
-                            if let Some(value) = value.chars().nth(0) {
-                                Ok(Parameter::INVEX(value))
-                            } else {
-                                Ok(Parameter::INVEX(default_invite_exception_letter()))
-                            }
-                        }
-                        "KEYLEN" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::KEYLEN(value))
-                            } else {
-                                Err("KEYLEN value must be a positive integer")
-                            }
-                        }
+                        "INVEX" => Ok(Parameter::INVEX(parse_required_letter(
+                            value,
+                            Some(default_invite_exception_letter()),
+                        )?)),
+                        "KEYLEN" => Ok(Parameter::KEYLEN(parse_required_positive_integer(value)?)),
                         "KICKLEN" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::KICKLEN(value))
-                            } else {
-                                Err("KICKLEN value must be a positive integer")
-                            }
+                            Ok(Parameter::KICKLEN(parse_required_positive_integer(value)?))
                         }
                         "KNOCK" => Ok(Parameter::KNOCK),
                         "LINELEN" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::LINELEN(value))
-                            } else {
-                                Err("LINELEN value must be a positive integer")
-                            }
+                            Ok(Parameter::LINELEN(parse_required_positive_integer(value)?))
                         }
                         "MAP" => Ok(Parameter::MAP),
                         "MAXBANS" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::MAXBANS(value))
-                            } else {
-                                Err("MAXBANS value must be a positive integer")
-                            }
+                            Ok(Parameter::MAXBANS(parse_required_positive_integer(value)?))
                         }
-                        "MAXCHANNELS" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::MAXCHANNELS(value))
-                            } else {
-                                Err("MAXCHANNELS value must be a positive integer")
-                            }
-                        }
+                        "MAXCHANNELS" => Ok(Parameter::MAXCHANNELS(
+                            parse_required_positive_integer(value)?,
+                        )),
                         "MAXLIST" => {
                             let mut modes_limits = vec![];
 
@@ -353,47 +271,17 @@ impl<'a> TryFrom<&'a str> for Parameter {
                             }
                         }
                         "MAXPARA" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::MAXPARA(value))
-                            } else {
-                                Err("MAXPARA value must be a positive integer")
-                            }
+                            Ok(Parameter::MAXPARA(parse_required_positive_integer(value)?))
                         }
-                        "MAXTARGETS" => {
-                            if value.is_empty() {
-                                Ok(Parameter::MAXTARGETS(None))
-                            } else if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::MAXTARGETS(Some(value)))
-                            } else {
-                                Err("MAXTARGETS value must be a positive integer if specified")
-                            }
-                        }
+                        "MAXTARGETS" => Ok(Parameter::MAXTARGETS(parse_optional_positive_integer(
+                            value,
+                        )?)),
                         "METADATA" => {
-                            if value.is_empty() {
-                                Ok(Parameter::METADATA(None))
-                            } else if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::METADATA(Some(value)))
-                            } else {
-                                Err("METADATA value must be a positive integer if specified")
-                            }
+                            Ok(Parameter::METADATA(parse_optional_positive_integer(value)?))
                         }
-                        "MODES" => {
-                            if value.is_empty() {
-                                Ok(Parameter::MODES(None))
-                            } else if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::MODES(Some(value)))
-                            } else {
-                                Err("MODES value must be a positive integer if specified")
-                            }
-                        }
+                        "MODES" => Ok(Parameter::MODES(parse_optional_positive_integer(value)?)),
                         "MONITOR" => {
-                            if value.is_empty() {
-                                Ok(Parameter::MONITOR(None))
-                            } else if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::MONITOR(Some(value)))
-                            } else {
-                                Err("MONITOR value must be a positive integer if specified")
-                            }
+                            Ok(Parameter::MONITOR(parse_optional_positive_integer(value)?))
                         }
                         "MSGREFTYPES" => {
                             let mut message_reference_types = vec![];
@@ -413,11 +301,7 @@ impl<'a> TryFrom<&'a str> for Parameter {
                         "NAMESX" => Ok(Parameter::NAMESX),
                         "NETWORK" => Ok(Parameter::NETWORK(value.to_string())),
                         "NICKLEN" | "MAXNICKLEN" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::NICKLEN(value))
-                            } else {
-                                Err("NICKLEN value must be a positive integer")
-                            }
+                            Ok(Parameter::NICKLEN(parse_required_positive_integer(value)?))
                         }
                         "OVERRIDE" => Ok(Parameter::OVERRIDE),
                         "PREFIX" => {
@@ -441,13 +325,7 @@ impl<'a> TryFrom<&'a str> for Parameter {
                         "SAFELIST" => Ok(Parameter::SAFELIST),
                         "SECURELIST" => Ok(Parameter::SECURELIST),
                         "SILENCE" => {
-                            if value.is_empty() {
-                                Ok(Parameter::SILENCE(None))
-                            } else if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::SILENCE(Some(value)))
-                            } else {
-                                Err("SILENCE value must be a positive integer if specified")
-                            }
+                            Ok(Parameter::SILENCE(parse_optional_positive_integer(value)?))
                         }
                         "STATUSMSG" => Ok(Parameter::STATUSMSG(value.to_string())),
                         "TARGMAX" => {
@@ -477,94 +355,74 @@ impl<'a> TryFrom<&'a str> for Parameter {
                             }
                         }
                         "TOPICLEN" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::TOPICLEN(value))
-                            } else {
-                                Err("TOPICLEN value must be a positive integer")
-                            }
+                            Ok(Parameter::TOPICLEN(parse_required_positive_integer(value)?))
                         }
                         "UHNAMES" => Ok(Parameter::UHNAMES),
                         "USERIP" => Ok(Parameter::USERIP),
                         "USERLEN" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::USERLEN(value))
-                            } else {
-                                Err("USERLEN value must be a positive integer")
-                            }
+                            Ok(Parameter::USERLEN(parse_required_positive_integer(value)?))
                         }
                         "UTF8ONLY" => Ok(Parameter::UTF8ONLY),
-                        "VLIST" => {
-                            if !value.is_empty() {
-                                Ok(Parameter::VLIST(value.to_string()))
-                            } else {
-                                Err("VLIST value required")
-                            }
-                        }
-                        "WATCH" => {
-                            if let Ok(value) = value.parse::<u16>() {
-                                Ok(Parameter::WATCH(value))
-                            } else {
-                                Err("WATCH value must be a positive integer")
-                            }
-                        }
+                        "VLIST" => Ok(Parameter::VLIST(parse_required_string(value)?)),
+                        "WATCH" => Ok(Parameter::WATCH(parse_required_positive_integer(value)?)),
                         "WHOX" => Ok(Parameter::WHOX),
                         _ => Err("unknown ISUPPORT parameter"),
                     }
                 } else {
                     match isupport {
-                        "ACCEPT" => Err("ACCEPT value required"),
-                        "ACCOUNTEXTBAN" => Err("ACCOUNTEXTBAN value(s) required"),
+                        "ACCEPT" => Err("value required"),
+                        "ACCOUNTEXTBAN" => Err("value(s) required"),
                         "AWAYLEN" => Ok(Parameter::AWAYLEN(None)),
-                        "BOT" => Err("BOT value required"),
+                        "BOT" => Err("value required"),
                         "CALLERID" => Ok(Parameter::CALLERID(default_caller_id_letter())),
-                        "CASEMAPPING" => Err("CASEMAPPING value required"),
-                        "CHANLIMIT" => Err("CHANLIMIT value(s) required"),
-                        "CHANMODES" => Err("CHANMODES value(s) required"),
-                        "CHANNELLEN" => Err("CHANNELLEN value required"),
+                        "CASEMAPPING" => Err("value required"),
+                        "CHANLIMIT" => Err("value(s) required"),
+                        "CHANMODES" => Err("value(s) required"),
+                        "CHANNELLEN" => Err("value required"),
                         "CHANTYPES" => Ok(Parameter::CHANTYPES(None)),
-                        "CHATHISTORY" => Err("CHATHISTORY value required"),
-                        "CLIENTTAGDENY" => Err("CLIENTTAGDENY value(s) required"),
-                        "CLIENTVER" => Err("CLIENTVER value required"),
+                        "CHATHISTORY" => Err("value required"),
+                        "CLIENTTAGDENY" => Err("value(s) required"),
+                        "CLIENTVER" => Err("value required"),
                         "DEAF" => Ok(Parameter::DEAF(default_deaf_letter())),
-                        "ELIST" => Err("ELIST value required"),
+                        "ELIST" => Err("value required"),
                         "ESILENCE" => Ok(Parameter::ESILENCE(None)),
                         "ETRACE" => Ok(Parameter::ETRACE),
                         "EXCEPTS" => Ok(Parameter::EXCEPTS(default_ban_exception_channel_letter())),
-                        "EXTBAN" => Err("EXTBAN value required"),
+                        "EXTBAN" => Err("value required"),
                         "FNC" => Ok(Parameter::FNC),
-                        "HOSTLEN" => Err("HOSTLEN value required"),
+                        "HOSTLEN" => Err("value required"),
                         "INVEX" => Ok(Parameter::INVEX(default_invite_exception_letter())),
-                        "KEYLEN" => Err("KEYLEN value required"),
-                        "KICKLEN" => Err("KICKLEN value required"),
+                        "KEYLEN" => Err("value required"),
+                        "KICKLEN" => Err("value required"),
                         "KNOCK" => Ok(Parameter::KNOCK),
-                        "LINELEN" => Err("LINELEN value required"),
+                        "LINELEN" => Err("value required"),
                         "MAP" => Ok(Parameter::MAP),
-                        "MAXBANS" => Err("MAXBANS value required"),
-                        "MAXCHANNELS" => Err("MAXCHANNELS value required"),
-                        "MAXLIST" => Err("MAXLIST value(s) required"),
-                        "MAXPARA" => Err("MAXPARA value required"),
+                        "MAXBANS" => Err("value required"),
+                        "MAXCHANNELS" => Err("value required"),
+                        "MAXLIST" => Err("value(s) required"),
+                        "MAXPARA" => Err("value required"),
                         "MAXTARGETS" => Ok(Parameter::MAXTARGETS(None)),
                         "METADATA" => Ok(Parameter::METADATA(None)),
                         "MODES" => Ok(Parameter::MODES(None)),
                         "MONITOR" => Ok(Parameter::MONITOR(None)),
                         "MSGREFTYPES" => Ok(Parameter::MSGREFTYPES(vec![])),
                         "NAMESX" => Ok(Parameter::NAMESX),
-                        "NETWORK" => Err("NETWORK value required"),
-                        "NICKLEN" | "MAXNICKLEN" => Err("NICKLEN value required"),
+                        "NETWORK" => Err("value required"),
+                        "NICKLEN" | "MAXNICKLEN" => Err("value required"),
                         "OVERRIDE" => Ok(Parameter::OVERRIDE),
                         "PREFIX" => Ok(Parameter::PREFIX(vec![])),
                         "SAFELIST" => Ok(Parameter::SAFELIST),
                         "SECURELIST" => Ok(Parameter::SECURELIST),
                         "SILENCE" => Ok(Parameter::SILENCE(None)),
-                        "STATUSMSG" => Err("STATUSMSG value required"),
+                        "STATUSMSG" => Err("value required"),
                         "TARGMAX" => Ok(Parameter::TARGMAX(vec![])),
-                        "TOPICLEN" => Err("TOPICLEN value required"),
+                        "TOPICLEN" => Err("value required"),
                         "UHNAMES" => Ok(Parameter::UHNAMES),
                         "USERIP" => Ok(Parameter::USERIP),
-                        "USERLEN" => Err("USERLEN value required"),
+                        "USERLEN" => Err("value required"),
                         "UTF8ONLY" => Ok(Parameter::UTF8ONLY),
-                        "VLIST" => Err("VLIST value required"),
-                        "WATCH" => Err("WATCH value required"),
+                        "VLIST" => Err("value required"),
+                        "WATCH" => Err("value required"),
                         "WHOX" => Ok(Parameter::WHOX),
                         _ => Err("unknown ISUPPORT parameter"),
                     }
@@ -709,4 +567,48 @@ pub fn default_deaf_letter() -> char {
 
 pub fn default_invite_exception_letter() -> char {
     'I'
+}
+
+fn parse_optional_positive_integer(value: &str) -> Result<Option<u16>, &'static str> {
+    if value.is_empty() {
+        Ok(None)
+    } else if let Ok(value) = value.parse::<u16>() {
+        Ok(Some(value))
+    } else {
+        Err("optional value must be a positive integer if specified")
+    }
+}
+
+fn parse_optional_string(value: &str) -> Option<String> {
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
+}
+
+fn parse_required_letter(value: &str, default_value: Option<char>) -> Result<char, &'static str> {
+    if let Some(value) = value.chars().next() {
+        Ok(value)
+    } else if let Some(default_value) = default_value {
+        Ok(default_value)
+    } else {
+        Err("value required to be a letter")
+    }
+}
+
+fn parse_required_positive_integer(value: &str) -> Result<u16, &'static str> {
+    if let Ok(value) = value.parse::<u16>() {
+        Ok(value)
+    } else {
+        Err("value required to be a positive integer")
+    }
+}
+
+fn parse_required_string(value: &str) -> Result<String, &'static str> {
+    if !value.is_empty() {
+        Ok(value.to_string())
+    } else {
+        Err("value required")
+    }
 }
