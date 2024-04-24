@@ -1,6 +1,3 @@
-# Please see the documentation for all configuration options:
-# https://help.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
-
 version: 2
 updates:
   - package-ecosystem: "github-actions"
@@ -8,7 +5,4 @@ updates:
   schedule:
     interval: "weekly"
     ignore:
-        # These are peer deps of Cargo and should not be automatically bumped
         - dependency-name: "iced"
-        #- dependency-name: "crates-io"
-    rebase-strategy: "enabled"
