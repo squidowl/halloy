@@ -3,12 +3,12 @@
 
 version: 2
 updates:
-  - package-ecosystem: "cargo"
-    directory: "/"
-    schedule:
-      interval: "weekly"
+  - package-ecosystem: "github-actions"
+  directory: "/"
+  schedule:
+    interval: "weekly"
     ignore:
         # These are peer deps of Cargo and should not be automatically bumped
-        #- dependency-name: "semver"
+        - dependency-name: "iced"
         #- dependency-name: "crates-io"
-    rebase-strategy: "disabled"
+    rebase-strategy: "enabled"
