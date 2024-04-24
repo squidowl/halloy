@@ -2,7 +2,7 @@ use std::fmt;
 
 use data::isupport;
 use data::user::User;
-use iced::widget::{column, container, row, text};
+use iced::widget::{column, container, row, text, tooltip};
 use iced::Length;
 use once_cell::sync::Lazy;
 
@@ -119,24 +119,29 @@ impl Commands {
             (rest, false)
         };
 
-        let command_list =
-            COMMAND_LIST
-                .iter()
-                .map(|command| {
-                    if command.title == "WHO"
-                        && isupport_parameters.iter().any(|isupport_parameter| {
-                            matches!(isupport_parameter, isupport::Parameter::WHOX)
-                        })
+        let command_list = COMMAND_LIST
+            .iter()
+            .map(|command| {
+                if command.title == "WHO"
+                    && find_isupport_parameter(isupport_parameters, isupport::Kind::WHOX).is_some()
+                {
+                    return WHOX_COMMAND.clone();
+                } else if command.title == "NICK" {
+                    if let Some(isupport::Parameter::NICKLEN(nick_len)) =
+                        find_isupport_parameter(isupport_parameters, isupport::Kind::NICKLEN)
                     {
-                        &WHOX_COMMAND
-                    } else {
-                        command
+                        return nick_command(nick_len);
                     }
-                })
-                .chain(isupport_parameters.iter().filter_map(|isupport_parameter| {
+                }
+
+                command.clone()
+            })
+            .chain(
+                isupport_parameters.iter().filter_map(|isupport_parameter| {
                     isupport_parameter_to_command(isupport_parameter)
-                }))
-                .collect::<Vec<_>>();
+                }),
+            )
+            .collect::<Vec<_>>();
 
         match self {
             // Command not fully typed, show filtered entries
@@ -149,7 +154,6 @@ impl Commands {
                             .to_lowercase()
                             .starts_with(&cmd.to_lowercase())
                     })
-                    .cloned()
                     .collect();
 
                 *self = Self::Selecting {
@@ -162,7 +166,6 @@ impl Commands {
                 if let Some(command) = command_list
                     .into_iter()
                     .find(|command| command.title.to_lowercase() == cmd.to_lowercase())
-                    .cloned()
                 {
                     *self = Self::Selected { command };
                 } else {
@@ -290,13 +293,31 @@ impl Command {
         let title = Some(Element::from(text(self.title)));
 
         let args = self.args.iter().enumerate().map(|(index, arg)| {
-            Element::from(text(format!(" {arg}")).style(move |theme| {
+            let content = text(format!(" {arg}")).style(move |theme| {
                 if index == active_arg {
                     theme::text::accent(theme)
                 } else {
                     theme::text::none(theme)
                 }
-            }))
+            });
+
+            if let Some(arg_tooltip) = &arg.tooltip {
+                Element::from(tooltip(
+                    content,
+                    container(text(arg_tooltip.clone()).style(move |theme| {
+                        if index == active_arg {
+                            theme::text::transparent_accent(theme)
+                        } else {
+                            theme::text::transparent(theme)
+                        }
+                    }))
+                    .style(theme::container::context)
+                    .padding(8),
+                    tooltip::Position::Top,
+                ))
+            } else {
+                Element::from(content)
+            }
         });
 
         container(row(title.into_iter().chain(args)))
@@ -311,6 +332,7 @@ impl Command {
 struct Arg {
     text: &'static str,
     optional: bool,
+    tooltip: Option<String>,
 }
 
 impl fmt::Display for Arg {
@@ -411,10 +433,12 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 Arg {
                     text: "channels",
                     optional: false,
+                    tooltip: None,
                 },
                 Arg {
                     text: "keys",
                     optional: true,
+                    tooltip: None,
                 },
             ],
         },
@@ -423,6 +447,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             args: vec![Arg {
                 text: "server",
                 optional: true,
+                tooltip: None,
             }],
         },
         Command {
@@ -430,6 +455,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             args: vec![Arg {
                 text: "nickname",
                 optional: false,
+                tooltip: None,
             }],
         },
         Command {
@@ -437,6 +463,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             args: vec![Arg {
                 text: "reason",
                 optional: true,
+                tooltip: None,
             }],
         },
         Command {
@@ -445,10 +472,12 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 Arg {
                     text: "target",
                     optional: false,
+                    tooltip: None,
                 },
                 Arg {
                     text: "text",
                     optional: false,
+                    tooltip: None,
                 },
             ],
         },
@@ -457,6 +486,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             args: vec![Arg {
                 text: "nick",
                 optional: false,
+                tooltip: None,
             }],
         },
         Command {
@@ -464,6 +494,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             args: vec![Arg {
                 text: "action",
                 optional: false,
+                tooltip: None,
             }],
         },
         Command {
@@ -472,14 +503,17 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 Arg {
                     text: "channel",
                     optional: false,
+                    tooltip: None,
                 },
                 Arg {
                     text: "mode",
                     optional: false,
+                    tooltip: None,
                 },
                 Arg {
                     text: "user",
                     optional: true,
+                    tooltip: None,
                 },
             ],
         },
@@ -489,10 +523,12 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 Arg {
                     text: "channels",
                     optional: false,
+                    tooltip: None,
                 },
                 Arg {
                     text: "reason",
                     optional: true,
+                    tooltip: None,
                 },
             ],
         },
@@ -502,10 +538,12 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 Arg {
                     text: "channel",
                     optional: false,
+                    tooltip: None,
                 },
                 Arg {
                     text: "topic",
                     optional: true,
+                    tooltip: None,
                 },
             ],
         },
@@ -514,6 +552,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             args: vec![Arg {
                 text: "target",
                 optional: false,
+                tooltip: None,
             }],
         },
         Command {
@@ -522,14 +561,17 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 Arg {
                     text: "channel",
                     optional: false,
+                    tooltip: None,
                 },
                 Arg {
                     text: "user",
                     optional: false,
+                    tooltip: None,
                 },
                 Arg {
                     text: "comment",
                     optional: true,
+                    tooltip: None,
                 },
             ],
         },
@@ -539,23 +581,36 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 Arg {
                     text: "command",
                     optional: false,
+                    tooltip: None,
                 },
                 Arg {
                     text: "args",
                     optional: true,
+                    tooltip: None,
                 },
             ],
         },
     ]
 });
 
-fn isupport_parameter_to_command(isupport_parameter: &isupport::Parameter) -> Option<&Command> {
+fn find_isupport_parameter(
+    isupport_parameters: &[&isupport::Parameter],
+    kind: isupport::Kind,
+) -> Option<isupport::Parameter> {
+    isupport_parameters
+        .iter()
+        .find(|isupport_parameter| isupport_parameter.kind() == Some(kind.clone()))
+        .cloned()
+        .cloned()
+}
+
+fn isupport_parameter_to_command(isupport_parameter: &isupport::Parameter) -> Option<Command> {
     match isupport_parameter {
-        isupport::Parameter::KNOCK => Some(&KNOCK_COMMAND),
-        isupport::Parameter::USERIP => Some(&USERIP_COMMAND),
-        isupport::Parameter::CNOTICE => Some(&CNOTICE_COMMAND),
-        isupport::Parameter::CPRIVMSG => Some(&CPRIVMSG_COMMAND),
-        isupport::Parameter::SAFELIST => Some(&LIST_COMMAND),
+        isupport::Parameter::KNOCK => Some(KNOCK_COMMAND.clone()),
+        isupport::Parameter::USERIP => Some(USERIP_COMMAND.clone()),
+        isupport::Parameter::CNOTICE => Some(CNOTICE_COMMAND.clone()),
+        isupport::Parameter::CPRIVMSG => Some(CPRIVMSG_COMMAND.clone()),
+        isupport::Parameter::SAFELIST => Some(LIST_COMMAND.clone()),
         _ => None,
     }
 }
@@ -566,14 +621,17 @@ static CNOTICE_COMMAND: Lazy<Command> = Lazy::new(|| Command {
         Arg {
             text: "nickname",
             optional: false,
+            tooltip: None,
         },
         Arg {
             text: "channel",
             optional: false,
+            tooltip: None,
         },
         Arg {
             text: "message",
             optional: false,
+            tooltip: None,
         },
     ],
 });
@@ -584,14 +642,17 @@ static CPRIVMSG_COMMAND: Lazy<Command> = Lazy::new(|| Command {
         Arg {
             text: "nickname",
             optional: false,
+            tooltip: None,
         },
         Arg {
             text: "channel",
             optional: false,
+            tooltip: None,
         },
         Arg {
             text: "message",
             optional: false,
+            tooltip: None,
         },
     ],
 });
@@ -602,10 +663,12 @@ static KNOCK_COMMAND: Lazy<Command> = Lazy::new(|| Command {
         Arg {
             text: "channel",
             optional: false,
+            tooltip: None,
         },
         Arg {
             text: "message",
             optional: true,
+            tooltip: None,
         },
     ],
 });
@@ -616,19 +679,33 @@ static LIST_COMMAND: Lazy<Command> = Lazy::new(|| Command {
         Arg {
             text: "channels",
             optional: true,
+            tooltip: None,
         },
         Arg {
             text: "server",
             optional: true,
+            tooltip: None,
         },
     ],
 });
+
+fn nick_command(max_len: u16) -> Command {
+    Command {
+        title: "NICK",
+        args: vec![Arg {
+            text: "nickname",
+            optional: false,
+            tooltip: Some(format!("maximum length: {}", max_len)),
+        }],
+    }
+}
 
 static USERIP_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     title: "USERIP",
     args: vec![Arg {
         text: "nickname",
         optional: false,
+        tooltip: None,
     }],
 });
 
@@ -638,14 +715,31 @@ static WHOX_COMMAND: Lazy<Command> = Lazy::new(|| Command {
         Arg {
             text: "target",
             optional: false,
+            tooltip: None,
         },
         Arg {
             text: "fields",
             optional: true,
+            tooltip: Some(String::from(
+                "t: token\n\
+                c: channel\n\
+            u: username\n\
+            i: IP address\n\
+            h: hostname\n\
+            s: server name\n\
+            n: nickname\n\
+            f: WHO flags\n\
+            d: hop count\n\
+            l: idle seconds\n\
+            a: account name\n\
+            o: channel op level\n\
+            r: realname",
+            )),
         },
         Arg {
             text: "token",
             optional: true,
+            tooltip: Some(String::from("1-3 digits")),
         },
     ],
 });
