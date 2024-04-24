@@ -17,6 +17,7 @@
   - [Themes](configuration/themes/README.md)
     - [Community](configuration/themes/community.md)
   - [Tooltips](configuration/tooltips.md)
+- [IRC URL Scheme](irc-url-scheme.md)
 
 # Guides
 
