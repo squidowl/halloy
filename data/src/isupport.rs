@@ -1,5 +1,18 @@
 use std::str::FromStr;
 
+// Utilized ISUPPORT parameters should have an associated Kind enum variant
+// returned by Operation::kind() and Parameter::kind()
+#[allow(non_camel_case_types)]
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub enum Kind {
+    CNOTICE,
+    CPRIVMSG,
+    KNOCK,
+    SAFELIST,
+    USERIP,
+    WHOX,
+}
+
 #[derive(Debug)]
 pub enum Operation {
     Add(Parameter),
@@ -397,6 +410,23 @@ impl FromStr for Operation {
     }
 }
 
+impl Operation {
+    pub fn kind(&self) -> Option<Kind> {
+        match self {
+            Operation::Add(parameter) => parameter.kind(),
+            Operation::Remove(parameter) => match parameter.as_ref() {
+                "CNOTICE" => Some(Kind::CNOTICE),
+                "CPRIVMSG" => Some(Kind::CPRIVMSG),
+                "KNOCK" => Some(Kind::KNOCK),
+                "SAFELIST" => Some(Kind::SAFELIST),
+                "USERIP" => Some(Kind::USERIP),
+                "WHOX" => Some(Kind::WHOX),
+                _ => None,
+            }
+        }
+    }
+}
+
 // ISUPPORT Parameter References
 // - https://defs.ircdocs.horse/defs/isupport.html
 // - https://modern.ircdocs.horse/#rplisupport-005
@@ -467,64 +497,15 @@ pub enum Parameter {
 }
 
 impl Parameter {
-    pub fn key(&self) -> &str {
+    pub fn kind(&self) -> Option<Kind> {
         match self {
-            Parameter::ACCEPT(_) => "ACCEPT",
-            Parameter::ACCOUNTEXTBAN(_) => "ACCOUNTEXTBAN",
-            Parameter::AWAYLEN(_) => "AWAYLEN",
-            Parameter::BOT(_) => "BOT",
-            Parameter::CALLERID(_) => "CALLERID",
-            Parameter::CASEMAPPING(_) => "CASEMAPPING",
-            Parameter::CHANLIMIT(_) => "CHANLIMIT",
-            Parameter::CHANMODES(_) => "CHANMODES",
-            Parameter::CHANNELLEN(_) => "CHANNELLEN",
-            Parameter::CHANTYPES(_) => "CHANTYPES",
-            Parameter::CHATHISTORY(_) => "CHATHISTORY",
-            Parameter::CLIENTTAGDENY(_) => "CLIENTTAGDENY",
-            Parameter::CLIENTVER(_, _) => "CLIENTVER",
-            Parameter::CNOTICE => "CNOTICE",
-            Parameter::CPRIVMSG => "CPRIVMSG",
-            Parameter::DEAF(_) => "DEAF",
-            Parameter::ELIST(_) => "ELIST",
-            Parameter::ESILENCE(_) => "ESILENCE",
-            Parameter::ETRACE => "ETRACE",
-            Parameter::EXCEPTS(_) => "EXCEPTS",
-            Parameter::EXTBAN(_, _) => "EXTBAN",
-            Parameter::FNC => "FNC",
-            Parameter::HOSTLEN(_) => "HOSTLEN",
-            Parameter::INVEX(_) => "INVEX",
-            Parameter::KEYLEN(_) => "KEYLEN",
-            Parameter::KICKLEN(_) => "KICKLEN",
-            Parameter::KNOCK => "KNOCK",
-            Parameter::LINELEN(_) => "LINELEN",
-            Parameter::MAP => "MAP",
-            Parameter::MAXBANS(_) => "MAXBANS",
-            Parameter::MAXCHANNELS(_) => "MAXCHANNELS",
-            Parameter::MAXLIST(_) => "MAXLIST",
-            Parameter::MAXPARA(_) => "MAXPARA",
-            Parameter::MAXTARGETS(_) => "MAXTARGETS",
-            Parameter::METADATA(_) => "METADATA",
-            Parameter::MODES(_) => "MODES",
-            Parameter::MONITOR(_) => "MONITOR",
-            Parameter::MSGREFTYPES(_) => "MSGREFTYPES",
-            Parameter::NAMESX => "NAMESX",
-            Parameter::NETWORK(_) => "NETWORK",
-            Parameter::NICKLEN(_) => "NICKLEN",
-            Parameter::OVERRIDE => "OVERRIDE",
-            Parameter::PREFIX(_) => "PREFIX",
-            Parameter::SAFELIST => "SAFELIST",
-            Parameter::SECURELIST => "SECURELIST",
-            Parameter::SILENCE(_) => "SILENCE",
-            Parameter::STATUSMSG(_) => "STATUSMSG",
-            Parameter::TARGMAX(_) => "TARGMAX",
-            Parameter::TOPICLEN(_) => "TOPICLEN",
-            Parameter::UHNAMES => "UHNAMES",
-            Parameter::USERIP => "USERIP",
-            Parameter::USERLEN(_) => "USERLEN",
-            Parameter::UTF8ONLY => "UTF8ONLY",
-            Parameter::VLIST(_) => "VLIST",
-            Parameter::WATCH(_) => "WATCH",
-            Parameter::WHOX => "WHOX",
+            Parameter::CNOTICE => Some(Kind::CNOTICE),
+            Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
+            Parameter::KNOCK => Some(Kind::KNOCK),
+            Parameter::SAFELIST => Some(Kind::SAFELIST),
+            Parameter::USERIP => Some(Kind::USERIP),
+            Parameter::WHOX => Some(Kind::WHOX),
+            _ => None,
         }
     }
 }
