@@ -87,6 +87,7 @@ pub struct Client {
     supports_labels: bool,
     supports_away_notify: bool,
     highlight_blackout: HighlightBlackout,
+    registration_required_channels: Vec<String>,
 }
 
 impl fmt::Debug for Client {
@@ -135,6 +136,7 @@ impl Client {
             supports_labels: false,
             supports_away_notify: false,
             highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
+            registration_required_channels: vec![],
         }
     }
 
@@ -443,6 +445,17 @@ impl Client {
             }
             Command::Numeric(RPL_LOGGEDIN, _) => {
                 log::info!("[{}] logged in", self.server);
+
+                if !self.registration_required_channels.is_empty() {
+                    for message in group_joins(
+                        &self.registration_required_channels,
+                        &self.config.channel_keys,
+                    ) {
+                        let _ = self.handle.try_send(message);
+                    }
+
+                    self.registration_required_channels.clear();
+                }
             }
             Command::PRIVMSG(channel, text) | Command::NOTICE(channel, text) => {
                 if let Some(user) = message.user() {
@@ -606,7 +619,7 @@ impl Client {
                 }
 
                 // Send JOIN
-                for message in group_joins(&self.config) {
+                for message in group_joins(&self.config.channels, &self.config.channel_keys) {
                     let _ = self.handle.try_send(message);
                 }
             }
@@ -815,6 +828,22 @@ impl Client {
                 // Exclude topic message from history to prevent spam during dev
                 #[cfg(feature = "dev")]
                 return None;
+            }
+            Command::Numeric(ERR_NOCHANMODES, args) => {
+                let channel = args.get(1)?;
+
+                // If the channel has not been joined but is in the configured channels,
+                // then interpret this numeric as ERR_NEEDREGGEDNICK (which has the
+                // same number as ERR_NOCHANMODES)
+                if self.chanmap.get(channel).is_none()
+                    && self
+                        .config
+                        .channels
+                        .iter()
+                        .any(|config_channel| config_channel == channel)
+                {
+                    self.registration_required_channels.push(channel.clone());
+                }
             }
             _ => {}
         }
@@ -1175,17 +1204,17 @@ pub enum WhoStatus {
 }
 
 /// Group channels together into as few JOIN messages as possible
-fn group_joins(config: &config::Server) -> impl Iterator<Item = proto::Message> + '_ {
+fn group_joins<'a>(
+    channels: &'a [String],
+    keys: &'a HashMap<String, String>,
+) -> impl Iterator<Item = proto::Message> + 'a {
     const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"JOIN \r\n".len();
 
-    let (without_keys, with_keys): (Vec<_>, Vec<_>) =
-        config.channels.iter().partition_map(|channel| {
-            config
-                .channel_keys
-                .get(channel)
-                .map(|key| Either::Right((channel, key)))
-                .unwrap_or(Either::Left(channel))
-        });
+    let (without_keys, with_keys): (Vec<_>, Vec<_>) = channels.iter().partition_map(|channel| {
+        keys.get(channel)
+            .map(|key| Either::Right((channel, key)))
+            .unwrap_or(Either::Left(channel))
+    });
 
     let joins_without_keys = without_keys
         .into_iter()
