@@ -704,7 +704,7 @@ impl Client {
                         }
 
                         channel.update_user_away(
-                            User::from(Nick::from(args[5].clone())),
+                            User::from(Nick::from(args.get(5)?.clone())),
                             args.get(6)?.chars().collect::<Vec<char>>(),
                         );
 
