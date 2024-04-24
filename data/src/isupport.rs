@@ -422,7 +422,7 @@ impl Operation {
                 "USERIP" => Some(Kind::USERIP),
                 "WHOX" => Some(Kind::WHOX),
                 _ => None,
-            }
+            },
         }
     }
 }

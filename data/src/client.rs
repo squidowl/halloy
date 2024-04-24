@@ -659,7 +659,11 @@ impl Client {
 
                     if let Some(state) = self.chanmap.get_mut(channel) {
                         // Sends WHO to get away state on users.
-                        if self.isupport_parameters.get(&isupport::Kind::WHOX).is_some() {
+                        if self
+                            .isupport_parameters
+                            .get(&isupport::Kind::WHOX)
+                            .is_some()
+                        {
                             let _ = self.handle.try_send(command!(
                                 "WHO",
                                 channel,
@@ -699,7 +703,10 @@ impl Client {
                             log::debug!("[{}] {target} - WHO receiving...", self.server);
                         }
 
-                        channel.update_user_away(User::from(Nick::from(args[5].clone())), args.get(6)?.chars().collect::<Vec<char>>());
+                        channel.update_user_away(
+                            User::from(Nick::from(args[5].clone())),
+                            args.get(6)?.chars().collect::<Vec<char>>(),
+                        );
 
                         // We requested, don't save to history
                         if matches!(channel.last_who, Some(WhoStatus::Receiving(None))) {
@@ -731,7 +738,10 @@ impl Client {
                                 if request_token == token {
                                     let flags = args.get(4)?.chars().collect::<Vec<char>>();
 
-                                    if flags.iter().all(|c| matches!(c, 'H' | 'G' | '&' | '@' | '%' | '+')) {
+                                    if flags
+                                        .iter()
+                                        .all(|c| matches!(c, 'H' | 'G' | '&' | '@' | '%' | '+'))
+                                    {
                                         if let Ok(user) = User::try_from(args.get(3)?.clone()) {
                                             channel.update_user_away(user, flags);
                                         }
@@ -902,10 +912,7 @@ impl Client {
                                             self.server,
                                             isupport_parameter
                                         );
-                                        self.isupport_parameters.insert(
-                                            kind,
-                                            isupport_parameter,
-                                        );
+                                        self.isupport_parameters.insert(kind, isupport_parameter);
                                     }
                                 }
                                 isupport::Operation::Remove(_) => {
@@ -1025,7 +1032,11 @@ impl Client {
             };
 
             if let Some(request) = request {
-                if self.isupport_parameters.get(&isupport::Kind::WHOX).is_some() {
+                if self
+                    .isupport_parameters
+                    .get(&isupport::Kind::WHOX)
+                    .is_some()
+                {
                     let _ = self.handle.try_send(command!(
                         "WHO",
                         channel,
