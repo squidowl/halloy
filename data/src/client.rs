@@ -720,7 +720,7 @@ impl Client {
 
                 if proto::is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
-                        if let Ok(token) = isupport::WhoToken::try_from(args.get(1)?.clone()) {
+                        if let Ok(token) = args.get(1)?.parse::<isupport::WhoToken>() {
                             if let Some(WhoStatus::Requested(_, Some(request_token))) =
                                 channel.last_who
                             {
