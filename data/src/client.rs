@@ -88,7 +88,7 @@ pub struct Client {
     supports_away_notify: bool,
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<String>,
-    isupport_parameters: HashMap<String, isupport::Parameter>,
+    isupport_parameters: HashMap<isupport::Kind, isupport::Parameter>,
 }
 
 impl fmt::Debug for Client {
@@ -659,7 +659,7 @@ impl Client {
 
                     if let Some(state) = self.chanmap.get_mut(channel) {
                         // Sends WHO to get away state on users.
-                        if self.isupport_parameters.get("WHOX").is_some() {
+                        if self.isupport_parameters.get(&isupport::Kind::WHOX).is_some() {
                             let _ = self.handle.try_send(command!(
                                 "WHO",
                                 channel,
@@ -896,23 +896,27 @@ impl Client {
                         Ok(isupport_operation) => {
                             match isupport_operation {
                                 isupport::Operation::Add(isupport_parameter) => {
-                                    log::info!(
-                                        "[{}] adding ISUPPORT parameter: {:?}",
-                                        self.server,
-                                        isupport_parameter
-                                    );
-                                    self.isupport_parameters.insert(
-                                        isupport_parameter.key().to_string(),
-                                        isupport_parameter,
-                                    )
+                                    if let Some(kind) = isupport_parameter.kind() {
+                                        log::info!(
+                                            "[{}] adding ISUPPORT parameter: {:?}",
+                                            self.server,
+                                            isupport_parameter
+                                        );
+                                        self.isupport_parameters.insert(
+                                            kind,
+                                            isupport_parameter,
+                                        );
+                                    }
                                 }
-                                isupport::Operation::Remove(key) => {
-                                    log::info!(
-                                        "[{}] removing ISUPPORT parameter: {}",
-                                        self.server,
-                                        key
-                                    );
-                                    self.isupport_parameters.remove(&key)
+                                isupport::Operation::Remove(_) => {
+                                    if let Some(kind) = isupport_operation.kind() {
+                                        log::info!(
+                                            "[{}] removing ISUPPORT parameter: {:?}",
+                                            self.server,
+                                            kind
+                                        );
+                                        self.isupport_parameters.remove(&kind);
+                                    }
                                 }
                             };
                         }
@@ -1021,7 +1025,7 @@ impl Client {
             };
 
             if let Some(request) = request {
-                if self.isupport_parameters.get("WHOX").is_some() {
+                if self.isupport_parameters.get(&isupport::Kind::WHOX).is_some() {
                     let _ = self.handle.try_send(command!(
                         "WHO",
                         channel,
