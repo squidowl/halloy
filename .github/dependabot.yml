@@ -1,8 +1,12 @@
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
+  - package-ecosystem: "cargo"
   directory: "/"
   schedule:
     interval: "weekly"
     ignore:
         - dependency-name: "iced"
+  - package-ecosystem: "github-actions"
+  directory: "/"
+  schedule:
+    interval: "weekly"
