@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer};
 
 use crate::config;
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Clone, Default, Deserialize)]
 pub struct Server {
     /// The client's nickname.
     pub nickname: String,
@@ -27,7 +27,7 @@ pub struct Server {
     /// The server to connect to.
     pub server: String,
     /// The port to connect on.
-    #[serde(default = "default_port")]
+    #[serde(default = "default_tls_port")]
     pub port: u16,
     /// The password to connect to the server.
     pub password: Option<String>,
@@ -89,6 +89,28 @@ pub struct Server {
 }
 
 impl Server {
+    pub fn new(
+        server: String,
+        port: Option<u16>,
+        nickname: String,
+        channels: Vec<String>,
+        use_tls: bool,
+    ) -> Self {
+        Self {
+            nickname,
+            server,
+            port: port.unwrap_or(if use_tls {
+                default_tls_port()
+            } else {
+                default_port()
+            }),
+            channels,
+            use_tls,
+            dangerously_accept_invalid_certs: false,
+            ..Default::default()
+        }
+    }
+
     pub fn connection(&self, proxy: Option<config::Proxy>) -> connection::Config {
         let security = if self.use_tls {
             connection::Security::Secured {
@@ -110,14 +132,14 @@ impl Server {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum IdentifySyntax {
     NickPassword,
     PasswordNick,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Sasl {
     Plain {
@@ -191,8 +213,12 @@ fn default_use_tls() -> bool {
     true
 }
 
-fn default_port() -> u16 {
+fn default_tls_port() -> u16 {
     6697
+}
+
+fn default_port() -> u16 {
+    6667
 }
 
 fn default_ping_time() -> u64 {

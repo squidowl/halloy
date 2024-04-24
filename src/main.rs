@@ -11,6 +11,8 @@ mod notification;
 mod screen;
 mod stream;
 mod theme;
+mod url;
+mod url_server;
 mod widget;
 mod window;
 
@@ -67,6 +69,14 @@ pub fn main() -> iced::Result {
     // DANGER ZONE - font must be set using config
     // before we do any iced related stuff w/ it
     font::set(config_load.as_ref().ok());
+
+    let destination = ipc::Route::find_in(std::env::args());
+    if let Some(loc) = destination.clone() {
+        let should_exit = ipc::client::connect_and_send(loc);
+        if should_exit {
+            return Ok(());
+        }
+    }
 
     if let Err(error) = Halloy::run(settings(config_load)) {
         log::error!("{}", error.to_string());
@@ -193,6 +203,7 @@ pub enum Message {
     Tick(Instant),
     Version(Option<String>),
     CloseModal,
+    RouteReceived(ipc::server::Message),
 }
 
 impl Application for Halloy {
@@ -609,6 +620,14 @@ impl Application for Halloy {
 
                 Command::none()
             }
+            Message::RouteReceived(route) => {
+                if let ipc::server::Message::RouteReceived(route) = route {
+                    log::info!("RouteRecived: {:?}", route);
+                    self.modal = Some(Modal::UrlRouteReceived(route));
+                };
+
+                Command::none()
+            },
         }
     }
 
@@ -656,6 +675,12 @@ impl Application for Halloy {
         )
         .map(Message::Stream);
 
-        Subscription::batch(vec![tick, streams, events().map(Message::Event)])
+        Subscription::batch(vec![
+            url::on_url().map(|route| Message::RouteReceived(route.into())),
+            url_server::listen().map(Message::RouteReceived),
+            tick,
+            streams,
+            events().map(Message::Event),
+        ])
     }
 }
