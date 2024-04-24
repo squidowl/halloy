@@ -3,11 +3,12 @@ use std::str::FromStr;
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
 // returned by Operation::kind() and Parameter::kind()
 #[allow(non_camel_case_types)]
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Kind {
     CNOTICE,
     CPRIVMSG,
     KNOCK,
+    NICKLEN,
     SAFELIST,
     USERIP,
     WHOX,
@@ -418,6 +419,7 @@ impl Operation {
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
                 "KNOCK" => Some(Kind::KNOCK),
+                "NICKLEN" => Some(Kind::NICKLEN),
                 "SAFELIST" => Some(Kind::SAFELIST),
                 "USERIP" => Some(Kind::USERIP),
                 "WHOX" => Some(Kind::WHOX),
@@ -436,7 +438,7 @@ impl Operation {
 // - https://ircv3.net/specs/extensions/whox
 // - https://github.com/ircv3/ircv3-specifications/pull/464/files
 #[allow(non_camel_case_types)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Parameter {
     ACCEPT(u16),
     ACCOUNTEXTBAN(Vec<String>),
@@ -502,6 +504,7 @@ impl Parameter {
             Parameter::CNOTICE => Some(Kind::CNOTICE),
             Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
             Parameter::KNOCK => Some(Kind::KNOCK),
+            Parameter::NICKLEN(_) => Some(Kind::NICKLEN),
             Parameter::SAFELIST => Some(Kind::SAFELIST),
             Parameter::USERIP => Some(Kind::USERIP),
             Parameter::WHOX => Some(Kind::WHOX),
@@ -511,7 +514,7 @@ impl Parameter {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum CaseMap {
     ASCII,
     RFC1459,
@@ -520,20 +523,20 @@ pub enum CaseMap {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ChannelLimit {
     prefix: char,
     limit: Option<u16>,
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ChannelMode {
     letter: char,
     modes: String,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ClientOnlyTags {
     Allowed(String),
     Denied(String),
@@ -541,27 +544,27 @@ pub enum ClientOnlyTags {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CommandTargetLimit {
     command: String,
     limit: Option<u16>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum MessageReferenceType {
     Timestamp,
     MessageID,
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ModesLimit {
     modes: String,
     limit: u16,
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PrefixMap {
     prefix: char,
     mode: char,
