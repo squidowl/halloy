@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use irc::connection::{self, Proxy};
+use irc::connection;
 use serde::{Deserialize, Deserializer};
+
+use super::proxy::Proxy;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Server {
@@ -28,7 +30,7 @@ pub struct Server {
     #[serde(default = "default_port")]
     pub port: u16,
     /// Proxy configuration to use for connecting to the server.
-    pub proxy: Option<ProxyConfig>,
+    pub proxy: Option<Proxy>,
     /// The password to connect to the server.
     pub password: Option<String>,
     /// The file with the password to connect to the server.
@@ -114,37 +116,6 @@ impl Server {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum ProxyConfigType {
-    Socks5,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ProxyConfig {
-    #[serde(rename = "type")]
-    pub proxy_type: ProxyConfigType,
-    pub host: String,
-    pub port: u16,
-    #[serde(default)]
-    pub username: String,
-    #[serde(default)]
-    pub password: String,
-}
-
-impl Into<Proxy> for ProxyConfig {
-    fn into(self) -> Proxy {
-        match self.proxy_type {
-            ProxyConfigType::Socks5 => irc::connection::Proxy::Socks5 {
-                host: self.host,
-                port: self.port,
-                username: self.username,
-                password: self.password,
-            },
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "kebab-case")]
 pub enum IdentifySyntax {
     NickPassword,
     PasswordNick,
@@ -159,7 +130,7 @@ pub enum Sasl {
         /// Account password,
         password: Option<String>,
         /// Account password file
-        password_file: Option<String>
+        password_file: Option<String>,
     },
     External {
         /// The path to PEM encoded X509 user certificate for external auth
@@ -179,10 +150,14 @@ impl Sasl {
 
     pub fn param(&self) -> String {
         match self {
-            Sasl::Plain { username, password, .. } => {
+            Sasl::Plain {
+                username, password, ..
+            } => {
                 use base64::engine::Engine;
 
-                let password = password.as_ref().expect("SASL password must exist at this point!");
+                let password = password
+                    .as_ref()
+                    .expect("SASL password must exist at this point!");
 
                 base64::engine::general_purpose::STANDARD
                     .encode(format!("{username}\x00{username}\x00{password}"))
