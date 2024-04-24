@@ -7,7 +7,7 @@
 
 #Added by cargo
 /target
-
+Cargo.lock
 # OS Specific
 .DS_Store
 
