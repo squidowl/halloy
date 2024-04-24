@@ -589,18 +589,10 @@ impl WhoToken {
     }
 }
 
-impl TryFrom<String> for WhoToken {
-    type Error = &'static str;
+impl FromStr for WhoToken {
+    type Err = &'static str;
 
-    fn try_from(token: String) -> Result<Self, Self::Error> {
-        Self::try_from(token.as_str())
-    }
-}
-
-impl<'a> TryFrom<&'a str> for WhoToken {
-    type Error = &'static str;
-
-    fn try_from(token: &'a str) -> Result<Self, Self::Error> {
+    fn from_str(token: &str) -> Result<Self, Self::Err> {
         if (1usize..=3usize).contains(&token.chars().count())
             && token.chars().all(|c| c.is_ascii_digit())
         {
