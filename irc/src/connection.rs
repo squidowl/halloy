@@ -1,11 +1,11 @@
 use std::net::IpAddr;
 use std::path::PathBuf;
 
+use fast_socks5::client::{Config as SocksConfig, Socks5Stream};
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::client::TlsStream;
-use tokio_socks::tcp::Socks5Stream;
 use tokio_util::codec;
 use tokio_util::codec::Framed;
 
@@ -47,9 +47,8 @@ pub struct Config<'a> {
 
 impl<Codec> Connection<Codec> {
     pub async fn new(config: Config<'_>, codec: Codec) -> Result<Self, Error> {
-        let target = (config.server, config.port);
         let tcp = match config.proxy {
-            None => TcpStream::connect(target).await?,
+            None => TcpStream::connect((config.server, config.port)).await?,
             Some(Proxy::Socks5 {
                 host,
                 port,
@@ -58,11 +57,25 @@ impl<Codec> Connection<Codec> {
             }) => {
                 let proxy = (host.as_str(), port);
                 if username.trim().is_empty() {
-                    Socks5Stream::connect(proxy, target).await?.into_inner()
+                    Socks5Stream::connect(
+                        proxy,
+                        config.server.to_string(),
+                        config.port,
+                        SocksConfig::default(),
+                    )
+                    .await?
+                    .get_socket()
                 } else {
-                    Socks5Stream::connect_with_password(proxy, target, &username, &password)
-                        .await?
-                        .into_inner()
+                    Socks5Stream::connect_with_password(
+                        proxy,
+                        config.server.to_string(),
+                        config.port,
+                        username,
+                        password,
+                        SocksConfig::default(),
+                    )
+                    .await?
+                    .get_socket()
                 }
             }
         };
@@ -130,7 +143,7 @@ pub enum Error {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
     #[error("proxy error: {0}")]
-    Proxy(#[from] tokio_socks::Error),
+    Proxy(#[from] fast_socks5::SocksError),
 }
 
 macro_rules! delegate {
