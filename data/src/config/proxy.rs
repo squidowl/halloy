@@ -9,23 +9,21 @@ pub enum Kind {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Proxy {
     #[serde(rename = "type")]
-    pub proxy_type: Kind,
+    pub kind: Kind,
     pub host: String,
     pub port: u16,
-    #[serde(default)]
-    pub username: String,
-    #[serde(default)]
-    pub password: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
 }
 
-impl Into<irc::connection::Proxy> for Proxy {
-    fn into(self) -> irc::connection::Proxy {
-        match self.proxy_type {
+impl From<Proxy> for irc::connection::Proxy {
+    fn from(proxy: Proxy) -> irc::connection::Proxy {
+        match proxy.kind {
             Kind::Socks5 => irc::connection::Proxy::Socks5 {
-                host: self.host,
-                port: self.port,
-                username: self.username,
-                password: self.password,
+                host: proxy.host,
+                port: proxy.port,
+                username: proxy.username,
+                password: proxy.password,
             },
         }
     }

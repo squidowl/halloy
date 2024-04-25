@@ -11,7 +11,7 @@ use futures::{
     channel::mpsc::{self, Receiver, Sender},
     SinkExt, Stream,
 };
-use irc::{connection::{self, Proxy}, proto::command, BytesCodec, Connection};
+use irc::{connection, proto::command, BytesCodec, Connection};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 use tokio::{
@@ -23,7 +23,7 @@ use tokio::{
 use tokio_stream::StreamExt;
 
 use super::Id;
-use crate::{dcc, server, user::Nick};
+use crate::{config, dcc, server, user::Nick};
 
 /// 16 KiB
 pub const BUFFER_SIZE: usize = 16 * 1024;
@@ -109,11 +109,10 @@ impl Task {
         self,
         server: Option<Server>,
         timeout: Duration,
-        proxy: &Option<Proxy>,
+        proxy: Option<config::Proxy>,
     ) -> (Handle, impl Stream<Item = Update>) {
         let (action_sender, action_receiver) = mpsc::channel(1);
         let (update_sender, update_receiver) = mpsc::channel(100);
-        let proxy = proxy.clone();
 
         let task = tokio::spawn(async move {
             let mut update = update_sender.clone();
@@ -134,7 +133,7 @@ impl Task {
                         update_sender,
                         server,
                         timeout,
-                        &proxy,
+                        proxy,
                     )
                     .await
                     {
@@ -160,7 +159,7 @@ impl Task {
                         update_sender,
                         server,
                         timeout,
-                        &proxy,
+                        proxy,
                     )
                     .await
                     {
@@ -218,7 +217,7 @@ async fn receive(
     mut update: Sender<Update>,
     server: Option<Server>,
     timeout: Duration,
-    proxy: &Option<Proxy>,
+    proxy: Option<config::Proxy>,
 ) -> Result<(), Error> {
     // Wait for approval
     let Some(Action::Approve { save_to }) = action.next().await else {
@@ -286,7 +285,7 @@ async fn receive(
                 server: &host.to_string(),
                 port: port.get(),
                 security: connection::Security::Unsecured,
-                proxy: proxy.clone(),
+                proxy: proxy.map(From::from),
             },
             BytesCodec::new(),
         )
@@ -362,7 +361,7 @@ async fn send(
     mut update: Sender<Update>,
     server: Option<Server>,
     timeout: Duration,
-    proxy: &Option<Proxy>,
+    proxy: Option<config::Proxy>,
 ) -> Result<(), Error> {
     let mut file = File::open(path).await?;
     let size = file.metadata().await?.len();
@@ -401,7 +400,7 @@ async fn send(
                 server: &host.to_string(),
                 port: port.get(),
                 security: connection::Security::Unsecured,
-                proxy: proxy.clone(),
+                proxy: proxy.map(From::from),
             },
             BytesCodec::new(),
         )

@@ -5,7 +5,7 @@ use std::time::Duration;
 use irc::connection;
 use serde::{Deserialize, Deserializer};
 
-use super::proxy::Proxy;
+use crate::config;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Server {
@@ -29,8 +29,6 @@ pub struct Server {
     /// The port to connect on.
     #[serde(default = "default_port")]
     pub port: u16,
-    /// Proxy configuration to use for connecting to the server.
-    pub proxy: Option<Proxy>,
     /// The password to connect to the server.
     pub password: Option<String>,
     /// The file with the password to connect to the server.
@@ -91,7 +89,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn connection(&self) -> connection::Config {
+    pub fn connection(&self, proxy: Option<config::Proxy>) -> connection::Config {
         let security = if self.use_tls {
             connection::Security::Secured {
                 accept_invalid_certs: self.dangerously_accept_invalid_certs,
@@ -103,13 +101,11 @@ impl Server {
             connection::Security::Unsecured
         };
 
-        let proxy = self.proxy.clone().map(|p| p.into());
-
         connection::Config {
             server: &self.server,
             port: self.port,
             security,
-            proxy,
+            proxy: proxy.map(From::from),
         }
     }
 }
