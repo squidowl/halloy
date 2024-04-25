@@ -28,12 +28,12 @@ impl Completion {
         input: &str,
         users: &[User],
         channels: &[String],
-        isupport_parameters: &[&isupport::Parameter],
+        isupport: &[&isupport::Parameter],
     ) {
         let is_command = input.starts_with('/');
 
         if is_command {
-            self.commands.process(input, isupport_parameters);
+            self.commands.process(input, isupport);
 
             // Disallow user completions when selecting a command
             if matches!(self.commands, Commands::Selecting { .. }) {
@@ -101,7 +101,7 @@ impl Default for Commands {
 }
 
 impl Commands {
-    fn process(&mut self, input: &str, isupport_parameters: &[&isupport::Parameter]) {
+    fn process(&mut self, input: &str, isupport: &[&isupport::Parameter]) {
         let Some((head, rest)) = input.split_once('/') else {
             *self = Self::Idle;
             return;
@@ -122,25 +122,60 @@ impl Commands {
         let command_list = COMMAND_LIST
             .iter()
             .map(|command| {
-                if command.title == "WHO"
-                    && find_isupport_parameter(isupport_parameters, isupport::Kind::WHOX).is_some()
-                {
-                    return WHOX_COMMAND.clone();
-                } else if command.title == "NICK" {
-                    if let Some(isupport::Parameter::NICKLEN(nick_len)) =
-                        find_isupport_parameter(isupport_parameters, isupport::Kind::NICKLEN)
-                    {
-                        return nick_command(nick_len);
+                match command.title {
+                    "AWAY" => {
+                        if let Some(isupport::Parameter::AWAYLEN(Some(max_len))) =
+                            find_isupport_parameter(isupport, isupport::Kind::AWAYLEN)
+                        {
+                            return away_command(max_len);
+                        }
                     }
+                    "JOIN" => {
+                        let channel_len =
+                            find_isupport_parameter(isupport, isupport::Kind::CHANNELLEN);
+                        let key_len = find_isupport_parameter(isupport, isupport::Kind::KEYLEN);
+
+                        if channel_len.is_some() || key_len.is_some() {
+                            return join_command(channel_len, key_len);
+                        }
+                    }
+                    "NICK" => {
+                        if let Some(isupport::Parameter::NICKLEN(max_len)) =
+                            find_isupport_parameter(isupport, isupport::Kind::NICKLEN)
+                        {
+                            return nick_command(max_len);
+                        }
+                    }
+                    "TOPIC" => {
+                        if let Some(isupport::Parameter::TOPICLEN(max_len)) =
+                            find_isupport_parameter(isupport, isupport::Kind::TOPICLEN)
+                        {
+                            return topic_command(max_len);
+                        }
+                    }
+                    "WHO" => {
+                        if find_isupport_parameter(isupport, isupport::Kind::WHOX).is_some() {
+                            return WHOX_COMMAND.clone();
+                        }
+                    }
+                    _ => (),
                 }
 
                 command.clone()
             })
-            .chain(
-                isupport_parameters.iter().filter_map(|isupport_parameter| {
+            .chain(isupport.iter().filter_map(|isupport_parameter| {
+                if matches!(isupport_parameter, isupport::Parameter::SAFELIST) {
+                    if let Some(isupport::Parameter::ELIST(search_extensions)) =
+                        find_isupport_parameter(isupport, isupport::Kind::ELIST)
+                    {
+                        Some(list_command(&search_extensions))
+                    } else {
+                        Some(LIST_COMMAND.clone())
+                    }
+                } else {
                     isupport_parameter_to_command(isupport_parameter)
-                }),
-            )
+                }
+            }))
             .collect::<Vec<_>>();
 
         match self {
@@ -293,7 +328,7 @@ impl Command {
         let title = Some(Element::from(text(self.title)));
 
         let args = self.args.iter().enumerate().map(|(index, arg)| {
-            let content = text(format!(" {arg}")).style(move |theme| {
+            let content = text(format!("{arg}")).style(move |theme| {
                 if index == active_arg {
                     theme::text::accent(theme)
                 } else {
@@ -302,21 +337,34 @@ impl Command {
             });
 
             if let Some(arg_tooltip) = &arg.tooltip {
-                Element::from(tooltip(
-                    content,
-                    container(text(arg_tooltip.clone()).style(move |theme| {
+                let tooltip_indicator = text("*")
+                    .style(move |theme| {
                         if index == active_arg {
-                            theme::text::transparent_accent(theme)
+                            theme::text::accent(theme)
                         } else {
-                            theme::text::transparent(theme)
+                            theme::text::none(theme)
                         }
-                    }))
-                    .style(theme::container::context)
-                    .padding(8),
-                    tooltip::Position::Top,
-                ))
+                    })
+                    .size(8);
+
+                Element::from(row![
+                    text(" "),
+                    tooltip(
+                        row![content, tooltip_indicator].align_items(iced::Alignment::Start),
+                        container(text(arg_tooltip.clone()).style(move |theme| {
+                            if index == active_arg {
+                                theme::text::transparent_accent(theme)
+                            } else {
+                                theme::text::transparent(theme)
+                            }
+                        }))
+                        .style(theme::container::context)
+                        .padding(8),
+                        tooltip::Position::Top,
+                    )
+                ])
             } else {
-                Element::from(content)
+                Element::from(row![text(" "), content])
             }
         });
 
@@ -433,12 +481,12 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 Arg {
                     text: "channels",
                     optional: false,
-                    tooltip: None,
+                    tooltip: Some(String::from("comma-separated")),
                 },
                 Arg {
                     text: "keys",
                     optional: true,
-                    tooltip: None,
+                    tooltip: Some(String::from("comma-separated")),
                 },
             ],
         },
@@ -486,6 +534,14 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             args: vec![Arg {
                 text: "nick",
                 optional: false,
+                tooltip: None,
+            }],
+        },
+        Command {
+            title: "AWAY",
+            args: vec![Arg {
+                text: "reason",
+                optional: true,
                 tooltip: None,
             }],
         },
@@ -594,10 +650,10 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
 });
 
 fn find_isupport_parameter(
-    isupport_parameters: &[&isupport::Parameter],
+    isupport: &[&isupport::Parameter],
     kind: isupport::Kind,
 ) -> Option<isupport::Parameter> {
-    isupport_parameters
+    isupport
         .iter()
         .find(|isupport_parameter| isupport_parameter.kind() == Some(kind.clone()))
         .cloned()
@@ -610,8 +666,18 @@ fn isupport_parameter_to_command(isupport_parameter: &isupport::Parameter) -> Op
         isupport::Parameter::USERIP => Some(USERIP_COMMAND.clone()),
         isupport::Parameter::CNOTICE => Some(CNOTICE_COMMAND.clone()),
         isupport::Parameter::CPRIVMSG => Some(CPRIVMSG_COMMAND.clone()),
-        isupport::Parameter::SAFELIST => Some(LIST_COMMAND.clone()),
         _ => None,
+    }
+}
+
+fn away_command(max_len: u16) -> Command {
+    Command {
+        title: "AWAY",
+        args: vec![Arg {
+            text: "reason",
+            optional: true,
+            tooltip: Some(format!("maximum length: {}", max_len)),
+        }],
     }
 }
 
@@ -675,19 +741,84 @@ static KNOCK_COMMAND: Lazy<Command> = Lazy::new(|| Command {
 
 static LIST_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     title: "LIST",
-    args: vec![
-        Arg {
-            text: "channels",
-            optional: true,
-            tooltip: None,
-        },
-        Arg {
-            text: "server",
-            optional: true,
-            tooltip: None,
-        },
-    ],
+    args: vec![Arg {
+        text: "channels",
+        optional: true,
+        tooltip: Some(String::from("comma-separated")),
+    }],
 });
+
+fn list_command(search_extensions: &str) -> Command {
+    let elistconds_tooltip = search_extensions.chars().fold(
+        String::from("comma-separated"),
+        |tooltip, search_extension| {
+            tooltip
+                + match search_extension {
+                    'C' => "\n  C<{#}: created < # min ago\n  C>{#}: created > # min ago",
+                    'M' => "\n {mask}: matches mask",
+                    'N' => "\n!{mask}: does not match mask",
+                    'T' => {
+                        "\n  T<{#}: topic changed < # min ago\n  T>{#}: topic changed > # min ago"
+                    }
+                    'U' => "\n  U<{#}: fewer than # users\n  U>{#}: more than # users",
+                    _ => "",
+                }
+        },
+    );
+
+    Command {
+        title: "LIST",
+        args: vec![
+            Arg {
+                text: "channels",
+                optional: true,
+                tooltip: Some(String::from("comma-separated")),
+            },
+            Arg {
+                text: "elistconds",
+                optional: true,
+                tooltip: Some(elistconds_tooltip),
+            },
+        ],
+    }
+}
+
+fn join_command(
+    channel_len: Option<isupport::Parameter>,
+    key_len: Option<isupport::Parameter>,
+) -> Command {
+    Command {
+        title: "JOIN",
+        args: vec![
+            Arg {
+                text: "channels",
+                optional: false,
+                tooltip: if let Some(isupport::Parameter::CHANNELLEN(channel_len)) = channel_len {
+                    Some(format!(
+                        "comma-separated\n\
+                        maximum length of each: {}",
+                        channel_len
+                    ))
+                } else {
+                    Some(String::from("comma-separated"))
+                },
+            },
+            Arg {
+                text: "keys",
+                optional: true,
+                tooltip: if let Some(isupport::Parameter::KEYLEN(key_len)) = key_len {
+                    Some(format!(
+                        "comma-separated\n\
+                        maximum length of each: {}",
+                        key_len
+                    ))
+                } else {
+                    Some(String::from("comma-separated"))
+                },
+            },
+        ],
+    }
+}
 
 fn nick_command(max_len: u16) -> Command {
     Command {
@@ -697,6 +828,24 @@ fn nick_command(max_len: u16) -> Command {
             optional: false,
             tooltip: Some(format!("maximum length: {}", max_len)),
         }],
+    }
+}
+
+fn topic_command(max_len: u16) -> Command {
+    Command {
+        title: "TOPIC",
+        args: vec![
+            Arg {
+                text: "channel",
+                optional: false,
+                tooltip: None,
+            },
+            Arg {
+                text: "topic",
+                optional: true,
+                tooltip: Some(format!("maximum length: {}", max_len)),
+            },
+        ],
     }
 }
 

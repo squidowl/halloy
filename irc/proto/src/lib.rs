@@ -48,12 +48,13 @@ pub fn command(command: &str, parameters: Vec<String>) -> Message {
     }
 }
 
+pub const CHANNEL_PREFIXES: [char; 4] = ['#', '&', '+', '!'];
+
 pub fn is_channel(target: &str) -> bool {
-    target.starts_with('#')
-        || target.starts_with('&')
-        || target.starts_with('+')
-        || target.starts_with('!')
+    target.starts_with(CHANNEL_PREFIXES)
 }
+
+pub const CHANNEL_MEMBERSHIP_PREFIXES: [char; 5] = ['~', '&', '@', '%', '+' ];
 
 #[macro_export]
 macro_rules! command {

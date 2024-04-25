@@ -23,7 +23,7 @@ pub fn view<'a>(
     cache: Cache<'a>,
     users: &'a [User],
     channels: &'a [String],
-    isupport_parameters: Vec<&'a isupport::Parameter>,
+    isupport: Vec<&'a isupport::Parameter>,
     buffer_focused: bool,
     disabled: bool,
 ) -> Element<'a, Message> {
@@ -34,7 +34,7 @@ pub fn view<'a>(
         cache.history,
         users,
         channels,
-        isupport_parameters,
+        isupport,
         buffer_focused,
         disabled,
         Message::Input,

@@ -20,7 +20,7 @@ pub fn input<'a, Message>(
     history: &'a [String],
     users: &'a [User],
     channels: &'a [String],
-    isupport_parameters: Vec<&'a isupport::Parameter>,
+    isupport: Vec<&'a isupport::Parameter>,
     buffer_focused: bool,
     disabled: bool,
     on_input: impl Fn(input::Draft) -> Message + 'a,
@@ -36,7 +36,7 @@ where
         input,
         users,
         channels,
-        isupport_parameters,
+        isupport,
         history,
         buffer_focused,
         disabled,
@@ -68,7 +68,7 @@ pub struct Input<'a, Message> {
     input: &'a str,
     users: &'a [User],
     channels: &'a [String],
-    isupport_parameters: Vec<&'a isupport::Parameter>,
+    isupport: Vec<&'a isupport::Parameter>,
     history: &'a [String],
     buffer_focused: bool,
     disabled: bool,
@@ -99,12 +99,9 @@ where
                 // Reset selected history
                 state.selected_history = None;
 
-                state.completion.process(
-                    &input,
-                    self.users,
-                    self.channels,
-                    &self.isupport_parameters,
-                );
+                state
+                    .completion
+                    .process(&input, self.users, self.channels, &self.isupport);
 
                 Some((self.on_input)(input::Draft {
                     buffer: self.buffer.clone(),
@@ -168,12 +165,9 @@ where
                         .get(state.selected_history.unwrap())
                         .unwrap()
                         .clone();
-                    state.completion.process(
-                        &new_input,
-                        self.users,
-                        self.channels,
-                        &self.isupport_parameters,
-                    );
+                    state
+                        .completion
+                        .process(&new_input, self.users, self.channels, &self.isupport);
 
                     return Some((self.on_completion)(input::Draft {
                         buffer: self.buffer.clone(),
@@ -197,7 +191,7 @@ where
                             &new_input,
                             self.users,
                             self.channels,
-                            &self.isupport_parameters,
+                            &self.isupport,
                         );
                         new_input
                     };
