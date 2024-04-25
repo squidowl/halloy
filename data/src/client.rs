@@ -1295,7 +1295,11 @@ impl Channel {
 
         if let Some(away_flag) = flags.chars().next() {
             // H = Here, G = gone (away)
-            let away = away_flag == 'G';
+            let away = match away_flag {
+                'G' => true,
+                'H' => false,
+                _ => return,
+            };
 
             if let Some(mut user) = self.users.take(&user) {
                 user.update_away(away);
