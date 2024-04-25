@@ -579,7 +579,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 Arg {
                     text: "channels",
                     optional: false,
-                    tooltip: None,
+                    tooltip: Some(String::from("comma-separated")),
                 },
                 Arg {
                     text: "reason",
