@@ -699,10 +699,7 @@ impl Client {
                             log::debug!("[{}] {target} - WHO receiving...", self.server);
                         }
 
-                        channel.update_user_away(
-                            User::from(Nick::from(args.get(5)?.clone())),
-                            args.get(6)?.chars().collect::<Vec<char>>(),
-                        );
+                        channel.update_user_away(args.get(5)?, args.get(6)?);
 
                         // We requested, don't save to history
                         if matches!(channel.last_who, Some(WhoStatus::Receiving(None))) {
@@ -732,13 +729,7 @@ impl Client {
                                 channel.last_who
                             {
                                 if request_token == token {
-                                    let flags = args.get(4)?.chars().collect::<Vec<char>>();
-
-                                    if flags.first().map_or(false, |c| matches!(c, 'H' | 'G')) {
-                                        if let Ok(user) = User::try_from(args.get(3)?.clone()) {
-                                            channel.update_user_away(user, flags);
-                                        }
-                                    }
+                                    channel.update_user_away(args.get(3)?, args.get(4)?);
 
                                     return None;
                                 }
@@ -1299,10 +1290,12 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn update_user_away(&mut self, user: User, flags: Vec<char>) {
-        if let Some(away_flag) = flags.first() {
+    pub fn update_user_away(&mut self, user: &str, flags: &str) {
+        let user = User::from(Nick::from(user));
+
+        if let Some(away_flag) = flags.chars().next() {
             // H = Here, G = gone (away)
-            let away = *away_flag == 'G';
+            let away = away_flag == 'G';
 
             if let Some(mut user) = self.users.take(&user) {
                 user.update_away(away);
