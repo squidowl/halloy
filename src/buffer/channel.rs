@@ -149,7 +149,7 @@ pub fn view<'a>(
             input,
             users,
             channels,
-            clients.get_isupport_parameters(&state.server),
+            clients.get_isupport(&state.server),
             is_focused,
             !is_connected_to_channel,
         )

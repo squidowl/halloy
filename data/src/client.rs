@@ -88,7 +88,7 @@ pub struct Client {
     supports_away_notify: bool,
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<String>,
-    isupport_parameters: HashMap<isupport::Kind, isupport::Parameter>,
+    isupport: HashMap<isupport::Kind, isupport::Parameter>,
 }
 
 impl fmt::Debug for Client {
@@ -138,7 +138,7 @@ impl Client {
             supports_away_notify: false,
             highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
-            isupport_parameters: HashMap::new(),
+            isupport: HashMap::new(),
         }
     }
 
@@ -659,11 +659,7 @@ impl Client {
 
                     if let Some(state) = self.chanmap.get_mut(channel) {
                         // Sends WHO to get away state on users.
-                        if self
-                            .isupport_parameters
-                            .get(&isupport::Kind::WHOX)
-                            .is_some()
-                        {
+                        if self.isupport.get(&isupport::Kind::WHOX).is_some() {
                             let _ = self.handle.try_send(command!(
                                 "WHO",
                                 channel,
@@ -738,10 +734,7 @@ impl Client {
                                 if request_token == token {
                                     let flags = args.get(4)?.chars().collect::<Vec<char>>();
 
-                                    if flags
-                                        .iter()
-                                        .all(|c| matches!(c, 'H' | 'G' | '&' | '@' | '%' | '+'))
-                                    {
+                                    if flags.first().map_or(false, |c| matches!(c, 'H' | 'G')) {
                                         if let Ok(user) = User::try_from(args.get(3)?.clone()) {
                                             channel.update_user_away(user, flags);
                                         }
@@ -900,29 +893,29 @@ impl Client {
             Command::Numeric(RPL_ISUPPORT, args) => {
                 let args_len = args.len();
                 args.iter().enumerate().skip(1).for_each(|(index, arg)| {
-                    let isupport_operation = arg.parse::<isupport::Operation>();
+                    let operation = arg.parse::<isupport::Operation>();
 
-                    match isupport_operation {
-                        Ok(isupport_operation) => {
-                            match isupport_operation {
-                                isupport::Operation::Add(isupport_parameter) => {
-                                    if let Some(kind) = isupport_parameter.kind() {
+                    match operation {
+                        Ok(operation) => {
+                            match operation {
+                                isupport::Operation::Add(parameter) => {
+                                    if let Some(kind) = parameter.kind() {
                                         log::info!(
                                             "[{}] adding ISUPPORT parameter: {:?}",
                                             self.server,
-                                            isupport_parameter
+                                            parameter
                                         );
-                                        self.isupport_parameters.insert(kind, isupport_parameter);
+                                        self.isupport.insert(kind, parameter);
                                     }
                                 }
                                 isupport::Operation::Remove(_) => {
-                                    if let Some(kind) = isupport_operation.kind() {
+                                    if let Some(kind) = operation.kind() {
                                         log::info!(
                                             "[{}] removing ISUPPORT parameter: {:?}",
                                             self.server,
                                             kind
                                         );
-                                        self.isupport_parameters.remove(&kind);
+                                        self.isupport.remove(&kind);
                                     }
                                 }
                             };
@@ -1032,11 +1025,7 @@ impl Client {
             };
 
             if let Some(request) = request {
-                if self
-                    .isupport_parameters
-                    .get(&isupport::Kind::WHOX)
-                    .is_some()
-                {
+                if self.isupport.get(&isupport::Kind::WHOX).is_some() {
                     let _ = self.handle.try_send(command!(
                         "WHO",
                         channel,
@@ -1174,9 +1163,9 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_isupport_parameters<'a>(&'a self, server: &Server) -> Vec<&'a isupport::Parameter> {
+    pub fn get_isupport<'a>(&'a self, server: &Server) -> Vec<&'a isupport::Parameter> {
         self.client(server)
-            .map(|client| client.isupport_parameters.values().collect::<Vec<_>>())
+            .map(|client| client.isupport.values().collect::<Vec<_>>())
             .unwrap_or_default()
     }
 

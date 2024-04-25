@@ -1,3 +1,4 @@
+use irc::proto;
 use std::str::FromStr;
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
@@ -5,11 +6,17 @@ use std::str::FromStr;
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Kind {
+    AWAYLEN,
+    CHANNELLEN,
     CNOTICE,
     CPRIVMSG,
+    ELIST,
+    KEYLEN,
+    KICKLEN,
     KNOCK,
     NICKLEN,
     SAFELIST,
+    TOPICLEN,
     USERIP,
     WHOX,
 }
@@ -77,17 +84,21 @@ impl FromStr for Operation {
                                 if let Some((prefix, limit)) = channel_limit.split_once(':') {
                                     if limit.is_empty() {
                                         prefix.chars().for_each(|c| {
-                                            channel_limits.push(ChannelLimit {
-                                                prefix: c,
-                                                limit: None,
-                                            })
+                                            if proto::CHANNEL_PREFIXES.contains(&c) {
+                                                channel_limits.push(ChannelLimit {
+                                                    prefix: c,
+                                                    limit: None,
+                                                });
+                                            }
                                         });
                                     } else if let Ok(limit) = limit.parse::<u16>() {
                                         prefix.chars().for_each(|c| {
-                                            channel_limits.push(ChannelLimit {
-                                                prefix: c,
-                                                limit: Some(limit),
-                                            })
+                                            if proto::CHANNEL_PREFIXES.contains(&c) {
+                                                channel_limits.push(ChannelLimit {
+                                                    prefix: c,
+                                                    limit: Some(limit),
+                                                });
+                                            }
                                         });
                                     }
                                 }
@@ -105,10 +116,12 @@ impl FromStr for Operation {
                             ('A'..='Z')
                                 .zip(value.split(','))
                                 .for_each(|(letter, modes)| {
-                                    channel_modes.push(ChannelMode {
-                                        letter,
-                                        modes: String::from(modes),
-                                    })
+                                    if modes.chars().all(|c| c.is_ascii_alphabetic()) {
+                                        channel_modes.push(ChannelMode {
+                                            letter,
+                                            modes: modes.to_string(),
+                                        });
+                                    }
                                 });
 
                             if !channel_modes.is_empty() {
@@ -120,9 +133,17 @@ impl FromStr for Operation {
                         "CHANNELLEN" => Ok(Operation::Add(Parameter::CHANNELLEN(
                             parse_required_positive_integer(value)?,
                         ))),
-                        "CHANTYPES" => Ok(Operation::Add(Parameter::CHANTYPES(
-                            parse_optional_string(value),
-                        ))),
+                        "CHANTYPES" => {
+                            if value.is_empty() {
+                                Ok(Operation::Add(Parameter::CHANTYPES(None)))
+                            } else if value.chars().all(|c| proto::CHANNEL_PREFIXES.contains(&c)) {
+                                Ok(Operation::Add(Parameter::CHANTYPES(Some(
+                                    value.to_string(),
+                                ))))
+                            } else {
+                                Err("value must only contain channel types if specified")
+                            }
+                        }
                         "CHATHISTORY" => Ok(Operation::Add(Parameter::CHATHISTORY(
                             parse_required_positive_integer(value)?,
                         ))),
@@ -170,11 +191,21 @@ impl FromStr for Operation {
                             value,
                             Some(DEFAULT_DEAF_LETTER),
                         )?))),
-                        "ELIST" => Ok(Operation::Add(Parameter::ELIST(
-                            parse_required_non_empty_string(value)?,
-                        ))),
+                        "ELIST" => {
+                            if !value.is_empty() {
+                                let value = value.to_uppercase();
+
+                                if value.chars().all(|c| "CMNTU".contains(c)) {
+                                    Ok(Operation::Add(Parameter::ELIST(value.to_string())))
+                                } else {
+                                    Err("value required to only contain valid search extensions")
+                                }
+                            } else {
+                                Err("value required")
+                            }
+                        }
                         "ESILENCE" => Ok(Operation::Add(Parameter::ESILENCE(
-                            parse_optional_string(value),
+                            parse_optional_letters(value)?,
                         ))),
                         "ETRACE" => Ok(Operation::Add(Parameter::ETRACE)),
                         "EXCEPTS" => Ok(Operation::Add(Parameter::EXCEPTS(parse_required_letter(
@@ -183,13 +214,22 @@ impl FromStr for Operation {
                         )?))),
                         "EXTBAN" => {
                             if let Some((prefix, types)) = value.split_once(',') {
-                                if prefix.is_empty() {
-                                    Ok(Operation::Add(Parameter::EXTBAN(None, types.to_string())))
+                                if types.chars().all(|c| c.is_ascii_alphabetic()) {
+                                    if prefix.is_empty() {
+                                        Ok(Operation::Add(Parameter::EXTBAN(
+                                            None,
+                                            types.to_string(),
+                                        )))
+                                    } else if prefix.chars().all(|c| c.is_ascii()) {
+                                        Ok(Operation::Add(Parameter::EXTBAN(
+                                            prefix.chars().next(),
+                                            types.to_string(),
+                                        )))
+                                    } else {
+                                        Err("invalid extended ban prefix(es)")
+                                    }
                                 } else {
-                                    Ok(Operation::Add(Parameter::EXTBAN(
-                                        prefix.chars().next(),
-                                        types.to_string(),
-                                    )))
+                                    Err("invalid extended ban type(s)")
                                 }
                             } else {
                                 Err("no valid extended ban masks")
@@ -225,11 +265,15 @@ impl FromStr for Operation {
 
                             value.split(',').for_each(|modes_limit| {
                                 if let Some((modes, limit)) = modes_limit.split_once(':') {
-                                    if let Ok(limit) = limit.parse::<u16>() {
-                                        modes_limits.push(ModesLimit {
-                                            modes: modes.to_string(),
-                                            limit,
-                                        });
+                                    if !modes.is_empty()
+                                        && modes.chars().all(|c| c.is_ascii_alphabetic())
+                                    {
+                                        if let Ok(limit) = limit.parse::<u16>() {
+                                            modes_limits.push(ModesLimit {
+                                                modes: modes.to_string(),
+                                                limit,
+                                            });
+                                        }
                                     }
                                 }
                             });
@@ -283,7 +327,11 @@ impl FromStr for Operation {
 
                             if let Some((modes, prefixes)) = value.split_once(')') {
                                 modes.chars().skip(1).zip(prefixes.chars()).for_each(
-                                    |(mode, prefix)| prefix_maps.push(PrefixMap { mode, prefix }),
+                                    |(mode, prefix)| {
+                                        if proto::CHANNEL_MEMBERSHIP_PREFIXES.contains(&prefix) {
+                                            prefix_maps.push(PrefixMap { mode, prefix })
+                                        }
+                                    },
                                 );
 
                                 Ok(Operation::Add(Parameter::PREFIX(prefix_maps)))
@@ -303,16 +351,20 @@ impl FromStr for Operation {
                             value.split(',').for_each(|command_target_limit| {
                                 if let Some((command, limit)) = command_target_limit.split_once(':')
                                 {
-                                    if limit.is_empty() {
-                                        command_target_limits.push(CommandTargetLimit {
-                                            command: command.to_string(),
-                                            limit: None,
-                                        });
-                                    } else if let Ok(limit) = limit.parse::<u16>() {
-                                        command_target_limits.push(CommandTargetLimit {
-                                            command: command.to_string(),
-                                            limit: Some(limit),
-                                        });
+                                    if !command.is_empty()
+                                        && command.chars().all(|c| c.is_ascii_alphabetic())
+                                    {
+                                        if limit.is_empty() {
+                                            command_target_limits.push(CommandTargetLimit {
+                                                command: command.to_uppercase().to_string(),
+                                                limit: None,
+                                            });
+                                        } else if let Ok(limit) = limit.parse::<u16>() {
+                                            command_target_limits.push(CommandTargetLimit {
+                                                command: command.to_uppercase().to_string(),
+                                                limit: Some(limit),
+                                            });
+                                        }
                                     }
                                 }
                             });
@@ -332,9 +384,9 @@ impl FromStr for Operation {
                             parse_required_positive_integer(value)?,
                         ))),
                         "UTF8ONLY" => Ok(Operation::Add(Parameter::UTF8ONLY)),
-                        "VLIST" => Ok(Operation::Add(Parameter::VLIST(
-                            parse_required_non_empty_string(value)?,
-                        ))),
+                        "VLIST" => Ok(Operation::Add(Parameter::VLIST(parse_required_letters(
+                            value,
+                        )?))),
                         "WATCH" => Ok(Operation::Add(Parameter::WATCH(
                             parse_required_positive_integer(value)?,
                         ))),
@@ -416,11 +468,17 @@ impl Operation {
         match self {
             Operation::Add(parameter) => parameter.kind(),
             Operation::Remove(parameter) => match parameter.as_ref() {
+                "AWAYLEN" => Some(Kind::AWAYLEN),
+                "CHANNELLEN" => Some(Kind::CHANNELLEN),
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
+                "ELIST" => Some(Kind::ELIST),
+                "KEYLEN" => Some(Kind::KEYLEN),
+                "KICKLEN" => Some(Kind::KICKLEN),
                 "KNOCK" => Some(Kind::KNOCK),
                 "NICKLEN" => Some(Kind::NICKLEN),
                 "SAFELIST" => Some(Kind::SAFELIST),
+                "TOPICLEN" => Some(Kind::TOPICLEN),
                 "USERIP" => Some(Kind::USERIP),
                 "WHOX" => Some(Kind::WHOX),
                 _ => None,
@@ -501,11 +559,17 @@ pub enum Parameter {
 impl Parameter {
     pub fn kind(&self) -> Option<Kind> {
         match self {
+            Parameter::AWAYLEN(_) => Some(Kind::AWAYLEN),
+            Parameter::CHANNELLEN(_) => Some(Kind::CHANNELLEN),
             Parameter::CNOTICE => Some(Kind::CNOTICE),
             Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
+            Parameter::ELIST(_) => Some(Kind::ELIST),
+            Parameter::KEYLEN(_) => Some(Kind::KEYLEN),
+            Parameter::KICKLEN(_) => Some(Kind::KICKLEN),
             Parameter::KNOCK => Some(Kind::KNOCK),
             Parameter::NICKLEN(_) => Some(Kind::NICKLEN),
             Parameter::SAFELIST => Some(Kind::SAFELIST),
+            Parameter::TOPICLEN(_) => Some(Kind::TOPICLEN),
             Parameter::USERIP => Some(Kind::USERIP),
             Parameter::WHOX => Some(Kind::WHOX),
             _ => None,
@@ -611,6 +675,16 @@ pub const WHO_POLL_TOKEN: WhoToken = WhoToken {
     digits: ['9', '\0', '\0'],
 };
 
+fn parse_optional_letters(value: &str) -> Result<Option<String>, &'static str> {
+    if value.is_empty() {
+        Ok(None)
+    } else if value.chars().all(|c| c.is_ascii_alphabetic()) {
+        Ok(Some(value.to_string()))
+    } else {
+        Err("value required to be letter(s) if specified")
+    }
+}
+
 fn parse_optional_positive_integer(value: &str) -> Result<Option<u16>, &'static str> {
     if value.is_empty() {
         Ok(None)
@@ -618,14 +692,6 @@ fn parse_optional_positive_integer(value: &str) -> Result<Option<u16>, &'static 
         Ok(Some(value))
     } else {
         Err("optional value must be a positive integer if specified")
-    }
-}
-
-fn parse_optional_string(value: &str) -> Option<String> {
-    if value.is_empty() {
-        None
-    } else {
-        Some(value.to_string())
     }
 }
 
@@ -641,9 +707,13 @@ fn parse_required_letter(value: &str, default_value: Option<char>) -> Result<cha
     Err("value required to be a letter")
 }
 
-fn parse_required_non_empty_string(value: &str) -> Result<String, &'static str> {
+fn parse_required_letters(value: &str) -> Result<String, &'static str> {
     if !value.is_empty() {
-        Ok(value.to_string())
+        if value.chars().all(|c| c.is_ascii_alphabetic()) {
+            Ok(value.to_string())
+        } else {
+            Err("value required to be letter(s)")
+        }
     } else {
         Err("value required")
     }
