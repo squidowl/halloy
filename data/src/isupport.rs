@@ -16,6 +16,7 @@ pub enum Kind {
     KNOCK,
     NICKLEN,
     SAFELIST,
+    STATUSMSG,
     TOPICLEN,
     USERIP,
     WHOX,
@@ -344,7 +345,16 @@ impl FromStr for Operation {
                         "SILENCE" => Ok(Operation::Add(Parameter::SILENCE(
                             parse_optional_positive_integer(value)?,
                         ))),
-                        "STATUSMSG" => Ok(Operation::Add(Parameter::STATUSMSG(value.to_string()))),
+                        "STATUSMSG" => {
+                            if value
+                                .chars()
+                                .all(|c| proto::CHANNEL_MEMBERSHIP_PREFIXES.contains(&c))
+                            {
+                                Ok(Operation::Add(Parameter::STATUSMSG(value.to_string())))
+                            } else {
+                                Err("unknown channel membership prefix(es)")
+                            }
+                        }
                         "TARGMAX" => {
                             let mut command_target_limits = vec![];
 
@@ -478,6 +488,7 @@ impl Operation {
                 "KNOCK" => Some(Kind::KNOCK),
                 "NICKLEN" => Some(Kind::NICKLEN),
                 "SAFELIST" => Some(Kind::SAFELIST),
+                "STATUSMSG" => Some(Kind::STATUSMSG),
                 "TOPICLEN" => Some(Kind::TOPICLEN),
                 "USERIP" => Some(Kind::USERIP),
                 "WHOX" => Some(Kind::WHOX),
@@ -569,6 +580,7 @@ impl Parameter {
             Parameter::KNOCK => Some(Kind::KNOCK),
             Parameter::NICKLEN(_) => Some(Kind::NICKLEN),
             Parameter::SAFELIST => Some(Kind::SAFELIST),
+            Parameter::STATUSMSG(_) => Some(Kind::STATUSMSG),
             Parameter::TOPICLEN(_) => Some(Kind::TOPICLEN),
             Parameter::USERIP => Some(Kind::USERIP),
             Parameter::WHOX => Some(Kind::WHOX),

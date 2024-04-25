@@ -139,11 +139,25 @@ impl Commands {
                             return join_command(channel_len, key_len);
                         }
                     }
+                    "MSG" => {
+                        if let Some(isupport::Parameter::STATUSMSG(channel_membership_prefixes)) =
+                            find_isupport_parameter(isupport, isupport::Kind::STATUSMSG)
+                        {
+                            return msg_command(&channel_membership_prefixes);
+                        }
+                    }
                     "NICK" => {
                         if let Some(isupport::Parameter::NICKLEN(max_len)) =
                             find_isupport_parameter(isupport, isupport::Kind::NICKLEN)
                         {
                             return nick_command(max_len);
+                        }
+                    }
+                    "PART" => {
+                        if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
+                            find_isupport_parameter(isupport, isupport::Kind::CHANNELLEN)
+                        {
+                            return part_command(max_len);
                         }
                     }
                     "TOPIC" => {
@@ -520,7 +534,9 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 Arg {
                     text: "target",
                     optional: false,
-                    tooltip: None,
+                    tooltip: Some(String::from(
+                        "   {user}: user directly\n{channel}: all users in channel",
+                    )),
                 },
                 Arg {
                     text: "text",
@@ -723,6 +739,43 @@ static CPRIVMSG_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     ],
 });
 
+fn join_command(
+    channel_len: Option<isupport::Parameter>,
+    key_len: Option<isupport::Parameter>,
+) -> Command {
+    Command {
+        title: "JOIN",
+        args: vec![
+            Arg {
+                text: "channels",
+                optional: false,
+                tooltip: if let Some(isupport::Parameter::CHANNELLEN(channel_len)) = channel_len {
+                    Some(format!(
+                        "comma-separated\n\
+                        maximum length of each: {}",
+                        channel_len
+                    ))
+                } else {
+                    Some(String::from("comma-separated"))
+                },
+            },
+            Arg {
+                text: "keys",
+                optional: true,
+                tooltip: if let Some(isupport::Parameter::KEYLEN(key_len)) = key_len {
+                    Some(format!(
+                        "comma-separated\n\
+                        maximum length of each: {}",
+                        key_len
+                    ))
+                } else {
+                    Some(String::from("comma-separated"))
+                },
+            },
+        ],
+    }
+}
+
 static KNOCK_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     title: "KNOCK",
     args: vec![
@@ -783,38 +836,35 @@ fn list_command(search_extensions: &str) -> Command {
     }
 }
 
-fn join_command(
-    channel_len: Option<isupport::Parameter>,
-    key_len: Option<isupport::Parameter>,
-) -> Command {
+fn msg_command(channel_membership_prefixes: &str) -> Command {
+    let target_tooltip = channel_membership_prefixes.chars().fold(
+        String::from("    {user}: user directly\n {channel}: all users in channel"),
+        |tooltip, channel_membership_prefix| {
+            tooltip
+                + match channel_membership_prefix {
+                    '~' => "\n~{channel}: all founders in channel",
+                    '&' => "\n&{channel}: all protected users in channel",
+                    '!' => "\n!{channel}: all protected users in channel",
+                    '@' => "\n@{channel}: all operators in channel",
+                    '%' => "\n%{channel}: all half-operators in channel",
+                    '+' => "\n+{channel}: all voiced users in channel",
+                    _ => "",
+                }
+        },
+    );
+
     Command {
-        title: "JOIN",
+        title: "MSG",
         args: vec![
             Arg {
-                text: "channels",
+                text: "target",
                 optional: false,
-                tooltip: if let Some(isupport::Parameter::CHANNELLEN(channel_len)) = channel_len {
-                    Some(format!(
-                        "comma-separated\n\
-                        maximum length of each: {}",
-                        channel_len
-                    ))
-                } else {
-                    Some(String::from("comma-separated"))
-                },
+                tooltip: Some(target_tooltip),
             },
             Arg {
-                text: "keys",
-                optional: true,
-                tooltip: if let Some(isupport::Parameter::KEYLEN(key_len)) = key_len {
-                    Some(format!(
-                        "comma-separated\n\
-                        maximum length of each: {}",
-                        key_len
-                    ))
-                } else {
-                    Some(String::from("comma-separated"))
-                },
+                text: "text",
+                optional: false,
+                tooltip: None,
             },
         ],
     }
@@ -828,6 +878,27 @@ fn nick_command(max_len: u16) -> Command {
             optional: false,
             tooltip: Some(format!("maximum length: {}", max_len)),
         }],
+    }
+}
+
+fn part_command(max_len: u16) -> Command {
+    Command {
+        title: "PART",
+        args: vec![
+            Arg {
+                text: "channels",
+                optional: false,
+                tooltip: Some(format!(
+                    "comma-separated\nmaximum length of each: {}",
+                    max_len
+                )),
+            },
+            Arg {
+                text: "reason",
+                optional: true,
+                tooltip: None,
+            },
+        ],
     }
 }
 
