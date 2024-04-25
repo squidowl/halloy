@@ -10,6 +10,7 @@
   - [Font](configuration/font.md)
   - [Keyboard](configuration/keyboard.md)
   - [Notifications](configuration/notifications.md)
+  - [Proxy](configuration/proxy.md)
   - [Scale factor](configuration/scale-factor.md)
   - [Servers](configuration/servers.md)
   - [Sidebar](configuration/sidebar.md)
