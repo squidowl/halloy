@@ -1,7 +1,6 @@
 use std::net::IpAddr;
 use std::path::PathBuf;
 
-use fast_socks5::client::{Config as SocksConfig, Socks5Stream};
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
@@ -9,6 +8,9 @@ use tokio_rustls::client::TlsStream;
 use tokio_util::codec;
 use tokio_util::codec::Framed;
 
+pub use self::proxy::Proxy;
+
+mod proxy;
 mod tls;
 
 pub enum Connection<Codec> {
@@ -24,16 +26,6 @@ pub enum Security<'a> {
         root_cert_path: Option<&'a PathBuf>,
         client_cert_path: Option<&'a PathBuf>,
         client_key_path: Option<&'a PathBuf>,
-    },
-}
-
-#[derive(Debug, Clone)]
-pub enum Proxy {
-    Socks5 {
-        host: String,
-        port: u16,
-        username: String,
-        password: String,
     },
 }
 
@@ -55,28 +47,15 @@ impl<Codec> Connection<Codec> {
                 username,
                 password,
             }) => {
-                let proxy = (host.as_str(), port);
-                if username.trim().is_empty() {
-                    Socks5Stream::connect(
-                        proxy,
-                        config.server.to_string(),
-                        config.port,
-                        SocksConfig::default(),
-                    )
-                    .await?
-                    .get_socket()
-                } else {
-                    Socks5Stream::connect_with_password(
-                        proxy,
-                        config.server.to_string(),
-                        config.port,
-                        username,
-                        password,
-                        SocksConfig::default(),
-                    )
-                    .await?
-                    .get_socket()
-                }
+                proxy::connect_socks5(
+                    host,
+                    port,
+                    config.server.to_string(),
+                    config.port,
+                    username,
+                    password,
+                )
+                .await?
             }
         };
 
@@ -143,7 +122,7 @@ pub enum Error {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
     #[error("proxy error: {0}")]
-    Proxy(#[from] fast_socks5::SocksError),
+    Proxy(#[from] proxy::Error),
 }
 
 macro_rules! delegate {

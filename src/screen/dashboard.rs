@@ -60,7 +60,6 @@ pub enum Event {
 impl Dashboard {
     pub fn empty(config: &Config) -> (Self, Command<Message>) {
         let (panes, _) = pane_grid::State::new(Pane::new(Buffer::Empty, config));
-        let proxy = config.proxy.clone().map(|p| p.into());
 
         let mut dashboard = Dashboard {
             panes,
@@ -69,7 +68,7 @@ impl Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
-            file_transfers: file_transfer::Manager::new(config.file_transfer.clone(), proxy),
+            file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
         };
 
         let command = dashboard.track();
@@ -594,12 +593,15 @@ impl Dashboard {
             Message::SendFileSelected(server, to, path) => {
                 if let Some(server_handle) = clients.get_server_handle(&server) {
                     if let Some(path) = path {
-                        if let Some(event) = self.file_transfers.send(file_transfer::SendRequest {
-                            to,
-                            path,
-                            server: server.clone(),
-                            server_handle: server_handle.clone(),
-                        }) {
+                        if let Some(event) = self.file_transfers.send(
+                            file_transfer::SendRequest {
+                                to,
+                                path,
+                                server: server.clone(),
+                                server_handle: server_handle.clone(),
+                            },
+                            config.proxy.clone(),
+                        ) {
                             return (self.handle_file_transfer_event(&server, event), None);
                         }
                     }
@@ -1201,7 +1203,10 @@ impl Dashboard {
         request: file_transfer::ReceiveRequest,
         config: &Config,
     ) -> Option<Command<Message>> {
-        if let Some(event) = self.file_transfers.receive(request.clone()) {
+        if let Some(event) = self
+            .file_transfers
+            .receive(request.clone(), config.proxy.as_ref())
+        {
             let notification = &config.notifications.file_transfer_request;
 
             if notification.enabled {
@@ -1277,8 +1282,6 @@ impl Dashboard {
             }
         }
 
-        let proxy = config.proxy.clone().map(|p| p.into());
-
         Self {
             panes: pane_grid::State::with_configuration(configuration(dashboard.pane)),
             focus: None,
@@ -1286,7 +1289,7 @@ impl Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
-            file_transfers: file_transfer::Manager::new(config.file_transfer.clone(), proxy),
+            file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
         }
     }
 }

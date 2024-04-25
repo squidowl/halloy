@@ -10,7 +10,7 @@ pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
 pub use self::keys::Keyboard;
 pub use self::notification::{Notification, Notifications};
-use self::proxy::Proxy;
+pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
 use crate::environment::config_dir;
@@ -157,7 +157,6 @@ impl Config {
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_password_files()?;
-        servers.update_proxy(&proxy)?;
 
         let themes = Self::load_themes(&theme).unwrap_or_default();
 

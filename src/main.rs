@@ -645,8 +645,12 @@ impl Application for Halloy {
     fn subscription(&self) -> Subscription<Message> {
         let tick = iced::time::every(Duration::from_secs(1)).map(Message::Tick);
 
-        let streams =
-            Subscription::batch(self.servers.entries().map(stream::run)).map(Message::Stream);
+        let streams = Subscription::batch(
+            self.servers
+                .entries()
+                .map(|entry| stream::run(entry, self.config.proxy.clone())),
+        )
+        .map(Message::Stream);
 
         Subscription::batch(vec![tick, streams, events().map(Message::Event)])
     }

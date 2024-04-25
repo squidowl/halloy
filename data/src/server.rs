@@ -7,7 +7,6 @@ use irc::proto;
 use serde::{Deserialize, Serialize};
 
 use crate::config;
-use crate::config::proxy::Proxy;
 use crate::config::server::Sasl;
 use crate::config::Error;
 
@@ -61,13 +60,6 @@ impl Map {
 
     pub fn entries(&self) -> impl Iterator<Item = Entry> + '_ {
         self.0.iter().map(Entry::from)
-    }
-
-    pub fn update_proxy(&mut self, proxy: &Option<Proxy>) -> Result<(), Error> {
-        for (_, config) in self.0.iter_mut() {
-            config.proxy = proxy.clone();
-        }
-        Ok(())
     }
 
     pub fn read_password_files(&mut self) -> Result<(), Error> {

@@ -7,7 +7,6 @@ use std::{
 
 use chrono::Utc;
 use futures::{stream::BoxStream, StreamExt};
-use irc::connection::Proxy;
 use itertools::Itertools;
 use rand::Rng;
 
@@ -48,17 +47,15 @@ pub struct Manager {
     /// Queued = waiting for port assignment
     queued: VecDeque<Id>,
     used_ports: HashMap<Id, NonZeroU16>,
-    proxy: Option<Proxy>,
 }
 
 impl Manager {
-    pub fn new(config: config::FileTransfer, proxy: Option<Proxy>) -> Self {
+    pub fn new(config: config::FileTransfer) -> Self {
         Self {
             config,
             items: HashMap::new(),
             queued: VecDeque::new(),
             used_ports: HashMap::new(),
-            proxy,
         }
     }
 
@@ -81,7 +78,7 @@ impl Manager {
         })
     }
 
-    pub fn send(&mut self, request: SendRequest) -> Option<Event> {
+    pub fn send(&mut self, request: SendRequest, proxy: Option<config::Proxy>) -> Option<Event> {
         let SendRequest {
             to,
             path,
@@ -120,7 +117,11 @@ impl Manager {
         };
 
         let task = Task::send(id, path, filename, to, reverse, server_handle);
-        let (handle, stream) = task.spawn(self.server(), Duration::from_secs(self.config.timeout), &self.proxy);
+        let (handle, stream) = task.spawn(
+            self.server(),
+            Duration::from_secs(self.config.timeout),
+            proxy,
+        );
 
         self.items.insert(
             id,
@@ -133,7 +134,11 @@ impl Manager {
         Some(Event::NewTransfer(file_transfer, stream.boxed()))
     }
 
-    pub fn receive(&mut self, request: ReceiveRequest) -> Option<Event> {
+    pub fn receive(
+        &mut self,
+        request: ReceiveRequest,
+        proxy: Option<&config::Proxy>,
+    ) -> Option<Event> {
         let ReceiveRequest {
             from,
             dcc_send,
@@ -187,7 +192,11 @@ impl Manager {
         };
 
         let task = Task::receive(id, dcc_send, from, server_handle);
-        let (handle, stream) = task.spawn(self.server(), Duration::from_secs(self.config.timeout), &self.proxy);
+        let (handle, stream) = task.spawn(
+            self.server(),
+            Duration::from_secs(self.config.timeout),
+            proxy.cloned(),
+        );
 
         self.items.insert(
             id,
