@@ -133,10 +133,12 @@ impl Commands {
                     "JOIN" => {
                         let channel_len =
                             find_isupport_parameter(isupport, isupport::Kind::CHANNELLEN);
+                        let channel_limits =
+                            find_isupport_parameter(isupport, isupport::Kind::CHANLIMIT);
                         let key_len = find_isupport_parameter(isupport, isupport::Kind::KEYLEN);
 
-                        if channel_len.is_some() || key_len.is_some() {
-                            return join_command(channel_len, key_len);
+                        if channel_len.is_some() || channel_limits.is_some() || key_len.is_some() {
+                            return join_command(channel_len, channel_limits, key_len);
                         }
                     }
                     "MSG" => {
@@ -741,36 +743,51 @@ static CPRIVMSG_COMMAND: Lazy<Command> = Lazy::new(|| Command {
 
 fn join_command(
     channel_len: Option<isupport::Parameter>,
+    channel_limits: Option<isupport::Parameter>,
     key_len: Option<isupport::Parameter>,
 ) -> Command {
+    let mut channels_tooltip = String::from("comma-separated");
+
+    if let Some(isupport::Parameter::CHANNELLEN(channel_len)) = channel_len {
+        channels_tooltip.push_str(format!("\nmaximum length of each: {}", channel_len).as_str());
+    }
+
+    if let Some(isupport::Parameter::CHANLIMIT(channel_limits)) = channel_limits {
+        channel_limits.iter().for_each(|channel_limit| {
+            if let Some(limit) = channel_limit.limit {
+                channels_tooltip.push_str(
+                    format!(
+                        "\nup to {limit} {} channels per client",
+                        channel_limit.prefix
+                    )
+                    .as_str(),
+                );
+            } else {
+                channels_tooltip.push_str(
+                    format!("\nunlimited {} channels per client", channel_limit.prefix).as_str(),
+                );
+            }
+        });
+    }
+
+    let mut keys_tooltip = String::from("comma-separated");
+
+    if let Some(isupport::Parameter::KEYLEN(key_len)) = key_len {
+        keys_tooltip.push_str(format!("\nmaximum length of each: {}", key_len).as_str());
+    }
+
     Command {
         title: "JOIN",
         args: vec![
             Arg {
                 text: "channels",
                 optional: false,
-                tooltip: if let Some(isupport::Parameter::CHANNELLEN(channel_len)) = channel_len {
-                    Some(format!(
-                        "comma-separated\n\
-                        maximum length of each: {}",
-                        channel_len
-                    ))
-                } else {
-                    Some(String::from("comma-separated"))
-                },
+                tooltip: Some(channels_tooltip),
             },
             Arg {
                 text: "keys",
                 optional: true,
-                tooltip: if let Some(isupport::Parameter::KEYLEN(key_len)) = key_len {
-                    Some(format!(
-                        "comma-separated\n\
-                        maximum length of each: {}",
-                        key_len
-                    ))
-                } else {
-                    Some(String::from("comma-separated"))
-                },
+                tooltip: Some(keys_tooltip),
             },
         ],
     }

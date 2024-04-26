@@ -7,6 +7,7 @@ use std::str::FromStr;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Kind {
     AWAYLEN,
+    CHANLIMIT,
     CHANNELLEN,
     CNOTICE,
     CPRIVMSG,
@@ -479,6 +480,7 @@ impl Operation {
             Operation::Add(parameter) => parameter.kind(),
             Operation::Remove(parameter) => match parameter.as_ref() {
                 "AWAYLEN" => Some(Kind::AWAYLEN),
+                "CHANLIMIT" => Some(Kind::CHANLIMIT),
                 "CHANNELLEN" => Some(Kind::CHANNELLEN),
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
@@ -571,6 +573,7 @@ impl Parameter {
     pub fn kind(&self) -> Option<Kind> {
         match self {
             Parameter::AWAYLEN(_) => Some(Kind::AWAYLEN),
+            Parameter::CHANLIMIT(_) => Some(Kind::CHANLIMIT),
             Parameter::CHANNELLEN(_) => Some(Kind::CHANNELLEN),
             Parameter::CNOTICE => Some(Kind::CNOTICE),
             Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
@@ -598,18 +601,16 @@ pub enum CaseMap {
     RFC7613,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct ChannelLimit {
-    prefix: char,
-    limit: Option<u16>,
+    pub prefix: char,
+    pub limit: Option<u16>,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct ChannelMode {
-    letter: char,
-    modes: String,
+    pub letter: char,
+    pub modes: String,
 }
 
 #[derive(Clone, Debug)]
@@ -619,11 +620,10 @@ pub enum ClientOnlyTags {
     DenyAll,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct CommandTargetLimit {
-    command: String,
-    limit: Option<u16>,
+    pub command: String,
+    pub limit: Option<u16>,
 }
 
 #[derive(Clone, Debug)]
@@ -632,18 +632,16 @@ pub enum MessageReferenceType {
     MessageID,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct ModesLimit {
-    modes: String,
-    limit: u16,
+    pub modes: String,
+    pub limit: u16,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct PrefixMap {
-    prefix: char,
-    mode: char,
+    pub prefix: char,
+    pub mode: char,
 }
 
 const DEFAULT_BAN_EXCEPTION_CHANNEL_LETTER: char = 'e';
