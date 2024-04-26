@@ -131,21 +131,58 @@ impl Commands {
                         }
                     }
                     "JOIN" => {
-                        let channel_len =
-                            find_isupport_parameter(isupport, isupport::Kind::CHANNELLEN);
+                        let channel_len = if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
+                            find_isupport_parameter(isupport, isupport::Kind::CHANNELLEN)
+                        {
+                            Some(max_len)
+                        } else {
+                            None
+                        };
+
                         let channel_limits =
-                            find_isupport_parameter(isupport, isupport::Kind::CHANLIMIT);
-                        let key_len = find_isupport_parameter(isupport, isupport::Kind::KEYLEN);
+                            if let Some(isupport::Parameter::CHANLIMIT(channel_limits)) =
+                                find_isupport_parameter(isupport, isupport::Kind::CHANLIMIT)
+                            {
+                                Some(channel_limits)
+                            } else {
+                                None
+                            };
+
+                        let key_len = if let Some(isupport::Parameter::KEYLEN(max_len)) =
+                            find_isupport_parameter(isupport, isupport::Kind::KEYLEN)
+                        {
+                            Some(max_len)
+                        } else {
+                            None
+                        };
 
                         if channel_len.is_some() || channel_limits.is_some() || key_len.is_some() {
                             return join_command(channel_len, channel_limits, key_len);
                         }
                     }
                     "MSG" => {
-                        if let Some(isupport::Parameter::STATUSMSG(channel_membership_prefixes)) =
+                        let channel_membership_prefixes = if let Some(
+                            isupport::Parameter::STATUSMSG(channel_membership_prefixes),
+                        ) =
                             find_isupport_parameter(isupport, isupport::Kind::STATUSMSG)
                         {
-                            return msg_command(&channel_membership_prefixes);
+                            Some(channel_membership_prefixes)
+                        } else {
+                            None
+                        };
+
+                        let target_limit = find_target_limit(isupport, "PRIVMSG");
+
+                        if channel_membership_prefixes.is_some() || target_limit.is_some() {
+                            return msg_command(
+                                channel_membership_prefixes.as_deref(),
+                                target_limit,
+                            );
+                        }
+                    }
+                    "NAMES" => {
+                        if let Some(target_limit) = find_target_limit(isupport, command.title) {
+                            return names_command(target_limit);
                         }
                     }
                     "NICK" => {
@@ -174,6 +211,11 @@ impl Commands {
                             return WHOX_COMMAND.clone();
                         }
                     }
+                    "WHOIS" => {
+                        if let Some(target_limit) = find_target_limit(isupport, command.title) {
+                            return whois_command(target_limit);
+                        }
+                    }
                     _ => (),
                 }
 
@@ -181,10 +223,19 @@ impl Commands {
             })
             .chain(isupport.iter().filter_map(|isupport_parameter| {
                 if matches!(isupport_parameter, isupport::Parameter::SAFELIST) {
-                    if let Some(isupport::Parameter::ELIST(search_extensions)) =
-                        find_isupport_parameter(isupport, isupport::Kind::ELIST)
-                    {
-                        Some(list_command(&search_extensions))
+                    let search_extensions =
+                        if let Some(isupport::Parameter::ELIST(search_extensions)) =
+                            find_isupport_parameter(isupport, isupport::Kind::ELIST)
+                        {
+                            Some(search_extensions)
+                        } else {
+                            None
+                        };
+
+                    let target_limit = find_target_limit(isupport, "LIST");
+
+                    if search_extensions.is_some() || target_limit.is_some() {
+                        Some(list_command(search_extensions.as_deref(), target_limit))
                     } else {
                         Some(LIST_COMMAND.clone())
                     }
@@ -534,10 +585,10 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             title: "MSG",
             args: vec![
                 Arg {
-                    text: "target",
+                    text: "targets",
                     optional: false,
                     tooltip: Some(String::from(
-                        "   {user}: user directly\n{channel}: all users in channel",
+                        "comma-separated\n   {user}: user directly\n{channel}: all users in channel",
                     )),
                 },
                 Arg {
@@ -550,9 +601,9 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
         Command {
             title: "WHOIS",
             args: vec![Arg {
-                text: "nick",
+                text: "nicks",
                 optional: false,
-                tooltip: None,
+                tooltip: Some(String::from("comma-separated")),
             }],
         },
         Command {
@@ -630,6 +681,16 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             }],
         },
         Command {
+            title: "NAMES",
+            args: vec![
+                Arg {
+                    text: "channels",
+                    optional: false,
+                    tooltip: Some(String::from("comma-separated")),
+                },
+            ],
+        },
+        Command {
             title: "KICK",
             args: vec![
                 Arg {
@@ -676,6 +737,23 @@ fn find_isupport_parameter(
         .find(|isupport_parameter| isupport_parameter.kind() == Some(kind.clone()))
         .cloned()
         .cloned()
+}
+
+fn find_target_limit(
+    isupport: &[&isupport::Parameter],
+    command: &str,
+) -> Option<isupport::CommandTargetLimit> {
+    if let Some(isupport::Parameter::TARGMAX(target_limits)) = isupport
+        .iter()
+        .find(|isupport_parameter| isupport_parameter.kind() == Some(isupport::Kind::TARGMAX))
+    {
+        target_limits
+            .iter()
+            .find(|target_limit| target_limit.command == command)
+            .cloned()
+    } else {
+        None
+    }
 }
 
 fn isupport_parameter_to_command(isupport_parameter: &isupport::Parameter) -> Option<Command> {
@@ -742,17 +820,17 @@ static CPRIVMSG_COMMAND: Lazy<Command> = Lazy::new(|| Command {
 });
 
 fn join_command(
-    channel_len: Option<isupport::Parameter>,
-    channel_limits: Option<isupport::Parameter>,
-    key_len: Option<isupport::Parameter>,
+    channel_len: Option<u16>,
+    channel_limits: Option<Vec<isupport::ChannelLimit>>,
+    key_len: Option<u16>,
 ) -> Command {
     let mut channels_tooltip = String::from("comma-separated");
 
-    if let Some(isupport::Parameter::CHANNELLEN(channel_len)) = channel_len {
+    if let Some(channel_len) = channel_len {
         channels_tooltip.push_str(format!("\nmaximum length of each: {}", channel_len).as_str());
     }
 
-    if let Some(isupport::Parameter::CHANLIMIT(channel_limits)) = channel_limits {
+    if let Some(channel_limits) = channel_limits {
         channel_limits.iter().for_each(|channel_limit| {
             if let Some(limit) = channel_limit.limit {
                 channels_tooltip.push_str(
@@ -767,13 +845,13 @@ fn join_command(
                     format!("\nunlimited {} channels per client", channel_limit.prefix).as_str(),
                 );
             }
-        });
+        })
     }
 
     let mut keys_tooltip = String::from("comma-separated");
 
-    if let Some(isupport::Parameter::KEYLEN(key_len)) = key_len {
-        keys_tooltip.push_str(format!("\nmaximum length of each: {}", key_len).as_str());
+    if let Some(key_len) = key_len {
+        keys_tooltip.push_str(format!("\nmaximum length of each: {}", key_len).as_str())
     }
 
     Command {
@@ -818,12 +896,26 @@ static LIST_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     }],
 });
 
-fn list_command(search_extensions: &str) -> Command {
-    let elistconds_tooltip = search_extensions.chars().fold(
-        String::from("comma-separated"),
-        |tooltip, search_extension| {
-            tooltip
-                + match search_extension {
+fn list_command(
+    search_extensions: Option<&str>,
+    target_limit: Option<isupport::CommandTargetLimit>,
+) -> Command {
+    let mut channels_tooltip = String::from("comma-separated");
+
+    if let Some(target_limit) = target_limit {
+        if let Some(limit) = target_limit.limit {
+            channels_tooltip.push_str(format!("\nup to {} channel", limit).as_str());
+            if limit > 1 {
+                channels_tooltip.push('s')
+            }
+        }
+    }
+
+    if let Some(search_extensions) = search_extensions {
+        let elistconds_tooltip = search_extensions.chars().fold(
+            String::from("comma-separated"),
+            |tooltip, search_extension| {
+                tooltip + match search_extension {
                     'C' => "\n  C<{#}: created < # min ago\n  C>{#}: created > # min ago",
                     'M' => "\n {mask}: matches mask",
                     'N' => "\n!{mask}: does not match mask",
@@ -833,50 +925,76 @@ fn list_command(search_extensions: &str) -> Command {
                     'U' => "\n  U<{#}: fewer than # users\n  U>{#}: more than # users",
                     _ => "",
                 }
-        },
-    );
+            },
+        );
 
-    Command {
-        title: "LIST",
-        args: vec![
-            Arg {
+        Command {
+            title: "LIST",
+            args: vec![
+                Arg {
+                    text: "channels",
+                    optional: true,
+                    tooltip: Some(channels_tooltip),
+                },
+                Arg {
+                    text: "elistconds",
+                    optional: true,
+                    tooltip: Some(elistconds_tooltip),
+                },
+            ],
+        }
+    } else {
+        Command {
+            title: "LIST",
+            args: vec![Arg {
                 text: "channels",
                 optional: true,
-                tooltip: Some(String::from("comma-separated")),
-            },
-            Arg {
-                text: "elistconds",
-                optional: true,
-                tooltip: Some(elistconds_tooltip),
-            },
-        ],
+                tooltip: Some(channels_tooltip),
+            }],
+        }
     }
 }
 
-fn msg_command(channel_membership_prefixes: &str) -> Command {
-    let target_tooltip = channel_membership_prefixes.chars().fold(
-        String::from("    {user}: user directly\n {channel}: all users in channel"),
-        |tooltip, channel_membership_prefix| {
-            tooltip
-                + match channel_membership_prefix {
-                    '~' => "\n~{channel}: all founders in channel",
-                    '&' => "\n&{channel}: all protected users in channel",
-                    '!' => "\n!{channel}: all protected users in channel",
-                    '@' => "\n@{channel}: all operators in channel",
-                    '%' => "\n%{channel}: all half-operators in channel",
-                    '+' => "\n+{channel}: all voiced users in channel",
-                    _ => "",
-                }
-        },
+fn msg_command(
+    channel_membership_prefixes: Option<&str>,
+    target_limit: Option<isupport::CommandTargetLimit>,
+) -> Command {
+    let mut targets_tooltip = String::from(
+        "comma-separated\n    {user}: user directly\n {channel}: all users in channel",
     );
+
+    if let Some(channel_membership_prefixes) = channel_membership_prefixes {
+        channel_membership_prefixes
+            .chars()
+            .for_each(
+                |channel_membership_prefix| match channel_membership_prefix {
+                    '~' => targets_tooltip.push_str("\n~{channel}: all founders in channel"),
+                    '&' => targets_tooltip.push_str("\n&{channel}: all protected users in channel"),
+                    '!' => targets_tooltip.push_str("\n!{channel}: all protected users in channel"),
+                    '@' => targets_tooltip.push_str("\n@{channel}: all operators in channel"),
+                    '%' => targets_tooltip.push_str("\n%{channel}: all half-operators in channel"),
+                    '+' => targets_tooltip.push_str("\n+{channel}: all voiced users in channel"),
+                    _ => (),
+                },
+            );
+    }
+
+    if let Some(target_limit) = target_limit {
+        if let Some(limit) = target_limit.limit {
+            targets_tooltip.push_str(format!("\nup to {} target", limit).as_str());
+            if limit > 1 {
+                targets_tooltip.push('s')
+            }
+        }
+    }
 
     Command {
         title: "MSG",
         args: vec![
             Arg {
-                text: "target",
+                text: "targets",
                 optional: false,
-                tooltip: Some(target_tooltip),
+                tooltip: Some(targets_tooltip),
             },
             Arg {
                 text: "text",
@@ -884,6 +1002,26 @@ fn msg_command(channel_membership_prefixes: &str) -> Command {
                 tooltip: None,
             },
         ],
+    }
+}
+
+fn names_command(target_limit: isupport::CommandTargetLimit) -> Command {
+    let mut channels_tooltip = String::from("comma-separated");
+
+    if let Some(limit) = target_limit.limit {
+        channels_tooltip.push_str(format!("\nup to {} channel", limit).as_str());
+        if limit > 1 {
+            channels_tooltip.push('s')
+        }
+    }
+
+    Command {
+        title: "NAMES",
+        args: vec![Arg {
+            text: "channels",
+            optional: false,
+            tooltip: Some(channels_tooltip),
+        }],
     }
 }
 
@@ -960,17 +1098,17 @@ static WHOX_COMMAND: Lazy<Command> = Lazy::new(|| Command {
             tooltip: Some(String::from(
                 "t: token\n\
                 c: channel\n\
-            u: username\n\
-            i: IP address\n\
-            h: hostname\n\
-            s: server name\n\
-            n: nickname\n\
-            f: WHO flags\n\
-            d: hop count\n\
-            l: idle seconds\n\
-            a: account name\n\
-            o: channel op level\n\
-            r: realname",
+                u: username\n\
+                i: IP address\n\
+                h: hostname\n\
+                s: server name\n\
+                n: nickname\n\
+                f: WHO flags\n\
+                d: hop count\n\
+                l: idle seconds\n\
+                a: account name\n\
+                o: channel op level\n\
+                r: realname",
             )),
         },
         Arg {
@@ -980,3 +1118,23 @@ static WHOX_COMMAND: Lazy<Command> = Lazy::new(|| Command {
         },
     ],
 });
+
+fn whois_command(target_limit: isupport::CommandTargetLimit) -> Command {
+    let mut nicks_tooltip = String::from("comma-separated");
+
+    if let Some(limit) = target_limit.limit {
+        nicks_tooltip.push_str(format!("\nup to {} nick", limit).as_str());
+        if limit > 1 {
+            nicks_tooltip.push('s')
+        }
+    }
+
+    Command {
+        title: "WHOIS",
+        args: vec![Arg {
+            text: "nicks",
+            optional: false,
+            tooltip: Some(nicks_tooltip),
+        }],
+    }
+}
