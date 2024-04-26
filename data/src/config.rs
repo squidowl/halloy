@@ -10,6 +10,7 @@ pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
 pub use self::keys::Keyboard;
 pub use self::notification::{Notification, Notifications};
+pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
 use crate::environment::config_dir;
@@ -22,6 +23,7 @@ pub mod channel;
 pub mod file_transfer;
 mod keys;
 pub mod notification;
+pub mod proxy;
 pub mod server;
 pub mod sidebar;
 
@@ -32,6 +34,7 @@ const DEFAULT_THEME_FILE_NAME: &str = "ferra.toml";
 pub struct Config {
     pub themes: Themes,
     pub servers: ServerMap,
+    pub proxy: Option<Proxy>,
     pub font: Font,
     pub scale_factor: ScaleFactor,
     pub buffer: Buffer,
@@ -117,6 +120,7 @@ impl Config {
             #[serde(default)]
             pub theme: String,
             pub servers: ServerMap,
+            pub proxy: Option<Proxy>,
             #[serde(default)]
             pub font: Font,
             #[serde(default)]
@@ -142,6 +146,7 @@ impl Config {
             theme,
             mut servers,
             font,
+            proxy,
             scale_factor,
             buffer,
             sidebar,
@@ -159,6 +164,7 @@ impl Config {
             themes,
             servers,
             font,
+            proxy,
             scale_factor,
             buffer,
             sidebar,

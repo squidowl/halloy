@@ -67,7 +67,11 @@ struct Stream {
     receiver: mpsc::Receiver<proto::Message>,
 }
 
-pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Never {
+pub async fn run(
+    server: server::Entry,
+    proxy: Option<config::Proxy>,
+    mut sender: mpsc::Sender<Update>,
+) -> Never {
     let server::Entry { server, config } = server;
 
     let reconnect_delay = Duration::from_secs(config.reconnect_delay);
@@ -96,7 +100,7 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
                     }
                 }
 
-                match connect(server.clone(), config.clone()).await {
+                match connect(server.clone(), config.clone(), proxy.clone()).await {
                     Ok((stream, client)) => {
                         log::info!("[{server}] connected");
 
@@ -253,8 +257,9 @@ pub async fn run(server: server::Entry, mut sender: mpsc::Sender<Update>) -> Nev
 async fn connect(
     server: Server,
     config: config::Server,
+    proxy: Option<config::Proxy>,
 ) -> Result<(Stream, Client), connection::Error> {
-    let connection = Connection::new(config.connection(), irc::Codec).await?;
+    let connection = Connection::new(config.connection(proxy), irc::Codec).await?;
 
     let (sender, receiver) = mpsc::channel(100);
 

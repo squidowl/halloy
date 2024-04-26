@@ -23,7 +23,7 @@ use tokio::{
 use tokio_stream::StreamExt;
 
 use super::Id;
-use crate::{dcc, server, user::Nick};
+use crate::{config, dcc, server, user::Nick};
 
 /// 16 KiB
 pub const BUFFER_SIZE: usize = 16 * 1024;
@@ -109,6 +109,7 @@ impl Task {
         self,
         server: Option<Server>,
         timeout: Duration,
+        proxy: Option<config::Proxy>,
     ) -> (Handle, impl Stream<Item = Update>) {
         let (action_sender, action_receiver) = mpsc::channel(1);
         let (update_sender, update_receiver) = mpsc::channel(100);
@@ -132,6 +133,7 @@ impl Task {
                         update_sender,
                         server,
                         timeout,
+                        proxy,
                     )
                     .await
                     {
@@ -157,6 +159,7 @@ impl Task {
                         update_sender,
                         server,
                         timeout,
+                        proxy,
                     )
                     .await
                     {
@@ -214,6 +217,7 @@ async fn receive(
     mut update: Sender<Update>,
     server: Option<Server>,
     timeout: Duration,
+    proxy: Option<config::Proxy>,
 ) -> Result<(), Error> {
     // Wait for approval
     let Some(Action::Approve { save_to }) = action.next().await else {
@@ -281,6 +285,7 @@ async fn receive(
                 server: &host.to_string(),
                 port: port.get(),
                 security: connection::Security::Unsecured,
+                proxy: proxy.map(From::from),
             },
             BytesCodec::new(),
         )
@@ -356,6 +361,7 @@ async fn send(
     mut update: Sender<Update>,
     server: Option<Server>,
     timeout: Duration,
+    proxy: Option<config::Proxy>,
 ) -> Result<(), Error> {
     let mut file = File::open(path).await?;
     let size = file.metadata().await?.len();
@@ -394,6 +400,7 @@ async fn send(
                 server: &host.to_string(),
                 port: port.get(),
                 security: connection::Security::Unsecured,
+                proxy: proxy.map(From::from),
             },
             BytesCodec::new(),
         )
