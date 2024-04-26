@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use data::user::User;
 use data::{input, isupport, Buffer, Command};
 use iced::advanced::widget::{self, Operation};
@@ -20,7 +22,7 @@ pub fn input<'a, Message>(
     history: &'a [String],
     users: &'a [User],
     channels: &'a [String],
-    isupport: Vec<&'a isupport::Parameter>,
+    isupport: HashMap<isupport::Kind, isupport::Parameter>,
     buffer_focused: bool,
     disabled: bool,
     on_input: impl Fn(input::Draft) -> Message + 'a,
@@ -68,7 +70,7 @@ pub struct Input<'a, Message> {
     input: &'a str,
     users: &'a [User],
     channels: &'a [String],
-    isupport: Vec<&'a isupport::Parameter>,
+    isupport: HashMap<isupport::Kind, isupport::Parameter>,
     history: &'a [String],
     buffer_focused: bool,
     disabled: bool,

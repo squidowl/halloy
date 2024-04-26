@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use data::input::{Cache, Draft};
 use data::isupport;
 use data::user::{Nick, User};
@@ -23,7 +25,7 @@ pub fn view<'a>(
     cache: Cache<'a>,
     users: &'a [User],
     channels: &'a [String],
-    isupport: Vec<&'a isupport::Parameter>,
+    isupport: HashMap<isupport::Kind, isupport::Parameter>,
     buffer_focused: bool,
     disabled: bool,
 ) -> Element<'a, Message> {

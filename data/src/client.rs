@@ -1160,9 +1160,9 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_isupport<'a>(&'a self, server: &Server) -> Vec<&'a isupport::Parameter> {
+    pub fn get_isupport(&self, server: &Server) -> HashMap<isupport::Kind, isupport::Parameter> {
         self.client(server)
-            .map(|client| client.isupport.values().collect::<Vec<_>>())
+            .map(|client| client.isupport.clone())
             .unwrap_or_default()
     }
 
