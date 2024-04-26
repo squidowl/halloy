@@ -593,12 +593,15 @@ impl Dashboard {
             Message::SendFileSelected(server, to, path) => {
                 if let Some(server_handle) = clients.get_server_handle(&server) {
                     if let Some(path) = path {
-                        if let Some(event) = self.file_transfers.send(file_transfer::SendRequest {
-                            to,
-                            path,
-                            server: server.clone(),
-                            server_handle: server_handle.clone(),
-                        }) {
+                        if let Some(event) = self.file_transfers.send(
+                            file_transfer::SendRequest {
+                                to,
+                                path,
+                                server: server.clone(),
+                                server_handle: server_handle.clone(),
+                            },
+                            config.proxy.clone(),
+                        ) {
                             return (self.handle_file_transfer_event(&server, event), None);
                         }
                     }
@@ -1200,7 +1203,10 @@ impl Dashboard {
         request: file_transfer::ReceiveRequest,
         config: &Config,
     ) -> Option<Command<Message>> {
-        if let Some(event) = self.file_transfers.receive(request.clone()) {
+        if let Some(event) = self
+            .file_transfers
+            .receive(request.clone(), config.proxy.as_ref())
+        {
             let notification = &config.notifications.file_transfer_request;
 
             if notification.enabled {

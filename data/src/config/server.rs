@@ -5,6 +5,8 @@ use std::time::Duration;
 use irc::connection;
 use serde::{Deserialize, Deserializer};
 
+use crate::config;
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Server {
     /// The client's nickname.
@@ -87,7 +89,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn connection(&self) -> connection::Config {
+    pub fn connection(&self, proxy: Option<config::Proxy>) -> connection::Config {
         let security = if self.use_tls {
             connection::Security::Secured {
                 accept_invalid_certs: self.dangerously_accept_invalid_certs,
@@ -103,6 +105,7 @@ impl Server {
             server: &self.server,
             port: self.port,
             security,
+            proxy: proxy.map(From::from),
         }
     }
 }
@@ -123,7 +126,7 @@ pub enum Sasl {
         /// Account password,
         password: Option<String>,
         /// Account password file
-        password_file: Option<String>
+        password_file: Option<String>,
     },
     External {
         /// The path to PEM encoded X509 user certificate for external auth
@@ -143,10 +146,14 @@ impl Sasl {
 
     pub fn param(&self) -> String {
         match self {
-            Sasl::Plain { username, password, .. } => {
+            Sasl::Plain {
+                username, password, ..
+            } => {
                 use base64::engine::Engine;
 
-                let password = password.as_ref().expect("SASL password must exist at this point!");
+                let password = password
+                    .as_ref()
+                    .expect("SASL password must exist at this point!");
 
                 base64::engine::general_purpose::STANDARD
                     .encode(format!("{username}\x00{username}\x00{password}"))

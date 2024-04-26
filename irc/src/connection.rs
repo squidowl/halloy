@@ -8,6 +8,9 @@ use tokio_rustls::client::TlsStream;
 use tokio_util::codec;
 use tokio_util::codec::Framed;
 
+pub use self::proxy::Proxy;
+
+mod proxy;
 mod tls;
 
 pub enum Connection<Codec> {
@@ -31,11 +34,30 @@ pub struct Config<'a> {
     pub server: &'a str,
     pub port: u16,
     pub security: Security<'a>,
+    pub proxy: Option<Proxy>,
 }
 
 impl<Codec> Connection<Codec> {
     pub async fn new(config: Config<'_>, codec: Codec) -> Result<Self, Error> {
-        let tcp = TcpStream::connect((config.server, config.port)).await?;
+        let tcp = match config.proxy {
+            None => TcpStream::connect((config.server, config.port)).await?,
+            Some(Proxy::Socks5 {
+                host,
+                port,
+                username,
+                password,
+            }) => {
+                proxy::connect_socks5(
+                    host,
+                    port,
+                    config.server.to_string(),
+                    config.port,
+                    username,
+                    password,
+                )
+                .await?
+            }
+        };
 
         if let Security::Secured {
             accept_invalid_certs,
@@ -99,6 +121,8 @@ pub enum Error {
     Tls(#[from] tls::Error),
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("proxy error: {0}")]
+    Proxy(#[from] proxy::Error),
 }
 
 macro_rules! delegate {
