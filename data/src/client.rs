@@ -897,6 +897,12 @@ impl Client {
                                             parameter
                                         );
                                         self.isupport.insert(kind, parameter);
+                                    } else {
+                                        log::debug!(
+                                            "[{}] ignoring ISUPPORT parameter: {:?}",
+                                            self.server,
+                                            parameter
+                                        );
                                     }
                                 }
                                 isupport::Operation::Remove(_) => {
