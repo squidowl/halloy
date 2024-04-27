@@ -12,6 +12,29 @@ pub enum Proxy {
     },
 }
 
+impl Proxy {
+    pub async fn connect(&self, target_server: &str, target_port: u16) -> Result<TcpStream, Error> {
+        match self {
+            Proxy::Socks5 {
+                host,
+                port,
+                username,
+                password,
+            } => {
+                connect_socks5(
+                    host.to_string(),
+                    *port,
+                    target_server.to_string(),
+                    target_port,
+                    username.to_owned(),
+                    password.to_owned(),
+                )
+                .await
+            }
+        }
+    }
+}
+
 pub async fn connect_socks5(
     proxy_server: String,
     proxy_port: u16,
