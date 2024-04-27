@@ -8,6 +8,7 @@ Added:
 - Support for IRCv3 CAP NEW and CAP DEL subcommands
 - Enable support for IRCv3 `multi-prefix`
 - Added support for `socks5` proxy configuration (see [proxy configuration](https://halloy.squidowl.org/configuration/proxy.html))
+- Added support for `http` proxy configuration (see [proxy configuration](https://halloy.squidowl.org/configuration/proxy.html))
 
 Changed:
 
