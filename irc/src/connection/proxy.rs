@@ -1,9 +1,16 @@
+use async_http_proxy::{http_connect_tokio, http_connect_tokio_with_basic_auth};
 use fast_socks5::client::{Config as Socks5Config, Socks5Stream};
 use thiserror::Error;
 use tokio::net::TcpStream;
 
 #[derive(Debug, Clone)]
 pub enum Proxy {
+    Http {
+        host: String,
+        port: u16,
+        username: Option<String>,
+        password: Option<String>,
+    },
     Socks5 {
         host: String,
         port: u16,
@@ -15,6 +22,22 @@ pub enum Proxy {
 impl Proxy {
     pub async fn connect(&self, target_server: &str, target_port: u16) -> Result<TcpStream, Error> {
         match self {
+            Proxy::Http {
+                host,
+                port,
+                username,
+                password,
+            } => {
+                connect_http(
+                    host,
+                    *port,
+                    target_server,
+                    target_port,
+                    username.to_owned(),
+                    password.to_owned(),
+                )
+                .await
+            }
             Proxy::Socks5 {
                 host,
                 port,
@@ -33,6 +56,30 @@ impl Proxy {
             }
         }
     }
+}
+
+pub async fn connect_http(
+    proxy_server: &str,
+    proxy_port: u16,
+    target_server: &str,
+    target_port: u16,
+    username: Option<String>,
+    password: Option<String>,
+) -> Result<TcpStream, Error> {
+    let mut stream = TcpStream::connect((proxy_server, proxy_port)).await?;
+    if let Some((username, password)) = username.zip(password) {
+        http_connect_tokio_with_basic_auth(
+            &mut stream,
+            target_server,
+            target_port,
+            &username,
+            &password,
+        )
+        .await?;
+    } else {
+        http_connect_tokio(&mut stream, target_server, target_port).await?;
+    }
+    Ok(stream)
 }
 
 pub async fn connect_socks5(
@@ -70,6 +117,10 @@ pub async fn connect_socks5(
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("http error: {0}")]
+    Http(#[from] async_http_proxy::HttpError),
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
     #[error("socks5 error: {0}")]
     Socks5(#[from] fast_socks5::SocksError),
 }
