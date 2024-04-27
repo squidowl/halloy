@@ -41,22 +41,7 @@ impl<Codec> Connection<Codec> {
     pub async fn new(config: Config<'_>, codec: Codec) -> Result<Self, Error> {
         let tcp = match config.proxy {
             None => TcpStream::connect((config.server, config.port)).await?,
-            Some(Proxy::Socks5 {
-                host,
-                port,
-                username,
-                password,
-            }) => {
-                proxy::connect_socks5(
-                    host,
-                    port,
-                    config.server.to_string(),
-                    config.port,
-                    username,
-                    password,
-                )
-                .await?
-            }
+            Some(proxy) => proxy.connect(config.server, config.port).await?,
         };
 
         if let Security::Secured {
