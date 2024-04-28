@@ -907,7 +907,7 @@ fn list_command(
                     'T' => {
                         "\n  T<{#}: topic changed < # min ago\n  T>{#}: topic changed > # min ago"
                     }
-                    'U' => "\n  U<{#}: fewer than # users\n  U>{#}: more than # users",
+                    'U' => "\n   <{#}: fewer than # users\n   >{#}: more than # users",
                     _ => "",
                 }
             },
