@@ -30,6 +30,7 @@ Join **#halloy** on libera.chat if you have questions or looking for help.
     * [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)
     * [cap-notify](https://ircv3.net/specs/extensions/capability-negotiation.html#cap-notify)
     * [multi-prefix](https://ircv3.net/specs/extensions/multi-prefix)
+    * [message-tags](https://ircv3.net/specs/extensions/message-tags)
     * [`WHOX`](https://ircv3.net/specs/extensions/whox)
     * [`UTF8ONLY`](https://ircv3.net/specs/extensions/utf8-only)
 * SASL support
