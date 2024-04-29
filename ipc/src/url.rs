@@ -80,9 +80,7 @@ mod tests {
 
     fn nickname() -> String {
         let mut rng = ChaCha8Rng::seed_from_u64(1337);
-        let nickname = data::config::random_nickname_with_seed(&mut rng);
-
-        nickname
+        data::config::random_nickname_with_seed(&mut rng)
     }
 
     #[test]
