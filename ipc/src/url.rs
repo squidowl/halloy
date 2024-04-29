@@ -24,7 +24,7 @@ impl Route {
                     return None;
                 }
 
-                if channel.starts_with("#") {
+                if channel.starts_with('#') {
                     Some(channel.to_string())
                 } else {
                     Some(format!("#{}", channel))
@@ -54,10 +54,10 @@ impl Route {
             channels
         };
 
-        return Some(Route {
+        Some(Route {
             server: Server::new(server, port, nickname, channels, use_tls),
             raw: url.to_string(),
-        });
+        })
     }
 
     pub fn find_in(mut args: impl Iterator<Item = String>) -> Option<Self> {

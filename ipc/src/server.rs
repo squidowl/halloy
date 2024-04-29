@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use crate::url::Route;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum Message {
     RouteReceived(Route),
