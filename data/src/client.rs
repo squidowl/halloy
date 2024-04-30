@@ -140,10 +140,14 @@ impl Client {
         }
     }
 
-    pub async fn quit(mut self) {
+    pub async fn quit(mut self, reason: Option<String>) {
         use tokio::time;
 
-        let _ = self.handle.try_send(command!("QUIT"));
+        if let Some(reason) = reason {
+            let _ = self.handle.try_send(command!("QUIT", reason));
+        } else {
+            let _ = self.handle.try_send(command!("QUIT"));
+        }
 
         // Ensure message is sent before dropping
         time::sleep(Duration::from_secs(1)).await;
