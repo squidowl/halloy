@@ -700,6 +700,9 @@ impl Client {
                         if matches!(channel.last_who, Some(WhoStatus::Requested(_, None)) | None) {
                             channel.last_who = Some(WhoStatus::Receiving(None));
                             log::debug!("[{}] {target} - WHO receiving...", self.server);
+                        }
+
+                        if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
                             // We requested, don't save to history
                             return None;
                         }
@@ -721,10 +724,13 @@ impl Client {
                                     channel.last_who =
                                         Some(WhoStatus::Receiving(Some(request_token)));
                                     log::debug!("[{}] {target} - WHO receiving...", self.server);
-                                    // We requested, don't save to history
-                                    return None;
                                 }
                             }
+                        }
+
+                        if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
+                            // We requested, don't save to history
+                            return None;
                         }
                     }
                 }
