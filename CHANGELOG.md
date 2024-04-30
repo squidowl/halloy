@@ -5,8 +5,9 @@ Added:
 - Reload configuration file from within the application (<kbd>Ctrl</kbd> + <kbd>r</kbd> (macOS: <kbd>⌘</kbd> + <kbd>r</kbd>))
 - Allow configuration of internal messages in buffer (see [buffer configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferinternal_messages-section))
 - User information added to context menu
-- Support for IRCv3 CAP NEW and CAP DEL subcommands
-- Enable support for IRCv3 `multi-prefix`
+- Support for IRCv3 `CAP NEW` and `CAP DEL` subcommands
+- Enable support for IRCv3 `multi-prefix`, `WHOX`, and `UTF8ONLY`
+- Dynamic commands and tooltips added to command auto-completion via `ISUPPORT` 
 - Added support for `socks5` proxy configuration (see [proxy configuration](https://halloy.squidowl.org/configuration/proxy.html))
 - Added support for `http` proxy configuration (see [proxy configuration](https://halloy.squidowl.org/configuration/proxy.html))
 

@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use crate::message::server_time;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{config, dcc, message, mode, Buffer, Server, User};
+use crate::{config, dcc, isupport, message, mode, Buffer, Server, User};
 use crate::{file_transfer, server};
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
@@ -88,6 +88,7 @@ pub struct Client {
     supports_away_notify: bool,
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<String>,
+    isupport: HashMap<isupport::Kind, isupport::Parameter>,
 }
 
 impl fmt::Debug for Client {
@@ -137,6 +138,7 @@ impl Client {
             supports_away_notify: false,
             highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
+            isupport: HashMap::new(),
         }
     }
 
@@ -658,8 +660,21 @@ impl Client {
 
                     if let Some(state) = self.chanmap.get_mut(channel) {
                         // Sends WHO to get away state on users.
-                        let _ = self.handle.try_send(command!("WHO", channel));
-                        state.last_who = Some(WhoStatus::Requested(Instant::now()));
+                        if self.isupport.get(&isupport::Kind::WHOX).is_some() {
+                            let _ = self.handle.try_send(command!(
+                                "WHO",
+                                channel,
+                                "tcnf",
+                                isupport::WHO_POLL_TOKEN.to_owned()
+                            ));
+                            state.last_who = Some(WhoStatus::Requested(
+                                Instant::now(),
+                                Some(isupport::WHO_POLL_TOKEN),
+                            ));
+                        } else {
+                            let _ = self.handle.try_send(command!("WHO", channel));
+                            state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
+                        }
                         log::debug!("[{}] {channel} - WHO requested", self.server);
                     }
                 } else if let Some(channel) = self.chanmap.get_mut(channel) {
@@ -680,25 +695,36 @@ impl Client {
 
                 if proto::is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
-                        if matches!(channel.last_who, Some(WhoStatus::Requested(_)) | None) {
-                            channel.last_who = Some(WhoStatus::Receiving);
+                        channel.update_user_away(args.get(5)?, args.get(6)?);
+
+                        if matches!(channel.last_who, Some(WhoStatus::Requested(_, None)) | None) {
+                            channel.last_who = Some(WhoStatus::Receiving(None));
                             log::debug!("[{}] {target} - WHO receiving...", self.server);
-                        }
-
-                        // H = Here, G = gone (away)
-                        let flags = args.get(6)?.chars().collect::<Vec<char>>();
-                        let away = *(flags.first()?) == 'G';
-
-                        let lookup = User::from(Nick::from(args[5].clone()));
-
-                        if let Some(mut user) = channel.users.take(&lookup) {
-                            user.update_away(away);
-                            channel.users.insert(user);
-                        }
-
-                        // We requested, don't save to history
-                        if matches!(channel.last_who, Some(WhoStatus::Receiving)) {
+                            // We requested, don't save to history
                             return None;
+                        }
+                    }
+                }
+            }
+            Command::Numeric(RPL_WHOSPCRPL, args) => {
+                let target = args.get(2)?;
+
+                if proto::is_channel(target) {
+                    if let Some(channel) = self.chanmap.get_mut(target) {
+                        channel.update_user_away(args.get(3)?, args.get(4)?);
+
+                        if let Ok(token) = args.get(1)?.parse::<isupport::WhoToken>() {
+                            if let Some(WhoStatus::Requested(_, Some(request_token))) =
+                                channel.last_who
+                            {
+                                if request_token == token {
+                                    channel.last_who =
+                                        Some(WhoStatus::Receiving(Some(request_token)));
+                                    log::debug!("[{}] {target} - WHO receiving...", self.server);
+                                    // We requested, don't save to history
+                                    return None;
+                                }
+                            }
                         }
                     }
                 }
@@ -708,7 +734,7 @@ impl Client {
 
                 if proto::is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
-                        if matches!(channel.last_who, Some(WhoStatus::Receiving)) {
+                        if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
                             channel.last_who = Some(WhoStatus::Done(Instant::now()));
                             log::debug!("[{}] {target} - WHO done", self.server);
                             return None;
@@ -846,6 +872,57 @@ impl Client {
                     self.registration_required_channels.push(channel.clone());
                 }
             }
+            Command::Numeric(RPL_ISUPPORT, args) => {
+                let args_len = args.len();
+                args.iter().enumerate().skip(1).for_each(|(index, arg)| {
+                    let operation = arg.parse::<isupport::Operation>();
+
+                    match operation {
+                        Ok(operation) => {
+                            match operation {
+                                isupport::Operation::Add(parameter) => {
+                                    if let Some(kind) = parameter.kind() {
+                                        log::info!(
+                                            "[{}] adding ISUPPORT parameter: {:?}",
+                                            self.server,
+                                            parameter
+                                        );
+                                        self.isupport.insert(kind, parameter);
+                                    } else {
+                                        log::debug!(
+                                            "[{}] ignoring ISUPPORT parameter: {:?}",
+                                            self.server,
+                                            parameter
+                                        );
+                                    }
+                                }
+                                isupport::Operation::Remove(_) => {
+                                    if let Some(kind) = operation.kind() {
+                                        log::info!(
+                                            "[{}] removing ISUPPORT parameter: {:?}",
+                                            self.server,
+                                            kind
+                                        );
+                                        self.isupport.remove(&kind);
+                                    }
+                                }
+                            };
+                        }
+                        Err(error) => {
+                            if index != args_len - 1 {
+                                log::debug!(
+                                    "[{}] unable to parse ISUPPORT parameter: {} ({})",
+                                    self.server,
+                                    arg,
+                                    error
+                                )
+                            }
+                        }
+                    }
+                });
+
+                return None;
+            }
             _ => {}
         }
 
@@ -929,15 +1006,28 @@ impl Client {
                     (now.duration_since(last) >= self.config.who_poll_interval)
                         .then_some(Request::Poll)
                 }
-                Some(WhoStatus::Requested(requested)) => (now.duration_since(requested)
+                Some(WhoStatus::Requested(requested, _)) => (now.duration_since(requested)
                     >= self.config.who_retry_interval)
                     .then_some(Request::Retry),
                 _ => None,
             };
 
             if let Some(request) = request {
-                let _ = self.handle.try_send(command!("WHO", channel));
-                state.last_who = Some(WhoStatus::Requested(Instant::now()));
+                if self.isupport.get(&isupport::Kind::WHOX).is_some() {
+                    let _ = self.handle.try_send(command!(
+                        "WHO",
+                        channel,
+                        "tcnf",
+                        isupport::WHO_POLL_TOKEN.to_owned()
+                    ));
+                    state.last_who = Some(WhoStatus::Requested(
+                        Instant::now(),
+                        Some(isupport::WHO_POLL_TOKEN),
+                    ));
+                } else {
+                    let _ = self.handle.try_send(command!("WHO", channel));
+                    state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
+                }
                 log::debug!(
                     "[{}] {channel} - WHO {}",
                     self.server,
@@ -1064,6 +1154,12 @@ impl Map {
     pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [String] {
         self.client(server)
             .map(|client| client.channels())
+            .unwrap_or_default()
+    }
+
+    pub fn get_isupport(&self, server: &Server) -> HashMap<isupport::Kind, isupport::Parameter> {
+        self.client(server)
+            .map(|client| client.isupport.clone())
             .unwrap_or_default()
     }
 
@@ -1196,6 +1292,26 @@ pub struct Channel {
     pub names_init: bool,
 }
 
+impl Channel {
+    pub fn update_user_away(&mut self, user: &str, flags: &str) {
+        let user = User::from(Nick::from(user));
+
+        if let Some(away_flag) = flags.chars().next() {
+            // H = Here, G = gone (away)
+            let away = match away_flag {
+                'G' => true,
+                'H' => false,
+                _ => return,
+            };
+
+            if let Some(mut user) = self.users.take(&user) {
+                user.update_away(away);
+                self.users.insert(user);
+            }
+        }
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct Topic {
     pub text: Option<String>,
@@ -1203,10 +1319,10 @@ pub struct Topic {
     pub time: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum WhoStatus {
-    Requested(Instant),
-    Receiving,
+    Requested(Instant, Option<isupport::WhoToken>),
+    Receiving(Option<isupport::WhoToken>),
     Done(Instant),
 }
 

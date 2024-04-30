@@ -61,6 +61,12 @@ pub fn transparent(theme: &Theme) -> Style {
     }
 }
 
+pub fn transparent_accent(theme: &Theme) -> Style {
+    Style {
+        color: Some(theme.colors().accent.low_alpha),
+    }
+}
+
 pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Style {
     let dark_theme = theme.colors().is_dark_theme();
 
