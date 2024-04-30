@@ -4,7 +4,7 @@ use std::time::Duration;
 use futures::channel::mpsc;
 use futures::never::Never;
 use futures::{stream, FutureExt, SinkExt, StreamExt};
-use irc::proto::{self, command};
+use irc::proto::{self, command, Command};
 use irc::{codec, connection, Connection};
 use tokio::time::{self, Instant, Interval};
 
@@ -40,6 +40,7 @@ pub enum Update {
         sent_time: DateTime<Utc>,
     },
     MessagesReceived(Server, Vec<message::Encoded>),
+    QuitServer(Server, Option<String>),
 }
 
 enum State {
@@ -222,7 +223,13 @@ pub async fn run(
                             .await;
                     }
                     Input::Send(message) => {
-                        let _ = stream.connection.send(message).await;
+                        if let Command::QUIT(reason) = message.command {
+                            let _ = sender
+                                .send(Update::QuitServer(server.clone(), reason))
+                                .await;
+                        } else {
+                            let _ = stream.connection.send(message).await;
+                        }
                     }
                     Input::Ping => {
                         let now = Posix::now().as_nanos().to_string();

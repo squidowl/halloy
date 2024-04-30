@@ -173,7 +173,7 @@ impl Halloy {
         )
     }
 
-    fn quit_server(&mut self, server: Server) -> Command<Message> {
+    fn quit_server(&mut self, server: Server, reason: Option<String>) -> Command<Message> {
         // Removing from servers kills stream subscription
         self.servers.remove(&server);
 
@@ -181,7 +181,7 @@ impl Halloy {
         self.clients
             .remove(&server)
             .map(move |connection| async move {
-                connection.quit().await;
+                connection.quit(reason).await;
             })
             .map(|task| Command::perform(task, |_| Message::QuitServer(server)))
             .unwrap_or_else(Command::none)
@@ -269,7 +269,7 @@ impl Application for Halloy {
                                 self.config = updated;
 
                                 for server in removed_servers {
-                                    commands.push(self.quit_server(server));
+                                    commands.push(self.quit_server(server, None));
                                 }
                             }
                             Err(error) => {
@@ -277,7 +277,7 @@ impl Application for Halloy {
                             }
                         },
                         dashboard::Event::QuitServer(server) => {
-                            commands.push(self.quit_server(server));
+                            commands.push(self.quit_server(server, None));
                         }
                     }
                 }
@@ -568,6 +568,11 @@ impl Application for Halloy {
                     self.clients.sync(&server);
 
                     Command::batch(commands)
+                }
+                stream::Update::QuitServer(server, reason) => {
+                    let _ = self.quit_server(server, reason);
+
+                    Command::none()
                 }
             },
             Message::Event(event) => {
