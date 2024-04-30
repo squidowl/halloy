@@ -17,9 +17,10 @@ mod window;
 use std::env;
 use std::time::{Duration, Instant};
 
+use chrono::Utc;
 use data::config::{self, Config};
 use data::version::Version;
-use data::{environment, server, version, Server, User};
+use data::{environment, server, version, User};
 use iced::advanced::Application;
 use iced::widget::{column, container};
 use iced::{executor, Command, Length, Renderer, Subscription};
@@ -172,20 +173,6 @@ impl Halloy {
             command,
         )
     }
-
-    fn quit_server(&mut self, server: Server) -> Command<Message> {
-        // Removing from servers kills stream subscription
-        self.servers.remove(&server);
-
-        // Remove from clients pool to fully drop it
-        self.clients
-            .remove(&server)
-            .map(move |connection| async move {
-                connection.quit().await;
-            })
-            .map(|task| Command::perform(task, |_| Message::QuitServer(server)))
-            .unwrap_or_else(Command::none)
-    }
 }
 
 pub enum Screen {
@@ -205,7 +192,6 @@ pub enum Message {
     Event(Event),
     Tick(Instant),
     Version(Option<String>),
-    QuitServer(Server),
     CloseModal,
 }
 
@@ -248,11 +234,6 @@ impl Application for Halloy {
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
-                let mut commands = vec![
-                    command.map(Message::Dashboard),
-                    track.map(Message::Dashboard),
-                ];
-
                 if let Some(event) = event {
                     match event {
                         dashboard::Event::ReloadConfiguration => match Config::load() {
@@ -269,7 +250,7 @@ impl Application for Halloy {
                                 self.config = updated;
 
                                 for server in removed_servers {
-                                    commands.push(self.quit_server(server));
+                                    self.clients.quit(&server, None);
                                 }
                             }
                             Err(error) => {
@@ -277,12 +258,15 @@ impl Application for Halloy {
                             }
                         },
                         dashboard::Event::QuitServer(server) => {
-                            commands.push(self.quit_server(server));
+                            self.clients.quit(&server, None);
                         }
                     }
                 }
 
-                Command::batch(commands)
+                Command::batch(vec![
+                    command.map(Message::Dashboard),
+                    track.map(Message::Dashboard),
+                ])
             }
             Message::Version(remote) => {
                 // Set latest known remote version
@@ -569,6 +553,30 @@ impl Application for Halloy {
 
                     Command::batch(commands)
                 }
+                stream::Update::Quit(server, reason) => {
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
+                        return Command::none();
+                    };
+
+                    self.servers.remove(&server);
+
+                    if let Some(client) = self.clients.remove(&server) {
+                        let user = client.nickname().to_owned().into();
+
+                        let channels = client.channels().to_vec();
+
+                        dashboard.broadcast_quit(
+                            &server,
+                            user,
+                            reason,
+                            channels,
+                            &self.config,
+                            Utc::now(),
+                        );
+                    }
+
+                    Command::none()
+                }
             },
             Message::Event(event) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
@@ -595,10 +603,6 @@ impl Application for Halloy {
                 } else {
                     Command::none()
                 }
-            }
-            Message::QuitServer(server) => {
-                log::info!("[{server}] quit");
-                Command::none()
             }
             Message::CloseModal => {
                 self.modal = None;
