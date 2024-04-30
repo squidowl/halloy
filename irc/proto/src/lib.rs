@@ -48,12 +48,15 @@ pub fn command(command: &str, parameters: Vec<String>) -> Message {
     }
 }
 
+// Reference: https://defs.ircdocs.horse/defs/chantypes
+pub const CHANNEL_PREFIXES: [char; 4] = ['#', '&', '+', '!'];
+
 pub fn is_channel(target: &str) -> bool {
-    target.starts_with('#')
-        || target.starts_with('&')
-        || target.starts_with('+')
-        || target.starts_with('!')
+    target.starts_with(CHANNEL_PREFIXES)
 }
+
+// Reference: https://defs.ircdocs.horse/defs/chanmembers
+pub const CHANNEL_MEMBERSHIP_PREFIXES: [char; 6] = ['~', '&', '!', '@', '%', '+' ];
 
 #[macro_export]
 macro_rules! command {

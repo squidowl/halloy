@@ -149,6 +149,7 @@ pub fn view<'a>(
             input,
             users,
             channels,
+            clients.get_isupport(&state.server),
             is_focused,
             !is_connected_to_channel,
         )
@@ -308,13 +309,7 @@ mod nick_list {
                 )
             });
 
-            user_context::view(
-                content,
-                user,
-                Some(user),
-                buffer.clone(),
-                our_user,
-            )
+            user_context::view(content, user, Some(user), buffer.clone(), our_user)
         }))
         .padding(4)
         .spacing(1);
