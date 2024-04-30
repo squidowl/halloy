@@ -12,7 +12,7 @@ pub enum Modal {
 }
 
 impl Modal {
-    pub fn view(&self) -> Element<Close> {
+    pub fn view(&self) -> Element<Message> {
         match self {
             Modal::ReloadConfigurationError(error) => reload_configuration_error::view(error),
             Modal::UrlRouteReceived(route) => url_route_received::view(route),
@@ -21,4 +21,7 @@ impl Modal {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Close;
+pub enum Message {
+    Cancel,
+    Accept,
+}

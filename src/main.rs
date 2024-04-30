@@ -202,7 +202,8 @@ pub enum Message {
     Event(Event),
     Tick(Instant),
     Version(Option<String>),
-    CloseModal,
+    QuitServer(Server),
+    Modal(modal::Message),
     RouteReceived(ipc::server::Message),
 }
 
@@ -615,8 +616,22 @@ impl Application for Halloy {
                     Command::none()
                 }
             }
-            Message::CloseModal => {
-                self.modal = None;
+            Message::Modal(message) => {
+                match message {
+                    modal::Message::Cancel => {
+                        self.modal = None;
+                    }
+                    modal::Message::Accept => {
+                        if let Some(Modal::UrlRouteReceived(route)) = &self.modal {
+                            let host = Server::from(route.server.server.as_str());
+                            self.servers.insert(host, &route.server);
+
+                            // Connect to clients?
+
+                            self.modal = None;
+                        };
+                    }
+                }
 
                 Command::none()
             }
@@ -627,7 +642,7 @@ impl Application for Halloy {
                 };
 
                 Command::none()
-            },
+            }
         }
     }
 
@@ -647,8 +662,8 @@ impl Application for Halloy {
             .style(theme::container::primary);
 
         if let Some(modal) = &self.modal {
-            widget::modal(content, modal.view().map(|_| Message::CloseModal), || {
-                Message::CloseModal
+            widget::modal(content, modal.view().map(Message::Modal), || {
+                Message::Modal(modal::Message::Cancel)
             })
         } else {
             // Align `content` into same view tree shape as `modal`

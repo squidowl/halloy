@@ -5,10 +5,10 @@ use iced::{
     Length,
 };
 
-use super::Close;
+use super::Message;
 use crate::{theme, widget::Element};
 
-pub fn view<'a>(error: &config::Error) -> Element<'a, Close> {
+pub fn view<'a>(error: &config::Error) -> Element<'a, Message> {
     container(
         column![
             text("Error reloading configuration file"),
@@ -21,13 +21,13 @@ pub fn view<'a>(error: &config::Error) -> Element<'a, Close> {
             .padding(5)
             .width(Length::Fixed(250.0))
             .style(theme::button::primary)
-            .on_press(Close),
+            .on_press(Message::Cancel)
         ]
         .spacing(20)
         .align_items(iced::Alignment::Center),
     )
     .width(Length::Shrink)
-    .style(theme::container::error_banner)
+    .style(theme::container::error_modal)
     .padding(25)
     .into()
 }
