@@ -16,6 +16,10 @@ Changed:
 - Context menus can be dismissed by pressing Escape
 - Join channels that report themselves as requiring registration after logging in
 
+Fixed:
+
+- No longer automatically reconnects to a server after using the `/QUIT` command.
+
 # 2024.6 (2024-04-05)
 
 Added:
