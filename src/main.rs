@@ -570,9 +570,7 @@ impl Application for Halloy {
                     Command::batch(commands)
                 }
                 stream::Update::QuitServer(server, reason) => {
-                    let _ = self.quit_server(server, reason);
-
-                    Command::none()
+                    self.quit_server(server, reason)
                 }
             },
             Message::Event(event) => {
