@@ -694,15 +694,12 @@ impl Client {
 
                 if proto::is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
+                        channel.update_user_away(args.get(5)?, args.get(6)?);
+
                         if matches!(channel.last_who, Some(WhoStatus::Requested(_, None)) | None) {
                             channel.last_who = Some(WhoStatus::Receiving(None));
                             log::debug!("[{}] {target} - WHO receiving...", self.server);
-                        }
-
-                        channel.update_user_away(args.get(5)?, args.get(6)?);
-
-                        // We requested, don't save to history
-                        if matches!(channel.last_who, Some(WhoStatus::Receiving(None))) {
+                            // We requested, don't save to history
                             return None;
                         }
                     }
@@ -713,6 +710,8 @@ impl Client {
 
                 if proto::is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
+                        channel.update_user_away(args.get(3)?, args.get(4)?);
+
                         if let Ok(token) = args.get(1)?.parse::<isupport::WhoToken>() {
                             if let Some(WhoStatus::Requested(_, Some(request_token))) =
                                 channel.last_who
@@ -721,16 +720,7 @@ impl Client {
                                     channel.last_who =
                                         Some(WhoStatus::Receiving(Some(request_token)));
                                     log::debug!("[{}] {target} - WHO receiving...", self.server);
-                                }
-                            }
-
-                            // We requested, don't save to history
-                            if let Some(WhoStatus::Receiving(Some(request_token))) =
-                                channel.last_who
-                            {
-                                if request_token == token {
-                                    channel.update_user_away(args.get(3)?, args.get(4)?);
-
+                                    // We requested, don't save to history
                                     return None;
                                 }
                             }
