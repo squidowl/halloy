@@ -140,13 +140,14 @@ impl Client {
         }
     }
 
-    pub async fn quit(mut self) {
-        use tokio::time;
-
-        let _ = self.handle.try_send(command!("QUIT"));
-
-        // Ensure message is sent before dropping
-        time::sleep(Duration::from_secs(1)).await;
+    fn quit(&mut self, reason: Option<String>) {
+        if let Err(e) = if let Some(reason) = reason {
+            self.handle.try_send(command!("QUIT", reason))
+        } else {
+            self.handle.try_send(command!("QUIT"))
+        } {
+            log::warn!("Error sending quit: {e}");
+        }
     }
 
     fn send(&mut self, buffer: &Buffer, mut message: message::Encoded) {
@@ -1023,6 +1024,12 @@ impl Map {
     pub fn send(&mut self, buffer: &Buffer, message: message::Encoded) {
         if let Some(client) = self.client_mut(buffer.server()) {
             client.send(buffer, message);
+        }
+    }
+
+    pub fn quit(&mut self, server: &Server, reason: Option<String>) {
+        if let Some(client) = self.client_mut(server) {
+            client.quit(reason);
         }
     }
 

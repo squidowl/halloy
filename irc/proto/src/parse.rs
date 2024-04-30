@@ -152,7 +152,7 @@ fn user(input: &str) -> IResult<&str, User> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("parsing failed: {input}")]
+    #[error("parsing failed: {:?}", input)]
     Parse { input: String, nom: String },
     #[error("invalid utf-8 encoding")]
     InvalidUtf8(#[from] FromUtf8Error),
