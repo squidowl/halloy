@@ -12,7 +12,6 @@ mod screen;
 mod stream;
 mod theme;
 mod url;
-mod url_server;
 mod widget;
 mod window;
 
@@ -690,8 +689,7 @@ impl Application for Halloy {
         .map(Message::Stream);
 
         Subscription::batch(vec![
-            url::on_url().map(|route| Message::RouteReceived(route.into())),
-            url_server::listen().map(Message::RouteReceived),
+            url::listen().map(Message::RouteReceived),
             tick,
             streams,
             events().map(Message::Event),
