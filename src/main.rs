@@ -202,7 +202,6 @@ pub enum Message {
     Event(Event),
     Tick(Instant),
     Version(Option<String>),
-    QuitServer(Server),
     Modal(modal::Message),
     RouteReceived(ipc::server::Message),
 }
