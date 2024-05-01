@@ -1,6 +1,6 @@
 use data::config::Server;
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Route {
     pub raw: String,
     pub server: Server,

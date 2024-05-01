@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer};
 
 use crate::config;
 
-#[derive(PartialEq, Eq, Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Server {
     /// The client's nickname.
     pub nickname: String,
@@ -128,6 +128,39 @@ impl Server {
             port: self.port,
             security,
             proxy: proxy.map(From::from),
+        }
+    }
+}
+
+impl Default for Server {
+    fn default() -> Self {
+        Self {
+            nickname: Default::default(),
+            nick_password: Default::default(),
+            nick_password_file: Default::default(),
+            nick_identify_syntax: Default::default(),
+            alt_nicks: Default::default(),
+            username: Default::default(),
+            realname: Default::default(),
+            server: Default::default(),
+            port: default_tls_port(),
+            password: Default::default(),
+            password_file: Default::default(),
+            channels: Default::default(),
+            channel_keys: Default::default(),
+            ping_time: default_ping_time(),
+            ping_timeout: default_ping_timeout(),
+            reconnect_delay: default_reconnect_delay(),
+            should_ghost: Default::default(),
+            ghost_sequence: default_ghost_sequence(),
+            umodes: Default::default(),
+            use_tls: default_use_tls(),
+            dangerously_accept_invalid_certs: Default::default(),
+            root_cert_path: Default::default(),
+            sasl: Default::default(),
+            on_connect: Default::default(),
+            who_poll_interval: default_who_poll_interval(),
+            who_retry_interval: default_who_retry_interval(),
         }
     }
 }
