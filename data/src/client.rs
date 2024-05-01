@@ -304,6 +304,9 @@ impl Client {
                     if contains("away-notify") {
                         requested.push("away-notify");
                     }
+                    if contains("message-tags") {
+                        requested.push("message-tags");
+                    }
                     if contains("server-time") {
                         requested.push("server-time");
                     }
@@ -392,6 +395,9 @@ impl Client {
                 }
                 if newly_contains("away-notify") {
                     requested.push("away-notify");
+                }
+                if newly_contains("message-tags") {
+                    requested.push("message-tags");
                 }
                 if newly_contains("server-time") {
                     requested.push("server-time");
@@ -927,6 +933,9 @@ impl Client {
                     }
                 });
 
+                return None;
+            }
+            Command::TAGMSG(_) => {
                 return None;
             }
             _ => {}
