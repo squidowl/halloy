@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::version::Version;
-use data::{environment, server, version, User};
+use data::{environment, server, version, Server, User};
 use iced::advanced::Application;
 use iced::widget::{column, container};
 use iced::{executor, Command, Length, Renderer, Subscription};
