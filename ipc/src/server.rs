@@ -55,17 +55,8 @@ pub async fn with_socket_path<T, Fut>(f: impl FnOnce(PathBuf) -> Fut) -> T
 where
     Fut: futures::Future<Output = T>,
 {
-    let directory = std::env::current_dir();
-    let _ = std::env::set_current_dir(socket_directory());
-
-    let file = PathBuf::from("urlserver.sock");
-    let output = f(file).await;
-
-    if let Ok(old_directory) = directory {
-        let _ = std::env::set_current_dir(old_directory);
-    }
-
-    output
+    let file = socket_directory().join("urlserver.sock");
+    f(file).await
 }
 
 #[cfg(not(windows))]
