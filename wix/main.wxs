@@ -89,6 +89,7 @@
                         <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\DefaultIcon" Value="[INSTALLFOLDER]Halloy.exe,1" Type="string" />
                         <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="irc" Value="Halloy" Type="string" />
                         <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="ircs" Value="Halloy" Type="string" />
+                        <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="halloy" Value="Halloy" Type="string" />
                         <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\shell" Value="open" Type="string" />
                         <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\shell\open\command" Value="&quot;[APPLICATIONFOLDER]Halloy.exe&quot; &quot;%1&quot;" Type="string" />
                         <RegistryValue Root="HKLM" Key="SOFTWARE\RegisteredApplications" Name="Halloy" Value="SOFTWARE\Halloy\Capabilities" Type="string" />

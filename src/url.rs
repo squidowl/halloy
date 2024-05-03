@@ -7,7 +7,6 @@ use ipc::server::Message;
 pub fn listen() -> Subscription<Message> {
     use futures::stream::StreamExt;
     use iced::event::{self, Event};
-    use ipc::url::Route;
 
     struct OnUrl;
 
@@ -34,7 +33,7 @@ pub fn listen() -> Subscription<Message> {
                     let result = match event {
                         Event::PlatformSpecific(event::PlatformSpecific::MacOS(
                             event::MacOS::ReceivedUrl(url),
-                        )) => Route::parse(&url).map(Message::RouteReceived),
+                        )) => Some(Message::RouteReceived(url)),
                         _ => None,
                     };
 

@@ -971,6 +971,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "toml",
+ "url",
  "xdg",
 ]
 

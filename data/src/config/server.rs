@@ -66,7 +66,7 @@ pub struct Server {
     use_tls: bool,
     /// On `true`, all certificate validations are skipped. Defaults to `false`.
     #[serde(default)]
-    dangerously_accept_invalid_certs: bool,
+    pub dangerously_accept_invalid_certs: bool,
     /// The path to the root TLS certificate for this server in PEM format.
     root_cert_path: Option<PathBuf>,
     /// Sasl authentication

@@ -1,17 +1,23 @@
+use data::config;
 use iced::{
     alignment,
-    widget::{button, column, container, text},
+    widget::{button, checkbox, column, container, text},
     Length,
 };
 
 use super::Message;
 use crate::{theme, widget::Element};
 
-pub fn view<'a>(route: &ipc::Route) -> Element<'a, Message> {
+pub fn view<'a>(raw: &'a str, server: &config::Server) -> Element<'a, Message> {
     container(
         column![
-            text("Create new connection?"),
-            text(route.to_string()).style(theme::text::info),
+            text("Connect to server?"),
+            text(raw).style(theme::text::info),
+            checkbox(
+                "Accept invalid certificates",
+                server.dangerously_accept_invalid_certs
+            )
+            .on_toggle(Message::DangerouslyAcceptInvalidCerts),
             column![
                 button(
                     container(text("Accept"))
@@ -21,7 +27,7 @@ pub fn view<'a>(route: &ipc::Route) -> Element<'a, Message> {
                 .padding(5)
                 .width(Length::Fixed(250.0))
                 .style(theme::button::primary)
-                .on_press(Message::Accept),
+                .on_press(Message::AcceptNewServer),
                 button(
                     container(text("Close"))
                         .align_x(alignment::Horizontal::Center)
