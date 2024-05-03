@@ -7,5 +7,5 @@ Categories=Network;IRCClient;
 Exec=halloy %U
 Icon=org.squidowl.halloy
 StartupWMClass=org.squidowl.halloy
-MimeType=x-scheme-handler/irc;x-scheme-handler/ircs;
+MimeType=x-scheme-handler/irc;x-scheme-handler/ircs;x-scheme-handler/halloy;
 Terminal=false

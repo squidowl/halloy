@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::version::Version;
-use data::{environment, server, version, Server, User};
+use data::{environment, server, version, User};
 use iced::advanced::Application;
 use iced::widget::{column, container};
 use iced::{executor, Command, Length, Renderer, Subscription};
@@ -69,9 +69,9 @@ pub fn main() -> iced::Result {
     // before we do any iced related stuff w/ it
     font::set(config_load.as_ref().ok());
 
-    let destination = ipc::Route::find_in(std::env::args());
+    let destination = data::url::Url::find_in(std::env::args());
     if let Some(loc) = destination.clone() {
-        let should_exit = ipc::client::connect_and_send(loc);
+        let should_exit = ipc::client::connect_and_send(loc.to_string());
         if should_exit {
             return Ok(());
         }
@@ -615,19 +615,28 @@ impl Application for Halloy {
                 }
             }
             Message::Modal(message) => {
-                match message {
-                    modal::Message::Cancel => {
-                        self.modal = None;
-                    }
-                    modal::Message::Accept => {
-                        if let Some(Modal::UrlRouteReceived(route)) = &self.modal {
-                            let host = Server::from(route.server.server.as_str());
-                            self.servers.insert(host, &route.server);
+                let Some(modal) = &mut self.modal else {
+                    return Command::none();
+                };
 
-                            // Connect to clients?
+                if let Some(event) = modal.update(message) {
+                    match event {
+                        modal::Event::CloseModal => {
+                            self.modal = None;
+                        }
+                        modal::Event::AcceptNewServer => {
+                            if let Some(Modal::RouteReceived(data::Url::ServerConnect {
+                                server,
+                                ..
+                            })) = &self.modal
+                            {
+                                // TODO: Ensure we don't add something we already have.
+                                let name = server.server.as_str().into();
+                                self.servers.insert(name, server);
+                            }
 
                             self.modal = None;
-                        };
+                        }
                     }
                 }
 
@@ -636,7 +645,10 @@ impl Application for Halloy {
             Message::RouteReceived(route) => {
                 if let ipc::server::Message::RouteReceived(route) = route {
                     log::info!("RouteRecived: {:?}", route);
-                    self.modal = Some(Modal::UrlRouteReceived(route));
+
+                    if let Ok(url) = data::Url::parse(&route) {
+                        self.modal = Some(Modal::RouteReceived(url));
+                    };
                 };
 
                 Command::none()

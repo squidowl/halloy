@@ -19,12 +19,9 @@ fn connect() -> Result<LocalSocketStream, server::Error> {
     Ok(LocalSocketStream::connect(client_path)?)
 }
 
-pub fn connect_and_send(url: super::Route) -> bool {
+pub fn connect_and_send(url: String) -> bool {
     match connect() {
-        Ok(mut conn) => {
-            let uri = url.to_string();
-            conn.write_all(uri.as_bytes()).is_ok()
-        },
+        Ok(mut conn) => conn.write_all(url.as_bytes()).is_ok(),
         Err(_) => false,
     }
 }

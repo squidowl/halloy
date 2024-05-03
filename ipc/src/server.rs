@@ -2,18 +2,16 @@ use core::time;
 use interprocess::local_socket::tokio::LocalSocketListener;
 use std::path::PathBuf;
 
-use crate::url::Route;
-
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum Message {
-    RouteReceived(Route),
+    RouteReceived(String),
     None,
 }
 
-impl From<Route> for Message {
-    fn from(route: Route) -> Self {
-        Self::RouteReceived(route)
+impl From<String> for Message {
+    fn from(url: String) -> Self {
+        Self::RouteReceived(url)
     }
 }
 
@@ -109,13 +107,7 @@ pub fn run() -> futures::stream::BoxStream<'static, Message> {
                 let _ = conn.close().await;
 
                 match msg {
-                    Ok(Ok(_)) => {
-                        let Some(route) = Route::parse(&buffer) else {
-                            return Some((Message::None, State::Waiting(server)));
-                        };
-
-                        Some((Message::RouteReceived(route), State::Waiting(server)))
-                    }
+                    Ok(Ok(_)) => Some((Message::RouteReceived(buffer), State::Waiting(server))),
                     Err(_) | Ok(Err(_)) => Some((Message::None, State::Waiting(server))),
                 }
             }
