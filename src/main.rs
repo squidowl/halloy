@@ -627,12 +627,19 @@ impl Application for Halloy {
                         modal::Event::AcceptNewServer => {
                             if let Some(Modal::RouteReceived(data::Url::ServerConnect {
                                 server,
+                                config,
                                 ..
                             })) = &self.modal
                             {
-                                // TODO: Ensure we don't add something we already have.
-                                let name = server.server.as_str().into();
-                                self.servers.insert(name, server);
+                                let host_exsist = self
+                                    .servers
+                                    .entries()
+                                    .any(|entry| entry.config.server == config.server);
+
+                                if !host_exsist {
+                                    let server = server.as_str().into();
+                                    self.servers.insert(server, config);
+                                }
                             }
 
                             self.modal = None;

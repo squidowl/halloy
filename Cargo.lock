@@ -961,6 +961,7 @@ dependencies = [
  "palette",
  "rand",
  "rand_chacha",
+ "regex",
  "reqwest",
  "seahash",
  "serde",

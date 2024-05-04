@@ -32,6 +32,7 @@ tokio-stream = { version = "0.1", features = ["time"] }
 itertools = "0.12.1"
 timeago = "0.4.2"
 url = "2.5.0"
+regex = "1.10.4"
 
 [dependencies.irc]
 path = "../irc"
