@@ -1,6 +1,10 @@
-# IRC URL Scheme
+# URL Schemes
 
-Halloy is able to recongize IRC URL schemes for creating new connections.
+Halloy is able to recongize different URL schemes.
+
+## IRC and IRCS
+
+The IRC URL scheme is used to create a new connection to a server.  
 The format is based on the [URI Syntax](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax).
 
 ## Format
@@ -17,11 +21,11 @@ The format is based on the [URI Syntax](https://en.wikipedia.org/wiki/Uniform_Re
 | `channel` | Optional. List of channels, separated by a comma.              |
 
 
-## Examples
+### Examples
 
 Below is a few URL examples.
 
-## Examples
+### Examples
 
 - **Connect to Libera:**  
   [ircs://irc.libera.chat](ircs://irc.libera.chat)

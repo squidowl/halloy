@@ -28,8 +28,8 @@ impl Modal {
             Message::Cancel => Some(Event::CloseModal),
             Message::AcceptNewServer => Some(Event::AcceptNewServer),
             Message::DangerouslyAcceptInvalidCerts(toggle) => {
-                if let Modal::RouteReceived(Url::ServerConnect { server, .. }) = self {
-                    server.dangerously_accept_invalid_certs = toggle;
+                if let Modal::RouteReceived(Url::ServerConnect { config, .. }) = self {
+                    config.dangerously_accept_invalid_certs = toggle;
                 }
 
                 None
@@ -41,7 +41,9 @@ impl Modal {
         match self {
             Modal::ReloadConfigurationError(error) => reload_configuration_error::view(error),
             Modal::RouteReceived(url) => match url {
-                Url::ServerConnect { raw, server } => connect_to_server::view(raw, server),
+                Url::ServerConnect {
+                    url: raw, config, ..
+                } => connect_to_server::view(raw, config),
             },
         }
     }

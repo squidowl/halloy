@@ -8,14 +8,14 @@ use iced::{
 use super::Message;
 use crate::{theme, widget::Element};
 
-pub fn view<'a>(raw: &'a str, server: &config::Server) -> Element<'a, Message> {
+pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
     container(
         column![
             text("Connect to server?"),
             text(raw).style(theme::text::info),
             checkbox(
                 "Accept invalid certificates",
-                server.dangerously_accept_invalid_certs
+                config.dangerously_accept_invalid_certs
             )
             .on_toggle(Message::DangerouslyAcceptInvalidCerts),
             column![
@@ -35,7 +35,7 @@ pub fn view<'a>(raw: &'a str, server: &config::Server) -> Element<'a, Message> {
                 )
                 .padding(5)
                 .width(Length::Fixed(250.0))
-                .style(theme::button::secondary)
+                .style(theme::button::primary)
                 .on_press(Message::Cancel),
             ]
             .spacing(4)

@@ -2,7 +2,11 @@ use crate::config;
 
 #[derive(Debug, Clone)]
 pub enum Url {
-    ServerConnect { raw: String, server: config::Server },
+    ServerConnect {
+        url: String,
+        server: String,
+        config: config::Server,
+    },
 }
 
 impl std::fmt::Display for Url {
@@ -11,7 +15,7 @@ impl std::fmt::Display for Url {
             f,
             "{}",
             match self {
-                Url::ServerConnect { raw, .. } => raw,
+                Url::ServerConnect { url, .. } => url,
             }
         )
     }
@@ -23,10 +27,14 @@ impl Url {
 
         match url.scheme().to_lowercase().as_str() {
             "irc" | "ircs" => {
-                let server = parse_server(&url).ok_or(Error::ParseServer)?;
+                let config = parse_server_config(&url).ok_or(Error::ParseServer)?;
+                let server = generate_server_name(config.server.as_str());
+                let url = url.into();
+
                 Ok(Self::ServerConnect {
-                    raw: url.to_string(),
+                    url,
                     server,
+                    config,
                 })
             }
             _ => Err(Error::Unsupported),
@@ -38,7 +46,19 @@ impl Url {
     }
 }
 
-fn parse_server(url: &url::Url) -> Option<config::Server> {
+fn generate_server_name(host: &str) -> String {
+    let pattern = regex::Regex::new(r"irc\.([^.]+)").unwrap();
+
+    if let Some(captures) = pattern.captures(host) {
+        if let Some(matched) = captures.get(1) {
+            return matched.as_str().to_string();
+        }
+    }
+
+    host.to_string()
+}
+
+fn parse_server_config(url: &url::Url) -> Option<config::Server> {
     let nickname = config::random_nickname();
     let server = url.host()?.to_string();
     let port = url.port();
