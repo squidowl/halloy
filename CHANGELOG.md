@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2024.7 (2024-05-05)
+
 Added:
 
 - Reload configuration file from within the application (<kbd>Ctrl</kbd> + <kbd>r</kbd> (macOS: <kbd>⌘</kbd> + <kbd>r</kbd>))
