@@ -8,9 +8,10 @@ use tokio::fs;
 use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
+use crate::isupport::{ChatHistorySubcommand, MessageReference};
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::{compression, environment, message, server, Message};
+use crate::{compression, environment, isupport, message, server, Message};
 
 pub mod manager;
 
@@ -171,6 +172,117 @@ impl History {
         }
     }
 
+    fn add_chathistory_message(
+        &mut self,
+        message: Message,
+        subcommand: ChatHistorySubcommand,
+        message_reference: MessageReference,
+    ) {
+        match self {
+            History::Partial {
+                messages,
+                last_received_at,
+                unread_message_count,
+                ..
+            } => {
+                let insert_position = match subcommand {
+                    ChatHistorySubcommand::Latest | ChatHistorySubcommand::After => {
+                        if message.id.is_some()
+                            && messages
+                                .iter()
+                                .any(|existing_message| existing_message.id == message.id)
+                        {
+                            return;
+                        }
+
+                        if subcommand == ChatHistorySubcommand::Latest
+                            && matches!(message_reference, MessageReference::None)
+                        {
+                            Some(messages.len())
+                        } else {
+                            messages
+                                .iter()
+                                .rev()
+                                .position(|existing_message| message_reference == *existing_message)
+                                .map(|reference_position| messages.len() - reference_position)
+                        }
+                    }
+                    ChatHistorySubcommand::Before => {
+                        if message.id.is_some()
+                            && messages
+                                .iter()
+                                .rev()
+                                .any(|existing_message| existing_message.id == message.id)
+                        {
+                            return;
+                        }
+
+                        messages
+                            .iter()
+                            .position(|existing_message| message_reference == *existing_message)
+                    }
+                };
+
+                if let Some(insert_position) = insert_position {
+                    if message.triggers_unread() {
+                        *unread_message_count += 1;
+                    }
+
+                    messages.insert(insert_position, message);
+                    *last_received_at = Some(Instant::now());
+                }
+            }
+            History::Full {
+                messages,
+                last_received_at,
+                ..
+            } => {
+                let insert_position = match subcommand {
+                    ChatHistorySubcommand::Latest | ChatHistorySubcommand::After => {
+                        if message.id.is_some()
+                            && messages
+                                .iter()
+                                .any(|existing_message| existing_message.id == message.id)
+                        {
+                            return;
+                        }
+
+                        if subcommand == ChatHistorySubcommand::Latest
+                            && matches!(message_reference, MessageReference::None)
+                        {
+                            Some(messages.len())
+                        } else {
+                            messages
+                                .iter()
+                                .rev()
+                                .position(|existing_message| message_reference == *existing_message)
+                                .map(|reference_position| messages.len() - reference_position)
+                        }
+                    }
+                    ChatHistorySubcommand::Before => {
+                        if message.id.is_some()
+                            && messages
+                                .iter()
+                                .rev()
+                                .any(|existing_message| existing_message.id == message.id)
+                        {
+                            return;
+                        }
+
+                        messages
+                            .iter()
+                            .position(|existing_message| message_reference == *existing_message)
+                    }
+                };
+
+                if let Some(insert_position) = insert_position {
+                    messages.insert(insert_position, message);
+                    *last_received_at = Some(Instant::now());
+                }
+            }
+        }
+    }
+
     fn flush(&mut self, now: Instant) -> Option<BoxFuture<'static, Result<(), Error>>> {
         match self {
             History::Partial {
@@ -261,6 +373,43 @@ impl History {
                 messages,
                 ..
             } => overwrite(&server, &kind, &messages).await,
+        }
+    }
+
+    fn get_latest_message(
+        &self,
+        message_reference_type: isupport::MessageReferenceType,
+    ) -> Option<&Message> {
+        match self {
+            History::Partial { messages, .. } | History::Full { messages, .. } => {
+                match message_reference_type {
+                    isupport::MessageReferenceType::MessageId => {
+                        messages.iter().rev().find(|message| message.id.is_some())
+                    }
+                    isupport::MessageReferenceType::Timestamp => messages
+                        .iter()
+                        .rev()
+                        .find(|message| matches!(message.target, message::Target::Channel { .. })),
+                }
+            }
+        }
+    }
+
+    fn get_oldest_message(
+        &self,
+        message_reference_type: isupport::MessageReferenceType,
+    ) -> Option<&Message> {
+        match self {
+            History::Partial { messages, .. } | History::Full { messages, .. } => {
+                match message_reference_type {
+                    isupport::MessageReferenceType::MessageId => {
+                        messages.iter().find(|message| message.id.is_some())
+                    }
+                    isupport::MessageReferenceType::Timestamp => messages
+                        .iter()
+                        .find(|message| matches!(message.target, message::Target::Channel { .. })),
+                }
+            }
         }
     }
 }
