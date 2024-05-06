@@ -21,6 +21,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    ScrolledToTop,
 }
 
 pub fn view<'a>(
@@ -317,6 +318,7 @@ impl Channel {
 
                 let event = event.map(|event| match event {
                     scroll_view::Event::UserContext(event) => Event::UserContext(event),
+                    scroll_view::Event::ScrolledToTop => Event::ScrolledToTop,
                 });
 
                 (command.map(Message::ScrollView), event)

@@ -148,6 +148,7 @@ pub struct Message {
     pub direction: Direction,
     pub target: Target,
     pub content: Content,
+    pub id: Option<String>,
 }
 
 impl Message {
@@ -174,6 +175,7 @@ impl Message {
         resolve_attributes: impl Fn(&User, &str) -> Option<User>,
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
+        let id = message_id(&encoded);
         let content = content(&encoded, &our_nick, config, &resolve_attributes)?;
         let target = target(encoded, &our_nick, &resolve_attributes)?;
 
@@ -183,6 +185,7 @@ impl Message {
             direction: Direction::Received,
             target,
             content,
+            id,
         })
     }
 
@@ -196,6 +199,7 @@ impl Message {
                 source: Source::Action,
             },
             content: plain(format!("{from} wants to send you \"{filename}\"")),
+            id: None,
         }
     }
 
@@ -209,6 +213,7 @@ impl Message {
                 source: Source::Action,
             },
             content: plain(format!("offering to send {to} \"{filename}\"")),
+            id: None,
         }
     }
 
@@ -582,6 +587,8 @@ fn target(
         | Command::AUTHENTICATE(_)
         | Command::ACCOUNT(_)
         | Command::BATCH(_, _)
+        | Command::CHATHISTORY(_, _)
+        | Command::CHGHOST(_, _)
         | Command::CNOTICE(_, _, _)
         | Command::CPRIVMSG(_, _, _)
         | Command::KNOCK(_, _)
@@ -596,6 +603,14 @@ fn target(
             source: Source::Server(None),
         }),
     }
+}
+
+pub fn message_id(message: &Encoded) -> Option<String> {
+    message
+        .tags
+        .iter()
+        .find(|tag| &tag.key == "msgid")
+        .and_then(|tag| tag.value.clone())
 }
 
 pub fn server_time(message: &Encoded) -> DateTime<Utc> {

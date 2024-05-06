@@ -7,10 +7,11 @@ use itertools::Itertools;
 use tokio::time::Instant;
 
 use crate::history::{self, History};
+use crate::isupport::{ChatHistorySubcommand, MessageReference};
 use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::{config, input};
+use crate::{config, input, isupport};
 use crate::{server, Buffer, Config, Input, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -188,6 +189,48 @@ impl Manager {
             history::Kind::from(message.target.clone()),
             message,
         );
+    }
+
+    pub fn record_chathistory_message(
+        &mut self,
+        server: &Server,
+        message: crate::Message,
+        subcommand: ChatHistorySubcommand,
+        message_reference: MessageReference,
+    ) {
+        self.data.add_chathistory_message(
+            server.clone(),
+            history::Kind::from(message.target.clone()),
+            message,
+            subcommand,
+            message_reference,
+        );
+    }
+
+    pub fn get_latest_message(
+        &self,
+        server: &Server,
+        kind: &history::Kind,
+        message_reference_type: isupport::MessageReferenceType,
+    ) -> Option<&crate::Message> {
+        self.data
+            .map
+            .get(server)
+            .and_then(|map| map.get(kind))
+            .map(|history| history.get_latest_message(message_reference_type))?
+    }
+
+    pub fn get_oldest_message(
+        &self,
+        server: &Server,
+        kind: &history::Kind,
+        message_reference_type: isupport::MessageReferenceType,
+    ) -> Option<&crate::Message> {
+        self.data
+            .map
+            .get(server)
+            .and_then(|map| map.get(kind))
+            .map(|history| history.get_oldest_message(message_reference_type))?
     }
 
     pub fn get_channel_messages(
@@ -630,6 +673,22 @@ impl Data {
             .entry(kind.clone())
             .or_insert_with(|| History::partial(server, kind, message.received_at))
             .add_message(message)
+    }
+
+    fn add_chathistory_message(
+        &mut self,
+        server: server::Server,
+        kind: history::Kind,
+        message: crate::Message,
+        subcommand: ChatHistorySubcommand,
+        message_reference: MessageReference,
+    ) {
+        self.map
+            .entry(server.clone())
+            .or_default()
+            .entry(kind.clone())
+            .or_insert_with(|| History::partial(server, kind, message.received_at))
+            .add_chathistory_message(message, subcommand, message_reference)
     }
 
     fn untrack(

@@ -21,6 +21,7 @@ use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use data::config::{self, Config};
+use data::isupport::{ChatHistorySubcommand, MessageReference};
 use data::version::Version;
 use data::{environment, history, server, version, Url, User};
 use iced::widget::{column, container};
@@ -642,6 +643,94 @@ impl Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
+                                    data::client::Event::ChatHistorySingle(
+                                        encoded,
+                                        our_nick,
+                                        subcommand,
+                                        message_reference,
+                                    ) => {
+                                        if let Some(message) = data::Message::received(
+                                            encoded,
+                                            our_nick,
+                                            &self.config,
+                                            resolve_user_attributes,
+                                        ) {
+                                            dashboard.record_chathistory_message(
+                                                &server,
+                                                message,
+                                                subcommand,
+                                                message_reference,
+                                            );
+                                        }
+                                    }
+                                    data::client::Event::ChatHistoryCommand(
+                                        subcommand,
+                                        channel,
+                                        message_reference_type,
+                                        limit,
+                                    ) => match subcommand {
+                                        ChatHistorySubcommand::Latest => {
+                                            let latest_message_reference = dashboard
+                                                .get_latest_message_reference(
+                                                    &server,
+                                                    channel.clone(),
+                                                    message_reference_type,
+                                                );
+
+                                            if matches!(
+                                                latest_message_reference,
+                                                MessageReference::None
+                                            ) {
+                                                self.clients.get_channel_chathistory(
+                                                    subcommand,
+                                                    &server,
+                                                    channel.as_str(),
+                                                    latest_message_reference,
+                                                    limit,
+                                                )
+                                            } else {
+                                                self.clients.get_channel_chathistory(
+                                                    ChatHistorySubcommand::After,
+                                                    &server,
+                                                    channel.as_str(),
+                                                    latest_message_reference,
+                                                    limit,
+                                                )
+                                            }
+                                        }
+                                        ChatHistorySubcommand::After => {
+                                            let latest_message_reference = dashboard
+                                                .get_latest_message_reference(
+                                                    &server,
+                                                    channel.clone(),
+                                                    message_reference_type,
+                                                );
+
+                                            self.clients.get_channel_chathistory(
+                                                subcommand,
+                                                &server,
+                                                channel.as_str(),
+                                                latest_message_reference,
+                                                limit,
+                                            )
+                                        }
+                                        ChatHistorySubcommand::Before => {
+                                            let oldest_message_reference = dashboard
+                                                .get_oldest_message_reference(
+                                                    &server,
+                                                    channel.clone(),
+                                                    message_reference_type,
+                                                );
+
+                                            self.clients.get_channel_chathistory(
+                                                subcommand,
+                                                &server,
+                                                channel.as_str(),
+                                                oldest_message_reference,
+                                                limit,
+                                            )
+                                        }
+                                    },
                                 }
                             }
 
@@ -687,7 +776,7 @@ impl Halloy {
                         return dashboard
                             .handle_event(
                                 event,
-                                &self.clients,
+                                &mut self.clients,
                                 &self.version,
                                 &self.config,
                                 &mut self.theme,

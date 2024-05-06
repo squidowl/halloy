@@ -25,6 +25,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    ScrolledToTop,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -219,6 +220,8 @@ impl State {
                         scrollable::scroll_to(self.scrollable.clone(), new_offset),
                         None,
                     );
+                } else if matches!(self.limit, Limit::Top(_)) && relative_offset == 0.0 {
+                    return (Command::none(), Some(Event::ScrolledToTop));
                 }
             }
             Message::UserContext(message) => {

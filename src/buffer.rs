@@ -40,6 +40,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    ScrolledToTop,
 }
 
 impl Buffer {
@@ -71,6 +72,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     channel::Event::UserContext(event) => Event::UserContext(event),
+                    channel::Event::ScrolledToTop => Event::ScrolledToTop,
                 });
 
                 (command.map(Message::Channel), event)
