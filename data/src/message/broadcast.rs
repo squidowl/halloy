@@ -26,6 +26,7 @@ fn expand(
             direction: Direction::Received,
             target,
             text,
+            id: None,
         }
     };
 

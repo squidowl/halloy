@@ -81,6 +81,7 @@ impl Input {
                 direction: message::Direction::Sent,
                 target: to_target(target, message::Source::User(user))?,
                 text,
+                id: None,
             }),
             Command::Me(target, action) => Some(Message {
                 received_at: Posix::now(),
@@ -88,6 +89,7 @@ impl Input {
                 direction: message::Direction::Sent,
                 target: to_target(target, message::Source::Action)?,
                 text: message::action_text(user.nickname(), &action),
+                id: None,
             }),
             _ => None,
         }

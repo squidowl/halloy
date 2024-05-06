@@ -1,5 +1,9 @@
+use chrono::{DateTime, Utc};
 use irc::proto;
+use std::fmt;
 use std::str::FromStr;
+
+use crate::Message;
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
 // returned by Operation::kind() and Parameter::kind()
@@ -9,18 +13,21 @@ pub enum Kind {
     AWAYLEN,
     CHANLIMIT,
     CHANNELLEN,
+    CHATHISTORY,
     CNOTICE,
     CPRIVMSG,
     ELIST,
     KEYLEN,
     KICKLEN,
     KNOCK,
+    MSGREFTYPES,
     NICKLEN,
     SAFELIST,
     STATUSMSG,
     TARGMAX,
     TOPICLEN,
     USERIP,
+    UTF8ONLY,
     WHOX,
 }
 
@@ -147,9 +154,9 @@ impl FromStr for Operation {
                                 Err("value must only contain channel types if specified")
                             }
                         }
-                        "CHATHISTORY" => Ok(Operation::Add(Parameter::CHATHISTORY(
-                            parse_required_positive_integer(value)?,
-                        ))),
+                        "CHATHISTORY" | "draft/CHATHISTORY" => Ok(Operation::Add(
+                            Parameter::CHATHISTORY(parse_required_positive_integer(value)?),
+                        )),
                         "CLIENTTAGDENY" => {
                             let mut client_tag_denials = vec![];
 
@@ -308,9 +315,9 @@ impl FromStr for Operation {
                             value.split(',').for_each(|message_reference_type| {
                                 match message_reference_type {
                                     "msgid" => message_reference_types
-                                        .insert(0, MessageReferenceType::MessageID),
+                                        .push(MessageReferenceType::MessageId),
                                     "timestamp" => message_reference_types
-                                        .insert(0, MessageReferenceType::Timestamp),
+                                        .push(MessageReferenceType::Timestamp),
                                     _ => (),
                                 }
                             });
@@ -419,7 +426,7 @@ impl FromStr for Operation {
                         "CHANMODES" => Err("value(s) required"),
                         "CHANNELLEN" => Err("value required"),
                         "CHANTYPES" => Ok(Operation::Add(Parameter::CHANTYPES(None))),
-                        "CHATHISTORY" => Err("value required"),
+                        "CHATHISTORY" | "draft/CHATHISTORY" => Err("value required"),
                         "CLIENTTAGDENY" => Err("value(s) required"),
                         "CLIENTVER" => Err("value required"),
                         "DEAF" => Ok(Operation::Add(Parameter::DEAF(DEFAULT_DEAF_LETTER))),
@@ -483,18 +490,21 @@ impl Operation {
                 "AWAYLEN" => Some(Kind::AWAYLEN),
                 "CHANLIMIT" => Some(Kind::CHANLIMIT),
                 "CHANNELLEN" => Some(Kind::CHANNELLEN),
+                "CHATHISTORY" => Some(Kind::CHATHISTORY),
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
                 "ELIST" => Some(Kind::ELIST),
                 "KEYLEN" => Some(Kind::KEYLEN),
                 "KICKLEN" => Some(Kind::KICKLEN),
                 "KNOCK" => Some(Kind::KNOCK),
+                "MSGREFTYPES" => Some(Kind::MSGREFTYPES),
                 "NICKLEN" => Some(Kind::NICKLEN),
                 "SAFELIST" => Some(Kind::SAFELIST),
                 "STATUSMSG" => Some(Kind::STATUSMSG),
                 "TARGMAX" => Some(Kind::TARGMAX),
                 "TOPICLEN" => Some(Kind::TOPICLEN),
                 "USERIP" => Some(Kind::USERIP),
+                "UTF8ONLY" => Some(Kind::UTF8ONLY),
                 "WHOX" => Some(Kind::WHOX),
                 _ => None,
             },
@@ -577,18 +587,21 @@ impl Parameter {
             Parameter::AWAYLEN(_) => Some(Kind::AWAYLEN),
             Parameter::CHANLIMIT(_) => Some(Kind::CHANLIMIT),
             Parameter::CHANNELLEN(_) => Some(Kind::CHANNELLEN),
+            Parameter::CHATHISTORY(_) => Some(Kind::CHATHISTORY),
             Parameter::CNOTICE => Some(Kind::CNOTICE),
             Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
             Parameter::ELIST(_) => Some(Kind::ELIST),
             Parameter::KEYLEN(_) => Some(Kind::KEYLEN),
             Parameter::KICKLEN(_) => Some(Kind::KICKLEN),
             Parameter::KNOCK => Some(Kind::KNOCK),
+            Parameter::MSGREFTYPES(_) => Some(Kind::MSGREFTYPES),
             Parameter::NICKLEN(_) => Some(Kind::NICKLEN),
             Parameter::SAFELIST => Some(Kind::SAFELIST),
             Parameter::STATUSMSG(_) => Some(Kind::STATUSMSG),
             Parameter::TARGMAX(_) => Some(Kind::TARGMAX),
             Parameter::TOPICLEN(_) => Some(Kind::TOPICLEN),
             Parameter::USERIP => Some(Kind::USERIP),
+            Parameter::UTF8ONLY => Some(Kind::UTF8ONLY),
             Parameter::WHOX => Some(Kind::WHOX),
             _ => None,
         }
@@ -616,6 +629,13 @@ pub struct ChannelMode {
     pub modes: String,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ChatHistorySubcommand {
+    Latest,
+    After,
+    Before,
+}
+
 #[derive(Clone, Debug)]
 pub enum ClientOnlyTags {
     Allowed(String),
@@ -630,9 +650,39 @@ pub struct CommandTargetLimit {
 }
 
 #[derive(Clone, Debug)]
+pub enum MessageReference {
+    Timestamp(DateTime<Utc>),
+    MessageId(String),
+    None,
+}
+
+impl fmt::Display for MessageReference {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MessageReference::Timestamp(server_time) => {
+                write!(f, "timestamp={}", server_time.to_rfc3339())
+            }
+            MessageReference::MessageId(id) => write!(f, "msgid={}", id),
+            MessageReference::None => write!(f, "*"),
+        }
+    }
+}
+
+impl PartialEq<Message> for MessageReference {
+    fn eq(&self, other: &Message) -> bool {
+        match self {
+            MessageReference::Timestamp(server_time) => other.server_time == *server_time,
+            MessageReference::MessageId(id) => other.id.as_deref() == Some(id.as_str()),
+            MessageReference::None => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum MessageReferenceType {
     Timestamp,
-    MessageID,
+    #[default]
+    MessageId,
 }
 
 #[derive(Clone, Debug)]

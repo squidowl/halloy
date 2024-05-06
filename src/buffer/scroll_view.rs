@@ -2,8 +2,8 @@ use data::message::Limit;
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
-use iced::widget::{column, container, horizontal_rule, row, text, scrollable, Scrollable};
-use iced::{Task, Length};
+use iced::widget::{column, container, horizontal_rule, row, scrollable, text, Scrollable};
+use iced::{Command, Task, Length};
 
 use super::user_context;
 use crate::theme;
@@ -24,6 +24,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    ScrolledToTop,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -209,6 +210,8 @@ impl State {
                         scrollable::scroll_to(self.scrollable.clone(), new_offset),
                         None,
                     );
+                } else if matches!(self.limit, Limit::Top(_)) && relative_offset == 0.0 {
+                    return (Command::none(), Some(Event::ScrolledToTop));
                 }
             }
             Message::UserContext(message) => {
