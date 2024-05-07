@@ -187,11 +187,16 @@ impl History {
             } => {
                 let insert_position = match subcommand {
                     ChatHistorySubcommand::Latest | ChatHistorySubcommand::After => {
-                        if message.id.is_some()
-                            && messages
+                        if message.id.is_some() {
+                            if messages
                                 .iter()
                                 .any(|existing_message| existing_message.id == message.id)
-                        {
+                            {
+                                return;
+                            }
+                        } else if messages.iter().any(|existing_message| {
+                            existing_message.server_time == message.server_time
+                        }) {
                             return;
                         }
 
@@ -208,12 +213,16 @@ impl History {
                         }
                     }
                     ChatHistorySubcommand::Before => {
-                        if message.id.is_some()
-                            && messages
+                        if message.id.is_some() {
+                            if messages
                                 .iter()
-                                .rev()
                                 .any(|existing_message| existing_message.id == message.id)
-                        {
+                            {
+                                return;
+                            }
+                        } else if messages.iter().any(|existing_message| {
+                            existing_message.server_time == message.server_time
+                        }) {
                             return;
                         }
 
@@ -239,11 +248,16 @@ impl History {
             } => {
                 let insert_position = match subcommand {
                     ChatHistorySubcommand::Latest | ChatHistorySubcommand::After => {
-                        if message.id.is_some()
-                            && messages
+                        if message.id.is_some() {
+                            if messages
                                 .iter()
                                 .any(|existing_message| existing_message.id == message.id)
-                        {
+                            {
+                                return;
+                            }
+                        } else if messages.iter().any(|existing_message| {
+                            existing_message.server_time == message.server_time
+                        }) {
                             return;
                         }
 
@@ -260,12 +274,16 @@ impl History {
                         }
                     }
                     ChatHistorySubcommand::Before => {
-                        if message.id.is_some()
-                            && messages
+                        if message.id.is_some() {
+                            if messages
                                 .iter()
-                                .rev()
                                 .any(|existing_message| existing_message.id == message.id)
-                        {
+                            {
+                                return;
+                            }
+                        } else if messages.iter().any(|existing_message| {
+                            existing_message.server_time == message.server_time
+                        }) {
                             return;
                         }
 
