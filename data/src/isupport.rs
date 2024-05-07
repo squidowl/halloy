@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{format::SecondsFormat, DateTime, Utc};
 use irc::proto;
 use std::fmt;
 use std::str::FromStr;
@@ -663,7 +663,7 @@ impl fmt::Display for MessageReference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             MessageReference::Timestamp(server_time) => {
-                write!(f, "timestamp={}", server_time.to_rfc3339())
+                write!(f, "timestamp={}", server_time.to_rfc3339_opts(SecondsFormat::Millis, true))
             }
             MessageReference::MessageId(id) => write!(f, "msgid={}", id),
             MessageReference::None => write!(f, "*"),
