@@ -1,7 +1,10 @@
 [package]
 name = "halloy"
-authors = ["Casper Rogild Storm", "Cory Forsstrom"]
 version = "0.1.0"
+authors = ["Casper Rogild Storm", "Cory Forsstrom"]
+description = "Halloy is an open-source IRC client written in Rust, with the Iced GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms."
+documentation = "https://halloy.squidowl.org/"
+license = "LICENSE"
 edition = "2021"
 
 [features]
@@ -49,6 +52,8 @@ image = "0.24.6"
 
 [build-dependencies]
 embed-resource = "2.1.1"
+windows_exe_info = "0.4"
+cargo-edit = "0.12"
 
 [workspace]
 members = ["data", "ipc", "irc", "irc/proto"]
