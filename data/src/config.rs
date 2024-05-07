@@ -11,7 +11,7 @@ pub use self::buffer::Buffer;
 pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
 pub use self::keys::Keyboard;
-pub use self::notification::{Notification, Notifications};
+pub use self::notification::Notifications;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
@@ -96,6 +96,17 @@ impl Config {
         if !dir.exists() {
             std::fs::create_dir_all(dir.as_path())
                 .expect("expected permissions to create config folder");
+        }
+
+        dir
+    }
+
+    pub fn sounds_dir() -> PathBuf {
+        let dir = Self::config_dir().join("sounds");
+
+        if !dir.exists() {
+            std::fs::create_dir_all(dir.as_path())
+                .expect("expected permissions to create sounds folder");
         }
 
         dir

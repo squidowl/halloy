@@ -1209,6 +1209,7 @@ impl Dashboard {
         &mut self,
         server: &Server,
         request: file_transfer::ReceiveRequest,
+        audio: &mut notification::audio::State,
         config: &Config,
     ) -> Option<Task<Message>> {
         if let Some(event) = self
@@ -1216,12 +1217,7 @@ impl Dashboard {
             .receive(request.clone(), config.proxy.as_ref())
         {
             let notification = &config.notifications.file_transfer_request;
-
-            if notification.enabled {
-                let text = format!("File Transfer Request: {}", request.from);
-
-                notification::show(text.as_str(), server, notification.sound());
-            };
+            notification::file_transfer_request(notification, audio, request.from, server);
 
             return Some(self.handle_file_transfer_event(server, event));
         }
