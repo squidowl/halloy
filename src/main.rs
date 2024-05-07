@@ -1,6 +1,7 @@
 #![allow(clippy::large_enum_variant, clippy::too_many_arguments)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod audio;
 mod buffer;
 mod event;
 mod font;
@@ -18,6 +19,7 @@ mod window;
 use std::env;
 use std::time::{Duration, Instant};
 
+use audio::Audio;
 use chrono::Utc;
 use data::config::{self, Config};
 use data::version::Version;
@@ -25,7 +27,7 @@ use data::window::Window;
 use data::{environment, server, version, User};
 use iced::advanced::Application;
 use iced::widget::{column, container};
-use iced::{executor, Task, Length, Renderer, Subscription};
+use iced::{executor, Length, Renderer, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
 
 use self::event::{events, Event};
@@ -122,12 +124,11 @@ struct Halloy {
     servers: server::Map,
     modal: Option<Modal>,
     window: Window,
+    audio: Audio,
 }
 
 impl Halloy {
-    pub fn load_from_state(
-        config_load: Result<Config, config::Error>,
-    ) -> (Halloy, Task<Message>) {
+    pub fn load_from_state(config_load: Result<Config, config::Error>) -> (Halloy, Task<Message>) {
         let load_dashboard = |config| match data::Dashboard::load() {
             Ok(dashboard) => screen::Dashboard::restore(dashboard, config),
             Err(error) => {
@@ -184,6 +185,7 @@ impl Halloy {
                 config,
                 modal: None,
                 window: Window::load().unwrap_or_default(),
+                audio: Audio::new(),
             },
             command,
         )
@@ -391,6 +393,14 @@ impl Application for Halloy {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
                         return Task::none();
                     };
+
+                    let foo = self.audio.play("f_classic.ogg");
+                    println!("{:?}", foo);
+                    println!("-------");
+                    println!("-------");
+                    println!("-------");
+                    println!("-------");
+                    println!("-------");
 
                     if is_initial {
                         let notification = &self.config.notifications.connected;

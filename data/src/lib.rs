@@ -15,6 +15,7 @@ pub use self::url::Url;
 pub use self::user::User;
 pub use self::version::Version;
 
+pub mod audio;
 pub mod buffer;
 pub mod channel;
 pub mod client;

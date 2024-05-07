@@ -101,6 +101,17 @@ impl Config {
         dir
     }
 
+    pub fn sounds_dir() -> PathBuf {
+        let dir = Self::config_dir().join("sounds");
+
+        if !dir.exists() {
+            std::fs::create_dir_all(dir.as_path())
+                .expect("expected permissions to create sounds folder");
+        }
+
+        dir
+    }
+
     fn themes_dir() -> PathBuf {
         let dir = Self::config_dir().join("themes");
 
