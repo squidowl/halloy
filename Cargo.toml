@@ -32,6 +32,7 @@ open = "5.0.1"
 bytesize = "1.3.0"
 timeago = "0.4.2"
 futures = "0.3.30"
+kira = "0.9.3"
 
 [dependencies.uuid]
 version = "1.0"

@@ -122,6 +122,7 @@ struct Halloy {
     servers: server::Map,
     modal: Option<Modal>,
     window: Window,
+    audio: notification::audio::State,
 }
 
 impl Halloy {
@@ -182,6 +183,7 @@ impl Halloy {
                 config,
                 modal: None,
                 window: Window::load().unwrap_or_default(),
+                audio: notification::audio::State::new(),
             },
             command,
         )
@@ -368,10 +370,7 @@ impl Application for Halloy {
                         dashboard.broadcast_connecting(&server, &self.config, sent_time);
                     } else {
                         let notification = &self.config.notifications.disconnected;
-
-                        if notification.enabled {
-                            notification::show("Disconnected", &server, notification.sound());
-                        };
+                        notification::disconnected(notification, &mut self.audio, &server);
 
                         dashboard.broadcast_disconnected(&server, error, &self.config, sent_time);
                     }
@@ -392,18 +391,12 @@ impl Application for Halloy {
 
                     if is_initial {
                         let notification = &self.config.notifications.connected;
-
-                        if notification.enabled {
-                            notification::show("Connected", &server, notification.sound());
-                        }
+                        notification::connected(notification, &mut self.audio, &server);
 
                         dashboard.broadcast_connected(&server, &self.config, sent_time);
                     } else {
                         let notification = &self.config.notifications.reconnected;
-
-                        if notification.enabled {
-                            notification::show("Reconnected", &server, notification.sound());
-                        }
+                        notification::reconnected(notification, &mut self.audio, &server);
 
                         dashboard.broadcast_reconnected(&server, &self.config, sent_time);
                     }
@@ -539,17 +532,12 @@ impl Application for Halloy {
                                             ) => {
                                                 let notification =
                                                     &self.config.notifications.highlight;
-                                                if notification.enabled {
-                                                    notification::show(
-                                                        "Highlight",
-                                                        format!(
-                                                            "{} highlighted you in {}",
-                                                            user.nickname(),
-                                                            channel
-                                                        ),
-                                                        notification.sound(),
-                                                    );
-                                                }
+                                                notification::highlight(
+                                                    notification,
+                                                    &mut self.audio,
+                                                    user.nickname(),
+                                                    channel,
+                                                );
                                             }
                                         }
                                     }
@@ -557,6 +545,7 @@ impl Application for Halloy {
                                         if let Some(command) = dashboard.receive_file_transfer(
                                             &server,
                                             request,
+                                            &mut self.audio,
                                             &self.config,
                                         ) {
                                             commands.push(command.map(Message::Dashboard));
