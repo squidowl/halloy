@@ -5,7 +5,12 @@ use std::hash::Hash;
 use irc::proto;
 use serde::{Deserialize, Serialize};
 
-use crate::{buffer, config::buffer::UsernameFormat, mode};
+use crate::{
+    buffer,
+    config::buffer::UsernameFormat,
+    mode,
+    theme::{hex_to_color, Colors},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(into = "String")]
@@ -120,10 +125,22 @@ impl From<Nick> for User {
 }
 
 impl User {
-    pub fn color_seed(&self, color: &buffer::Color) -> Option<String> {
-        match color {
-            buffer::Color::Solid => None,
-            buffer::Color::Unique => Some(self.nickname().as_ref().to_string()),
+    pub fn nick_color(&self, colors: &Colors, color: &buffer::Color) -> NickColor {
+        let buffer::Color { kind, hex } = color;
+        let color = hex
+            .as_deref()
+            .and_then(hex_to_color)
+            .unwrap_or(colors.action.base);
+
+        match kind {
+            buffer::ColorKind::Solid => NickColor {
+                seed: None,
+                color,
+            },
+            buffer::ColorKind::Unique => NickColor {
+                seed: Some(self.nickname().as_ref().to_string()),
+                color,
+            },
         }
     }
 
@@ -209,6 +226,12 @@ impl fmt::Display for User {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}{}", self.highest_access_level(), self.nickname())
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct NickColor {
+    pub seed: Option<String>,
+    pub color: iced_core::Color,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

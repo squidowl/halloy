@@ -11,7 +11,7 @@ pub struct Channel {
     pub topic: Topic,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Nicklist {
     #[serde(default = "default_bool_true")]
     pub enabled: bool,
