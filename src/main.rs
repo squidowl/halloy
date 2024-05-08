@@ -565,26 +565,6 @@ impl Application for Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
-                                    data::client::Event::ChatHistorySingle(
-                                        encoded,
-                                        our_nick,
-                                        subcommand,
-                                        message_reference,
-                                    ) => {
-                                        if let Some(message) = data::Message::received(
-                                            encoded,
-                                            our_nick,
-                                            &self.config,
-                                            resolve_user_attributes,
-                                        ) {
-                                            dashboard.record_chathistory_message(
-                                                &server,
-                                                message,
-                                                subcommand,
-                                                message_reference,
-                                            );
-                                        }
-                                    }
                                     data::client::Event::ChatHistoryCommand(
                                         subcommand,
                                         channel,
@@ -653,6 +633,47 @@ impl Application for Halloy {
                                             )
                                         }
                                     },
+                                    data::client::Event::ChatHistorySingle(
+                                        encoded,
+                                        our_nick,
+                                        subcommand,
+                                        message_reference,
+                                    ) => {
+                                        if let Some(message) = data::Message::received(
+                                            encoded,
+                                            our_nick,
+                                            &self.config,
+                                            resolve_user_attributes,
+                                        ) {
+                                            dashboard.record_chathistory_message(
+                                                &server,
+                                                message,
+                                                subcommand,
+                                                message_reference,
+                                            );
+                                        }
+                                    }
+                                    data::client::Event::ChatHistoryWithTarget(
+                                        encoded,
+                                        our_nick,
+                                        target,
+                                        subcommand,
+                                        message_reference,
+                                    ) => {
+                                        if let Some(message) = data::Message::received(
+                                            encoded,
+                                            our_nick,
+                                            &self.config,
+                                            resolve_user_attributes,
+                                        ) {
+                                            dashboard.record_chathistory_message(
+                                                &server,
+                                                message.with_target(target),
+                                                subcommand,
+                                                message_reference,
+                                            );
+                                        }
+                                    }
                                 }
                             }
 
