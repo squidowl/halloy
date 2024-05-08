@@ -156,7 +156,7 @@ impl User {
     }
 
     pub fn has_access_level(&self, access_level: AccessLevel) -> bool {
-        self.access_levels.get(&access_level).is_some()
+        self.access_levels.contains(&access_level)
     }
 
     pub fn update_access_level(&mut self, operation: mode::Operation, mode: mode::Channel) {
