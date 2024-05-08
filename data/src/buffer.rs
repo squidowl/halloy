@@ -1,6 +1,7 @@
 use core::fmt;
 
-use serde::{Deserialize, Serialize};
+use serde::de::{self, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::user::Nick;
 use crate::{channel, config, message, Server};
@@ -111,10 +112,80 @@ impl Brackets {
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum Color {
+pub enum ColorKind {
     Solid,
     #[default]
     Unique,
+}
+
+#[derive(Debug, Clone)]
+pub struct Color {
+    pub kind: ColorKind,
+    pub hex: Option<String>,
+}
+
+impl Default for Color {
+    fn default() -> Self {
+        Self { kind: ColorKind::default(), hex: None }
+    }
+}
+
+impl<'de> Deserialize<'de> for Color {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(ColorVisitor)
+    }
+}
+
+/// A visitor to handle both string and map cases for Color.
+struct ColorVisitor;
+
+impl<'de> Visitor<'de> for ColorVisitor {
+    type Value = Color;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a string or a map with 'kind' and optionally 'hex'")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match v {
+            "solid" => Ok(Color { kind: ColorKind::Solid, hex: None }),
+            "unique" => Ok(Color { kind: ColorKind::Unique, hex: None }),
+            _ => Err(de::Error::unknown_variant(v, &["solid", "unique"])),
+        }
+    }
+
+    fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+    where
+        M: MapAccess<'de>,
+    {
+        let mut kind: Option<ColorKind> = None;
+        let mut hex: Option<String> = None;
+
+        while let Some((key, value)) = map.next_entry::<String, String>()? {
+            match key.as_str() {
+                "kind" => {
+                    kind = match value.as_str() {
+                        "solid" => Some(ColorKind::Solid),
+                        "unique" => Some(ColorKind::Unique),
+                        _ => return Err(de::Error::unknown_variant(&value, &["solid", "unique"])),
+                    };
+                }
+                "hex" => {
+                    hex = Some(value);
+                }
+                _ => return Err(de::Error::unknown_field(&key, &["kind", "hex"])),
+            }
+        }
+
+        let kind = kind.ok_or_else(|| de::Error::missing_field("kind"))?;
+        Ok(Color { kind, hex })
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

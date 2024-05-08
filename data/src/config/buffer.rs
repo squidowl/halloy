@@ -113,7 +113,7 @@ impl Default for Buffer {
         Buffer {
             timestamp: Timestamp::default(),
             nickname: Nickname {
-                color: Color::Unique,
+                color: Color::default(),
                 brackets: Default::default(),
             },
             text_input: Default::default(),

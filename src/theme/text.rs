@@ -1,4 +1,4 @@
-use data::theme::{alpha, randomize_color};
+use data::{theme::{alpha, randomize_color}, user::NickColor};
 use iced::widget::text::{Catalog, Style, StyleFn};
 
 use super::Theme;
@@ -67,29 +67,26 @@ pub fn transparent_accent(theme: &Theme) -> Style {
     }
 }
 
-pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Style {
+pub fn nickname(theme: &Theme, nick_color: NickColor, transparent: bool) -> Style {
     let dark_theme = theme.colors().is_dark_theme();
+    let NickColor { color, seed } = nick_color;
 
-    if seed.is_none() {
-        let color = match transparent {
-            true => theme.colors().text.med_alpha,
-            false => theme.colors().text.base,
+    let Some(seed) = seed else {
+        let color = if transparent {
+            alpha(color, if dark_theme { 0.2 } else { 0.4 })
+        } else {
+            color
         };
 
         return Style { color: Some(color) };
-    }
+    };
 
-    let original_color = theme.colors().action.base;
-    let randomized_color = seed
-        .as_deref()
-        .map(|seed| randomize_color(original_color, seed))
-        .unwrap_or_else(|| original_color);
-
+    let randomized_color = randomize_color(color, &seed);
     let color = if transparent {
         alpha(randomized_color, if dark_theme { 0.2 } else { 0.4 })
     } else {
         randomized_color
     };
 
-    Style { color: Some(color) }
+Style { color: Some(color) }
 }

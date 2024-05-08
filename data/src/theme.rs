@@ -137,7 +137,7 @@ impl Default for Palette {
     }
 }
 
-fn hex_to_color(hex: &str) -> Option<Color> {
+pub fn hex_to_color(hex: &str) -> Option<Color> {
     if hex.len() == 7 {
         let hash = &hex[0..1];
         let r = u8::from_str_radix(&hex[1..3], 16);
