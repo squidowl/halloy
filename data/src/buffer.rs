@@ -118,16 +118,10 @@ pub enum ColorKind {
     Unique,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Color {
     pub kind: ColorKind,
     pub hex: Option<String>,
-}
-
-impl Default for Color {
-    fn default() -> Self {
-        Self { kind: ColorKind::default(), hex: None }
-    }
 }
 
 impl<'de> Deserialize<'de> for Color {
