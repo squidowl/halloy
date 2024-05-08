@@ -196,6 +196,7 @@ impl History {
                             }
                         } else if messages.iter().any(|existing_message| {
                             existing_message.server_time == message.server_time
+                                && existing_message.text == message.text
                         }) {
                             return;
                         }
@@ -222,6 +223,7 @@ impl History {
                             }
                         } else if messages.iter().any(|existing_message| {
                             existing_message.server_time == message.server_time
+                                && existing_message.text == message.text
                         }) {
                             return;
                         }
@@ -257,6 +259,7 @@ impl History {
                             }
                         } else if messages.iter().any(|existing_message| {
                             existing_message.server_time == message.server_time
+                                && existing_message.text == message.text
                         }) {
                             return;
                         }
@@ -283,6 +286,7 @@ impl History {
                             }
                         } else if messages.iter().any(|existing_message| {
                             existing_message.server_time == message.server_time
+                                && existing_message.text == message.text
                         }) {
                             return;
                         }
@@ -401,13 +405,14 @@ impl History {
         match self {
             History::Partial { messages, .. } | History::Full { messages, .. } => {
                 match message_reference_type {
-                    isupport::MessageReferenceType::MessageId => {
-                        messages.iter().rev().find(|message| message.id.is_some())
-                    }
+                    isupport::MessageReferenceType::MessageId => messages
+                        .iter()
+                        .rev()
+                        .find(|message| message.id.is_some() && !is_topic_message(message)),
                     isupport::MessageReferenceType::Timestamp => messages
                         .iter()
                         .rev()
-                        .find(|message| matches!(message.target, message::Target::Channel { .. })),
+                        .find(|message| !is_topic_message(message)),
                 }
             }
         }
@@ -420,15 +425,23 @@ impl History {
         match self {
             History::Partial { messages, .. } | History::Full { messages, .. } => {
                 match message_reference_type {
-                    isupport::MessageReferenceType::MessageId => {
-                        messages.iter().find(|message| message.id.is_some())
-                    }
-                    isupport::MessageReferenceType::Timestamp => messages
+                    isupport::MessageReferenceType::MessageId => messages
                         .iter()
-                        .find(|message| matches!(message.target, message::Target::Channel { .. })),
+                        .find(|message| message.id.is_some() && !is_topic_message(message)),
+                    isupport::MessageReferenceType::Timestamp => {
+                        messages.iter().find(|message| !is_topic_message(message))
+                    }
                 }
             }
         }
+    }
+}
+
+pub fn is_topic_message(message: &Message) -> bool {
+    if let message::Source::Server(Some(source)) = message.target.source() {
+        matches!(source.kind(), message::source::server::Kind::ReplyTopic)
+    } else {
+        false
     }
 }
 

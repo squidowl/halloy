@@ -1,7 +1,7 @@
 //! Generate messages that can be broadcast into every buffer
 use chrono::{DateTime, Utc};
 
-use super::{parse_fragments, plain, source, Content, Direction, Message, Source, Target};
+use super::{nickname_text, parse_fragments, plain, quit_text, source, Content, Direction, Message, Source, Target};
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
 use crate::user::Nick;
@@ -146,15 +146,7 @@ pub fn quit(
     config: &Config,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let comment = comment
-        .as_ref()
-        .map(|comment| format!(" ({comment})"))
-        .unwrap_or_default();
-
-    let content = parse_fragments(format!(
-        "⟵ {} has quit{comment}",
-        user.formatted(config.buffer.server_messages.quit.username_format)
-    ));
+    let content = quit_text(user, comment, config);
 
     expand(
         channels,
@@ -177,11 +169,7 @@ pub fn nickname(
     ourself: bool,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let content = if ourself {
-        plain(format!("You're now known as {new_nick}"))
-    } else {
-        plain(format!("{old_nick} is now known as {new_nick}"))
-    };
+    let content = nickname_text(old_nick, new_nick, ourself);
 
     expand(
         channels,
