@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
 use itertools::{Either, Itertools};
@@ -998,7 +998,7 @@ impl Client {
 
                         if self.supports_chathistory {
                             return Some(vec![Event::ChatHistoryCommand(
-                                ChatHistorySubcommand::Latest,
+                                ChatHistorySubcommand::Latest(server_time(&message)),
                                 channel.clone(),
                                 self.get_chathistory_message_reference_type(),
                                 self.get_chathistory_limit(),
@@ -1413,40 +1413,35 @@ impl Client {
     pub fn finish_chathistory_batch(&mut self, batch: &mut Batch) {
         if let Some(chathistory_target) = &batch.chathistory_target {
             if let Some(channel) = self.chanmap.get_mut(chathistory_target) {
-                let limited_latest_batch = if let Some(ChatHistoryRequest {
+                if let Some(ChatHistoryRequest {
                     subcommand,
                     message_reference,
                     limit,
-                }) = &channel.chathistory_request
+                }) = channel.chathistory_request.clone()
                 {
-                    let subcommand_is_latest_since = *subcommand == ChatHistorySubcommand::Latest
-                        && !matches!(message_reference, MessageReference::None);
-
-                    if matches!(*subcommand, ChatHistorySubcommand::After)
-                        || subcommand_is_latest_since
+                    if matches!(subcommand, ChatHistorySubcommand::Latest(_))
+                        && !matches!(message_reference, MessageReference::None)
                     {
                         batch.events.reverse();
+
+                        if batch.events.len() == limit as usize {
+                            let message_reference_type =
+                                self.get_chathistory_message_reference_type().clone();
+                            let limit = self.get_chathistory_limit();
+
+                            batch.events.push(Event::ChatHistoryCommand(
+                                subcommand.clone(),
+                                chathistory_target.to_string(),
+                                message_reference_type,
+                                limit,
+                            ));
+
+                            return;
+                        }
                     }
-
-                    subcommand_is_latest_since && batch.events.len() == *limit as usize
-                } else {
-                    false
-                };
-
-                if limited_latest_batch {
-                    let message_reference_type =
-                        self.get_chathistory_message_reference_type().clone();
-                    let limit = self.get_chathistory_limit();
-
-                    batch.events.push(Event::ChatHistoryCommand(
-                        ChatHistorySubcommand::Latest,
-                        chathistory_target.to_string(),
-                        message_reference_type,
-                        limit,
-                    ));
-                } else {
-                    channel.chathistory_request = None;
                 }
+
+                channel.chathistory_request = None;
             }
         }
     }
@@ -1729,11 +1724,11 @@ impl Map {
             if let Some(channel) = client.chanmap.get_mut(target) {
                 if client.supports_chathistory
                     && (channel.chathistory_request.is_none()
-                        || (subcommand == ChatHistorySubcommand::Latest
+                        || (matches!(subcommand, ChatHistorySubcommand::Latest(_))
                             && matches!(
                                 channel.chathistory_request,
                                 Some(ChatHistoryRequest {
-                                    subcommand: ChatHistorySubcommand::Latest,
+                                    subcommand: ChatHistorySubcommand::Latest(_),
                                     ..
                                 })
                             )))
@@ -1745,43 +1740,70 @@ impl Map {
                     });
 
                     match subcommand {
-                        ChatHistorySubcommand::Latest => {
-                            log::debug!("[{server}] requesting {limit} latest messages in {target} since {message_reference}");
+                        ChatHistorySubcommand::Latest(_) => {
+                            let command_message_reference = match message_reference {
+                                MessageReference::Timestamp(timestamp) => {
+                                    if let Some(fuzzed_timestamp) =
+                                        TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
+                                            .and_then(|time_delta| {
+                                                timestamp.checked_sub_signed(time_delta)
+                                            })
+                                    {
+                                        MessageReference::Timestamp(fuzzed_timestamp)
+                                    } else {
+                                        message_reference
+                                    }
+                                }
+                                _ => message_reference,
+                            };
 
-                            let _ = client.handle.try_send(command!(
-                                "CHATHISTORY",
-                                "LATEST",
-                                target,
-                                message_reference.to_string(),
-                                limit.to_string()
-                            ));
-                        }
-                        ChatHistorySubcommand::After => {
-                            if !matches!(message_reference, MessageReference::None) {
-                                log::debug!(
-                                    "[{server}] requesting {limit} messages in {target} after {message_reference}"
-                                );
+                            log::debug!("[{server}] requesting {limit} latest messages in {target} since {command_message_reference}");
 
+                            if matches!(command_message_reference, MessageReference::None) {
+                                let _ = client.handle.try_send(command!(
+                                    "CHATHISTORY",
+                                    "LATEST",
+                                    target,
+                                    command_message_reference.to_string(),
+                                    limit.to_string()
+                                ));
+                            } else {
                                 let _ = client.handle.try_send(command!(
                                     "CHATHISTORY",
                                     "AFTER",
                                     target,
-                                    message_reference.to_string(),
+                                    command_message_reference.to_string(),
                                     limit.to_string()
                                 ));
                             }
                         }
                         ChatHistorySubcommand::Before => {
                             if !matches!(message_reference, MessageReference::None) {
+                                let command_message_reference = match message_reference {
+                                    MessageReference::Timestamp(timestamp) => {
+                                        if let Some(fuzzed_timestamp) = TimeDelta::try_seconds(
+                                            isupport::CHATHISTORY_FUZZ_SECONDS,
+                                        )
+                                        .and_then(|time_delta| {
+                                            timestamp.checked_add_signed(time_delta)
+                                        }) {
+                                            MessageReference::Timestamp(fuzzed_timestamp)
+                                        } else {
+                                            message_reference
+                                        }
+                                    }
+                                    _ => message_reference,
+                                };
+
                                 log::debug!(
-                                    "[{server}] requesting {limit} messages in {target} before {message_reference}"
+                                    "[{server}] requesting {limit} messages in {target} before {command_message_reference}"
                                 );
 
                                 let _ = client.handle.try_send(command!(
                                     "CHATHISTORY",
                                     "BEFORE",
                                     target,
-                                    message_reference.to_string(),
+                                    command_message_reference.to_string(),
                                     limit.to_string()
                                 ));
                             }

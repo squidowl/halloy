@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 use futures::{future, Future, FutureExt};
 use itertools::Itertools;
-use tokio::time::Instant;
+use tokio::{self, time::Instant};
 
 use crate::history::{self, History};
 use crate::isupport::{ChatHistorySubcommand, MessageReference};
@@ -207,17 +207,27 @@ impl Manager {
         );
     }
 
+    #[tokio::main]
+    pub async fn load(&mut self, server: Server, kind: history::Kind) {
+        let loaded_messages = history::load(&server.clone(), &kind.clone())
+            .map(move |result| Message::Loaded(server, kind, result))
+            .await;
+
+        self.update(loaded_messages);
+    }
+
     pub fn get_latest_message(
         &self,
         server: &Server,
         kind: &history::Kind,
         message_reference_type: isupport::MessageReferenceType,
+        join_server_time: DateTime<Utc>,
     ) -> Option<&crate::Message> {
         self.data
             .map
             .get(server)
             .and_then(|map| map.get(kind))
-            .map(|history| history.get_latest_message(message_reference_type))?
+            .map(|history| history.get_latest_message(message_reference_type, join_server_time))?
     }
 
     pub fn get_oldest_message(

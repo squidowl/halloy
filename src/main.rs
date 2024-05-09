@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use data::config::{self, Config};
-use data::isupport::{ChatHistorySubcommand, MessageReference};
+use data::isupport::ChatHistorySubcommand;
 use data::version::Version;
 use data::{environment, history, server, version, Url, User};
 use iced::widget::{column, container};
@@ -649,41 +649,15 @@ impl Halloy {
                                         message_reference_type,
                                         limit,
                                     ) => match subcommand {
-                                        ChatHistorySubcommand::Latest => {
-                                            let latest_message_reference = dashboard
-                                                .get_latest_message_reference(
-                                                    &server,
-                                                    channel.clone(),
-                                                    message_reference_type,
-                                                );
+                                        ChatHistorySubcommand::Latest(join_server_time) => {
+                                            dashboard.load_history(server.clone(), channel.clone());
 
-                                            if matches!(
-                                                latest_message_reference,
-                                                MessageReference::None
-                                            ) {
-                                                self.clients.get_channel_chathistory(
-                                                    subcommand,
-                                                    &server,
-                                                    channel.as_str(),
-                                                    latest_message_reference,
-                                                    limit,
-                                                )
-                                            } else {
-                                                self.clients.get_channel_chathistory(
-                                                    ChatHistorySubcommand::After,
-                                                    &server,
-                                                    channel.as_str(),
-                                                    latest_message_reference,
-                                                    limit,
-                                                )
-                                            }
-                                        }
-                                        ChatHistorySubcommand::After => {
                                             let latest_message_reference = dashboard
                                                 .get_latest_message_reference(
                                                     &server,
                                                     channel.clone(),
                                                     message_reference_type,
+                                                    join_server_time,
                                                 );
 
                                             self.clients.get_channel_chathistory(

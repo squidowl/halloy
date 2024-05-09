@@ -634,8 +634,7 @@ pub struct ChannelMode {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ChatHistorySubcommand {
-    Latest,
-    After,
+    Latest(DateTime<Utc>),
     Before,
 }
 
@@ -662,9 +661,11 @@ pub enum MessageReference {
 impl fmt::Display for MessageReference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MessageReference::Timestamp(server_time) => {
-                write!(f, "timestamp={}", server_time.to_rfc3339_opts(SecondsFormat::Millis, true))
-            }
+            MessageReference::Timestamp(server_time) => write!(
+                f,
+                "timestamp={}",
+                server_time.to_rfc3339_opts(SecondsFormat::Millis, true)
+            ),
             MessageReference::MessageId(id) => write!(f, "msgid={}", id),
             MessageReference::None => write!(f, "*"),
         }
@@ -699,6 +700,8 @@ pub struct PrefixMap {
     pub prefix: char,
     pub mode: char,
 }
+
+pub const CHATHISTORY_FUZZ_SECONDS: i64 = 1;
 
 const DEFAULT_BAN_EXCEPTION_CHANNEL_LETTER: char = 'e';
 

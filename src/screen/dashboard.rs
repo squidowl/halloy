@@ -1181,11 +1181,17 @@ impl Dashboard {
             .record_chathistory_message(server, message, subcommand, message_reference);
     }
 
+    pub fn load_history(&mut self, server: Server, channel: String) {
+        self.history
+            .load(server, history::Kind::Channel(channel.clone()));
+    }
+
     pub fn get_latest_message_reference(
         &self,
         server: &Server,
         channel: String,
         message_reference_type: isupport::MessageReferenceType,
+        join_server_time: DateTime<Utc>,
     ) -> MessageReference {
         let latest_message = match message_reference_type {
             isupport::MessageReferenceType::MessageId => self
@@ -1194,16 +1200,19 @@ impl Dashboard {
                     server,
                     &history::Kind::Channel(channel.clone()),
                     isupport::MessageReferenceType::MessageId,
+                    join_server_time,
                 )
                 .or(self.history.get_latest_message(
                     server,
                     &history::Kind::Channel(channel.clone()),
                     isupport::MessageReferenceType::Timestamp,
+                    join_server_time,
                 )),
             isupport::MessageReferenceType::Timestamp => self.history.get_latest_message(
                 server,
                 &history::Kind::Channel(channel.clone()),
                 isupport::MessageReferenceType::Timestamp,
+                join_server_time,
             ),
         };
 
