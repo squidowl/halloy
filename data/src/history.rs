@@ -413,7 +413,7 @@ impl History {
                                 .num_seconds()
                                 < 0
                                 && message.id.is_some()
-                                && !matches!(message.target.source(), message::Source::Internal(_))
+                                && is_reference_message(message)
                         })
                     }
                     isupport::MessageReferenceType::Timestamp => {
@@ -423,7 +423,7 @@ impl History {
                                 .signed_duration_since(join_server_time)
                                 .num_seconds()
                                 < 0
-                                && !matches!(message.target.source(), message::Source::Internal(_))
+                                && is_reference_message(message)
                         })
                     }
                 }
@@ -438,16 +438,23 @@ impl History {
         match self {
             History::Partial { messages, .. } | History::Full { messages, .. } => {
                 match message_reference_type {
-                    isupport::MessageReferenceType::MessageId => messages.iter().find(|message| {
-                        message.id.is_some()
-                            && !matches!(message.target.source(), message::Source::Internal(_))
-                    }),
-                    isupport::MessageReferenceType::Timestamp => messages.iter().find(|message| {
-                        !matches!(message.target.source(), message::Source::Internal(_))
-                    }),
+                    isupport::MessageReferenceType::MessageId => messages
+                        .iter()
+                        .find(|message| message.id.is_some() && is_reference_message(message)),
+                    isupport::MessageReferenceType::Timestamp => messages
+                        .iter()
+                        .find(|message| is_reference_message(message)),
                 }
             }
         }
+    }
+}
+
+fn is_reference_message(message: &Message) -> bool {
+    if let message::Source::Server(Some(source)) = message.target.source() {
+        !matches!(source.kind(), message::source::server::Kind::ReplyTopic)
+    } else {
+        !matches!(message.target.source(), message::Source::Internal(_))
     }
 }
 
