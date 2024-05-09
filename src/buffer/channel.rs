@@ -63,7 +63,10 @@ pub fn view<'a>(
                                 |theme| {
                                     theme::selectable_text::nickname(
                                         theme,
-                                        user.nick_color(theme.colors(), &config.buffer.nickname.color),
+                                        user.nick_color(
+                                            theme.colors(),
+                                            &config.buffer.nickname.color,
+                                        ),
                                         user.is_away(),
                                     )
                                 },
@@ -101,9 +104,14 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Server(_) => {
-                        let message =
-                            selectable_text(&message.text).style(theme::selectable_text::info);
+                    message::Source::Server(server) => {
+                        let message = selectable_text(&message.text).style(move |theme| {
+                            theme::selectable_text::server(
+                                theme,
+                                server.as_ref(),
+                                &config.buffer.server_messages,
+                            )
+                        });
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
@@ -114,8 +122,13 @@ pub fn view<'a>(
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
-                        let message = selectable_text(&message.text)
-                            .style(|theme| theme::selectable_text::status(theme, *status));
+                        let message = selectable_text(&message.text).style(move |theme| {
+                            theme::selectable_text::status(
+                                theme,
+                                *status,
+                                &config.buffer.internal_messages,
+                            )
+                        });
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
