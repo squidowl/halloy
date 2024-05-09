@@ -36,17 +36,17 @@ pub struct ServerMessages {
 }
 
 impl ServerMessages {
-    pub fn get(&self, server: &source::Server) -> Option<ServerMessage> {
+    pub fn get(&self, server: &source::Server) -> Option<&ServerMessage> {
         match server.kind() {
-            source::server::Kind::ReplyTopic => Some(self.topic),
-            source::server::Kind::Part => Some(self.part),
-            source::server::Kind::Quit => Some(self.quit),
-            source::server::Kind::Join => Some(self.join),
+            source::server::Kind::ReplyTopic => Some(&self.topic),
+            source::server::Kind::Part => Some(&self.part),
+            source::server::Kind::Quit => Some(&self.quit),
+            source::server::Kind::Join => Some(&self.join),
         }
     }
 }
 
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ServerMessage {
     #[serde(default = "default_bool_true")]
     pub enabled: bool,
@@ -54,6 +54,8 @@ pub struct ServerMessage {
     pub smart: Option<i64>,
     #[serde(default)]
     pub username_format: UsernameFormat,
+    #[serde(default)]
+    pub hex: Option<String>,
 }
 
 impl Default for ServerMessage {
@@ -62,6 +64,7 @@ impl Default for ServerMessage {
             enabled: true,
             smart: Default::default(),
             username_format: UsernameFormat::default(),
+            hex: None,
         }
     }
 }
@@ -75,20 +78,22 @@ pub struct InternalMessages {
 }
 
 impl InternalMessages {
-    pub fn get(&self, server: &source::Status) -> Option<InternalMessage> {
+    pub fn get(&self, server: &source::Status) -> Option<&InternalMessage> {
         match server {
-            source::Status::Success => Some(self.success),
-            source::Status::Error => Some(self.error),
+            source::Status::Success => Some(&self.success),
+            source::Status::Error => Some(&self.error),
         }
     }
 }
 
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct InternalMessage {
     #[serde(default = "default_bool_true")]
     pub enabled: bool,
     #[serde(default)]
     pub smart: Option<i64>,
+    #[serde(default)]
+    pub hex: Option<String>,
 }
 
 impl Default for InternalMessage {
@@ -96,6 +101,7 @@ impl Default for InternalMessage {
         Self {
             enabled: true,
             smart: Default::default(),
+            hex: None,
         }
     }
 }
