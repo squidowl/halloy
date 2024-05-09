@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{fmt, io};
@@ -186,7 +187,7 @@ impl History {
                 ..
             } => {
                 let insert_position = match subcommand {
-                    ChatHistorySubcommand::Latest | ChatHistorySubcommand::After => {
+                    ChatHistorySubcommand::Latest(_) => {
                         if message.id.is_some() {
                             if messages
                                 .iter()
@@ -201,9 +202,7 @@ impl History {
                             return;
                         }
 
-                        if subcommand == ChatHistorySubcommand::Latest
-                            && matches!(message_reference, MessageReference::None)
-                        {
+                        if matches!(message_reference, MessageReference::None) {
                             Some(messages.len())
                         } else {
                             messages
@@ -249,7 +248,7 @@ impl History {
                 ..
             } => {
                 let insert_position = match subcommand {
-                    ChatHistorySubcommand::Latest | ChatHistorySubcommand::After => {
+                    ChatHistorySubcommand::Latest(_) => {
                         if message.id.is_some() {
                             if messages
                                 .iter()
@@ -264,7 +263,7 @@ impl History {
                             return;
                         }
 
-                        if subcommand == ChatHistorySubcommand::Latest
+                        if matches!(subcommand, ChatHistorySubcommand::Latest(_))
                             && matches!(message_reference, MessageReference::None)
                         {
                             Some(messages.len())
@@ -401,18 +400,32 @@ impl History {
     fn get_latest_message(
         &self,
         message_reference_type: isupport::MessageReferenceType,
+        join_server_time: DateTime<Utc>,
     ) -> Option<&Message> {
         match self {
             History::Partial { messages, .. } | History::Full { messages, .. } => {
                 match message_reference_type {
-                    isupport::MessageReferenceType::MessageId => messages
-                        .iter()
-                        .rev()
-                        .find(|message| message.id.is_some() && !is_topic_message(message)),
-                    isupport::MessageReferenceType::Timestamp => messages
-                        .iter()
-                        .rev()
-                        .find(|message| !is_topic_message(message)),
+                    isupport::MessageReferenceType::MessageId => {
+                        messages.iter().rev().find(|message| {
+                            message
+                                .server_time
+                                .signed_duration_since(join_server_time)
+                                .num_seconds()
+                                < 0
+                                && message.id.is_some()
+                                && !matches!(message.target.source(), message::Source::Internal(_))
+                        })
+                    }
+                    isupport::MessageReferenceType::Timestamp => {
+                        messages.iter().rev().find(|message| {
+                            message
+                                .server_time
+                                .signed_duration_since(join_server_time)
+                                .num_seconds()
+                                < 0
+                                && !matches!(message.target.source(), message::Source::Internal(_))
+                        })
+                    }
                 }
             }
         }
@@ -425,23 +438,16 @@ impl History {
         match self {
             History::Partial { messages, .. } | History::Full { messages, .. } => {
                 match message_reference_type {
-                    isupport::MessageReferenceType::MessageId => messages
-                        .iter()
-                        .find(|message| message.id.is_some() && !is_topic_message(message)),
-                    isupport::MessageReferenceType::Timestamp => {
-                        messages.iter().find(|message| !is_topic_message(message))
-                    }
+                    isupport::MessageReferenceType::MessageId => messages.iter().find(|message| {
+                        message.id.is_some()
+                            && !matches!(message.target.source(), message::Source::Internal(_))
+                    }),
+                    isupport::MessageReferenceType::Timestamp => messages.iter().find(|message| {
+                        !matches!(message.target.source(), message::Source::Internal(_))
+                    }),
                 }
             }
         }
-    }
-}
-
-pub fn is_topic_message(message: &Message) -> bool {
-    if let message::Source::Server(Some(source)) = message.target.source() {
-        matches!(source.kind(), message::source::server::Kind::ReplyTopic)
-    } else {
-        false
     }
 }
 
