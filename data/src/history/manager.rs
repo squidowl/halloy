@@ -208,12 +208,28 @@ impl Manager {
     }
 
     #[tokio::main]
-    pub async fn load(&mut self, server: Server, kind: history::Kind) {
+    pub async fn load_now(&mut self, server: Server, kind: history::Kind) {
+        let loaded_server = server.clone();
+        let loaded_kind = kind.clone();
+
         let loaded_messages = history::load(&server.clone(), &kind.clone())
-            .map(move |result| Message::Loaded(server, kind, result))
+            .map(move |result| Message::Loaded(loaded_server, loaded_kind, result))
             .await;
 
         self.update(loaded_messages);
+    }
+
+    #[tokio::main]
+    pub async fn make_partial_now(
+        &mut self,
+        server: Server,
+        kind: history::Kind,
+        message_reference: Option<MessageReference>,
+    ) {
+        self.data.map.get_mut(&server).and_then(|map| {
+            map.get_mut(&kind)
+                .and_then(|history| history.make_partial(message_reference))
+        });
     }
 
     pub fn get_latest_message(
@@ -681,7 +697,7 @@ impl Data {
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| History::partial(server, kind, message.received_at))
+            .or_insert_with(|| History::partial(server, kind, None, message.received_at))
             .add_message(message)
     }
 
@@ -697,7 +713,7 @@ impl Data {
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| History::partial(server, kind, message.received_at))
+            .or_insert_with(|| History::partial(server, kind, None, message.received_at))
             .add_chathistory_message(message, subcommand, message_reference)
     }
 
@@ -706,9 +722,10 @@ impl Data {
         server: &server::Server,
         kind: &history::Kind,
     ) -> Option<impl Future<Output = Result<(), history::Error>>> {
-        self.map
-            .get_mut(server)
-            .and_then(|map| map.get_mut(kind).and_then(History::make_partial))
+        self.map.get_mut(server).and_then(|map| {
+            map.get_mut(kind)
+                .and_then(|history| history.make_partial(None))
+        })
     }
 
     fn flush_all(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {

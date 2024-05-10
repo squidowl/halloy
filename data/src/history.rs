@@ -136,13 +136,28 @@ pub enum History {
 }
 
 impl History {
-    fn partial(server: server::Server, kind: Kind, opened_at: Posix) -> Self {
+    fn partial(
+        server: server::Server,
+        kind: Kind,
+        unread_messages: Option<Vec<Message>>,
+        opened_at: Posix,
+    ) -> Self {
         Self::Partial {
             server,
             kind,
-            messages: vec![],
+            messages: unread_messages.clone().unwrap_or_default(),
             last_received_at: None,
-            unread_message_count: 0,
+            unread_message_count: unread_messages.map_or(0, |unread_messages| {
+                unread_messages
+                    .iter()
+                    .fold(0, |unread_message_count, message| {
+                        if message.triggers_unread() {
+                            unread_message_count + 1
+                        } else {
+                            unread_message_count
+                        }
+                    })
+            }),
             opened_at,
         }
     }
@@ -187,50 +202,15 @@ impl History {
                 ..
             } => {
                 let insert_position = match subcommand {
-                    ChatHistorySubcommand::Latest(_) => {
-                        if message.id.is_some() {
-                            if messages
-                                .iter()
-                                .any(|existing_message| existing_message.id == message.id)
-                            {
-                                return;
-                            }
-                        } else if messages.iter().any(|existing_message| {
-                            existing_message.server_time == message.server_time
-                                && existing_message.text == message.text
-                        }) {
-                            return;
-                        }
-
-                        if matches!(message_reference, MessageReference::None) {
-                            Some(messages.len())
-                        } else {
-                            messages
-                                .iter()
-                                .rev()
-                                .position(|existing_message| message_reference == *existing_message)
-                                .map(|reference_position| messages.len() - reference_position)
-                        }
-                    }
-                    ChatHistorySubcommand::Before => {
-                        if message.id.is_some() {
-                            if messages
-                                .iter()
-                                .any(|existing_message| existing_message.id == message.id)
-                            {
-                                return;
-                            }
-                        } else if messages.iter().any(|existing_message| {
-                            existing_message.server_time == message.server_time
-                                && existing_message.text == message.text
-                        }) {
-                            return;
-                        }
-
-                        messages
+                    ChatHistorySubcommand::Latest(_) => Some(match message_reference {
+                        MessageReference::None => messages.len() + 1,
+                        _ => messages
                             .iter()
+                            .rev()
                             .position(|existing_message| message_reference == *existing_message)
-                    }
+                            .map_or(0, |reference_position| messages.len() - reference_position),
+                    }),
+                    ChatHistorySubcommand::Before => None,
                 };
 
                 if let Some(insert_position) = insert_position {
@@ -238,7 +218,11 @@ impl History {
                         *unread_message_count += 1;
                     }
 
-                    messages.insert(insert_position, message);
+                    if insert_position > messages.len() {
+                        messages.push(message)
+                    } else {
+                        messages.insert(insert_position, message);
+                    }
                     *last_received_at = Some(Instant::now());
                 }
             }
@@ -360,7 +344,10 @@ impl History {
         }
     }
 
-    fn make_partial(&mut self) -> Option<impl Future<Output = Result<(), Error>>> {
+    fn make_partial(
+        &mut self,
+        message_reference: Option<isupport::MessageReference>,
+    ) -> Option<impl Future<Output = Result<(), Error>>> {
         match self {
             History::Partial { .. } => None,
             History::Full {
@@ -371,9 +358,25 @@ impl History {
             } => {
                 let server = server.clone();
                 let kind = kind.clone();
+                let unread_messages =
+                    message_reference.and_then(|message_reference| match message_reference {
+                        isupport::MessageReference::None => Some(messages.split_off(0)),
+                        _ => messages
+                            .iter()
+                            .rev()
+                            .position(|message| message_reference == *message)
+                            .and_then(|reference_position| {
+                                if reference_position > 0 {
+                                    Some(messages.len() - reference_position + 1)
+                                } else {
+                                    None
+                                }
+                            })
+                            .map(|split_position| messages.split_off(split_position)),
+                    });
                 let messages = std::mem::take(messages);
 
-                *self = Self::partial(server.clone(), kind.clone(), Posix::now());
+                *self = Self::partial(server.clone(), kind.clone(), unread_messages, Posix::now());
 
                 Some(async move { overwrite(&server, &kind, &messages).await })
             }
@@ -413,7 +416,7 @@ impl History {
                                 .num_seconds()
                                 < 0
                                 && message.id.is_some()
-                                && is_reference_message(message)
+                                && is_referenceable_message(message)
                         })
                     }
                     isupport::MessageReferenceType::Timestamp => {
@@ -423,7 +426,7 @@ impl History {
                                 .signed_duration_since(join_server_time)
                                 .num_seconds()
                                 < 0
-                                && is_reference_message(message)
+                                && is_referenceable_message(message)
                         })
                     }
                 }
@@ -440,17 +443,17 @@ impl History {
                 match message_reference_type {
                     isupport::MessageReferenceType::MessageId => messages
                         .iter()
-                        .find(|message| message.id.is_some() && is_reference_message(message)),
+                        .find(|message| message.id.is_some() && is_referenceable_message(message)),
                     isupport::MessageReferenceType::Timestamp => messages
                         .iter()
-                        .find(|message| is_reference_message(message)),
+                        .find(|message| is_referenceable_message(message)),
                 }
             }
         }
     }
 }
 
-fn is_reference_message(message: &Message) -> bool {
+fn is_referenceable_message(message: &Message) -> bool {
     if let message::Source::Server(Some(source)) = message.target.source() {
         !matches!(source.kind(), message::source::server::Kind::ReplyTopic)
     } else {

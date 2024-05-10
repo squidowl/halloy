@@ -289,14 +289,11 @@ impl Dashboard {
                                                         message_reference_type,
                                                     );
 
-                                                let limit = clients.get_server_chathistory_limit(server);
-
-                                                clients.get_channel_chathistory(
+                                                clients.send_channel_chathistory_request(
                                                     ChatHistorySubcommand::Before,
                                                     server,
                                                     channel.as_str(),
                                                     oldest_message_reference,
-                                                    limit,
                                                 );
                                             }
                                         }
@@ -971,14 +968,11 @@ impl Dashboard {
                                 message_reference_type,
                             );
 
-                            let limit = clients.get_server_chathistory_limit(&server);
-
-                            clients.get_channel_chathistory(
+                            clients.send_channel_chathistory_request(
                                 ChatHistorySubcommand::Before,
                                 &server,
                                 channel.as_str(),
                                 oldest_message_reference,
-                                limit,
                             );
                         }
                     }
@@ -1181,9 +1175,28 @@ impl Dashboard {
             .record_chathistory_message(server, message, subcommand, message_reference);
     }
 
-    pub fn load_history(&mut self, server: Server, channel: String) {
+    pub fn is_open(&self, server: Server, channel: String) -> bool {
+        self.panes.iter().any(|(_, pane)| {
+            pane.buffer.data() == Some(data::Buffer::Channel(server.clone(), channel.clone()))
+        })
+    }
+
+    pub fn load_history_now(&mut self, server: Server, channel: String) {
         self.history
-            .load(server, history::Kind::Channel(channel.clone()));
+            .load_now(server, history::Kind::Channel(channel.clone()));
+    }
+
+    pub fn make_history_partial_now(
+        &mut self,
+        server: Server,
+        channel: String,
+        message_reference: Option<isupport::MessageReference>,
+    ) {
+        self.history.make_partial_now(
+            server,
+            history::Kind::Channel(channel.clone()),
+            message_reference,
+        );
     }
 
     pub fn get_latest_message_reference(
