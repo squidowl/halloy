@@ -666,7 +666,7 @@ impl Client {
 
                     if let Some(state) = self.chanmap.get_mut(channel) {
                         // Sends WHO to get away state on users.
-                        if self.isupport.get(&isupport::Kind::WHOX).is_some() {
+                        if self.isupport.contains_key(&isupport::Kind::WHOX) {
                             let _ = self.handle.try_send(command!(
                                 "WHO",
                                 channel,
@@ -837,7 +837,7 @@ impl Client {
             }
             Command::TOPIC(channel, topic) => {
                 if let Some(channel) = self.chanmap.get_mut(channel) {
-                    channel.topic.text = topic.to_owned();
+                    topic.clone_into(&mut channel.topic.text);
 
                     channel.topic.who = message
                         .user()
@@ -874,7 +874,7 @@ impl Client {
                 // If the channel has not been joined but is in the configured channels,
                 // then interpret this numeric as ERR_NEEDREGGEDNICK (which has the
                 // same number as ERR_NOCHANMODES)
-                if self.chanmap.get(channel).is_none()
+                if !self.chanmap.contains_key(channel)
                     && self
                         .config
                         .channels
@@ -1028,7 +1028,7 @@ impl Client {
             };
 
             if let Some(request) = request {
-                if self.isupport.get(&isupport::Kind::WHOX).is_some() {
+                if self.isupport.contains_key(&isupport::Kind::WHOX) {
                     let _ = self.handle.try_send(command!(
                         "WHO",
                         channel,
