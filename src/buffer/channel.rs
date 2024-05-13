@@ -22,6 +22,7 @@ pub enum Message {
 pub enum Event {
     UserContext(user_context::Event),
     ScrolledToTop,
+    ChatHistoryBeforeRequest,
 }
 
 pub fn view<'a>(
@@ -43,10 +44,21 @@ pub fn view<'a>(
 
     let users = clients.get_channel_users(&state.server, &state.channel);
 
+    let chathistory_before_button = if clients.get_server_supports_chathistory(&state.server) {
+        Some((
+            clients
+                .get_channel_chathistory_request(&state.server, &state.channel)
+                .is_some(),
+            clients.get_channel_chathistory_before_exhausted(&state.server, &state.channel),
+        ))
+    } else {
+        None
+    };
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Channel(&state.server, &state.channel),
+            scroll_view::Kind::Channel(&state.server, &state.channel, chathistory_before_button),
             history,
             config,
             move |message, max_nick_width, max_prefix_width| {
@@ -319,6 +331,7 @@ impl Channel {
                 let event = event.map(|event| match event {
                     scroll_view::Event::UserContext(event) => Event::UserContext(event),
                     scroll_view::Event::ScrolledToTop => Event::ScrolledToTop,
+                    scroll_view::Event::ChatHistoryBeforeRequest => Event::ChatHistoryBeforeRequest,
                 });
 
                 (command.map(Message::ScrollView), event)

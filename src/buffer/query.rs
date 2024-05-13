@@ -231,6 +231,7 @@ impl Query {
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
                     scroll_view::Event::ScrolledToTop => None,
+                    scroll_view::Event::ChatHistoryBeforeRequest => None,
                 });
 
                 (command.map(Message::ScrollView), event)

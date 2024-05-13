@@ -1499,6 +1499,12 @@ impl Client {
         isupport::MessageReferenceType::default()
     }
 
+    pub fn chathistory_request(&self, target: &str) -> Option<ChatHistoryRequest> {
+        self.chanmap
+            .get(target)
+            .and_then(|channel| channel.chathistory_request.clone())
+    }
+
     pub fn send_chathistory_request(
         &mut self,
         subcommand: ChatHistorySubcommand,
@@ -1535,7 +1541,7 @@ impl Client {
                                             server_time.checked_sub_signed(time_delta)
                                         })
                                 {
-                                    MessageReference::Timestamp(fuzzed_server_time, "".to_string())
+                                    MessageReference::Timestamp(fuzzed_server_time, ":".to_string())
                                 } else {
                                     message_reference
                                 }
@@ -1575,7 +1581,7 @@ impl Client {
                                     {
                                         MessageReference::Timestamp(
                                             fuzzed_reference_timestamp,
-                                            "".to_string(),
+                                            ":".to_string(),
                                         )
                                     } else {
                                         message_reference
@@ -1607,6 +1613,13 @@ impl Client {
         if let Some(channel) = self.chanmap.get_mut(target) {
             channel.chathistory_request = None;
         }
+    }
+
+    pub fn chathistory_before_exhausted(&self, target: &str) -> bool {
+        self.chanmap
+            .get(target)
+            .map(|channel| channel.chathistory_before_exhausted)
+            .unwrap_or_default()
     }
 
     fn topic<'a>(&'a self, channel: &str) -> Option<&'a Topic> {
@@ -1853,6 +1866,15 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_channel_chathistory_request(
+        &self,
+        server: &Server,
+        channel: &str,
+    ) -> Option<ChatHistoryRequest> {
+        self.client(server)
+            .and_then(|client| client.chathistory_request(channel))
+    }
+
     pub fn send_channel_chathistory_request(
         &mut self,
         subcommand: ChatHistorySubcommand,
@@ -1869,6 +1891,12 @@ impl Map {
         if let Some(client) = self.client_mut(server) {
             client.clear_chathistory_request(channel);
         }
+    }
+
+    pub fn get_channel_chathistory_before_exhausted(&self, server: &Server, channel: &str) -> bool {
+        self.client(server)
+            .map(|client| client.chathistory_before_exhausted(channel))
+            .unwrap_or_default()
     }
 
     pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [String] {

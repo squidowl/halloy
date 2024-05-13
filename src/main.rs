@@ -476,6 +476,13 @@ impl Halloy {
                                         if let MessageReference::Timestamp(reference_server_time, reference_client_id) =
                                             message_reference
                                         {
+                                            log::debug!(
+                                                "{:?} message_reference {:?} encoded {:?}",
+                                                data::message::server_time(encoded) == *reference_server_time
+                                                    && data::message::client_id(encoded) == *reference_client_id,
+                                                    message_reference,
+                                                    encoded
+                                                    );
                                             data::message::server_time(encoded) == *reference_server_time
                                                 && data::message::client_id(encoded) == *reference_client_id
                                         } else {

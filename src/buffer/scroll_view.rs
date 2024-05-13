@@ -2,7 +2,7 @@ use data::message::Limit;
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
-use iced::widget::{column, container, horizontal_rule, row, scrollable, text, Scrollable};
+use iced::widget::{button, column, container, horizontal_rule, row, scrollable, text, Scrollable};
 use iced::{padding, Length, Task};
 
 use super::user_context;
@@ -20,18 +20,20 @@ pub enum Message {
     },
     UserContext(user_context::Message),
     Link(String),
+    ChatHistoryBeforeRequest,
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
     ScrolledToTop,
+    ChatHistoryBeforeRequest,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Kind<'a> {
     Server(&'a Server),
-    Channel(&'a Server, &'a str),
+    Channel(&'a Server, &'a str, Option<(bool, bool)>),
     Query(&'a Server, &'a Nick),
 }
 
@@ -52,7 +54,7 @@ pub fn view<'a>(
         Kind::Server(server) => {
             history.get_server_messages(server, Some(state.limit), &config.buffer)
         }
-        Kind::Channel(server, channel) => {
+        Kind::Channel(server, channel, _) => {
             history.get_channel_messages(server, channel, Some(state.limit), &config.buffer)
         }
         Kind::Query(server, user) => {
@@ -61,6 +63,39 @@ pub fn view<'a>(
     })
     else {
         return column![].into();
+    };
+
+    let top_row = if let Kind::Channel(
+        _,
+        _,
+        Some((chathistory_request_is_some, chathistory_before_exhausted)),
+    ) = kind
+    {
+        let (content, message) = if chathistory_request_is_some {
+            ("...", None)
+        } else if chathistory_before_exhausted {
+            ("No Older Chat History Messages Available", None)
+        } else {
+            (
+                "Request Older Chat History Messages",
+                Some(Message::ChatHistoryBeforeRequest),
+            )
+        };
+
+        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
+
+        let top_row_button = button(text(content).size(font_size).style(theme::text::primary))
+            .padding(5)
+            .style(theme::button::primary)
+            .on_press_maybe(message);
+
+        Some(
+            row![horizontal_space(), top_row_button, horizontal_space()]
+                .width(Length::Fill)
+                .align_items(iced::Alignment::Center),
+        )
+    } else {
+        None
     };
 
     let count = old_messages.len() + new_messages.len();
@@ -110,9 +145,16 @@ pub fn view<'a>(
         .padding(2)
         .align_y(iced::Alignment::Center);
 
-        column![column(old), divider, column(new)]
+        column![]
+            .push_maybe(top_row)
+            .push(column(old))
+            .push(divider)
+            .push(column(new))
     } else {
-        column![column(old), column(new)]
+        column![]
+            .push_maybe(top_row)
+            .push(column(old))
+            .push(column(new))
     };
 
     Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
@@ -232,6 +274,9 @@ impl State {
             }
             Message::Link(link) => {
                 let _ = open::that_detached(link);
+            }
+            Message::ChatHistoryBeforeRequest => {
+                return (Command::none(), Some(Event::ChatHistoryBeforeRequest))
             }
         }
 

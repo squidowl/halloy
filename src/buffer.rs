@@ -41,6 +41,7 @@ pub enum Message {
 pub enum Event {
     UserContext(user_context::Event),
     ScrolledToTop,
+    ChatHistoryBeforeRequest,
 }
 
 impl Buffer {
@@ -73,6 +74,7 @@ impl Buffer {
                 let event = event.map(|event| match event {
                     channel::Event::UserContext(event) => Event::UserContext(event),
                     channel::Event::ScrolledToTop => Event::ScrolledToTop,
+                    channel::Event::ChatHistoryBeforeRequest => Event::ChatHistoryBeforeRequest,
                 });
 
                 (command.map(Message::Channel), event)
