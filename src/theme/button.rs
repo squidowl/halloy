@@ -44,6 +44,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
                     ..active.text_color
                 },
                 border: Border {
+                    radius: 3.0.into(),
                     color: Color {
                         a: 0.2,
                         ..active.text_color

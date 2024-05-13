@@ -21,6 +21,8 @@ pub struct Buffer {
     pub server_messages: ServerMessages,
     #[serde(default)]
     pub internal_messages: InternalMessages,
+    #[serde(default)]
+    pub chathistory: ChatHistory,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -106,6 +108,12 @@ impl Default for InternalMessage {
     }
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ChatHistory {
+    #[serde(default)]
+    pub request_older_messages_at_scroll_top: bool,
+}
+
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum UsernameFormat {
@@ -126,6 +134,7 @@ impl Default for Buffer {
             channel: Channel::default(),
             server_messages: Default::default(),
             internal_messages: Default::default(),
+            chathistory: Default::default(),
         }
     }
 }
