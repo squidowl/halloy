@@ -85,6 +85,7 @@ pub enum Event {
         String,
         isupport::MessageReferenceType,
     ),
+    ChatHistoryBatchFilter,
     ChatHistorySingle(
         message::Encoded,
         Nick,
@@ -98,7 +99,7 @@ pub enum Event {
         ChatHistorySubcommand,
         isupport::MessageReference,
     ),
-    ChatHistoryPostProcessBatch(
+    ChatHistoryBatchFinished(
         ChatHistorySubcommand,
         String,
         isupport::MessageReference,
@@ -293,7 +294,69 @@ impl Client {
                                 parent.events.extend(finished.events);
                             } else {
                                 if self.supports_chathistory {
-                                    self.process_chathistory_batch(&mut finished);
+                                    if let Some(chathistory_target) = &finished.chathistory_target {
+                                        if let Some(channel) =
+                                            self.chanmap.get_mut(chathistory_target)
+                                        {
+                                            if let Some(ChatHistoryRequest {
+                                                subcommand,
+                                                message_reference,
+                                                limit,
+                                            }) = channel.chathistory_request.clone()
+                                            {
+                                                if matches!(
+                                                    subcommand,
+                                                    ChatHistorySubcommand::Before
+                                                ) {
+                                                    channel.chathistory_before_exhausted =
+                                                        finished.events.len() < limit as usize;
+                                                }
+
+                                                let continue_request = if matches!(
+                                                    subcommand,
+                                                    ChatHistorySubcommand::Latest(_)
+                                                ) && !matches!(
+                                                    message_reference,
+                                                    MessageReference::None
+                                                ) {
+                                                    finished.events.reverse();
+
+                                                    finished.events.len() == limit as usize
+                                                } else {
+                                                    false
+                                                };
+
+                                                if matches!(
+                                                    message_reference,
+                                                    MessageReference::Timestamp(_, _)
+                                                ) {
+                                                    finished
+                                                        .events
+                                                        .insert(0, Event::ChatHistoryBatchFilter);
+                                                }
+
+                                                finished.events.push(
+                                                    Event::ChatHistoryBatchFinished(
+                                                        subcommand.clone(),
+                                                        chathistory_target.to_string(),
+                                                        message_reference,
+                                                        !continue_request,
+                                                    ),
+                                                );
+
+                                                if continue_request {
+                                                    finished
+                                                        .events
+                                                        .push(Event::ChatHistoryCommand(
+                                                        subcommand.clone(),
+                                                        chathistory_target.to_string(),
+                                                        self.chathistory_message_reference_type()
+                                                            .clone(),
+                                                    ));
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
 
                                 return Some(finished.events);
@@ -1414,44 +1477,6 @@ impl Client {
         &self.channels
     }
 
-    pub fn process_chathistory_batch(&mut self, batch: &mut Batch) {
-        if let Some(chathistory_target) = &batch.chathistory_target {
-            if let Some(channel) = self.chanmap.get_mut(chathistory_target) {
-                if let Some(ChatHistoryRequest {
-                    subcommand,
-                    message_reference,
-                    limit,
-                }) = channel.chathistory_request.clone()
-                {
-                    let continue_request = if matches!(subcommand, ChatHistorySubcommand::Latest(_))
-                        && !matches!(message_reference, MessageReference::None)
-                    {
-                        batch.events.reverse();
-
-                        batch.events.len() == limit as usize
-                    } else {
-                        false
-                    };
-
-                    batch.events.push(Event::ChatHistoryPostProcessBatch(
-                        subcommand.clone(),
-                        chathistory_target.to_string(),
-                        message_reference,
-                        !continue_request,
-                    ));
-
-                    if continue_request {
-                        batch.events.push(Event::ChatHistoryCommand(
-                            subcommand.clone(),
-                            chathistory_target.to_string(),
-                            self.chathistory_message_reference_type().clone(),
-                        ));
-                    }
-                }
-            }
-        }
-    }
-
     pub fn chathistory_limit(&self) -> u16 {
         if let Some(isupport::Parameter::CHATHISTORY(server_limit)) =
             self.isupport.get(&isupport::Kind::CHATHISTORY)
@@ -1503,14 +1528,14 @@ impl Client {
                 match subcommand {
                     ChatHistorySubcommand::Latest(_) => {
                         let command_message_reference = match message_reference {
-                            MessageReference::Timestamp(server_time) => {
+                            MessageReference::Timestamp(server_time, _) => {
                                 if let Some(fuzzed_server_time) =
                                     TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
                                         .and_then(|time_delta| {
                                             server_time.checked_sub_signed(time_delta)
                                         })
                                 {
-                                    MessageReference::Timestamp(fuzzed_server_time)
+                                    MessageReference::Timestamp(fuzzed_server_time, "".to_string())
                                 } else {
                                     message_reference
                                 }
@@ -1541,14 +1566,17 @@ impl Client {
                     ChatHistorySubcommand::Before => {
                         if !matches!(message_reference, MessageReference::None) {
                             let command_message_reference = match message_reference {
-                                MessageReference::Timestamp(reference_timestamp) => {
+                                MessageReference::Timestamp(reference_timestamp, _) => {
                                     if let Some(fuzzed_reference_timestamp) =
                                         TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
                                             .and_then(|time_delta| {
                                                 reference_timestamp.checked_add_signed(time_delta)
                                             })
                                     {
-                                        MessageReference::Timestamp(fuzzed_reference_timestamp)
+                                        MessageReference::Timestamp(
+                                            fuzzed_reference_timestamp,
+                                            "".to_string(),
+                                        )
                                     } else {
                                         message_reference
                                     }
@@ -1992,6 +2020,7 @@ pub struct Channel {
     pub topic: Topic,
     pub names_init: bool,
     pub chathistory_request: Option<ChatHistoryRequest>,
+    pub chathistory_before_exhausted: bool,
 }
 
 impl Channel {

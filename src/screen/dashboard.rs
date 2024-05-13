@@ -1239,7 +1239,10 @@ impl Dashboard {
                 }
             }
 
-            MessageReference::Timestamp(latest_message.server_time)
+            MessageReference::Timestamp(
+                latest_message.server_time,
+                latest_message.id.clone().unwrap_or(":".to_string()),
+            )
         } else {
             MessageReference::None
         }
@@ -1281,7 +1284,10 @@ impl Dashboard {
                 }
             }
 
-            MessageReference::Timestamp(oldest_message.server_time)
+            MessageReference::Timestamp(
+                oldest_message.server_time,
+                oldest_message.id.clone().unwrap_or(":".to_string()),
+            )
         } else {
             MessageReference::None
         }

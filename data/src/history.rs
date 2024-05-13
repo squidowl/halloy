@@ -203,7 +203,7 @@ impl History {
             } => {
                 let insert_position = match subcommand {
                     ChatHistorySubcommand::Latest(_) => Some(match message_reference {
-                        MessageReference::None => messages.len() + 1,
+                        MessageReference::None => messages.len(),
                         _ => messages
                             .iter()
                             .rev()
@@ -218,11 +218,7 @@ impl History {
                         *unread_message_count += 1;
                     }
 
-                    if insert_position > messages.len() {
-                        messages.push(message)
-                    } else {
-                        messages.insert(insert_position, message);
-                    }
+                    messages.insert(insert_position, message);
                     *last_received_at = Some(Instant::now());
                 }
             }
@@ -233,16 +229,11 @@ impl History {
             } => {
                 let insert_position = match subcommand {
                     ChatHistorySubcommand::Latest(_) => {
-                        if message.id.is_some() {
-                            if messages
-                                .iter()
-                                .any(|existing_message| existing_message.id == message.id)
-                            {
-                                return;
-                            }
-                        } else if messages.iter().any(|existing_message| {
-                            existing_message.server_time == message.server_time
-                                && existing_message.text == message.text
+                        if message.id.clone().is_some_and(|_| {
+                            messages.iter().any(|existing_message| {
+                                existing_message.server_time == message.server_time
+                                    && existing_message.id == message.id
+                            })
                         }) {
                             return;
                         }
@@ -260,16 +251,11 @@ impl History {
                         }
                     }
                     ChatHistorySubcommand::Before => {
-                        if message.id.is_some() {
-                            if messages
-                                .iter()
-                                .any(|existing_message| existing_message.id == message.id)
-                            {
-                                return;
-                            }
-                        } else if messages.iter().any(|existing_message| {
-                            existing_message.server_time == message.server_time
-                                && existing_message.text == message.text
+                        if message.id.clone().is_some_and(|_| {
+                            messages.iter().any(|existing_message| {
+                                existing_message.server_time == message.server_time
+                                    && existing_message.id == message.id
+                            })
                         }) {
                             return;
                         }
@@ -374,9 +360,13 @@ impl History {
                             })
                             .map(|split_position| messages.split_off(split_position)),
                     });
+                let opened_at = unread_messages
+                    .as_ref()
+                    .and_then(|unread_messages| unread_messages.first())
+                    .map_or(Posix::now(), |unread_message| unread_message.received_at);
                 let messages = std::mem::take(messages);
 
-                *self = Self::partial(server.clone(), kind.clone(), unread_messages, Posix::now());
+                *self = Self::partial(server.clone(), kind.clone(), unread_messages, opened_at);
 
                 Some(async move { overwrite(&server, &kind, &messages).await })
             }

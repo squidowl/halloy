@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use data::config::{self, Config};
-use data::isupport::ChatHistorySubcommand;
+use data::isupport::{ChatHistorySubcommand, MessageReference};
 use data::version::Version;
 use data::{environment, history, server, version, Url, User};
 use iced::widget::{column, container};
@@ -465,12 +465,50 @@ impl Halloy {
                         .flat_map(|message| {
                             let mut commands = vec![];
 
-                            for event in self.clients.receive(&server, message) {
+                            let supports_chathistory = self.clients.get_server_supports_chathistory(&server);
+
+                            let mut events = self.clients.receive(&server, message);
+
+                            if let Some(data::client::Event::ChatHistoryBatchFilter) = events.first() {
+                                if let Some(reference_position) = events.iter().position(|event| match event {
+                                    data::client::Event::ChatHistorySingle(encoded, _, _, message_reference)
+                                    | data::client::Event::ChatHistoryWithTarget(encoded, _, _, _, message_reference) => {
+                                        if let MessageReference::Timestamp(reference_server_time, reference_client_id) =
+                                            message_reference
+                                        {
+                                            data::message::server_time(encoded) == *reference_server_time
+                                                && data::message::client_id(encoded) == *reference_client_id
+                                        } else {
+                                            false
+                                        }
+                                    }
+                                    _ => false,
+                                }) {
+                                    log::debug!("events before filter {:?}", events);
+                                    events = events
+                                        .into_iter()
+                                        .enumerate()
+                                        .filter_map(|(position, event)| match event {
+                                            data::client::Event::ChatHistoryBatchFilter => None,
+                                            data::client::Event::ChatHistorySingle(_, _, _, _)
+                                            | data::client::Event::ChatHistoryWithTarget(_, _, _, _, _) => {
+                                                if position < reference_position {
+                                                    Some(event)
+                                                } else {
+                                                    None
+                                                }
+                                            }
+                                            _ => Some(event),
+                                        })
+                                        .collect();
+                                    log::debug!("events after  filter {:?}", events);
+                                }
+                            }
+
+                            for event in events {
                                 // Resolve a user using client state which stores attributes
                                 let resolve_user_attributes = |user: &User, channel: &str| {
-                                    self.clients
-                                        .resolve_user_attributes(&server, channel, user)
-                                        .cloned()
+                                    self.clients.resolve_user_attributes(&server, channel, user).cloned()
                                 };
 
                                 match event {
@@ -480,6 +518,7 @@ impl Halloy {
                                             our_nick,
                                             &self.config,
                                             resolve_user_attributes,
+                                            supports_chathistory,
                                         ) {
                                             dashboard.record_message(&server, message);
                                         }
@@ -490,11 +529,9 @@ impl Halloy {
                                             our_nick,
                                             &self.config,
                                             resolve_user_attributes,
+                                            supports_chathistory,
                                         ) {
-                                            dashboard.record_message(
-                                                &server,
-                                                message.with_target(target),
-                                            );
+                                            dashboard.record_message(&server, message.with_target(target));
                                         }
                                     }
                                     data::client::Event::Broadcast(broadcast) => match broadcast {
@@ -504,14 +541,7 @@ impl Halloy {
                                             channels,
                                             sent_time,
                                         } => {
-                                            dashboard.broadcast_quit(
-                                                &server,
-                                                user,
-                                                comment,
-                                                channels,
-                                                &self.config,
-                                                sent_time,
-                                            );
+                                            dashboard.broadcast_quit(&server, user, comment, channels, &self.config, sent_time);
                                         }
                                         data::client::Broadcast::Nickname {
                                             old_user,
@@ -569,16 +599,13 @@ impl Halloy {
                                             );
                                         }
                                     },
-                                    data::client::Event::Notification(
-                                        encoded,
-                                        our_nick,
-                                        notification,
-                                    ) => {
+                                    data::client::Event::Notification(encoded, our_nick, notification) => {
                                         if let Some(message) = data::Message::received(
                                             encoded,
                                             our_nick,
                                             &self.config,
                                             resolve_user_attributes,
+                                            supports_chathistory,
                                         ) {
                                             dashboard.record_message(&server, message);
                                         }
@@ -643,46 +670,42 @@ impl Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
-                                    data::client::Event::ChatHistoryCommand(
-                                        subcommand,
-                                        channel,
-                                        message_reference_type,
-                                    ) => match subcommand {
-                                        ChatHistorySubcommand::Latest(join_server_time) => {
-                                            dashboard
-                                                .load_history_now(server.clone(), channel.clone());
+                                    data::client::Event::ChatHistoryCommand(subcommand, channel, message_reference_type) => {
+                                        match subcommand {
+                                            ChatHistorySubcommand::Latest(join_server_time) => {
+                                                dashboard.load_history_now(server.clone(), channel.clone());
 
-                                            let latest_message_reference = dashboard
-                                                .get_latest_message_reference(
+                                                let latest_message_reference = dashboard.get_latest_message_reference(
                                                     &server,
                                                     channel.clone(),
                                                     message_reference_type,
                                                     join_server_time,
                                                 );
 
-                                            self.clients.send_channel_chathistory_request(
-                                                subcommand,
-                                                &server,
-                                                channel.as_str(),
-                                                latest_message_reference,
-                                            )
-                                        }
-                                        ChatHistorySubcommand::Before => {
-                                            let oldest_message_reference = dashboard
-                                                .get_oldest_message_reference(
+                                                self.clients.send_channel_chathistory_request(
+                                                    subcommand,
+                                                    &server,
+                                                    channel.as_str(),
+                                                    latest_message_reference,
+                                                )
+                                            }
+                                            ChatHistorySubcommand::Before => {
+                                                let oldest_message_reference = dashboard.get_oldest_message_reference(
                                                     &server,
                                                     channel.clone(),
                                                     message_reference_type,
                                                 );
 
-                                            self.clients.send_channel_chathistory_request(
-                                                subcommand,
-                                                &server,
-                                                channel.as_str(),
-                                                oldest_message_reference,
-                                            )
+                                                self.clients.send_channel_chathistory_request(
+                                                    subcommand,
+                                                    &server,
+                                                    channel.as_str(),
+                                                    oldest_message_reference,
+                                                )
+                                            }
                                         }
-                                    },
+                                    }
+                                    data::client::Event::ChatHistoryBatchFilter => (),
                                     data::client::Event::ChatHistorySingle(
                                         encoded,
                                         our_nick,
@@ -694,6 +717,7 @@ impl Halloy {
                                             our_nick,
                                             &self.config,
                                             resolve_user_attributes,
+                                            true,
                                         ) {
                                             dashboard.record_chathistory_message(
                                                 &server,
@@ -715,6 +739,7 @@ impl Halloy {
                                             our_nick,
                                             &self.config,
                                             resolve_user_attributes,
+                                            true,
                                         ) {
                                             dashboard.record_chathistory_message(
                                                 &server,
@@ -724,31 +749,26 @@ impl Halloy {
                                             );
                                         }
                                     }
-                                    data::client::Event::ChatHistoryPostProcessBatch(
+                                    data::client::Event::ChatHistoryBatchFinished(
                                         subcommand,
                                         channel,
                                         message_reference,
                                         clear_chathistory_request,
                                     ) => {
                                         match subcommand {
-                                            ChatHistorySubcommand::Latest(_) => log::debug!(
-                                                "received latest messages in {channel} since {message_reference}",
-
-                                            ),
-                                            ChatHistorySubcommand::Before => log::debug!(
-                                                "received messages in {channel} before {message_reference}",
-
-                                            ),
+                                            ChatHistorySubcommand::Latest(_) => {
+                                                log::debug!("received latest messages in {channel} since {message_reference}",)
+                                            }
+                                            ChatHistorySubcommand::Before => {
+                                                log::debug!("received messages in {channel} before {message_reference}",)
+                                            }
                                         }
 
                                         if !dashboard.is_open(server.clone(), channel.clone()) {
                                             dashboard.make_history_partial_now(
                                                 server.clone(),
                                                 channel.clone(),
-                                                if matches!(
-                                                    subcommand,
-                                                    ChatHistorySubcommand::Latest(_)
-                                                ) {
+                                                if matches!(subcommand, ChatHistorySubcommand::Latest(_)) {
                                                     Some(message_reference)
                                                 } else {
                                                     None
@@ -757,10 +777,7 @@ impl Halloy {
                                         }
 
                                         if clear_chathistory_request {
-                                            self.clients.clear_channel_chathistory_request(
-                                                &server,
-                                                channel.as_str(),
-                                            );
+                                            self.clients.clear_channel_chathistory_request(&server, channel.as_str());
                                         }
                                     }
                                 }
