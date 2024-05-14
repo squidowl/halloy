@@ -202,15 +202,19 @@ impl History {
                 ..
             } => {
                 let insert_position = match subcommand {
-                    ChatHistorySubcommand::Latest(_) => Some(match message_reference {
-                        MessageReference::None => messages.len(),
-                        _ => messages
-                            .iter()
-                            .rev()
-                            .position(|existing_message| message_reference == *existing_message)
-                            .map_or(0, |reference_position| messages.len() - reference_position),
-                    }),
-                    ChatHistorySubcommand::Before => None,
+                    ChatHistorySubcommand::Latest(_) => match message_reference {
+                        MessageReference::None => Some(0),
+                        _ => Some(
+                            messages
+                                .iter()
+                                .rev()
+                                .position(|existing_message| message_reference == *existing_message)
+                                .map_or(0, |reference_position| {
+                                    messages.len() - reference_position
+                                }),
+                        ),
+                    },
+                    ChatHistorySubcommand::Before => return,
                 };
 
                 if let Some(insert_position) = insert_position {
@@ -238,10 +242,8 @@ impl History {
                             return;
                         }
 
-                        if matches!(subcommand, ChatHistorySubcommand::Latest(_))
-                            && matches!(message_reference, MessageReference::None)
-                        {
-                            Some(messages.len())
+                        if matches!(message_reference, MessageReference::None) {
+                            Some(0)
                         } else {
                             messages
                                 .iter()
@@ -445,10 +447,17 @@ impl History {
 
 fn is_referenceable_message(message: &Message) -> bool {
     if let message::Source::Server(Some(source)) = message.target.source() {
-        !matches!(source.kind(), message::source::server::Kind::ReplyTopic)
-    } else {
-        !matches!(message.target.source(), message::Source::Internal(_))
+        if matches!(source.kind(), message::source::server::Kind::ReplyTopic) {
+            return false;
+        }
+    } else if matches!(message.target.source(), message::Source::Internal(_)) {
+        return false;
     }
+
+    message
+        .id
+        .as_ref()
+        .is_some_and(|message_id| message_id != ":")
 }
 
 #[derive(Debug)]

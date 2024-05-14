@@ -315,13 +315,17 @@ impl Client {
                                                 let continue_request = if matches!(
                                                     subcommand,
                                                     ChatHistorySubcommand::Latest(_)
-                                                ) && !matches!(
-                                                    message_reference,
-                                                    MessageReference::None
                                                 ) {
                                                     finished.events.reverse();
 
-                                                    finished.events.len() == limit as usize
+                                                    if matches!(
+                                                        message_reference,
+                                                        MessageReference::None
+                                                    ) {
+                                                        false
+                                                    } else {
+                                                        finished.events.len() == limit as usize
+                                                    }
                                                 } else {
                                                     false
                                                 };

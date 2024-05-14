@@ -128,6 +128,7 @@ pub fn bare(_theme: &Theme, status: Status) -> Style {
                         a: 0.2,
                         ..active.text_color
                     },
+                    radius: active.border.radius,
                     ..Default::default()
                 },
                 ..active

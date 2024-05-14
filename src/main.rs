@@ -764,10 +764,10 @@ impl Halloy {
                                     ) => {
                                         match subcommand {
                                             ChatHistorySubcommand::Latest(_) => {
-                                                log::debug!("received latest messages in {channel} since {message_reference}",)
+                                                log::debug!("[{server}] received latest messages in {channel} since {message_reference}",)
                                             }
                                             ChatHistorySubcommand::Before => {
-                                                log::debug!("received messages in {channel} before {message_reference}",)
+                                                log::debug!("[{server}] received messages in {channel} before {message_reference}",)
                                             }
                                         }
 

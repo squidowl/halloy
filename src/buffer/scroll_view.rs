@@ -84,13 +84,14 @@ pub fn view<'a>(
 
         let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
 
-        let top_row_button = button(text(content).size(font_size).style(theme::text::primary))
-            .padding(5)
+        let top_row_button = button(text(content).size(font_size))
+            .padding([3, 5])
             .style(theme::button::primary)
             .on_press_maybe(message);
 
         Some(
             row![horizontal_space(), top_row_button, horizontal_space()]
+                .padding([2, 0, 6, 0])
                 .width(Length::Fill)
                 .align_items(iced::Alignment::Center),
         )
