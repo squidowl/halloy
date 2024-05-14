@@ -1,6 +1,5 @@
 use core::fmt;
 
-use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::user::Nick;
@@ -124,61 +123,30 @@ pub struct Color {
     pub hex: Option<String>,
 }
 
+// Support backwards compatibility of deserializing
+// from a single "color kind" string
 impl<'de> Deserialize<'de> for Color {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_any(ColorVisitor)
-    }
-}
-
-/// A visitor to handle both string and map cases for Color.
-struct ColorVisitor;
-
-impl<'de> Visitor<'de> for ColorVisitor {
-    type Value = Color;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a string or a map with 'kind' and optionally 'hex'")
-    }
-
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        match v {
-            "solid" => Ok(Color { kind: ColorKind::Solid, hex: None }),
-            "unique" => Ok(Color { kind: ColorKind::Unique, hex: None }),
-            _ => Err(de::Error::unknown_variant(v, &["solid", "unique"])),
-        }
-    }
-
-    fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-    where
-        M: MapAccess<'de>,
-    {
-        let mut kind: Option<ColorKind> = None;
-        let mut hex: Option<String> = None;
-
-        while let Some((key, value)) = map.next_entry::<String, String>()? {
-            match key.as_str() {
-                "kind" => {
-                    kind = match value.as_str() {
-                        "solid" => Some(ColorKind::Solid),
-                        "unique" => Some(ColorKind::Unique),
-                        _ => return Err(de::Error::unknown_variant(&value, &["solid", "unique"])),
-                    };
-                }
-                "hex" => {
-                    hex = Some(value);
-                }
-                _ => return Err(de::Error::unknown_field(&key, &["kind", "hex"])),
-            }
+        #[derive(Deserialize)]
+        struct Data {
+            kind: ColorKind,
+            hex: Option<String>,
         }
 
-        let kind = kind.ok_or_else(|| de::Error::missing_field("kind"))?;
-        Ok(Color { kind, hex })
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Format {
+            Kind(ColorKind),
+            Data(Data),
+        }
+
+        Ok(match Format::deserialize(deserializer)? {
+            Format::Kind(kind) => Color { kind, hex: None },
+            Format::Data(Data { kind, hex }) => Color { kind, hex },
+        })
     }
 }
 
