@@ -52,8 +52,8 @@ impl<'a> From<(&'a Server, &'a config::Server)> for Entry {
 pub struct Map(BTreeMap<Server, config::Server>);
 
 impl Map {
-    pub fn insert(&mut self, name: Server, server: &config::Server) {
-        self.0.insert(name, server.clone());
+    pub fn insert(&mut self, name: Server, server: config::Server) {
+        self.0.insert(name, server);
     }
 
     pub fn remove(&mut self, server: &Server) {

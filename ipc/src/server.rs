@@ -1,30 +1,8 @@
-use core::time;
-use interprocess::local_socket::tokio::LocalSocketListener;
+use std::io;
 use std::path::PathBuf;
+use std::time;
 
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug, Clone)]
-pub enum Message {
-    RouteReceived(String),
-    None,
-}
-
-impl From<String> for Message {
-    fn from(url: String) -> Self {
-        Self::RouteReceived(url)
-    }
-}
-
-enum State {
-    Uninitialized,
-    Waiting(LocalSocketListener),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-}
+use interprocess::local_socket::tokio::LocalSocketListener;
 
 #[cfg(windows)]
 fn server_path() -> String {
@@ -58,31 +36,36 @@ where
 }
 
 #[cfg(not(windows))]
-pub async fn spawn_server() -> Result<LocalSocketListener, Error> {
+pub async fn spawn_server() -> Result<LocalSocketListener, io::Error> {
     with_socket_path(|path| async {
         let _ = tokio::fs::remove_file(path.clone()).await;
-        Ok(LocalSocketListener::bind(path)?)
+        LocalSocketListener::bind(path)
     })
     .await
 }
 
 #[cfg(windows)]
-async fn spawn_server() -> Result<LocalSocketListener, Error> {
+async fn spawn_server() -> Result<LocalSocketListener, io::Error> {
     let path = server_path();
     let named_pipe_addr_file = server_path_register_path();
 
     tokio::fs::write(named_pipe_addr_file, &path).await?;
-    Ok(LocalSocketListener::bind(path)?)
+    LocalSocketListener::bind(path)
 }
 
-pub fn run() -> futures::stream::BoxStream<'static, Message> {
+pub fn listen() -> futures::stream::BoxStream<'static, String> {
     use futures::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use futures::stream::StreamExt;
+
+    enum State {
+        Uninitialized,
+        Waiting(LocalSocketListener),
+    }
 
     futures::stream::unfold(State::Uninitialized {}, move |state| async move {
         match state {
             State::Uninitialized => match spawn_server().await {
-                Ok(server) => Some((Message::None, State::Waiting(server))),
+                Ok(server) => Some((None, State::Waiting(server))),
                 Err(err) => {
                     println!("error: {:?}", err);
                     None
@@ -92,7 +75,7 @@ pub fn run() -> futures::stream::BoxStream<'static, Message> {
                 let conn = server.accept().await;
 
                 let Ok(conn) = conn else {
-                    return Some((Message::None, State::Waiting(server)));
+                    return Some((None, State::Waiting(server)));
                 };
 
                 let mut conn = BufReader::new(conn);
@@ -107,11 +90,12 @@ pub fn run() -> futures::stream::BoxStream<'static, Message> {
                 let _ = conn.close().await;
 
                 match msg {
-                    Ok(Ok(_)) => Some((Message::RouteReceived(buffer), State::Waiting(server))),
-                    Err(_) | Ok(Err(_)) => Some((Message::None, State::Waiting(server))),
+                    Ok(Ok(_)) => Some((Some(buffer), State::Waiting(server))),
+                    Err(_) | Ok(Err(_)) => Some((None, State::Waiting(server))),
                 }
             }
         }
     })
+    .filter_map(|value| async move { value })
     .boxed()
 }

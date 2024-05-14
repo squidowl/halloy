@@ -69,15 +69,14 @@ pub fn main() -> iced::Result {
     // before we do any iced related stuff w/ it
     font::set(config_load.as_ref().ok());
 
-    let destination = data::url::Url::find_in(std::env::args());
-    if let Some(loc) = destination.clone() {
-        let should_exit = ipc::client::connect_and_send(loc.to_string());
-        if should_exit {
+    let destination = data::Url::find_in(std::env::args());
+    if let Some(loc) = &destination {
+        if ipc::connect_and_send(loc.to_string()) {
             return Ok(());
         }
     }
 
-    if let Err(error) = Halloy::run(settings(config_load)) {
+    if let Err(error) = Halloy::run(settings(config_load, destination)) {
         log::error!("{}", error.to_string());
         Err(error)
     } else {
@@ -87,7 +86,8 @@ pub fn main() -> iced::Result {
 
 fn settings(
     config_load: Result<Config, config::Error>,
-) -> iced::Settings<Result<Config, config::Error>> {
+    route_received: Option<data::Url>,
+) -> iced::Settings<(Result<Config, config::Error>, Option<data::Url>)> {
     let default_text_size = config_load
         .as_ref()
         .ok()
@@ -102,7 +102,7 @@ fn settings(
             exit_on_close_request: false,
             ..window::settings()
         },
-        flags: config_load,
+        flags: (config_load, route_received),
         id: None,
         antialiasing: false,
         fonts: font::load(),
@@ -202,7 +202,7 @@ pub enum Message {
     Tick(Instant),
     Version(Option<String>),
     Modal(modal::Message),
-    RouteReceived(ipc::server::Message),
+    RouteReceived(String),
 }
 
 impl Application for Halloy {
@@ -210,14 +210,20 @@ impl Application for Halloy {
     type Executor = executor::Default;
     type Message = Message;
     type Theme = Theme;
-    type Flags = Result<Config, config::Error>;
+    type Flags = (Result<Config, config::Error>, Option<data::Url>);
 
-    fn new(config_load: Self::Flags) -> (Halloy, Command<Self::Message>) {
-        let (halloy, command) = Halloy::load_from_state(config_load);
+    fn new(flags: Self::Flags) -> (Halloy, Command<Self::Message>) {
+        let (config_load, url_received) = flags;
+
+        let (mut halloy, command) = Halloy::load_from_state(config_load);
         let latest_remote_version =
             Command::perform(version::latest_remote_version(), Message::Version);
 
         let command = Command::batch(vec![command, latest_remote_version]);
+
+        if let Some(url) = url_received {
+            halloy.modal = Some(Modal::RouteReceived(url));
+        }
 
         (halloy, command)
     }
@@ -629,20 +635,19 @@ impl Application for Halloy {
                                 server,
                                 config,
                                 ..
-                            })) = &self.modal
+                            })) = self.modal.take()
                             {
-                                let host_exsist = self
-                                    .servers
-                                    .entries()
-                                    .any(|entry| entry.config.server == config.server);
+                                let existing_entry = self.servers.entries().find(|entry| {
+                                    entry.server == server || entry.config.server == config.server
+                                });
 
-                                if !host_exsist {
-                                    let server = server.as_str().into();
+                                // If server already exists, we only want to join the new channels
+                                if let Some(entry) = existing_entry {
+                                    self.clients.join(&entry.server, &config.channels);
+                                } else {
                                     self.servers.insert(server, config);
                                 }
                             }
-
-                            self.modal = None;
                         }
                     }
                 }
@@ -650,12 +655,10 @@ impl Application for Halloy {
                 Command::none()
             }
             Message::RouteReceived(route) => {
-                if let ipc::server::Message::RouteReceived(route) = route {
-                    log::info!("RouteRecived: {:?}", route);
+                log::info!("RouteRecived: {:?}", route);
 
-                    if let Ok(url) = data::Url::parse(&route) {
-                        self.modal = Some(Modal::RouteReceived(url));
-                    };
+                if let Ok(url) = route.parse() {
+                    self.modal = Some(Modal::RouteReceived(url));
                 };
 
                 Command::none()
@@ -678,7 +681,7 @@ impl Application for Halloy {
             .height(Length::Fill)
             .style(theme::container::primary);
 
-        if let Some(modal) = &self.modal {
+        if let (Some(modal), Screen::Dashboard(_)) = (&self.modal, &self.screen) {
             widget::modal(content, modal.view().map(Message::Modal), || {
                 Message::Modal(modal::Message::Cancel)
             })

@@ -1,2 +1,5 @@
-pub mod client;
-pub mod server;
+pub use self::client::connect_and_send;
+pub use self::server::listen;
+
+mod client;
+pub(crate) mod server;

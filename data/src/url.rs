@@ -1,10 +1,14 @@
-use crate::config;
+use std::str::FromStr;
+
+use regex::Regex;
+
+use crate::{config, Server};
 
 #[derive(Debug, Clone)]
 pub enum Url {
     ServerConnect {
         url: String,
-        server: String,
+        server: Server,
         config: config::Server,
     },
 }
@@ -22,8 +26,16 @@ impl std::fmt::Display for Url {
 }
 
 impl Url {
-    pub fn parse(url: &str) -> Result<Self, Error> {
-        let url = url::Url::parse(url)?;
+    pub fn find_in(mut args: impl Iterator<Item = String>) -> Option<Self> {
+        args.find_map(|arg| arg.parse().ok())
+    }
+}
+
+impl FromStr for Url {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let url = s.parse::<url::Url>()?;
 
         match url.scheme().to_lowercase().as_str() {
             "irc" | "ircs" => {
@@ -33,29 +45,25 @@ impl Url {
 
                 Ok(Self::ServerConnect {
                     url,
-                    server,
+                    server: server.into(),
                     config,
                 })
             }
             _ => Err(Error::Unsupported),
         }
     }
-
-    pub fn find_in(mut args: impl Iterator<Item = String>) -> Option<Self> {
-        args.find_map(|arg| Self::parse(&arg).ok())
-    }
 }
 
-fn generate_server_name(host: &str) -> String {
-    let pattern = regex::Regex::new(r"irc\.([^.]+)").unwrap();
+fn generate_server_name(host: &str) -> &str {
+    let pattern = Regex::new(r"irc\.([^.]+)").unwrap();
 
     if let Some(captures) = pattern.captures(host) {
         if let Some(matched) = captures.get(1) {
-            return matched.as_str().to_string();
+            return matched.as_str();
         }
     }
 
-    host.to_string()
+    host
 }
 
 fn parse_server_config(url: &url::Url) -> Option<config::Server> {
