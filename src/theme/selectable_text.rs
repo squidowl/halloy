@@ -1,4 +1,4 @@
-use data::message;
+use data::{message, user::NickColor};
 
 use crate::widget::selectable_text::{Catalog, Style, StyleFn};
 
@@ -46,8 +46,8 @@ pub fn accent(theme: &Theme) -> Style {
     }
 }
 
-pub fn nickname(theme: &Theme, seed: Option<String>, transparent: bool) -> Style {
-    let color = text::nickname(theme, seed, transparent).color;
+pub fn nickname(theme: &Theme, nick_color: NickColor, transparent: bool) -> Style {
+    let color = text::nickname(theme, nick_color, transparent).color;
 
     Style {
         color,

@@ -4,16 +4,31 @@
 
 ## `[buffer.nickname]` Section
 
+### `[buffer.nickname.color]` Section
+
 ```toml
-[buffer.nickname]
-color = "unique" | "solid"
-brackets = { left = "<string>", right = "<string>" }
+[buffer.nickname.color]
+kind = "unique" | "solid"
+hex = "<string>"
 ```
 
-| Key        | Description                                      | Default                     |
-| ---------- | ------------------------------------------------ | --------------------------- |
-| `color`    | Nickname colors. Can be `"unique"` or `"solid"`. | `"unique"`                  |
-| `brackets` | Brackets for nicknames.                          | `{ left = "", right = "" }` |
+| Key    | Description                                                                                                                                                                                                                                                 | Default           |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `kind` | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the action color provided by the theme. This color can be overwritten with `hex`. | `kind = "unique"` |
+| `hex`  | Overwrite the default color. Optional.                                                                                                                                                                                                                      | `not set`         |
+
+### `[buffer.nickname.brackets]` Section
+
+```toml
+[buffer.nickname.brackets]
+left = "<string>"
+right = "<string>"
+```
+
+| Key     | Description                  | Default      |
+| ------- | ---------------------------- | ------------ |
+| `left`  | Left bracket for nicknames.  | `left = ""`  |
+| `right` | Right bracket for nicknames. | `right = ""` |
 
 ## `[buffer.timestamp]` Section
 
@@ -47,14 +62,25 @@ visibility = "always" | "focused"
 [buffer.channel.nicklist]
 enabled = true | false
 position = "left" | "right"
-color = "unique" | "solid"
 ```
 
 | Key        | Description                                      | Default    |
 | ---------- | ------------------------------------------------ | ---------- |
 | `enabled`  | Control if nicklist should be shown or not       | `true`     |
 | `position` | Nicklist position. Can be `"left"` or `"right"`. | `"right"`  |
-| `color`    | Nickname colors. Can be `"unique"` or `"solid"`. | `"unique"` |
+
+### `[buffer.channel.nicklist.color]` Section
+
+```toml
+[buffer.channel.nicklist.color]
+kind = "unique" | "solid"
+hex = "<string>"
+```
+
+| Key    | Description                                                                                                                                                                                                                                                 | Default           |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `kind` | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the action color provided by the theme. This color can be overwritten with `hex`. | `kind = "unique"` |
+| `hex`  | Overwrite the default color. Optional.                                                                                                                                                                                                                      | `not set`         |
 
 ### `[buffer.channel.topic]` Section
 

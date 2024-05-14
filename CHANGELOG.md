@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Ability to overwrite nickname colors by providing a hex string (see [buffer configuration](https://halloy.squidowl.org/configuration/buffer.html#buffernicknamecolor-section)).
+
 # 2024.7 (2024-05-05)
 
 Added:
