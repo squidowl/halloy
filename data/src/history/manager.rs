@@ -673,7 +673,9 @@ impl Data {
 
         let split_at = limited
             .iter()
-            .position(|message| message.received_at >= *opened_at)
+            .rev()
+            .position(|message| message.received_at < *opened_at)
+            .map(|position| limited.len() - position)
             .unwrap_or(limited.len());
 
         let (old, new) = limited.split_at(split_at);
