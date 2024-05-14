@@ -63,7 +63,7 @@ pub fn view<'a>(
                                 |theme| {
                                     theme::selectable_text::nickname(
                                         theme,
-                                        user.color_seed(&config.buffer.nickname.color),
+                                        user.nick_color(theme.colors(), &config.buffer.nickname.color),
                                         user.is_away(),
                                     )
                                 },
@@ -304,7 +304,7 @@ mod nick_list {
             let content = text(user.to_string()).style(|theme| {
                 theme::text::nickname(
                     theme,
-                    user.color_seed(&config.buffer.channel.nicklist.color),
+                    user.nick_color(theme.colors(), &config.buffer.channel.nicklist.color),
                     user.is_away(),
                 )
             });

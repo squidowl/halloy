@@ -46,7 +46,7 @@ impl Theme {
         }
     }
 
-    fn colors(&self) -> &Colors {
+    pub fn colors(&self) -> &Colors {
         match self {
             Theme::Selected(selected) => &selected.colors,
             Theme::Preview { preview, .. } => &preview.colors,
