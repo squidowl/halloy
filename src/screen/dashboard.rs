@@ -1100,6 +1100,7 @@ impl Dashboard {
         };
 
         if let Some(latest_message) = latest_message {
+            log::debug!("[{server}] {channel} - latest_message {:?}", latest_message);
             if matches!(
                 message_reference_type,
                 isupport::MessageReferenceType::MessageId
@@ -1145,6 +1146,7 @@ impl Dashboard {
         };
 
         if let Some(oldest_message) = oldest_message {
+            log::debug!("[{server}] {channel} - oldest_message {:?}", oldest_message);
             if matches!(
                 message_reference_type,
                 isupport::MessageReferenceType::MessageId
