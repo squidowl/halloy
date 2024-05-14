@@ -3,8 +3,8 @@ use data::{Buffer, User};
 use iced::widget::{button, container, horizontal_rule, row, text, Space};
 use iced::Length;
 
-use crate::theme;
 use crate::widget::{context_menu, double_pass, Element};
+use crate::{icon, theme};
 
 #[derive(Debug, Clone, Copy)]
 enum Entry {
@@ -153,21 +153,25 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
             row![]
                 .push(text("Away").style(theme::text::transparent).width(length))
                 .push(
-                    text("⬤")
+                    icon::dot()
+                        .size(6)
                         .style(theme::text::info)
                         .shaping(text::Shaping::Advanced),
                 )
                 .padding(right_justified_padding())
+                .align_items(iced::Alignment::Center)
                 .into()
         } else {
             row![]
                 .push(text("Online").style(theme::text::transparent).width(length))
                 .push(
-                    text("⬤")
+                    icon::dot()
+                        .size(6)
                         .style(theme::text::success)
                         .shaping(text::Shaping::Advanced),
                 )
                 .padding(right_justified_padding())
+                .align_items(iced::Alignment::Center)
                 .into()
         }
     } else {
@@ -178,11 +182,13 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                     .width(length),
             )
             .push(
-                text("⬤")
+                icon::dot()
+                    .size(6)
                     .style(theme::text::error)
                     .shaping(text::Shaping::Advanced),
             )
             .padding(right_justified_padding())
+            .align_items(iced::Alignment::Center)
             .into()
     }
 }
