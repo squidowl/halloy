@@ -1,17 +1,16 @@
 use futures::stream::BoxStream;
 use iced::advanced::subscription::{self, Hasher};
 use iced::{self, Subscription};
-use ipc::server::Message;
 
 #[cfg(target_os = "macos")]
-pub fn listen() -> Subscription<Message> {
+pub fn listen() -> Subscription<String> {
     use futures::stream::StreamExt;
     use iced::event::{self, Event};
 
     struct OnUrl;
 
     impl subscription::Recipe for OnUrl {
-        type Output = Message;
+        type Output = String;
 
         fn hash(&self, state: &mut Hasher) {
             use std::hash::Hash;
@@ -33,7 +32,7 @@ pub fn listen() -> Subscription<Message> {
                     let result = match event {
                         Event::PlatformSpecific(event::PlatformSpecific::MacOS(
                             event::MacOS::ReceivedUrl(url),
-                        )) => Some(Message::RouteReceived(url)),
+                        )) => Some(url),
                         _ => None,
                     };
 
@@ -47,11 +46,11 @@ pub fn listen() -> Subscription<Message> {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn listen() -> Subscription<Message> {
+pub fn listen() -> Subscription<String> {
     struct Listener;
 
     impl subscription::Recipe for Listener {
-        type Output = Message;
+        type Output = String;
 
         fn hash(&self, state: &mut Hasher) {
             use std::hash::Hash;
@@ -64,7 +63,7 @@ pub fn listen() -> Subscription<Message> {
             self: Box<Self>,
             _input: subscription::EventStream,
         ) -> BoxStream<'static, Self::Output> {
-            ipc::server::run()
+            ipc::listen()
         }
     }
 

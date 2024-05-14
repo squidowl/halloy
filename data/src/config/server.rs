@@ -63,7 +63,7 @@ pub struct Server {
     /// Whether or not to use TLS.
     /// Clients will automatically panic if this is enabled without TLS support.
     #[serde(default = "default_use_tls")]
-    use_tls: bool,
+    pub use_tls: bool,
     /// On `true`, all certificate validations are skipped. Defaults to `false`.
     #[serde(default)]
     pub dangerously_accept_invalid_certs: bool,

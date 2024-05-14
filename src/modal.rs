@@ -1,5 +1,5 @@
 use crate::widget::Element;
-use data::{config, url, Url};
+use data::{config, Url};
 
 pub mod connect_to_server;
 pub mod reload_configuration_error;
@@ -7,7 +7,7 @@ pub mod reload_configuration_error;
 #[derive(Debug)]
 pub enum Modal {
     ReloadConfigurationError(config::Error),
-    RouteReceived(url::Url),
+    RouteReceived(Url),
 }
 
 #[derive(Debug, Clone, Copy)]

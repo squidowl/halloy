@@ -13,11 +13,15 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
         column![
             text("Connect to server?"),
             text(raw).style(theme::text::info),
+        ]
+        .push_maybe(config.use_tls.then(|| {
             checkbox(
                 "Accept invalid certificates",
-                config.dangerously_accept_invalid_certs
+                config.dangerously_accept_invalid_certs,
             )
-            .on_toggle(Message::DangerouslyAcceptInvalidCerts),
+            .on_toggle(Message::DangerouslyAcceptInvalidCerts)
+        }))
+        .push(
             column![
                 button(
                     container(text("Accept"))
@@ -38,8 +42,8 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
                 .style(theme::button::primary)
                 .on_press(Message::Cancel),
             ]
-            .spacing(4)
-        ]
+            .spacing(4),
+        )
         .spacing(20)
         .align_items(iced::Alignment::Center),
     )

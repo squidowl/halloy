@@ -152,6 +152,18 @@ impl Client {
         }
     }
 
+    fn join(&mut self, channels: &[String]) {
+        let keys = HashMap::new();
+
+        let messages = group_joins(channels, &keys);
+
+        for message in messages {
+            if let Err(e) = self.handle.try_send(message) {
+                log::warn!("Error sending join: {e}");
+            }
+        }
+    }
+
     fn send(&mut self, buffer: &Buffer, mut message: message::Encoded) {
         if self.supports_labels {
             use proto::Tag;
@@ -1129,6 +1141,12 @@ impl Map {
     pub fn send(&mut self, buffer: &Buffer, message: message::Encoded) {
         if let Some(client) = self.client_mut(buffer.server()) {
             client.send(buffer, message);
+        }
+    }
+
+    pub fn join(&mut self, server: &Server, channels: &[String]) {
+        if let Some(client) = self.client_mut(server) {
+            client.join(channels);
         }
     }
 
