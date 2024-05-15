@@ -403,14 +403,9 @@ impl History {
                             .iter()
                             .rev()
                             .position(|message| message_reference == *message)
-                            .and_then(|reference_position| {
-                                if reference_position > 0 {
-                                    Some(messages.len() - reference_position + 1)
-                                } else {
-                                    None
-                                }
-                            })
-                            .map(|split_position| messages.split_off(split_position)),
+                            .map(|reference_position| {
+                                messages.split_off(messages.len() - reference_position)
+                            }),
                     });
                 let opened_at = unread_messages
                     .as_ref()
