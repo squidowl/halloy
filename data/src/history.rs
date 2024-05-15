@@ -203,28 +203,38 @@ impl History {
             } => {
                 let insert_position = match subcommand {
                     ChatHistorySubcommand::Latest(_) => match message_reference {
-                        MessageReference::None => Some(0),
-                        _ => Some(
-                            messages
-                                .iter()
-                                .rev()
-                                .position(|existing_message| message_reference == *existing_message)
-                                .map_or(0, |reference_position| {
-                                    messages.len() - reference_position
-                                }),
-                        ),
+                        MessageReference::None => 0,
+                        _ => messages
+                            .iter()
+                            .rev()
+                            .position(|existing_message| message_reference == *existing_message)
+                            .map_or(0, |reference_position| messages.len() - reference_position),
                     },
                     ChatHistorySubcommand::Before => return,
                 };
 
-                if let Some(insert_position) = insert_position {
-                    if message.triggers_unread() {
-                        *unread_message_count += 1;
-                    }
+                let insert_position = if let Some(unreferenceable_messages_len) = messages
+                    .iter()
+                    .skip(insert_position)
+                    .position(|existing_message| {
+                        is_referenceable_message(existing_message)
+                            || existing_message
+                                .server_time
+                                .signed_duration_since(message.server_time)
+                                .num_seconds()
+                                > 0
+                    }) {
+                    insert_position + unreferenceable_messages_len
+                } else {
+                    messages.len()
+                };
 
-                    messages.insert(insert_position, message);
-                    *last_received_at = Some(Instant::now());
+                if message.triggers_unread() {
+                    *unread_message_count += 1;
                 }
+
+                messages.insert(insert_position, message);
+                *last_received_at = Some(Instant::now());
             }
             History::Full {
                 messages,
@@ -269,6 +279,46 @@ impl History {
                 };
 
                 if let Some(insert_position) = insert_position {
+                    let insert_position = match subcommand {
+                        ChatHistorySubcommand::Latest(_) => {
+                            if let Some(unreferenceable_messages_len) = messages
+                                .iter()
+                                .skip(insert_position)
+                                .position(|existing_message| {
+                                    is_referenceable_message(existing_message)
+                                        || existing_message
+                                            .server_time
+                                            .signed_duration_since(message.server_time)
+                                            .num_seconds()
+                                            > 0
+                                })
+                            {
+                                insert_position + unreferenceable_messages_len
+                            } else {
+                                messages.len()
+                            }
+                        }
+                        ChatHistorySubcommand::Before => {
+                            if let Some(unreferenceable_messages_len) = messages
+                                .iter()
+                                .rev()
+                                .skip(messages.len() - insert_position)
+                                .position(|existing_message| {
+                                    is_referenceable_message(existing_message)
+                                        && existing_message
+                                            .server_time
+                                            .signed_duration_since(message.server_time)
+                                            .num_seconds()
+                                            <= 0
+                                })
+                            {
+                                insert_position - unreferenceable_messages_len
+                            } else {
+                                0
+                            }
+                        }
+                    };
+
                     messages.insert(insert_position, message);
                     *last_received_at = Some(Instant::now());
                 }
