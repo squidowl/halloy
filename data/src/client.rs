@@ -1501,17 +1501,7 @@ impl Client {
     ) {
         let limit = self.chathistory_limit();
 
-        if self.supports_chathistory
-            && (!self.chathistory_requests.contains_key(target)
-                || (matches!(subcommand, ChatHistorySubcommand::Latest(_))
-                    && matches!(
-                        self.chathistory_requests.get(target),
-                        Some(ChatHistoryRequest {
-                            subcommand: ChatHistorySubcommand::Latest(_),
-                            ..
-                        })
-                    )))
-        {
+        if self.supports_chathistory && !self.chathistory_requests.contains_key(target) {
             self.chathistory_requests.insert(
                 target.to_string(),
                 ChatHistoryRequest {
@@ -1521,34 +1511,43 @@ impl Client {
                 },
             );
 
-            match subcommand {
-                ChatHistorySubcommand::Latest(_) => {
-                    let command_message_reference = match message_reference {
-                        MessageReference::Timestamp(server_time, _) => {
-                            if let Some(fuzzed_server_time) = TimeDelta::try_seconds(
-                                isupport::CHATHISTORY_FUZZ_SECONDS,
-                            )
-                            .and_then(|time_delta| server_time.checked_sub_signed(time_delta))
-                            {
-                                MessageReference::Timestamp(fuzzed_server_time, ":".to_string())
-                            } else {
-                                message_reference
+            if matches!(message_reference, MessageReference::None) {
+                let _ = self.handle.try_send(command!(
+                    "CHATHISTORY",
+                    "LATEST",
+                    target,
+                    message_reference.to_string(),
+                    limit.to_string()
+                ));
+
+                log::debug!(
+                    "[{}] requesting {limit} latest messages in {target} since {message_reference}",
+                    self.server
+                );
+            } else {
+                match subcommand {
+                    ChatHistorySubcommand::Latest(_) => {
+                        let command_message_reference = match message_reference {
+                            MessageReference::Timestamp(server_time, _) => {
+                                if let Some(fuzzed_server_time) =
+                                    TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
+                                        .and_then(|time_delta| {
+                                            server_time.checked_sub_signed(time_delta)
+                                        })
+                                {
+                                    MessageReference::Timestamp(fuzzed_server_time, ":".to_string())
+                                } else {
+                                    message_reference
+                                }
                             }
-                        }
-                        _ => message_reference,
-                    };
+                            _ => message_reference,
+                        };
 
-                    log::debug!("[{}] requesting {limit} latest messages in {target} since {command_message_reference}",                                 self.server);
+                        log::debug!(
+                            "[{}] requesting {limit} latest messages in {target} since {command_message_reference}",
+                            self.server
+                        );
 
-                    if matches!(command_message_reference, MessageReference::None) {
-                        let _ = self.handle.try_send(command!(
-                            "CHATHISTORY",
-                            "LATEST",
-                            target,
-                            command_message_reference.to_string(),
-                            limit.to_string()
-                        ));
-                    } else {
                         let _ = self.handle.try_send(command!(
                             "CHATHISTORY",
                             "AFTER",
@@ -1557,9 +1556,7 @@ impl Client {
                             limit.to_string()
                         ));
                     }
-                }
-                ChatHistorySubcommand::Before => {
-                    if !matches!(message_reference, MessageReference::None) {
+                    ChatHistorySubcommand::Before => {
                         let command_message_reference = match message_reference {
                             MessageReference::Timestamp(reference_timestamp, _) => {
                                 if let Some(fuzzed_reference_timestamp) =
