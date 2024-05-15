@@ -34,7 +34,7 @@ pub enum Event {
 pub enum Kind<'a> {
     Server(&'a Server),
     Channel(&'a Server, &'a str, Option<(bool, bool)>),
-    Query(&'a Server, &'a Nick),
+    Query(&'a Server, &'a Nick, Option<(bool, bool)>),
 }
 
 pub fn view<'a>(
@@ -57,7 +57,7 @@ pub fn view<'a>(
         Kind::Channel(server, channel, _) => {
             history.get_channel_messages(server, channel, Some(state.limit), &config.buffer)
         }
-        Kind::Query(server, user) => {
+        Kind::Query(server, user, _) => {
             history.get_query_messages(server, user, Some(state.limit), &config.buffer)
         }
     })
@@ -65,39 +65,37 @@ pub fn view<'a>(
         return column![].into();
     };
 
-    let top_row = if let Kind::Channel(
-        _,
-        _,
-        Some((chathistory_request_is_some, chathistory_before_exhausted)),
-    ) = kind
-    {
-        let (content, message) = if chathistory_request_is_some {
-            ("...", None)
-        } else if chathistory_before_exhausted {
-            ("No Older Chat History Messages Available", None)
-        } else {
-            (
-                "Request Older Chat History Messages",
-                Some(Message::ChatHistoryBeforeRequest),
+    let top_row =
+        if let Kind::Channel(_, _, Some((chathistory_request_is_some, chathistory_exhausted)))
+        | Kind::Query(_, _, Some((chathistory_request_is_some, chathistory_exhausted))) = kind
+        {
+            let (content, message) = if chathistory_request_is_some {
+                ("...", None)
+            } else if chathistory_exhausted {
+                ("No Older Chat History Messages Available", None)
+            } else {
+                (
+                    "Request Older Chat History Messages",
+                    Some(Message::ChatHistoryBeforeRequest),
+                )
+            };
+
+            let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
+
+            let top_row_button = button(text(content).size(font_size))
+                .padding([3, 5])
+                .style(theme::button::primary)
+                .on_press_maybe(message);
+
+            Some(
+                row![horizontal_space(), top_row_button, horizontal_space()]
+                    .padding([2, 0, 6, 0])
+                    .width(Length::Fill)
+                    .align_items(iced::Alignment::Center),
             )
+        } else {
+            None
         };
-
-        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
-
-        let top_row_button = button(text(content).size(font_size))
-            .padding([3, 5])
-            .style(theme::button::primary)
-            .on_press_maybe(message);
-
-        Some(
-            row![horizontal_space(), top_row_button, horizontal_space()]
-                .padding([2, 0, 6, 0])
-                .width(Length::Fill)
-                .align_items(iced::Alignment::Center),
-        )
-    } else {
-        None
-    };
 
     let count = old_messages.len() + new_messages.len();
     let remaining = count < total;

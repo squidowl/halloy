@@ -16,6 +16,8 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    ScrolledToTop,
+    ChatHistoryBeforeRequest,
 }
 
 pub fn view<'a>(
@@ -30,10 +32,21 @@ pub fn view<'a>(
     let buffer = state.buffer();
     let input = history.input(&buffer);
 
+    let chathistory_before_button = if clients.get_server_supports_chathistory(&state.server) {
+        Some((
+            clients
+                .get_chathistory_request(&state.server, state.nick.as_ref())
+                .is_some(),
+            clients.get_chathistory_exhausted(&state.server, state.nick.as_ref()),
+        ))
+    } else {
+        None
+    };
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Query(&state.server, &state.nick),
+            scroll_view::Kind::Query(&state.server, &state.nick, chathistory_before_button),
             history,
             config,
             move |message, max_nick_width, _| {
@@ -228,10 +241,10 @@ impl Query {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(message);
 
-                let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
-                    scroll_view::Event::ScrolledToTop => None,
-                    scroll_view::Event::ChatHistoryBeforeRequest => None,
+                let event = event.map(|event| match event {
+                    scroll_view::Event::UserContext(event) => Event::UserContext(event),
+                    scroll_view::Event::ScrolledToTop => Event::ScrolledToTop,
+                    scroll_view::Event::ChatHistoryBeforeRequest => Event::ChatHistoryBeforeRequest,
                 });
 
                 (command.map(Message::ScrollView), event)

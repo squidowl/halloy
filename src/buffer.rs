@@ -89,6 +89,8 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     query::Event::UserContext(event) => Event::UserContext(event),
+                    query::Event::ScrolledToTop => Event::ScrolledToTop,
+                    query::Event::ChatHistoryBeforeRequest => Event::ChatHistoryBeforeRequest,
                 });
 
                 (command.map(Message::Query), event)

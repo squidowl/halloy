@@ -277,15 +277,41 @@ impl Dashboard {
                                 }
                             }
                             Some(buffer::Event::ScrolledToTop) => {
-                                if config
-                                    .buffer
-                                    .chathistory
-                                    .request_older_messages_at_scroll_top
-                                {
-                                    if let Some(data::Buffer::Channel(server, channel)) =
-                                        &pane.buffer.data()
-                                    {
+                                if config.buffer.chathistory.infinite_scroll {
+                                    if let Some(buffer) = pane.buffer.data() {
+                                        let server = buffer.server();
+
                                         if clients.get_server_supports_chathistory(server) {
+                                            if let Some(target) = buffer.target() {
+                                                let message_reference_type = clients
+                                                    .get_server_chathistory_message_reference_type(
+                                                        server,
+                                                    );
+
+                                                let oldest_message_reference = self
+                                                    .get_oldest_message_reference(
+                                                        server,
+                                                        &target,
+                                                        message_reference_type,
+                                                    );
+
+                                                clients.send_chathistory_request(
+                                                    ChatHistorySubcommand::Before,
+                                                    server,
+                                                    &target,
+                                                    oldest_message_reference,
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Some(buffer::Event::ChatHistoryBeforeRequest) => {
+                                if let Some(buffer) = pane.buffer.data() {
+                                    let server = buffer.server();
+
+                                    if clients.get_server_supports_chathistory(server) {
+                                        if let Some(target) = buffer.target() {
                                             let message_reference_type = clients
                                                 .get_server_chathistory_message_reference_type(
                                                     server,
@@ -294,41 +320,17 @@ impl Dashboard {
                                             let oldest_message_reference = self
                                                 .get_oldest_message_reference(
                                                     server,
-                                                    channel.clone(),
+                                                    &target,
                                                     message_reference_type,
                                                 );
 
-                                            clients.send_channel_chathistory_request(
+                                            clients.send_chathistory_request(
                                                 ChatHistorySubcommand::Before,
                                                 server,
-                                                channel.as_str(),
+                                                &target,
                                                 oldest_message_reference,
                                             );
                                         }
-                                    }
-                                }
-                            }
-                            Some(buffer::Event::ChatHistoryBeforeRequest) => {
-                                if let Some(data::Buffer::Channel(server, channel)) =
-                                    &pane.buffer.data()
-                                {
-                                    if clients.get_server_supports_chathistory(server) {
-                                        let message_reference_type = clients
-                                            .get_server_chathistory_message_reference_type(server);
-
-                                        let oldest_message_reference = self
-                                            .get_oldest_message_reference(
-                                                server,
-                                                channel.clone(),
-                                                message_reference_type,
-                                            );
-
-                                        clients.send_channel_chathistory_request(
-                                            ChatHistorySubcommand::Before,
-                                            server,
-                                            channel.as_str(),
-                                            oldest_message_reference,
-                                        );
                                     }
                                 }
                             }
@@ -988,29 +990,30 @@ impl Dashboard {
             }
             Copy => selectable_text::selected(Message::SelectedText),
             Home => {
-                if config
-                    .buffer
-                    .chathistory
-                    .request_older_messages_at_scroll_top
-                {
+                if config.buffer.chathistory.infinite_scroll {
                     if let Some((_, pane)) = self.get_focused_mut() {
-                        if let Some(data::Buffer::Channel(server, channel)) = pane.buffer.data() {
-                            if clients.get_server_supports_chathistory(&server) {
-                                let message_reference_type =
-                                    clients.get_server_chathistory_message_reference_type(&server);
+                        if let Some(buffer) = pane.buffer.data() {
+                            let server = buffer.server();
 
-                                let oldest_message_reference = self.get_oldest_message_reference(
-                                    &server,
-                                    channel.clone(),
-                                    message_reference_type,
-                                );
+                            if clients.get_server_supports_chathistory(server) {
+                                if let Some(target) = buffer.target() {
+                                    let message_reference_type = clients
+                                        .get_server_chathistory_message_reference_type(server);
 
-                                clients.send_channel_chathistory_request(
-                                    ChatHistorySubcommand::Before,
-                                    &server,
-                                    channel.as_str(),
-                                    oldest_message_reference,
-                                );
+                                    let oldest_message_reference = self
+                                        .get_oldest_message_reference(
+                                            server,
+                                            &target,
+                                            message_reference_type,
+                                        );
+
+                                    clients.send_chathistory_request(
+                                        ChatHistorySubcommand::Before,
+                                        server,
+                                        &target,
+                                        oldest_message_reference,
+                                    );
+                                }
                             }
                         }
                     }
@@ -1213,34 +1216,35 @@ impl Dashboard {
             .record_chathistory_message(server, message, subcommand, message_reference);
     }
 
-    pub fn is_open(&self, server: Server, channel: String) -> bool {
+    pub fn is_open(&self, server: Server, target: &str) -> bool {
         self.panes.iter().any(|(_, pane)| {
-            pane.buffer.data() == Some(data::Buffer::Channel(server.clone(), channel.clone()))
+            pane.buffer.data() == Some(data::Buffer::Channel(server.clone(), target.to_string()))
+                || pane.buffer.data()
+                    == Some(data::Buffer::Query(
+                        server.clone(),
+                        target.to_string().into(),
+                    ))
         })
     }
 
-    pub fn load_history_now(&mut self, server: Server, channel: String) {
-        self.history
-            .load_now(server, history::Kind::Channel(channel.clone()));
+    pub fn load_history_now(&mut self, server: Server, target: &str) {
+        self.history.load_now(server, target);
     }
 
     pub fn make_history_partial_now(
         &mut self,
         server: Server,
-        channel: String,
+        target: &str,
         message_reference: Option<isupport::MessageReference>,
     ) {
-        self.history.make_partial_now(
-            server,
-            history::Kind::Channel(channel.clone()),
-            message_reference,
-        );
+        self.history
+            .make_partial_now(server, target, message_reference);
     }
 
     pub fn get_latest_message_reference(
         &self,
         server: &Server,
-        channel: String,
+        target: &str,
         message_reference_type: isupport::MessageReferenceType,
         join_server_time: DateTime<Utc>,
     ) -> MessageReference {
@@ -1249,26 +1253,26 @@ impl Dashboard {
                 .history
                 .get_latest_message(
                     server,
-                    &history::Kind::Channel(channel.clone()),
+                    target,
                     isupport::MessageReferenceType::MessageId,
                     join_server_time,
                 )
                 .or(self.history.get_latest_message(
                     server,
-                    &history::Kind::Channel(channel.clone()),
+                    target,
                     isupport::MessageReferenceType::Timestamp,
                     join_server_time,
                 )),
             isupport::MessageReferenceType::Timestamp => self.history.get_latest_message(
                 server,
-                &history::Kind::Channel(channel.clone()),
+                target,
                 isupport::MessageReferenceType::Timestamp,
                 join_server_time,
             ),
         };
 
         if let Some(latest_message) = latest_message {
-            log::debug!("[{server}] {channel} - latest_message {:?}", latest_message);
+            log::debug!("[{server}] {target} - latest_message {:?}", latest_message);
             if matches!(
                 message_reference_type,
                 isupport::MessageReferenceType::MessageId
@@ -1290,31 +1294,27 @@ impl Dashboard {
     pub fn get_oldest_message_reference(
         &self,
         server: &Server,
-        channel: String,
+        target: &str,
         message_reference_type: isupport::MessageReferenceType,
     ) -> MessageReference {
         let oldest_message = match message_reference_type {
             isupport::MessageReferenceType::MessageId => self
                 .history
-                .get_oldest_message(
-                    server,
-                    &history::Kind::Channel(channel.clone()),
-                    isupport::MessageReferenceType::MessageId,
-                )
+                .get_oldest_message(server, target, isupport::MessageReferenceType::MessageId)
                 .or(self.history.get_oldest_message(
                     server,
-                    &history::Kind::Channel(channel.clone()),
+                    target,
                     isupport::MessageReferenceType::Timestamp,
                 )),
             isupport::MessageReferenceType::Timestamp => self.history.get_oldest_message(
                 server,
-                &history::Kind::Channel(channel.clone()),
+                target,
                 isupport::MessageReferenceType::Timestamp,
             ),
         };
 
         if let Some(oldest_message) = oldest_message {
-            log::debug!("[{server}] {channel} - oldest_message {:?}", oldest_message);
+            log::debug!("[{server}] {target} - oldest_message {:?}", oldest_message);
             if matches!(
                 message_reference_type,
                 isupport::MessageReferenceType::MessageId

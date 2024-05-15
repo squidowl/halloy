@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 use futures::{future, Future, FutureExt};
+use irc::proto;
 use itertools::Itertools;
 use tokio::{self, time::Instant};
 
@@ -208,7 +209,13 @@ impl Manager {
     }
 
     #[tokio::main]
-    pub async fn load_now(&mut self, server: Server, kind: history::Kind) {
+    pub async fn load_now(&mut self, server: Server, target: &str) {
+        let kind = if proto::is_channel(target) {
+            history::Kind::Channel(target.to_string())
+        } else {
+            history::Kind::Query(target.to_string().into())
+        };
+
         let loaded_server = server.clone();
         let loaded_kind = kind.clone();
 
@@ -223,9 +230,15 @@ impl Manager {
     pub async fn make_partial_now(
         &mut self,
         server: Server,
-        kind: history::Kind,
+        target: &str,
         message_reference: Option<MessageReference>,
     ) {
+        let kind = if proto::is_channel(target) {
+            history::Kind::Channel(target.to_string())
+        } else {
+            history::Kind::Query(target.to_string().into())
+        };
+
         self.data.map.get_mut(&server).and_then(|map| {
             map.get_mut(&kind)
                 .and_then(|history| history.make_partial(message_reference))
@@ -235,27 +248,39 @@ impl Manager {
     pub fn get_latest_message(
         &self,
         server: &Server,
-        kind: &history::Kind,
+        target: &str,
         message_reference_type: isupport::MessageReferenceType,
         join_server_time: DateTime<Utc>,
     ) -> Option<&crate::Message> {
+        let kind = if proto::is_channel(target) {
+            history::Kind::Channel(target.to_string())
+        } else {
+            history::Kind::Query(target.to_string().into())
+        };
+
         self.data
             .map
             .get(server)
-            .and_then(|map| map.get(kind))
+            .and_then(|map| map.get(&kind))
             .map(|history| history.get_latest_message(message_reference_type, join_server_time))?
     }
 
     pub fn get_oldest_message(
         &self,
         server: &Server,
-        kind: &history::Kind,
+        target: &str,
         message_reference_type: isupport::MessageReferenceType,
     ) -> Option<&crate::Message> {
+        let kind = if proto::is_channel(target) {
+            history::Kind::Channel(target.to_string())
+        } else {
+            history::Kind::Query(target.to_string().into())
+        };
+
         self.data
             .map
             .get(server)
-            .and_then(|map| map.get(kind))
+            .and_then(|map| map.get(&kind))
             .map(|history| history.get_oldest_message(message_reference_type))?
     }
 

@@ -47,9 +47,9 @@ pub fn view<'a>(
     let chathistory_before_button = if clients.get_server_supports_chathistory(&state.server) {
         Some((
             clients
-                .get_channel_chathistory_request(&state.server, &state.channel)
+                .get_chathistory_request(&state.server, &state.channel)
                 .is_some(),
-            clients.get_channel_chathistory_before_exhausted(&state.server, &state.channel),
+            clients.get_chathistory_exhausted(&state.server, &state.channel),
         ))
     } else {
         None

@@ -144,7 +144,7 @@ impl Default for InternalMessage {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ChatHistory {
     #[serde(default)]
-    pub request_older_messages_at_scroll_top: bool,
+    pub infinite_scroll: bool,
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
