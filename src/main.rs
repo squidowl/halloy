@@ -447,7 +447,7 @@ impl Application for Halloy {
                                         if let MessageReference::Timestamp(reference_server_time, reference_client_id) =
                                             message_reference
                                         {
-                                            log::debug!(
+                                            log::trace!(
                                                 "{:?} message_reference {:?} encoded {:?}",
                                                 data::message::server_time(encoded) == *reference_server_time
                                                     && data::message::client_id(encoded) == *reference_client_id,
@@ -462,7 +462,6 @@ impl Application for Halloy {
                                     }
                                     _ => false,
                                 }) {
-                                    log::debug!("events before filter {:?}", events);
                                     events = events
                                         .into_iter()
                                         .enumerate()
@@ -479,7 +478,6 @@ impl Application for Halloy {
                                             _ => Some(event),
                                         })
                                         .collect();
-                                    log::debug!("events after  filter {:?}", events);
                                 }
                             }
 
@@ -587,36 +585,36 @@ impl Application for Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
-                                    data::client::Event::ChatHistoryCommand(subcommand, channel, message_reference_type) => {
+                                    data::client::Event::ChatHistoryCommand(subcommand, target, message_reference_type) => {
                                         match subcommand {
                                             ChatHistorySubcommand::Latest(join_server_time) => {
-                                                dashboard.load_history_now(server.clone(), channel.clone());
+                                                dashboard.load_history_now(server.clone(), &target);
 
                                                 let latest_message_reference = dashboard.get_latest_message_reference(
                                                     &server,
-                                                    channel.clone(),
+                                                    &target,
                                                     message_reference_type,
                                                     join_server_time,
                                                 );
 
-                                                self.clients.send_channel_chathistory_request(
+                                                self.clients.send_chathistory_request(
                                                     subcommand,
                                                     &server,
-                                                    channel.as_str(),
+                                                    &target,
                                                     latest_message_reference,
                                                 )
                                             }
                                             ChatHistorySubcommand::Before => {
                                                 let oldest_message_reference = dashboard.get_oldest_message_reference(
                                                     &server,
-                                                    channel.clone(),
+                                                    &target,
                                                     message_reference_type,
                                                 );
 
-                                                self.clients.send_channel_chathistory_request(
+                                                self.clients.send_chathistory_request(
                                                     subcommand,
                                                     &server,
-                                                    channel.as_str(),
+                                                    &target,
                                                     oldest_message_reference,
                                                 )
                                             }
@@ -668,23 +666,22 @@ impl Application for Halloy {
                                     }
                                     data::client::Event::ChatHistoryBatchFinished(
                                         subcommand,
-                                        channel,
+                                        target,
                                         message_reference,
-                                        clear_chathistory_request,
                                     ) => {
                                         match subcommand {
                                             ChatHistorySubcommand::Latest(_) => {
-                                                log::debug!("[{server}] received latest messages in {channel} since {message_reference}",)
+                                                log::debug!("[{server}] received latest messages in {target} since {message_reference}",)
                                             }
                                             ChatHistorySubcommand::Before => {
-                                                log::debug!("[{server}] received messages in {channel} before {message_reference}",)
+                                                log::debug!("[{server}] received messages in {target} before {message_reference}",)
                                             }
                                         }
 
-                                        if !dashboard.is_open(server.clone(), channel.clone()) {
+                                        if !dashboard.is_open(server.clone(), &target) {
                                             dashboard.make_history_partial_now(
                                                 server.clone(),
-                                                channel.clone(),
+                                                &target,
                                                 if matches!(subcommand, ChatHistorySubcommand::Latest(_)) {
                                                     Some(message_reference)
                                                 } else {
@@ -693,9 +690,7 @@ impl Application for Halloy {
                                             );
                                         }
 
-                                        if clear_chathistory_request {
-                                            self.clients.clear_channel_chathistory_request(&server, channel.as_str());
-                                        }
+                                        self.clients.clear_chathistory_request(&server, &target);
                                     }
                                 }
                             }
