@@ -15,6 +15,12 @@ pub type Handle = Sender<proto::Message>;
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Server(String);
 
+impl From<&str> for Server {
+    fn from(value: &str) -> Self {
+        Server(value.to_string())
+    }
+}
+
 impl fmt::Display for Server {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
@@ -46,6 +52,10 @@ impl<'a> From<(&'a Server, &'a config::Server)> for Entry {
 pub struct Map(BTreeMap<Server, config::Server>);
 
 impl Map {
+    pub fn insert(&mut self, name: Server, server: config::Server) {
+        self.0.insert(name, server);
+    }
+
     pub fn remove(&mut self, server: &Server) {
         self.0.remove(server);
     }
