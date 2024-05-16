@@ -4,6 +4,7 @@ use iced::program;
 use crate::widget::combo_box;
 
 pub mod button;
+pub mod checkbox;
 pub mod container;
 pub mod menu;
 pub mod pane_grid;

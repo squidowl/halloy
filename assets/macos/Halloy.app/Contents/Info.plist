@@ -34,5 +34,18 @@
   <string>Halloy</string>
   <key>NSRequiresAquaSystemAppearance</key>
   <string>NO</string>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>Halloy</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>irc</string>
+        <string>ircs</string>
+        <string>halloy</string>
+      </array>
+    </dict>
+  </array>
 </dict>
 </plist>

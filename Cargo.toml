@@ -11,6 +11,7 @@ dev = ["debug", "data/dev"]
 
 [dependencies]
 data = { version = "0.1.0", path = "data" }
+ipc = { version = "0.1.0", path = "ipc" }
 
 notify-rust = "4"
 chrono = { version = "0.4", features = ['serde'] }
@@ -30,6 +31,7 @@ unicode-segmentation = "1.6"
 open = "5.0.1"
 bytesize = "1.3.0"
 timeago = "0.4.2"
+futures = "0.3.30"
 
 [dependencies.uuid]
 version = "1.0"
@@ -47,7 +49,7 @@ image = "0.24.6"
 embed-resource = "2.1.1"
 
 [workspace]
-members = ["data", "irc", "irc/proto"]
+members = ["data", "ipc", "irc", "irc/proto"]
 
 [patch.crates-io]
 iced = { git = "https://github.com/iced-rs/iced", rev = "a05b8044a9a82c1802d4d97f1723e24b9d9dad9c" }

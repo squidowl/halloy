@@ -128,7 +128,19 @@ pub fn semi_transparent(theme: &Theme) -> Style {
     }
 }
 
-pub fn error_banner(theme: &Theme) -> Style {
+pub fn default_banner(theme: &Theme) -> Style {
+    Style {
+        background: Some(Background::Color(theme.colors().background.dark)),
+        border: Border {
+            radius: 4.0.into(),
+            width: 1.0,
+            color: theme.colors().background.lighter,
+        },
+        ..Default::default()
+    }
+}
+
+pub fn error_modal(theme: &Theme) -> Style {
     Style {
         background: Some(Background::Color(theme.colors().background.dark)),
         border: Border {
