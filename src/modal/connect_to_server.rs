@@ -14,13 +14,13 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
             text("Connect to server?"),
             text(raw).style(theme::text::info),
         ]
-        .push_maybe(config.use_tls.then(|| {
+        .push(
             checkbox(
                 "Accept invalid certificates",
                 config.dangerously_accept_invalid_certs,
             )
-            .on_toggle(Message::DangerouslyAcceptInvalidCerts)
-        }))
+            .on_toggle(Message::DangerouslyAcceptInvalidCerts),
+        )
         .push(
             column![
                 button(
