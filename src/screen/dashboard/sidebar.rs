@@ -1,8 +1,8 @@
 use data::dashboard::DefaultAction;
 use data::{file_transfer, history, Buffer};
 use iced::widget::{
-    button, column, container, horizontal_space, pane_grid, row, scrollable, text, vertical_space,
-    Scrollable,
+    button, center, column, container, horizontal_space, pane_grid, row, scrollable, text,
+    vertical_space, Scrollable,
 };
 use iced::Length;
 
@@ -127,18 +127,12 @@ impl Sidebar {
         let mut menu_buttons = row![].spacing(1).padding([0, 0, 4, 0]);
 
         if config.buttons.command_bar {
-            let button = button(
-                container(icon::search())
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .center_x()
-                    .center_y(),
-            )
-            .on_press(Message::ToggleCommandBar)
-            .padding(5)
-            .width(22)
-            .height(22)
-            .style(theme::button::side_menu);
+            let button = button(center(icon::search()))
+                .on_press(Message::ToggleCommandBar)
+                .padding(5)
+                .width(22)
+                .height(22)
+                .style(theme::button::side_menu);
 
             let button_with_tooltip = tooltip(
                 button,
@@ -154,17 +148,13 @@ impl Sidebar {
                 .iter()
                 .any(|(_, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
 
-            let button = button(
-                container(icon::file_transfer().style(if file_transfers.is_empty() {
+            let button = button(center(icon::file_transfer().style(
+                if file_transfers.is_empty() {
                     theme::text::primary
                 } else {
                     theme::text::alert
-                }))
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .center_x()
-                .center_y(),
-            )
+                },
+            )))
             .on_press(Message::ToggleFileTransfers)
             .padding(5)
             .width(22)
@@ -199,7 +189,7 @@ impl Sidebar {
             container(body)
                 .height(Length::Fill)
                 .padding([8, 0, 6, 6])
-                .center_x()
+                .center_x(Length::Shrink)
                 .max_width(config.width)
                 .into(),
         )
