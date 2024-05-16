@@ -22,14 +22,13 @@ pub enum Message {
     },
     UserContext(user_context::Message),
     Link(String),
-    ChatHistoryBeforeRequest,
+    RequestOlderChatHistory,
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
-    ScrolledToTop,
-    ChatHistoryBeforeRequest,
+    RequestOlderChatHistory,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -76,7 +75,7 @@ pub fn view<'a>(
             } else {
                 (
                     "Request Older Chat History Messages",
-                    Some(Message::ChatHistoryBeforeRequest),
+                    Some(Message::RequestOlderChatHistory),
                 )
             };
 
@@ -187,7 +186,11 @@ impl State {
         Self::default()
     }
 
-    pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
+    pub fn update(
+        &mut self,
+        message: Message,
+        infinite_scroll: bool,
+    ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Scrolled {
                 count,
@@ -252,8 +255,11 @@ impl State {
                         scrollable::scroll_to(self.scrollable.clone(), new_offset),
                         None,
                     );
-                } else if matches!(self.limit, Limit::Top(_)) && relative_offset == 0.0 {
-                    return (Command::none(), Some(Event::ScrolledToTop));
+                } else if infinite_scroll
+                    && matches!(self.limit, Limit::Top(_))
+                    && relative_offset == 0.0
+                {
+                    return (Command::none(), Some(Event::RequestOlderChatHistory));
                 }
             }
             Message::UserContext(message) => {
@@ -265,8 +271,8 @@ impl State {
             Message::Link(link) => {
                 let _ = open::that_detached(link);
             }
-            Message::ChatHistoryBeforeRequest => {
-                return (Command::none(), Some(Event::ChatHistoryBeforeRequest))
+            Message::RequestOlderChatHistory => {
+                return (Command::none(), Some(Event::RequestOlderChatHistory))
             }
         }
 
