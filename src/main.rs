@@ -675,7 +675,7 @@ impl Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
-                                    data::client::Event::ChatHistoryCommand(subcommand, target, message_reference_type) => {
+                                    data::client::Event::ChatHistoryCommand(subcommand, target, message_reference_types) => {
                                         match subcommand {
                                             ChatHistorySubcommand::Latest(join_server_time) => {
                                                 dashboard.load_history_now(server.clone(), &target);
@@ -683,7 +683,7 @@ impl Halloy {
                                                 let latest_message_reference = dashboard.get_latest_message_reference(
                                                     &server,
                                                     &target,
-                                                    message_reference_type,
+                                                    &message_reference_types,
                                                     join_server_time,
                                                 );
 
@@ -698,7 +698,7 @@ impl Halloy {
                                                 let oldest_message_reference = dashboard.get_oldest_message_reference(
                                                     &server,
                                                     &target,
-                                                    message_reference_type,
+                                                    &message_reference_types,
                                                 );
 
                                                 self.clients.send_chathistory_request(

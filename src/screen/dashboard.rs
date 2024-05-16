@@ -1171,92 +1171,76 @@ impl Dashboard {
         &self,
         server: &Server,
         target: &str,
-        message_reference_type: isupport::MessageReferenceType,
+        message_reference_types: &[isupport::MessageReferenceType],
         join_server_time: DateTime<Utc>,
     ) -> MessageReference {
-        let latest_message = match message_reference_type {
-            isupport::MessageReferenceType::MessageId => self
-                .history
-                .get_latest_message(
-                    server,
-                    target,
-                    isupport::MessageReferenceType::MessageId,
-                    join_server_time,
-                )
-                .or(self.history.get_latest_message(
-                    server,
-                    target,
-                    isupport::MessageReferenceType::Timestamp,
-                    join_server_time,
-                )),
-            isupport::MessageReferenceType::Timestamp => self.history.get_latest_message(
-                server,
-                target,
-                isupport::MessageReferenceType::Timestamp,
-                join_server_time,
-            ),
-        };
+        let latest_message_finding =
+            message_reference_types
+                .iter()
+                .find_map(|message_reference_type| {
+                    self.history
+                        .get_latest_message(
+                            server,
+                            target,
+                            message_reference_type,
+                            join_server_time,
+                        )
+                        .map(|latest_message| (latest_message, message_reference_type))
+                });
 
-        if let Some(latest_message) = latest_message {
+        if let Some((latest_message, message_reference_type)) = latest_message_finding {
             log::debug!("[{server}] {target} - latest_message {:?}", latest_message);
-            if matches!(
-                message_reference_type,
-                isupport::MessageReferenceType::MessageId
-            ) {
-                if let Some(id) = &latest_message.id {
-                    return MessageReference::MessageId(id.clone());
+            match message_reference_type {
+                isupport::MessageReferenceType::MessageId => {
+                    if let Some(id) = &latest_message.id {
+                        return MessageReference::MessageId(id.clone());
+                    }
+                }
+                isupport::MessageReferenceType::Timestamp => {
+                    return MessageReference::Timestamp(
+                        latest_message.server_time,
+                        latest_message.id.clone().unwrap_or(":".to_string()),
+                    );
                 }
             }
-
-            MessageReference::Timestamp(
-                latest_message.server_time,
-                latest_message.id.clone().unwrap_or(":".to_string()),
-            )
-        } else {
-            MessageReference::None
         }
+
+        MessageReference::None
     }
 
     pub fn get_oldest_message_reference(
         &self,
         server: &Server,
         target: &str,
-        message_reference_type: isupport::MessageReferenceType,
+        message_reference_types: &[isupport::MessageReferenceType],
     ) -> MessageReference {
-        let oldest_message = match message_reference_type {
-            isupport::MessageReferenceType::MessageId => self
-                .history
-                .get_oldest_message(server, target, isupport::MessageReferenceType::MessageId)
-                .or(self.history.get_oldest_message(
-                    server,
-                    target,
-                    isupport::MessageReferenceType::Timestamp,
-                )),
-            isupport::MessageReferenceType::Timestamp => self.history.get_oldest_message(
-                server,
-                target,
-                isupport::MessageReferenceType::Timestamp,
-            ),
-        };
+        let oldest_message_finding =
+            message_reference_types
+                .iter()
+                .find_map(|message_reference_type| {
+                    self.history
+                        .get_oldest_message(server, target, message_reference_type)
+                        .map(|oldest_message| (oldest_message, message_reference_type))
+                });
 
-        if let Some(oldest_message) = oldest_message {
+        if let Some((oldest_message, message_reference_type)) = oldest_message_finding {
             log::debug!("[{server}] {target} - oldest_message {:?}", oldest_message);
-            if matches!(
-                message_reference_type,
-                isupport::MessageReferenceType::MessageId
-            ) {
-                if let Some(id) = &oldest_message.id {
-                    return MessageReference::MessageId(id.clone());
+            match message_reference_type {
+                isupport::MessageReferenceType::MessageId => {
+                    if let Some(id) = &oldest_message.id {
+                        return MessageReference::MessageId(id.clone());
+                    }
+                }
+                isupport::MessageReferenceType::Timestamp => {
+                    return MessageReference::Timestamp(
+                        oldest_message.server_time,
+                        oldest_message.id.clone().unwrap_or(":".to_string()),
+                    );
                 }
             }
-
-            MessageReference::Timestamp(
-                oldest_message.server_time,
-                oldest_message.id.clone().unwrap_or(":".to_string()),
-            )
-        } else {
-            MessageReference::None
         }
+
+        MessageReference::None
     }
 
     pub fn request_older_chathistory(
@@ -1268,11 +1252,11 @@ impl Dashboard {
 
         if clients.get_server_supports_chathistory(server) {
             if let Some(target) = buffer.target() {
-                let message_reference_type =
-                    clients.get_server_chathistory_message_reference_type(server);
+                let message_reference_types =
+                    clients.get_server_chathistory_message_reference_types(server);
 
                 let oldest_message_reference =
-                    self.get_oldest_message_reference(server, &target, message_reference_type);
+                    self.get_oldest_message_reference(server, &target, &message_reference_types);
 
                 clients.send_chathistory_request(
                     ChatHistorySubcommand::Before,

@@ -249,7 +249,7 @@ impl Manager {
         &self,
         server: &Server,
         target: &str,
-        message_reference_type: isupport::MessageReferenceType,
+        message_reference_type: &isupport::MessageReferenceType,
         join_server_time: DateTime<Utc>,
     ) -> Option<&crate::Message> {
         let kind = if proto::is_channel(target) {
@@ -269,7 +269,7 @@ impl Manager {
         &self,
         server: &Server,
         target: &str,
-        message_reference_type: isupport::MessageReferenceType,
+        message_reference_type: &isupport::MessageReferenceType,
     ) -> Option<&crate::Message> {
         let kind = if proto::is_channel(target) {
             history::Kind::Channel(target.to_string())

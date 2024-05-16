@@ -217,7 +217,7 @@ impl History {
                     .iter()
                     .skip(insert_position)
                     .position(|existing_message| {
-                        is_referenceable_message(existing_message)
+                        is_referenceable_message(existing_message, None)
                             || existing_message
                                 .server_time
                                 .signed_duration_since(message.server_time)
@@ -285,7 +285,7 @@ impl History {
                                 .iter()
                                 .skip(insert_position)
                                 .position(|existing_message| {
-                                    is_referenceable_message(existing_message)
+                                    is_referenceable_message(existing_message, None)
                                         || existing_message
                                             .server_time
                                             .signed_duration_since(message.server_time)
@@ -304,7 +304,7 @@ impl History {
                                 .rev()
                                 .skip(messages.len() - insert_position)
                                 .position(|existing_message| {
-                                    is_referenceable_message(existing_message)
+                                    is_referenceable_message(existing_message, None)
                                         && existing_message
                                             .server_time
                                             .signed_duration_since(message.server_time)
@@ -445,70 +445,62 @@ impl History {
 
     fn get_latest_message(
         &self,
-        message_reference_type: isupport::MessageReferenceType,
+        message_reference_type: &isupport::MessageReferenceType,
         join_server_time: DateTime<Utc>,
     ) -> Option<&Message> {
         match self {
             History::Partial { messages, .. } | History::Full { messages, .. } => {
-                match message_reference_type {
-                    isupport::MessageReferenceType::MessageId => {
-                        messages.iter().rev().find(|message| {
-                            message
-                                .server_time
-                                .signed_duration_since(join_server_time)
-                                .num_seconds()
-                                < 0
-                                && message.id.is_some()
-                                && is_referenceable_message(message)
-                        })
-                    }
-                    isupport::MessageReferenceType::Timestamp => {
-                        messages.iter().rev().find(|message| {
-                            message
-                                .server_time
-                                .signed_duration_since(join_server_time)
-                                .num_seconds()
-                                < 0
-                                && is_referenceable_message(message)
-                        })
-                    }
-                }
+                messages.iter().rev().find(|message| {
+                    log::debug!(
+                        "join_server_time {:?} message {:?}",
+                        join_server_time,
+                        message
+                    );
+                    message
+                        .server_time
+                        .signed_duration_since(join_server_time)
+                        .num_seconds()
+                        < 0
+                        && is_referenceable_message(message, Some(message_reference_type))
+                })
             }
         }
     }
 
     fn get_oldest_message(
         &self,
-        message_reference_type: isupport::MessageReferenceType,
+        message_reference_type: &isupport::MessageReferenceType,
     ) -> Option<&Message> {
         match self {
-            History::Partial { messages, .. } | History::Full { messages, .. } => {
-                match message_reference_type {
-                    isupport::MessageReferenceType::MessageId => messages
-                        .iter()
-                        .find(|message| message.id.is_some() && is_referenceable_message(message)),
-                    isupport::MessageReferenceType::Timestamp => messages
-                        .iter()
-                        .find(|message| is_referenceable_message(message)),
-                }
-            }
+            History::Partial { messages, .. } | History::Full { messages, .. } => messages
+                .iter()
+                .find(|message| is_referenceable_message(message, Some(message_reference_type))),
         }
     }
 }
 
-fn is_referenceable_message(message: &Message) -> bool {
-    if let message::Source::Server(Some(source)) = message.target.source() {
-        if matches!(source.kind(), message::source::server::Kind::ReplyTopic) {
-            return false;
+fn is_referenceable_message(
+    message: &Message,
+    message_reference_type: Option<&isupport::MessageReferenceType>,
+) -> bool {
+    if matches!(message.target.source(), message::Source::Internal(_)) {
+        false
+    } else {
+        match message_reference_type {
+            Some(isupport::MessageReferenceType::MessageId) => message
+                .id
+                .as_ref()
+                .is_some_and(|message_id| !message_id.starts_with(':')),
+            Some(isupport::MessageReferenceType::Timestamp) => message
+                .id
+                .as_ref()
+                .is_some_and(|message_id| message_id.starts_with(':') && message_id != ":"),
+            None => message
+                .id
+                .as_ref()
+                .is_some_and(|message_id| message_id != ":"),
         }
-    } else if matches!(message.target.source(), message::Source::Internal(_)) {
-        return false;
     }
-
-    message
-        .id
-        .as_ref()
-        .is_some_and(|message_id| message_id != ":")
 }
 
 #[derive(Debug)]

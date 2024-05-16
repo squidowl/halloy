@@ -83,7 +83,7 @@ pub enum Event {
     ChatHistoryCommand(
         ChatHistorySubcommand,
         String,
-        isupport::MessageReferenceType,
+        Vec<isupport::MessageReferenceType>,
     ),
     ChatHistoryBatchFilter,
     ChatHistorySingle(
@@ -344,8 +344,7 @@ impl Client {
                                                 finished.events.push(Event::ChatHistoryCommand(
                                                     subcommand.clone(),
                                                     chathistory_target.to_string(),
-                                                    self.chathistory_message_reference_type()
-                                                        .clone(),
+                                                    self.chathistory_message_reference_types(),
                                                 ));
                                             }
                                         }
@@ -1058,7 +1057,7 @@ impl Client {
                             return Some(vec![Event::ChatHistoryCommand(
                                 ChatHistorySubcommand::Latest(server_time(&message)),
                                 channel.clone(),
-                                self.chathistory_message_reference_type(),
+                                self.chathistory_message_reference_types(),
                             )]);
                         }
                     }
@@ -1479,14 +1478,14 @@ impl Client {
         CLIENT_CHATHISTORY_LIMIT
     }
 
-    pub fn chathistory_message_reference_type(&self) -> isupport::MessageReferenceType {
+    pub fn chathistory_message_reference_types(&self) -> Vec<isupport::MessageReferenceType> {
         if let Some(isupport::Parameter::MSGREFTYPES(message_reference_types)) =
             self.isupport.get(&isupport::Kind::MSGREFTYPES)
         {
-            return message_reference_types.first().cloned().unwrap_or_default();
+            message_reference_types.clone()
+        } else {
+            vec![]
         }
-
-        isupport::MessageReferenceType::default()
     }
 
     pub fn chathistory_request(&self, target: &str) -> Option<ChatHistoryRequest> {
@@ -1828,12 +1827,12 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_server_chathistory_message_reference_type(
+    pub fn get_server_chathistory_message_reference_types(
         &self,
         server: &Server,
-    ) -> isupport::MessageReferenceType {
+    ) -> Vec<isupport::MessageReferenceType> {
         self.client(server)
-            .map(|client| client.chathistory_message_reference_type())
+            .map(|client| client.chathistory_message_reference_types())
             .unwrap_or_default()
     }
 
