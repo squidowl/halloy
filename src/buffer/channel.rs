@@ -21,8 +21,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
-    ScrolledToTop,
-    ChatHistoryBeforeRequest,
+    RequestOlderChatHistory,
 }
 
 pub fn view<'a>(
@@ -238,15 +237,15 @@ impl Channel {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
+        infinite_scroll: bool,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let (command, event) = self.scroll_view.update(message);
+                let (command, event) = self.scroll_view.update(message, infinite_scroll);
 
                 let event = event.map(|event| match event {
                     scroll_view::Event::UserContext(event) => Event::UserContext(event),
-                    scroll_view::Event::ScrolledToTop => Event::ScrolledToTop,
-                    scroll_view::Event::ChatHistoryBeforeRequest => Event::ChatHistoryBeforeRequest,
+                    scroll_view::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                 });
 
                 (command.map(Message::ScrollView), event)
