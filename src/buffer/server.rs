@@ -122,7 +122,7 @@ impl Server {
     ) -> Task<Message> {
         match message {
             Message::ScrollView(message) => {
-                let (command, _) = self.scroll_view.update(message);
+                let (command, _) = self.scroll_view.update(message, false);
                 command.map(Message::ScrollView)
             }
             Message::InputView(message) => {

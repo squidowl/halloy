@@ -407,10 +407,16 @@ impl History {
                                 messages.split_off(messages.len() - reference_position)
                             }),
                     });
-                let opened_at = unread_messages
-                    .as_ref()
-                    .and_then(|unread_messages| unread_messages.first())
-                    .map_or(Posix::now(), |unread_message| unread_message.received_at);
+                let opened_at = if let Some(ref unread_messages) = unread_messages {
+                    unread_messages.iter().fold(
+                        Posix::now(),
+                        |earliest_received_at, unread_message| {
+                            std::cmp::min(earliest_received_at, unread_message.received_at)
+                        },
+                    )
+                } else {
+                    Posix::now()
+                };
                 let messages = std::mem::take(messages);
 
                 *self = Self::partial(server.clone(), kind.clone(), unread_messages, opened_at);

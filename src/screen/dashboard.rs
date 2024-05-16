@@ -276,62 +276,9 @@ impl Dashboard {
                                     }
                                 }
                             }
-                            Some(buffer::Event::ScrolledToTop) => {
-                                if config.buffer.chathistory.infinite_scroll {
-                                    if let Some(buffer) = pane.buffer.data() {
-                                        let server = buffer.server();
-
-                                        if clients.get_server_supports_chathistory(server) {
-                                            if let Some(target) = buffer.target() {
-                                                let message_reference_type = clients
-                                                    .get_server_chathistory_message_reference_type(
-                                                        server,
-                                                    );
-
-                                                let oldest_message_reference = self
-                                                    .get_oldest_message_reference(
-                                                        server,
-                                                        &target,
-                                                        message_reference_type,
-                                                    );
-
-                                                clients.send_chathistory_request(
-                                                    ChatHistorySubcommand::Before,
-                                                    server,
-                                                    &target,
-                                                    oldest_message_reference,
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            Some(buffer::Event::ChatHistoryBeforeRequest) => {
+                            Some(buffer::Event::RequestOlderChatHistory) => {
                                 if let Some(buffer) = pane.buffer.data() {
-                                    let server = buffer.server();
-
-                                    if clients.get_server_supports_chathistory(server) {
-                                        if let Some(target) = buffer.target() {
-                                            let message_reference_type = clients
-                                                .get_server_chathistory_message_reference_type(
-                                                    server,
-                                                );
-
-                                            let oldest_message_reference = self
-                                                .get_oldest_message_reference(
-                                                    server,
-                                                    &target,
-                                                    message_reference_type,
-                                                );
-
-                                            clients.send_chathistory_request(
-                                                ChatHistorySubcommand::Before,
-                                                server,
-                                                &target,
-                                                oldest_message_reference,
-                                            );
-                                        }
-                                    }
+                                    self.request_older_chathistory(clients, &buffer);
                                 }
                             }
 
@@ -991,30 +938,9 @@ impl Dashboard {
             Copy => selectable_text::selected(Message::SelectedText),
             Home => {
                 if config.buffer.chathistory.infinite_scroll {
-                    if let Some((_, pane)) = self.get_focused_mut() {
+                    if let Some((_, pane)) = self.get_focused() {
                         if let Some(buffer) = pane.buffer.data() {
-                            let server = buffer.server();
-
-                            if clients.get_server_supports_chathistory(server) {
-                                if let Some(target) = buffer.target() {
-                                    let message_reference_type = clients
-                                        .get_server_chathistory_message_reference_type(server);
-
-                                    let oldest_message_reference = self
-                                        .get_oldest_message_reference(
-                                            server,
-                                            &target,
-                                            message_reference_type,
-                                        );
-
-                                    clients.send_chathistory_request(
-                                        ChatHistorySubcommand::Before,
-                                        server,
-                                        &target,
-                                        oldest_message_reference,
-                                    );
-                                }
-                            }
+                            self.request_older_chathistory(clients, &buffer);
                         }
                     }
                 }
@@ -1333,6 +1259,31 @@ impl Dashboard {
         }
     }
 
+    pub fn request_older_chathistory(
+        &self,
+        clients: &mut data::client::Map,
+        buffer: &data::Buffer,
+    ) {
+        let server = buffer.server();
+
+        if clients.get_server_supports_chathistory(server) {
+            if let Some(target) = buffer.target() {
+                let message_reference_type =
+                    clients.get_server_chathistory_message_reference_type(server);
+
+                let oldest_message_reference =
+                    self.get_oldest_message_reference(server, &target, message_reference_type);
+
+                clients.send_chathistory_request(
+                    ChatHistorySubcommand::Before,
+                    server,
+                    &target,
+                    oldest_message_reference,
+                );
+            }
+        }
+    }
+
     pub fn broadcast_quit(
         &mut self,
         server: &Server,
@@ -1477,6 +1428,11 @@ impl Dashboard {
             config,
             sent_time,
         );
+    }
+
+    fn get_focused(&self) -> Option<(pane_grid::Pane, &Pane)> {
+        let pane = self.focus?;
+        self.panes.get(pane).map(|state| (pane, state))
     }
 
     fn get_focused_mut(
