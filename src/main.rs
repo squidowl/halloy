@@ -203,6 +203,7 @@ pub enum Message {
     Version(Option<String>),
     Modal(modal::Message),
     RouteReceived(String),
+    Window(window::Event)
 }
 
 impl Application for Halloy {
@@ -663,6 +664,10 @@ impl Application for Halloy {
 
                 Command::none()
             }
+            Message::Window(event) => {
+                println!("{:?}", event);
+                Command::none()
+            },
         }
     }
 
@@ -712,6 +717,7 @@ impl Application for Halloy {
 
         Subscription::batch(vec![
             url::listen().map(Message::RouteReceived),
+            window::events().map(Message::Window),
             tick,
             streams,
             events().map(Message::Event),
