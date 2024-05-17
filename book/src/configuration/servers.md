@@ -15,7 +15,7 @@ channels = ["#halloy"]
 | :--------------------------------- | :-------------------------------------------------------------------------------------------------- | :---------- |
 | `nickname`                         | The client's nickname.                                                                              | `""`        |
 | `nick_password`                    | The client's NICKSERV password.                                                                     | `""`        |
-| `nick_password_file`               | Alternatively read `nick_password` from the file at the given path.                                 | `""`        |
+| `nick_password_file`               | Alternatively read `nick_password` from the file at the given path.[^1]                             | `""`        |
 | `nick_identify_syntax`             | The server's NICKSERV IDENTIFY syntax. Can be `"nick-password"` or `"password-nick"`.               | `""`        |
 | `alt_nicks`                        | Alternative nicknames for the client, if the default is taken.                                      | `[""]`      |
 | `username`                         | The client's username.                                                                              | `""`        |
@@ -23,7 +23,7 @@ channels = ["#halloy"]
 | `server`                           | The server to connect to.                                                                           | `""`        |
 | `port`                             | The port to connect on.                                                                             | `6697`      |
 | `password`                         | The password to connect to the server.                                                              | `""`        |
-| `password_file`                    | Alternatively read `password` from the file at the given path.                                      | `""`        |
+| `password_file`                    | Alternatively read `password` from the file at the given path.[^1]                                  | `""`        |
 | `channels`                         | A list of channels to join on connection.                                                           | `[""]`      |
 | `channel_keys`                     | A mapping of channel names to keys for join-on-connect.                                             | `{}`        |
 | `ping_time`                        | The amount of inactivity in seconds before the client will ping the server.                         | `180`       |
@@ -34,12 +34,13 @@ channels = ["#halloy"]
 | `umodes`                           | User modestring to set on connect. Example: `"+RB-x"`.                                              | `""`        |
 | `use_tls`                          | Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support. | `true`      |
 | `dangerously_accept_invalid_certs` | On `true`, all certificate validations are skipped. Defaults to `false`.                            | `false`     |
-| `root_cert_path`                   | The path to the root TLS certificate for this server in PEM format.                                 | `""`        |
+| `root_cert_path`                   | The path to the root TLS certificate for this server in PEM format.[^1]                             | `""`        |
 | `on_connect`                       | Commands which are executed once connected. Example. `["/msg NickServ IDENTIFY foo bar"]`.          | `[]`        |
-| `who_poll_interval`                | WHO poll interval (in seconds) for servers without away-notify.                                     | `180`[^1]   |
-| `who_retry_interval`               | WHO retry interval (in seconds) for servers without away-notify.                                    | `10`[^1]    |
+| `who_poll_interval`                | WHO poll interval (in seconds) for servers without away-notify.                                     | `180`[^2]   |
+| `who_retry_interval`               | WHO retry interval (in seconds) for servers without away-notify.                                    | `10`[^2]    |
 
-[^1]: Limited between `5` and `3600` seconds.
+[^1]: Shell expansions (e.g. `"~/"` → `"/home/user/"`) are not supported in path strings.
+[^2]: Limited between `5` and `3600` seconds.
 
 ## `[servers.sasl]` Section
 
@@ -55,7 +56,9 @@ password = "<string>"
 | :---------------| :---------------------------------------------------------------- | :------ |
 | `username`      | The account name used for authentication.                         | `""`    |
 | `password`      | The password associated with the account used for authentication. | `""`    |
-| `password_file` | Alternatively read `password` from the file at the given path.    | `""`    |
+| `password_file` | Alternatively read `password` from the file at the given path.[^1]| `""`    |
+
+[^1]: Shell expansions (e.g. `"~/"` → `"/home/user/"`) are not supported in path strings.
 
 
 ### `[sasl.external]`
@@ -68,7 +71,9 @@ key = "<string>"
 
 > 💡 External SASL auth uses a PEM encoded X509 certificate. [Reference](https://libera.chat/guides/certfp).
 
-| Key    | Description                                                             | Value |
-| :----- | :---------------------------------------------------------------------- | :---- |
-| `cert` | The path to PEM encoded X509 user certificate for external auth         | `""`  |
-| `key`  | The path to PEM encoded PKCS#8 private key for external auth (optional) | `""`  |
+| Key    | Description                                                                  | Value |
+| :----- | :--------------------------------------------------------------------------- | :---- |
+| `cert` | The path to PEM encoded X509 user certificate for external auth.[^1]         | `""`  |
+| `key`  | The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] | `""`  |
+
+[^1]: Shell expansions (e.g. `"~/"` → `"/home/user/"`) are not supported in path strings.
