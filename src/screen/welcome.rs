@@ -78,25 +78,19 @@ impl Welcome {
         .style(theme::button::primary)
         .on_press(Message::RefreshConfiguration);
 
+        let logo_bytes = include_bytes!("../../assets/logo.png").to_vec();
         let content = column![]
             .spacing(1)
-            .push(
-                image(image::Handle::from_memory(include_bytes!(
-                    "../../assets/logo.png"
-                )))
-                .width(150),
-            )
+            .push(image(image::Handle::from_bytes(logo_bytes)).width(150))
             .push(vertical_space().height(10))
             .push(text("Welcome to Halloy!").font(font::MONO_BOLD.clone()))
             .push(vertical_space().height(4))
             .push(text("Halloy is configured through a config file."))
-            .push(
-                row![
-                        text("You can find the "),
-                        text("config.toml").style(theme::text::info),
-                        text(" file at the following path:"),
-                    ]
-            )
+            .push(row![
+                text("You can find the "),
+                text("config.toml").style(theme::text::info),
+                text(" file at the following path:"),
+            ])
             .push(vertical_space().height(8))
             .push(config_button)
             .push(vertical_space().height(10))

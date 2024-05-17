@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use data::{file_transfer, Config};
-use iced::widget::{button, column, container, scrollable, text, Scrollable};
+use iced::widget::{button, center, column, container, scrollable, text, Scrollable};
 use iced::{Command, Length};
 
 use crate::widget::{Element, Text};
@@ -19,7 +19,7 @@ pub fn view<'a>(
     file_transfers: &'a file_transfer::Manager,
 ) -> Element<'a, Message> {
     if file_transfers.is_empty() {
-        return container(container(
+        return center(container(
             column![
                 icon::file_transfer()
                     .size(theme::TEXT_SIZE + 3.0)
@@ -29,10 +29,6 @@ pub fn view<'a>(
             .spacing(8)
             .align_items(iced::Alignment::Center),
         ))
-        .center_x()
-        .center_y()
-        .width(Length::Fill)
-        .height(Length::Fill)
         .into();
     }
 
@@ -261,17 +257,11 @@ mod transfer_row {
 }
 
 fn row_button(icon: Text, message: Message) -> Element<Message> {
-    button(
-        container(icon)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_x()
-            .center_y(),
-    )
-    .on_press(message)
-    .padding(5)
-    .width(22)
-    .height(22)
-    .style(|theme, status| theme::button::tertiary(theme, status, false))
-    .into()
+    button(center(icon))
+        .on_press(message)
+        .padding(5)
+        .width(22)
+        .height(22)
+        .style(|theme, status| theme::button::tertiary(theme, status, false))
+        .into()
 }

@@ -354,7 +354,7 @@ impl Commands {
                                     theme::container::command
                                 })
                                 .padding(6)
-                                .center_y(),
+                                .center_y(Length::Shrink),
                         )
                     }))
                 };
@@ -436,7 +436,7 @@ impl Command {
         container(row(title.into_iter().chain(args)))
             .style(theme::container::context)
             .padding(8)
-            .center_y()
+            .center_y(Length::Shrink)
             .into()
     }
 }
