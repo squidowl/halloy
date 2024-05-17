@@ -1029,10 +1029,7 @@ impl Dashboard {
                     }
                 }
                 isupport::MessageReferenceType::Timestamp => {
-                    return MessageReference::Timestamp(
-                        latest_message.server_time,
-                        latest_message.id.clone().unwrap_or(":".to_string()),
-                    );
+                    return MessageReference::Timestamp(latest_message.server_time);
                 }
             }
         }
@@ -1064,10 +1061,7 @@ impl Dashboard {
                     }
                 }
                 isupport::MessageReferenceType::Timestamp => {
-                    return MessageReference::Timestamp(
-                        oldest_message.server_time,
-                        oldest_message.id.clone().unwrap_or(":".to_string()),
-                    );
+                    return MessageReference::Timestamp(oldest_message.server_time);
                 }
             }
         }
