@@ -4,7 +4,7 @@ pub mod command;
 pub mod format;
 pub mod parse;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Message {
     pub tags: Vec<Tag>,
     pub source: Option<Source>,
@@ -21,19 +21,19 @@ impl From<Command> for Message {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tag {
     pub key: String,
     pub value: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Source {
     Server(String),
     User(User),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct User {
     pub nickname: String,
     pub username: Option<String>,
