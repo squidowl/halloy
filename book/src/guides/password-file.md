@@ -5,10 +5,12 @@ If you need to commit your configuration file to a public repository, you can ke
 
 > 💡 Avoid adding extra lines in the password file, as they will be treated as part of the password.
 
+> 💡 Shell expansions (e.g. `"~/"` → `"/home/user/"`) are not supported in path strings.
+
 ```toml
 [servers.liberachat]
 nickname = "foobar"
-nick_password_file = "~./config/halloy/password"
+nick_password_file = "/home/user/config/halloy/password"
 server = "irc.libera.chat"
 channels = ["#halloy"]
 ```
