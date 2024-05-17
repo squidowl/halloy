@@ -3,7 +3,7 @@ use std::string::FromUtf8Error;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
-use nom::combinator::{cut, map, opt, peek, recognize, value};
+use nom::combinator::{cut, map, opt, peek, recognize, value, verify};
 use nom::multi::{many0, many0_count, many1, many1_count, many_m_n, separated_list1};
 use nom::sequence::{preceded, terminated, tuple};
 use nom::{Finish, IResult};
@@ -127,12 +127,28 @@ fn user(input: &str) -> IResult<&str, User> {
     // <sequence of any characters except NUL, CR, LF, and SPACE> and @
     let username = recognize(many1_count(none_of("\0\r\n @")));
     // "-", "[", "]", "\", "`", "_", "^", "{", "|", "}", "*", "/", "@"
-    let special = one_of("-[]\\`_^{|}*/@");
+    let special = |input| one_of("-[]\\`_^{|}*/@")(input);
     // *( <letter> | <number> | <special> )
-    let nickname = recognize(many1_count(alt((
+    let strict_nick = recognize(many1_count(alt((
         satisfy(|c| c.is_ascii_alphanumeric()),
         special,
     ))));
+    // Used by things like matrix bridge
+    // Also includes `.` if `:` exists and terminated by `!`
+    // this enables us to use `:` and `.` without falsely matching
+    // and server IP or hostname
+    let expanded_nick = verify(
+        recognize(terminated(
+            many1_count(alt((
+                satisfy(|c| c.is_ascii_alphanumeric()),
+                special,
+                one_of(":."),
+            ))),
+            peek(char('!')),
+        )),
+        |s: &str| s.contains(':') && s.contains('.'),
+    );
+    let nickname = alt((expanded_nick, strict_nick));
     // Parse remainder after @ as hostname
     let hostname = recognize(many1_count(none_of(" ")));
     //( <nickname> [ "!" <user> ] [ "@" <host> ] )
@@ -214,6 +230,16 @@ mod test {
                     hostname: Some("555.555.555.555.abc.efg.com".into()),
                 }),
             ),
+            (
+                ":foo:matrix.org!foo@matrix.org ",
+                Source::User(User {
+                    nickname: "foo:matrix.org".into(),
+                    username: Some("foo".into()),
+                    hostname: Some("matrix.org".into()),
+                }),
+            ),
+            (":1.1.1.1 ", Source::Server("1.1.1.1".to_string())),
+            (":1111:FFFF::1 ", Source::Server("1111:FFFF::1".to_string())),
         ];
 
         for (test, expected) in tests {
