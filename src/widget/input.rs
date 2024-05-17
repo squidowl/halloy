@@ -5,7 +5,7 @@ use data::{input, isupport, Buffer, Command};
 use iced::advanced::widget::{self, Operation};
 pub use iced::widget::text_input::{focus, move_cursor_to_end};
 use iced::widget::{component, container, row, text, text_input, Component};
-use iced::Rectangle;
+use iced::{Length, Rectangle};
 
 use self::completion::Completion;
 use super::{anchored_overlay, key_press, Element, Renderer};
@@ -266,7 +266,7 @@ where
 
 fn error<'a, 'b, Message: 'a>(error: &'b str) -> Element<'a, Message> {
     container(text(error.to_string()).style(theme::text::error))
-        .center_y()
+        .center_y(Length::Fill)
         .padding(8)
         .style(theme::container::context)
         .into()

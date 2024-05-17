@@ -1,6 +1,5 @@
 use data::{file_transfer, history, Config};
-use iced::widget::{button, container, pane_grid, row, text};
-use iced::Length;
+use iced::widget::{button, center, container, pane_grid, row, text};
 use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
@@ -154,20 +153,14 @@ impl TitleBar {
             // Show topic button only if there is a topic to show
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
                 if topic.text.is_some() {
-                    let topic_button = button(
-                        container(icon::topic())
-                            .width(Length::Fill)
-                            .height(Length::Fill)
-                            .center_x()
-                            .center_y(),
-                    )
-                    .padding(5)
-                    .width(22)
-                    .height(22)
-                    .on_press(Message::ToggleShowTopic)
-                    .style(|theme, status| {
-                        theme::button::tertiary(theme, status, settings.channel.topic.enabled)
-                    });
+                    let topic_button = button(center(icon::topic()))
+                        .padding(5)
+                        .width(22)
+                        .height(22)
+                        .on_press(Message::ToggleShowTopic)
+                        .style(|theme, status| {
+                            theme::button::tertiary(theme, status, settings.channel.topic.enabled)
+                        });
 
                     let topic_button_with_tooltip = tooltip(
                         topic_button,
@@ -179,20 +172,14 @@ impl TitleBar {
                 }
             }
 
-            let nicklist_button = button(
-                container(icon::people())
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .center_x()
-                    .center_y(),
-            )
-            .padding(5)
-            .width(22)
-            .height(22)
-            .on_press(Message::ToggleShowUserList)
-            .style(|theme, status| {
-                theme::button::tertiary(theme, status, settings.channel.nicklist.enabled)
-            });
+            let nicklist_button = button(center(icon::people()))
+                .padding(5)
+                .width(22)
+                .height(22)
+                .on_press(Message::ToggleShowUserList)
+                .style(|theme, status| {
+                    theme::button::tertiary(theme, status, settings.channel.nicklist.enabled)
+                });
 
             let nicklist_button_with_tooltip = tooltip(
                 nicklist_button,
@@ -205,17 +192,11 @@ impl TitleBar {
 
         // If we have more than one pane open, show maximize button.
         if panes > 1 {
-            let maximize_button = button(
-                container(if maximized {
-                    icon::restore()
-                } else {
-                    icon::maximize()
-                })
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .center_x()
-                .center_y(),
-            )
+            let maximize_button = button(center(if maximized {
+                icon::restore()
+            } else {
+                icon::maximize()
+            }))
             .padding(5)
             .width(22)
             .height(22)
@@ -239,18 +220,12 @@ impl TitleBar {
 
         // Add delete as long as it's not a single empty buffer
         if !(panes == 1 && matches!(buffer, Buffer::Empty)) {
-            let close_button = button(
-                container(icon::close())
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .center_x()
-                    .center_y(),
-            )
-            .padding(5)
-            .width(22)
-            .height(22)
-            .on_press(Message::ClosePane)
-            .style(|theme, status| theme::button::tertiary(theme, status, false));
+            let close_button = button(center(icon::close()))
+                .padding(5)
+                .width(22)
+                .height(22)
+                .on_press(Message::ClosePane)
+                .style(|theme, status| theme::button::tertiary(theme, status, false));
 
             let close_button_with_tooltip = tooltip(
                 close_button,
