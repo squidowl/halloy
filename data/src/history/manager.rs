@@ -199,12 +199,10 @@ impl Manager {
         subcommand: ChatHistorySubcommand,
         message_reference: MessageReference,
     ) {
-        self.data.add_chathistory_message(
+        self.data.add_message(
             server.clone(),
             history::Kind::from(message.target.clone()),
             message,
-            subcommand,
-            message_reference,
         );
     }
 
@@ -726,22 +724,6 @@ impl Data {
             .entry(kind.clone())
             .or_insert_with(|| History::partial(server, kind, None, message.received_at))
             .add_message(message)
-    }
-
-    fn add_chathistory_message(
-        &mut self,
-        server: server::Server,
-        kind: history::Kind,
-        message: crate::Message,
-        subcommand: ChatHistorySubcommand,
-        message_reference: MessageReference,
-    ) {
-        self.map
-            .entry(server.clone())
-            .or_default()
-            .entry(kind.clone())
-            .or_insert_with(|| History::partial(server, kind, None, message.received_at))
-            .add_chathistory_message(message, subcommand, message_reference)
     }
 
     fn untrack(
