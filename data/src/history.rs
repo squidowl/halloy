@@ -485,21 +485,13 @@ fn is_referenceable_message(
 ) -> bool {
     if matches!(message.target.source(), message::Source::Internal(_)) {
         false
+    } else if matches!(
+        message_reference_type,
+        Some(isupport::MessageReferenceType::MessageId)
+    ) {
+        message.id.is_some()
     } else {
-        match message_reference_type {
-            Some(isupport::MessageReferenceType::MessageId) => message
-                .id
-                .as_ref()
-                .is_some_and(|message_id| !message_id.starts_with(':')),
-            Some(isupport::MessageReferenceType::Timestamp) => message
-                .id
-                .as_ref()
-                .is_some_and(|message_id| message_id.starts_with(':') && message_id != ":"),
-            None => message
-                .id
-                .as_ref()
-                .is_some_and(|message_id| message_id != ":"),
-        }
+        true
     }
 }
 

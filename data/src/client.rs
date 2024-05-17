@@ -327,7 +327,7 @@ impl Client {
 
                                             if matches!(
                                                 message_reference,
-                                                MessageReference::Timestamp(_, _)
+                                                MessageReference::Timestamp(_)
                                             ) {
                                                 finished
                                                     .events
@@ -361,68 +361,70 @@ impl Client {
                 return None;
             }
             _ if batch_tag.is_some() => {
-                let events = if let Some(target) = batch_tag
-                    .as_ref()
-                    .and_then(|batch| self.batches.get(batch))
-                    .and_then(|batch| batch.chathistory_target.clone())
-                {
-                    if let Some(ChatHistoryRequest {
+                let events = if let Some((
+                    ChatHistoryRequest {
                         subcommand,
                         message_reference,
                         ..
-                    }) = self.chathistory_requests.get(&target)
-                    {
-                        if Some(User::from(Nick::from("HistServ"))) == message.user() {
-                            // HistServ provides event-playback without event-playback
-                            // which would require client-side parsing to map appropriately.
-                            // Avoid that complexity by only providing that functionality
-                            // via event-playback.
-                            vec![]
-                        } else {
-                            match &message.command {
-                                Command::NICK(_) => {
-                                    let target = message::Target::Channel {
-                                        channel: target,
-                                        source: source::Source::Server(None),
-                                    };
+                    },
+                    target,
+                )) = batch_tag
+                    .as_ref()
+                    .and_then(|batch| self.batches.get(batch))
+                    .and_then(|batch| batch.chathistory_target.clone())
+                    .and_then(|target| {
+                        self.chathistory_requests
+                            .get(&target)
+                            .map(|chathistory_request| (chathistory_request, target))
+                    }) {
+                    if Some(User::from(Nick::from("HistServ"))) == message.user() {
+                        // HistServ provides event-playback without event-playback
+                        // which would require client-side parsing to map appropriately.
+                        // Avoid that complexity by only providing that functionality
+                        // via event-playback.
+                        vec![]
+                    } else {
+                        match &message.command {
+                            Command::NICK(_) => {
+                                let target = message::Target::Channel {
+                                    channel: target,
+                                    source: source::Source::Server(None),
+                                };
 
-                                    vec![Event::ChatHistoryWithTarget(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        target,
-                                        subcommand.clone(),
-                                        message_reference.clone(),
-                                    )]
-                                }
-                                Command::QUIT(_) => {
-                                    let target = message::Target::Channel {
-                                        channel: target,
-                                        source: source::Source::Server(Some(source::Server::new(
-                                            source::server::Kind::Quit,
-                                            message
-                                                .user()
-                                                .map(|user| Nick::from(user.nickname().as_ref())),
-                                        ))),
-                                    };
-
-                                    vec![Event::ChatHistoryWithTarget(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        target,
-                                        subcommand.clone(),
-                                        message_reference.clone(),
-                                    )]
-                                }
-                                _ => vec![Event::ChatHistorySingle(
+                                vec![Event::ChatHistoryWithTarget(
                                     message,
                                     self.nickname().to_owned(),
+                                    target,
                                     subcommand.clone(),
                                     message_reference.clone(),
-                                )],
+                                )]
                             }
+                            Command::QUIT(_) => {
+                                let target = message::Target::Channel {
+                                    channel: target,
+                                    source: source::Source::Server(Some(source::Server::new(
+                                        source::server::Kind::Quit,
+                                        message
+                                            .user()
+                                            .map(|user| Nick::from(user.nickname().as_ref())),
+                                    ))),
+                                };
+
+                                vec![Event::ChatHistoryWithTarget(
+                                    message,
+                                    self.nickname().to_owned(),
+                                    target,
+                                    subcommand.clone(),
+                                    message_reference.clone(),
+                                )]
+                            }
+                            _ => vec![Event::ChatHistorySingle(
+                                message,
+                                self.nickname().to_owned(),
+                                subcommand.clone(),
+                                message_reference.clone(),
+                            )],
                         }
-                    } else {
-                        self.handle(message, context)?
                     }
                 } else {
                     self.handle(message, context)?
@@ -513,10 +515,10 @@ impl Client {
                         requested.push("batch");
 
                         // We require batch for our chathistory support
-                        let requesting_chathistory = if contains_starting_with("chathistory") {
+                        let requesting_chathistory = if contains("chathistory") {
                             requested.push("chathistory");
                             true
-                        } else if contains_starting_with("draft/chathistory") {
+                        } else if contains("draft/chathistory") {
                             requested.push("draft/chathistory");
                             true
                         } else {
@@ -612,9 +614,6 @@ impl Client {
 
                 let newly_contains = |s| new_caps.iter().any(|cap| cap == s);
 
-                let newly_contains_starting_with =
-                    |s| new_caps.iter().any(|cap| cap.starts_with(s));
-
                 let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
 
                 if newly_contains("invite-notify") {
@@ -653,10 +652,10 @@ impl Client {
                     }
 
                     // We require batch for our chathistory support
-                    let requesting_chathistory = if newly_contains_starting_with("chathistory") {
+                    let requesting_chathistory = if newly_contains("chathistory") {
                         requested.push("chathistory");
                         true
-                    } else if newly_contains_starting_with("draft/chathistory") {
+                    } else if newly_contains("draft/chathistory") {
                         requested.push("draft/chathistory");
                         true
                     } else {
@@ -1527,14 +1526,14 @@ impl Client {
                 match subcommand {
                     ChatHistorySubcommand::Latest(_) => {
                         let command_message_reference = match message_reference {
-                            MessageReference::Timestamp(server_time, _) => {
+                            MessageReference::Timestamp(server_time) => {
                                 if let Some(fuzzed_server_time) =
                                     TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
                                         .and_then(|time_delta| {
                                             server_time.checked_sub_signed(time_delta)
                                         })
                                 {
-                                    MessageReference::Timestamp(fuzzed_server_time, ":".to_string())
+                                    MessageReference::Timestamp(fuzzed_server_time)
                                 } else {
                                     message_reference
                                 }
@@ -1557,17 +1556,14 @@ impl Client {
                     }
                     ChatHistorySubcommand::Before => {
                         let command_message_reference = match message_reference {
-                            MessageReference::Timestamp(reference_timestamp, _) => {
+                            MessageReference::Timestamp(reference_timestamp) => {
                                 if let Some(fuzzed_reference_timestamp) =
                                     TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
                                         .and_then(|time_delta| {
                                             reference_timestamp.checked_add_signed(time_delta)
                                         })
                                 {
-                                    MessageReference::Timestamp(
-                                        fuzzed_reference_timestamp,
-                                        ":".to_string(),
-                                    )
+                                    MessageReference::Timestamp(fuzzed_reference_timestamp)
                                 } else {
                                     message_reference
                                 }

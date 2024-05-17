@@ -653,7 +653,7 @@ pub struct CommandTargetLimit {
 
 #[derive(Clone, Debug)]
 pub enum MessageReference {
-    Timestamp(DateTime<Utc>, String),
+    Timestamp(DateTime<Utc>),
     MessageId(String),
     None,
 }
@@ -661,7 +661,7 @@ pub enum MessageReference {
 impl fmt::Display for MessageReference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MessageReference::Timestamp(server_time, _) => write!(
+            MessageReference::Timestamp(server_time) => write!(
                 f,
                 "timestamp={}",
                 server_time.to_rfc3339_opts(SecondsFormat::Millis, true)
@@ -675,9 +675,7 @@ impl fmt::Display for MessageReference {
 impl PartialEq<Message> for MessageReference {
     fn eq(&self, other: &Message) -> bool {
         match self {
-            MessageReference::Timestamp(server_time, client_id) => {
-                other.server_time == *server_time && other.id.as_deref() == Some(client_id.as_str())
-            }
+            MessageReference::Timestamp(server_time) => other.server_time == *server_time,
             MessageReference::MessageId(id) => other.id.as_deref() == Some(id.as_str()),
             MessageReference::None => false,
         }

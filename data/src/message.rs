@@ -7,9 +7,7 @@ use irc::proto::Command;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
-use seahash::SeaHasher;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::hash::{Hash, Hasher};
 use url::Url;
 
 pub use self::formatting::Formatting;
@@ -63,7 +61,7 @@ pub(crate) mod broadcast;
 pub mod formatting;
 pub mod source;
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone)]
 pub struct Encoded(proto::Message);
 
 impl Encoded {
@@ -175,10 +173,9 @@ impl Message {
         our_nick: Nick,
         config: &Config,
         resolve_attributes: impl Fn(&User, &str) -> Option<User>,
-        generate_missing_id: bool,
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
-        let id = message_id(&encoded).or(generate_missing_id.then_some(client_id(&encoded)));
+        let id = message_id(&encoded);
         let content = content(&encoded, &our_nick, config, &resolve_attributes)?;
         let target = target(encoded, &our_nick, &resolve_attributes)?;
 
@@ -606,16 +603,6 @@ fn target(
             source: Source::Server(None),
         }),
     }
-}
-
-pub fn client_id(message: &Encoded) -> String {
-    let mut hasher = SeaHasher::new();
-
-    message.hash(&mut hasher);
-
-    // Prefix hash with ':' fort client id, since that character
-    // is not allowed in message ids provided by servers
-    format!(":{:x}", hasher.finish())
 }
 
 pub fn message_id(message: &Encoded) -> Option<String> {
