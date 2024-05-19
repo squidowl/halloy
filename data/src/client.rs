@@ -82,21 +82,12 @@ pub enum Event {
         String,
         Vec<isupport::MessageReferenceType>,
     ),
-    ChatHistoryBatchFilter,
-    ChatHistorySingle(
-        message::Encoded,
-        Nick,
+    ChatHistoryBatchFinished(
         ChatHistorySubcommand,
+        String,
         isupport::MessageReference,
+        usize,
     ),
-    ChatHistoryWithTarget(
-        message::Encoded,
-        Nick,
-        message::Target,
-        ChatHistorySubcommand,
-        isupport::MessageReference,
-    ),
-    ChatHistoryBatchFinished(ChatHistorySubcommand, String, isupport::MessageReference),
 }
 
 pub struct Client {
@@ -322,19 +313,11 @@ impl Client {
                                                 false
                                             };
 
-                                            if matches!(
-                                                message_reference,
-                                                MessageReference::Timestamp(_)
-                                            ) {
-                                                finished
-                                                    .events
-                                                    .insert(0, Event::ChatHistoryBatchFilter);
-                                            }
-
                                             finished.events.push(Event::ChatHistoryBatchFinished(
                                                 subcommand.clone(),
                                                 chathistory_target.to_string(),
                                                 message_reference.clone(),
+                                                finished.events.len(),
                                             ));
 
                                             if continue_request {
@@ -358,14 +341,7 @@ impl Client {
                 return None;
             }
             _ if batch_tag.is_some() => {
-                let events = if let Some((
-                    ChatHistoryRequest {
-                        subcommand,
-                        message_reference,
-                        ..
-                    },
-                    target,
-                )) = batch_tag
+                let events = if let Some((ChatHistoryRequest { .. }, target)) = batch_tag
                     .as_ref()
                     .and_then(|batch| self.batches.get(batch))
                     .and_then(|batch| batch.chathistory_target.clone())
@@ -388,12 +364,10 @@ impl Client {
                                     source: source::Source::Server(None),
                                 };
 
-                                vec![Event::ChatHistoryWithTarget(
+                                vec![Event::WithTarget(
                                     message,
                                     self.nickname().to_owned(),
                                     target,
-                                    subcommand.clone(),
-                                    message_reference.clone(),
                                 )]
                             }
                             Command::QUIT(_) => {
@@ -407,20 +381,13 @@ impl Client {
                                     ))),
                                 };
 
-                                vec![Event::ChatHistoryWithTarget(
+                                vec![Event::WithTarget(
                                     message,
                                     self.nickname().to_owned(),
                                     target,
-                                    subcommand.clone(),
-                                    message_reference.clone(),
                                 )]
                             }
-                            _ => vec![Event::ChatHistorySingle(
-                                message,
-                                self.nickname().to_owned(),
-                                subcommand.clone(),
-                                message_reference.clone(),
-                            )],
+                            _ => vec![Event::Single(message, self.nickname().to_owned())],
                         }
                     }
                 } else {
@@ -1439,8 +1406,9 @@ impl Client {
                 ));
 
                 log::debug!(
-                    "[{}] requesting {limit} latest messages in {target} since {message_reference}",
-                    self.server
+                    "[{}] requesting {limit} latest messages in {target} since {}",
+                    self.server,
+                    message_reference,
                 );
             } else {
                 match subcommand {
@@ -1462,8 +1430,9 @@ impl Client {
                         };
 
                         log::debug!(
-                            "[{}] requesting {limit} latest messages in {target} since {command_message_reference}",
-                            self.server
+                            "[{}] requesting {limit} latest messages in {target} since {}",
+                            self.server,
+                            command_message_reference,
                         );
 
                         let _ = self.handle.try_send(command!(
@@ -1492,8 +1461,9 @@ impl Client {
                         };
 
                         log::debug!(
-                            "[{}] requesting {limit} messages in {target} before {command_message_reference}",
+                            "[{}] requesting {limit} messages in {target} before {}",
                             self.server,
+                            command_message_reference,
                         );
 
                         let _ = self.handle.try_send(command!(
