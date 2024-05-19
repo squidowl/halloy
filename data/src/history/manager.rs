@@ -8,7 +8,7 @@ use itertools::Itertools;
 use tokio::{self, time::Instant};
 
 use crate::history::{self, History};
-use crate::isupport::{ChatHistorySubcommand, MessageReference};
+use crate::isupport::MessageReference;
 use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::Nick;
@@ -185,20 +185,6 @@ impl Manager {
     }
 
     pub fn record_message(&mut self, server: &Server, message: crate::Message) {
-        self.data.add_message(
-            server.clone(),
-            history::Kind::from(message.target.clone()),
-            message,
-        );
-    }
-
-    pub fn record_chathistory_message(
-        &mut self,
-        server: &Server,
-        message: crate::Message,
-        subcommand: ChatHistorySubcommand,
-        message_reference: MessageReference,
-    ) {
         self.data.add_message(
             server.clone(),
             history::Kind::from(message.target.clone()),

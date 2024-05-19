@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use data::config::{self, Config};
-use data::isupport::{ChatHistorySubcommand, MessageReference};
+use data::isupport::ChatHistorySubcommand;
 use data::version::Version;
 use data::{environment, history, server, version, Url, User};
 use iced::widget::{column, container};
@@ -465,44 +465,7 @@ impl Halloy {
                         .flat_map(|message| {
                             let mut commands = vec![];
 
-                            let mut events = self.clients.receive(&server, message);
-
-                            if let Some(data::client::Event::ChatHistoryBatchFilter) = events.first() {
-                                if let Some(reference_position) = events.iter().position(|event| match event {
-                                    data::client::Event::ChatHistorySingle(encoded, _, _, message_reference)
-                                    | data::client::Event::ChatHistoryWithTarget(encoded, _, _, _, message_reference) => {
-                                        if let MessageReference::Timestamp(reference_server_time) = message_reference {
-                                            log::trace!(
-                                                "{:?} message_reference {:?} encoded {:?}",
-                                                data::message::server_time(encoded) == *reference_server_time,
-                                                message_reference,
-                                                encoded,
-                                            );
-                                            data::message::server_time(encoded) == *reference_server_time
-                                        } else {
-                                            false
-                                        }
-                                    }
-                                    _ => false,
-                                }) {
-                                    events = events
-                                        .into_iter()
-                                        .enumerate()
-                                        .filter_map(|(position, event)| match event {
-                                            data::client::Event::ChatHistoryBatchFilter => None,
-                                            data::client::Event::ChatHistorySingle(_, _, _, _)
-                                            | data::client::Event::ChatHistoryWithTarget(_, _, _, _, _) => {
-                                                if position < reference_position {
-                                                    Some(event)
-                                                } else {
-                                                    None
-                                                }
-                                            }
-                                            _ => Some(event),
-                                        })
-                                        .collect();
-                                }
-                            }
+                            let events = self.clients.receive(&server, message);
 
                             for event in events {
                                 // Resolve a user using client state which stores attributes
@@ -532,7 +495,14 @@ impl Halloy {
                                             channels,
                                             sent_time,
                                         } => {
-                                            dashboard.broadcast_quit(&server, user, comment, channels, &self.config, sent_time);
+                                            dashboard.broadcast_quit(
+                                                &server,
+                                                user,
+                                                comment,
+                                                channels,
+                                                &self.config,
+                                                sent_time
+                                            );
                                         }
                                         data::client::Broadcast::Nickname {
                                             old_user,
@@ -657,7 +627,11 @@ impl Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
-                                    data::client::Event::ChatHistoryCommand(subcommand, target, message_reference_types) => {
+                                    data::client::Event::ChatHistoryCommand(
+                                        subcommand,
+                                        target,
+                                        message_reference_types
+                                    ) => {
                                         match subcommand {
                                             ChatHistorySubcommand::Latest(join_server_time) => {
                                                 dashboard.load_history_now(server.clone(), &target);
@@ -674,7 +648,7 @@ impl Halloy {
                                                     &server,
                                                     &target,
                                                     latest_message_reference,
-                                                )
+                                                );
                                             }
                                             ChatHistorySubcommand::Before => {
                                                 let oldest_message_reference = dashboard.get_oldest_message_reference(
@@ -688,57 +662,34 @@ impl Halloy {
                                                     &server,
                                                     &target,
                                                     oldest_message_reference,
-                                                )
+                                                );
                                             }
                                         }
                                     }
-                                    data::client::Event::ChatHistoryBatchFilter => (),
-                                    data::client::Event::ChatHistorySingle(
-                                        encoded,
-                                        our_nick,
+                                    data::client::Event::ChatHistoryBatchFinished(
                                         subcommand,
-                                        message_reference,
-                                    ) => {
-                                        if let Some(message) =
-                                            data::Message::received(encoded, our_nick, &self.config, resolve_user_attributes)
-                                        {
-                                            dashboard.record_chathistory_message(
-                                                &server,
-                                                message,
-                                                subcommand,
-                                                message_reference,
-                                            );
-                                        }
-                                    }
-                                    data::client::Event::ChatHistoryWithTarget(
-                                        encoded,
-                                        our_nick,
                                         target,
-                                        subcommand,
                                         message_reference,
+                                        batch_len
                                     ) => {
-                                        if let Some(message) =
-                                            data::Message::received(encoded, our_nick, &self.config, resolve_user_attributes)
-                                        {
-                                            dashboard.record_chathistory_message(
-                                                &server,
-                                                message.with_target(target),
-                                                subcommand,
-                                                message_reference,
-                                            );
-                                        }
-                                    }
-                                    data::client::Event::ChatHistoryBatchFinished(subcommand, target, message_reference) => {
                                         match subcommand {
                                             ChatHistorySubcommand::Latest(_) => {
                                                 log::debug!(
-                                                    "[{server}] received latest messages in {target} since {message_reference}",
-                                                )
+                                                    "[{}] received latest {} messages in {} since {}",
+                                                    server,
+                                                    batch_len,
+                                                    target,
+                                                    message_reference
+                                                );
                                             }
                                             ChatHistorySubcommand::Before => {
                                                 log::debug!(
-                                                    "[{server}] received messages in {target} before {message_reference}",
-                                                )
+                                                    "[{}] received {} messages in {} before {}",
+                                                    server,
+                                                    batch_len,
+                                                    target,
+                                                    message_reference
+                                                );
                                             }
                                         }
 

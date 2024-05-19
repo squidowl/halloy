@@ -1131,17 +1131,6 @@ impl Dashboard {
         self.history.record_message(server, message);
     }
 
-    pub fn record_chathistory_message(
-        &mut self,
-        server: &Server,
-        message: data::Message,
-        subcommand: ChatHistorySubcommand,
-        message_reference: MessageReference,
-    ) {
-        self.history
-            .record_chathistory_message(server, message, subcommand, message_reference);
-    }
-
     pub fn is_open(&self, server: Server, target: &str) -> bool {
         self.panes.iter().any(|(_, pane)| {
             pane.buffer.data() == Some(data::Buffer::Channel(server.clone(), target.to_string()))

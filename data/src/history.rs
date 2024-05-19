@@ -172,11 +172,7 @@ impl History {
     }
 
     fn add_message(&mut self, message: Message) {
-        if message.triggers_unread() {
-            self.inc_unread_count();
-        }
-
-        match self {
+        if match self {
             History::Partial {
                 messages,
                 last_received_at,
@@ -189,8 +185,10 @@ impl History {
             } => {
                 *last_received_at = Some(Instant::now());
 
-                insert_message(messages, message);
+                insert_message(messages, message)
             }
+        } {
+            self.inc_unread_count();
         }
     }
 
@@ -319,11 +317,6 @@ impl History {
         match self {
             History::Partial { messages, .. } | History::Full { messages, .. } => {
                 messages.iter().rev().find(|message| {
-                    log::debug!(
-                        "join_server_time {:?} message {:?}",
-                        join_server_time,
-                        message
-                    );
                     message
                         .server_time
                         .signed_duration_since(join_server_time)
@@ -369,25 +362,28 @@ fn is_referenceable_message(
 /// Deduplication is only checked +/- 1 second around the server time
 /// of the incoming message. Either message IDs match, or server times
 /// have an exact match + target & content.
-fn insert_message(messages: &mut Vec<Message>, message: Message) {
+fn insert_message(messages: &mut Vec<Message>, message: Message) -> bool {
     #[allow(deprecated)]
     const FUZZ_DURATION: chrono::Duration = chrono::Duration::seconds(1);
 
+    let message_triggers_unread = message.triggers_unread();
+
     if messages.is_empty() {
         messages.push(message);
-        return;
+
+        return message_triggers_unread;
     }
 
     let start = message.server_time - FUZZ_DURATION;
     let end = message.server_time + FUZZ_DURATION;
 
     let start_index = match messages.binary_search_by(|stored| stored.server_time.cmp(&start)) {
-        Ok(i) => i,
-        Err(i) => i,
+        Ok(match_index) => match_index,
+        Err(sorted_insert_index) => sorted_insert_index,
     };
     let end_index = match messages.binary_search_by(|stored| stored.server_time.cmp(&end)) {
-        Ok(i) => i,
-        Err(i) => i,
+        Ok(match_index) => match_index,
+        Err(sorted_insert_index) => sorted_insert_index,
     };
 
     let mut current_index = start_index;
@@ -395,10 +391,8 @@ fn insert_message(messages: &mut Vec<Message>, message: Message) {
     let mut replace_at = None;
 
     for stored in &messages[start_index..end_index] {
-        if (stored.id.is_some() && message.id.is_some() && stored.id == message.id)
-            || (stored.server_time == message.server_time
-                && stored.target == message.target
-                && stored.text == message.text)
+        if (message.id.is_some() && stored.id == message.id)
+            || (stored.server_time == message.server_time && has_matching_content(stored, &message))
         {
             replace_at = Some(current_index);
             break;
@@ -412,9 +406,38 @@ fn insert_message(messages: &mut Vec<Message>, message: Message) {
     }
 
     if let Some(index) = replace_at {
-        messages[index] = message;
+        if has_matching_content(&messages[index], &message) {
+            messages[index].id = message.id;
+            false
+        } else {
+            messages[index] = message;
+            message_triggers_unread
+        }
     } else {
         messages.insert(insert_at, message);
+        message_triggers_unread
+    }
+}
+
+/// The content of JOIN, PART, and QUIT messages may be dependent on how
+/// the user attributes are resolved.  Match those messages based on Nick
+/// alone (covered by comparing target components) to avoid false negatives.
+fn has_matching_content(message: &Message, other: &Message) -> bool {
+    if message.target == other.target {
+        if let message::Source::Server(Some(source)) = message.target.source() {
+            match source.kind() {
+                message::source::server::Kind::Join
+                | message::source::server::Kind::Part
+                | message::source::server::Kind::Quit => {
+                    return true;
+                }
+                message::source::server::Kind::ReplyTopic => (),
+            }
+        }
+
+        message.text == other.text
+    } else {
+        false
     }
 }
 
