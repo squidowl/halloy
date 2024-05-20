@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{fmt, io};
@@ -345,8 +345,14 @@ fn is_referenceable_message(
     message_reference_type: Option<&isupport::MessageReferenceType>,
 ) -> bool {
     if matches!(message.target.source(), message::Source::Internal(_)) {
-        false
-    } else if matches!(
+        return false;
+    } else if let message::Source::Server(Some(source)) = message.target.source() {
+        if matches!(source.kind(), message::source::server::Kind::ReplyTopic) {
+            return false;
+        }
+    }
+
+    if matches!(
         message_reference_type,
         Some(isupport::MessageReferenceType::MessageId)
     ) {
@@ -363,9 +369,6 @@ fn is_referenceable_message(
 /// of the incoming message. Either message IDs match, or server times
 /// have an exact match + target & content.
 fn insert_message(messages: &mut Vec<Message>, message: Message) -> bool {
-    #[allow(deprecated)]
-    const FUZZ_DURATION: chrono::Duration = chrono::Duration::seconds(1);
-
     let message_triggers_unread = message.triggers_unread();
 
     if messages.is_empty() {
@@ -374,8 +377,12 @@ fn insert_message(messages: &mut Vec<Message>, message: Message) -> bool {
         return message_triggers_unread;
     }
 
-    let start = message.server_time - FUZZ_DURATION;
-    let end = message.server_time + FUZZ_DURATION;
+    let start = TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
+        .and_then(|time_delta| message.server_time.checked_sub_signed(time_delta))
+        .unwrap_or(message.server_time);
+    let end = TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
+        .and_then(|time_delta| message.server_time.checked_add_signed(time_delta))
+        .unwrap_or(message.server_time);
 
     let start_index = match messages.binary_search_by(|stored| stored.server_time.cmp(&start)) {
         Ok(match_index) => match_index,
