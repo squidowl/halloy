@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use data::config::{self, Config};
-use data::isupport::ChatHistorySubcommand;
+use data::isupport::{ChatHistorySubcommand, MessageReference};
 use data::version::Version;
 use data::{environment, history, server, version, Url, User};
 use iced::widget::{column, container};
@@ -627,85 +627,117 @@ impl Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
-                                    data::client::Event::ChatHistoryCommand(
-                                        subcommand,
+                                    data::client::Event::ChatHistoryRequest(subcommand) => {
+                                        self.clients.send_chathistory_request(
+                                            &server,
+                                            subcommand,
+                                        );
+                                    }
+                                    data::client::Event::ChatHistoryRequestFromHistory(
+                                        history_request,
                                         target,
-                                        message_reference_types
+                                        message_reference_types,
                                     ) => {
-                                        match subcommand {
-                                            ChatHistorySubcommand::Latest(join_server_time) => {
+                                        let subcommand = match history_request {
+                                            data::client::HistoryRequest::Recent(
+                                                join_server_time,
+                                            ) => {
                                                 dashboard.load_history_now(server.clone(), &target);
 
-                                                let latest_message_reference = dashboard.get_latest_message_reference(
-                                                    &server,
-                                                    &target,
-                                                    &message_reference_types,
-                                                    join_server_time,
-                                                );
-
-                                                self.clients.send_chathistory_request(
-                                                    subcommand,
-                                                    &server,
-                                                    &target,
-                                                    latest_message_reference,
-                                                );
+                                                ChatHistorySubcommand::Latest(
+                                                    target.clone(),
+                                                    dashboard.get_latest_message_reference(
+                                                        &server,
+                                                        &target,
+                                                        &message_reference_types,
+                                                        join_server_time,
+                                                    ),
+                                                    self.clients.get_server_chathistory_limit(&server),
+                                                )
                                             }
-                                            ChatHistorySubcommand::Before => {
-                                                let oldest_message_reference = dashboard.get_oldest_message_reference(
-                                                    &server,
-                                                    &target,
-                                                    &message_reference_types,
-                                                );
+                                            data::client::HistoryRequest::Older => {
+                                                let message_reference = dashboard.get_oldest_message_reference(
+                                                        &server,
+                                                        &target,
+                                                        &message_reference_types,
+                                                    );
 
-                                                self.clients.send_chathistory_request(
-                                                    subcommand,
-                                                    &server,
-                                                    &target,
-                                                    oldest_message_reference,
-                                                );
+                                                if matches!(message_reference, MessageReference::None) {
+                                                    ChatHistorySubcommand::Latest(
+                                                        target.clone(),
+                                                        message_reference,
+                                                        self.clients.get_server_chathistory_limit(&server),
+                                                    )
+                                                } else {
+                                                    ChatHistorySubcommand::Before(
+                                                        target.clone(),
+                                                        message_reference,
+                                                        self.clients.get_server_chathistory_limit(&server),
+                                                    )
+                                                }
                                             }
-                                        }
+                                        };
+
+                                        self.clients.send_chathistory_request(
+                                            &server,
+                                            subcommand,
+                                        );
                                     }
-                                    data::client::Event::ChatHistoryBatchFinished(
+                                    data::client::Event::ChatHistoryRequestReceived(
                                         subcommand,
-                                        target,
-                                        message_reference,
-                                        batch_len
+                                        batch_len,
                                     ) => {
-                                        match subcommand {
-                                            ChatHistorySubcommand::Latest(_) => {
+                                        match &subcommand {
+                                            ChatHistorySubcommand::Latest(target, message_reference, _) => {
                                                 log::debug!(
                                                     "[{}] received latest {} messages in {} since {}",
                                                     server,
                                                     batch_len,
                                                     target,
-                                                    message_reference
+                                                    message_reference,
                                                 );
                                             }
-                                            ChatHistorySubcommand::Before => {
+                                            ChatHistorySubcommand::Before(target, message_reference, _) => {
                                                 log::debug!(
                                                     "[{}] received {} messages in {} before {}",
                                                     server,
                                                     batch_len,
                                                     target,
-                                                    message_reference
+                                                    message_reference,
+                                                );
+                                            }
+                                            ChatHistorySubcommand::Between(
+                                                target,
+                                                start_message_reference,
+                                                end_message_reference,
+                                                _,
+                                            ) => {
+                                                log::debug!(
+                                                    "[{}] received {} messages in {} between {} and {}",
+                                                    server,
+                                                    batch_len,
+                                                    target,
+                                                    start_message_reference,
+                                                    end_message_reference,
                                                 );
                                             }
                                         }
 
-                                        if !dashboard.is_open(server.clone(), &target) {
-                                            dashboard.make_history_partial_now(
-                                                server.clone(),
-                                                &target,
-                                                if matches!(subcommand, ChatHistorySubcommand::Latest(_)) {
-                                                    Some(message_reference)
-                                                } else {
-                                                    None
-                                                },
-                                            );
-                                        }
+                                        if let Some(target) = subcommand.target() {
+                                            if !dashboard.is_open(server.clone(), target) {
+                                                dashboard.make_history_partial_now(
+                                                    server.clone(),
+                                                    target,
+                                                    if let ChatHistorySubcommand::Latest(_, message_reference, _) = &subcommand {
+                                                        Some(message_reference.clone())
+                                                    } else {
+                                                        None
+                                                    },
+                                                );
+                                            }
 
-                                        self.clients.clear_chathistory_request(&server, &target);
+                                            self.clients.clear_chathistory_request(&server, target);
+                                        }
                                     }
                                 }
                             }

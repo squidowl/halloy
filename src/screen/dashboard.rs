@@ -1242,10 +1242,12 @@ impl Dashboard {
                     self.get_oldest_message_reference(server, &target, &message_reference_types);
 
                 clients.send_chathistory_request(
-                    ChatHistorySubcommand::Before,
                     server,
-                    &target,
-                    oldest_message_reference,
+                    ChatHistorySubcommand::Before(
+                        target.clone(),
+                        oldest_message_reference,
+                        clients.get_server_chathistory_limit(server),
+                    ),
                 );
             }
         }

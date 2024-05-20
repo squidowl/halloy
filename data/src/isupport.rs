@@ -634,8 +634,19 @@ pub struct ChannelMode {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ChatHistorySubcommand {
-    Latest(DateTime<Utc>),
-    Before,
+    Latest(String, MessageReference, u16),
+    Before(String, MessageReference, u16),
+    Between(String, MessageReference, MessageReference, u16),
+}
+
+impl ChatHistorySubcommand {
+    pub fn target(&self) -> Option<&str> {
+        match self {
+            ChatHistorySubcommand::Latest(target, _, _)
+            | ChatHistorySubcommand::Before(target, _, _)
+            | ChatHistorySubcommand::Between(target, _, _, _) => Some(target),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -651,7 +662,7 @@ pub struct CommandTargetLimit {
     pub limit: Option<u16>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MessageReference {
     Timestamp(DateTime<Utc>),
     MessageId(String),
