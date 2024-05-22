@@ -210,7 +210,9 @@ impl Config {
 
             if file_name.ends_with(".toml") {
                 if let Ok(theme) = read_entry(entry) {
-                    if file_name.strip_suffix(".toml").unwrap_or_default() == default_key {
+                    if file_name.strip_suffix(".toml").unwrap_or_default() == default_key
+                        || file_name == default_key
+                    {
                         default = theme.clone();
                     }
                     if file_name == DEFAULT_THEME_FILE_NAME {
