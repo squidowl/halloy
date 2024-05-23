@@ -466,7 +466,10 @@ impl Data {
                 } => {
                     let last_received_at = *last_received_at;
                     let opened_at = *opened_at;
-                    messages.extend(std::mem::take(new_messages));
+                    let new_messages = std::mem::take(new_messages);
+                    new_messages.into_iter().for_each(|new_message| {
+                        history::insert_message(&mut messages, new_message);
+                    });
                     entry.insert(History::Full {
                         server,
                         kind,

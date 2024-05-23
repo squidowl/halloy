@@ -86,7 +86,9 @@ pub async fn append(
     }
 
     let mut all_messages = load(server, kind).await?;
-    all_messages.extend(messages);
+    messages.into_iter().for_each(|message| {
+        insert_message(&mut all_messages, message);
+    });
 
     overwrite(server, kind, &all_messages).await
 }
@@ -358,7 +360,7 @@ fn is_referenceable_message(
 /// Deduplication is only checked +/- 1 second around the server time
 /// of the incoming message. Either message IDs match, or server times
 /// have an exact match + target & content.
-fn insert_message(messages: &mut Vec<Message>, message: Message) -> bool {
+pub fn insert_message(messages: &mut Vec<Message>, message: Message) -> bool {
     let message_triggers_unread = message.triggers_unread();
 
     if messages.is_empty() {
