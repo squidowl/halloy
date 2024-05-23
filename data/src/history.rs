@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use irc::proto;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{fmt, io};
@@ -11,7 +12,7 @@ use tokio::time::Instant;
 pub use self::manager::{Manager, Resource};
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::{compression, environment, isupport, message, server, Message};
+use crate::{compression, environment, isupport, message, server, Message, Server};
 
 pub mod manager;
 
@@ -135,28 +136,13 @@ pub enum History {
 }
 
 impl History {
-    fn partial(
-        server: server::Server,
-        kind: Kind,
-        unread_messages: Option<Vec<Message>>,
-        opened_at: Posix,
-    ) -> Self {
+    fn partial(server: server::Server, kind: Kind, opened_at: Posix) -> Self {
         Self::Partial {
             server,
             kind,
-            messages: unread_messages.clone().unwrap_or_default(),
+            messages: vec![],
             last_received_at: None,
-            unread_message_count: unread_messages.map_or(0, |unread_messages| {
-                unread_messages
-                    .iter()
-                    .fold(0, |unread_message_count, message| {
-                        if message.triggers_unread() {
-                            unread_message_count + 1
-                        } else {
-                            unread_message_count
-                        }
-                    })
-            }),
+            unread_message_count: 0,
             opened_at,
         }
     }
@@ -248,10 +234,7 @@ impl History {
         }
     }
 
-    fn make_partial(
-        &mut self,
-        message_reference: Option<isupport::MessageReference>,
-    ) -> Option<impl Future<Output = Result<(), Error>>> {
+    fn make_partial(&mut self) -> Option<impl Future<Output = Result<(), Error>>> {
         match self {
             History::Partial { .. } => None,
             History::Full {
@@ -262,30 +245,9 @@ impl History {
             } => {
                 let server = server.clone();
                 let kind = kind.clone();
-                let unread_messages =
-                    message_reference.and_then(|message_reference| match message_reference {
-                        isupport::MessageReference::None => Some(messages.split_off(0)),
-                        _ => messages
-                            .iter()
-                            .rev()
-                            .position(|message| message_reference == *message)
-                            .map(|reference_position| {
-                                messages.split_off(messages.len() - reference_position)
-                            }),
-                    });
-                let opened_at = if let Some(ref unread_messages) = unread_messages {
-                    unread_messages.iter().fold(
-                        Posix::now(),
-                        |earliest_received_at, unread_message| {
-                            std::cmp::min(earliest_received_at, unread_message.received_at)
-                        },
-                    )
-                } else {
-                    Posix::now()
-                };
                 let messages = std::mem::take(messages);
 
-                *self = Self::partial(server.clone(), kind.clone(), unread_messages, opened_at);
+                *self = Self::partial(server.clone(), kind.clone(), Posix::now());
 
                 Some(async move { overwrite(&server, &kind, &messages).await })
             }
@@ -309,25 +271,6 @@ impl History {
         }
     }
 
-    fn get_latest_message(
-        &self,
-        message_reference_type: &isupport::MessageReferenceType,
-        join_server_time: DateTime<Utc>,
-    ) -> Option<&Message> {
-        match self {
-            History::Partial { messages, .. } | History::Full { messages, .. } => {
-                messages.iter().rev().find(|message| {
-                    message
-                        .server_time
-                        .signed_duration_since(join_server_time)
-                        .num_seconds()
-                        < 0
-                        && is_referenceable_message(message, Some(message_reference_type))
-                })
-            }
-        }
-    }
-
     fn get_oldest_message(
         &self,
         message_reference_type: &isupport::MessageReferenceType,
@@ -338,6 +281,53 @@ impl History {
                 .find(|message| is_referenceable_message(message, Some(message_reference_type))),
         }
     }
+}
+
+pub async fn get_latest_message_reference(
+    server: Server,
+    target: String,
+    message_reference_types: Vec<isupport::MessageReferenceType>,
+    join_server_time: DateTime<Utc>,
+) -> isupport::MessageReference {
+    let kind = if proto::is_channel(&target) {
+        Kind::Channel(target.clone())
+    } else {
+        Kind::Query(target.clone().into())
+    };
+
+    if let Ok(messages) = load(&server, &kind).await {
+        if let Some((latest_message, message_reference_type)) = message_reference_types
+            .iter()
+            .find_map(|message_reference_type| {
+                messages
+                    .iter()
+                    .rev()
+                    .find(|message| {
+                        message
+                            .server_time
+                            .signed_duration_since(join_server_time)
+                            .num_seconds()
+                            < 0
+                            && is_referenceable_message(message, Some(message_reference_type))
+                    })
+                    .map(|latest_message| (latest_message, message_reference_type))
+            })
+        {
+            log::debug!("[{server}] {target} - latest_message {:?}", latest_message);
+            match message_reference_type {
+                isupport::MessageReferenceType::MessageId => {
+                    if let Some(id) = &latest_message.id {
+                        return isupport::MessageReference::MessageId(id.clone());
+                    }
+                }
+                isupport::MessageReferenceType::Timestamp => {
+                    return isupport::MessageReference::Timestamp(latest_message.server_time);
+                }
+            }
+        }
+    }
+
+    isupport::MessageReference::None
 }
 
 fn is_referenceable_message(
