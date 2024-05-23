@@ -1,4 +1,4 @@
-use chrono::{DateTime, TimeDelta, Utc};
+use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
 use itertools::{Either, Itertools};
@@ -337,6 +337,7 @@ impl Client {
                                                         None
                                                     }
                                                 }
+                                                ChatHistorySubcommand::Targets(_, _, _) => None,
                                             };
 
                                             finished.events.push(
@@ -1494,16 +1495,8 @@ impl Client {
 
             match subcommand {
                 ChatHistorySubcommand::Latest(target, message_reference, limit) => {
-                    let command_message_reference = match message_reference {
-                        MessageReference::Timestamp(server_time) => {
-                            TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
-                                .and_then(|time_delta| server_time.checked_sub_signed(time_delta))
-                                .map_or(message_reference, |fuzzed_server_time| {
-                                    MessageReference::Timestamp(fuzzed_server_time)
-                                })
-                        }
-                        _ => message_reference,
-                    };
+                    let command_message_reference =
+                        isupport::fuzz_start_message_reference(message_reference);
 
                     log::debug!(
                         "[{}] requesting {limit} latest messages in {target} since {}",
@@ -1520,16 +1513,8 @@ impl Client {
                     ));
                 }
                 ChatHistorySubcommand::Before(target, message_reference, limit) => {
-                    let command_message_reference = match message_reference {
-                        MessageReference::Timestamp(server_time) => {
-                            TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
-                                .and_then(|time_delta| server_time.checked_add_signed(time_delta))
-                                .map_or(message_reference, |fuzzed_server_time| {
-                                    MessageReference::Timestamp(fuzzed_server_time)
-                                })
-                        }
-                        _ => message_reference,
-                    };
+                    let command_message_reference =
+                        isupport::fuzz_end_message_reference(message_reference);
 
                     log::debug!(
                         "[{}] requesting {limit} messages in {target} before {}",
@@ -1551,52 +1536,11 @@ impl Client {
                     end_message_reference,
                     limit,
                 ) => {
-                    let (command_start_message_reference, command_end_message_reference) = match (
-                        start_message_reference.clone(),
-                        end_message_reference.clone(),
-                    ) {
-                        (
-                            MessageReference::Timestamp(start_server_time),
-                            MessageReference::Timestamp(end_server_time),
-                        ) => {
-                            if start_server_time < end_server_time {
-                                (
-                                    TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
-                                        .and_then(|time_delta| {
-                                            start_server_time.checked_sub_signed(time_delta)
-                                        })
-                                        .map_or(start_message_reference, |fuzzed_server_time| {
-                                            MessageReference::Timestamp(fuzzed_server_time)
-                                        }),
-                                    TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
-                                        .and_then(|time_delta| {
-                                            end_server_time.checked_add_signed(time_delta)
-                                        })
-                                        .map_or(end_message_reference, |fuzzed_server_time| {
-                                            MessageReference::Timestamp(fuzzed_server_time)
-                                        }),
-                                )
-                            } else {
-                                (
-                                    TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
-                                        .and_then(|time_delta| {
-                                            start_server_time.checked_add_signed(time_delta)
-                                        })
-                                        .map_or(start_message_reference, |fuzzed_server_time| {
-                                            MessageReference::Timestamp(fuzzed_server_time)
-                                        }),
-                                    TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
-                                        .and_then(|time_delta| {
-                                            end_server_time.checked_sub_signed(time_delta)
-                                        })
-                                        .map_or(end_message_reference, |fuzzed_server_time| {
-                                            MessageReference::Timestamp(fuzzed_server_time)
-                                        }),
-                                )
-                            }
-                        }
-                        _ => (start_message_reference, end_message_reference),
-                    };
+                    let (command_start_message_reference, command_end_message_reference) =
+                        isupport::fuzz_message_reference_range(
+                            start_message_reference,
+                            end_message_reference,
+                        );
 
                     log::debug!(
                         "[{}] requesting {limit} messages in {target} between {} and {}",
@@ -1609,6 +1553,32 @@ impl Client {
                         "CHATHISTORY",
                         "BETWEEN",
                         target,
+                        command_start_message_reference.to_string(),
+                        command_end_message_reference.to_string(),
+                        limit.to_string()
+                    ));
+                }
+                ChatHistorySubcommand::Targets(
+                    start_message_reference,
+                    end_message_reference,
+                    limit,
+                ) => {
+                    let (command_start_message_reference, command_end_message_reference) =
+                        isupport::fuzz_message_reference_range(
+                            start_message_reference,
+                            end_message_reference,
+                        );
+
+                    log::debug!(
+                        "[{}] requesting {limit} targets between {} and {}",
+                        self.server,
+                        command_start_message_reference,
+                        command_end_message_reference,
+                    );
+
+                    let _ = self.handle.try_send(command!(
+                        "CHATHISTORY",
+                        "TARGETS",
                         command_start_message_reference.to_string(),
                         command_end_message_reference.to_string(),
                         limit.to_string()

@@ -3,7 +3,7 @@ use irc::proto;
 use std::fmt;
 use std::str::FromStr;
 
-use crate::Message;
+use crate::{message, Message};
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
 // returned by Operation::kind() and Parameter::kind()
@@ -637,6 +637,7 @@ pub enum ChatHistorySubcommand {
     Latest(String, MessageReference, u16),
     Before(String, MessageReference, u16),
     Between(String, MessageReference, MessageReference, u16),
+    Targets(MessageReference, MessageReference, u16),
 }
 
 impl ChatHistorySubcommand {
@@ -645,6 +646,7 @@ impl ChatHistorySubcommand {
             ChatHistorySubcommand::Latest(target, _, _)
             | ChatHistorySubcommand::Before(target, _, _)
             | ChatHistorySubcommand::Between(target, _, _, _) => Some(target),
+            ChatHistorySubcommand::Targets(_, _, _) => None,
         }
     }
 }
@@ -712,7 +714,51 @@ pub struct PrefixMap {
     pub mode: char,
 }
 
-pub const CHATHISTORY_FUZZ_SECONDS: i64 = 1;
+pub fn fuzz_start_message_reference(message_reference: MessageReference) -> MessageReference {
+    match message_reference {
+        MessageReference::Timestamp(start_server_time) => {
+            MessageReference::Timestamp(message::fuzz_start_server_time(start_server_time))
+        }
+        _ => message_reference,
+    }
+}
+
+pub fn fuzz_end_message_reference(message_reference: MessageReference) -> MessageReference {
+    match message_reference {
+        MessageReference::Timestamp(end_server_time) => {
+            MessageReference::Timestamp(message::fuzz_end_server_time(end_server_time))
+        }
+        _ => message_reference,
+    }
+}
+
+pub fn fuzz_message_reference_range(
+    first_message_reference: MessageReference,
+    second_message_reference: MessageReference,
+) -> (MessageReference, MessageReference) {
+    match (
+        first_message_reference.clone(),
+        second_message_reference.clone(),
+    ) {
+        (
+            MessageReference::Timestamp(start_server_time),
+            MessageReference::Timestamp(end_server_time),
+        ) => {
+            if start_server_time < end_server_time {
+                (
+                    fuzz_start_message_reference(first_message_reference),
+                    fuzz_end_message_reference(second_message_reference),
+                )
+            } else {
+                (
+                    fuzz_end_message_reference(first_message_reference),
+                    fuzz_start_message_reference(second_message_reference),
+                )
+            }
+        }
+        _ => (first_message_reference, second_message_reference),
+    }
+}
 
 const DEFAULT_BAN_EXCEPTION_CHANNEL_LETTER: char = 'e';
 
