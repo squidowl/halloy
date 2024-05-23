@@ -1,4 +1,4 @@
-use chrono::{DateTime, TimeDelta, Utc};
+use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{fmt, io};
@@ -377,12 +377,8 @@ fn insert_message(messages: &mut Vec<Message>, message: Message) -> bool {
         return message_triggers_unread;
     }
 
-    let start = TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
-        .and_then(|time_delta| message.server_time.checked_sub_signed(time_delta))
-        .unwrap_or(message.server_time);
-    let end = TimeDelta::try_seconds(isupport::CHATHISTORY_FUZZ_SECONDS)
-        .and_then(|time_delta| message.server_time.checked_add_signed(time_delta))
-        .unwrap_or(message.server_time);
+    let start = message::fuzz_start_server_time(message.server_time);
+    let end = message::fuzz_end_server_time(message.server_time);
 
     let start_index = match messages.binary_search_by(|stored| stored.server_time.cmp(&start)) {
         Ok(match_index) => match_index,
@@ -399,7 +395,10 @@ fn insert_message(messages: &mut Vec<Message>, message: Message) -> bool {
 
     for stored in &messages[start_index..end_index] {
         if (message.id.is_some() && stored.id == message.id)
-            || (stored.server_time == message.server_time && has_matching_content(stored, &message))
+            || ((stored.server_time == message.server_time
+                || (matches!(stored.direction, message::Direction::Sent)
+                    && matches!(message.direction, message::Direction::Received)))
+                && has_matching_content(stored, &message))
         {
             replace_at = Some(current_index);
             break;

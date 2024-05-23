@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use irc::proto;
 use irc::proto::Command;
 use serde::{Deserialize, Serialize};
@@ -336,6 +336,20 @@ pub fn server_time(message: &Encoded) -> DateTime<Utc> {
         .and_then(|rfc3339| DateTime::parse_from_rfc3339(&rfc3339).ok())
         .map(|dt| dt.with_timezone(&Utc))
         .unwrap_or_else(Utc::now)
+}
+
+pub const FUZZ_SECONDS: i64 = 1;
+
+pub fn fuzz_start_server_time(server_time: DateTime<Utc>) -> DateTime<Utc> {
+    TimeDelta::try_seconds(FUZZ_SECONDS)
+        .and_then(|time_delta| server_time.checked_sub_signed(time_delta))
+        .map_or(server_time, |fuzzed_server_time| fuzzed_server_time)
+}
+
+pub fn fuzz_end_server_time(server_time: DateTime<Utc>) -> DateTime<Utc> {
+    TimeDelta::try_seconds(FUZZ_SECONDS)
+        .and_then(|time_delta| server_time.checked_add_signed(time_delta))
+        .map_or(server_time, |fuzzed_server_time| fuzzed_server_time)
 }
 
 fn text(
