@@ -1142,58 +1142,6 @@ impl Dashboard {
         })
     }
 
-    pub fn load_history_now(&mut self, server: Server, target: &str) {
-        self.history.load_now(server, target);
-    }
-
-    pub fn make_history_partial_now(
-        &mut self,
-        server: Server,
-        target: &str,
-        message_reference: Option<isupport::MessageReference>,
-    ) {
-        self.history
-            .make_partial_now(server, target, message_reference);
-    }
-
-    pub fn get_latest_message_reference(
-        &self,
-        server: &Server,
-        target: &str,
-        message_reference_types: &[isupport::MessageReferenceType],
-        join_server_time: DateTime<Utc>,
-    ) -> MessageReference {
-        let latest_message_finding =
-            message_reference_types
-                .iter()
-                .find_map(|message_reference_type| {
-                    self.history
-                        .get_latest_message(
-                            server,
-                            target,
-                            message_reference_type,
-                            join_server_time,
-                        )
-                        .map(|latest_message| (latest_message, message_reference_type))
-                });
-
-        if let Some((latest_message, message_reference_type)) = latest_message_finding {
-            log::debug!("[{server}] {target} - latest_message {:?}", latest_message);
-            match message_reference_type {
-                isupport::MessageReferenceType::MessageId => {
-                    if let Some(id) = &latest_message.id {
-                        return MessageReference::MessageId(id.clone());
-                    }
-                }
-                isupport::MessageReferenceType::Timestamp => {
-                    return MessageReference::Timestamp(latest_message.server_time);
-                }
-            }
-        }
-
-        MessageReference::None
-    }
-
     pub fn get_oldest_message_reference(
         &self,
         server: &Server,

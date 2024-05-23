@@ -21,6 +21,7 @@ use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use data::config::{self, Config};
+use data::history::get_latest_message_reference;
 use data::isupport::{ChatHistorySubcommand, MessageReference};
 use data::version::Version;
 use data::{environment, history, server, version, Url, User};
@@ -213,6 +214,7 @@ pub enum Message {
     RouteReceived(String),
     Window(window::Id, window::Event),
     WindowSettingsSaved(Result<(), window::Error>),
+    ChatHistoryRequest(server::Server, ChatHistorySubcommand),
 }
 
 impl Halloy {
@@ -638,22 +640,33 @@ impl Halloy {
                                         target,
                                         message_reference_types,
                                     ) => {
-                                        let subcommand = match history_request {
+                                        match history_request {
                                             data::client::HistoryRequest::Recent(
                                                 join_server_time,
                                             ) => {
-                                                dashboard.load_history_now(server.clone(), &target);
+                                                let server = server.clone();
+                                                let limit = self.clients.get_server_chathistory_limit(&server);
 
-                                                ChatHistorySubcommand::Latest(
-                                                    target.clone(),
-                                                    dashboard.get_latest_message_reference(
-                                                        &server,
-                                                        &target,
-                                                        &message_reference_types,
-                                                        join_server_time,
-                                                    ),
-                                                    self.clients.get_server_chathistory_limit(&server),
-                                                )
+                                                commands.push(
+                                                    Command::perform(
+                                                        get_latest_message_reference(
+                                                            server.clone(),
+                                                            target.clone(),
+                                                            message_reference_types,
+                                                            join_server_time,
+                                                        ),
+                                                        move |latest_message_reference| {
+                                                            Message::ChatHistoryRequest(
+                                                                server,
+                                                                ChatHistorySubcommand::Latest(
+                                                                    target.clone(),
+                                                                    latest_message_reference,
+                                                                    limit,
+                                                                ),
+                                                            )
+                                                        }
+                                                    )
+                                                );
                                             }
                                             data::client::HistoryRequest::Older => {
                                                 let message_reference = dashboard.get_oldest_message_reference(
@@ -662,7 +675,7 @@ impl Halloy {
                                                         &message_reference_types,
                                                     );
 
-                                                if matches!(message_reference, MessageReference::None) {
+                                                let subcommand = if matches!(message_reference, MessageReference::None) {
                                                     ChatHistorySubcommand::Latest(
                                                         target.clone(),
                                                         message_reference,
@@ -674,14 +687,14 @@ impl Halloy {
                                                         message_reference,
                                                         self.clients.get_server_chathistory_limit(&server),
                                                     )
-                                                }
-                                            }
-                                        };
+                                                };
 
-                                        self.clients.send_chathistory_request(
-                                            &server,
-                                            subcommand,
-                                        );
+                                                self.clients.send_chathistory_request(
+                                                    &server,
+                                                    subcommand,
+                                                );
+                                            }
+                                        }
                                     }
                                     data::client::Event::ChatHistoryRequestReceived(
                                         subcommand,
@@ -737,18 +750,6 @@ impl Halloy {
                                         }
 
                                         if let Some(target) = subcommand.target() {
-                                            if !dashboard.is_open(server.clone(), target) {
-                                                dashboard.make_history_partial_now(
-                                                    server.clone(),
-                                                    target,
-                                                    if let ChatHistorySubcommand::Latest(_, message_reference, _) = &subcommand {
-                                                        Some(message_reference.clone())
-                                                    } else {
-                                                        None
-                                                    },
-                                                );
-                                            }
-
                                             self.clients.clear_chathistory_request(&server, target);
                                         }
                                     }
@@ -897,6 +898,11 @@ impl Halloy {
                 }
 
                 Task::none()
+            }
+            Message::ChatHistoryRequest(server, subcommand) => {
+                self.clients.send_chathistory_request(&server, subcommand);
+
+                Command::none()
             }
         }
     }

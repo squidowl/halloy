@@ -8,7 +8,6 @@ use itertools::Itertools;
 use tokio::{self, time::Instant};
 
 use crate::history::{self, History};
-use crate::isupport::MessageReference;
 use crate::message::{self, Limit};
 use crate::time::Posix;
 use crate::user::Nick;
@@ -190,63 +189,6 @@ impl Manager {
             history::Kind::from(message.target.clone()),
             message,
         );
-    }
-
-    #[tokio::main]
-    pub async fn load_now(&mut self, server: Server, target: &str) {
-        let kind = if proto::is_channel(target) {
-            history::Kind::Channel(target.to_string())
-        } else {
-            history::Kind::Query(target.to_string().into())
-        };
-
-        let loaded_server = server.clone();
-        let loaded_kind = kind.clone();
-
-        let loaded_messages = history::load(&server.clone(), &kind.clone())
-            .map(move |result| Message::Loaded(loaded_server, loaded_kind, result))
-            .await;
-
-        self.update(loaded_messages);
-    }
-
-    #[tokio::main]
-    pub async fn make_partial_now(
-        &mut self,
-        server: Server,
-        target: &str,
-        message_reference: Option<MessageReference>,
-    ) {
-        let kind = if proto::is_channel(target) {
-            history::Kind::Channel(target.to_string())
-        } else {
-            history::Kind::Query(target.to_string().into())
-        };
-
-        self.data.map.get_mut(&server).and_then(|map| {
-            map.get_mut(&kind)
-                .and_then(|history| history.make_partial(message_reference))
-        });
-    }
-
-    pub fn get_latest_message(
-        &self,
-        server: &Server,
-        target: &str,
-        message_reference_type: &isupport::MessageReferenceType,
-        join_server_time: DateTime<Utc>,
-    ) -> Option<&crate::Message> {
-        let kind = if proto::is_channel(target) {
-            history::Kind::Channel(target.to_string())
-        } else {
-            history::Kind::Query(target.to_string().into())
-        };
-
-        self.data
-            .map
-            .get(server)
-            .and_then(|map| map.get(&kind))
-            .map(|history| history.get_latest_message(message_reference_type, join_server_time))?
     }
 
     pub fn get_oldest_message(
@@ -708,7 +650,7 @@ impl Data {
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| History::partial(server, kind, None, message.received_at))
+            .or_insert_with(|| History::partial(server, kind, message.received_at))
             .add_message(message)
     }
 
@@ -717,10 +659,9 @@ impl Data {
         server: &server::Server,
         kind: &history::Kind,
     ) -> Option<impl Future<Output = Result<(), history::Error>>> {
-        self.map.get_mut(server).and_then(|map| {
-            map.get_mut(kind)
-                .and_then(|history| history.make_partial(None))
-        })
+        self.map
+            .get_mut(server)
+            .and_then(|map| map.get_mut(kind).and_then(History::make_partial))
     }
 
     fn flush_all(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
