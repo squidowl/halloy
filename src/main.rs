@@ -642,6 +642,19 @@ impl Halloy {
                                                     end_message_reference,
                                                 );
                                             }
+                                            ChatHistorySubcommand::Targets(
+                                                start_message_reference,
+                                                end_message_reference,
+                                                _,
+                                            ) => {
+                                                log::debug!(
+                                                    "[{}] received {} targets between {} and {}",
+                                                    server,
+                                                    batch_len,
+                                                    start_message_reference,
+                                                    end_message_reference,
+                                                );
+                                            }
                                         }
 
                                         if let Some(target) = subcommand.target() {
