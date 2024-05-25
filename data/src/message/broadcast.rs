@@ -74,7 +74,7 @@ pub fn connecting(sent_time: DateTime<Utc>) -> Vec<Message> {
         [],
         [],
         true,
-        Cause::Status(source::Status::Success),
+        Cause::Status(source::Status::Pending),
         content,
         sent_time,
     )

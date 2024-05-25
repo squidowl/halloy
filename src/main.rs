@@ -19,9 +19,9 @@ mod window;
 use std::env;
 use std::time::{Duration, Instant};
 
-use chrono::Utc;
+use chrono::{TimeDelta, Utc};
 use data::config::{self, Config};
-use data::history::get_latest_message_reference;
+use data::history::{get_latest_connected_message_reference, get_latest_message_reference};
 use data::isupport::{ChatHistorySubcommand, MessageReference};
 use data::version::Version;
 use data::{environment, history, server, version, Url, User};
@@ -637,11 +637,39 @@ impl Halloy {
                                     }
                                     data::client::Event::ChatHistoryRequestFromHistory(
                                         history_request,
-                                        target,
-                                        message_reference_types,
                                     ) => {
                                         match history_request {
+                                            data::client::HistoryRequest::Targets => {
+                                                let server = server.clone();
+                                                let limit = self.clients.get_server_chathistory_limit(&server);
+
+                                                let now = chrono::offset::Utc::now();
+                                                let latest_allowed_server_time = TimeDelta::try_seconds(60 * 60)
+                                                                                    .and_then(|time_delta| now.checked_sub_signed(time_delta))
+                                                                                    .map_or(now, |fuzzed_server_time| fuzzed_server_time);
+
+                                                commands.push(
+                                                    Command::perform(
+                                                        get_latest_connected_message_reference(
+                                                            server.clone(),
+                                                            latest_allowed_server_time,
+                                                        ),
+                                                        move |latest_connected_message_reference| {
+                                                            Message::ChatHistoryRequest(
+                                                                server,
+                                                                ChatHistorySubcommand::Targets(
+                                                                    latest_connected_message_reference,
+                                                                    MessageReference::None,
+                                                                    limit,
+                                                                ),
+                                                            )
+                                                        }
+                                                    )
+                                                );
+                                            }
                                             data::client::HistoryRequest::Recent(
+                                                target,
+                                                message_reference_types,
                                                 join_server_time,
                                             ) => {
                                                 let server = server.clone();
@@ -668,7 +696,10 @@ impl Halloy {
                                                     )
                                                 );
                                             }
-                                            data::client::HistoryRequest::Older => {
+                                            data::client::HistoryRequest::Older(
+                                                target,
+                                                message_reference_types,
+                                            ) => {
                                                 let message_reference = dashboard.get_oldest_message_reference(
                                                         &server,
                                                         &target,
