@@ -289,7 +289,7 @@ pub async fn get_latest_message_reference(
     server: Server,
     target: String,
     message_reference_types: Vec<isupport::MessageReferenceType>,
-    join_server_time: DateTime<Utc>,
+    before_server_time: DateTime<Utc>,
 ) -> isupport::MessageReference {
     let kind = if proto::is_channel(&target) {
         Kind::Channel(target.clone())
@@ -307,7 +307,7 @@ pub async fn get_latest_message_reference(
                     .find(|message| {
                         message
                             .server_time
-                            .signed_duration_since(join_server_time)
+                            .signed_duration_since(before_server_time)
                             .num_seconds()
                             < 0
                             && is_referenceable_message(message, Some(message_reference_type))
@@ -352,6 +352,35 @@ fn is_referenceable_message(
     } else {
         true
     }
+}
+
+pub async fn get_latest_connected_message_reference(
+    server: Server,
+    before_server_time: DateTime<Utc>,
+) -> isupport::MessageReference {
+    if let Ok(messages) = load(&server, &Kind::Server).await {
+        return messages
+            .iter()
+            .rev()
+            .find(|message| {
+                message
+                    .server_time
+                    .signed_duration_since(before_server_time)
+                    .num_seconds()
+                    < 0
+                    && matches!(
+                        message.target.source(),
+                        message::Source::Internal(message::source::Internal::Status(
+                            message::source::Status::Success
+                        ))
+                    )
+            })
+            .map_or(isupport::MessageReference::None, |message| {
+                isupport::MessageReference::Timestamp(message.server_time)
+            });
+    }
+
+    isupport::MessageReference::None
 }
 
 /// Insert the incoming message into the provided vector, sorted
