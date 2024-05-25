@@ -93,7 +93,7 @@ pub fn status(
     config: &config::buffer::InternalMessages,
 ) -> Style {
     let color = match status {
-        message::source::Status::Success => config
+        message::source::Status::Success | message::source::Status::Pending => config
             .success
             .hex
             .as_deref()

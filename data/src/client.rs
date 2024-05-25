@@ -72,8 +72,9 @@ pub enum Broadcast {
 
 #[derive(Debug, Clone)]
 pub enum HistoryRequest {
-    Recent(DateTime<Utc>),
-    Older,
+    Targets,
+    Recent(String, Vec<isupport::MessageReferenceType>, DateTime<Utc>),
+    Older(String, Vec<isupport::MessageReferenceType>),
 }
 
 #[derive(Debug)]
@@ -84,7 +85,7 @@ pub enum Event {
     Notification(message::Encoded, Nick, Notification),
     FileTransferRequest(file_transfer::ReceiveRequest),
     ChatHistoryRequest(ChatHistorySubcommand),
-    ChatHistoryRequestFromHistory(HistoryRequest, String, Vec<isupport::MessageReferenceType>),
+    ChatHistoryRequestFromHistory(HistoryRequest),
     ChatHistoryRequestReceived(ChatHistorySubcommand, usize),
 }
 
@@ -564,9 +565,6 @@ impl Client {
                 if caps.contains(&"extended-join") {
                     self.supports_extended_join = true;
                 }
-                if caps.contains(&"chathistory") || caps.contains(&"draft/chathistory") {
-                    self.supports_chathistory = true;
-                }
 
                 let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
 
@@ -578,6 +576,14 @@ impl Client {
                 } else {
                     self.registration_step = RegistrationStep::End;
                     let _ = self.handle.try_send(command!("CAP", "END"));
+                }
+
+                if caps.contains(&"chathistory") || caps.contains(&"draft/chathistory") {
+                    self.supports_chathistory = true;
+
+                    return Some(vec![Event::ChatHistoryRequestFromHistory(
+                        HistoryRequest::Targets,
+                    )]);
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "NAK" => {
@@ -1027,9 +1033,11 @@ impl Client {
 
                         if self.supports_chathistory {
                             return Some(vec![Event::ChatHistoryRequestFromHistory(
-                                HistoryRequest::Recent(server_time(&message)),
-                                channel.clone(),
-                                self.chathistory_message_reference_types(),
+                                HistoryRequest::Recent(
+                                    channel.clone(),
+                                    self.chathistory_message_reference_types(),
+                                    server_time(&message),
+                                ),
                             )]);
                         }
                     }
@@ -1352,6 +1360,23 @@ impl Client {
                     sent_time: server_time(&message),
                 })]);
             }
+            Command::CHATHISTORY(sub, args) => {
+                if sub == "TARGETS" {
+                    let target = args.first()?;
+
+                    if !proto::is_channel(target) {
+                        return Some(vec![Event::ChatHistoryRequestFromHistory(
+                            HistoryRequest::Recent(
+                                target.clone(),
+                                self.chathistory_message_reference_types(),
+                                server_time(&message),
+                            ),
+                        )]);
+                    }
+                }
+
+                return None;
+            }
             _ => {}
         }
 
@@ -1483,10 +1508,20 @@ impl Client {
                     end_message_reference,
                     limit,
                 ) => {
+                    let command_start_message_reference = match start_message_reference {
+                        isupport::MessageReference::Timestamp(_) => start_message_reference,
+                        _ => isupport::MessageReference::Timestamp(DateTime::UNIX_EPOCH),
+                    };
+
+                    let command_end_message_reference = match end_message_reference {
+                        isupport::MessageReference::Timestamp(_) => end_message_reference,
+                        _ => isupport::MessageReference::Timestamp(chrono::offset::Utc::now()),
+                    };
+
                     let (command_start_message_reference, command_end_message_reference) =
                         isupport::fuzz_message_reference_range(
-                            start_message_reference,
-                            end_message_reference,
+                            command_start_message_reference,
+                            command_end_message_reference,
                         );
 
                     log::debug!(
