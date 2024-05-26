@@ -639,20 +639,19 @@ impl Halloy {
                                         history_request,
                                     ) => {
                                         match history_request {
-                                            data::client::HistoryRequest::Targets => {
+                                            data::client::HistoryRequest::Targets(before_server_time) => {
                                                 let server = server.clone();
                                                 let limit = self.clients.get_server_chathistory_limit(&server);
 
-                                                let now = chrono::offset::Utc::now();
-                                                let latest_allowed_server_time = TimeDelta::try_seconds(60 * 60)
-                                                                                    .and_then(|time_delta| now.checked_sub_signed(time_delta))
-                                                                                    .map_or(now, |fuzzed_server_time| fuzzed_server_time);
+                                                let before_server_time = TimeDelta::try_seconds(60 * 60)
+                                                    .and_then(|time_delta| before_server_time.checked_sub_signed(time_delta))
+                                                    .map_or(before_server_time, |fuzzed_server_time| fuzzed_server_time);
 
                                                 commands.push(
                                                     Command::perform(
                                                         get_latest_connected_message_reference(
                                                             server.clone(),
-                                                            latest_allowed_server_time,
+                                                            before_server_time,
                                                         ),
                                                         move |latest_connected_message_reference| {
                                                             Message::ChatHistoryRequest(
@@ -667,10 +666,45 @@ impl Halloy {
                                                     )
                                                 );
                                             }
+                                            data::client::HistoryRequest::Queries(
+                                                message_reference_types,
+                                                before_server_time,
+                                            ) => {
+                                                let queries = dashboard
+                                                    .get_unique_queries(&server)
+                                                    .iter()
+                                                    .map(|query| query.to_string())
+                                                    .collect::<Vec<_>>();
+
+                                                queries
+                                                    .into_iter()
+                                                    .for_each(|query| {
+                                                        let server = server.clone();
+                                                        let limit = self.clients.get_server_chathistory_limit(&server);
+                                                        commands.push(Command::perform(
+                                                            get_latest_message_reference(
+                                                                server.clone(),
+                                                                query.clone(),
+                                                                message_reference_types.clone(),
+                                                                before_server_time,
+                                                            ),
+                                                            move |latest_message_reference| {
+                                                                Message::ChatHistoryRequest(
+                                                                    server.clone(),
+                                                                    ChatHistorySubcommand::Latest(
+                                                                        query,
+                                                                        latest_message_reference,
+                                                                        limit,
+                                                                    ),
+                                                                )
+                                                            },
+                                                        ));
+                                                    });
+                                            }
                                             data::client::HistoryRequest::Recent(
                                                 target,
                                                 message_reference_types,
-                                                join_server_time,
+                                                before_server_time,
                                             ) => {
                                                 let server = server.clone();
                                                 let limit = self.clients.get_server_chathistory_limit(&server);
@@ -681,7 +715,7 @@ impl Halloy {
                                                             server.clone(),
                                                             target.clone(),
                                                             message_reference_types,
-                                                            join_server_time,
+                                                            before_server_time,
                                                         ),
                                                         move |latest_message_reference| {
                                                             Message::ChatHistoryRequest(

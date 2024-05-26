@@ -1142,6 +1142,10 @@ impl Dashboard {
         })
     }
 
+    pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
+        self.history.get_unique_queries(server)
+    }
+
     pub fn get_oldest_message_reference(
         &self,
         server: &Server,
