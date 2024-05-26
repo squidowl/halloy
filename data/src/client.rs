@@ -64,7 +64,8 @@ pub enum Broadcast {
 
 #[derive(Debug, Clone)]
 pub enum HistoryRequest {
-    Targets,
+    Targets(DateTime<Utc>),
+    Queries(Vec<isupport::MessageReferenceType>, DateTime<Utc>),
     Recent(String, Vec<isupport::MessageReferenceType>, DateTime<Utc>),
     Older(String, Vec<isupport::MessageReferenceType>),
 }
@@ -553,9 +554,15 @@ impl Client {
                 if caps.contains(&"chathistory") || caps.contains(&"draft/chathistory") {
                     self.supports_chathistory = true;
 
-                    return Some(vec![Event::ChatHistoryRequestFromHistory(
-                        HistoryRequest::Targets,
-                    )]);
+                    return Some(vec![
+                        Event::ChatHistoryRequestFromHistory(HistoryRequest::Targets(server_time(
+                            &message,
+                        ))),
+                        Event::ChatHistoryRequestFromHistory(HistoryRequest::Queries(
+                            self.chathistory_message_reference_types(),
+                            server_time(&message),
+                        )),
+                    ]);
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "NAK" => {
