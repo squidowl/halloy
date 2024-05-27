@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use irc::proto;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -308,8 +308,7 @@ pub async fn get_latest_message_reference(
                         message
                             .server_time
                             .signed_duration_since(before_server_time)
-                            .num_seconds()
-                            < 0
+                            < TimeDelta::zero()
                             && is_referenceable_message(message, Some(message_reference_type))
                     })
                     .map(|latest_message| (latest_message, message_reference_type))
@@ -366,8 +365,7 @@ pub async fn get_latest_connected_message_reference(
                 message
                     .server_time
                     .signed_duration_since(before_server_time)
-                    .num_seconds()
-                    < 0
+                    < TimeDelta::zero()
                     && matches!(
                         message.target.source(),
                         message::Source::Internal(message::source::Internal::Status(
