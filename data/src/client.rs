@@ -554,15 +554,20 @@ impl Client {
                 if caps.contains(&"chathistory") || caps.contains(&"draft/chathistory") {
                     self.supports_chathistory = true;
 
-                    return Some(vec![
-                        Event::ChatHistoryRequestFromHistory(HistoryRequest::Targets(server_time(
-                            &message,
-                        ))),
-                        Event::ChatHistoryRequestFromHistory(HistoryRequest::Queries(
-                            self.chathistory_message_reference_types(),
-                            server_time(&message),
-                        )),
-                    ]);
+                    let mut commands = vec![Event::ChatHistoryRequestFromHistory(
+                        HistoryRequest::Targets(server_time(&message)),
+                    )];
+
+                    if self.isupport.contains_key(&isupport::Kind::MSGREFTYPES) {
+                        commands.push(Event::ChatHistoryRequestFromHistory(
+                            HistoryRequest::Queries(
+                                self.chathistory_message_reference_types(),
+                                server_time(&message),
+                            ),
+                        ));
+                    }
+
+                    return Some(commands);
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "NAK" => {
@@ -906,7 +911,9 @@ impl Client {
                         }
                         log::debug!("[{}] {channel} - WHO requested", self.server);
 
-                        if self.supports_chathistory {
+                        if self.supports_chathistory
+                            && self.isupport.contains_key(&isupport::Kind::MSGREFTYPES)
+                        {
                             return Some(vec![Event::ChatHistoryRequestFromHistory(
                                 HistoryRequest::Recent(
                                     channel.clone(),
@@ -1118,6 +1125,8 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_ISUPPORT, args) => {
+                let mut commands = vec![];
+
                 let args_len = args.len();
                 args.iter().enumerate().skip(1).for_each(|(index, arg)| {
                     let operation = arg.parse::<isupport::Operation>();
@@ -1132,7 +1141,19 @@ impl Client {
                                             self.server,
                                             parameter
                                         );
-                                        self.isupport.insert(kind, parameter);
+
+                                        self.isupport.insert(kind.clone(), parameter);
+
+                                        if kind == isupport::Kind::MSGREFTYPES
+                                            && self.supports_chathistory
+                                        {
+                                            commands.push(Event::ChatHistoryRequestFromHistory(
+                                                HistoryRequest::Queries(
+                                                    self.chathistory_message_reference_types(),
+                                                    server_time(&message),
+                                                ),
+                                            ));
+                                        }
                                     } else {
                                         log::debug!(
                                             "[{}] ignoring ISUPPORT parameter: {:?}",
@@ -1148,6 +1169,7 @@ impl Client {
                                             self.server,
                                             kind
                                         );
+
                                         self.isupport.remove(&kind);
                                     }
                                 }
@@ -1166,7 +1188,11 @@ impl Client {
                     }
                 });
 
-                return None;
+                if !commands.is_empty() {
+                    return Some(commands);
+                } else {
+                    return None;
+                }
             }
             Command::TAGMSG(_) => {
                 return None;
