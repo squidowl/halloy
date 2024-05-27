@@ -17,6 +17,8 @@ Join **#halloy** on libera.chat if you have questions or looking for help.
     <img src="https://repology.org/badge/vertical-allrepos/halloy.svg" alt="Packaging status">
 </a>
 
+Halloy is also available from [Flathub](https://flathub.org/apps/org.squidowl.halloy) and [Snap Store](https://snapcraft.io/halloy).
+
 ## Features
 
 * IRCv3.2 capabilities
