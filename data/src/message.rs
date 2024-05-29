@@ -4,6 +4,7 @@ use irc::proto::Command;
 use serde::{Deserialize, Serialize};
 
 pub use self::source::Source;
+use crate::history::after_read_marker;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{Config, User};
@@ -87,9 +88,10 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn triggers_unread(&self) -> bool {
+    pub fn triggers_unread(&self, read_marker: &Option<DateTime<Utc>>) -> bool {
         matches!(self.direction, Direction::Received)
             && matches!(self.target.source(), Source::User(_) | Source::Action)
+            && after_read_marker(self, read_marker)
     }
 
     pub fn received(
