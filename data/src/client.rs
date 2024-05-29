@@ -858,8 +858,12 @@ impl Client {
                                 self.nickname().to_owned(),
                                 Notification::Highlight(user, channel.clone()),
                             )]);
-                        } else if user.nickname() == self.nickname() && context.is_some() {
-                            // If we sent (echo) & context exists (we sent from this client), ignore
+                        } else if user.nickname()
+                            && context.is_some()
+                            && !self.supports_chathistory
+                        {
+                            // If we sent (echo), context exists (we sent from this client),
+                            // & chathistory is not supported (we don't need its msgid), ignore
                             return None;
                         }
 
