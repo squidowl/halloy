@@ -562,6 +562,7 @@ pub enum Error {
 
 #[cfg(test)]
 mod test {
+    use crate::time::Posix;
     use rand::seq::SliceRandom;
 
     use super::*;
@@ -571,27 +572,27 @@ mod test {
     fn test_insert_message() {
         let mut messages = vec![];
 
-        insert_message(&mut messages, message(1, None, "one"), None);
+        insert_message(&mut messages, message(1, None, "one"), &None);
 
         assert_eq!(messages.len(), 1);
 
         // Insert before single message
-        insert_message(&mut messages, message(0, None, "zero"), None);
+        insert_message(&mut messages, message(0, None, "zero"), &None);
         assert_eq!(messages[0].text, "zero".to_string());
         messages.remove(0);
 
         // Insert after single message
-        insert_message(&mut messages, message(2, None, "two"), None);
+        insert_message(&mut messages, message(2, None, "two"), &None);
         assert_eq!(messages[1].text, "two".to_string());
         messages.remove(1);
 
         // Insert way before (search slice will be empty)
-        insert_message(&mut messages, message(-3_000_000_000, None, "past"), None);
+        insert_message(&mut messages, message(-3_000_000_000, None, "past"), &None);
         assert_eq!(messages[0].text, "past".to_string());
         messages.remove(0);
 
         // Insert way after (search slice will be empty)
-        insert_message(&mut messages, message(3_000_000_000, None, "future"), None);
+        insert_message(&mut messages, message(3_000_000_000, None, "future"), &None);
         assert_eq!(messages[1].text, "future".to_string());
         messages.remove(1);
 
@@ -608,7 +609,7 @@ mod test {
                 insert_message(
                     &mut messages,
                     message(millis, Some(&test.to_string()), millis),
-                    None,
+                    &None,
                 );
             }
 
@@ -626,7 +627,7 @@ mod test {
             insert_message(
                 &mut messages,
                 message(millis, Some(&5000.to_string()), diff),
-                None,
+                &None,
             );
             assert_eq!(messages.len(), 10_000);
             assert_eq!(messages[5000].text, diff.to_string());
@@ -639,7 +640,7 @@ mod test {
             insert_message(
                 &mut messages,
                 message(millis, Some(&5000.to_string()), diff),
-                None,
+                &None,
             );
             assert_eq!(messages.len(), 10_000 + i + 1);
         }
@@ -648,13 +649,13 @@ mod test {
         let now = Posix::now();
 
         // REPLACE - timestamp & content match
-        insert_message(&mut messages, message(0, None, 0), None);
+        insert_message(&mut messages, message(0, None, 0), &None);
         assert_eq!(messages.len(), 10_002);
         assert!(messages[0].id.is_none());
         assert!(messages[0].received_at >= now);
 
         // INSERT - timestamp matches but not content
-        insert_message(&mut messages, message(0, None, "BAR"), None);
+        insert_message(&mut messages, message(0, None, "BAR"), &None);
         assert_eq!(messages.len(), 10_003);
         assert!(messages[1].id.is_none());
         assert_eq!(messages[1].text, "BAR".to_string());
