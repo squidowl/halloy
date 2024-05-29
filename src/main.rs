@@ -21,11 +21,10 @@ use std::time::{Duration, Instant};
 
 use chrono::{TimeDelta, Utc};
 use data::config::{self, Config};
-use data::history::{get_latest_connected_message_reference, get_latest_message_reference};
 use data::isupport::{ChatHistorySubcommand, MessageReference};
 use data::version::Version;
 use data::window::Window;
-use data::{environment, server, version, User};
+use data::{environment, history, server, version, User};
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
@@ -570,7 +569,7 @@ impl Halloy {
 
                                                 commands.push(
                                                     Command::perform(
-                                                        get_latest_connected_message_reference(
+                                                        history::get_latest_connected_message_reference(
                                                             server.clone(),
                                                             before_server_time,
                                                         ),
@@ -603,7 +602,7 @@ impl Halloy {
                                                         let server = server.clone();
                                                         let limit = self.clients.get_server_chathistory_limit(&server);
                                                         commands.push(Command::perform(
-                                                            get_latest_message_reference(
+                                                            history::get_latest_message_reference(
                                                                 server.clone(),
                                                                 query.clone(),
                                                                 message_reference_types.clone(),
@@ -632,7 +631,7 @@ impl Halloy {
 
                                                 commands.push(
                                                     Command::perform(
-                                                        get_latest_message_reference(
+                                                        history::get_latest_message_reference(
                                                             server.clone(),
                                                             target.clone(),
                                                             message_reference_types,
@@ -738,6 +737,27 @@ impl Halloy {
                                         if let Some(target) = subcommand.target() {
                                             self.clients.clear_chathistory_request(&server, target);
                                         }
+                                    }
+                                    data::client::Event::CheckForStoredUnread(target) => {
+                                        let server = server.clone();
+
+                                        commands.push(
+                                            Command::perform(
+                                                history::num_stored_unread_messages(
+                                                    server.clone(),
+                                                    target.clone(),
+                                                ),
+                                                move |num_stored_unread_messages| {
+                                                    Message::Dashboard(
+                                                        dashboard::Message::StoredUnread(
+                                                            server,
+                                                            target,
+                                                            num_stored_unread_messages,
+                                                        ),
+                                                    )
+                                                }
+                                            )
+                                        );
                                     }
                                 }
                             }

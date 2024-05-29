@@ -49,6 +49,7 @@ pub enum Message {
     FileTransfer(file_transfer::task::Update),
     SendFileSelected(Server, Nick, Option<PathBuf>),
     CloseContextMenu(bool),
+    StoredUnread(Server, String, usize),
 }
 
 #[derive(Debug)]
@@ -631,6 +632,11 @@ impl Dashboard {
                     }
                 }
             }
+            Message::StoredUnread(server, target, num_stored_unread_messages) => {
+                for _ in 0..num_stored_unread_messages {
+                    self.inc_unread_count(&server, &target);
+                }
+            }
         }
 
         (Task::none(), None)
@@ -963,19 +969,12 @@ impl Dashboard {
         self.history.record_message(server, message);
     }
 
-    pub fn is_open(&self, server: Server, target: &str) -> bool {
-        self.panes.iter().any(|(_, pane)| {
-            pane.buffer.data() == Some(data::Buffer::Channel(server.clone(), target.to_string()))
-                || pane.buffer.data()
-                    == Some(data::Buffer::Query(
-                        server.clone(),
-                        target.to_string().into(),
-                    ))
-        })
-    }
-
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
         self.history.get_unique_queries(server)
+    }
+
+    pub fn inc_unread_count(&mut self, server: &Server, target: &str) {
+        self.history.inc_unread_count(server, target);
     }
 
     pub fn get_oldest_message_reference(
