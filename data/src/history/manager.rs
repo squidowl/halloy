@@ -9,7 +9,6 @@ use tokio::{self, time::Instant};
 
 use crate::history::{self, History};
 use crate::message::{self, Limit};
-use crate::time::Posix;
 use crate::user::Nick;
 use crate::{config, input, isupport};
 use crate::{server, Buffer, Config, Input, Server, User};
@@ -22,11 +21,7 @@ pub struct Resource {
 
 #[derive(Debug)]
 pub enum Message {
-    Loaded(
-        server::Server,
-        history::Kind,
-        Result<Vec<crate::Message>, history::Error>,
-    ),
+    Loaded(server::Server, history::Kind, Vec<crate::Message>),
     Closed(server::Server, history::Kind, Result<(), history::Error>),
     Flushed(server::Server, history::Kind, Result<(), history::Error>),
 }
@@ -44,7 +39,7 @@ impl Manager {
 
         let added = added.into_iter().map(|resource| {
             async move {
-                history::load(&resource.server.clone(), &resource.kind.clone())
+                history::load_messages(&resource.server.clone(), &resource.kind.clone())
                     .map(move |result| Message::Loaded(resource.server, resource.kind, result))
                     .await
             }
@@ -69,15 +64,12 @@ impl Manager {
 
     pub fn update(&mut self, message: Message) {
         match message {
-            Message::Loaded(server, kind, Ok(messages)) => {
+            Message::Loaded(server, kind, messages) => {
                 log::debug!(
                     "loaded history for {kind} on {server}: {} messages",
                     messages.len()
                 );
                 self.data.loaded(server, kind, messages);
-            }
-            Message::Loaded(server, kind, Err(error)) => {
-                log::warn!("failed to load history for {kind} on {server}: {error}");
             }
             Message::Closed(server, kind, Ok(_)) => {
                 log::debug!("closed history for {kind} on {server}",);
@@ -189,6 +181,23 @@ impl Manager {
             history::Kind::from(message.target.clone()),
             message,
         );
+    }
+
+    pub fn inc_unread_count(&mut self, server: &Server, target: &str) {
+        let kind = if proto::is_channel(target) {
+            history::Kind::Channel(target.to_string())
+        } else {
+            history::Kind::Query(target.to_string().into())
+        };
+
+        if let Some(ref mut history) = self
+            .data
+            .map
+            .get_mut(server)
+            .and_then(|map| map.get_mut(&kind))
+        {
+            history.inc_unread_count();
+        }
     }
 
     pub fn get_oldest_message(
@@ -461,21 +470,21 @@ impl Data {
                 History::Partial {
                     messages: new_messages,
                     last_received_at,
-                    opened_at,
+                    read_marker,
                     ..
                 } => {
                     let last_received_at = *last_received_at;
-                    let opened_at = *opened_at;
+                    let read_marker = *read_marker;
                     let new_messages = std::mem::take(new_messages);
                     new_messages.into_iter().for_each(|new_message| {
-                        history::insert_message(&mut messages, new_message);
+                        history::insert_message(&mut messages, new_message, &read_marker);
                     });
                     entry.insert(History::Full {
                         server,
                         kind,
                         messages,
                         last_received_at,
-                        opened_at,
+                        read_marker,
                     });
                 }
                 _ => {
@@ -484,7 +493,7 @@ impl Data {
                         kind,
                         messages,
                         last_received_at: None,
-                        opened_at: Posix::now(),
+                        read_marker: None,
                     });
                 }
             },
@@ -494,7 +503,7 @@ impl Data {
                     kind,
                     messages,
                     last_received_at: None,
-                    opened_at: Posix::now(),
+                    read_marker: None,
                 });
             }
         }
@@ -509,7 +518,7 @@ impl Data {
     ) -> Option<history::View> {
         let History::Full {
             messages,
-            opened_at,
+            read_marker,
             ..
         } = self.map.get(server)?.get(kind)?
         else {
@@ -625,12 +634,13 @@ impl Data {
 
         let limited = with_limit(limit, filtered.into_iter());
 
-        let split_at = limited
-            .iter()
-            .rev()
-            .position(|message| message.received_at < *opened_at)
-            .map(|position| limited.len() - position)
-            .unwrap_or(limited.len());
+        let split_at = read_marker.map_or(0, |read_marker| {
+            limited
+                .iter()
+                .rev()
+                .position(|message| message.server_time <= read_marker)
+                .map_or(limited.len(), |position| limited.len() - position)
+        });
 
         let (old, new) = limited.split_at(split_at);
 
@@ -653,7 +663,13 @@ impl Data {
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| History::partial(server, kind, message.received_at))
+            .or_insert_with(|| {
+                History::partial(
+                    server.clone(),
+                    kind.clone(),
+                    history::load_read_marker(&server, &kind),
+                )
+            })
             .add_message(message)
     }
 

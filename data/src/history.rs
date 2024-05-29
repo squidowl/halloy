@@ -1,4 +1,4 @@
-use chrono::{DateTime, TimeDelta, Utc};
+use chrono::{DateTime, Utc};
 use irc::proto;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -10,7 +10,6 @@ use tokio::fs;
 use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
-use crate::time::Posix;
 use crate::user::Nick;
 use crate::{compression, environment, isupport, message, server, Message, Server};
 
@@ -51,16 +50,27 @@ impl From<message::Target> for Kind {
     }
 }
 
-pub async fn load(server: &server::Server, kind: &Kind) -> Result<Vec<Message>, Error> {
-    let path = path(server, kind).await?;
+pub async fn load_messages(server: &server::Server, kind: &Kind) -> Vec<Message> {
+    let path = messages_path(server, kind);
 
-    Ok(read_all(&path).await.unwrap_or_default())
+    read_messages(&path).await.unwrap_or_default()
+}
+
+pub fn load_read_marker(server: &server::Server, kind: &Kind) -> Option<DateTime<Utc>> {
+    let path = read_marker_path(server, kind);
+
+    if let Ok(bytes) = std::fs::read(path) {
+        serde_json::from_slice(&bytes).unwrap_or_default()
+    } else {
+        None
+    }
 }
 
 pub async fn overwrite(
     server: &server::Server,
     kind: &Kind,
     messages: &[Message],
+    read_marker: &Option<DateTime<Utc>>,
 ) -> Result<(), Error> {
     if messages.is_empty() {
         return Ok(());
@@ -68,10 +78,17 @@ pub async fn overwrite(
 
     let latest = &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
 
-    let path = path(server, kind).await?;
+    let dir = dir_path(server, kind);
+
+    fs::create_dir_all(dir).await?;
+
     let compressed = compression::compress(&latest)?;
 
-    fs::write(path, &compressed).await?;
+    fs::write(messages_path(server, kind), &compressed).await?;
+
+    let bytes = serde_json::to_vec(&read_marker)?;
+
+    fs::write(read_marker_path(server, kind), &bytes).await?;
 
     Ok(())
 }
@@ -80,42 +97,61 @@ pub async fn append(
     server: &server::Server,
     kind: &Kind,
     messages: Vec<Message>,
+    read_marker: &Option<DateTime<Utc>>,
 ) -> Result<(), Error> {
     if messages.is_empty() {
         return Ok(());
     }
 
-    let mut all_messages = load(server, kind).await?;
+    let mut all_messages = load_messages(server, kind).await;
     messages.into_iter().for_each(|message| {
-        insert_message(&mut all_messages, message);
+        insert_message(&mut all_messages, message, &None);
     });
 
-    overwrite(server, kind, &all_messages).await
+    overwrite(server, kind, &all_messages, read_marker).await
 }
 
-async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
+async fn read_messages(path: &PathBuf) -> Result<Vec<Message>, Error> {
     let bytes = fs::read(path).await?;
     Ok(compression::decompress(&bytes)?)
 }
 
-async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
+fn dir_path(server: &server::Server, kind: &Kind) -> PathBuf {
     let data_dir = environment::data_dir();
 
-    // TODO: Is this stable enough? What if user's nickname changes
-    let name = match kind {
-        Kind::Server => format!("{server}"),
-        Kind::Channel(channel) => format!("{server}channel{channel}"),
-        Kind::Query(nick) => format!("{server}nickname{}", nick),
-    };
-    let hashed_name = seahash::hash(name.as_bytes());
+    let history_dir = data_dir.join("history");
 
-    let parent = data_dir.join("history");
+    let server_dir = history_dir.join(format!("{server}"));
 
-    if !parent.exists() {
-        fs::create_dir_all(&parent).await?;
+    match kind {
+        Kind::Server => history_dir,
+        Kind::Channel(_) => server_dir,
+        Kind::Query(_) => server_dir,
     }
+}
 
-    Ok(parent.join(format!("{hashed_name}.json.gz")))
+fn messages_path(server: &server::Server, kind: &Kind) -> PathBuf {
+    let dir = dir_path(server, kind);
+
+    let name = match kind {
+        Kind::Server => server.to_string(),
+        Kind::Channel(channel) => channel.to_string(),
+        Kind::Query(nick) => nick.to_string(),
+    };
+
+    dir.join(format!("{name}.json.gz"))
+}
+
+fn read_marker_path(server: &server::Server, kind: &Kind) -> PathBuf {
+    let dir = dir_path(server, kind);
+
+    let name = match kind {
+        Kind::Server => format!("{server}_read_marker"),
+        Kind::Channel(channel) => format!("{channel}_read_marker"),
+        Kind::Query(nick) => format!("{}_read_marker", nick),
+    };
+
+    dir.join(format!("{name}.json"))
 }
 
 #[derive(Debug)]
@@ -126,30 +162,30 @@ pub enum History {
         messages: Vec<Message>,
         last_received_at: Option<Instant>,
         unread_message_count: usize,
-        opened_at: Posix,
+        read_marker: Option<DateTime<Utc>>,
     },
     Full {
         server: server::Server,
         kind: Kind,
         messages: Vec<Message>,
         last_received_at: Option<Instant>,
-        opened_at: Posix,
+        read_marker: Option<DateTime<Utc>>,
     },
 }
 
 impl History {
-    fn partial(server: server::Server, kind: Kind, opened_at: Posix) -> Self {
+    fn partial(server: server::Server, kind: Kind, read_marker: Option<DateTime<Utc>>) -> Self {
         Self::Partial {
             server,
             kind,
             messages: vec![],
             last_received_at: None,
             unread_message_count: 0,
-            opened_at,
+            read_marker,
         }
     }
 
-    fn inc_unread_count(&mut self) {
+    pub fn inc_unread_count(&mut self) {
         if let History::Partial {
             unread_message_count,
             ..
@@ -164,16 +200,18 @@ impl History {
             History::Partial {
                 messages,
                 last_received_at,
+                read_marker,
                 ..
             }
             | History::Full {
                 messages,
                 last_received_at,
+                read_marker,
                 ..
             } => {
                 *last_received_at = Some(Instant::now());
 
-                insert_message(messages, message)
+                insert_message(messages, message, read_marker)
             }
         } {
             self.inc_unread_count();
@@ -186,6 +224,7 @@ impl History {
                 server,
                 kind,
                 messages,
+                read_marker,
                 last_received_at,
                 ..
             } => {
@@ -195,10 +234,15 @@ impl History {
                     if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
                         let server = server.clone();
                         let kind = kind.clone();
-                        let messages = std::mem::take(messages);
+                        let read_marker = *read_marker;
                         *last_received_at = None;
 
-                        return Some(async move { append(&server, &kind, messages).await }.boxed());
+                        let messages = std::mem::take(messages);
+
+                        return Some(
+                            async move { append(&server, &kind, messages, &read_marker).await }
+                                .boxed(),
+                        );
                     }
                 }
 
@@ -208,6 +252,7 @@ impl History {
                 server,
                 kind,
                 messages,
+                read_marker,
                 last_received_at,
                 ..
             } => {
@@ -217,16 +262,17 @@ impl History {
                     if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
                         let server = server.clone();
                         let kind = kind.clone();
+                        let read_marker = *read_marker;
                         *last_received_at = None;
 
                         if messages.len() > MAX_MESSAGES {
                             messages.drain(0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT));
                         }
-
                         let messages = messages.clone();
 
                         return Some(
-                            async move { overwrite(&server, &kind, &messages).await }.boxed(),
+                            async move { overwrite(&server, &kind, &messages, &read_marker).await }
+                                .boxed(),
                         );
                     }
                 }
@@ -243,15 +289,23 @@ impl History {
                 server,
                 kind,
                 messages,
+                read_marker,
                 ..
             } => {
                 let server = server.clone();
                 let kind = kind.clone();
+                let read_marker = messages
+                    .iter()
+                    .rev()
+                    .find(|message| {
+                        !matches!(message.target.source(), message::Source::Internal(_))
+                    })
+                    .map_or(*read_marker, |message| Some(message.server_time));
                 let messages = std::mem::take(messages);
 
-                *self = Self::partial(server.clone(), kind.clone(), Posix::now());
+                *self = Self::partial(server.clone(), kind.clone(), read_marker);
 
-                Some(async move { overwrite(&server, &kind, &messages).await })
+                Some(async move { overwrite(&server, &kind, &messages, &read_marker).await })
             }
         }
     }
@@ -262,14 +316,16 @@ impl History {
                 server,
                 kind,
                 messages,
+                read_marker,
                 ..
-            } => append(&server, &kind, messages).await,
+            } => append(&server, &kind, messages, &read_marker).await,
             History::Full {
                 server,
                 kind,
                 messages,
+                read_marker,
                 ..
-            } => overwrite(&server, &kind, &messages).await,
+            } => overwrite(&server, &kind, &messages, &read_marker).await,
         }
     }
 
@@ -297,33 +353,31 @@ pub async fn get_latest_message_reference(
         Kind::Query(target.clone().into())
     };
 
-    if let Ok(messages) = load(&server, &kind).await {
-        if let Some((latest_message, message_reference_type)) = message_reference_types
+    let messages = load_messages(&server, &kind).await;
+
+    if let Some((latest_message, message_reference_type)) =
+        message_reference_types
             .iter()
             .find_map(|message_reference_type| {
                 messages
                     .iter()
                     .rev()
                     .find(|message| {
-                        message
-                            .server_time
-                            .signed_duration_since(before_server_time)
-                            < TimeDelta::zero()
+                        message.server_time < before_server_time
                             && is_referenceable_message(message, Some(message_reference_type))
                     })
                     .map(|latest_message| (latest_message, message_reference_type))
             })
-        {
-            log::debug!("[{server}] {target} - latest_message {:?}", latest_message);
-            match message_reference_type {
-                isupport::MessageReferenceType::MessageId => {
-                    if let Some(id) = &latest_message.id {
-                        return isupport::MessageReference::MessageId(id.clone());
-                    }
+    {
+        log::debug!("[{server}] {target} - latest_message {:?}", latest_message);
+        match message_reference_type {
+            isupport::MessageReferenceType::MessageId => {
+                if let Some(id) = &latest_message.id {
+                    return isupport::MessageReference::MessageId(id.clone());
                 }
-                isupport::MessageReferenceType::Timestamp => {
-                    return isupport::MessageReference::Timestamp(latest_message.server_time);
-                }
+            }
+            isupport::MessageReferenceType::Timestamp => {
+                return isupport::MessageReference::Timestamp(latest_message.server_time);
             }
         }
     }
@@ -357,28 +411,40 @@ pub async fn get_latest_connected_message_reference(
     server: Server,
     before_server_time: DateTime<Utc>,
 ) -> isupport::MessageReference {
-    if let Ok(messages) = load(&server, &Kind::Server).await {
-        return messages
-            .iter()
-            .rev()
-            .find(|message| {
-                message
-                    .server_time
-                    .signed_duration_since(before_server_time)
-                    < TimeDelta::zero()
-                    && matches!(
-                        message.target.source(),
-                        message::Source::Internal(message::source::Internal::Status(
-                            message::source::Status::Success
-                        ))
-                    )
-            })
-            .map_or(isupport::MessageReference::None, |message| {
-                isupport::MessageReference::Timestamp(message.server_time)
-            });
-    }
+    let messages = load_messages(&server, &Kind::Server).await;
 
-    isupport::MessageReference::None
+    messages
+        .iter()
+        .rev()
+        .find(|message| {
+            message.server_time < before_server_time
+                && matches!(
+                    message.target.source(),
+                    message::Source::Internal(message::source::Internal::Status(
+                        message::source::Status::Success
+                    ))
+                )
+        })
+        .map_or(isupport::MessageReference::None, |message| {
+            isupport::MessageReference::Timestamp(message.server_time)
+        })
+}
+
+pub async fn num_stored_unread_messages(server: Server, target: String) -> usize {
+    let kind = if proto::is_channel(&target) {
+        Kind::Channel(target.clone())
+    } else {
+        Kind::Query(target.clone().into())
+    };
+
+    let read_marker = load_read_marker(&server, &kind);
+
+    let messages = load_messages(&server, &kind).await;
+
+    messages
+        .into_iter()
+        .filter(|message| message.triggers_unread(&read_marker))
+        .count()
 }
 
 /// Insert the incoming message into the provided vector, sorted
@@ -387,8 +453,12 @@ pub async fn get_latest_connected_message_reference(
 /// Deduplication is only checked +/- 1 second around the server time
 /// of the incoming message. Either message IDs match, or server times
 /// have an exact match + target & content.
-pub fn insert_message(messages: &mut Vec<Message>, message: Message) -> bool {
-    let message_triggers_unread = message.triggers_unread();
+pub fn insert_message(
+    messages: &mut Vec<Message>,
+    message: Message,
+    read_marker: &Option<DateTime<Utc>>,
+) -> bool {
+    let message_triggers_unread = message.triggers_unread(read_marker);
 
     if messages.is_empty() {
         messages.push(message);
@@ -466,6 +536,11 @@ fn has_matching_content(message: &Message, other: &Message) -> bool {
     }
 }
 
+pub fn after_read_marker(message: &Message, read_marker: &Option<DateTime<Utc>>) -> bool {
+    read_marker.is_none()
+        || read_marker.is_some_and(|read_marker| message.server_time > read_marker)
+}
+
 #[derive(Debug)]
 pub struct View<'a> {
     pub total: usize,
@@ -481,6 +556,8 @@ pub enum Error {
     Compression(#[from] compression::Error),
     #[error(transparent)]
     Io(#[from] io::Error),
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
 }
 
 #[cfg(test)]
@@ -494,27 +571,27 @@ mod test {
     fn test_insert_message() {
         let mut messages = vec![];
 
-        insert_message(&mut messages, message(1, None, "one"));
+        insert_message(&mut messages, message(1, None, "one"), None);
 
         assert_eq!(messages.len(), 1);
 
         // Insert before single message
-        insert_message(&mut messages, message(0, None, "zero"));
+        insert_message(&mut messages, message(0, None, "zero"), None);
         assert_eq!(messages[0].text, "zero".to_string());
         messages.remove(0);
 
         // Insert after single message
-        insert_message(&mut messages, message(2, None, "two"));
+        insert_message(&mut messages, message(2, None, "two"), None);
         assert_eq!(messages[1].text, "two".to_string());
         messages.remove(1);
 
         // Insert way before (search slice will be empty)
-        insert_message(&mut messages, message(-3_000_000_000, None, "past"));
+        insert_message(&mut messages, message(-3_000_000_000, None, "past"), None);
         assert_eq!(messages[0].text, "past".to_string());
         messages.remove(0);
 
         // Insert way after (search slice will be empty)
-        insert_message(&mut messages, message(3_000_000_000, None, "future"));
+        insert_message(&mut messages, message(3_000_000_000, None, "future"), None);
         assert_eq!(messages[1].text, "future".to_string());
         messages.remove(1);
 
@@ -531,6 +608,7 @@ mod test {
                 insert_message(
                     &mut messages,
                     message(millis, Some(&test.to_string()), millis),
+                    None,
                 );
             }
 
@@ -548,6 +626,7 @@ mod test {
             insert_message(
                 &mut messages,
                 message(millis, Some(&5000.to_string()), diff),
+                None,
             );
             assert_eq!(messages.len(), 10_000);
             assert_eq!(messages[5000].text, diff.to_string());
@@ -560,6 +639,7 @@ mod test {
             insert_message(
                 &mut messages,
                 message(millis, Some(&5000.to_string()), diff),
+                None,
             );
             assert_eq!(messages.len(), 10_000 + i + 1);
         }
@@ -568,13 +648,13 @@ mod test {
         let now = Posix::now();
 
         // REPLACE - timestamp & content match
-        insert_message(&mut messages, message(0, None, 0));
+        insert_message(&mut messages, message(0, None, 0), None);
         assert_eq!(messages.len(), 10_002);
         assert!(messages[0].id.is_none());
         assert!(messages[0].received_at >= now);
 
         // INSERT - timestamp matches but not content
-        insert_message(&mut messages, message(0, None, "BAR"));
+        insert_message(&mut messages, message(0, None, "BAR"), None);
         assert_eq!(messages.len(), 10_003);
         assert!(messages[1].id.is_none());
         assert_eq!(messages[1].text, "BAR".to_string());

@@ -91,6 +91,7 @@ pub enum Event {
     ChatHistoryRequest(ChatHistorySubcommand),
     ChatHistoryRequestFromHistory(HistoryRequest),
     ChatHistoryRequestReceived(ChatHistorySubcommand, usize),
+    CheckForStoredUnread(String),
 }
 
 pub struct Client {
@@ -1030,6 +1031,8 @@ impl Client {
                 }
             }
             Command::JOIN(channel, accountname) => {
+                let mut events = vec![];
+
                 let user = message.user()?;
 
                 if user.nickname() == self.nickname() {
@@ -1061,16 +1064,18 @@ impl Client {
                         }
                         log::debug!("[{}] {channel} - WHO requested", self.server);
 
+                        events.push(Event::CheckForStoredUnread(channel.clone()));
+
                         if self.supports_chathistory
                             && self.isupport.contains_key(&isupport::Kind::MSGREFTYPES)
                         {
-                            return Some(vec![Event::ChatHistoryRequestFromHistory(
+                            events.push(Event::ChatHistoryRequestFromHistory(
                                 HistoryRequest::Recent(
                                     channel.clone(),
                                     self.chathistory_message_reference_types(),
                                     server_time(&message),
                                 ),
-                            )]);
+                            ));
                         }
                     }
                 } else if let Some(channel) = self.chanmap.get_mut(channel) {
@@ -1084,6 +1089,10 @@ impl Client {
 
                     channel.users.insert(user);
                 }
+
+                events.push(Event::Single(message, self.nickname().to_owned()));
+
+                return Some(events);
             }
             Command::KICK(channel, victim, _) => {
                 if victim == self.nickname().as_ref() {
@@ -1316,7 +1325,7 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_ISUPPORT, args) => {
-                let mut commands = vec![];
+                let mut events = vec![];
 
                 let args_len = args.len();
                 args.iter().enumerate().skip(1).for_each(|(index, arg)| {
@@ -1338,7 +1347,7 @@ impl Client {
                                         if kind == isupport::Kind::MSGREFTYPES
                                             && self.supports_chathistory
                                         {
-                                            commands.push(Event::ChatHistoryRequestFromHistory(
+                                            events.push(Event::ChatHistoryRequestFromHistory(
                                                 HistoryRequest::Queries(
                                                     self.chathistory_message_reference_types(),
                                                     server_time(&message),
@@ -1388,8 +1397,8 @@ impl Client {
                     }
                 });
 
-                if !commands.is_empty() {
-                    return Some(commands);
+                if !events.is_empty() {
+                    return Some(events);
                 } else {
                     return None;
                 }
