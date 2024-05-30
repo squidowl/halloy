@@ -15,6 +15,9 @@ use crate::{file_transfer, server};
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 
+const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
+const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
+
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
     Unavailable,
@@ -91,6 +94,11 @@ pub enum Event {
     CheckForStoredUnread(String),
 }
 
+struct ChatHistoryRequest {
+    subcommand: ChatHistorySubcommand,
+    requested_at: Instant,
+}
+
 pub struct Client {
     server: Server,
     config: config::Server,
@@ -110,7 +118,7 @@ pub struct Client {
     supports_account_notify: bool,
     supports_extended_join: bool,
     supports_chathistory: bool,
-    chathistory_requests: HashMap<String, ChatHistorySubcommand>,
+    chathistory_requests: HashMap<String, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<String, bool>,
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<String>,
@@ -283,7 +291,7 @@ impl Client {
                             } else {
                                 if self.supports_chathistory {
                                     if let Some(chathistory_target) = &finished.chathistory_target {
-                                        if let Some(subcommand) =
+                                        if let Some(ChatHistoryRequest { subcommand, .. }) =
                                             self.chathistory_requests.get(chathistory_target)
                                         {
                                             if let ChatHistorySubcommand::Before(_, _, limit) =
@@ -1470,7 +1478,9 @@ impl Client {
     }
 
     pub fn chathistory_request(&self, target: &str) -> Option<ChatHistorySubcommand> {
-        self.chathistory_requests.get(target).cloned()
+        self.chathistory_requests
+            .get(target)
+            .map(|request| request.subcommand.clone())
     }
 
     pub fn send_chathistory_request(&mut self, subcommand: ChatHistorySubcommand) {
@@ -1479,8 +1489,13 @@ impl Client {
                 if self.chathistory_requests.contains_key(target) {
                     return;
                 } else {
-                    self.chathistory_requests
-                        .insert(target.to_string(), subcommand.clone());
+                    self.chathistory_requests.insert(
+                        target.to_string(),
+                        ChatHistoryRequest {
+                            subcommand: subcommand.clone(),
+                            requested_at: Instant::now(),
+                        },
+                    );
                 }
             }
 
@@ -1698,10 +1713,12 @@ impl Client {
                 );
             }
         }
+
+        self.chathistory_requests.retain(|_, chathistory_request| {
+            now.duration_since(chathistory_request.requested_at) < CHATHISTORY_REQUEST_TIMEOUT
+        });
     }
 }
-
-const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
 
 fn continue_chathistory_between(
     target: &str,
