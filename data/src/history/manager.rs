@@ -488,22 +488,24 @@ impl Data {
                     });
                 }
                 _ => {
+                    let read_marker = history::load_read_marker(&server, &kind);
                     entry.insert(History::Full {
                         server,
                         kind,
                         messages,
                         last_received_at: None,
-                        read_marker: None,
+                        read_marker,
                     });
                 }
             },
             hash_map::Entry::Vacant(entry) => {
+                let read_marker = history::load_read_marker(&server, &kind);
                 entry.insert(History::Full {
                     server,
                     kind,
                     messages,
                     last_received_at: None,
-                    read_marker: None,
+                    read_marker,
                 });
             }
         }
