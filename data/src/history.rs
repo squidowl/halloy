@@ -53,7 +53,21 @@ impl From<message::Target> for Kind {
 pub async fn load_messages(server: &server::Server, kind: &Kind) -> Vec<Message> {
     let path = messages_path(server, kind);
 
-    read_messages(&path).await.unwrap_or_default()
+    if let Ok(messages) = read_messages(&path).await {
+        messages
+    } else {
+        // If messages are not found at the new path, look for messages at the
+        // old path.  Old messages stores did not have ordering by server_time
+        // strictly enforced, so sort them just in case.
+
+        let hash_path = messages_hash_path(server, kind);
+
+        let mut messages = read_messages(&hash_path).await.unwrap_or_default();
+
+        messages.sort_by(|a, b| a.server_time.cmp(&b.server_time));
+
+        messages
+    }
 }
 
 pub fn load_read_marker(server: &server::Server, kind: &Kind) -> Option<DateTime<Utc>> {
@@ -140,6 +154,22 @@ fn messages_path(server: &server::Server, kind: &Kind) -> PathBuf {
     };
 
     dir.join(format!("{name}.json.gz"))
+}
+
+fn messages_hash_path(server: &server::Server, kind: &Kind) -> PathBuf {
+    let data_dir = environment::data_dir();
+
+    let history_dir = data_dir.join("history");
+
+    let name = match kind {
+        Kind::Server => format!("{server}"),
+        Kind::Channel(channel) => format!("{server}channel{channel}"),
+        Kind::Query(nick) => format!("{server}nickname{}", nick),
+    };
+
+    let hashed_name = seahash::hash(name.as_bytes());
+
+    history_dir.join(format!("{hashed_name}.json.gz"))
 }
 
 fn read_marker_path(server: &server::Server, kind: &Kind) -> PathBuf {
