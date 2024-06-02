@@ -868,10 +868,11 @@ impl Client {
                             )]);
                         } else if user.nickname()
                             && context.is_some()
-                            && !self.supports_chathistory
+                            && message_id(&message).is_none()
                         {
-                            // If we sent (echo), context exists (we sent from this client),
-                            // & chathistory is not supported (we don't need its msgid), ignore
+                            // If we sent (echo) & context exists (we sent from this client),
+                            // then ignore unless it has a message id (in which case the local
+                            // copy should be updated with the message id)
                             return None;
                         }
 
