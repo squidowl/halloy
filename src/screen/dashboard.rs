@@ -285,60 +285,7 @@ impl Dashboard {
                         return (self.focus_pane(from), None);
                     }
                     sidebar::Event::Leave(buffer) => {
-                        let pane = self.panes.iter().find_map(|(pane, state)| {
-                            (state.buffer.data().as_ref() == Some(&buffer)).then_some(*pane)
-                        });
-
-                        // Close pane
-                        if let Some(pane) = pane {
-                            if self.panes.close(pane).is_none() {
-                                if let Some(state) = self.panes.get_mut(pane) {
-                                    state.buffer = Buffer::Empty;
-                                }
-                            }
-                            self.last_changed = Some(Instant::now());
-
-                            if self.focus == Some(pane) {
-                                self.focus = None;
-                            }
-                        }
-
-                        match buffer.clone() {
-                            data::Buffer::Server(server) => {
-                                return (Command::none(), Some(Event::QuitServer(server)));
-                            }
-                            data::Buffer::Channel(server, channel) => {
-                                // Send part & close history file
-                                let command = data::Command::Part(channel.clone(), None);
-                                let input = data::Input::command(buffer.clone(), command);
-
-                                if let Some(encoded) = input.encoded() {
-                                    clients.send(&buffer, encoded);
-                                }
-
-                                return (
-                                    self.history
-                                        .close(server, history::Kind::Channel(channel))
-                                        .map(|task| {
-                                            Command::perform(task, |_| Message::CloseHistory)
-                                        })
-                                        .unwrap_or_else(Command::none),
-                                    None,
-                                );
-                            }
-                            data::Buffer::Query(server, nick) => {
-                                // No PART to send, just close history
-                                return (
-                                    self.history
-                                        .close(server, history::Kind::Query(nick))
-                                        .map(|task| {
-                                            Command::perform(task, |_| Message::CloseHistory)
-                                        })
-                                        .unwrap_or_else(Command::none),
-                                    None,
-                                );
-                            }
-                        }
+                        return self.leave_buffer(clients, buffer);
                     }
                     sidebar::Event::ToggleFileTransfers => {
                         return (self.toggle_file_transfers(config), None);
@@ -563,6 +510,13 @@ impl Dashboard {
                             }
                         }
                     }
+                    LeaveBuffer => {
+                        if let Some((_, state)) = self.get_focused_mut() {
+                            if let Some(buffer) = state.buffer.data() {
+                                return self.leave_buffer(clients, buffer);
+                            }
+                        }
+                    }
                     ToggleNicklist => {
                         if let Some((_, pane)) = self.get_focused_mut() {
                             pane.update_settings(|settings| {
@@ -570,6 +524,9 @@ impl Dashboard {
                                     !settings.channel.nicklist.enabled
                             });
                         }
+                    }
+                    ToggleSidebar => {
+                        self.side_menu.toggle_visibility();
                     }
                     CommandBar => {
                         return (
@@ -873,6 +830,61 @@ impl Dashboard {
         }
 
         Command::none()
+    }
+
+    pub fn leave_buffer(
+        &mut self,
+        clients: &mut data::client::Map,
+        buffer: data::Buffer,
+    ) -> (Command<Message>, Option<Event>) {
+        let pane = self.panes.iter().find_map(|(pane, state)| {
+            (state.buffer.data().as_ref() == Some(&buffer)).then_some(*pane)
+        });
+
+        // Close pane
+        if let Some(pane) = pane {
+            if self.panes.close(pane).is_none() {
+                if let Some(state) = self.panes.get_mut(pane) {
+                    state.buffer = Buffer::Empty;
+                }
+            }
+            self.last_changed = Some(Instant::now());
+
+            if self.focus == Some(pane) {
+                self.focus = None;
+            }
+        }
+
+        match buffer.clone() {
+            data::Buffer::Server(server) => (Command::none(), Some(Event::QuitServer(server))),
+            data::Buffer::Channel(server, channel) => {
+                // Send part & close history file
+                let command = data::Command::Part(channel.clone(), None);
+                let input = data::Input::command(buffer.clone(), command);
+
+                if let Some(encoded) = input.encoded() {
+                    clients.send(&buffer, encoded);
+                }
+
+                (
+                    self.history
+                        .close(server, history::Kind::Channel(channel))
+                        .map(|task| Command::perform(task, |_| Message::CloseHistory))
+                        .unwrap_or_else(Command::none),
+                    None,
+                )
+            }
+            data::Buffer::Query(server, nick) => {
+                // No PART to send, just close history
+                (
+                    self.history
+                        .close(server, history::Kind::Query(nick))
+                        .map(|task| Command::perform(task, |_| Message::CloseHistory))
+                        .unwrap_or_else(Command::none),
+                    None,
+                )
+            }
+        }
     }
 
     pub fn record_message(&mut self, server: &Server, message: data::Message) {
