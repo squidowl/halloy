@@ -32,7 +32,9 @@ pub enum Command {
     RestoreBuffer,
     CycleNextBuffer,
     CyclePreviousBuffer,
+    LeaveBuffer,
     ToggleNicklist,
+    ToggleSidebar,
     CommandBar,
     ReloadConfiguration,
 }
@@ -109,7 +111,9 @@ impl KeyBind {
     default!(restore_buffer, ArrowDown, COMMAND);
     default!(cycle_next_buffer, Tab, CTRL);
     default!(cycle_previous_buffer, Tab, CTRL | SHIFT);
+    default!(leave_buffer, "w", COMMAND | SHIFT);
     default!(toggle_nick_list, "m", COMMAND | ALT);
+    default!(toggle_sidebar, "b", COMMAND | ALT);
     default!(command_bar, "k", COMMAND);
     default!(reload_configuration, "r", COMMAND);
 
