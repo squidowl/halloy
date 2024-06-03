@@ -91,6 +91,7 @@ Added:
 - Configurable shortcuts for "Leave Buffer" and "Toggle Sidebar" actions (see [keyboard shortcuts configuration](https://halloy.squidowl.org/configuration/keyboard.html)).
 - Ability to remember window position and size when reopened.
 - Ability to hide unread indicators in sidebar (see [sidemenu configuration](https://halloy.squidowl.org/configuration/sidebar.html))
+- Support for IRCv3 `chathistory`.
 
 Fixed:
 
