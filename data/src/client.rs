@@ -78,7 +78,7 @@ pub enum Broadcast {
 
 #[derive(Debug, Clone)]
 pub enum HistoryRequest {
-    Targets(DateTime<Utc>),
+    Targets,
     Queries(Vec<isupport::MessageReferenceType>, DateTime<Utc>),
     Recent(String, Vec<isupport::MessageReferenceType>, DateTime<Utc>),
     Older(String, Vec<isupport::MessageReferenceType>),
@@ -94,6 +94,7 @@ pub enum Event {
     ChatHistoryRequest(ChatHistorySubcommand),
     ChatHistoryRequestFromHistory(HistoryRequest),
     ChatHistoryRequestReceived(ChatHistorySubcommand, usize),
+    ChatHistoryTargetsReceived(DateTime<Utc>),
     CheckForStoredUnread(String),
 }
 
@@ -277,9 +278,13 @@ impl Client {
                     '+' => {
                         let mut batch = Batch::new(context);
 
-                        if Some("chathistory") == params.first().map(|x| x.as_str()) {
-                            batch.chathistory_target = params.get(1).cloned();
-                        }
+                        batch.chathistory = match params.first().map(|x| x.as_str()) {
+                            Some("chathistory") => params
+                                .get(1)
+                                .map(|target| ChatHistoryBatch::Target(target.clone())),
+                            Some("draft/chathistory-targets") => Some(ChatHistoryBatch::Targets),
+                            _ => None,
+                        };
 
                         self.batches.insert(reference, batch);
                     }
@@ -292,16 +297,16 @@ impl Client {
                             {
                                 parent.events.extend(finished.events);
                             } else {
-                                if self.supports_chathistory {
-                                    if let Some(chathistory_target) = &finished.chathistory_target {
+                                match &finished.chathistory {
+                                    Some(ChatHistoryBatch::Target(batch_target)) => {
                                         if let Some(ChatHistoryRequest { subcommand, .. }) =
-                                            self.chathistory_requests.get(chathistory_target)
+                                            self.chathistory_requests.get(batch_target)
                                         {
                                             if let ChatHistorySubcommand::Before(_, _, limit) =
                                                 subcommand
                                             {
                                                 self.chathistory_exhausted.insert(
-                                                    chathistory_target.to_string(),
+                                                    batch_target.to_string(),
                                                     finished.events.len() < *limit as usize,
                                                 );
                                             }
@@ -365,6 +370,12 @@ impl Client {
                                             }
                                         }
                                     }
+                                    Some(ChatHistoryBatch::Targets) => {
+                                        finished.events.push(Event::ChatHistoryTargetsReceived(
+                                            server_time(&message),
+                                        ));
+                                    }
+                                    _ => (),
                                 }
 
                                 return Some(finished.events);
@@ -380,7 +391,12 @@ impl Client {
                 let events = if let Some(target) = batch_tag
                     .as_ref()
                     .and_then(|batch| self.batches.get(batch))
-                    .and_then(|batch| batch.chathistory_target.clone())
+                    .and_then(|batch| {
+                        batch
+                            .chathistory
+                            .as_ref()
+                            .and_then(|chathistory| chathistory.target())
+                    })
                     .and_then(|target| {
                         if self.chathistory_requests.contains_key(&target) {
                             Some(target)
@@ -598,7 +614,7 @@ impl Client {
                     self.supports_chathistory = true;
 
                     let mut commands = vec![Event::ChatHistoryRequestFromHistory(
-                        HistoryRequest::Targets(server_time(&message)),
+                        HistoryRequest::Targets,
                     )];
 
                     if self.isupport.contains_key(&isupport::Kind::MSGREFTYPES) {
@@ -2071,10 +2087,25 @@ impl Context {
 }
 
 #[derive(Debug)]
+pub enum ChatHistoryBatch {
+    Target(String),
+    Targets,
+}
+
+impl ChatHistoryBatch {
+    pub fn target(&self) -> Option<String> {
+        match self {
+            ChatHistoryBatch::Target(batch_target) => Some(batch_target.clone()),
+            ChatHistoryBatch::Targets => None,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Batch {
     context: Option<Context>,
     events: Vec<Event>,
-    chathistory_target: Option<String>,
+    chathistory: Option<ChatHistoryBatch>,
 }
 
 impl Batch {
@@ -2082,7 +2113,7 @@ impl Batch {
         Self {
             context,
             events: vec![],
-            chathistory_target: None,
+            chathistory: None,
         }
     }
 }

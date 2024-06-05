@@ -80,6 +80,16 @@ pub fn load_read_marker(server: &server::Server, kind: &Kind) -> Option<DateTime
     }
 }
 
+pub fn load_targets_marker(server: &server::Server) -> Option<DateTime<Utc>> {
+    let path = targets_marker_path(server);
+
+    if let Ok(bytes) = std::fs::read(path) {
+        serde_json::from_slice(&bytes).unwrap_or_default()
+    } else {
+        None
+    }
+}
+
 pub async fn overwrite(
     server: &server::Server,
     kind: &Kind,
@@ -103,6 +113,25 @@ pub async fn overwrite(
     let bytes = serde_json::to_vec(&read_marker)?;
 
     fs::write(read_marker_path(server, kind), &bytes).await?;
+
+    if let Some(read_marker) = read_marker {
+        let targets_marker = load_targets_marker(server);
+
+        if !targets_marker.is_some_and(|targets_marker| targets_marker >= *read_marker) {
+            let _ = overwrite_targets_marker(server.clone(), *read_marker).await;
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn overwrite_targets_marker(
+    server: server::Server,
+    targets_marker: DateTime<Utc>,
+) -> Result<(), Error> {
+    let bytes = serde_json::to_vec(&targets_marker)?;
+
+    fs::write(targets_marker_path(&server), &bytes).await?;
 
     Ok(())
 }
@@ -182,6 +211,12 @@ fn read_marker_path(server: &server::Server, kind: &Kind) -> PathBuf {
     };
 
     dir.join(format!("{name}.json"))
+}
+
+fn targets_marker_path(server: &server::Server) -> PathBuf {
+    let dir = dir_path(server, &Kind::Server);
+
+    dir.join(format!("{server}_targets_marker.json"))
 }
 
 #[derive(Debug)]
