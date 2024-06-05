@@ -19,7 +19,7 @@ mod window;
 use std::env;
 use std::time::{Duration, Instant};
 
-use chrono::{TimeDelta, Utc};
+use chrono::Utc;
 use data::config::{self, Config};
 use data::isupport::{ChatHistorySubcommand, MessageReference};
 use data::version::Version;
@@ -222,6 +222,7 @@ pub enum Message {
     Window(data::window::Event),
     WindowSettingsSaved(Result<(), data::window::Error>),
     ChatHistoryRequest(server::Server, ChatHistorySubcommand),
+    ChatHistoryTargetsMarked(server::Server, Result<(), history::Error>),
 }
 
 impl Halloy {
@@ -559,31 +560,22 @@ impl Halloy {
                                         history_request,
                                     ) => {
                                         match history_request {
-                                            data::client::HistoryRequest::Targets(before_server_time) => {
+                                            data::client::HistoryRequest::Targets => {
                                                 let server = server.clone();
                                                 let limit = self.clients.get_server_chathistory_limit(&server);
 
-                                                let before_server_time = TimeDelta::try_seconds(60 * 60)
-                                                    .and_then(|time_delta| before_server_time.checked_sub_signed(time_delta))
-                                                    .map_or(before_server_time, |fuzzed_server_time| fuzzed_server_time);
+                                                let start_message_reference = history::load_targets_marker(&server)
+                                                    .map_or(MessageReference::None, |targets_marker| {
+                                                        MessageReference::Timestamp(targets_marker)
+                                                    });
 
-                                                commands.push(
-                                                    Command::perform(
-                                                        history::get_latest_connected_message_reference(
-                                                            server.clone(),
-                                                            before_server_time,
-                                                        ),
-                                                        move |latest_connected_message_reference| {
-                                                            Message::ChatHistoryRequest(
-                                                                server,
-                                                                ChatHistorySubcommand::Targets(
-                                                                    latest_connected_message_reference,
-                                                                    MessageReference::None,
-                                                                    limit,
-                                                                ),
-                                                            )
-                                                        }
-                                                    )
+                                                self.clients.send_chathistory_request(
+                                                    &server,
+                                                    ChatHistorySubcommand::Targets(
+                                                        start_message_reference,
+                                                        MessageReference::None,
+                                                        limit,
+                                                    ),
                                                 );
                                             }
                                             data::client::HistoryRequest::Queries(
@@ -680,6 +672,14 @@ impl Halloy {
                                                 );
                                             }
                                         }
+                                    }
+                                    data::client::Event::ChatHistoryTargetsReceived(server_time) => {
+                                        let server = server.clone();
+
+                                        commands.push(Command::perform(
+                                            history::overwrite_targets_marker(server.clone(), server_time),
+                                            move |result| Message::ChatHistoryTargetsMarked(server, result),
+                                        ));
                                     }
                                     data::client::Event::ChatHistoryRequestReceived(
                                         subcommand,
@@ -880,6 +880,16 @@ impl Halloy {
             }
             Message::ChatHistoryRequest(server, subcommand) => {
                 self.clients.send_chathistory_request(&server, subcommand);
+
+                Command::none()
+            }
+            Message::ChatHistoryTargetsMarked(server, result) => {
+                match result {
+                    Ok(_) => log::debug!("[{server}] chathistory targets marked"),
+                    Err(error) => {
+                        log::warn!("[{server}] failed to mark chathistory targets: {error}")
+                    }
+                }
 
                 Command::none()
             }
