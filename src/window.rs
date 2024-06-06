@@ -1,11 +1,8 @@
-mod position;
-mod size;
-
 use futures::{stream::BoxStream, Stream, StreamExt};
 pub use iced::window::{close, Id, Settings};
 use iced::{advanced::graphics::futures::subscription, Subscription};
 
-use self::{position::Position, size::Size};
+use data::window::{self, Event};
 
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 pub fn settings() -> Settings {
@@ -67,12 +64,6 @@ pub fn settings() -> Settings {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Event {
-    Moved(Position),
-    Resized(Size),
-}
-
 pub fn events() -> Subscription<Event> {
     Subscription::from_recipe(Events)
 }
@@ -83,16 +74,16 @@ enum State<T: Stream<Item = Event>> {
     },
     Moving {
         stream: T,
-        position: Position,
+        position: window::Position,
     },
     Resizing {
         stream: T,
-        size: Size,
+        size: window::Size,
     },
     MovingAndResizing {
         stream: T,
-        position: Position,
-        size: Size,
+        position: window::Position,
+        size: window::Size,
     },
 }
 
@@ -115,10 +106,10 @@ impl subscription::Recipe for Events {
             futures::future::ready(match event {
                 iced::Event::Window(_, event) => match event {
                     iced::window::Event::Moved { x, y } => {
-                        Some(Event::Moved(Position::new(x as f32, y as f32)))
+                        Some(Event::Moved(window::Position::new(x as f32, y as f32)))
                     }
                     iced::window::Event::Resized { width, height } => {
-                        Some(Event::Resized(Size::new(width as f32, height as f32)))
+                        Some(Event::Resized(window::Size::new(width as f32, height as f32)))
                     }
                     _ => None,
                 },
