@@ -1334,7 +1334,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
         let layout = dashboard.panes.layout().clone();
 
         data::Dashboard {
-            pane: from_layout(&dashboard.panes, layout),
+            pane: from_layout(&dashboard.panes, layout)
         }
     }
 }
