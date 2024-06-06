@@ -282,7 +282,9 @@ impl Client {
                             Some("chathistory") => params
                                 .get(1)
                                 .map(|target| ChatHistoryBatch::Target(target.clone())),
-                            Some("draft/chathistory-targets") => Some(ChatHistoryBatch::Targets),
+                            Some("chathistory-targets") | Some("draft/chathistory-targets") => {
+                                Some(ChatHistoryBatch::Targets)
+                            }
                             _ => None,
                         };
 
