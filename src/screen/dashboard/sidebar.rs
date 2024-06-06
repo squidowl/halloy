@@ -248,7 +248,9 @@ fn buffer_button<'a>(
             } else {
                 icon::wifi_off()
             },
-            text(server.to_string()).style(theme::text::primary)
+            text(server.to_string())
+                .style(theme::text::primary)
+                .shaping(text::Shaping::Advanced)
         ]
         .spacing(8)
         .align_items(iced::Alignment::Center),
@@ -256,13 +258,21 @@ fn buffer_button<'a>(
             .push(horizontal_space().width(3))
             .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::text::info)))
             .push(horizontal_space().width(if has_unread { 10 } else { 16 }))
-            .push(text(channel.clone()).style(theme::text::primary))
+            .push(
+                text(channel.clone())
+                    .style(theme::text::primary)
+                    .shaping(text::Shaping::Advanced),
+            )
             .align_items(iced::Alignment::Center),
         Buffer::Query(_, nick) => row![]
             .push(horizontal_space().width(3))
             .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::text::info)))
             .push(horizontal_space().width(if has_unread { 10 } else { 16 }))
-            .push(text(nick.to_string()).style(theme::text::primary))
+            .push(
+                text(nick.to_string())
+                    .style(theme::text::primary)
+                    .shaping(text::Shaping::Advanced),
+            )
             .align_items(iced::Alignment::Center),
     };
 
