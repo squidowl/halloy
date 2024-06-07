@@ -100,7 +100,7 @@ impl subscription::Recipe for Events {
 
     fn stream(self: Box<Self>, events: subscription::EventStream) -> BoxStream<'static, Self::Output> {
         use futures::stream;
-        const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+        const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
 
         let window_events = events.filter_map(|(event, _status)| {
             futures::future::ready(match event {

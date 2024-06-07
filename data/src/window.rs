@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{compression, environment};
+use crate::environment;
 
 pub use self::size::Size;
 pub use self::position::Position;
@@ -31,14 +31,13 @@ impl Window {
 
         let bytes = std::fs::read(path)?;
 
-        Ok(compression::decompress(&bytes)?)
+        Ok(serde_json::from_slice(&bytes)?)
     }
 
     pub async fn save(self) -> Result<(), Error> {
         let path = path()?;
 
-        let bytes = compression::compress(&self)?;
-
+        let bytes = serde_json::to_vec(&self)?;
         tokio::fs::write(path, &bytes).await?;
 
         Ok(())
@@ -52,13 +51,13 @@ fn path() -> Result<PathBuf, Error> {
         std::fs::create_dir_all(&parent)?;
     }
 
-    Ok(parent.join("window.json.gz"))
+    Ok(parent.join("window.json"))
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Compression(#[from] compression::Error),
+    Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Io(#[from] io::Error),
 }
