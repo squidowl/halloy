@@ -7,6 +7,10 @@ Added:
 - Ability to overwrite server & internal message colors by providing a hex string (see [buffer configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferserver_messages-section)).
 - Configurable shortcuts for "Leave Buffer" and "Toggle Sidebar" actions (see [keyboard shortcuts configuration](https://github.com/squidowl/halloy/wiki/Keyboard-shortcuts)).
 
+Fixed:
+
+- UTF-8 channel name rendering in sidebar and in pane title bars.
+
 # 2024.7 (2024-05-05)
 
 Added:

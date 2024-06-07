@@ -236,10 +236,14 @@ impl TitleBar {
             controls = controls.push(close_button_with_tooltip);
         }
 
-        let title = container(text(value).style(theme::text::transparent))
-            .height(22)
-            .padding([0, 4])
-            .align_y(iced::alignment::Vertical::Center);
+        let title = container(
+            text(value)
+                .style(theme::text::transparent)
+                .shaping(text::Shaping::Advanced),
+        )
+        .height(22)
+        .padding([0, 4])
+        .align_y(iced::alignment::Vertical::Center);
 
         widget::TitleBar::new(title).controls(controls).padding(6)
     }
