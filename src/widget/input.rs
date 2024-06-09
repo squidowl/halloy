@@ -266,7 +266,7 @@ where
 
 fn error<'a, 'b, Message: 'a>(error: &'b str) -> Element<'a, Message> {
     container(text(error.to_string()).style(theme::text::error))
-        .center_y(Length::Fill)
+        .center_y(Length::Shrink)
         .padding(8)
         .style(theme::container::context)
         .into()
