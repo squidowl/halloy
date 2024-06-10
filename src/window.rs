@@ -1,4 +1,8 @@
+use futures::{stream::BoxStream, Stream, StreamExt};
 pub use iced::window::{close, Id, Settings};
+use iced::{advanced::graphics::futures::subscription, Subscription};
+
+use data::window::{self, Event};
 
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 pub fn settings() -> Settings {
@@ -57,5 +61,154 @@ pub fn settings() -> Settings {
         Err(_) => Settings {
             ..Default::default()
         },
+    }
+}
+
+pub fn events() -> Subscription<Event> {
+    Subscription::from_recipe(Events)
+}
+
+enum State<T: Stream<Item = Event>> {
+    Idle {
+        stream: T,
+    },
+    Moving {
+        stream: T,
+        position: window::Position,
+    },
+    Resizing {
+        stream: T,
+        size: window::Size,
+    },
+    MovingAndResizing {
+        stream: T,
+        position: window::Position,
+        size: window::Size,
+    },
+}
+
+struct Events;
+
+impl subscription::Recipe for Events {
+    type Output = Event;
+
+    fn hash(&self, state: &mut subscription::Hasher) {
+        use std::hash::Hash;
+
+        std::any::TypeId::of::<Self>().hash(state);
+    }
+
+    fn stream(self: Box<Self>, events: subscription::EventStream) -> BoxStream<'static, Self::Output> {
+        use futures::stream;
+        const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
+
+        let window_events = events.filter_map(|(event, _status)| {
+            futures::future::ready(match event {
+                iced::Event::Window(_, event) => match event {
+                    iced::window::Event::Moved { x, y } => {
+                        Some(Event::Moved(window::Position::new(x as f32, y as f32)))
+                    }
+                    iced::window::Event::Resized { width, height } => {
+                        Some(Event::Resized(window::Size::new(width as f32, height as f32)))
+                    }
+                    _ => None,
+                },
+                _ => None,
+            })
+        });
+
+        stream::unfold(
+            State::Idle {
+                stream: window_events,
+            },
+            move |state| async move {
+                match state {
+                    State::Idle { mut stream } => stream.next().await.map(|event| {
+                        (
+                            vec![],
+                            match event {
+                                Event::Moved(position) => State::Moving { stream, position },
+                                Event::Resized(size) => State::Resizing { stream, size },
+                            },
+                        )
+                    }),
+                    State::Moving {
+                        mut stream,
+                        position,
+                    } => {
+                        let next_event = tokio::time::timeout(TIMEOUT, stream.next()).await;
+
+                        match next_event {
+                            Ok(Some(Event::Moved(position))) => {
+                                Some((vec![], State::Moving { stream, position }))
+                            }
+                            Ok(Some(Event::Resized(size))) => Some((
+                                vec![],
+                                State::MovingAndResizing {
+                                    stream,
+                                    position,
+                                    size,
+                                },
+                            )),
+                            Err(_) => Some((vec![Event::Moved(position)], State::Idle { stream })),
+                            _ => None,
+                        }
+                    }
+                    State::Resizing { mut stream, size } => {
+                        let next_event = tokio::time::timeout(TIMEOUT, stream.next()).await;
+
+                        match next_event {
+                            Ok(Some(Event::Resized(size))) => {
+                                Some((vec![], State::Resizing { stream, size }))
+                            }
+                            Ok(Some(Event::Moved(position))) => Some((
+                                vec![],
+                                State::MovingAndResizing {
+                                    stream,
+                                    position,
+                                    size,
+                                },
+                            )),
+                            Err(_) => Some((vec![Event::Resized(size)], State::Idle { stream })),
+                            _ => None,
+                        }
+                    }
+                    State::MovingAndResizing {
+                        mut stream,
+                        position,
+                        size,
+                    } => {
+                        let next_event = tokio::time::timeout(TIMEOUT, stream.next()).await;
+
+                        match next_event {
+                            Ok(Some(Event::Moved(position))) => Some((
+                                vec![],
+                                State::MovingAndResizing {
+                                    stream,
+                                    position,
+                                    size,
+                                },
+                            )),
+                            Ok(Some(Event::Resized(size))) => Some((
+                                vec![],
+                                State::MovingAndResizing {
+                                    stream,
+                                    position,
+                                    size,
+                                },
+                            )),
+                            Err(_) => Some((
+                                vec![Event::Moved(position), Event::Resized(size)],
+                                State::Idle { stream },
+                            )),
+                            _ => None,
+                        }
+                    }
+                }
+            },
+        )
+        .map(stream::iter)
+        .flatten()
+        .boxed()
     }
 }

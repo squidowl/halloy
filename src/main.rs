@@ -21,6 +21,7 @@ use std::time::{Duration, Instant};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::version::Version;
+use data::window::Window;
 use data::{environment, server, version, User};
 use iced::advanced::Application;
 use iced::widget::{column, container};
@@ -88,6 +89,7 @@ fn settings(
     config_load: Result<Config, config::Error>,
     route_received: Option<data::Url>,
 ) -> iced::Settings<(Result<Config, config::Error>, Option<data::Url>)> {
+    let window_load = Window::load().unwrap_or_default();
     let default_text_size = config_load
         .as_ref()
         .ok()
@@ -99,6 +101,8 @@ fn settings(
         default_font: font::MONO.clone().into(),
         default_text_size: default_text_size.into(),
         window: window::Settings {
+            size: window_load.size.into(),
+            position: window_load.position.map(From::from).unwrap_or_default(),
             exit_on_close_request: false,
             ..window::settings()
         },
@@ -117,6 +121,7 @@ struct Halloy {
     clients: data::client::Map,
     servers: server::Map,
     modal: Option<Modal>,
+    window: Window,
 }
 
 impl Halloy {
@@ -178,6 +183,7 @@ impl Halloy {
                 servers: config.servers.clone(),
                 config,
                 modal: None,
+                window: Window::load().unwrap_or_default(),
             },
             command,
         )
@@ -203,6 +209,8 @@ pub enum Message {
     Version(Option<String>),
     Modal(modal::Message),
     RouteReceived(String),
+    Window(data::window::Event),
+    WindowSettingsSaved(Result<(), data::window::Error>),
 }
 
 impl Application for Halloy {
@@ -663,6 +671,18 @@ impl Application for Halloy {
 
                 Command::none()
             }
+            Message::Window(event) => {
+                self.window = self.window.update(event);
+
+                Command::perform(self.window.save(), Message::WindowSettingsSaved)
+            }
+            Message::WindowSettingsSaved(result) => {
+                if let Err(err) = result {
+                    log::error!("window settings failed to save: {:?}", err)
+                }
+
+                Command::none()
+            }
         }
     }
 
@@ -712,6 +732,7 @@ impl Application for Halloy {
 
         Subscription::batch(vec![
             url::listen().map(Message::RouteReceived),
+            window::events().map(Message::Window),
             tick,
             streams,
             events().map(Message::Event),

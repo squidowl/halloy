@@ -6,6 +6,7 @@ Added:
 - Ability to overwrite nickname colors by providing a hex string (see [buffer configuration](https://halloy.squidowl.org/configuration/buffer.html#buffernicknamecolor-section)).
 - Ability to overwrite server & internal message colors by providing a hex string (see [buffer configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferserver_messages-section)).
 - Configurable shortcuts for "Leave Buffer" and "Toggle Sidebar" actions (see [keyboard shortcuts configuration](https://github.com/squidowl/halloy/wiki/Keyboard-shortcuts)).
+- Ability to remember window position and size when reopened.
 
 Fixed:
 
