@@ -1,0 +1,11 @@
+name = "Gruvbox"
+
+[palette]
+background = "#282828"
+text = "#ebdbb2"
+action = "#98971a"
+accent = "#d79921"
+alert = "#b16286"
+error = "#cc241d"
+info = "#fabd2f"
+success = "#98971a"
