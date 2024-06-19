@@ -109,23 +109,20 @@ impl subscription::Recipe for Events {
             futures::future::ready(match event {
                 subscription::Event::Interaction {
                     window: _,
-                    event,
+                    event: iced::Event::Window(window_event),
                     status: _,
-                } => match event {
-                    iced::Event::Window(event) => match event {
-                        iced::window::Event::Moved { x, y } => {
-                            Some(Event::Moved(window::Position::new(x as f32, y as f32)))
-                        }
-                        iced::window::Event::Resized { width, height } => Some(Event::Resized(
-                            window::Size::new(width as f32, height as f32),
-                        )),
-                        _ => None,
-                    },
+                } => match window_event {
+                    iced::window::Event::Moved { x, y } => {
+                        Some(Event::Moved(window::Position::new(x as f32, y as f32)))
+                    }
+                    iced::window::Event::Resized { width, height } => Some(Event::Resized(
+                        window::Size::new(width as f32, height as f32),
+                    )),
                     _ => None,
                 },
                 _ => None,
             })
-        });
+        });        
 
         stream::unfold(
             State::Idle {
