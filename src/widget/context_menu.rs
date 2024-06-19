@@ -1,7 +1,7 @@
 use iced::advanced::widget::{operation, tree, Operation};
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
 use iced::widget::{column, container};
-use iced::{event, mouse, Command, Event, Length, Point, Rectangle, Size, Vector};
+use iced::{event, mouse, Task, Event, Length, Point, Rectangle, Size, Vector};
 
 use super::{double_pass, Element, Renderer};
 use crate::{theme, Theme};
@@ -9,7 +9,7 @@ use crate::{theme, Theme};
 pub fn context_menu<'a, T, Message>(
     base: impl Into<Element<'a, Message>>,
     entries: Vec<T>,
-    view: impl Fn(T, Length) -> Element<'a, Message> + 'a,
+    view:  impl Fn(T, Length) -> Element<'a, Message> + 'a,
 ) -> Element<'a, Message>
 where
     Message: 'a,
@@ -117,7 +117,7 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for ContextMenu<'a, Message> 
         tree: &mut iced::advanced::widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-        operation: &mut dyn widget::Operation<Message>,
+        operation: &mut dyn widget::Operation<()>,
     ) {
         let state = tree.state.downcast_mut::<State>();
 
@@ -202,7 +202,7 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for ContextMenu<'a, Message> 
     }
 }
 
-pub fn close<Message: 'static>(f: fn(bool) -> Message) -> Command<Message> {
+pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
     struct Close<T> {
         any_closed: bool,
         f: fn(bool) -> T,
@@ -232,7 +232,7 @@ pub fn close<Message: 'static>(f: fn(bool) -> Message) -> Command<Message> {
         }
     }
 
-    Command::widget(Close {
+    Task::widget(Close {
         any_closed: false,
         f,
     })
@@ -306,7 +306,7 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
         &mut self,
         layout: Layout<'_>,
         renderer: &Renderer,
-        operation: &mut dyn widget::Operation<Message>,
+        operation: &mut dyn widget::Operation<()>,
     ) {
         self.content
             .as_widget_mut()

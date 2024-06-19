@@ -1,7 +1,7 @@
 pub use data::buffer::Settings;
 use data::user::Nick;
 use data::{buffer, file_transfer, history, Config};
-use iced::Command;
+use iced::Task;
 
 use self::channel::Channel;
 use self::file_transfers::FileTransfers;
@@ -62,7 +62,7 @@ impl Buffer {
         history: &mut history::Manager,
         file_transfers: &mut file_transfer::Manager,
         config: &Config,
-    ) -> (Command<Message>, Option<Event>) {
+    ) -> (Task<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
                 let (command, event) = state.update(message, clients, history);
@@ -92,7 +92,7 @@ impl Buffer {
 
                 (command.map(Message::FileTransfers), None)
             }
-            _ => (Command::none(), None),
+            _ => (Task::none(), None),
         }
     }
 
@@ -148,18 +148,18 @@ impl Buffer {
         }
     }
 
-    pub fn focus(&self) -> Command<Message> {
+    pub fn focus(&self) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Command::none(),
+            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
             Buffer::Channel(channel) => channel.focus().map(Message::Channel),
             Buffer::Server(server) => server.focus().map(Message::Server),
             Buffer::Query(query) => query.focus().map(Message::Query),
         }
     }
 
-    pub fn reset(&self) -> Command<Message> {
+    pub fn reset(&self) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Command::none(),
+            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
             Buffer::Channel(channel) => channel.reset().map(Message::Channel),
             Buffer::Server(server) => server.reset().map(Message::Server),
             Buffer::Query(query) => query.reset().map(Message::Query),
@@ -170,10 +170,10 @@ impl Buffer {
         &mut self,
         nick: Nick,
         history: &mut history::Manager,
-    ) -> Command<Message> {
+    ) -> Task<Message> {
         if let Some(buffer) = self.data() {
             match self {
-                Buffer::Empty | Buffer::Server(_) | Buffer::FileTransfers(_) => Command::none(),
+                Buffer::Empty | Buffer::Server(_) | Buffer::FileTransfers(_) => Task::none(),
                 Buffer::Channel(channel) => channel
                     .input_view
                     .insert_user(nick, buffer, history)
@@ -184,13 +184,13 @@ impl Buffer {
                     .map(|message| Message::Query(query::Message::InputView(message))),
             }
         } else {
-            Command::none()
+            Task::none()
         }
     }
 
-    pub fn scroll_to_start(&mut self) -> Command<Message> {
+    pub fn scroll_to_start(&mut self) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Command::none(),
+            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
             Buffer::Channel(channel) => channel
                 .scroll_view
                 .scroll_to_start()
@@ -206,9 +206,9 @@ impl Buffer {
         }
     }
 
-    pub fn scroll_to_end(&mut self) -> Command<Message> {
+    pub fn scroll_to_end(&mut self) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Command::none(),
+            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
             Buffer::Channel(channel) => channel
                 .scroll_view
                 .scroll_to_end()

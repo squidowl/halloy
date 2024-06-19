@@ -1,6 +1,6 @@
 use data::{history, message, Config};
 use iced::widget::{column, container, row, vertical_space};
-use iced::{Command, Length};
+use iced::{Task, Length};
 
 use super::{input_view, scroll_view};
 use crate::theme;
@@ -130,7 +130,7 @@ impl Server {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
-    ) -> Command<Message> {
+    ) -> Task<Message> {
         match message {
             Message::ScrollView(message) => {
                 let (command, _) = self.scroll_view.update(message);
@@ -141,7 +141,7 @@ impl Server {
                 let command = command.map(Message::InputView);
 
                 match event {
-                    Some(input_view::Event::InputSent) => Command::batch(vec![
+                    Some(input_view::Event::InputSent) => Task::batch(vec![
                         command,
                         self.scroll_view.scroll_to_end().map(Message::ScrollView),
                     ]),
@@ -151,11 +151,11 @@ impl Server {
         }
     }
 
-    pub fn focus(&self) -> Command<Message> {
+    pub fn focus(&self) -> Task<Message> {
         self.input_view.focus().map(Message::InputView)
     }
 
-    pub fn reset(&self) -> Command<Message> {
+    pub fn reset(&self) -> Task<Message> {
         self.input_view.reset().map(Message::InputView)
     }
 }

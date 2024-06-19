@@ -4,7 +4,7 @@ use data::input::{Cache, Draft};
 use data::isupport;
 use data::user::{Nick, User};
 use data::{client, history, Buffer, Input};
-use iced::Command;
+use iced::Task;
 
 use crate::widget::{input, Element};
 
@@ -68,12 +68,12 @@ impl State {
         message: Message,
         clients: &mut client::Map,
         history: &mut history::Manager,
-    ) -> (Command<Message>, Option<Event>) {
+    ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Input(draft) => {
                 history.record_draft(draft);
 
-                (Command::none(), None)
+                (Task::none(), None)
             }
             Message::Send(input) => {
                 if let Some(encoded) = input.encoded() {
@@ -95,7 +95,7 @@ impl State {
                     history.record_input(input, user);
                 }
 
-                (Command::none(), Some(Event::InputSent))
+                (Task::none(), Some(Event::InputSent))
             }
             Message::Completion(draft) => {
                 history.record_draft(draft);
@@ -105,11 +105,11 @@ impl State {
         }
     }
 
-    pub fn focus(&self) -> Command<Message> {
+    pub fn focus(&self) -> Task<Message> {
         input::focus(self.input_id.clone())
     }
 
-    pub fn reset(&self) -> Command<Message> {
+    pub fn reset(&self) -> Task<Message> {
         input::reset(self.input_id.clone())
     }
 
@@ -118,7 +118,7 @@ impl State {
         nick: Nick,
         buffer: Buffer,
         history: &mut history::Manager,
-    ) -> Command<Message> {
+    ) -> Task<Message> {
         let mut text = history.input(&buffer).draft.to_string();
 
         if text.is_empty() {

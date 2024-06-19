@@ -157,7 +157,7 @@ where
         tree: &mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-        operation: &mut dyn widget::Operation<Message>,
+        operation: &mut dyn widget::Operation<()>,
     ) {
         self.content
             .as_widget()
