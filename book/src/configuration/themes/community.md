@@ -44,6 +44,10 @@ This is a list of community created themes for Halloy.
 
 <img src="dracula.png">
 
+## Gruvbox - [Save](gruvbox.toml)
+
+<img src="gruvbox.png">
+
 ## Kanagawa - [Save](kanagawa.toml)
 
 <img src="kanagawa.png">
