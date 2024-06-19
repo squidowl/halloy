@@ -259,7 +259,7 @@ where
         anchored_overlay(input, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
     }
 
-    fn operate(&self, state: &mut State, operation: &mut dyn widget::Operation<Message>) {
+    fn operate(&self, state: &mut State, operation: &mut dyn widget::Operation<()>) {
         operation.custom(state, Some(&self.id.clone().into()));
     }
 }
@@ -281,7 +281,7 @@ where
     }
 }
 
-pub fn reset<Message: 'static>(id: impl Into<widget::Id>) -> iced::Command<Message> {
+pub fn reset<Message: Send + 'static>(id: impl Into<widget::Id>) -> iced::Task<Message> {
     struct Reset {
         id: widget::Id,
     }
@@ -305,5 +305,5 @@ pub fn reset<Message: 'static>(id: impl Into<widget::Id>) -> iced::Command<Messa
         }
     }
 
-    iced::Command::widget(Reset { id: id.into() })
+    iced::Task::widget(Reset { id: id.into() })
 }
