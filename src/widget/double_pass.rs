@@ -100,7 +100,7 @@ impl<'a, Message> Widget<Message, Theme, Renderer> for DoublePass<'a, Message> {
         tree: &mut iced::advanced::widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-        operation: &mut dyn widget::Operation<Message>,
+        operation: &mut dyn widget::Operation<()>,
     ) {
         self.second_pass
             .as_widget()

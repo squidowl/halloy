@@ -13,7 +13,7 @@ pub fn events() -> Subscription<Event> {
     event::listen_with(filtered_events)
 }
 
-fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Event> {
+fn filtered_events(event: iced::Event, status: iced::event::Status, _id: iced::window::Id) -> Option<Event> {
     let ignored = |status| matches!(status, iced::event::Status::Ignored);
 
     match &event {
@@ -34,7 +34,7 @@ fn filtered_events(event: iced::Event, status: iced::event::Status) -> Option<Ev
             key: keyboard::Key::Named(keyboard::key::Named::End),
             ..
         }) if ignored(status) => Some(Event::End),
-        iced::Event::Window(_, window::Event::CloseRequested) => Some(Event::CloseRequested),
+        iced::Event::Window(window::Event::CloseRequested) => Some(Event::CloseRequested),
         _ => None,
     }
 }
