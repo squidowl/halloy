@@ -5,7 +5,7 @@ use iced::advanced::{layout, mouse, renderer, text, widget, Layout, Widget};
 use iced::widget::text::{Fragment, IntoFragment};
 use iced::widget::text_input::Value;
 use iced::{
-    alignment, event, touch, Border, Color, Command, Element, Length, Pixels, Point, Rectangle,
+    alignment, event, touch, Border, Color, Task, Element, Length, Pixels, Point, Rectangle,
     Shadow, Size,
 };
 
@@ -380,7 +380,7 @@ where
         tree: &mut Tree,
         layout: Layout<'_>,
         _renderer: &Renderer,
-        operation: &mut dyn Operation<Message>,
+        operation: &mut dyn Operation<()>,
     ) {
         let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
 
@@ -479,7 +479,7 @@ impl Interaction {
 //     renderer.measure_width(&value.to_string(), size, font, text::Shaping::Advanced)
 // }
 
-pub fn selected<Message: 'static>(f: fn(Vec<(f32, String)>) -> Message) -> Command<Message> {
+pub fn selected<Message: Send + 'static>(f: fn(Vec<(f32, String)>) -> Message) -> Task<Message> {
     struct Selected<T> {
         contents: Vec<(f32, String)>,
         f: fn(Vec<(f32, String)>) -> T,
@@ -506,7 +506,7 @@ pub fn selected<Message: 'static>(f: fn(Vec<(f32, String)>) -> Message) -> Comma
         }
     }
 
-    Command::widget(Selected {
+    Task::widget(Selected {
         contents: vec![],
         f,
     })

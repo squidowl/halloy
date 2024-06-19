@@ -3,7 +3,7 @@ use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
 use iced::widget::{column, container, horizontal_rule, row, text, scrollable, Scrollable};
-use iced::{Command, Length};
+use iced::{Task, Length};
 
 use super::user_context;
 use crate::theme;
@@ -144,7 +144,7 @@ impl State {
         Self::default()
     }
 
-    pub fn update(&mut self, message: Message) -> (Command<Message>, Option<Event>) {
+    pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Scrolled {
                 count,
@@ -213,16 +213,16 @@ impl State {
             }
             Message::UserContext(message) => {
                 return (
-                    Command::none(),
+                    Task::none(),
                     Some(Event::UserContext(user_context::update(message))),
                 );
             }
         }
 
-        (Command::none(), None)
+        (Task::none(), None)
     }
 
-    pub fn scroll_to_start(&mut self) -> Command<Message> {
+    pub fn scroll_to_start(&mut self) -> Task<Message> {
         self.status = Status::Idle(Anchor::Top);
         self.limit = Limit::top();
         scrollable::scroll_to(
@@ -231,7 +231,7 @@ impl State {
         )
     }
 
-    pub fn scroll_to_end(&mut self) -> Command<Message> {
+    pub fn scroll_to_end(&mut self) -> Task<Message> {
         self.status = Status::Idle(Anchor::Bottom);
         self.limit = Limit::bottom();
         scrollable::scroll_to(
