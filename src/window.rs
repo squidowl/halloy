@@ -98,19 +98,29 @@ impl subscription::Recipe for Events {
         std::any::TypeId::of::<Self>().hash(state);
     }
 
-    fn stream(self: Box<Self>, events: subscription::EventStream) -> BoxStream<'static, Self::Output> {
+    fn stream(
+        self: Box<Self>,
+        events: subscription::EventStream,
+    ) -> BoxStream<'static, Self::Output> {
         use futures::stream;
         const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
 
-        let window_events = events.filter_map(|(event, _status)| {
+        let window_events = events.filter_map(|event| {
             futures::future::ready(match event {
-                iced::Event::Window(_, event) => match event {
-                    iced::window::Event::Moved { x, y } => {
-                        Some(Event::Moved(window::Position::new(x as f32, y as f32)))
-                    }
-                    iced::window::Event::Resized { width, height } => {
-                        Some(Event::Resized(window::Size::new(width as f32, height as f32)))
-                    }
+                subscription::Event::Interaction {
+                    window: _,
+                    event,
+                    status: _,
+                } => match event {
+                    iced::Event::Window(event) => match event {
+                        iced::window::Event::Moved { x, y } => {
+                            Some(Event::Moved(window::Position::new(x as f32, y as f32)))
+                        }
+                        iced::window::Event::Resized { width, height } => Some(Event::Resized(
+                            window::Size::new(width as f32, height as f32),
+                        )),
+                        _ => None,
+                    },
                     _ => None,
                 },
                 _ => None,

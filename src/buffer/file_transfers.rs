@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use data::{file_transfer, Config};
 use iced::widget::{button, center, column, container, scrollable, text, Scrollable};
-use iced::{Command, Length};
+use iced::{Task, Length};
 
 use crate::widget::{Element, Text};
 use crate::{icon, theme};
@@ -68,12 +68,12 @@ impl FileTransfers {
         message: Message,
         file_transfers: &mut file_transfer::Manager,
         config: &Config,
-    ) -> Command<Message> {
+    ) -> Task<Message> {
         match message {
             Message::Approve(id) => {
                 if let Some(transfer) = file_transfers.get(&id).cloned() {
                     let save_directory = config.file_transfer.save_directory.clone();
-                    return Command::perform(
+                    return Task::perform(
                         async move {
                             rfd::AsyncFileDialog::new()
                                 .set_directory(save_directory)
@@ -96,7 +96,7 @@ impl FileTransfers {
             }
         }
 
-        Command::none()
+        Task::none()
     }
 }
 

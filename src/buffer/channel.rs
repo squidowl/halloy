@@ -3,7 +3,7 @@ use data::user::Nick;
 use data::User;
 use data::{channel, history, message, Config};
 use iced::widget::{column, container, row};
-use iced::{Command, Length};
+use iced::{Task, Length};
 
 use super::{input_view, scroll_view, user_context};
 use crate::theme;
@@ -225,7 +225,7 @@ impl Channel {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
-    ) -> (Command<Message>, Option<Event>) {
+    ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(message);
@@ -242,7 +242,7 @@ impl Channel {
 
                 match event {
                     Some(input_view::Event::InputSent) => {
-                        let command = Command::batch(vec![
+                        let command = Task::batch(vec![
                             command,
                             self.scroll_view.scroll_to_end().map(Message::ScrollView),
                         ]);
@@ -253,17 +253,17 @@ impl Channel {
                 }
             }
             Message::UserContext(message) => (
-                Command::none(),
+                Task::none(),
                 Some(Event::UserContext(user_context::update(message))),
             ),
         }
     }
 
-    pub fn focus(&self) -> Command<Message> {
+    pub fn focus(&self) -> Task<Message> {
         self.input_view.focus().map(Message::InputView)
     }
 
-    pub fn reset(&self) -> Command<Message> {
+    pub fn reset(&self) -> Task<Message> {
         self.input_view.reset().map(Message::InputView)
     }
 }

@@ -25,7 +25,7 @@ use data::window::Window;
 use data::{environment, server, version, User};
 use iced::advanced::Application;
 use iced::widget::{column, container};
-use iced::{executor, Command, Length, Renderer, Subscription};
+use iced::{executor, Task, Length, Renderer, Subscription};
 use screen::{dashboard, help, migration, welcome};
 
 use self::event::{events, Event};
@@ -127,7 +127,7 @@ struct Halloy {
 impl Halloy {
     pub fn load_from_state(
         config_load: Result<Config, config::Error>,
-    ) -> (Halloy, Command<Message>) {
+    ) -> (Halloy, Task<Message>) {
         let load_dashboard = |config| match data::Dashboard::load() {
             Ok(dashboard) => screen::Dashboard::restore(dashboard, config),
             Err(error) => {
@@ -151,7 +151,7 @@ impl Halloy {
                 config::Error::Parse(_) => (
                     Screen::Help(screen::Help::new(error)),
                     Config::default(),
-                    Command::none(),
+                    Task::none(),
                 ),
                 _ => {
                     // If we have a YAML file, but end up in this arm
@@ -160,14 +160,14 @@ impl Halloy {
                         (
                             Screen::Migration(screen::Migration::new()),
                             Config::default(),
-                            Command::none(),
+                            Task::none(),
                         )
                     } else {
                         // Otherwise, show regular welcome screen for new users.
                         (
                             Screen::Welcome(screen::Welcome::new()),
                             Config::default(),
-                            Command::none(),
+                            Task::none(),
                         )
                     }
                 }
@@ -220,14 +220,14 @@ impl Application for Halloy {
     type Theme = Theme;
     type Flags = (Result<Config, config::Error>, Option<data::Url>);
 
-    fn new(flags: Self::Flags) -> (Halloy, Command<Self::Message>) {
+    fn new(flags: Self::Flags) -> (Halloy, Task<Self::Message>) {
         let (config_load, url_received) = flags;
 
         let (mut halloy, command) = Halloy::load_from_state(config_load);
         let latest_remote_version =
-            Command::perform(version::latest_remote_version(), Message::Version);
+            Task::perform(version::latest_remote_version(), Message::Version);
 
-        let command = Command::batch(vec![command, latest_remote_version]);
+        let command = Task::batch(vec![command, latest_remote_version]);
 
         if let Some(url) = url_received {
             halloy.modal = Some(Modal::RouteReceived(url));
@@ -240,11 +240,11 @@ impl Application for Halloy {
         String::from("Halloy")
     }
 
-    fn update(&mut self, message: Message) -> Command<Message> {
+    fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Dashboard(message) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
-                    return Command::none();
+                    return Task::none();
                 };
 
                 let (command, event) = dashboard.update(
@@ -287,7 +287,7 @@ impl Application for Halloy {
                     }
                 }
 
-                Command::batch(vec![
+                Task::batch(vec![
                     command.map(Message::Dashboard),
                     track.map(Message::Dashboard),
                 ])
@@ -296,11 +296,11 @@ impl Application for Halloy {
                 // Set latest known remote version
                 self.version.remote = remote;
 
-                Command::none()
+                Task::none()
             }
             Message::Help(message) => {
                 let Screen::Help(help) = &mut self.screen else {
-                    return Command::none();
+                    return Task::none();
                 };
 
                 if let Some(event) = help.update(message) {
@@ -314,11 +314,11 @@ impl Application for Halloy {
                     }
                 }
 
-                Command::none()
+                Task::none()
             }
             Message::Welcome(message) => {
                 let Screen::Welcome(welcome) = &mut self.screen else {
-                    return Command::none();
+                    return Task::none();
                 };
 
                 if let Some(event) = welcome.update(message) {
@@ -332,11 +332,11 @@ impl Application for Halloy {
                     }
                 }
 
-                Command::none()
+                Task::none()
             }
             Message::Migration(message) => {
                 let Screen::Migration(migration) = &mut self.screen else {
-                    return Command::none();
+                    return Task::none();
                 };
 
                 if let Some(event) = migration.update(message) {
@@ -350,7 +350,7 @@ impl Application for Halloy {
                     }
                 }
 
-                Command::none()
+                Task::none()
             }
             Message::Stream(update) => match update {
                 stream::Update::Disconnected {
@@ -362,7 +362,7 @@ impl Application for Halloy {
                     self.clients.disconnected(server.clone());
 
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
-                        return Command::none();
+                        return Task::none();
                     };
 
                     if is_initial {
@@ -378,7 +378,7 @@ impl Application for Halloy {
                         dashboard.broadcast_disconnected(&server, error, &self.config, sent_time);
                     }
 
-                    Command::none()
+                    Task::none()
                 }
                 stream::Update::Connected {
                     server,
@@ -389,7 +389,7 @@ impl Application for Halloy {
                     self.clients.ready(server.clone(), connection);
 
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
-                        return Command::none();
+                        return Task::none();
                     };
 
                     if is_initial {
@@ -410,7 +410,7 @@ impl Application for Halloy {
                         dashboard.broadcast_reconnected(&server, &self.config, sent_time);
                     }
 
-                    Command::none()
+                    Task::none()
                 }
                 stream::Update::ConnectionFailed {
                     server,
@@ -418,16 +418,16 @@ impl Application for Halloy {
                     sent_time,
                 } => {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
-                        return Command::none();
+                        return Task::none();
                     };
 
                     dashboard.broadcast_connection_failed(&server, error, &self.config, sent_time);
 
-                    Command::none()
+                    Task::none()
                 }
                 stream::Update::MessagesReceived(server, messages) => {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
-                        return Command::none();
+                        return Task::none();
                     };
 
                     let commands = messages
@@ -575,11 +575,11 @@ impl Application for Halloy {
                     // user & channel lists are in sync
                     self.clients.sync(&server);
 
-                    Command::batch(commands)
+                    Task::batch(commands)
                 }
                 stream::Update::Quit(server, reason) => {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
-                        return Command::none();
+                        return Task::none();
                     };
 
                     self.servers.remove(&server);
@@ -599,7 +599,7 @@ impl Application for Halloy {
                         );
                     }
 
-                    Command::none()
+                    Task::none()
                 }
             },
             Message::Event(event) => {
@@ -616,7 +616,7 @@ impl Application for Halloy {
                 } else if let event::Event::CloseRequested = event {
                     window::close(window::Id::MAIN)
                 } else {
-                    Command::none()
+                    Task::none()
                 }
             }
             Message::Tick(now) => {
@@ -625,12 +625,12 @@ impl Application for Halloy {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.tick(now).map(Message::Dashboard)
                 } else {
-                    Command::none()
+                    Task::none()
                 }
             }
             Message::Modal(message) => {
                 let Some(modal) = &mut self.modal else {
-                    return Command::none();
+                    return Task::none();
                 };
 
                 if let Some(event) = modal.update(message) {
@@ -660,7 +660,7 @@ impl Application for Halloy {
                     }
                 }
 
-                Command::none()
+                Task::none()
             }
             Message::RouteReceived(route) => {
                 log::info!("RouteRecived: {:?}", route);
@@ -669,19 +669,19 @@ impl Application for Halloy {
                     self.modal = Some(Modal::RouteReceived(url));
                 };
 
-                Command::none()
+                Task::none()
             }
             Message::Window(event) => {
                 self.window = self.window.update(event);
 
-                Command::perform(self.window.save(), Message::WindowSettingsSaved)
+                Task::perform(self.window.save(), Message::WindowSettingsSaved)
             }
             Message::WindowSettingsSaved(result) => {
                 if let Err(err) = result {
                     log::error!("window settings failed to save: {:?}", err)
                 }
 
-                Command::none()
+                Task::none()
             }
         }
     }
