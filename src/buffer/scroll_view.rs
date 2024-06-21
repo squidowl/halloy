@@ -5,7 +5,7 @@ use data::{history, time, Config};
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, Scrollable,
 };
-use iced::{Command, Length, Task};
+use iced::{Length, Task};
 
 use super::user_context;
 use crate::theme;
@@ -260,7 +260,7 @@ impl State {
                     && matches!(self.limit, Limit::Top(_))
                     && relative_offset == 0.0
                 {
-                    return (Command::none(), Some(Event::RequestOlderChatHistory));
+                    return (Task::none(), Some(Event::RequestOlderChatHistory));
                 }
             }
             Message::UserContext(message) => {
@@ -270,7 +270,7 @@ impl State {
                 );
             }
             Message::RequestOlderChatHistory => {
-                return (Command::none(), Some(Event::RequestOlderChatHistory))
+                return (Task::none(), Some(Event::RequestOlderChatHistory))
             }
         }
 

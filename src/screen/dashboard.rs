@@ -13,7 +13,7 @@ use data::user::Nick;
 use data::{client, environment, file_transfer, history, isupport, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
-use iced::{clipboard, window, Task, Length};
+use iced::{clipboard, window, Length, Task};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -129,32 +129,23 @@ impl Dashboard {
                             config,
                         );
 
-                        if let Some(buffer::Event::UserContext(event)) = event {
-                            match event {
-                                buffer::user_context::Event::ToggleAccessLevel(nick, mode) => {
-                                    let Some(buffer) = pane.buffer.data() else {
-                                        return (Task::none(), None);
-                                    };
+                        match event {
+                            Some(buffer::Event::UserContext(event)) => {
+                                match event {
+                                    buffer::user_context::Event::ToggleAccessLevel(nick, mode) => {
+                                        let Some(buffer) = pane.buffer.data() else {
+                                            return (Task::none(), None);
+                                        };
 
-                                    let Some(target) = buffer.target() else {
-                                        return (Task::none(), None);
-                                    };
+                                        let Some(target) = buffer.target() else {
+                                            return (Task::none(), None);
+                                        };
 
-                                    let command = data::Command::Mode(
-                                        target,
-                                        Some(mode),
-                                        vec![nick.to_string()],
-                                    );
-                                    let input = data::Input::command(buffer.clone(), command);
-
-                                    if let Some(encoded) = input.encoded() {
-                                        clients.send(input.buffer(), encoded);
-                                    }
-                                }
-                                buffer::user_context::Event::SendWhois(nick) => {
-                                    if let Some(buffer) = pane.buffer.data() {
-                                        let command = data::Command::Whois(None, nick.to_string());
-
+                                        let command = data::Command::Mode(
+                                            target,
+                                            Some(mode),
+                                            vec![nick.to_string()],
+                                        );
                                         let input = data::Input::command(buffer.clone(), command);
 
                                         if let Some(encoded) = input.encoded() {
@@ -203,40 +194,19 @@ impl Dashboard {
                                             return (self.open_buffer(buffer, config), None);
                                         }
                                     }
-                                }
-                                buffer::user_context::Event::SingleClick(nick) => {
-                                    let Some((_, pane, history)) =
-                                        self.get_focused_with_history_mut()
-                                    else {
-                                        return (Task::none(), None);
-                                    };
-
-                                    return (
-                                        pane.buffer.insert_user_to_input(nick, history).map(
-                                            move |message| {
-                                                Message::Pane(pane::Message::Buffer(id, message))
-                                            },
-                                        ),
-                                        None,
-                                    );
-                                }
-                                buffer::user_context::Event::SendFile(nick) => {
-                                    if let Some(buffer) = pane.buffer.data() {
-                                        let server = buffer.server().clone();
-                                        let starting_directory =
-                                            config.file_transfer.save_directory.clone();
+                                    buffer::user_context::Event::SingleClick(nick) => {
+                                        let Some((_, pane, history)) =
+                                            self.get_focused_with_history_mut()
+                                        else {
+                                            return (Task::none(), None);
+                                        };
 
                                         return (
-                                            Task::perform(
-                                                async move {
-                                                    rfd::AsyncFileDialog::new()
-                                                        .set_directory(starting_directory)
-                                                        .pick_file()
-                                                        .await
-                                                        .map(|handle| handle.path().to_path_buf())
-                                                },
-                                                move |file| {
-                                                    Message::SendFileSelected(server.clone(), nick.clone(), file)
+                                            pane.buffer.insert_user_to_input(nick, history).map(
+                                                move |message| {
+                                                    Message::Pane(pane::Message::Buffer(
+                                                        id, message,
+                                                    ))
                                                 },
                                             ),
                                             None,
@@ -249,7 +219,7 @@ impl Dashboard {
                                                 config.file_transfer.save_directory.clone();
 
                                             return (
-                                                Command::perform(
+                                                Task::perform(
                                                     async move {
                                                         rfd::AsyncFileDialog::new()
                                                             .set_directory(starting_directory)
@@ -261,7 +231,9 @@ impl Dashboard {
                                                     },
                                                     move |file| {
                                                         Message::SendFileSelected(
-                                                            server, nick, file,
+                                                            server.clone(),
+                                                            nick.clone(),
+                                                            file,
                                                         )
                                                     },
                                                 ),
@@ -589,9 +561,7 @@ impl Dashboard {
                             None,
                         );
                     }
-                    ReloadConfiguration => {
-                        return (Task::none(), Some(Event::ReloadConfiguration))
-                    }
+                    ReloadConfiguration => return (Task::none(), Some(Event::ReloadConfiguration)),
                 }
             }
             Message::FileTransfer(update) => {
@@ -768,7 +738,7 @@ impl Dashboard {
                             .scroll_to_start()
                             .map(move |message| Message::Pane(pane::Message::Buffer(id, message)))
                     })
-                    .unwrap_or_else(Command::none)
+                    .unwrap_or_else(Task::none)
             }
             End => self
                 .get_focused_mut()
@@ -1470,7 +1440,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
         let layout = dashboard.panes.layout().clone();
 
         data::Dashboard {
-            pane: from_layout(&dashboard.panes, layout)
+            pane: from_layout(&dashboard.panes, layout),
         }
     }
 }

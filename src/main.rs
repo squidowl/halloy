@@ -26,7 +26,7 @@ use data::window::Window;
 use data::{environment, history, server, version, User};
 use iced::advanced::Application;
 use iced::widget::{column, container};
-use iced::{executor, Task, Length, Renderer, Subscription};
+use iced::{executor, Length, Renderer, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
 
 use self::event::{events, Event};
@@ -126,9 +126,7 @@ struct Halloy {
 }
 
 impl Halloy {
-    pub fn load_from_state(
-        config_load: Result<Config, config::Error>,
-    ) -> (Halloy, Task<Message>) {
+    pub fn load_from_state(config_load: Result<Config, config::Error>) -> (Halloy, Task<Message>) {
         let load_dashboard = |config| match data::Dashboard::load() {
             Ok(dashboard) => screen::Dashboard::restore(dashboard, config),
             Err(error) => {
@@ -582,7 +580,7 @@ impl Application for Halloy {
                                                     .for_each(|query| {
                                                         let server = server.clone();
                                                         let limit = self.clients.get_server_chathistory_limit(&server);
-                                                        commands.push(Command::perform(
+                                                        commands.push(Task::perform(
                                                             history::get_latest_message_reference(
                                                                 server.clone(),
                                                                 query.clone(),
@@ -593,7 +591,7 @@ impl Application for Halloy {
                                                                 Message::ChatHistoryRequest(
                                                                     server.clone(),
                                                                     ChatHistorySubcommand::Latest(
-                                                                        query,
+                                                                        query.clone(),
                                                                         latest_message_reference,
                                                                         limit,
                                                                     ),
@@ -611,7 +609,7 @@ impl Application for Halloy {
                                                 let limit = self.clients.get_server_chathistory_limit(&server);
 
                                                 commands.push(
-                                                    Command::perform(
+                                                    Task::perform(
                                                         history::get_latest_message_reference(
                                                             server.clone(),
                                                             target.clone(),
@@ -620,7 +618,7 @@ impl Application for Halloy {
                                                         ),
                                                         move |latest_message_reference| {
                                                             Message::ChatHistoryRequest(
-                                                                server,
+                                                                server.clone(),
                                                                 ChatHistorySubcommand::Latest(
                                                                     target.clone(),
                                                                     latest_message_reference,
@@ -665,9 +663,9 @@ impl Application for Halloy {
                                     data::client::Event::ChatHistoryTargetsReceived(server_time) => {
                                         let server = server.clone();
 
-                                        commands.push(Command::perform(
+                                        commands.push(Task::perform(
                                             history::overwrite_targets_marker(server.clone(), server_time),
-                                            move |result| Message::ChatHistoryTargetsMarked(server, result),
+                                            move |result| Message::ChatHistoryTargetsMarked(server.clone(), result),
                                         ));
                                     }
                                     data::client::Event::ChatHistoryRequestReceived(
@@ -731,7 +729,7 @@ impl Application for Halloy {
                                         let server = server.clone();
 
                                         commands.push(
-                                            Command::perform(
+                                            Task::perform(
                                                 history::num_stored_unread_messages(
                                                     server.clone(),
                                                     target.clone(),
@@ -739,8 +737,8 @@ impl Application for Halloy {
                                                 move |num_stored_unread_messages| {
                                                     Message::Dashboard(
                                                         dashboard::Message::StoredUnread(
-                                                            server,
-                                                            target,
+                                                            server.clone(),
+                                                            target.clone(),
                                                             num_stored_unread_messages,
                                                         ),
                                                     )
@@ -870,7 +868,7 @@ impl Application for Halloy {
             Message::ChatHistoryRequest(server, subcommand) => {
                 self.clients.send_chathistory_request(&server, subcommand);
 
-                Command::none()
+                Task::none()
             }
             Message::ChatHistoryTargetsMarked(server, result) => {
                 match result {
@@ -880,7 +878,7 @@ impl Application for Halloy {
                     }
                 }
 
-                Command::none()
+                Task::none()
             }
         }
     }
