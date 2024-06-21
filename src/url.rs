@@ -5,7 +5,7 @@ use iced::{self, Subscription};
 #[cfg(target_os = "macos")]
 pub fn listen() -> Subscription<String> {
     use futures::stream::StreamExt;
-    use iced::event::{self, Event};
+    use iced::advanced::graphics::futures::subscription::{Event, MacOS, PlatformSpecific};
 
     struct OnUrl;
 
@@ -24,15 +24,19 @@ pub fn listen() -> Subscription<String> {
             input: subscription::EventStream,
         ) -> BoxStream<'static, Self::Output> {
             input
-                .filter_map(move |(event, status)| {
-                    if let event::Status::Captured = status {
-                        return futures::future::ready(None);
+                .filter_map(move |event| {
+                    if let Event::Interaction { status, .. } = &event {
+                        if *status == iced::event::Status::Captured {
+                            return futures::future::ready(None);
+                        }
                     }
 
                     let result = match event {
-                        Event::PlatformSpecific(event::PlatformSpecific::MacOS(
-                            event::MacOS::ReceivedUrl(url),
-                        )) => Some(url),
+                        Event::PlatformSpecific(event) => match event {
+                            PlatformSpecific::MacOS(macos) => match macos {
+                                MacOS::ReceivedUrl(url) => Some(url),
+                            },
+                        },
                         _ => None,
                     };
 
