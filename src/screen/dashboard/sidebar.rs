@@ -102,7 +102,15 @@ impl Sidebar {
                             focus,
                             Buffer::Channel(server.clone(), channel.clone()),
                             true,
-                            history.has_unread(server, &history::Kind::Channel(channel.clone())),
+                            config
+                                .show_unread_indicators
+                                .then(|| {
+                                    history.has_unread(
+                                        server,
+                                        &history::Kind::Channel(channel.clone()),
+                                    )
+                                })
+                                .unwrap_or(false),
                             config.default_action,
                         ));
                     }
@@ -114,7 +122,12 @@ impl Sidebar {
                             focus,
                             Buffer::Query(server.clone(), user.clone()),
                             true,
-                            history.has_unread(server, &history::Kind::Query(user.clone())),
+                            config
+                                .show_unread_indicators
+                                .then(|| {
+                                    history.has_unread(server, &history::Kind::Query(user.clone()))
+                                })
+                                .unwrap_or(false),
                             config.default_action,
                         ));
                     }
