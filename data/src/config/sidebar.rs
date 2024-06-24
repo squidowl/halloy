@@ -10,6 +10,8 @@ pub struct Sidebar {
     pub width: u16,
     #[serde(default)]
     pub buttons: Buttons,
+    #[serde(default = "default_bool_true")]
+    pub show_unread_indicators: bool,
 }
 
 impl Default for Sidebar {
@@ -18,23 +20,24 @@ impl Default for Sidebar {
             default_action: Default::default(),
             width: default_sidebar_width(),
             buttons: Default::default(),
+            show_unread_indicators: default_bool_true(),
         }
     }
 }
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct Buttons {
-    #[serde(default = "default_file_transfer")]
+    #[serde(default = "default_bool_true")]
     pub file_transfer: bool,
-    #[serde(default = "default_command_bar")]
+    #[serde(default = "default_bool_true")]
     pub command_bar: bool,
 }
 
 impl Default for Buttons {
     fn default() -> Self {
         Buttons {
-            file_transfer: default_file_transfer(),
-            command_bar: default_command_bar(),
+            file_transfer: default_bool_true(),
+            command_bar: default_bool_true(),
         }
     }
 }
@@ -43,10 +46,6 @@ fn default_sidebar_width() -> u16 {
     120
 }
 
-fn default_file_transfer() -> bool {
-    true
-}
-
-fn default_command_bar() -> bool {
+fn default_bool_true() -> bool {
     true
 }
