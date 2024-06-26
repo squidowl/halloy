@@ -21,6 +21,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    RequestOlderChatHistory,
 }
 
 pub fn view<'a>(
@@ -41,10 +42,21 @@ pub fn view<'a>(
 
     let users = clients.get_channel_users(&state.server, &state.channel);
 
+    let chathistory_before_button = if clients.get_server_supports_chathistory(&state.server) {
+        Some((
+            clients
+                .get_chathistory_request(&state.server, &state.channel)
+                .is_some(),
+            clients.get_chathistory_exhausted(&state.server, &state.channel),
+        ))
+    } else {
+        None
+    };
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Channel(&state.server, &state.channel),
+            scroll_view::Kind::Channel(&state.server, &state.channel, chathistory_before_button),
             history,
             config,
             move |message| {
@@ -225,13 +237,15 @@ impl Channel {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
+        infinite_scroll: bool,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let (command, event) = self.scroll_view.update(message);
+                let (command, event) = self.scroll_view.update(message, infinite_scroll);
 
                 let event = event.map(|event| match event {
                     scroll_view::Event::UserContext(event) => Event::UserContext(event),
+                    scroll_view::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                 });
 
                 (command.map(Message::ScrollView), event)

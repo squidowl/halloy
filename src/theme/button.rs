@@ -48,6 +48,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
                         a: 0.2,
                         ..active.text_color
                     },
+                    radius: active.border.radius,
                     ..Default::default()
                 },
                 ..active
@@ -89,6 +90,7 @@ pub fn secondary(theme: &Theme, status: Status) -> Style {
                         a: 0.2,
                         ..active.text_color
                     },
+                    radius: active.border.radius,
                     ..Default::default()
                 },
                 ..active
@@ -145,7 +147,8 @@ pub fn tertiary(theme: &Theme, status: Status, selected: bool) -> Style {
                         a: 0.2,
                         ..active.text_color
                     },
-                    ..Default::default()
+                    width: active.border.width,
+                    radius: active.border.radius,
                 },
                 ..active
             }
@@ -184,6 +187,7 @@ pub fn context(theme: &Theme, status: Status) -> Style {
                         a: 0.2,
                         ..active.text_color
                     },
+                    radius: active.border.radius,
                     ..Default::default()
                 },
                 ..active
@@ -250,6 +254,7 @@ pub fn side_menu(theme: &Theme, status: Status) -> Style {
                         a: 0.2,
                         ..active.text_color
                     },
+                    radius: active.border.radius,
                     ..Default::default()
                 },
                 ..active
@@ -289,6 +294,7 @@ pub fn side_menu_selected(theme: &Theme, status: Status) -> Style {
                         a: 0.2,
                         ..active.text_color
                     },
+                    radius: active.border.radius,
                     ..Default::default()
                 },
                 ..active

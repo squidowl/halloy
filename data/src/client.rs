@@ -6,13 +6,17 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, Instant};
 
-use crate::message::server_time;
+use crate::isupport::{ChatHistorySubcommand, MessageReference};
+use crate::message::{message_id, server_time, source};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{config, dcc, isupport, message, mode, Buffer, Server, User};
 use crate::{file_transfer, server};
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
+
+const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
+const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -61,6 +65,14 @@ pub enum Broadcast {
     },
 }
 
+#[derive(Debug, Clone)]
+pub enum HistoryRequest {
+    Targets,
+    Queries(Vec<isupport::MessageReferenceType>, DateTime<Utc>),
+    Recent(String, Vec<isupport::MessageReferenceType>, DateTime<Utc>),
+    Older(String, Vec<isupport::MessageReferenceType>),
+}
+
 #[derive(Debug)]
 pub enum Event {
     Single(message::Encoded, Nick),
@@ -68,6 +80,16 @@ pub enum Event {
     Broadcast(Broadcast),
     Notification(message::Encoded, Nick, Notification),
     FileTransferRequest(file_transfer::ReceiveRequest),
+    ChatHistoryRequest(ChatHistorySubcommand),
+    ChatHistoryRequestFromHistory(HistoryRequest),
+    ChatHistoryRequestReceived(ChatHistorySubcommand, usize),
+    ChatHistoryTargetsReceived(DateTime<Utc>),
+    CheckForStoredUnread(String),
+}
+
+struct ChatHistoryRequest {
+    subcommand: ChatHistorySubcommand,
+    requested_at: Instant,
 }
 
 pub struct Client {
@@ -86,6 +108,9 @@ pub struct Client {
     listed_caps: Vec<String>,
     supports_labels: bool,
     supports_away_notify: bool,
+    supports_chathistory: bool,
+    chathistory_requests: HashMap<String, ChatHistoryRequest>,
+    chathistory_exhausted: HashMap<String, bool>,
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<String>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
@@ -136,6 +161,9 @@ impl Client {
             listed_caps: vec![],
             supports_labels: false,
             supports_away_notify: false,
+            supports_chathistory: false,
+            chathistory_requests: HashMap::new(),
+            chathistory_exhausted: HashMap::new(),
             highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
             isupport: HashMap::new(),
@@ -226,18 +254,29 @@ impl Client {
         });
 
         match &message.command {
-            Command::BATCH(batch, ..) => {
+            Command::BATCH(batch, params) => {
                 let mut chars = batch.chars();
                 let symbol = chars.next()?;
                 let reference = chars.collect::<String>();
 
                 match symbol {
                     '+' => {
-                        let batch = Batch::new(context);
+                        let mut batch = Batch::new(context);
+
+                        batch.chathistory = match params.first().map(|x| x.as_str()) {
+                            Some("chathistory") => params
+                                .get(1)
+                                .map(|target| ChatHistoryBatch::Target(target.clone())),
+                            Some("chathistory-targets") | Some("draft/chathistory-targets") => {
+                                Some(ChatHistoryBatch::Targets)
+                            }
+                            _ => None,
+                        };
+
                         self.batches.insert(reference, batch);
                     }
                     '-' => {
-                        if let Some(finished) = self.batches.remove(&reference) {
+                        if let Some(mut finished) = self.batches.remove(&reference) {
                             // If nested, extend events into parent batch
                             if let Some(parent) = batch_tag
                                 .as_ref()
@@ -245,6 +284,87 @@ impl Client {
                             {
                                 parent.events.extend(finished.events);
                             } else {
+                                match &finished.chathistory {
+                                    Some(ChatHistoryBatch::Target(batch_target)) => {
+                                        if let Some(ChatHistoryRequest { subcommand, .. }) =
+                                            self.chathistory_requests.get(batch_target)
+                                        {
+                                            if let ChatHistorySubcommand::Before(_, _, limit) =
+                                                subcommand
+                                            {
+                                                self.chathistory_exhausted.insert(
+                                                    batch_target.to_string(),
+                                                    finished.events.len() < *limit as usize,
+                                                );
+                                            }
+
+                                            let continue_chathistory = match subcommand {
+                                                ChatHistorySubcommand::Latest(
+                                                    target,
+                                                    message_reference,
+                                                    limit,
+                                                ) => {
+                                                    if matches!(
+                                                        message_reference,
+                                                        MessageReference::None
+                                                    ) {
+                                                        None
+                                                    } else if finished.events.len()
+                                                        == *limit as usize
+                                                    {
+                                                        continue_chathistory_between(
+                                                            target,
+                                                            &finished.events,
+                                                            message_reference,
+                                                            self.chathistory_limit(),
+                                                        )
+                                                    } else {
+                                                        None
+                                                    }
+                                                }
+                                                ChatHistorySubcommand::Before(_, _, _) => None,
+                                                ChatHistorySubcommand::Between(
+                                                    target,
+                                                    _,
+                                                    end_message_reference,
+                                                    limit,
+                                                ) => {
+                                                    if finished.events.len() == *limit as usize {
+                                                        continue_chathistory_between(
+                                                            target,
+                                                            &finished.events,
+                                                            end_message_reference,
+                                                            self.chathistory_limit(),
+                                                        )
+                                                    } else {
+                                                        None
+                                                    }
+                                                }
+                                                ChatHistorySubcommand::Targets(_, _, _) => None,
+                                            };
+
+                                            finished.events.push(
+                                                Event::ChatHistoryRequestReceived(
+                                                    subcommand.clone(),
+                                                    finished.events.len(),
+                                                ),
+                                            );
+
+                                            if let Some(subcommand) = continue_chathistory {
+                                                finished
+                                                    .events
+                                                    .push(Event::ChatHistoryRequest(subcommand));
+                                            }
+                                        }
+                                    }
+                                    Some(ChatHistoryBatch::Targets) => {
+                                        finished.events.push(Event::ChatHistoryTargetsReceived(
+                                            server_time(&message),
+                                        ));
+                                    }
+                                    _ => (),
+                                }
+
                                 return Some(finished.events);
                             }
                         }
@@ -255,7 +375,65 @@ impl Client {
                 return None;
             }
             _ if batch_tag.is_some() => {
-                let events = self.handle(message, context)?;
+                let events = if let Some(target) = batch_tag
+                    .as_ref()
+                    .and_then(|batch| self.batches.get(batch))
+                    .and_then(|batch| {
+                        batch
+                            .chathistory
+                            .as_ref()
+                            .and_then(|chathistory| chathistory.target())
+                    })
+                    .and_then(|target| {
+                        if self.chathistory_requests.contains_key(&target) {
+                            Some(target)
+                        } else {
+                            None
+                        }
+                    }) {
+                    if Some(User::from(Nick::from("HistServ"))) == message.user() {
+                        // HistServ provides event-playback without event-playback
+                        // which would require client-side parsing to map appropriately.
+                        // Avoid that complexity by only providing that functionality
+                        // via event-playback.
+                        vec![]
+                    } else {
+                        match &message.command {
+                            Command::NICK(_) => {
+                                let target = message::Target::Channel {
+                                    channel: target,
+                                    source: source::Source::Server(None),
+                                };
+
+                                vec![Event::WithTarget(
+                                    message,
+                                    self.nickname().to_owned(),
+                                    target,
+                                )]
+                            }
+                            Command::QUIT(_) => {
+                                let target = message::Target::Channel {
+                                    channel: target,
+                                    source: source::Source::Server(Some(source::Server::new(
+                                        source::server::Kind::Quit,
+                                        message
+                                            .user()
+                                            .map(|user| Nick::from(user.nickname().as_ref())),
+                                    ))),
+                                };
+
+                                vec![Event::WithTarget(
+                                    message,
+                                    self.nickname().to_owned(),
+                                    target,
+                                )]
+                            }
+                            _ => vec![Event::Single(message, self.nickname().to_owned())],
+                        }
+                    }
+                } else {
+                    self.handle(message, context)?
+                };
 
                 if let Some(batch) = self.batches.get_mut(&batch_tag.unwrap()) {
                     batch.events.extend(events);
@@ -307,6 +485,9 @@ impl Client {
 
                     let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
 
+                    let contains_starting_with =
+                        |s| self.listed_caps.iter().any(|cap| cap.starts_with(s));
+
                     if contains("invite-notify") {
                         requested.push("invite-notify");
                     }
@@ -324,6 +505,25 @@ impl Client {
                     }
                     if contains("batch") {
                         requested.push("batch");
+
+                        // We require batch for our chathistory support
+                        let requesting_chathistory = if contains("chathistory") {
+                            requested.push("chathistory");
+                            true
+                        } else if contains("draft/chathistory") {
+                            requested.push("draft/chathistory");
+                            true
+                        } else {
+                            false
+                        };
+
+                        if requesting_chathistory {
+                            if contains("event-playback") {
+                                requested.push("event-playback");
+                            } else if contains("draft/event-playback") {
+                                requested.push("draft/event-playback");
+                            }
+                        }
                     }
                     if contains("labeled-response") {
                         requested.push("labeled-response");
@@ -333,7 +533,7 @@ impl Client {
                             requested.push("echo-message");
                         }
                     }
-                    if self.listed_caps.iter().any(|cap| cap.starts_with("sasl")) {
+                    if contains_starting_with("sasl") {
                         requested.push("sasl");
                     }
                     if contains("multi-prefix") {
@@ -377,6 +577,25 @@ impl Client {
                     self.registration_step = RegistrationStep::End;
                     let _ = self.handle.try_send(command!("CAP", "END"));
                 }
+
+                if caps.contains(&"chathistory") || caps.contains(&"draft/chathistory") {
+                    self.supports_chathistory = true;
+
+                    let mut commands = vec![Event::ChatHistoryRequestFromHistory(
+                        HistoryRequest::Targets,
+                    )];
+
+                    if self.isupport.contains_key(&isupport::Kind::MSGREFTYPES) {
+                        commands.push(Event::ChatHistoryRequestFromHistory(
+                            HistoryRequest::Queries(
+                                self.chathistory_message_reference_types(),
+                                server_time(&message),
+                            ),
+                        ));
+                    }
+
+                    return Some(commands);
+                }
             }
             Command::CAP(_, sub, a, b) if sub == "NAK" => {
                 let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
@@ -414,8 +633,29 @@ impl Client {
                 if newly_contains("server-time") {
                     requested.push("server-time");
                 }
-                if newly_contains("batch") {
-                    requested.push("batch");
+                if contains("batch") || newly_contains("batch") {
+                    if newly_contains("batch") {
+                        requested.push("batch");
+                    }
+
+                    // We require batch for our chathistory support
+                    let requesting_chathistory = if newly_contains("chathistory") {
+                        requested.push("chathistory");
+                        true
+                    } else if newly_contains("draft/chathistory") {
+                        requested.push("draft/chathistory");
+                        true
+                    } else {
+                        false
+                    };
+
+                    if self.supports_chathistory || requesting_chathistory {
+                        if newly_contains("event-playback") {
+                            requested.push("event-playback");
+                        } else if newly_contains("draft/event-playback") {
+                            requested.push("draft/event-playback");
+                        }
+                    }
                 }
                 if contains("labeled-response") || newly_contains("labeled-response") {
                     if newly_contains("labeled-response") {
@@ -450,6 +690,9 @@ impl Client {
                 }
                 if del_caps.contains(&"away-notify") {
                     self.supports_away_notify = false;
+                }
+                if del_caps.contains(&"chathistory") || del_caps.contains(&"draft/chathistory") {
+                    self.supports_chathistory = false;
                 }
 
                 self.listed_caps
@@ -508,8 +751,13 @@ impl Client {
                             self.nickname().to_owned(),
                             Notification::Highlight(user, channel.clone()),
                         )]);
-                    } else if user.nickname() == self.nickname() && context.is_some() {
-                        // If we sent (echo) & context exists (we sent from this client), ignore
+                    } else if user.nickname() == self.nickname()
+                        && context.is_some()
+                        && message_id(&message).is_none()
+                    {
+                        // If we sent (echo) & context exists (we sent from this client),
+                        // then ignore unless it has a message id (in which case the local
+                        // copy should be updated with the message id)
                         return None;
                     }
                 }
@@ -671,6 +919,8 @@ impl Client {
                 }
             }
             Command::JOIN(channel, _) => {
+                let mut events = vec![];
+
                 let user = message.user()?;
 
                 if user.nickname() == self.nickname() {
@@ -694,10 +944,28 @@ impl Client {
                             state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
                         }
                         log::debug!("[{}] {channel} - WHO requested", self.server);
+
+                        events.push(Event::CheckForStoredUnread(channel.clone()));
+
+                        if self.supports_chathistory
+                            && self.isupport.contains_key(&isupport::Kind::MSGREFTYPES)
+                        {
+                            events.push(Event::ChatHistoryRequestFromHistory(
+                                HistoryRequest::Recent(
+                                    channel.clone(),
+                                    self.chathistory_message_reference_types(),
+                                    server_time(&message),
+                                ),
+                            ));
+                        }
                     }
                 } else if let Some(channel) = self.chanmap.get_mut(channel) {
                     channel.users.insert(user);
                 }
+
+                events.push(Event::Single(message, self.nickname().to_owned()));
+
+                return Some(events);
             }
             Command::KICK(channel, victim, _) => {
                 if victim == self.nickname().as_ref() {
@@ -897,6 +1165,8 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_ISUPPORT, args) => {
+                let mut events = vec![];
+
                 let args_len = args.len();
                 args.iter().enumerate().skip(1).for_each(|(index, arg)| {
                     let operation = arg.parse::<isupport::Operation>();
@@ -911,7 +1181,19 @@ impl Client {
                                             self.server,
                                             parameter
                                         );
-                                        self.isupport.insert(kind, parameter);
+
+                                        self.isupport.insert(kind.clone(), parameter);
+
+                                        if kind == isupport::Kind::MSGREFTYPES
+                                            && self.supports_chathistory
+                                        {
+                                            events.push(Event::ChatHistoryRequestFromHistory(
+                                                HistoryRequest::Queries(
+                                                    self.chathistory_message_reference_types(),
+                                                    server_time(&message),
+                                                ),
+                                            ));
+                                        }
                                     } else {
                                         log::debug!(
                                             "[{}] ignoring ISUPPORT parameter: {:?}",
@@ -927,6 +1209,7 @@ impl Client {
                                             self.server,
                                             kind
                                         );
+
                                         self.isupport.remove(&kind);
                                     }
                                 }
@@ -945,9 +1228,30 @@ impl Client {
                     }
                 });
 
-                return None;
+                if !events.is_empty() {
+                    return Some(events);
+                } else {
+                    return None;
+                }
             }
             Command::TAGMSG(_) => {
+                return None;
+            }
+            Command::CHATHISTORY(sub, args) => {
+                if sub == "TARGETS" {
+                    let target = args.first()?;
+
+                    if !proto::is_channel(target) {
+                        return Some(vec![Event::ChatHistoryRequestFromHistory(
+                            HistoryRequest::Recent(
+                                target.clone(),
+                                self.chathistory_message_reference_types(),
+                                server_time(&message),
+                            ),
+                        )]);
+                    }
+                }
+
                 return None;
             }
             _ => {}
@@ -972,6 +1276,166 @@ impl Client {
 
     pub fn channels(&self) -> &[String] {
         &self.channels
+    }
+
+    pub fn chathistory_limit(&self) -> u16 {
+        if let Some(isupport::Parameter::CHATHISTORY(server_limit)) =
+            self.isupport.get(&isupport::Kind::CHATHISTORY)
+        {
+            if *server_limit != 0 {
+                return std::cmp::min(*server_limit, CLIENT_CHATHISTORY_LIMIT);
+            }
+        }
+
+        CLIENT_CHATHISTORY_LIMIT
+    }
+
+    pub fn chathistory_message_reference_types(&self) -> Vec<isupport::MessageReferenceType> {
+        if let Some(isupport::Parameter::MSGREFTYPES(message_reference_types)) =
+            self.isupport.get(&isupport::Kind::MSGREFTYPES)
+        {
+            message_reference_types.clone()
+        } else {
+            vec![]
+        }
+    }
+
+    pub fn chathistory_request(&self, target: &str) -> Option<ChatHistorySubcommand> {
+        self.chathistory_requests
+            .get(target)
+            .map(|request| request.subcommand.clone())
+    }
+
+    pub fn send_chathistory_request(&mut self, subcommand: ChatHistorySubcommand) {
+        if self.supports_chathistory {
+            if let Some(target) = subcommand.target() {
+                if self.chathistory_requests.contains_key(target) {
+                    return;
+                } else {
+                    self.chathistory_requests.insert(
+                        target.to_string(),
+                        ChatHistoryRequest {
+                            subcommand: subcommand.clone(),
+                            requested_at: Instant::now(),
+                        },
+                    );
+                }
+            }
+
+            match subcommand {
+                ChatHistorySubcommand::Latest(target, message_reference, limit) => {
+                    let command_message_reference =
+                        isupport::fuzz_start_message_reference(message_reference);
+
+                    log::debug!(
+                        "[{}] requesting {limit} latest messages in {target} since {}",
+                        self.server,
+                        command_message_reference,
+                    );
+
+                    let _ = self.handle.try_send(command!(
+                        "CHATHISTORY",
+                        "LATEST",
+                        target,
+                        command_message_reference.to_string(),
+                        limit.to_string()
+                    ));
+                }
+                ChatHistorySubcommand::Before(target, message_reference, limit) => {
+                    let command_message_reference =
+                        isupport::fuzz_end_message_reference(message_reference);
+
+                    log::debug!(
+                        "[{}] requesting {limit} messages in {target} before {}",
+                        self.server,
+                        command_message_reference,
+                    );
+
+                    let _ = self.handle.try_send(command!(
+                        "CHATHISTORY",
+                        "BEFORE",
+                        target,
+                        command_message_reference.to_string(),
+                        limit.to_string()
+                    ));
+                }
+                ChatHistorySubcommand::Between(
+                    target,
+                    start_message_reference,
+                    end_message_reference,
+                    limit,
+                ) => {
+                    let (command_start_message_reference, command_end_message_reference) =
+                        isupport::fuzz_message_reference_range(
+                            start_message_reference,
+                            end_message_reference,
+                        );
+
+                    log::debug!(
+                        "[{}] requesting {limit} messages in {target} between {} and {}",
+                        self.server,
+                        command_start_message_reference,
+                        command_end_message_reference,
+                    );
+
+                    let _ = self.handle.try_send(command!(
+                        "CHATHISTORY",
+                        "BETWEEN",
+                        target,
+                        command_start_message_reference.to_string(),
+                        command_end_message_reference.to_string(),
+                        limit.to_string()
+                    ));
+                }
+                ChatHistorySubcommand::Targets(
+                    start_message_reference,
+                    end_message_reference,
+                    limit,
+                ) => {
+                    let command_start_message_reference = match start_message_reference {
+                        isupport::MessageReference::Timestamp(_) => start_message_reference,
+                        _ => isupport::MessageReference::Timestamp(DateTime::UNIX_EPOCH),
+                    };
+
+                    let command_end_message_reference = match end_message_reference {
+                        isupport::MessageReference::Timestamp(_) => end_message_reference,
+                        _ => isupport::MessageReference::Timestamp(chrono::offset::Utc::now()),
+                    };
+
+                    let (command_start_message_reference, command_end_message_reference) =
+                        isupport::fuzz_message_reference_range(
+                            command_start_message_reference,
+                            command_end_message_reference,
+                        );
+
+                    log::debug!(
+                        "[{}] requesting {limit} targets between {} and {}",
+                        self.server,
+                        command_start_message_reference,
+                        command_end_message_reference,
+                    );
+
+                    let _ = self.handle.try_send(command!(
+                        "CHATHISTORY",
+                        "TARGETS",
+                        command_start_message_reference.to_string(),
+                        command_end_message_reference.to_string(),
+                        limit.to_string()
+                    ));
+                }
+            }
+        }
+    }
+
+    pub fn clear_chathistory_request(&mut self, target: &str) {
+        self.chathistory_requests.remove(target);
+    }
+
+    pub fn chathistory_exhausted(&self, target: &str) -> bool {
+        self.chathistory_exhausted
+            .get(target)
+            .cloned()
+            .unwrap_or_default()
     }
 
     fn topic<'a>(&'a self, channel: &str) -> Option<&'a Topic> {
@@ -1065,7 +1529,39 @@ impl Client {
                 );
             }
         }
+
+        self.chathistory_requests.retain(|_, chathistory_request| {
+            now.duration_since(chathistory_request.requested_at) < CHATHISTORY_REQUEST_TIMEOUT
+        });
     }
+}
+
+fn continue_chathistory_between(
+    target: &str,
+    events: &[Event],
+    end_message_reference: &MessageReference,
+    limit: u16,
+) -> Option<ChatHistorySubcommand> {
+    let start_message_reference = events.first().and_then(|first_event| match first_event {
+        Event::Single(message, _) | Event::WithTarget(message, _, _) => match end_message_reference
+        {
+            MessageReference::MessageId(_) => message_id(message).map(MessageReference::MessageId),
+            MessageReference::Timestamp(_) => {
+                Some(MessageReference::Timestamp(server_time(message)))
+            }
+            MessageReference::None => None,
+        },
+        _ => None,
+    });
+
+    start_message_reference.map(|start_message_reference| {
+        ChatHistorySubcommand::Between(
+            target.to_string(),
+            start_message_reference,
+            end_message_reference.clone(),
+            limit,
+        )
+    })
 }
 
 #[derive(Debug)]
@@ -1184,6 +1680,54 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_server_chathistory_message_reference_types(
+        &self,
+        server: &Server,
+    ) -> Vec<isupport::MessageReferenceType> {
+        self.client(server)
+            .map(|client| client.chathistory_message_reference_types())
+            .unwrap_or_default()
+    }
+
+    pub fn get_server_chathistory_limit(&self, server: &Server) -> u16 {
+        self.client(server)
+            .map(|client| client.chathistory_limit())
+            .unwrap_or(CLIENT_CHATHISTORY_LIMIT)
+    }
+
+    pub fn get_server_supports_chathistory(&self, server: &Server) -> bool {
+        self.client(server)
+            .map(|client| client.supports_chathistory)
+            .unwrap_or_default()
+    }
+
+    pub fn get_chathistory_request(
+        &self,
+        server: &Server,
+        target: &str,
+    ) -> Option<ChatHistorySubcommand> {
+        self.client(server)
+            .and_then(|client| client.chathistory_request(target))
+    }
+
+    pub fn send_chathistory_request(&mut self, server: &Server, subcommand: ChatHistorySubcommand) {
+        if let Some(client) = self.client_mut(server) {
+            client.send_chathistory_request(subcommand);
+        }
+    }
+
+    pub fn clear_chathistory_request(&mut self, server: &Server, target: &str) {
+        if let Some(client) = self.client_mut(server) {
+            client.clear_chathistory_request(target);
+        }
+    }
+
+    pub fn get_chathistory_exhausted(&self, server: &Server, target: &str) -> bool {
+        self.client(server)
+            .map(|client| client.chathistory_exhausted(target))
+            .unwrap_or_default()
+    }
+
     pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [String] {
         self.client(server)
             .map(|client| client.channels())
@@ -1261,9 +1805,25 @@ impl Context {
 }
 
 #[derive(Debug)]
+pub enum ChatHistoryBatch {
+    Target(String),
+    Targets,
+}
+
+impl ChatHistoryBatch {
+    pub fn target(&self) -> Option<String> {
+        match self {
+            ChatHistoryBatch::Target(batch_target) => Some(batch_target.clone()),
+            ChatHistoryBatch::Targets => None,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Batch {
     context: Option<Context>,
     events: Vec<Event>,
+    chathistory: Option<ChatHistoryBatch>,
 }
 
 impl Batch {
@@ -1271,6 +1831,7 @@ impl Batch {
         Self {
             context,
             events: vec![],
+            chathistory: None,
         }
     }
 }

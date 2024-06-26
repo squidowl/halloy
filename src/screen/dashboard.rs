@@ -7,13 +7,13 @@ use data::environment::RELEASE_WEBSITE;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use data::file_transfer;
 use data::history::manager::Broadcast;
+use data::isupport::{ChatHistorySubcommand, MessageReference};
 use data::user::Nick;
-use data::{client, environment, history, Config, Server, User, Version};
+use data::{client, environment, file_transfer, history, isupport, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
-use iced::{clipboard, window, Task, Length};
+use iced::{clipboard, window, Length, Task};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -49,6 +49,7 @@ pub enum Message {
     FileTransfer(file_transfer::task::Update),
     SendFileSelected(Server, Nick, Option<PathBuf>),
     CloseContextMenu(bool),
+    StoredUnread(Server, String, usize),
 }
 
 #[derive(Debug)]
@@ -128,105 +129,126 @@ impl Dashboard {
                             config,
                         );
 
-                        if let Some(buffer::Event::UserContext(event)) = event {
-                            match event {
-                                buffer::user_context::Event::ToggleAccessLevel(nick, mode) => {
-                                    let Some(buffer) = pane.buffer.data() else {
-                                        return (Task::none(), None);
-                                    };
+                        match event {
+                            Some(buffer::Event::UserContext(event)) => {
+                                match event {
+                                    buffer::user_context::Event::ToggleAccessLevel(nick, mode) => {
+                                        let Some(buffer) = pane.buffer.data() else {
+                                            return (Task::none(), None);
+                                        };
 
-                                    let Some(target) = buffer.target() else {
-                                        return (Task::none(), None);
-                                    };
+                                        let Some(target) = buffer.target() else {
+                                            return (Task::none(), None);
+                                        };
 
-                                    let command = data::Command::Mode(
-                                        target,
-                                        Some(mode),
-                                        vec![nick.to_string()],
-                                    );
-                                    let input = data::Input::command(buffer.clone(), command);
-
-                                    if let Some(encoded) = input.encoded() {
-                                        clients.send(input.buffer(), encoded);
-                                    }
-                                }
-                                buffer::user_context::Event::SendWhois(nick) => {
-                                    if let Some(buffer) = pane.buffer.data() {
-                                        let command = data::Command::Whois(None, nick.to_string());
-
+                                        let command = data::Command::Mode(
+                                            target,
+                                            Some(mode),
+                                            vec![nick.to_string()],
+                                        );
                                         let input = data::Input::command(buffer.clone(), command);
 
                                         if let Some(encoded) = input.encoded() {
                                             clients.send(input.buffer(), encoded);
                                         }
+                                    }
+                                    buffer::user_context::Event::SendWhois(nick) => {
+                                        if let Some(buffer) = pane.buffer.data() {
+                                            let command =
+                                                data::Command::Whois(None, nick.to_string());
 
-                                        if let Some(nick) = clients.nickname(buffer.server()) {
-                                            let mut user = nick.to_owned().into();
+                                            let input =
+                                                data::Input::command(buffer.clone(), command);
 
-                                            // Resolve our attributes if sending this message in a channel
-                                            if let data::Buffer::Channel(server, channel) = &buffer
-                                            {
-                                                if let Some(user_with_attributes) = clients
-                                                    .resolve_user_attributes(server, channel, &user)
-                                                {
-                                                    user = user_with_attributes.clone();
-                                                }
+                                            if let Some(encoded) = input.encoded() {
+                                                clients.send(input.buffer(), encoded);
                                             }
 
-                                            if let Some(message) = input.message(user) {
-                                                self.history
-                                                    .record_message(input.server(), message);
+                                            if let Some(nick) = clients.nickname(buffer.server()) {
+                                                let mut user = nick.to_owned().into();
+
+                                                // Resolve our attributes if sending this message in a channel
+                                                if let data::Buffer::Channel(server, channel) =
+                                                    &buffer
+                                                {
+                                                    if let Some(user_with_attributes) = clients
+                                                        .resolve_user_attributes(
+                                                            server, channel, &user,
+                                                        )
+                                                    {
+                                                        user = user_with_attributes.clone();
+                                                    }
+                                                }
+
+                                                if let Some(message) = input.message(user) {
+                                                    self.history
+                                                        .record_message(input.server(), message);
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                buffer::user_context::Event::OpenQuery(nick) => {
-                                    if let Some(data) = pane.buffer.data() {
-                                        let buffer =
-                                            data::Buffer::Query(data.server().clone(), nick);
-                                        return (self.open_buffer(buffer, config), None);
+                                    buffer::user_context::Event::OpenQuery(nick) => {
+                                        if let Some(data) = pane.buffer.data() {
+                                            let buffer =
+                                                data::Buffer::Query(data.server().clone(), nick);
+                                            return (self.open_buffer(buffer, config), None);
+                                        }
                                     }
-                                }
-                                buffer::user_context::Event::SingleClick(nick) => {
-                                    let Some((_, pane, history)) =
-                                        self.get_focused_with_history_mut()
-                                    else {
-                                        return (Task::none(), None);
-                                    };
-
-                                    return (
-                                        pane.buffer.insert_user_to_input(nick, history).map(
-                                            move |message| {
-                                                Message::Pane(pane::Message::Buffer(id, message))
-                                            },
-                                        ),
-                                        None,
-                                    );
-                                }
-                                buffer::user_context::Event::SendFile(nick) => {
-                                    if let Some(buffer) = pane.buffer.data() {
-                                        let server = buffer.server().clone();
-                                        let starting_directory =
-                                            config.file_transfer.save_directory.clone();
+                                    buffer::user_context::Event::SingleClick(nick) => {
+                                        let Some((_, pane, history)) =
+                                            self.get_focused_with_history_mut()
+                                        else {
+                                            return (Task::none(), None);
+                                        };
 
                                         return (
-                                            Task::perform(
-                                                async move {
-                                                    rfd::AsyncFileDialog::new()
-                                                        .set_directory(starting_directory)
-                                                        .pick_file()
-                                                        .await
-                                                        .map(|handle| handle.path().to_path_buf())
-                                                },
-                                                move |file| {
-                                                    Message::SendFileSelected(server.clone(), nick.clone(), file)
+                                            pane.buffer.insert_user_to_input(nick, history).map(
+                                                move |message| {
+                                                    Message::Pane(pane::Message::Buffer(
+                                                        id, message,
+                                                    ))
                                                 },
                                             ),
                                             None,
                                         );
                                     }
+                                    buffer::user_context::Event::SendFile(nick) => {
+                                        if let Some(buffer) = pane.buffer.data() {
+                                            let server = buffer.server().clone();
+                                            let starting_directory =
+                                                config.file_transfer.save_directory.clone();
+
+                                            return (
+                                                Task::perform(
+                                                    async move {
+                                                        rfd::AsyncFileDialog::new()
+                                                            .set_directory(starting_directory)
+                                                            .pick_file()
+                                                            .await
+                                                            .map(|handle| {
+                                                                handle.path().to_path_buf()
+                                                            })
+                                                    },
+                                                    move |file| {
+                                                        Message::SendFileSelected(
+                                                            server.clone(),
+                                                            nick.clone(),
+                                                            file,
+                                                        )
+                                                    },
+                                                ),
+                                                None,
+                                            );
+                                        }
+                                    }
                                 }
                             }
+                            Some(buffer::Event::RequestOlderChatHistory) => {
+                                if let Some(buffer) = pane.buffer.data() {
+                                    self.request_older_chathistory(clients, &buffer);
+                                }
+                            }
+                            None => (),
                         }
 
                         return (
@@ -539,9 +561,7 @@ impl Dashboard {
                             None,
                         );
                     }
-                    ReloadConfiguration => {
-                        return (Task::none(), Some(Event::ReloadConfiguration))
-                    }
+                    ReloadConfiguration => return (Task::none(), Some(Event::ReloadConfiguration)),
                 }
             }
             Message::FileTransfer(update) => {
@@ -571,6 +591,11 @@ impl Dashboard {
                     } else {
                         self.focus = None;
                     }
+                }
+            }
+            Message::StoredUnread(server, target, num_stored_unread_messages) => {
+                for _ in 0..num_stored_unread_messages {
+                    self.inc_unread_count(&server, &target);
                 }
             }
         }
@@ -676,7 +701,7 @@ impl Dashboard {
     pub fn handle_event(
         &mut self,
         event: event::Event,
-        clients: &data::client::Map,
+        clients: &mut data::client::Map,
         version: &Version,
         config: &Config,
         theme: &mut Theme,
@@ -698,14 +723,23 @@ impl Dashboard {
                 }
             }
             Copy => selectable_text::selected(Message::SelectedText),
-            Home => self
-                .get_focused_mut()
-                .map(|(id, pane)| {
-                    pane.buffer
-                        .scroll_to_start()
-                        .map(move |message| Message::Pane(pane::Message::Buffer(id, message)))
-                })
-                .unwrap_or_else(Task::none),
+            Home => {
+                if config.buffer.chathistory.infinite_scroll {
+                    if let Some((_, pane)) = self.get_focused() {
+                        if let Some(buffer) = pane.buffer.data() {
+                            self.request_older_chathistory(clients, &buffer);
+                        }
+                    }
+                }
+
+                self.get_focused_mut()
+                    .map(|(id, pane)| {
+                        pane.buffer
+                            .scroll_to_start()
+                            .map(move |message| Message::Pane(pane::Message::Buffer(id, message)))
+                    })
+                    .unwrap_or_else(Task::none)
+            }
             End => self
                 .get_focused_mut()
                 .map(|(pane, state)| {
@@ -891,6 +925,73 @@ impl Dashboard {
         self.history.record_message(server, message);
     }
 
+    pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
+        self.history.get_unique_queries(server)
+    }
+
+    pub fn inc_unread_count(&mut self, server: &Server, target: &str) {
+        self.history.inc_unread_count(server, target);
+    }
+
+    pub fn get_oldest_message_reference(
+        &self,
+        server: &Server,
+        target: &str,
+        message_reference_types: &[isupport::MessageReferenceType],
+    ) -> MessageReference {
+        let oldest_message_finding =
+            message_reference_types
+                .iter()
+                .find_map(|message_reference_type| {
+                    self.history
+                        .get_oldest_message(server, target, message_reference_type)
+                        .map(|oldest_message| (oldest_message, message_reference_type))
+                });
+
+        if let Some((oldest_message, message_reference_type)) = oldest_message_finding {
+            log::debug!("[{server}] {target} - oldest_message {:?}", oldest_message);
+            match message_reference_type {
+                isupport::MessageReferenceType::MessageId => {
+                    if let Some(id) = &oldest_message.id {
+                        return MessageReference::MessageId(id.clone());
+                    }
+                }
+                isupport::MessageReferenceType::Timestamp => {
+                    return MessageReference::Timestamp(oldest_message.server_time);
+                }
+            }
+        }
+
+        MessageReference::None
+    }
+
+    pub fn request_older_chathistory(
+        &self,
+        clients: &mut data::client::Map,
+        buffer: &data::Buffer,
+    ) {
+        let server = buffer.server();
+
+        if clients.get_server_supports_chathistory(server) {
+            if let Some(target) = buffer.target() {
+                let message_reference_types =
+                    clients.get_server_chathistory_message_reference_types(server);
+
+                let oldest_message_reference =
+                    self.get_oldest_message_reference(server, &target, &message_reference_types);
+
+                clients.send_chathistory_request(
+                    server,
+                    ChatHistorySubcommand::Before(
+                        target.clone(),
+                        oldest_message_reference,
+                        clients.get_server_chathistory_limit(server),
+                    ),
+                );
+            }
+        }
+    }
+
     pub fn broadcast_quit(
         &mut self,
         server: &Server,
@@ -1010,6 +1111,11 @@ impl Dashboard {
             config,
             sent_time,
         );
+    }
+
+    fn get_focused(&self) -> Option<(pane_grid::Pane, &Pane)> {
+        let pane = self.focus?;
+        self.panes.get(pane).map(|state| (pane, state))
     }
 
     fn get_focused_mut(&mut self) -> Option<(pane_grid::Pane, &mut Pane)> {
@@ -1334,7 +1440,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
         let layout = dashboard.panes.layout().clone();
 
         data::Dashboard {
-            pane: from_layout(&dashboard.panes, layout)
+            pane: from_layout(&dashboard.panes, layout),
         }
     }
 }

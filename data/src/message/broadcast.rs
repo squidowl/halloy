@@ -2,6 +2,7 @@
 use chrono::{DateTime, Utc};
 
 use super::{source, Direction, Message, Source, Target};
+use crate::message::{nickname_text, quit_text};
 use crate::time::Posix;
 use crate::user::Nick;
 use crate::{Config, User};
@@ -26,6 +27,7 @@ fn expand(
             direction: Direction::Received,
             target,
             text,
+            id: None,
         }
     };
 
@@ -71,7 +73,7 @@ pub fn connecting(sent_time: DateTime<Utc>) -> Vec<Message> {
         [],
         [],
         true,
-        Cause::Status(source::Status::Success),
+        Cause::Status(source::Status::Pending),
         text,
         sent_time,
     )
@@ -143,14 +145,7 @@ pub fn quit(
     config: &Config,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let comment = comment
-        .as_ref()
-        .map(|comment| format!(" ({comment})"))
-        .unwrap_or_default();
-    let text = format!(
-        "⟵ {} has quit{comment}",
-        user.formatted(config.buffer.server_messages.quit.username_format)
-    );
+    let text = quit_text(user, comment, config);
 
     expand(
         channels,
@@ -173,11 +168,7 @@ pub fn nickname(
     ourself: bool,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let text = if ourself {
-        format!(" ∙ You're now known as {new_nick}")
-    } else {
-        format!(" ∙ {old_nick} is now known as {new_nick}")
-    };
+    let text = nickname_text(old_nick, new_nick, ourself);
 
     expand(
         channels,
