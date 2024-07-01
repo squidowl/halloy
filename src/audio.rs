@@ -1,6 +1,9 @@
 use kira::{
-	manager::{backend::{cpal::CpalBackend, DefaultBackend}, AudioManager, AudioManagerSettings},
-	sound::static_sound::{StaticSoundData, StaticSoundSettings},
+    manager::{
+        backend::{cpal::CpalBackend, DefaultBackend},
+        AudioManager, AudioManagerSettings,
+    },
+    sound::static_sound::{StaticSoundData, StaticSoundSettings},
 };
 
 pub struct Volume(f64);
@@ -21,11 +24,15 @@ pub enum Audio {
 
 impl Audio {
     pub fn new() -> Self {
-        let Ok(manager) = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default()) else {
+        let Ok(manager) = AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())
+        else {
             return Self::Unsupported;
         };
 
-        Audio::Ready { manager, volume: Default::default() }
+        Audio::Ready {
+            manager,
+            volume: Default::default(),
+        }
     }
 
     pub fn play(&mut self, sound: &str) -> Result<(), PlayError> {
@@ -38,18 +45,15 @@ impl Audio {
                 return Err(PlayError::NoSoundFound);
             };
 
-            let settings = StaticSoundSettings::new();
-            let data = StaticSoundData::from_file(sound, settings)?;
+            let data = StaticSoundData::from_file(sound)?;
             let _ = manager.play(data);
 
             Ok(())
-
         } else {
             Err(PlayError::Unsupported)
         }
     }
 }
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum PlayError {
