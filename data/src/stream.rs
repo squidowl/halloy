@@ -295,7 +295,7 @@ struct Batch {
 }
 
 impl Batch {
-    const INTERVAL_MILLIS: u64 = 50;
+    const INTERVAL_MILLIS: u64 = 200;
 
     fn new() -> Self {
         Self {
