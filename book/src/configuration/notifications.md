@@ -1,66 +1,38 @@
 # Notifications
 
+Examples
+
+```toml
+[notifications.connected]
+show_toast = true
+
+[notifications.disconnected]
+sound = { internal = "halloy"> }
+
+[notifications.highlight]
+show_toast = true
+sound = { external = "barbaz.ogg" }
+```
+
+Following notifications are available:
+- `connected` 
+- `disconnected`
+- `reconnected`
+- `highlight`
+- `file_transfer_request`
+
 ## `[notifications]` Section
 
 ```toml
 [notifications.connected]
-enabled = true | false
-sound = "<string>"
-mute = true | false
-
-[notifications.disconnected]
-enabled = true | false
-sound = "<string>"
-mute = true | false
-
-[notifications.reconnected]
-enabled = true | false
-sound = "<string>"
-mute = true | false
-
-[notifications.highlight]
-enabled = true | false
-sound = "<string>"
-mute = true | false
-
-[notifications.file_transfer_request]
-enabled = true | false
-sound = "<string>"
-mute = true | false
-
+show_toast = true | false
+sound = { internal | external = "<string>" }
 ```
 
-| Key       | Description                                           | Default                                                                                |
-| --------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `enabled` | Control if notification should be enabled or not.     | `false`                                                                                |
-| `mute`    | Control if the notification should have sound or not. | `false`                                                                                |
-| `sound`   | The sound which plays when the notification is fired. | `"Submarine"` (macOS[^1]), `"Mail"` (Windows[^2]), `"message-new-instant"` (Linux[^3]) |
+| Key          | Description                                                                                                                                              | Default  |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `show_toast` | Notification should trigger a OS toast.                                                                                                                  | `false`  |
+| `sound`      | Control notification sound. Use `{ internal = "<string"> }` for a built-in sound[^1]. Use `{ external = "<string"> }` to specific an external sound[^2]. | `"none"` |
 
-[^1]: The following sounds are available for macOS:
-
-    - `"Basso"`
-    - `"Blow"`
-    - `"Bottle"`
-    - `"Frog"`
-    - `"Funk"`
-    - `"Glass"`
-    - `"Hero"`
-    - `"Morse"`
-    - `"Ping"`
-    - `"Pop"`
-    - `"Purr"`
-    - `"Sosumi"`
-    - `"Submarine"`
-    - `"Tink" `
-
-[^2]: The following sounds are avaiable for Windows:
-
-    - `"Default"`
-    - `"IM"`
-    - `"Mail"`
-    - `"Reminder"`
-    - `"SMS"`
-
-[^3]: The following sounds are avaiable for Linux:
-
-    - `"message-new-instant"`
+[^1]: Internal sounds: `"halloy"`.
+[^2]: External sounds has to be placed inside the `sounds` folder within the configuration directory. Supported formats: `mp3`, `ogg`, `flac`, and `wav`.
