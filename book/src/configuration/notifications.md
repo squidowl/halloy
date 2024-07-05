@@ -7,7 +7,7 @@ Examples
 show_toast = true
 
 [notifications.disconnected]
-sound = { internal = "halloy"> }
+sound = { internal = "dong" }
 
 [notifications.highlight]
 show_toast = true
@@ -34,5 +34,16 @@ sound = { internal | external = "<string>" }
 | `show_toast` | Notification should trigger a OS toast.                                                                                                                  | `false`  |
 | `sound`      | Control notification sound. Use `{ internal = "<string"> }` for a built-in sound[^1]. Use `{ external = "<string"> }` to specific an external sound[^2]. | `"none"` |
 
-[^1]: Internal sounds: `"halloy"`.
-[^2]: External sounds has to be placed inside the `sounds` folder within the configuration directory. Supported formats: `mp3`, `ogg`, `flac`, and `wav`.
+[^1]: Internal sounds: 
+    - `"dong"`
+    - `"peck"`
+    - `"ring"`
+    - `"squeak"`
+    - `"whistle"`
+    - `"bonk"`
+    - `"sing"`
+[^2]: External sounds has to be placed inside the `sounds` folder within the configuration directory. Supported formats:
+    - `mp3`
+    - `ogg`
+    - `flac`
+    - `wav`
