@@ -18,17 +18,28 @@ impl Default for Sound {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Internal {
-    #[default]
-    Halloy,
+    Dong,
+    Peck,
+    Ring,
+    Squeak,
+    Whistle,
+    Bonk,
+    Sing,
 }
 
 impl Internal {
     pub fn bytes(&self) -> Vec<u8> {
         match self {
-            Internal::Halloy => include_bytes!("../../sounds/classic.ogg").to_vec(),
+            Internal::Dong => include_bytes!("../../sounds/dong.ogg").to_vec(),
+            Internal::Peck => include_bytes!("../../sounds/peck.ogg").to_vec(),
+            Internal::Ring => include_bytes!("../../sounds/ring.ogg").to_vec(),
+            Internal::Squeak => include_bytes!("../../sounds/squeak.ogg").to_vec(),
+            Internal::Whistle => include_bytes!("../../sounds/whistle.ogg").to_vec(),
+            Internal::Bonk => include_bytes!("../../sounds/bonk.ogg").to_vec(),
+            Internal::Sing => include_bytes!("../../sounds/sing.ogg").to_vec(),
         }
     }
 }
