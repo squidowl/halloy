@@ -3,6 +3,7 @@
 Added:
 
 - Support for CTCP queries CLIENTINFO, PING, SOURCE, and VERSION
+- Custom notification sounds. Use your own sounds or select from a few new internal options. For more details, see [notification configuration](https://halloy.squidowl.org/configuration/notifications.html).
 
 Fixed:
 
