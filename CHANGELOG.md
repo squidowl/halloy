@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2024.8 (2024-07-05)
+
 Added:
 
 - Ability to open `irc://` and `ircs://` URL schemes
