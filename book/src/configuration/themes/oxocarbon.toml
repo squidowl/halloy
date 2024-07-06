@@ -1,0 +1,11 @@
+name = "oxocarbon"
+
+[palette]
+background = "#161616"
+text = "#dde1e6"
+action = "#525252"
+accent = "#33b1ff"
+alert = "#ff7eb6"
+error = "#e46876"
+info = "#82cfff"
+success = "#be95ff"
