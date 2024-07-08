@@ -58,5 +58,7 @@ fn show_notification(
         toast::show(title, body);
     }
 
-    let _ = audio.play(&notification.sound);
+    if let Some(sound) = &notification.sound {
+        let _ = audio.play(sound);
+    }
 }
