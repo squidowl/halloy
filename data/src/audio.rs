@@ -9,13 +9,6 @@ use crate::Config;
 pub enum Sound {
     Internal(Internal),
     External(String),
-    None,
-}
-
-impl Default for Sound {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

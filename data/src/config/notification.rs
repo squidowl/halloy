@@ -6,8 +6,7 @@ use crate::audio::Sound;
 pub struct Notification {
     #[serde(rename = "enabled", default)]
     pub show_toast: bool,
-    #[serde(default = "default_sound")]
-    pub sound: Sound,
+    pub sound: Option<Sound>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -22,8 +21,4 @@ pub struct Notifications {
     pub highlight: Notification,
     #[serde(default)]
     pub file_transfer_request: Notification,
-}
-
-fn default_sound() -> Sound {
-    Sound::default()
 }

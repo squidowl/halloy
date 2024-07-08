@@ -38,7 +38,6 @@ impl State {
 
                     StaticSoundData::from_file(sound_path)?
                 }
-                audio::Sound::None => return Ok(()),
             };
 
             let _ = manager.play(data);
