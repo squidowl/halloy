@@ -164,12 +164,13 @@ impl Config {
             buffer,
             sidebar,
             keyboard,
-            notifications,
+            mut notifications,
             file_transfer,
             tooltips,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_password_files()?;
+        notifications.load_sound_data();
 
         let themes = Self::load_themes(&theme).unwrap_or_default();
 

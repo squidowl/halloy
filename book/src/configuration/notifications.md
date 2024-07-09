@@ -7,11 +7,11 @@ Examples
 show_toast = true
 
 [notifications.disconnected]
-sound = { internal = "dong" }
+sound = "dong"
 
 [notifications.highlight]
 show_toast = true
-sound = { external = "barbaz.ogg" }
+sound = "barbaz.ogg"
 ```
 
 Following notifications are available:
@@ -26,13 +26,13 @@ Following notifications are available:
 ```toml
 [notifications.connected]
 show_toast = true | false
-sound = { internal | external = "<string>" }
+sound = "<string>"
 ```
 
-| Key          | Description                                                                                                                                              | Default  |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `show_toast` | Notification should trigger a OS toast.                                                                                                                  | `false`  |
-| `sound`      | Control notification sound. Use `{ internal = "<string"> }` for a built-in sound[^1]. Use `{ external = "<string"> }` to specific an external sound[^2]. | `"none"` |
+| Key          | Description                                                                     | Default |
+| ------------ | ------------------------------------------------------------------------------- | ------- |
+| `show_toast` | Notification should trigger a OS toast.                                         | `false` |
+| `sound`      | Notification sound. Supports both built-in sounds[^1], and external sounds[^2]. | `""`    |
 
 [^1]: Internal sounds: 
     - `"dong"`

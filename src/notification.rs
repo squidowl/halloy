@@ -59,6 +59,6 @@ fn show_notification(
     }
 
     if let Some(sound) = &notification.sound {
-        let _ = audio.play(sound);
+        audio.play(sound);
     }
 }
