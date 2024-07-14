@@ -3,12 +3,11 @@ pub use self::anchored_overlay::anchored_overlay;
 pub use self::combo_box::combo_box;
 pub use self::context_menu::context_menu;
 pub use self::double_pass::double_pass;
-pub use self::input::input;
 pub use self::key_press::key_press;
+pub use self::modal::modal;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
-pub use self::modal::modal;
 use crate::Theme;
 
 pub mod anchored_overlay;
@@ -18,12 +17,11 @@ pub mod context_menu;
 pub mod double_click;
 pub mod double_pass;
 pub mod hover;
-pub mod input;
 pub mod key_press;
+pub mod modal;
 pub mod selectable_text;
 pub mod shortcut;
 pub mod tooltip;
-pub mod modal;
 
 pub type Renderer = iced::Renderer;
 pub type Element<'a, Message> = iced::Element<'a, Message, Theme, Renderer>;

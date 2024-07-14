@@ -5,12 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::environment;
 
-pub use self::size::Size;
 pub use self::position::Position;
+pub use self::size::Size;
 
-pub mod size;
 pub mod position;
-
+pub mod size;
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Window {
@@ -21,7 +20,10 @@ pub struct Window {
 impl Window {
     pub fn update(self, event: Event) -> Self {
         match event {
-            Event::Moved(position) => Self { position: Some(position), ..self },
+            Event::Moved(position) => Self {
+                position: Some(position),
+                ..self
+            },
             Event::Resized(size) => Self { size, ..self },
         }
     }

@@ -5,8 +5,8 @@ use iced::advanced::{layout, mouse, renderer, text, widget, Layout, Widget};
 use iced::widget::text::{Fragment, IntoFragment};
 use iced::widget::text_input::Value;
 use iced::{
-    alignment, event, touch, Border, Color, Task, Element, Length, Pixels, Point, Rectangle,
-    Shadow, Size,
+    alignment, event, touch, Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow,
+    Size, Task,
 };
 
 use self::selection::selection;

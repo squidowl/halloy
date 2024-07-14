@@ -122,7 +122,7 @@ impl subscription::Recipe for Events {
                 },
                 _ => None,
             })
-        });        
+        });
 
         stream::unfold(
             State::Idle {

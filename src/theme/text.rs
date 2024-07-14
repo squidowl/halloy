@@ -1,4 +1,7 @@
-use data::{theme::{alpha, randomize_color}, user::NickColor};
+use data::{
+    theme::{alpha, randomize_color},
+    user::NickColor,
+};
 use iced::widget::text::{Catalog, Style, StyleFn};
 
 use super::Theme;
@@ -88,5 +91,5 @@ pub fn nickname(theme: &Theme, nick_color: NickColor, transparent: bool) -> Styl
         randomized_color
     };
 
-Style { color: Some(color) }
+    Style { color: Some(color) }
 }
