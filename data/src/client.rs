@@ -506,24 +506,37 @@ impl Client {
                                     "CLIENTINFO" => {
                                         let _ = self.handle.try_send(command!(
                                             "NOTICE",
-                                            user.nickname().as_ref().to_string(),
-                                            "\u{1}CLIENTINFO ACTION CLIENTINFO DCC PING VERSION\u{1}"
+                                            user,
+                                            "\u{1}CLIENTINFO ACTION CLIENTINFO DCC PING SOURCE VERSION\u{1}"
                                         ));
                                     }
                                     "PING" => {
+                                        let reply = if text.ends_with('\u{1}') {
+                                            text.clone()
+                                        } else {
+                                            format!("{text}\u{1}")
+                                        };
+
+                                        let _ =
+                                            self.handle.try_send(command!("NOTICE", user, reply));
+                                    }
+                                    "SOURCE" => {
                                         let _ = self.handle.try_send(command!(
                                             "NOTICE",
-                                            user.nickname().as_ref().to_string(),
-                                            text
+                                            user,
+                                            format!(
+                                                "\u{1}{}\u{1}",
+                                                crate::environment::SOURCE_WEBSITE
+                                            )
                                         ));
                                     }
                                     "VERSION" => {
                                         let _ = self.handle.try_send(command!(
                                             "NOTICE",
-                                            user.nickname().as_ref().to_string(),
+                                            user,
                                             format!(
                                                 "\u{1}Halloy {}\u{1}",
-                                                include_str!("../../VERSION")
+                                                crate::environment::VERSION
                                             )
                                         ));
                                     }
