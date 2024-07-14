@@ -501,10 +501,10 @@ impl Client {
                     } else {
                         // Handle CTCP queries except ACTION and DCC
                         if user.nickname() != self.nickname()
-                            && ctcp::is_ctcp_query(text)
+                            && ctcp::is_query(text)
                             && !message::is_action(text)
                         {
-                            if let Ok(query) = ctcp::parse_ctcp_query(text) {
+                            if let Some(query) = ctcp::parse_query(text) {
                                 match query.command {
                                     "CLIENTINFO" => {
                                         let _ = self.handle.try_send(command!(

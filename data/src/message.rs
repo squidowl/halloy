@@ -545,17 +545,17 @@ impl Limit {
 }
 
 pub fn is_action(text: &str) -> bool {
-    if let Ok(ctcp_query) = ctcp::parse_ctcp_query(text) {
-        ctcp_query.command == "ACTION"
+    if let Some(query) = ctcp::parse_query(text) {
+        query.command == "ACTION"
     } else {
         false
     }
 }
 
 pub fn parse_action(nick: NickRef, text: &str) -> Option<String> {
-    let ctcp_query = ctcp::parse_ctcp_query(text).ok()?;
+    let query = ctcp::parse_query(text)?;
 
-    Some(action_text(nick, ctcp_query.params))
+    Some(action_text(nick, query.params))
 }
 
 pub fn action_text(nick: NickRef, action: &str) -> String {
