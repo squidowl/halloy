@@ -506,7 +506,7 @@ pub fn selected<Message: Send + 'static>(f: fn(Vec<(f32, String)>) -> Message) -
         }
     }
 
-    Task::widget(Selected {
+    widget::operate(Selected {
         contents: vec![],
         f,
     })

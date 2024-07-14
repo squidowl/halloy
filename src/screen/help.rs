@@ -90,7 +90,7 @@ impl Help {
                     .push(wiki_button)
                     .push(refresh_button),
             )
-            .align_items(iced::Alignment::Center);
+            .align_x(iced::Alignment::Center);
 
         container(content)
             .align_x(alignment::Horizontal::Center)

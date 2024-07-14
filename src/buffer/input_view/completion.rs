@@ -415,7 +415,7 @@ impl Command {
                 Element::from(row![
                     text(" "),
                     tooltip(
-                        row![content, tooltip_indicator].align_items(iced::Alignment::Start),
+                        row![content, tooltip_indicator].align_y(iced::Alignment::Start),
                         container(text(arg_tooltip.clone()).style(move |theme| {
                             if index == active_arg {
                                 theme::text::transparent_accent(theme)

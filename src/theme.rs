@@ -1,5 +1,5 @@
 use data::theme::Colors;
-use iced::program;
+use iced::application;
 
 use crate::widget::combo_box;
 
@@ -67,9 +67,9 @@ impl Default for Theme {
     }
 }
 
-impl program::DefaultStyle for Theme {
-    fn default_style(&self) -> program::Appearance {
-        program::Appearance {
+impl application::DefaultStyle for Theme {
+    fn default_style(&self) -> application::Appearance {
+        application::Appearance {
             background_color: self.colors().background.base,
             text_color: self.colors().text.base,
         }

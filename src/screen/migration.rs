@@ -96,7 +96,7 @@ impl Migration {
                     .push(refresh_button),
             )
             .width(350)
-            .align_items(iced::Alignment::Center);
+            .align_x(iced::Alignment::Center);
 
         container(content)
             .align_x(alignment::Horizontal::Center)

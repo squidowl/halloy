@@ -3,7 +3,7 @@ use data::user::Nick;
 use data::User;
 use data::{channel, history, message, Config};
 use iced::widget::{column, container, row};
-use iced::{Length, Task};
+use iced::{padding, Length, Task};
 
 use super::{input_view, scroll_view, user_context};
 use crate::theme;
@@ -189,7 +189,7 @@ pub fn view<'a>(
     container(body)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding([4, 8, 8, 8])
+        .padding(padding::all(8).top(4))
         .into()
 }
 
@@ -326,13 +326,12 @@ mod nick_list {
         .spacing(1);
 
         container(
-            Scrollable::with_direction(
-                column,
-                scrollable::Direction::Vertical(
-                    scrollable::Properties::new().width(1).scroller_width(1),
-                ),
-            )
-            .style(theme::scrollable::hidden),
+            Scrollable::new(column)
+                .direction(scrollable::Direction::Vertical {
+                    scrollbar: scrollable::Scrollbar::new().width(1).scroller_width(1),
+                    spacing: None,
+                })
+                .style(theme::scrollable::hidden),
         )
         .width(Length::Shrink)
         .max_width(120)
