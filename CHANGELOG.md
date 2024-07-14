@@ -1,5 +1,10 @@
 # Unreleased
 
+Fixed:
+
+- Text input missing key presses in certain instances
+- Connection timeout when UI is suspended on an offscreen workspace due to channel backpressure
+
 # 2024.8 (2024-07-05)
 
 Added:

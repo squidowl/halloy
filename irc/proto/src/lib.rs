@@ -56,7 +56,7 @@ pub fn is_channel(target: &str) -> bool {
 }
 
 // Reference: https://defs.ircdocs.horse/defs/chanmembers
-pub const CHANNEL_MEMBERSHIP_PREFIXES: [char; 6] = ['~', '&', '!', '@', '%', '+' ];
+pub const CHANNEL_MEMBERSHIP_PREFIXES: [char; 6] = ['~', '&', '!', '@', '%', '+'];
 
 #[macro_export]
 macro_rules! command {

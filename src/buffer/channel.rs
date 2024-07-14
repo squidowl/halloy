@@ -3,7 +3,7 @@ use data::user::Nick;
 use data::User;
 use data::{channel, history, message, Config};
 use iced::widget::{column, container, row};
-use iced::{Task, Length};
+use iced::{Length, Task};
 
 use super::{input_view, scroll_view, user_context};
 use crate::theme;
@@ -158,11 +158,7 @@ pub fn view<'a>(
     let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
-            buffer,
             input,
-            users,
-            channels,
-            clients.get_isupport(&state.server),
             is_focused,
             !is_connected_to_channel,
         )
@@ -237,7 +233,9 @@ impl Channel {
                 (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
-                let (command, event) = self.input_view.update(message, clients, history);
+                let buffer = self.buffer();
+
+                let (command, event) = self.input_view.update(message, buffer, clients, history);
                 let command = command.map(Message::InputView);
 
                 match event {
@@ -263,8 +261,8 @@ impl Channel {
         self.input_view.focus().map(Message::InputView)
     }
 
-    pub fn reset(&self) -> Task<Message> {
-        self.input_view.reset().map(Message::InputView)
+    pub fn reset(&mut self) {
+        self.input_view.reset();
     }
 }
 

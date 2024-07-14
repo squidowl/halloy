@@ -1,6 +1,6 @@
 use data::{history, message, Config};
 use iced::widget::{column, container, row, vertical_space};
-use iced::{Task, Length};
+use iced::{Length, Task};
 
 use super::{input_view, scroll_view};
 use crate::theme;
@@ -74,22 +74,11 @@ pub fn view<'a>(
         data::buffer::TextInputVisibility::Always => true,
     };
 
-    let channels = clients.get_channels(&state.server);
-
     let text_input = show_text_input.then(|| {
         column![
             vertical_space().height(4),
-            input_view::view(
-                &state.input_view,
-                buffer,
-                input,
-                &[],
-                channels,
-                clients.get_isupport(&state.server),
-                is_focused,
-                !status.connected()
-            )
-            .map(Message::InputView)
+            input_view::view(&state.input_view, input, is_focused, !status.connected())
+                .map(Message::InputView)
         ]
         .width(Length::Fill)
     });
@@ -137,7 +126,9 @@ impl Server {
                 command.map(Message::ScrollView)
             }
             Message::InputView(message) => {
-                let (command, event) = self.input_view.update(message, clients, history);
+                let buffer = self.buffer();
+
+                let (command, event) = self.input_view.update(message, buffer, clients, history);
                 let command = command.map(Message::InputView);
 
                 match event {
@@ -155,7 +146,7 @@ impl Server {
         self.input_view.focus().map(Message::InputView)
     }
 
-    pub fn reset(&self) -> Task<Message> {
-        self.input_view.reset().map(Message::InputView)
+    pub fn reset(&mut self) {
+        self.input_view.reset();
     }
 }
