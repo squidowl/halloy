@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use crate::message::server_time;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{config, dcc, isupport, message, mode, Buffer, Server, User};
+use crate::{config, ctcp, dcc, isupport, message, mode, Buffer, Server, User};
 use crate::{file_transfer, server};
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
@@ -500,9 +500,12 @@ impl Client {
                         }
                     } else {
                         // Handle CTCP queries except ACTION and DCC
-                        if user.nickname() != self.nickname() && !message::is_action(text) {
-                            if let Some(ctcp_command) = message::ctcp_command(text) {
-                                match ctcp_command {
+                        if user.nickname() != self.nickname()
+                            && ctcp::is_ctcp_query(text)
+                            && !message::is_action(text)
+                        {
+                            if let Ok(query) = ctcp::parse_ctcp_query(text) {
+                                match query.command {
                                     "CLIENTINFO" => {
                                         let _ = self.handle.try_send(command!(
                                             "NOTICE",
@@ -511,14 +514,11 @@ impl Client {
                                         ));
                                     }
                                     "PING" => {
-                                        let reply = if text.ends_with('\u{1}') {
-                                            text.clone()
-                                        } else {
-                                            format!("{text}\u{1}")
-                                        };
-
-                                        let _ =
-                                            self.handle.try_send(command!("NOTICE", user, reply));
+                                        let _ = self.handle.try_send(command!(
+                                            "NOTICE",
+                                            user,
+                                            query.params
+                                        ));
                                     }
                                     "SOURCE" => {
                                         let _ = self.handle.try_send(command!(
