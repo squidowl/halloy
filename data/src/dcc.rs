@@ -7,7 +7,7 @@ use crate::ctcp;
 use irc::proto::{self, command};
 
 pub fn decode(content: &str) -> Option<Command> {
-    let query = ctcp::parse_ctcp_query(content).ok()?;
+    let query = ctcp::parse_query(content)?;
 
     if query.command != "DCC" {
         return None;
