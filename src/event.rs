@@ -2,7 +2,7 @@ use iced::{event, keyboard, window, Subscription};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Event {
-    CloseRequested,
+    CloseRequested(window::Id),
     Copy,
     Escape,
     Home,
@@ -16,7 +16,7 @@ pub fn events() -> Subscription<Event> {
 fn filtered_events(
     event: iced::Event,
     status: iced::event::Status,
-    _id: iced::window::Id,
+    window: window::Id,
 ) -> Option<Event> {
     let ignored = |status| matches!(status, iced::event::Status::Ignored);
 
@@ -38,7 +38,7 @@ fn filtered_events(
             key: keyboard::Key::Named(keyboard::key::Named::End),
             ..
         }) if ignored(status) => Some(Event::End),
-        iced::Event::Window(window::Event::CloseRequested) => Some(Event::CloseRequested),
+        iced::Event::Window(window::Event::CloseRequested) => Some(Event::CloseRequested(window)),
         _ => None,
     }
 }

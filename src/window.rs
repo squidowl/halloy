@@ -1,6 +1,6 @@
 use futures::{stream::BoxStream, Stream, StreamExt};
-pub use iced::window::{close, Id, Settings};
-use iced::{advanced::graphics::futures::subscription, Subscription};
+pub use iced::window::{close, Settings};
+use iced::{advanced::graphics::futures::subscription, Point, Size, Subscription};
 
 use data::window::{self, Event};
 
@@ -65,7 +65,7 @@ pub fn settings() -> Settings {
 }
 
 pub fn events() -> Subscription<Event> {
-    Subscription::from_recipe(Events)
+    subscription::from_recipe(Events)
 }
 
 enum State<T: Stream<Item = Event>> {
@@ -112,12 +112,12 @@ impl subscription::Recipe for Events {
                     event: iced::Event::Window(window_event),
                     status: _,
                 } => match window_event {
-                    iced::window::Event::Moved { x, y } => {
-                        Some(Event::Moved(window::Position::new(x as f32, y as f32)))
+                    iced::window::Event::Moved(Point { x, y }) => {
+                        Some(Event::Moved(window::Position::new(x, y)))
                     }
-                    iced::window::Event::Resized { width, height } => Some(Event::Resized(
-                        window::Size::new(width as f32, height as f32),
-                    )),
+                    iced::window::Event::Resized(Size { width, height }) => {
+                        Some(Event::Resized(window::Size::new(width, height)))
+                    }
                     _ => None,
                 },
                 _ => None,

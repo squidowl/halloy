@@ -4,7 +4,7 @@ use iced::widget::{
     button, center, column, container, horizontal_space, pane_grid, row, scrollable, text,
     vertical_space, Scrollable,
 };
-use iced::Length;
+use iced::{padding, Length};
 
 use super::pane::Pane;
 use crate::widget::{context_menu, tooltip, Element};
@@ -137,7 +137,7 @@ impl Sidebar {
             }
         }
 
-        let mut menu_buttons = row![].spacing(1).padding([0, 0, 4, 0]);
+        let mut menu_buttons = row![].spacing(1).padding(padding::bottom(4));
 
         if config.buttons.command_bar {
             let button = button(center(icon::search()))
@@ -187,22 +187,23 @@ impl Sidebar {
             menu_buttons = menu_buttons.push(button_with_tooltip);
         }
 
-        let content = column![Scrollable::with_direction(
-            column,
-            scrollable::Direction::Vertical(
-                iced::widget::scrollable::Properties::default()
-                    .width(0)
-                    .scroller_width(0),
-            ),
-        ),];
+        let content =
+            column![
+                Scrollable::new(column,).direction(scrollable::Direction::Vertical {
+                    scrollbar: iced::widget::scrollable::Scrollbar::default()
+                        .width(0)
+                        .scroller_width(0),
+                    spacing: None
+                },),
+            ];
 
         let body = column![container(content).height(Length::Fill), menu_buttons];
 
         Some(
             container(body)
                 .height(Length::Fill)
-                .padding([8, 0, 6, 6])
                 .center_x(Length::Shrink)
+                .padding(padding::top(8).bottom(6).left(6))
                 .max_width(config.width)
                 .into(),
         )
@@ -266,7 +267,7 @@ fn buffer_button<'a>(
                 .shaping(text::Shaping::Advanced)
         ]
         .spacing(8)
-        .align_items(iced::Alignment::Center),
+        .align_y(iced::Alignment::Center),
         Buffer::Channel(_, channel) => row![]
             .push(horizontal_space().width(3))
             .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::text::info)))
@@ -276,7 +277,7 @@ fn buffer_button<'a>(
                     .style(theme::text::primary)
                     .shaping(text::Shaping::Advanced),
             )
-            .align_items(iced::Alignment::Center),
+            .align_y(iced::Alignment::Center),
         Buffer::Query(_, nick) => row![]
             .push(horizontal_space().width(3))
             .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::text::info)))
@@ -286,7 +287,7 @@ fn buffer_button<'a>(
                     .style(theme::text::primary)
                     .shaping(text::Shaping::Advanced),
             )
-            .align_items(iced::Alignment::Center),
+            .align_y(iced::Alignment::Center),
     };
 
     let base = button(row)

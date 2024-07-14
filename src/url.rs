@@ -46,7 +46,7 @@ pub fn listen() -> Subscription<String> {
         }
     }
 
-    Subscription::from_recipe(OnUrl)
+    subscription::from_recipe(OnUrl)
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -71,5 +71,5 @@ pub fn listen() -> Subscription<String> {
         }
     }
 
-    Subscription::from_recipe(Listener)
+    subscription::from_recipe(Listener)
 }

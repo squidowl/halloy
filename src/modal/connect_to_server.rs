@@ -45,7 +45,7 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
             .spacing(4),
         )
         .spacing(20)
-        .align_items(iced::Alignment::Center),
+        .align_x(iced::Alignment::Center),
     )
     .width(Length::Shrink)
     .style(theme::container::default_banner)

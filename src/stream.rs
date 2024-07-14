@@ -1,7 +1,7 @@
 pub use data::stream::{self, *};
 use data::{config, server};
-use iced::{subscription, Subscription};
+use iced::Subscription;
 
 pub fn run(entry: server::Entry, proxy: Option<config::Proxy>) -> Subscription<stream::Update> {
-    subscription::run_with_id(entry.server.clone(), stream::run(entry, proxy))
+    Subscription::run_with_id(entry.server.clone(), stream::run(entry, proxy))
 }

@@ -24,9 +24,8 @@ use data::config::{self, Config};
 use data::version::Version;
 use data::window::Window;
 use data::{environment, server, version, User};
-use iced::advanced::Application;
 use iced::widget::{column, container};
-use iced::{executor, Length, Renderer, Subscription, Task};
+use iced::{Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
 
 use self::event::{events, Event};
@@ -78,7 +77,21 @@ pub fn main() -> iced::Result {
         }
     }
 
-    if let Err(error) = Halloy::run(settings(config_load, destination)) {
+    let window_load = Window::load().unwrap_or_default();
+
+    if let Err(error) = iced::application("Halloy", Halloy::update, Halloy::view)
+        .theme(Halloy::theme)
+        .scale_factor(Halloy::scale_factor)
+        .subscription(Halloy::subscription)
+        .settings(settings(&config_load))
+        .window(window::Settings {
+            size: window_load.size.into(),
+            position: window_load.position.map(From::from).unwrap_or_default(),
+            exit_on_close_request: false,
+            ..window::settings()
+        })
+        .run_with(move || Halloy::new(config_load.clone(), destination.clone()))
+    {
         log::error!("{}", error.to_string());
         Err(error)
     } else {
@@ -86,11 +99,7 @@ pub fn main() -> iced::Result {
     }
 }
 
-fn settings(
-    config_load: Result<Config, config::Error>,
-    route_received: Option<data::Url>,
-) -> iced::Settings<(Result<Config, config::Error>, Option<data::Url>)> {
-    let window_load = Window::load().unwrap_or_default();
+fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
     let default_text_size = config_load
         .as_ref()
         .ok()
@@ -101,13 +110,6 @@ fn settings(
     iced::Settings {
         default_font: font::MONO.clone().into(),
         default_text_size: default_text_size.into(),
-        window: window::Settings {
-            size: window_load.size.into(),
-            position: window_load.position.map(From::from).unwrap_or_default(),
-            exit_on_close_request: false,
-            ..window::settings()
-        },
-        flags: (config_load, route_received),
         id: None,
         antialiasing: false,
         fonts: font::load(),
@@ -214,16 +216,11 @@ pub enum Message {
     WindowSettingsSaved(Result<(), data::window::Error>),
 }
 
-impl Application for Halloy {
-    type Renderer = Renderer;
-    type Executor = executor::Default;
-    type Message = Message;
-    type Theme = Theme;
-    type Flags = (Result<Config, config::Error>, Option<data::Url>);
-
-    fn new(flags: Self::Flags) -> (Halloy, Task<Self::Message>) {
-        let (config_load, url_received) = flags;
-
+impl Halloy {
+    fn new(
+        config_load: Result<Config, config::Error>,
+        url_received: Option<data::Url>,
+    ) -> (Halloy, Task<Message>) {
         let (mut halloy, command) = Halloy::load_from_state(config_load);
         let latest_remote_version =
             Task::perform(version::latest_remote_version(), Message::Version);
@@ -235,10 +232,6 @@ impl Application for Halloy {
         }
 
         (halloy, command)
-    }
-
-    fn title(&self) -> String {
-        String::from("Halloy")
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
@@ -608,8 +601,8 @@ impl Application for Halloy {
                             &mut self.theme,
                         )
                         .map(Message::Dashboard)
-                } else if let event::Event::CloseRequested = event {
-                    window::close(window::Id::MAIN)
+                } else if let event::Event::CloseRequested(window) = event {
+                    window::close(window)
                 } else {
                     Task::none()
                 }

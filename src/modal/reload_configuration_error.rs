@@ -24,7 +24,7 @@ pub fn view<'a>(error: &config::Error) -> Element<'a, Message> {
             .on_press(Message::Cancel)
         ]
         .spacing(20)
-        .align_items(iced::Alignment::Center),
+        .align_x(iced::Alignment::Center),
     )
     .width(Length::Shrink)
     .style(theme::container::error_modal)
