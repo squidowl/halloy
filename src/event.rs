@@ -13,7 +13,11 @@ pub fn events() -> Subscription<Event> {
     event::listen_with(filtered_events)
 }
 
-fn filtered_events(event: iced::Event, status: iced::event::Status, _id: iced::window::Id) -> Option<Event> {
+fn filtered_events(
+    event: iced::Event,
+    status: iced::event::Status,
+    _id: iced::window::Id,
+) -> Option<Event> {
     let ignored = |status| matches!(status, iced::event::Status::Ignored);
 
     match &event {

@@ -25,7 +25,7 @@ use data::window::Window;
 use data::{environment, server, version, User};
 use iced::advanced::Application;
 use iced::widget::{column, container};
-use iced::{executor, Task, Length, Renderer, Subscription};
+use iced::{executor, Length, Renderer, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
 
 use self::event::{events, Event};
@@ -125,9 +125,7 @@ struct Halloy {
 }
 
 impl Halloy {
-    pub fn load_from_state(
-        config_load: Result<Config, config::Error>,
-    ) -> (Halloy, Task<Message>) {
+    pub fn load_from_state(config_load: Result<Config, config::Error>) -> (Halloy, Task<Message>) {
         let load_dashboard = |config| match data::Dashboard::load() {
             Ok(dashboard) => screen::Dashboard::restore(dashboard, config),
             Err(error) => {

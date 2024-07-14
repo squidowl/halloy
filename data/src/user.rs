@@ -133,10 +133,7 @@ impl User {
             .unwrap_or(colors.action.base);
 
         match kind {
-            buffer::ColorKind::Solid => NickColor {
-                seed: None,
-                color,
-            },
+            buffer::ColorKind::Solid => NickColor { seed: None, color },
             buffer::ColorKind::Unique => NickColor {
                 seed: Some(self.nickname().as_ref().to_string()),
                 color,

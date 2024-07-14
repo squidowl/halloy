@@ -13,7 +13,7 @@ use data::user::Nick;
 use data::{client, environment, history, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
-use iced::{clipboard, window, Task, Length};
+use iced::{clipboard, window, Length, Task};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -219,7 +219,11 @@ impl Dashboard {
                                                         .map(|handle| handle.path().to_path_buf())
                                                 },
                                                 move |file| {
-                                                    Message::SendFileSelected(server.clone(), nick.clone(), file)
+                                                    Message::SendFileSelected(
+                                                        server.clone(),
+                                                        nick.clone(),
+                                                        file,
+                                                    )
                                                 },
                                             ),
                                             None,
@@ -539,9 +543,7 @@ impl Dashboard {
                             None,
                         );
                     }
-                    ReloadConfiguration => {
-                        return (Task::none(), Some(Event::ReloadConfiguration))
-                    }
+                    ReloadConfiguration => return (Task::none(), Some(Event::ReloadConfiguration)),
                 }
             }
             Message::FileTransfer(update) => {
@@ -1101,17 +1103,11 @@ impl Dashboard {
     }
 
     fn reset_pane(&mut self, pane: pane_grid::Pane) -> Task<Message> {
-        self.panes
-            .iter()
-            .find_map(|(p, state)| {
-                (*p == pane).then(|| {
-                    state
-                        .buffer
-                        .reset()
-                        .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
-                })
-            })
-            .unwrap_or(Task::none())
+        if let Some((_, state)) = self.panes.iter_mut().find(|(p, _)| **p == pane) {
+            state.buffer.reset();
+        }
+
+        Task::none()
     }
 
     fn close_pane(&mut self, pane: pane_grid::Pane) -> Task<Message> {
@@ -1334,7 +1330,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
         let layout = dashboard.panes.layout().clone();
 
         data::Dashboard {
-            pane: from_layout(&dashboard.panes, layout)
+            pane: from_layout(&dashboard.panes, layout),
         }
     }
 }
