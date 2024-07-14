@@ -3,16 +3,17 @@ use std::{
     num::NonZeroU16,
 };
 
+use crate::ctcp;
 use irc::proto::{self, command};
 
 pub fn decode(content: &str) -> Option<Command> {
-    let payload = ctcp_payload(content)?;
+    let query = ctcp::parse_ctcp_query(content).ok()?;
 
-    let mut args = payload.split_ascii_whitespace();
-
-    if args.next()? != "DCC" {
+    if query.command != "DCC" {
         return None;
     }
+
+    let mut args = query.params.split_whitespace();
 
     match args.next()?.to_lowercase().as_str() {
         "send" => Send::decode(args).map(Command::Send),
@@ -137,13 +138,5 @@ fn encode_host(host: IpAddr) -> String {
     match host {
         IpAddr::V4(v4) => u32::from(v4).to_string(),
         IpAddr::V6(v6) => v6.to_string(),
-    }
-}
-
-fn ctcp_payload(content: &str) -> Option<&str> {
-    if content.starts_with('\u{1}') && content.ends_with('\u{1}') && content.len() > 2 {
-        Some(&content[1..content.len() - 1])
-    } else {
-        None
     }
 }

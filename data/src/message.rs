@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub use self::source::Source;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
-use crate::{Config, User};
+use crate::{ctcp, Config, User};
 
 pub type Channel = String;
 
@@ -544,25 +544,18 @@ impl Limit {
     }
 }
 
-pub fn ctcp_command(text: &str) -> Option<&str> {
-    let command = text
-        .strip_suffix('\u{1}')
-        .unwrap_or(text)
-        .strip_prefix('\u{1}')?;
-
-    command.split_whitespace().next()
-}
-
 pub fn is_action(text: &str) -> bool {
-    text.starts_with("\u{1}ACTION ")
+    if let Ok(ctcp_query) = ctcp::parse_ctcp_query(text) {
+        ctcp_query.command == "ACTION"
+    } else {
+        false
+    }
 }
 
 pub fn parse_action(nick: NickRef, text: &str) -> Option<String> {
-    let action = text
-        .strip_suffix('\u{1}')
-        .unwrap_or(text)
-        .strip_prefix("\u{1}ACTION ")?;
-    Some(action_text(nick, action))
+    let ctcp_query = ctcp::parse_ctcp_query(text).ok()?;
+
+    Some(action_text(nick, ctcp_query.params))
 }
 
 pub fn action_text(nick: NickRef, action: &str) -> String {
