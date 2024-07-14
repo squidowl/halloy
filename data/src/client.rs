@@ -498,19 +498,55 @@ impl Client {
                                 return None;
                             }
                         }
-                    }
-                    // Highlight notification
-                    else if message::reference_user(user.nickname(), self.nickname(), text)
-                        && self.highlight_blackout.allow_highlights()
-                    {
-                        return Some(vec![Event::Notification(
-                            message.clone(),
-                            self.nickname().to_owned(),
-                            Notification::Highlight(user, channel.clone()),
-                        )]);
-                    } else if user.nickname() == self.nickname() && context.is_some() {
-                        // If we sent (echo) & context exists (we sent from this client), ignore
-                        return None;
+                    } else {
+                        // Handle CTCP queries except ACTION and DCC
+                        if user.nickname() != self.nickname() && !message::is_action(text) {
+                            if let Some(ctcp_command) = message::ctcp_command(text) {
+                                match ctcp_command {
+                                    "CLIENTINFO" => {
+                                        let _ = self.handle.try_send(command!(
+                                            "NOTICE",
+                                            user.nickname().as_ref().to_string(),
+                                            "\u{1}CLIENTINFO ACTION CLIENTINFO DCC PING VERSION\u{1}"
+                                        ));
+                                    }
+                                    "PING" => {
+                                        let _ = self.handle.try_send(command!(
+                                            "NOTICE",
+                                            user.nickname().as_ref().to_string(),
+                                            text
+                                        ));
+                                    }
+                                    "VERSION" => {
+                                        let _ = self.handle.try_send(command!(
+                                            "NOTICE",
+                                            user.nickname().as_ref().to_string(),
+                                            format!(
+                                                "\u{1}Halloy {}\u{1}",
+                                                include_str!("../../VERSION")
+                                            )
+                                        ));
+                                    }
+                                    _ => (),
+                                }
+
+                                return None;
+                            }
+                        }
+
+                        // Highlight notification
+                        if message::reference_user(user.nickname(), self.nickname(), text)
+                            && self.highlight_blackout.allow_highlights()
+                        {
+                            return Some(vec![Event::Notification(
+                                message.clone(),
+                                self.nickname().to_owned(),
+                                Notification::Highlight(user, channel.clone()),
+                            )]);
+                        } else if user.nickname() == self.nickname() && context.is_some() {
+                            // If we sent (echo) & context exists (we sent from this client), ignore
+                            return None;
+                        }
                     }
                 }
             }

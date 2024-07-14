@@ -544,12 +544,24 @@ impl Limit {
     }
 }
 
-fn is_action(text: &str) -> bool {
-    text.starts_with("\u{1}ACTION ") && text.ends_with('\u{1}')
+pub fn ctcp_command(text: &str) -> Option<&str> {
+    let command = text
+        .strip_suffix('\u{1}')
+        .unwrap_or(text)
+        .strip_prefix('\u{1}')?;
+
+    command.split_whitespace().next()
+}
+
+pub fn is_action(text: &str) -> bool {
+    text.starts_with("\u{1}ACTION ")
 }
 
 pub fn parse_action(nick: NickRef, text: &str) -> Option<String> {
-    let action = text.strip_prefix("\u{1}ACTION ")?.strip_suffix('\u{1}')?;
+    let action = text
+        .strip_suffix('\u{1}')
+        .unwrap_or(text)
+        .strip_prefix("\u{1}ACTION ")?;
     Some(action_text(nick, action))
 }
 
