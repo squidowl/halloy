@@ -157,12 +157,12 @@ impl Buffer {
         }
     }
 
-    pub fn reset(&self) -> Task<Message> {
+    pub fn reset(&mut self) {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
-            Buffer::Channel(channel) => channel.reset().map(Message::Channel),
-            Buffer::Server(server) => server.reset().map(Message::Server),
-            Buffer::Query(query) => query.reset().map(Message::Query),
+            Buffer::Empty | Buffer::FileTransfers(_) => {}
+            Buffer::Channel(channel) => channel.reset(),
+            Buffer::Server(server) => server.reset(),
+            Buffer::Query(query) => query.reset(),
         }
     }
 
