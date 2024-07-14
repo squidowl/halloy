@@ -1,7 +1,7 @@
 use iced::advanced::widget::{operation, tree, Operation};
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
 use iced::widget::{column, container};
-use iced::{event, mouse, Task, Event, Length, Point, Rectangle, Size, Vector};
+use iced::{event, mouse, Event, Length, Point, Rectangle, Size, Task, Vector};
 
 use super::{double_pass, Element, Renderer};
 use crate::{theme, Theme};
@@ -9,7 +9,7 @@ use crate::{theme, Theme};
 pub fn context_menu<'a, T, Message>(
     base: impl Into<Element<'a, Message>>,
     entries: Vec<T>,
-    view:  impl Fn(T, Length) -> Element<'a, Message> + 'a,
+    view: impl Fn(T, Length) -> Element<'a, Message> + 'a,
 ) -> Element<'a, Message>
 where
     Message: 'a,

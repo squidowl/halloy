@@ -1,12 +1,14 @@
-use std::collections::HashMap;
-
-use data::input::{Cache, Draft};
-use data::isupport;
-use data::user::{Nick, User};
-use data::{client, history, Buffer, Input};
+use data::input::{self, Cache, Draft};
+use data::user::Nick;
+use data::{client, history, Buffer};
+use iced::widget::{container, row, text, text_input};
 use iced::Task;
 
-use crate::widget::{input, Element};
+use self::completion::Completion;
+use crate::theme;
+use crate::widget::{anchored_overlay, key_press, Element};
+
+mod completion;
 
 pub enum Event {
     InputSent,
@@ -14,40 +16,81 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Input(Draft),
-    Send(Input),
-    Completion(Draft),
+    Input(String),
+    Send,
+    Tab,
+    Up,
+    Down,
 }
 
 pub fn view<'a>(
     state: &'a State,
-    buffer: Buffer,
     cache: Cache<'a>,
-    users: &'a [User],
-    channels: &'a [String],
-    isupport: HashMap<isupport::Kind, isupport::Parameter>,
     buffer_focused: bool,
     disabled: bool,
 ) -> Element<'a, Message> {
-    input(
-        state.input_id.clone(),
-        buffer,
-        cache.draft,
-        cache.history,
-        users,
-        channels,
-        isupport,
-        buffer_focused,
-        disabled,
-        Message::Input,
-        Message::Send,
-        Message::Completion,
-    )
+    let style = if state.error.is_some() {
+        theme::text_input::error
+    } else {
+        theme::text_input::primary
+    };
+
+    let mut text_input = text_input("Send message...", cache.draft)
+        .on_submit(Message::Send)
+        .id(state.input_id.clone())
+        .padding(8)
+        .style(style);
+
+    if !disabled {
+        text_input = text_input.on_input(Message::Input);
+    }
+
+    // Add tab support
+    let mut input = key_press(
+        text_input,
+        key_press::Key::Named(key_press::Named::Tab),
+        key_press::Modifiers::default(),
+        Message::Tab,
+    );
+
+    // Add up / down support for history cycling
+    if buffer_focused {
+        input = key_press(
+            key_press(
+                input,
+                key_press::Key::Named(key_press::Named::ArrowUp),
+                key_press::Modifiers::default(),
+                Message::Up,
+            ),
+            key_press::Key::Named(key_press::Named::ArrowDown),
+            key_press::Modifiers::default(),
+            Message::Down,
+        );
+    }
+
+    let overlay = state
+        .error
+        .as_deref()
+        .map(error)
+        .or_else(|| state.completion.view(cache.draft))
+        .unwrap_or_else(|| row![].into());
+
+    anchored_overlay(input, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
+}
+
+fn error<'a, 'b, Message: 'a>(error: &'b str) -> Element<'a, Message> {
+    container(text(error.to_string()).style(theme::text::error))
+        .padding(8)
+        .style(theme::container::context)
+        .into()
 }
 
 #[derive(Debug, Clone)]
 pub struct State {
-    input_id: input::Id,
+    input_id: text_input::Id,
+    error: Option<String>,
+    completion: Completion,
+    selected_history: Option<usize>,
 }
 
 impl Default for State {
@@ -59,58 +102,187 @@ impl Default for State {
 impl State {
     pub fn new() -> Self {
         Self {
-            input_id: input::Id::unique(),
+            input_id: text_input::Id::unique(),
+            error: None,
+            completion: Completion::default(),
+            selected_history: None,
         }
     }
 
     pub fn update(
         &mut self,
         message: Message,
+        buffer: Buffer,
         clients: &mut client::Map,
         history: &mut history::Manager,
     ) -> (Task<Message>, Option<Event>) {
         match message {
-            Message::Input(draft) => {
-                history.record_draft(draft);
+            Message::Input(input) => {
+                // Reset error state
+                self.error = None;
+                // Reset selected history
+                self.selected_history = None;
+
+                let users = buffer
+                    .channel()
+                    .map(|channel| clients.get_channel_users(buffer.server(), channel))
+                    .unwrap_or_default();
+                let channels = clients.get_channels(buffer.server());
+                let isupport = clients.get_isupport(buffer.server());
+
+                self.completion.process(&input, users, channels, &isupport);
+
+                history.record_draft(Draft {
+                    buffer,
+                    text: input,
+                });
 
                 (Task::none(), None)
             }
-            Message::Send(input) => {
-                if let Some(encoded) = input.encoded() {
-                    clients.send(input.buffer(), encoded);
-                }
+            Message::Send => {
+                let input = history.input(&buffer).draft;
 
-                if let Some(nick) = clients.nickname(input.server()) {
-                    let mut user = nick.to_owned().into();
+                // Reset error
+                self.error = None;
+                // Reset selected history
+                self.selected_history = None;
 
-                    // Resolve our attributes if sending this message in a channel
-                    if let Buffer::Channel(server, channel) = input.buffer() {
-                        if let Some(user_with_attributes) =
-                            clients.resolve_user_attributes(server, channel, &user)
-                        {
-                            user = user_with_attributes.clone();
+                if let Some(entry) = self.completion.select() {
+                    let new_input = entry.complete_input(input);
+
+                    self.on_completion(buffer, history, new_input)
+                } else if !input.is_empty() {
+                    self.completion.reset();
+
+                    // Parse input
+                    let input = match input::parse(buffer.clone(), input) {
+                        Ok(input) => input,
+                        Err(error) => {
+                            self.error = Some(error.to_string());
+                            return (Task::none(), None);
                         }
+                    };
+
+                    if let Some(encoded) = input.encoded() {
+                        clients.send(&buffer, encoded);
                     }
 
-                    history.record_input(input, user);
+                    if let Some(nick) = clients.nickname(buffer.server()) {
+                        let mut user = nick.to_owned().into();
+
+                        // Resolve our attributes if sending this message in a channel
+                        if let Buffer::Channel(server, channel) = &buffer {
+                            if let Some(user_with_attributes) =
+                                clients.resolve_user_attributes(server, channel, &user)
+                            {
+                                user = user_with_attributes.clone();
+                            }
+                        }
+
+                        history.record_input(input, user);
+                    }
+
+                    (Task::none(), Some(Event::InputSent))
+                } else {
+                    (Task::none(), None)
+                }
+            }
+            Message::Tab => {
+                let input = history.input(&buffer).draft;
+
+                if let Some(entry) = self.completion.tab() {
+                    let new_input = entry.complete_input(input);
+
+                    self.on_completion(buffer, history, new_input)
+                } else {
+                    (Task::none(), None)
+                }
+            }
+            Message::Up => {
+                let cache = history.input(&buffer);
+
+                self.completion.reset();
+
+                if !cache.history.is_empty() {
+                    if let Some(index) = self.selected_history.as_mut() {
+                        *index = (*index + 1).min(cache.history.len() - 1);
+                    } else {
+                        self.selected_history = Some(0);
+                    }
+
+                    let new_input = cache
+                        .history
+                        .get(self.selected_history.unwrap())
+                        .unwrap()
+                        .clone();
+
+                    let users = buffer
+                        .channel()
+                        .map(|channel| clients.get_channel_users(buffer.server(), channel))
+                        .unwrap_or_default();
+                    let channels = clients.get_channels(buffer.server());
+                    let isupport = clients.get_isupport(buffer.server());
+
+                    self.completion
+                        .process(&new_input, users, channels, &isupport);
+
+                    return self.on_completion(buffer, history, new_input);
                 }
 
-                (Task::none(), Some(Event::InputSent))
+                (Task::none(), None)
             }
-            Message::Completion(draft) => {
-                history.record_draft(draft);
+            Message::Down => {
+                let cache = history.input(&buffer);
 
-                (input::move_cursor_to_end(self.input_id.clone()), None)
+                self.completion.reset();
+
+                if let Some(index) = self.selected_history.as_mut() {
+                    let new_input = if *index == 0 {
+                        self.selected_history = None;
+                        String::new()
+                    } else {
+                        *index -= 1;
+                        let new_input = cache.history.get(*index).unwrap().clone();
+
+                        let users = buffer
+                            .channel()
+                            .map(|channel| clients.get_channel_users(buffer.server(), channel))
+                            .unwrap_or_default();
+                        let channels = clients.get_channels(buffer.server());
+                        let isupport = clients.get_isupport(buffer.server());
+
+                        self.completion
+                            .process(&new_input, users, channels, &isupport);
+                        new_input
+                    };
+
+                    return self.on_completion(buffer, history, new_input);
+                }
+
+                (Task::none(), None)
             }
         }
     }
 
-    pub fn focus(&self) -> Task<Message> {
-        input::focus(self.input_id.clone())
+    fn on_completion(
+        &self,
+        buffer: Buffer,
+        history: &mut history::Manager,
+        text: String,
+    ) -> (Task<Message>, Option<Event>) {
+        history.record_draft(Draft { buffer, text });
+
+        (text_input::move_cursor_to_end(self.input_id.clone()), None)
     }
 
-    pub fn reset(&self) -> Task<Message> {
-        input::reset(self.input_id.clone())
+    pub fn focus(&self) -> Task<Message> {
+        text_input::focus(self.input_id.clone())
+    }
+
+    pub fn reset(&mut self) {
+        self.error = None;
+        self.completion = Completion::default();
+        self.selected_history = None;
     }
 
     pub fn insert_user(
@@ -131,6 +303,6 @@ impl State {
 
         history.record_draft(Draft { buffer, text });
 
-        input::move_cursor_to_end(self.input_id.clone())
+        text_input::move_cursor_to_end(self.input_id.clone())
     }
 }

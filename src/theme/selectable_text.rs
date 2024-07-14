@@ -51,12 +51,22 @@ pub fn server(
     server: Option<&message::source::Server>,
     config: &config::buffer::ServerMessages,
 ) -> Style {
-    let color = server.and_then(|server| match server.kind() {
-        message::source::server::Kind::Join => config.join.hex.as_deref().and_then(hex_to_color),
-        message::source::server::Kind::Part => config.part.hex.as_deref().and_then(hex_to_color),
-        message::source::server::Kind::Quit => config.quit.hex.as_deref().and_then(hex_to_color),
-        message::source::server::Kind::ReplyTopic => config.topic.hex.as_deref().and_then(hex_to_color),
-    }).or_else(|| text::info(theme).color);
+    let color = server
+        .and_then(|server| match server.kind() {
+            message::source::server::Kind::Join => {
+                config.join.hex.as_deref().and_then(hex_to_color)
+            }
+            message::source::server::Kind::Part => {
+                config.part.hex.as_deref().and_then(hex_to_color)
+            }
+            message::source::server::Kind::Quit => {
+                config.quit.hex.as_deref().and_then(hex_to_color)
+            }
+            message::source::server::Kind::ReplyTopic => {
+                config.topic.hex.as_deref().and_then(hex_to_color)
+            }
+        })
+        .or_else(|| text::info(theme).color);
 
     Style {
         color,
