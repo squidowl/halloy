@@ -2,8 +2,8 @@ use data::message::Limit;
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
-use iced::widget::{column, container, horizontal_rule, row, text, scrollable, Scrollable};
-use iced::{Task, Length};
+use iced::widget::{column, container, horizontal_rule, row, scrollable, text, Scrollable};
+use iced::{Length, Task};
 
 use super::user_context;
 use crate::theme;

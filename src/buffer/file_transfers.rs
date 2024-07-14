@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use data::{file_transfer, Config};
 use iced::widget::{button, center, column, container, scrollable, text, Scrollable};
-use iced::{Task, Length};
+use iced::{Length, Task};
 
 use crate::widget::{Element, Text};
 use crate::{icon, theme};

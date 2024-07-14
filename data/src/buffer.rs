@@ -21,6 +21,14 @@ impl Buffer {
         }
     }
 
+    pub fn channel(&self) -> Option<&str> {
+        match self {
+            Buffer::Server(_) => None,
+            Buffer::Channel(_, channel) => Some(channel),
+            Buffer::Query(_, _) => None,
+        }
+    }
+
     pub fn target(&self) -> Option<String> {
         match self {
             Buffer::Server(_) => None,
