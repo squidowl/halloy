@@ -27,7 +27,7 @@ pub fn view<'a>(
                 text("No transfers found").style(theme::text::transparent)
             ]
             .spacing(8)
-            .align_items(iced::Alignment::Center),
+            .align_x(iced::Alignment::Center),
         ))
         .into();
     }
@@ -42,13 +42,12 @@ pub fn view<'a>(
     .padding([0, 2]);
 
     container(
-        Scrollable::with_direction(
-            column,
-            scrollable::Direction::Vertical(
-                scrollable::Properties::new().width(1).scroller_width(1),
-            ),
-        )
-        .style(theme::scrollable::hidden),
+        Scrollable::new(column)
+            .direction(scrollable::Direction::Vertical {
+                scrollbar: scrollable::Scrollbar::new().width(1).scroller_width(1),
+                spacing: None,
+            })
+            .style(theme::scrollable::hidden),
     )
     .width(Length::Fill)
     .height(Length::Fill)
@@ -105,7 +104,7 @@ mod transfer_row {
     use bytesize::ByteSize;
     use data::file_transfer::{self, FileTransfer};
     use iced::widget::{column, container, progress_bar, row, text};
-    use iced::{alignment, Length};
+    use iced::{alignment, padding, Length};
 
     use crate::buffer::file_transfers::row_button;
     use crate::widget::Element;
@@ -216,11 +215,11 @@ mod transfer_row {
         let file_size = ByteSize::b(transfer.size);
         let filename = container(text(format!("{} ({file_size})", transfer.filename)));
 
-        let mut buttons = row![].align_items(iced::Alignment::Center).spacing(2);
+        let mut buttons = row![].align_y(iced::Alignment::Center).spacing(2);
         let content = column![filename, status]
             // Add 1 padding to make container odd sized
             // for proper icon centering
-            .padding([1, 0, 0, 0])
+            .padding(padding::top(1))
             .width(Length::Fill)
             .spacing(0);
 
@@ -245,10 +244,10 @@ mod transfer_row {
 
         let row = row![content, buttons]
             .spacing(6)
-            .align_items(iced::Alignment::Center);
+            .align_y(iced::Alignment::Center);
 
         container(row)
-            .padding([6, 4, 6, 8])
+            .padding(padding::top(6).bottom(6).right(4).left(8))
             .width(Length::Fill)
             .align_y(alignment::Vertical::Center)
             .style(move |theme| theme::container::table_row(theme, idx))

@@ -13,7 +13,7 @@ use data::user::Nick;
 use data::{client, environment, history, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
-use iced::{clipboard, window, Length, Task};
+use iced::{clipboard, padding, window, Length, Task};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -41,7 +41,7 @@ pub enum Message {
     Sidebar(sidebar::Message),
     SelectedText(Vec<(f32, String)>),
     History(history::manager::Message),
-    Close,
+    Close(window::Id),
     DashboardSaved(Result<(), data::dashboard::Error>),
     CloseHistory,
     Task(command_bar::Message),
@@ -331,8 +331,8 @@ impl Dashboard {
             Message::History(message) => {
                 self.history.update(message);
             }
-            Message::Close => {
-                return (window::close(window::Id::MAIN), None);
+            Message::Close(window) => {
+                return (window::close(window), None);
             }
             Message::DashboardSaved(Ok(_)) => {
                 log::info!("dashboard saved");
@@ -637,7 +637,7 @@ impl Dashboard {
             .push(pane_grid)
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding([height_margin, 0, 0, 0]);
+            .padding(padding::top(height_margin));
 
         let base = if let Some(command_bar) = self.command_bar.as_ref() {
             let background = anchored_overlay(
@@ -717,7 +717,7 @@ impl Dashboard {
                         .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
                 })
                 .unwrap_or_else(Task::none),
-            CloseRequested => {
+            CloseRequested(window) => {
                 let history = self.history.close_all();
                 let last_changed = self.last_changed;
                 let dashboard = data::Dashboard::from(&*self);
@@ -737,7 +737,7 @@ impl Dashboard {
                     }
                 };
 
-                Task::perform(task, |_| Message::Close)
+                Task::perform(task, move |_| Message::Close(window))
             }
         }
     }

@@ -1,7 +1,7 @@
 use iced::{
     widget::{
         container,
-        scrollable::{Catalog, Scrollbar, Scroller, Status, Style, StyleFn},
+        scrollable::{Catalog, Rail, Scroller, Status, Style, StyleFn},
     },
     Background, Border, Color, Shadow,
 };
@@ -21,7 +21,7 @@ impl Catalog for Theme {
 }
 
 pub fn primary(theme: &Theme, status: Status) -> Style {
-    let scrollbar = Scrollbar {
+    let rail = Rail {
         background: None,
         border: Border::default(),
         scroller: Scroller {
@@ -46,15 +46,15 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
                 },
                 shadow: Shadow::default(),
             },
-            vertical_scrollbar: scrollbar,
-            horizontal_scrollbar: scrollbar,
+            vertical_rail: rail,
+            horizontal_rail: rail,
             gap: None,
         },
     }
 }
 
 pub fn hidden(_theme: &Theme, status: Status) -> Style {
-    let scrollbar = Scrollbar {
+    let rail = Rail {
         background: None,
         border: Border::default(),
         scroller: Scroller {
@@ -79,8 +79,8 @@ pub fn hidden(_theme: &Theme, status: Status) -> Style {
                 },
                 shadow: Shadow::default(),
             },
-            vertical_scrollbar: scrollbar,
-            horizontal_scrollbar: scrollbar,
+            vertical_rail: rail,
+            horizontal_rail: rail,
             gap: None,
         },
     }

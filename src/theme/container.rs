@@ -1,5 +1,5 @@
 use iced::widget::container::{transparent, Catalog, Style, StyleFn};
-use iced::{Background, Border, Color};
+use iced::{border, Background, Border, Color};
 
 use super::Theme;
 
@@ -65,7 +65,7 @@ pub fn pane_header(theme: &Theme) -> Style {
     Style {
         background: Some(Background::Color(theme.colors().background.darker)),
         border: Border {
-            radius: [4.0, 4.0, 0.0, 0.0].into(),
+            radius: border::top_left(4).top_right(4),
             width: 1.0,
             color: Color::TRANSPARENT,
         },
