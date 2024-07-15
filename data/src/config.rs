@@ -11,10 +11,11 @@ pub use self::buffer::Buffer;
 pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
 pub use self::keys::Keyboard;
-pub use self::notification::{Notification, Notifications};
+pub use self::notification::Notifications;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
+use crate::audio::{self, Sound};
 use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
 use crate::theme::Palette;
@@ -42,7 +43,7 @@ pub struct Config {
     pub buffer: Buffer,
     pub sidebar: Sidebar,
     pub keyboard: Keyboard,
-    pub notifications: Notifications,
+    pub notifications: Notifications<Sound>,
     pub file_transfer: FileTransfer,
     pub tooltips: bool,
 }
@@ -96,6 +97,17 @@ impl Config {
         if !dir.exists() {
             std::fs::create_dir_all(dir.as_path())
                 .expect("expected permissions to create config folder");
+        }
+
+        dir
+    }
+
+    pub fn sounds_dir() -> PathBuf {
+        let dir = Self::config_dir().join("sounds");
+
+        if !dir.exists() {
+            std::fs::create_dir_all(dir.as_path())
+                .expect("expected permissions to create sounds folder");
         }
 
         dir
@@ -160,6 +172,8 @@ impl Config {
 
         servers.read_password_files()?;
 
+        let loaded_notifications = notifications.load_sounds()?;
+
         let themes = Self::load_themes(&theme).unwrap_or_default();
 
         Ok(Config {
@@ -171,7 +185,7 @@ impl Config {
             buffer,
             sidebar,
             keyboard,
-            notifications,
+            notifications: loaded_notifications,
             file_transfer,
             tooltips,
         })
@@ -291,6 +305,8 @@ pub enum Error {
     Io(String),
     #[error("{0}")]
     Parse(String),
+    #[error("error loading sound: {0}")]
+    LoadSounds(#[from] audio::LoadError),
 }
 
 impl From<std::io::Error> for Error {

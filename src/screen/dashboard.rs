@@ -21,7 +21,7 @@ use self::sidebar::Sidebar;
 use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
 use crate::widget::{anchored_overlay, context_menu, selectable_text, shortcut, Element};
-use crate::{event, notification, theme, Theme};
+use crate::{audio, event, notification, theme, Theme};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
@@ -1209,19 +1209,14 @@ impl Dashboard {
         &mut self,
         server: &Server,
         request: file_transfer::ReceiveRequest,
+        audio: &mut audio::State,
         config: &Config,
     ) -> Option<Task<Message>> {
         if let Some(event) = self
             .file_transfers
             .receive(request.clone(), config.proxy.as_ref())
         {
-            let notification = &config.notifications.file_transfer_request;
-
-            if notification.enabled {
-                let text = format!("File Transfer Request: {}", request.from);
-
-                notification::show(text.as_str(), server, notification.sound());
-            };
+            notification::file_transfer_request(&config.notifications, audio, request.from, server);
 
             return Some(self.handle_file_transfer_event(server, event));
         }

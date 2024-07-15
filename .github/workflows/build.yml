@@ -29,6 +29,18 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install deps
+      run: |
+        sudo apt update
+        sudo apt install \
+          build-essential \
+          git \
+          pkg-config \
+          libdbus-1-dev \
+          libudev-dev \
+          libxkbcommon-dev \
+          libfontconfig1-dev \
+          libasound2-dev
     - name: Check
       run: cargo check
     - name: Clippy
