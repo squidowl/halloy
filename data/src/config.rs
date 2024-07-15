@@ -15,6 +15,7 @@ pub use self::notification::Notifications;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
+use crate::audio::{self, Sound};
 use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
 use crate::theme::Palette;
@@ -42,7 +43,7 @@ pub struct Config {
     pub buffer: Buffer,
     pub sidebar: Sidebar,
     pub keyboard: Keyboard,
-    pub notifications: Notifications,
+    pub notifications: Notifications<Sound>,
     pub file_transfer: FileTransfer,
     pub tooltips: bool,
 }
@@ -164,13 +165,14 @@ impl Config {
             buffer,
             sidebar,
             keyboard,
-            mut notifications,
+            notifications,
             file_transfer,
             tooltips,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_password_files()?;
-        notifications.load_sound_data();
+
+        let loaded_notifications = notifications.load_sounds()?;
 
         let themes = Self::load_themes(&theme).unwrap_or_default();
 
@@ -183,7 +185,7 @@ impl Config {
             buffer,
             sidebar,
             keyboard,
-            notifications,
+            notifications: loaded_notifications,
             file_transfer,
             tooltips,
         })
@@ -303,6 +305,8 @@ pub enum Error {
     Io(String),
     #[error("{0}")]
     Parse(String),
+    #[error("error loading sound: {0}")]
+    LoadSounds(#[from] audio::LoadError),
 }
 
 impl From<std::io::Error> for Error {
