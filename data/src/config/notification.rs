@@ -1,42 +1,66 @@
 use serde::Deserialize;
 
-#[cfg(target_os = "macos")]
-const DEFAULT_SOUND: &str = "Submarine";
-#[cfg(all(unix, not(target_os = "macos")))]
-const DEFAULT_SOUND: &str = "message-new-instant";
-#[cfg(target_os = "windows")]
-const DEFAULT_SOUND: &str = "Mail";
+use crate::audio::{self, Sound};
 
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct Notification {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default = "default_sound")]
-    sound: String,
-    #[serde(default)]
-    mute: bool,
+pub type Loaded = Notification<Sound>;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Notification<T = String> {
+    #[serde(rename = "enabled", default)]
+    pub show_toast: bool,
+    pub sound: Option<T>,
 }
 
-impl Notification {
-    pub fn sound(&self) -> Option<&str> {
-        (!self.mute).then_some(&self.sound)
+impl<T> Default for Notification<T> {
+    fn default() -> Self {
+        Self {
+            show_toast: false,
+            sound: None,
+        }
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct Notifications {
+#[derive(Debug, Clone, Deserialize)]
+pub struct Notifications<T = String> {
     #[serde(default)]
-    pub connected: Notification,
+    pub connected: Notification<T>,
     #[serde(default)]
-    pub disconnected: Notification,
+    pub disconnected: Notification<T>,
     #[serde(default)]
-    pub reconnected: Notification,
+    pub reconnected: Notification<T>,
     #[serde(default)]
-    pub highlight: Notification,
+    pub highlight: Notification<T>,
     #[serde(default)]
-    pub file_transfer_request: Notification,
+    pub file_transfer_request: Notification<T>,
 }
 
-fn default_sound() -> String {
-    DEFAULT_SOUND.to_string()
+impl<T> Default for Notifications<T> {
+    fn default() -> Self {
+        Self {
+            connected: Notification::default(),
+            disconnected: Notification::default(),
+            reconnected: Notification::default(),
+            highlight: Notification::default(),
+            file_transfer_request: Notification::default(),
+        }
+    }
+}
+
+impl Notifications {
+    pub fn load_sounds(&self) -> Result<Notifications<Sound>, audio::LoadError> {
+        let load = |notification: &Notification<String>| -> Result<_, audio::LoadError> {
+            Ok(Notification {
+                show_toast: notification.show_toast,
+                sound: notification.sound.as_deref().map(Sound::load).transpose()?,
+            })
+        };
+
+        Ok(Notifications {
+            connected: load(&self.connected)?,
+            disconnected: load(&self.disconnected)?,
+            reconnected: load(&self.reconnected)?,
+            highlight: load(&self.highlight)?,
+            file_transfer_request: load(&self.file_transfer_request)?,
+        })
+    }
 }
