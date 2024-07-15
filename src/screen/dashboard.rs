@@ -1216,8 +1216,7 @@ impl Dashboard {
             .file_transfers
             .receive(request.clone(), config.proxy.as_ref())
         {
-            let notification = &config.notifications.file_transfer_request;
-            notification::file_transfer_request(notification, audio, request.from, server);
+            notification::file_transfer_request(&config.notifications, audio, request.from, server);
 
             return Some(self.handle_file_transfer_event(server, event));
         }

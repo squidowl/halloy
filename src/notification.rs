@@ -1,5 +1,6 @@
 use data::{
-    config::notification,
+    audio::Sound,
+    config::{self, notification},
     user::{Nick, NickRef},
 };
 
@@ -9,37 +10,37 @@ pub mod audio;
 mod toast;
 
 pub fn connected(
-    notification: &notification::Loaded,
+    config: &config::Notifications<Sound>,
     audio: &mut audio::State,
     server: impl ToString,
 ) {
-    show_notification(notification, audio, "Connected", server);
+    show_notification(&config.connected, audio, "Connected", server);
 }
 
 pub fn reconnected(
-    notification: &notification::Loaded,
+    config: &config::Notifications<Sound>,
     audio: &mut audio::State,
     server: impl ToString,
 ) {
-    show_notification(notification, audio, "Reconnected", server);
+    show_notification(&config.reconnected, audio, "Reconnected", server);
 }
 
 pub fn disconnected(
-    notification: &notification::Loaded,
+    config: &config::Notifications<Sound>,
     audio: &mut audio::State,
     server: impl ToString,
 ) {
-    show_notification(notification, audio, "Disconnected", server);
+    show_notification(&config.disconnected, audio, "Disconnected", server);
 }
 
 pub fn highlight(
-    notification: &notification::Loaded,
+    config: &config::Notifications<Sound>,
     audio: &mut audio::State,
     nick: NickRef,
     channel: String,
 ) {
     show_notification(
-        notification,
+        &config.highlight,
         audio,
         "Highlight",
         format!("{} highlighted you in {}", nick, channel),
@@ -47,13 +48,13 @@ pub fn highlight(
 }
 
 pub fn file_transfer_request(
-    notification: &notification::Loaded,
+    config: &config::Notifications<Sound>,
     audio: &mut audio::State,
     nick: Nick,
     server: impl ToString,
 ) {
     show_notification(
-        notification,
+        &config.file_transfer_request,
         audio,
         &format!("File transfer from {}", nick),
         server,

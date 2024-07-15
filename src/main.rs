@@ -369,8 +369,11 @@ impl Application for Halloy {
                         // Intial is sent when first trying to connect
                         dashboard.broadcast_connecting(&server, &self.config, sent_time);
                     } else {
-                        let notification = &self.config.notifications.disconnected;
-                        notification::disconnected(notification, &mut self.audio, &server);
+                        notification::disconnected(
+                            &self.config.notifications,
+                            &mut self.audio,
+                            &server,
+                        );
 
                         dashboard.broadcast_disconnected(&server, error, &self.config, sent_time);
                     }
@@ -390,13 +393,19 @@ impl Application for Halloy {
                     };
 
                     if is_initial {
-                        let notification = &self.config.notifications.connected;
-                        notification::connected(notification, &mut self.audio, &server);
+                        notification::connected(
+                            &self.config.notifications,
+                            &mut self.audio,
+                            &server,
+                        );
 
                         dashboard.broadcast_connected(&server, &self.config, sent_time);
                     } else {
-                        let notification = &self.config.notifications.reconnected;
-                        notification::reconnected(notification, &mut self.audio, &server);
+                        notification::reconnected(
+                            &self.config.notifications,
+                            &mut self.audio,
+                            &server,
+                        );
 
                         dashboard.broadcast_reconnected(&server, &self.config, sent_time);
                     }
@@ -530,10 +539,8 @@ impl Application for Halloy {
                                                 user,
                                                 channel,
                                             ) => {
-                                                let notification =
-                                                    &self.config.notifications.highlight;
                                                 notification::highlight(
-                                                    notification,
+                                                    &self.config.notifications,
                                                     &mut self.audio,
                                                     user.nickname(),
                                                     channel,
