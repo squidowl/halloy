@@ -1,6 +1,7 @@
 #![allow(clippy::large_enum_variant, clippy::too_many_arguments)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod audio;
 mod buffer;
 mod event;
 mod font;
@@ -122,7 +123,7 @@ struct Halloy {
     servers: server::Map,
     modal: Option<Modal>,
     window: Window,
-    audio: notification::audio::State,
+    audio: audio::State,
 }
 
 impl Halloy {
@@ -183,7 +184,7 @@ impl Halloy {
                 config,
                 modal: None,
                 window: Window::load().unwrap_or_default(),
-                audio: notification::audio::State::new(),
+                audio: audio::State::new(),
             },
             command,
         )

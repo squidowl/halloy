@@ -21,7 +21,7 @@ use self::sidebar::Sidebar;
 use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
 use crate::widget::{anchored_overlay, context_menu, selectable_text, shortcut, Element};
-use crate::{event, notification, theme, Theme};
+use crate::{audio, event, notification, theme, Theme};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
@@ -1209,7 +1209,7 @@ impl Dashboard {
         &mut self,
         server: &Server,
         request: file_transfer::ReceiveRequest,
-        audio: &mut notification::audio::State,
+        audio: &mut audio::State,
         config: &Config,
     ) -> Option<Task<Message>> {
         if let Some(event) = self
