@@ -21,6 +21,7 @@ pub mod client;
 pub mod command;
 mod compression;
 pub mod config;
+pub mod ctcp;
 pub mod dashboard;
 pub mod dcc;
 pub mod environment;

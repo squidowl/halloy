@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use crate::message::server_time;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{config, dcc, isupport, message, mode, Buffer, Server, User};
+use crate::{config, ctcp, dcc, isupport, message, mode, Buffer, Server, User};
 use crate::{file_transfer, server};
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
@@ -498,19 +498,68 @@ impl Client {
                                 return None;
                             }
                         }
-                    }
-                    // Highlight notification
-                    else if message::reference_user(user.nickname(), self.nickname(), text)
-                        && self.highlight_blackout.allow_highlights()
-                    {
-                        return Some(vec![Event::Notification(
-                            message.clone(),
-                            self.nickname().to_owned(),
-                            Notification::Highlight(user, channel.clone()),
-                        )]);
-                    } else if user.nickname() == self.nickname() && context.is_some() {
-                        // If we sent (echo) & context exists (we sent from this client), ignore
-                        return None;
+                    } else {
+                        // Handle CTCP queries except ACTION and DCC
+                        if user.nickname() != self.nickname()
+                            && ctcp::is_query(text)
+                            && !message::is_action(text)
+                        {
+                            if let Some(query) = ctcp::parse_query(text) {
+                                match query.command {
+                                    "CLIENTINFO" => {
+                                        let _ = self.handle.try_send(command!(
+                                            "NOTICE",
+                                            user,
+                                            "\u{1}CLIENTINFO ACTION CLIENTINFO DCC PING SOURCE VERSION\u{1}"
+                                        ));
+                                    }
+                                    "PING" => {
+                                        let _ = self.handle.try_send(command!(
+                                            "NOTICE",
+                                            user,
+                                            query.params
+                                        ));
+                                    }
+                                    "SOURCE" => {
+                                        let _ = self.handle.try_send(command!(
+                                            "NOTICE",
+                                            user,
+                                            format!(
+                                                "\u{1}{}\u{1}",
+                                                crate::environment::SOURCE_WEBSITE
+                                            )
+                                        ));
+                                    }
+                                    "VERSION" => {
+                                        let _ = self.handle.try_send(command!(
+                                            "NOTICE",
+                                            user,
+                                            format!(
+                                                "\u{1}Halloy {}\u{1}",
+                                                crate::environment::VERSION
+                                            )
+                                        ));
+                                    }
+                                    _ => (),
+                                }
+
+                                return None;
+                            }
+                        }
+
+                        // Highlight notification
+                        if message::reference_user(user.nickname(), self.nickname(), text)
+                            && self.highlight_blackout.allow_highlights()
+                        {
+                            return Some(vec![Event::Notification(
+                                message.clone(),
+                                self.nickname().to_owned(),
+                                Notification::Highlight(user, channel.clone()),
+                            )]);
+                        } else if user.nickname() == self.nickname() && context.is_some() {
+                            // If we sent (echo) & context exists (we sent from this client), ignore
+                            return None;
+                        }
                     }
                 }
             }
