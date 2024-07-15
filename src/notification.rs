@@ -4,9 +4,10 @@ use data::{
     user::{Nick, NickRef},
 };
 
-pub use toast::prepare;
+use crate::audio;
 
-pub mod audio;
+pub use self::toast::prepare;
+
 mod toast;
 
 pub fn connected(
