@@ -1,11 +1,11 @@
-use std::io::Cursor;
 use std::path::PathBuf;
+use std::{io::Cursor, sync::Arc};
 
 use kira::{
     manager::{backend::cpal::CpalBackend, AudioManager, AudioManagerSettings, DefaultBackend},
     sound::static_sound::StaticSoundData,
 };
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 
 use crate::Config;
 
@@ -19,45 +19,31 @@ impl Manager {
     }
 
     pub fn play(&mut self, sound: &Sound) -> Result<(), PlayError> {
-        if let Some(data) = sound.data.clone() {
-            self.0.play(data).map_err(|_| PlayError::PlaySoundError)?;
-            Ok(())
-        } else {
-            Err(PlayError::NoSoundData)
-        }
+        self.0
+            .play(sound.data.clone())
+            .map_err(|_| PlayError::PlaySoundError)?;
+        Ok(())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Sound {
-    name: String,
-    pub data: Option<StaticSoundData>,
-}
-
-impl<'de> Deserialize<'de> for Sound {
-    fn deserialize<D>(deserializer: D) -> Result<Sound, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let name: String = serde::Deserialize::deserialize(deserializer)?;
-        Ok(Sound { name, data: None })
-    }
+    data: StaticSoundData,
 }
 
 impl Sound {
-    pub fn load_data(&mut self) -> Result<(), LoadError> {
-        let data = if let Ok(internal) = Internal::try_from(self.name.as_str()) {
+    pub fn load(name: &str) -> Result<Sound, LoadError> {
+        let data = if let Ok(internal) = Internal::try_from(name) {
             StaticSoundData::from_cursor(Cursor::new(internal.bytes()))?
         } else {
-            let Some(sound_path) = find_external_sound(self.name.as_str()) else {
+            let Some(sound_path) = find_external_sound(name) else {
                 return Err(LoadError::NoSoundFound);
             };
 
             StaticSoundData::from_file(sound_path)?
         };
 
-        self.data = Some(data);
-        Ok(())
+        Ok(Sound { data })
     }
 }
 
@@ -123,16 +109,20 @@ fn find_external_sound(sound: &str) -> Option<PathBuf> {
 pub enum PlayError {
     #[error("error occured when playing a sound")]
     PlaySoundError,
-    #[error("sound has no data")]
-    NoSoundData,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum LoadError {
     #[error(transparent)]
-    File(#[from] kira::sound::FromFileError),
+    File(Arc<kira::sound::FromFileError>),
     #[error("sound was not found")]
     NoSoundFound,
+}
+
+impl From<kira::sound::FromFileError> for LoadError {
+    fn from(error: kira::sound::FromFileError) -> Self {
+        Self::File(Arc::new(error))
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

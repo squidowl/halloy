@@ -1,5 +1,5 @@
 use data::{
-    config::notification::Notification,
+    config::notification,
     user::{Nick, NickRef},
 };
 
@@ -8,20 +8,32 @@ pub use toast::prepare;
 pub mod audio;
 mod toast;
 
-pub fn connected(notification: &Notification, audio: &mut audio::State, server: impl ToString) {
+pub fn connected(
+    notification: &notification::Loaded,
+    audio: &mut audio::State,
+    server: impl ToString,
+) {
     show_notification(notification, audio, "Connected", server);
 }
 
-pub fn reconnected(notification: &Notification, audio: &mut audio::State, server: impl ToString) {
+pub fn reconnected(
+    notification: &notification::Loaded,
+    audio: &mut audio::State,
+    server: impl ToString,
+) {
     show_notification(notification, audio, "Reconnected", server);
 }
 
-pub fn disconnected(notification: &Notification, audio: &mut audio::State, server: impl ToString) {
+pub fn disconnected(
+    notification: &notification::Loaded,
+    audio: &mut audio::State,
+    server: impl ToString,
+) {
     show_notification(notification, audio, "Disconnected", server);
 }
 
 pub fn highlight(
-    notification: &Notification,
+    notification: &notification::Loaded,
     audio: &mut audio::State,
     nick: NickRef,
     channel: String,
@@ -35,7 +47,7 @@ pub fn highlight(
 }
 
 pub fn file_transfer_request(
-    notification: &Notification,
+    notification: &notification::Loaded,
     audio: &mut audio::State,
     nick: Nick,
     server: impl ToString,
@@ -49,7 +61,7 @@ pub fn file_transfer_request(
 }
 
 fn show_notification(
-    notification: &Notification,
+    notification: &notification::Loaded,
     audio: &mut audio::State,
     title: &str,
     body: impl ToString,
