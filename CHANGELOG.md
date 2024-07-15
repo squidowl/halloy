@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Support for CTCP queries CLIENTINFO, PING, SOURCE, and VERSION
+
 Fixed:
 
 - Text input missing key presses in certain instances
