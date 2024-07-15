@@ -103,7 +103,7 @@ impl Welcome {
                     .push(documentation_button)
                     .push(reload_button),
             )
-            .align_items(iced::Alignment::Center);
+            .align_x(iced::Alignment::Center);
 
         container(content)
             .align_x(alignment::Horizontal::Center)

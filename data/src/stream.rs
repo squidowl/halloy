@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
+use futures::never::Never;
 use std::time::Duration;
 
 use futures::channel::mpsc;
-use futures::never::Never;
 use futures::{future, stream, FutureExt, SinkExt, StreamExt};
 use irc::proto::{self, command, Command};
 use irc::{codec, connection, Connection};

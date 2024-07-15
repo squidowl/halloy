@@ -15,7 +15,7 @@ where
     Message: 'a,
     T: 'a + Copy,
 {
-    let build_menu = |length, view: &dyn Fn(T, Length) -> Element<'a, Message>| {
+    let build_menu = |length, view: &(dyn Fn(T, Length) -> Element<'a, Message> + 'a)| {
         container(column(
             entries.iter().copied().map(|entry| view(entry, length)),
         ))
@@ -232,7 +232,7 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
         }
     }
 
-    Task::widget(Close {
+    widget::operate(Close {
         any_closed: false,
         f,
     })

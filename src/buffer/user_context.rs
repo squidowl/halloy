@@ -1,7 +1,7 @@
 use data::user::Nick;
 use data::{Buffer, User};
 use iced::widget::{button, container, horizontal_rule, row, text, Space};
-use iced::Length;
+use iced::{padding, Length, Padding};
 
 use crate::widget::{context_menu, double_pass, Element};
 use crate::{icon, theme};
@@ -143,8 +143,8 @@ fn menu_button(content: &str, message: Message, length: Length) -> Element<'_, M
         .into()
 }
 
-fn right_justified_padding() -> [f32; 4] {
-    [5.0, 5.0 + double_pass::horizontal_expansion(), 5.0, 5.0]
+fn right_justified_padding() -> Padding {
+    padding::all(5).right(5.0 + double_pass::horizontal_expansion())
 }
 
 fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message> {
@@ -159,7 +159,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                         .shaping(text::Shaping::Advanced),
                 )
                 .padding(right_justified_padding())
-                .align_items(iced::Alignment::Center)
+                .align_y(iced::Alignment::Center)
                 .into()
         } else {
             row![]
@@ -171,7 +171,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                         .shaping(text::Shaping::Advanced),
                 )
                 .padding(right_justified_padding())
-                .align_items(iced::Alignment::Center)
+                .align_y(iced::Alignment::Center)
                 .into()
         }
     } else {
@@ -188,7 +188,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                     .shaping(text::Shaping::Advanced),
             )
             .padding(right_justified_padding())
-            .align_items(iced::Alignment::Center)
+            .align_y(iced::Alignment::Center)
             .into()
     }
 }

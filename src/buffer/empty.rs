@@ -8,7 +8,7 @@ pub fn view<'a, Message: 'a>() -> Element<'a, Message> {
 
     let content = column![]
         .push(text("⟵ select buffer").shaping(text::Shaping::Advanced))
-        .align_items(iced::Alignment::Center);
+        .align_x(iced::Alignment::Center);
 
     container(content)
         .align_x(alignment::Horizontal::Center)

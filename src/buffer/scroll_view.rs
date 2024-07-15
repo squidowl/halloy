@@ -3,7 +3,7 @@ use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
 use iced::widget::{column, container, horizontal_rule, row, scrollable, text, Scrollable};
-use iced::{Length, Task};
+use iced::{padding, Length, Task};
 
 use super::user_context;
 use crate::theme;
@@ -86,40 +86,39 @@ pub fn view<'a>(
         let divider = row![
             container(horizontal_rule(1))
                 .width(Length::Fill)
-                .padding([0, 6, 0, 0]),
+                .padding(padding::right(6)),
             text("backlog")
                 .size(font_size)
                 .style(theme::text::transparent),
             container(horizontal_rule(1))
                 .width(Length::Fill)
-                .padding([0, 0, 0, 6])
+                .padding(padding::left(6))
         ]
         .padding(2)
-        .align_items(iced::Alignment::Center);
+        .align_y(iced::Alignment::Center);
 
         column![column(old), divider, column(new)]
     } else {
         column![column(old), column(new)]
     };
 
-    Scrollable::with_direction(
-        container(content).width(Length::Fill).padding([0, 8]),
-        scrollable::Direction::Vertical(
-            scrollable::Properties::default()
-                .alignment(status.alignment())
+    Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
+        .direction(scrollable::Direction::Vertical {
+            scrollbar: scrollable::Scrollbar::default()
+                .anchor(status.alignment())
                 .width(5)
                 .scroller_width(5),
-        ),
-    )
-    .on_scroll(move |viewport| Message::Scrolled {
-        count,
-        remaining,
-        oldest,
-        status,
-        viewport,
-    })
-    .id(state.scrollable.clone())
-    .into()
+            spacing: None,
+        })
+        .on_scroll(move |viewport| Message::Scrolled {
+            count,
+            remaining,
+            oldest,
+            status,
+            viewport,
+        })
+        .id(state.scrollable.clone())
+        .into()
 }
 
 #[derive(Debug, Clone)]
@@ -263,16 +262,16 @@ impl Status {
         }
     }
 
-    fn alignment(self) -> scrollable::Alignment {
+    fn alignment(self) -> scrollable::Anchor {
         match self {
             Status::Idle(anchor) => match anchor {
-                Anchor::Top => scrollable::Alignment::Start,
-                Anchor::Bottom => scrollable::Alignment::End,
+                Anchor::Top => scrollable::Anchor::Start,
+                Anchor::Bottom => scrollable::Anchor::End,
             },
-            Status::Unlocked(_) => scrollable::Alignment::Start,
+            Status::Unlocked(_) => scrollable::Anchor::Start,
             Status::Loading(anchor) => match anchor {
-                Anchor::Top => scrollable::Alignment::Start,
-                Anchor::Bottom => scrollable::Alignment::End,
+                Anchor::Top => scrollable::Anchor::Start,
+                Anchor::Bottom => scrollable::Anchor::End,
             },
         }
     }
@@ -293,15 +292,15 @@ impl Status {
 
     fn is_top(self, relative_offset: f32) -> bool {
         match self.alignment() {
-            scrollable::Alignment::Start => relative_offset == 0.0,
-            scrollable::Alignment::End => relative_offset == 1.0,
+            scrollable::Anchor::Start => relative_offset == 0.0,
+            scrollable::Anchor::End => relative_offset == 1.0,
         }
     }
 
     fn is_bottom(self, relative_offset: f32) -> bool {
         match self.alignment() {
-            scrollable::Alignment::Start => relative_offset == 1.0,
-            scrollable::Alignment::End => relative_offset == 0.0,
+            scrollable::Anchor::Start => relative_offset == 1.0,
+            scrollable::Anchor::End => relative_offset == 0.0,
         }
     }
 
