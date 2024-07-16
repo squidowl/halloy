@@ -88,9 +88,9 @@ pub fn view<'a>(
 
             Some(
                 row![horizontal_space(), top_row_button, horizontal_space()]
-                    .padding([2, 0, 6, 0])
+                    .padding(padding::top(2).bottom(6))
                     .width(Length::Fill)
-                    .align_items(iced::Alignment::Center),
+                    .align_y(iced::Alignment::Center),
             )
         } else {
             None
@@ -268,7 +268,7 @@ impl State {
                     && matches!(self.limit, Limit::Top(_))
                     && relative_offset == 0.0
                 {
-                    return (Command::none(), Some(Event::RequestOlderChatHistory));
+                    return (Task::none(), Some(Event::RequestOlderChatHistory));
                 }
             }
             Message::UserContext(message) => {
@@ -281,7 +281,7 @@ impl State {
                 let _ = open::that_detached(link);
             }
             Message::RequestOlderChatHistory => {
-                return (Command::none(), Some(Event::RequestOlderChatHistory))
+                return (Task::none(), Some(Event::RequestOlderChatHistory))
             }
         }
 

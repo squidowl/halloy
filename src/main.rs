@@ -672,7 +672,7 @@ impl Halloy {
                                                     .for_each(|query| {
                                                         let server = server.clone();
                                                         let limit = self.clients.get_server_chathistory_limit(&server);
-                                                        commands.push(Command::perform(
+                                                        commands.push(Task::perform(
                                                             history::get_latest_message_reference(
                                                                 server.clone(),
                                                                 query.clone(),
@@ -683,7 +683,7 @@ impl Halloy {
                                                                 Message::ChatHistoryRequest(
                                                                     server.clone(),
                                                                     ChatHistorySubcommand::Latest(
-                                                                        query,
+                                                                        query.clone(),
                                                                         latest_message_reference,
                                                                         limit,
                                                                     ),
@@ -701,7 +701,7 @@ impl Halloy {
                                                 let limit = self.clients.get_server_chathistory_limit(&server);
 
                                                 commands.push(
-                                                    Command::perform(
+                                                    Task::perform(
                                                         history::get_latest_message_reference(
                                                             server.clone(),
                                                             target.clone(),
@@ -710,7 +710,7 @@ impl Halloy {
                                                         ),
                                                         move |latest_message_reference| {
                                                             Message::ChatHistoryRequest(
-                                                                server,
+                                                                server.clone(),
                                                                 ChatHistorySubcommand::Latest(
                                                                     target.clone(),
                                                                     latest_message_reference,
@@ -755,9 +755,9 @@ impl Halloy {
                                     data::client::Event::ChatHistoryTargetsReceived(server_time) => {
                                         let server = server.clone();
 
-                                        commands.push(Command::perform(
+                                        commands.push(Task::perform(
                                             history::overwrite_targets_marker(server.clone(), server_time),
-                                            move |result| Message::ChatHistoryTargetsMarked(server, result),
+                                            move |result| Message::ChatHistoryTargetsMarked(server.clone(), result),
                                         ));
                                     }
                                     data::client::Event::ChatHistoryRequestReceived(
@@ -821,7 +821,7 @@ impl Halloy {
                                         let server = server.clone();
 
                                         commands.push(
-                                            Command::perform(
+                                            Task::perform(
                                                 history::num_stored_unread_messages(
                                                     server.clone(),
                                                     target.clone(),
@@ -829,8 +829,8 @@ impl Halloy {
                                                 move |num_stored_unread_messages| {
                                                     Message::Dashboard(
                                                         dashboard::Message::StoredUnread(
-                                                            server,
-                                                            target,
+                                                            server.clone(),
+                                                            target.clone(),
                                                             num_stored_unread_messages,
                                                         ),
                                                     )
@@ -987,7 +987,7 @@ impl Halloy {
             Message::ChatHistoryRequest(server, subcommand) => {
                 self.clients.send_chathistory_request(&server, subcommand);
 
-                Command::none()
+                Task::none()
             }
             Message::ChatHistoryTargetsMarked(server, result) => {
                 match result {
@@ -997,7 +997,7 @@ impl Halloy {
                     }
                 }
 
-                Command::none()
+                Task::none()
             }
         }
     }

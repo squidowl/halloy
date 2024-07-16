@@ -884,7 +884,7 @@ impl Client {
                                 self.nickname().to_owned(),
                                 Notification::Highlight(user, channel.clone()),
                             )]);
-                        } else if user.nickname()
+                        } else if user.nickname() == self.nickname()
                             && context.is_some()
                             && message_id(&message).is_none()
                         {

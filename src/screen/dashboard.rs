@@ -957,7 +957,7 @@ impl Dashboard {
                             .scroll_to_start()
                             .map(move |message| Message::Pane(pane::Message::Buffer(id, message)))
                     })
-                    .unwrap_or_else(Command::none)
+                    .unwrap_or_else(Task::none)
             }
             End => self
                 .get_focused_mut(main_window)
