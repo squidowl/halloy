@@ -443,6 +443,14 @@ impl Client {
                                     target,
                                 )]
                             }
+                            Command::PRIVMSG(_, text) | Command::NOTICE(_, text) => {
+                                if ctcp::is_query(text) && !message::is_action(text) {
+                                    // Ignore historical CTCP queries/responses except for ACTIONs
+                                    vec![]
+                                } else {
+                                    vec![Event::Single(message, self.nickname().to_owned())]
+                                }
+                            }
                             _ => vec![Event::Single(message, self.nickname().to_owned())],
                         }
                     }
