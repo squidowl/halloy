@@ -19,6 +19,7 @@ pub enum Message {
         viewport: scrollable::Viewport,
     },
     UserContext(user_context::Message),
+    Link(String),
 }
 
 #[derive(Debug, Clone)]
@@ -214,6 +215,9 @@ impl State {
                     Task::none(),
                     Some(Event::UserContext(user_context::update(message))),
                 );
+            }
+            Message::Link(link) => {
+                let _ = open::that(link);
             }
         }
 

@@ -68,8 +68,12 @@ pub fn view<'a>(
                         .map(scroll_view::Message::UserContext);
 
                         let space = selectable_text(" ");
-                        let message =
-                            message_content(message, theme, theme::selectable_text::default);
+                        let message = message_content(
+                            message,
+                            theme,
+                            scroll_view::Message::Link,
+                            theme::selectable_text::default,
+                        );
 
                         Some(
                             container(
@@ -83,30 +87,44 @@ pub fn view<'a>(
                         )
                     }
                     message::Source::Server(server) => {
-                        let message = message_content(message, theme, move |theme| {
-                            theme::selectable_text::server(
-                                theme,
-                                server.as_ref(),
-                                &config.buffer.server_messages,
-                            )
-                        });
+                        let message = message_content(
+                            message,
+                            theme,
+                            scroll_view::Message::Link,
+                            move |theme| {
+                                theme::selectable_text::server(
+                                    theme,
+                                    server.as_ref(),
+                                    &config.buffer.server_messages,
+                                )
+                            },
+                        );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Action => {
-                        let message =
-                            message_content(message, theme, theme::selectable_text::accent);
+                        let message = message_content(
+                            message,
+                            theme,
+                            scroll_view::Message::Link,
+                            theme::selectable_text::accent,
+                        );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
-                        let message = message_content(message, theme, move |theme| {
-                            theme::selectable_text::status(
-                                theme,
-                                *status,
-                                &config.buffer.internal_messages,
-                            )
-                        });
+                        let message = message_content(
+                            message,
+                            theme,
+                            scroll_view::Message::Link,
+                            move |theme| {
+                                theme::selectable_text::status(
+                                    theme,
+                                    *status,
+                                    &config.buffer.internal_messages,
+                                )
+                            },
+                        );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
