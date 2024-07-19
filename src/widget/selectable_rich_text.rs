@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::ops::Deref;
 
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::renderer::{self, Quad};
@@ -13,13 +14,14 @@ use iced::{mouse, touch};
 use iced::{widget, Point};
 use iced::{Color, Element, Length, Pixels, Rectangle, Size};
 use itertools::Itertools;
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::selectable_text::{selection, Catalog, Interaction, Style, StyleFn};
 
 /// Creates a new [`Rich`] text widget with the provided spans.
-pub fn selectable_rich_text<'a, Theme, Renderer>(
-    spans: impl Into<Cow<'a, [text::Span<'a, Renderer::Font>]>>,
-) -> Rich<'a, Theme, Renderer>
+pub fn selectable_rich_text<'a, Message, Theme, Renderer>(
+    spans: impl Into<Cow<'a, [CustomSpan<'a, Renderer::Font>]>>,
+) -> Rich<'a, Message, Theme, Renderer>
 where
     Theme: Catalog + 'a,
     Renderer: text::Renderer,
@@ -28,8 +30,7 @@ where
 }
 
 /// A bunch of [`Rich`] text.
-#[derive(Debug)]
-pub struct Rich<'a, Theme = iced::Theme, Renderer = iced::Renderer>
+pub struct Rich<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     Theme: Catalog,
     Renderer: text::Renderer,
@@ -43,9 +44,13 @@ where
     align_x: alignment::Horizontal,
     align_y: alignment::Vertical,
     class: Theme::Class<'a>,
+
+    value: Value,
+    link_graphemes: Vec<(usize, usize)>,
+    on_link_pressed: Option<Box<dyn Fn(String) -> Message + 'a>>,
 }
 
-impl<'a, Theme, Renderer> Rich<'a, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> Rich<'a, Message, Theme, Renderer>
 where
     Theme: Catalog,
     Renderer: text::Renderer,
@@ -62,13 +67,41 @@ where
             align_x: alignment::Horizontal::Left,
             align_y: alignment::Vertical::Top,
             class: Theme::default(),
+
+            value: Value::new(""),
+            link_graphemes: vec![],
+            on_link_pressed: None,
         }
     }
 
     /// Creates a new [`Rich`] text with the given text spans.
-    pub fn with_spans(spans: impl Into<Cow<'a, [Span<'a, Renderer::Font>]>>) -> Self {
+    pub fn with_spans(spans: impl Into<Cow<'a, [CustomSpan<'a, Renderer::Font>]>>) -> Self {
+        let custom_spans = spans.into();
+
+        let mut i = 0;
+        let link_graphemes = custom_spans.iter().fold(vec![], |mut acc, span| {
+            let count = UnicodeSegmentation::graphemes(span.text.as_ref(), true).count();
+
+            if span.is_link() {
+                acc.push((i, i + count));
+            }
+
+            i += count;
+
+            acc
+        });
+
+        let spans = custom_spans
+            .iter()
+            .cloned()
+            .map(CustomSpan::into_span)
+            .collect::<Vec<_>>();
+        let value = Value::new(&spans.iter().map(|s| s.text.as_ref()).join(""));
+
         Self {
             spans: spans.into(),
+            value,
+            link_graphemes,
             ..Self::new()
         }
     }
@@ -159,14 +192,15 @@ where
         self
     }
 
-    /// Adds a new text [`Span`] to the [`Rich`] text.
-    pub fn push(mut self, span: impl Into<Span<'a, Renderer::Font>>) -> Self {
-        self.spans.to_mut().push(span.into());
-        self
+    pub fn on_link_pressed(self, f: impl Fn(String) -> Message + 'a) -> Self {
+        Self {
+            on_link_pressed: Some(Box::new(f)),
+            ..self
+        }
     }
 }
 
-impl<'a, Theme, Renderer> Default for Rich<'a, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> Default for Rich<'a, Message, Theme, Renderer>
 where
     Theme: Catalog,
     Renderer: text::Renderer,
@@ -176,13 +210,44 @@ where
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum CustomSpan<'a, Font = iced::Font> {
+    Span(Span<'a, Font>),
+    Link(Span<'a, Font>),
+}
+
+impl<'a, Font> CustomSpan<'a, Font> {
+    fn is_link(&self) -> bool {
+        matches!(self, Self::Link(_))
+    }
+
+    fn into_span(self) -> Span<'a, Font> {
+        match self {
+            CustomSpan::Span(s) => s,
+            CustomSpan::Link(s) => s,
+        }
+    }
+}
+
+impl<'a, Font> Deref for CustomSpan<'a, Font> {
+    type Target = Span<'a, Font>;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            CustomSpan::Span(s) => s,
+            CustomSpan::Link(s) => s,
+        }
+    }
+}
+
 struct State<P: Paragraph> {
     spans: Vec<Span<'static, P::Font>>,
     paragraph: P,
     interaction: Interaction,
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Rich<'a, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Rich<'a, Message, Theme, Renderer>
 where
     Theme: Catalog,
     Renderer: text::Renderer,
@@ -231,11 +296,11 @@ where
         &mut self,
         tree: &mut Tree,
         event: iced::Event,
-        _layout: Layout<'_>,
+        layout: Layout<'_>,
         cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn iced::advanced::Clipboard,
-        _shell: &mut iced::advanced::Shell<'_, Message>,
+        shell: &mut iced::advanced::Shell<'_, Message>,
         _viewport: &Rectangle,
     ) -> event::Status {
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
@@ -259,6 +324,18 @@ where
                     state.interaction = Interaction::Selected(raw);
                 } else {
                     state.interaction = Interaction::Idle;
+                }
+
+                if let Some(cursor) = cursor.position_in(layout.bounds()) {
+                    if let Some(link) =
+                        is_over_link(cursor, &state.paragraph, &self.value, &self.link_graphemes)
+                    {
+                        if let Some(f) = self.on_link_pressed.as_ref() {
+                            shell.publish((f)(link));
+
+                            return event::Status::Captured;
+                        }
+                    }
                 }
             }
             iced::Event::Mouse(mouse::Event::CursorMoved { .. })
@@ -357,14 +434,20 @@ where
 
     fn mouse_interaction(
         &self,
-        _state: &Tree,
+        tree: &Tree,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
-        if cursor.position_over(layout.bounds()).is_some() {
-            mouse::Interaction::Text
+        let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
+
+        if let Some(cursor) = cursor.position_in(layout.bounds()) {
+            if is_over_link(cursor, &state.paragraph, &self.value, &self.link_graphemes).is_some() {
+                mouse::Interaction::Pointer
+            } else {
+                mouse::Interaction::Text
+            }
         } else {
             mouse::Interaction::default()
         }
@@ -380,15 +463,34 @@ where
         let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
 
         let bounds = layout.bounds();
-        let value = Value::new(&self.spans.iter().map(|s| s.text.as_ref()).join(""));
         if let Some(selection) = state
             .interaction
             .selection()
-            .and_then(|raw| selection(raw, bounds, &state.paragraph, &value))
+            .and_then(|raw| selection(raw, bounds, &state.paragraph, &self.value))
         {
-            let content = value.select(selection.start, selection.end).to_string();
+            let content = self
+                .value
+                .select(selection.start, selection.end)
+                .to_string();
             operation.custom(&mut (bounds.y, content), None);
         }
+    }
+}
+
+fn is_over_link<P: Paragraph>(
+    cursor: Point,
+    paragraph: &P,
+    value: &Value,
+    link_graphemes: &[(usize, usize)],
+) -> Option<String> {
+    if let Some(pos) = selection::find_cursor_position(paragraph, value, cursor) {
+        link_graphemes.iter().find_map(|(start, end)| {
+            (*start..*end)
+                .contains(&pos)
+                .then(|| value.select(*start, *end).to_string())
+        })
+    } else {
+        None
     }
 }
 
@@ -453,7 +555,8 @@ where
     })
 }
 
-impl<'a, Theme, Renderer> FromIterator<Span<'a, Renderer::Font>> for Rich<'a, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> FromIterator<Span<'a, Renderer::Font>>
+    for Rich<'a, Message, Theme, Renderer>
 where
     Theme: Catalog,
     Renderer: text::Renderer,
@@ -466,13 +569,14 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer> From<Rich<'a, Theme, Renderer>>
+impl<'a, Message, Theme, Renderer> From<Rich<'a, Message, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Theme: Catalog + 'a,
     Renderer: text::Renderer + 'a,
+    Message: 'a,
 {
-    fn from(text: Rich<'a, Theme, Renderer>) -> Element<'a, Message, Theme, Renderer> {
+    fn from(text: Rich<'a, Message, Theme, Renderer>) -> Element<'a, Message, Theme, Renderer> {
         Element::new(text)
     }
 }

@@ -78,7 +78,7 @@ pub fn selection<P: text::Paragraph>(
     })
 }
 
-fn find_cursor_position<P: text::Paragraph>(
+pub fn find_cursor_position<P: text::Paragraph>(
     paragraph: &P,
     value: &Value,
     cursor_position: Point,

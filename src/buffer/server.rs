@@ -41,24 +41,34 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::Server(server) => {
-                        let message = message_content(message, theme, move |theme| {
-                            theme::selectable_text::server(
-                                theme,
-                                server.as_ref(),
-                                &config.buffer.server_messages,
-                            )
-                        });
+                        let message = message_content(
+                            message,
+                            theme,
+                            scroll_view::Message::Link,
+                            move |theme| {
+                                theme::selectable_text::server(
+                                    theme,
+                                    server.as_ref(),
+                                    &config.buffer.server_messages,
+                                )
+                            },
+                        );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
-                        let message = message_content(message, theme, move |theme| {
-                            theme::selectable_text::status(
-                                theme,
-                                *status,
-                                &config.buffer.internal_messages,
-                            )
-                        });
+                        let message = message_content(
+                            message,
+                            theme,
+                            scroll_view::Message::Link,
+                            move |theme| {
+                                theme::selectable_text::status(
+                                    theme,
+                                    *status,
+                                    &config.buffer.internal_messages,
+                                )
+                            },
+                        );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
