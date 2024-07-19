@@ -53,10 +53,9 @@ pub fn view<'a>(
         .push_maybe(set_by);
 
     let scrollable = Scrollable::new(container(content).width(Length::Fill).padding(padding()))
-        .direction(scrollable::Direction::Vertical {
-            scrollbar: scrollable::Scrollbar::new().width(1).scroller_width(1),
-            spacing: None,
-        })
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new().width(1).scroller_width(1),
+        ))
         .style(theme::scrollable::hidden);
 
     // Use double pass to limit layout to `max_lines` of text

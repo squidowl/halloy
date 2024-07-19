@@ -327,10 +327,9 @@ mod nick_list {
 
         container(
             Scrollable::new(column)
-                .direction(scrollable::Direction::Vertical {
-                    scrollbar: scrollable::Scrollbar::new().width(1).scroller_width(1),
-                    spacing: None,
-                })
+                .direction(scrollable::Direction::Vertical(
+                    scrollable::Scrollbar::new().width(1).scroller_width(1),
+                ))
                 .style(theme::scrollable::hidden),
         )
         .width(Length::Shrink)
