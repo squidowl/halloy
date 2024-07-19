@@ -6,8 +6,8 @@ use iced::widget::{column, container, row};
 use iced::{padding, Length, Task};
 
 use super::{input_view, scroll_view, user_context};
-use crate::theme;
-use crate::widget::{selectable_text, Element};
+use crate::widget::{message_content, selectable_text, Element};
+use crate::{theme, Theme};
 
 mod topic;
 
@@ -29,6 +29,7 @@ pub fn view<'a>(
     history: &'a history::Manager,
     settings: &'a channel::Settings,
     config: &'a Config,
+    theme: &'a Theme,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let buffer = state.buffer();
@@ -79,7 +80,7 @@ pub fn view<'a>(
                         .map(scroll_view::Message::UserContext);
 
                         let space = selectable_text(" ");
-                        let text = selectable_text(&message.text);
+                        let text = message_content(message, theme, theme::selectable_text::default);
 
                         Some(
                             container(
@@ -91,11 +92,7 @@ pub fn view<'a>(
                             )
                             .style(move |theme| match our_nick {
                                 Some(nick)
-                                    if message::reference_user(
-                                        user.nickname(),
-                                        nick,
-                                        &message.text,
-                                    ) =>
+                                    if message::reference_user(user.nickname(), nick, message) =>
                                 {
                                     theme::container::highlight(theme)
                                 }
@@ -105,7 +102,7 @@ pub fn view<'a>(
                         )
                     }
                     message::Source::Server(server) => {
-                        let message = selectable_text(&message.text).style(move |theme| {
+                        let message = message_content(message, theme, move |theme| {
                             theme::selectable_text::server(
                                 theme,
                                 server.as_ref(),
@@ -117,12 +114,12 @@ pub fn view<'a>(
                     }
                     message::Source::Action => {
                         let message =
-                            selectable_text(&message.text).style(theme::selectable_text::accent);
+                            message_content(message, theme, theme::selectable_text::accent);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
-                        let message = selectable_text(&message.text).style(move |theme| {
+                        let message = message_content(message, theme, move |theme| {
                             theme::selectable_text::status(
                                 theme,
                                 *status,

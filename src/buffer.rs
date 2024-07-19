@@ -8,6 +8,7 @@ use self::file_transfers::FileTransfers;
 use self::query::Query;
 use self::server::Server;
 use crate::widget::Element;
+use crate::Theme;
 
 pub mod channel;
 pub mod empty;
@@ -103,6 +104,7 @@ impl Buffer {
         history: &'a history::Manager,
         settings: &'a buffer::Settings,
         config: &'a Config,
+        theme: &'a Theme,
         is_focused: bool,
     ) -> Element<'a, Message> {
         match self {
@@ -113,14 +115,16 @@ impl Buffer {
                 history,
                 &settings.channel,
                 config,
+                theme,
                 is_focused,
             )
             .map(Message::Channel),
             Buffer::Server(state) => {
-                server::view(state, clients, history, config, is_focused).map(Message::Server)
+                server::view(state, clients, history, config, theme, is_focused)
+                    .map(Message::Server)
             }
             Buffer::Query(state) => {
-                query::view(state, clients, history, config, is_focused).map(Message::Query)
+                query::view(state, clients, history, config, theme, is_focused).map(Message::Query)
             }
             Buffer::FileTransfers(state) => {
                 file_transfers::view(state, file_transfers).map(Message::FileTransfers)

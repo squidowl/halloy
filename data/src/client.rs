@@ -548,7 +548,7 @@ impl Client {
                         }
 
                         // Highlight notification
-                        if message::reference_user(user.nickname(), self.nickname(), text)
+                        if message::reference_user_text(user.nickname(), self.nickname(), text)
                             && self.highlight_blackout.allow_highlights()
                         {
                             return Some(vec![Event::Notification(

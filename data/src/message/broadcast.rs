@@ -1,7 +1,7 @@
 //! Generate messages that can be broadcast into every buffer
 use chrono::{DateTime, Utc};
 
-use super::{source, Direction, Message, Source, Target};
+use super::{plain, source, Direction, Message, Source, Target};
 use crate::time::Posix;
 use crate::user::Nick;
 use crate::{Config, User};
@@ -25,7 +25,7 @@ fn expand(
             server_time: sent_time,
             direction: Direction::Received,
             target,
-            text,
+            content: plain(text),
         }
     };
 

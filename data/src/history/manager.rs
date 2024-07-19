@@ -474,7 +474,9 @@ impl Data {
                             let nick = match source.nick() {
                                 Some(nick) => nick.clone(),
                                 None => {
-                                    if let Some(nickname) = message.text.split(' ').nth(1) {
+                                    if let Some(nickname) =
+                                        message.plain().and_then(|s| s.split(' ').nth(1))
+                                    {
                                         Nick::from(nickname)
                                     } else {
                                         return true;
