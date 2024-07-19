@@ -585,6 +585,7 @@ impl Dashboard {
         clients: &'a client::Map,
         version: &'a Version,
         config: &'a Config,
+        theme: &'a Theme,
     ) -> Element<'a, Message> {
         let focus = self.focus;
 
@@ -600,6 +601,7 @@ impl Dashboard {
                 &self.file_transfers,
                 &self.history,
                 config,
+                theme,
             )
         })
         .on_click(pane::Message::PaneClicked)

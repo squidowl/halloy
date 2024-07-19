@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
 use crate::widget::tooltip;
-use crate::{icon, theme, widget};
+use crate::{icon, theme, widget, Theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -54,6 +54,7 @@ impl Pane {
         file_transfers: &'a file_transfer::Manager,
         history: &'a history::Manager,
         config: &'a Config,
+        theme: &'a Theme,
     ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty => "".to_string(),
@@ -96,6 +97,7 @@ impl Pane {
                 history,
                 &self.settings,
                 config,
+                theme,
                 is_focused,
             )
             .map(move |msg| Message::Buffer(id, msg));

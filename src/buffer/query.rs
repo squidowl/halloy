@@ -4,8 +4,8 @@ use iced::widget::{column, container, row, vertical_space};
 use iced::{Length, Task};
 
 use super::{input_view, scroll_view, user_context};
-use crate::theme;
-use crate::widget::{selectable_text, Element};
+use crate::widget::{message_content, selectable_text, Element};
+use crate::{theme, Theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -23,6 +23,7 @@ pub fn view<'a>(
     clients: &'a data::client::Map,
     history: &'a history::Manager,
     config: &'a Config,
+    theme: &'a Theme,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let status = clients.status(&state.server);
@@ -67,7 +68,8 @@ pub fn view<'a>(
                         .map(scroll_view::Message::UserContext);
 
                         let space = selectable_text(" ");
-                        let message = selectable_text(&message.text);
+                        let message =
+                            message_content(message, theme, theme::selectable_text::default);
 
                         Some(
                             container(
@@ -81,7 +83,7 @@ pub fn view<'a>(
                         )
                     }
                     message::Source::Server(server) => {
-                        let message = selectable_text(&message.text).style(move |theme| {
+                        let message = message_content(message, theme, move |theme| {
                             theme::selectable_text::server(
                                 theme,
                                 server.as_ref(),
@@ -93,12 +95,12 @@ pub fn view<'a>(
                     }
                     message::Source::Action => {
                         let message =
-                            selectable_text(&message.text).style(theme::selectable_text::accent);
+                            message_content(message, theme, theme::selectable_text::accent);
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
-                        let message = selectable_text(&message.text).style(move |theme| {
+                        let message = message_content(message, theme, move |theme| {
                             theme::selectable_text::status(
                                 theme,
                                 *status,

@@ -9,10 +9,10 @@ use iced::{
     Size, Task,
 };
 
-use self::selection::selection;
+pub use self::selection::selection;
 pub use self::text::{LineHeight, Shaping};
 
-mod selection;
+pub mod selection;
 
 pub fn selectable_text<'a, Theme, Renderer>(
     fragment: impl IntoFragment<'a>,
@@ -448,7 +448,7 @@ pub struct State<P: Paragraph> {
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-enum Interaction {
+pub enum Interaction {
     #[default]
     Idle,
     Selecting(selection::Raw),
@@ -456,7 +456,7 @@ enum Interaction {
 }
 
 impl Interaction {
-    fn selection(self) -> Option<selection::Raw> {
+    pub fn selection(self) -> Option<selection::Raw> {
         match &self {
             Interaction::Idle => None,
             Interaction::Selecting(raw) | Interaction::Selected(raw) => Some(*raw),
