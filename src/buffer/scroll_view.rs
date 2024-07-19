@@ -103,13 +103,12 @@ pub fn view<'a>(
     };
 
     Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
-        .direction(scrollable::Direction::Vertical {
-            scrollbar: scrollable::Scrollbar::default()
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::default()
                 .anchor(status.alignment())
                 .width(5)
                 .scroller_width(5),
-            spacing: None,
-        })
+        ))
         .on_scroll(move |viewport| Message::Scrolled {
             count,
             remaining,
