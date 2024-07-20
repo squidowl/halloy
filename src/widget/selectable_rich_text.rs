@@ -244,6 +244,7 @@ struct State<P: Paragraph> {
     spans: Vec<Span<'static, P::Font>>,
     paragraph: P,
     interaction: Interaction,
+    pressed_link: Option<(usize, usize)>,
 }
 
 impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
@@ -261,6 +262,7 @@ where
             spans: Vec::new(),
             paragraph: Renderer::Paragraph::default(),
             interaction: Interaction::default(),
+            pressed_link: None,
         })
     }
 
@@ -308,6 +310,14 @@ where
         match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | iced::Event::Touch(touch::Event::FingerPressed { .. }) => {
+                if let Some(cursor) = cursor.position_in(layout.bounds()) {
+                    if let Some((start, end)) =
+                        is_over_link(cursor, &state.paragraph, &self.value, &self.link_graphemes)
+                    {
+                        state.pressed_link = Some((start, end));
+                    }
+                }
+
                 if let Some(cursor) = cursor.position() {
                     state.interaction = Interaction::Selecting(selection::Raw {
                         start: cursor,
@@ -320,22 +330,31 @@ where
             iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
             | iced::Event::Touch(touch::Event::FingerLifted { .. })
             | iced::Event::Touch(touch::Event::FingerLost { .. }) => {
+                let pressed_link = state.pressed_link.take();
+
+                if let Some(cursor) = cursor.position_in(layout.bounds()) {
+                    if let Some((start, end)) =
+                        is_over_link(cursor, &state.paragraph, &self.value, &self.link_graphemes)
+                    {
+                        // We clicked and released over same link
+                        if Some((start, end)) == pressed_link {
+                            let link = self.value.select(start, end).to_string();
+
+                            if let Some(f) = self.on_link_pressed.as_ref() {
+                                shell.publish((f)(link));
+
+                                state.interaction = Interaction::Idle;
+
+                                return event::Status::Captured;
+                            }
+                        }
+                    }
+                }
+
                 if let Interaction::Selecting(raw) = state.interaction {
                     state.interaction = Interaction::Selected(raw);
                 } else {
                     state.interaction = Interaction::Idle;
-                }
-
-                if let Some(cursor) = cursor.position_in(layout.bounds()) {
-                    if let Some(link) =
-                        is_over_link(cursor, &state.paragraph, &self.value, &self.link_graphemes)
-                    {
-                        if let Some(f) = self.on_link_pressed.as_ref() {
-                            shell.publish((f)(link));
-
-                            return event::Status::Captured;
-                        }
-                    }
                 }
             }
             iced::Event::Mouse(mouse::Event::CursorMoved { .. })
@@ -482,13 +501,11 @@ fn is_over_link<P: Paragraph>(
     paragraph: &P,
     value: &Value,
     link_graphemes: &[(usize, usize)],
-) -> Option<String> {
+) -> Option<(usize, usize)> {
     if let Some(pos) = selection::find_cursor_position(paragraph, value, cursor) {
-        link_graphemes.iter().find_map(|(start, end)| {
-            (*start..*end)
-                .contains(&pos)
-                .then(|| value.select(*start, *end).to_string())
-        })
+        link_graphemes
+            .iter()
+            .find_map(|(start, end)| (*start..=*end).contains(&pos).then_some((*start, *end)))
     } else {
         None
     }
