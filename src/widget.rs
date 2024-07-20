@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use data::Message;
+use data::message;
 use iced::widget::span;
 
 use crate::Theme;
@@ -40,12 +40,12 @@ pub type Container<'a, Message> = iced::widget::Container<'a, Message, Theme, Re
 pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
 
 pub fn message_content<'a, M: 'a>(
-    message: &'a Message,
+    content: &'a message::Content,
     theme: &'a Theme,
     on_link_pressed: impl Fn(String) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
 ) -> Element<'a, M> {
-    match &message.content {
+    match content {
         data::message::Content::Plain(text) => selectable_text(text).style(style).into(),
         data::message::Content::Fragments(fragments) => selectable_rich_text(
             fragments

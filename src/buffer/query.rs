@@ -69,7 +69,7 @@ pub fn view<'a>(
 
                         let space = selectable_text(" ");
                         let message = message_content(
-                            message,
+                            &message.content,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
@@ -88,7 +88,7 @@ pub fn view<'a>(
                     }
                     message::Source::Server(server) => {
                         let message = message_content(
-                            message,
+                            &message.content,
                             theme,
                             scroll_view::Message::Link,
                             move |theme| {
@@ -104,7 +104,7 @@ pub fn view<'a>(
                     }
                     message::Source::Action => {
                         let message = message_content(
-                            message,
+                            &message.content,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::accent,
@@ -114,7 +114,7 @@ pub fn view<'a>(
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message = message_content(
-                            message,
+                            &message.content,
                             theme,
                             scroll_view::Message::Link,
                             move |theme| {

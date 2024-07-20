@@ -81,7 +81,7 @@ pub fn view<'a>(
 
                         let space = selectable_text(" ");
                         let text = message_content(
-                            message,
+                            &message.content,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
@@ -108,7 +108,7 @@ pub fn view<'a>(
                     }
                     message::Source::Server(server) => {
                         let message = message_content(
-                            message,
+                            &message.content,
                             theme,
                             scroll_view::Message::Link,
                             move |theme| {
@@ -124,7 +124,7 @@ pub fn view<'a>(
                     }
                     message::Source::Action => {
                         let message = message_content(
-                            message,
+                            &message.content,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::accent,
@@ -134,7 +134,7 @@ pub fn view<'a>(
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message = message_content(
-                            message,
+                            &message.content,
                             theme,
                             scroll_view::Message::Link,
                             move |theme| {
@@ -160,7 +160,7 @@ pub fn view<'a>(
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
-    let topic = topic(state, clients, users, our_user, settings, config)
+    let topic = topic(state, clients, users, our_user, settings, config, theme)
         .unwrap_or_else(|| column![].into());
 
     let show_text_input = match config.buffer.text_input.visibility {
@@ -268,7 +268,7 @@ impl Channel {
             }
             Message::UserContext(message) => (
                 Task::none(),
-                Some(Event::UserContext(user_context::update(message))),
+                user_context::update(message).map(Event::UserContext),
             ),
         }
     }
@@ -289,6 +289,7 @@ fn topic<'a>(
     our_user: Option<&'a User>,
     settings: &'a channel::Settings,
     config: &'a Config,
+    theme: &'a Theme,
 ) -> Option<Element<'a, Message>> {
     if !settings.topic.enabled {
         return None;
@@ -298,7 +299,7 @@ fn topic<'a>(
 
     Some(
         topic::view(
-            topic.text.as_deref()?,
+            topic.content.as_ref()?,
             topic.who.as_deref(),
             topic.time.as_ref(),
             config.buffer.channel.topic.max_lines,
@@ -306,6 +307,7 @@ fn topic<'a>(
             &state.buffer(),
             our_user,
             config,
+            theme,
         )
         .map(Message::UserContext),
     )

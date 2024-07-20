@@ -1,15 +1,15 @@
 use chrono::{DateTime, Utc};
 use data::user::Nick;
-use data::{Buffer, Config, User};
+use data::{message, Buffer, Config, User};
 use iced::widget::{column, container, horizontal_rule, row, scrollable, Scrollable};
 use iced::Length;
 
 use super::user_context;
-use crate::theme;
-use crate::widget::{double_pass, selectable_text, Element};
+use crate::widget::{double_pass, message_content, selectable_text, Element};
+use crate::{theme, Theme};
 
 pub fn view<'a>(
-    text: &'a str,
+    content: &'a message::Content,
     who: Option<&'a str>,
     time: Option<&'a DateTime<Utc>>,
     max_lines: u16,
@@ -17,6 +17,7 @@ pub fn view<'a>(
     buffer: &Buffer,
     our_user: Option<&'a User>,
     config: &'a Config,
+    theme: &'a Theme,
 ) -> Element<'a, user_context::Message> {
     let set_by = who.and_then(|who| {
         let nick = Nick::from(who.split('!').next()?);
@@ -49,8 +50,13 @@ pub fn view<'a>(
         ])
     });
 
-    let content = column![selectable_text(text).style(theme::selectable_text::transparent)]
-        .push_maybe(set_by);
+    let content = column![message_content(
+        content,
+        theme,
+        user_context::Message::Link,
+        theme::selectable_text::transparent
+    )]
+    .push_maybe(set_by);
 
     let scrollable = Scrollable::new(container(content).width(Length::Fill).padding(padding()))
         .direction(scrollable::Direction::Vertical(
