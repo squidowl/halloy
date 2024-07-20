@@ -452,7 +452,9 @@ fn content(
 
             let topic = topic.as_ref()?;
 
-            Some(plain(format!(" ∙ {user} changed topic to {topic}")))
+            Some(parse_fragments(format!(
+                " ∙ {user} changed topic to {topic}"
+            )))
         }
         Command::PART(target, text) => {
             let raw_user = message.user()?;
@@ -465,14 +467,16 @@ fn content(
                 .map(|text| format!(" ({text})"))
                 .unwrap_or_default();
 
-            Some(plain(format!("⟵ {user} has left the channel{text}")))
+            Some(parse_fragments(format!(
+                "⟵ {user} has left the channel{text}"
+            )))
         }
         Command::JOIN(target, _) => {
             let raw_user = message.user()?;
             let user = resolve_attributes(&raw_user, target).unwrap_or(raw_user);
 
             (user.nickname() != *our_nick).then(|| {
-                plain(format!(
+                parse_fragments(format!(
                     "⟶ {} has joined the channel",
                     user.formatted(config.buffer.server_messages.join.username_format)
                 ))
@@ -492,7 +496,9 @@ fn content(
                 format!("{victim} has")
             };
 
-            Some(plain(format!("⟵ {target} been kicked by {user}{comment}")))
+            Some(parse_fragments(format!(
+                "⟵ {target} been kicked by {user}{comment}"
+            )))
         }
         Command::MODE(target, modes, args) if proto::is_channel(target) => {
             let raw_user = message.user()?;
@@ -510,7 +516,9 @@ fn content(
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(plain(format!(" ∙ {user} sets mode {modes} {args}")))
+            Some(parse_fragments(format!(
+                " ∙ {user} sets mode {modes} {args}"
+            )))
         }
         Command::PRIVMSG(_, text) => {
             // Check if a synthetic action message
@@ -526,7 +534,7 @@ fn content(
         Command::Numeric(RPL_TOPIC, params) => {
             let topic = params.get(2)?;
 
-            Some(plain(format!(" ∙ topic is {topic}")))
+            Some(parse_fragments(format!(" ∙ topic is {topic}")))
         }
         Command::Numeric(RPL_ENDOFWHOIS, _) => {
             // We skip the end message of a WHOIS.
@@ -547,7 +555,7 @@ fn content(
             let duration = std::time::Duration::from_secs(idle);
             let idle_readable = formatter.convert(duration);
 
-            Some(plain(format!(
+            Some(parse_fragments(format!(
                 " ∙ {nick} signed on at {sign_on_datetime} and has been idle for {idle_readable}"
             )))
         }
@@ -556,7 +564,7 @@ fn content(
             let server = params.get(2)?;
             let region = params.get(3)?;
 
-            Some(plain(format!(
+            Some(parse_fragments(format!(
                 " ∙ {nick} is connected on {server} ({region})"
             )))
         }
@@ -565,7 +573,7 @@ fn content(
             let userhost = format!("{}@{}", params.get(2)?, params.get(3)?);
             let real_name = params.get(5)?;
 
-            Some(plain(format!(
+            Some(parse_fragments(format!(
                 " ∙ {nick} has userhost {userhost} and real name '{real_name}'"
             )))
         }
@@ -573,27 +581,29 @@ fn content(
             let nick = params.get(1)?;
             let channels = params.get(2)?;
 
-            Some(plain(format!(" ∙ {nick} is in {channels}")))
+            Some(parse_fragments(format!(" ∙ {nick} is in {channels}")))
         }
         Command::Numeric(RPL_WHOISACTUALLY, params) => {
             let nick = params.get(1)?;
             let ip = params.get(2)?;
             let status_text = params.get(3)?;
 
-            Some(plain(format!(" ∙ {nick} {status_text} {ip}")))
+            Some(parse_fragments(format!(" ∙ {nick} {status_text} {ip}")))
         }
         Command::Numeric(RPL_WHOISSECURE, params) => {
             let nick = params.get(1)?;
             let status_text = params.get(2)?;
 
-            Some(plain(format!(" ∙ {nick} {status_text}")))
+            Some(parse_fragments(format!(" ∙ {nick} {status_text}")))
         }
         Command::Numeric(RPL_WHOISACCOUNT, params) => {
             let nick = params.get(1)?;
             let account = params.get(2)?;
             let status_text = params.get(3)?;
 
-            Some(plain(format!(" ∙ {nick} {status_text} {account}")))
+            Some(parse_fragments(format!(
+                " ∙ {nick} {status_text} {account}"
+            )))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
             let nick = params.get(2)?;
@@ -606,7 +616,9 @@ fn content(
                 .and_then(Posix::datetime)?
                 .to_rfc2822();
 
-            Some(plain(format!(" ∙ topic set by {nick} at {datetime}")))
+            Some(parse_fragments(format!(
+                " ∙ topic set by {nick} at {datetime}"
+            )))
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
             let mode = params
@@ -616,7 +628,7 @@ fn content(
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(plain(format!(" ∙ Channel mode is {mode}")))
+            Some(parse_fragments(format!(" ∙ Channel mode is {mode}")))
         }
         Command::Numeric(RPL_AWAY, params) => {
             let user = params.get(1)?;
@@ -625,7 +637,7 @@ fn content(
                 .map(|away| format!(" ({away})"))
                 .unwrap_or_default();
 
-            Some(plain(format!(" ∙ {user} is away{away_message}")))
+            Some(parse_fragments(format!(" ∙ {user} is away{away_message}")))
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => Some(parse_fragments(
             responses
