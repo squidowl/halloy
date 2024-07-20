@@ -1,0 +1,76 @@
+{
+  "name": "halloy-icons",
+  "css_prefix_text": "icon-",
+  "css_use_suffix": false,
+  "hinting": true,
+  "units_per_em": 1000,
+  "ascent": 850,
+  "glyphs": [
+    {
+      "uid": "6a12c2b74456ea21cc984e11dec227a1",
+      "css": "globe",
+      "code": 59392,
+      "src": "entypo"
+    },
+    {
+      "uid": "ecf8edb95c3f45eb433b4cce7ba9f740",
+      "css": "users",
+      "code": 59396,
+      "src": "entypo"
+    },
+    {
+      "uid": "c76b7947c957c9b78b11741173c8349b",
+      "css": "attention",
+      "code": 59405,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "130380e481a7defc690dfb24123a1f0c",
+      "css": "circle",
+      "code": 61713,
+      "src": "fontawesome"
+    },
+    {
+      "uid": "3a3f65b92c9b2fcbb3a8dcd0d42ee806",
+      "css": "resize-full-1",
+      "code": 59393,
+      "src": "entypo"
+    },
+    {
+      "uid": "108c8ac13badc00ce66da014436e6eb1",
+      "css": "resize-small-1",
+      "code": 59397,
+      "src": "entypo"
+    },
+    {
+      "uid": "14017aae737730faeda4a6fd8fb3a5f0",
+      "css": "check",
+      "code": 59398,
+      "src": "entypo"
+    },
+    {
+      "uid": "c709da589c923ba3c2ad48d9fc563e93",
+      "css": "cancel-1",
+      "code": 59407,
+      "src": "entypo"
+    },
+    {
+      "uid": "875ab0f6d417223f6ec76ff7f0a4baed",
+      "css": "tag-1",
+      "code": 59395,
+      "src": "entypo"
+    },
+    {
+      "uid": "b08cfe8039de2ce815686aced2caef06",
+      "css": "download",
+      "code": 59394,
+      "src": "entypo"
+    },
+    {
+      "uid": "7222571caa5c15f83dcfd447c58d68d9",
+      "css": "search-1",
+      "code": 59400,
+      "src": "entypo"
+    }
+  ]
+}

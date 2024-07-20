@@ -255,11 +255,11 @@ fn buffer_button<'a>(
 
     let row = match &buffer {
         Buffer::Server(server) => row![
-            if connected {
-                icon::globe()
+            icon::connected().style(if connected {
+                theme::text::primary
             } else {
-                icon::wifi_off()
-            },
+                theme::text::error
+            }),
             text(server.to_string())
                 .style(theme::text::primary)
                 .shaping(text::Shaping::Advanced)

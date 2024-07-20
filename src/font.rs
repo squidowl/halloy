@@ -6,7 +6,7 @@ use iced::font;
 
 pub static MONO: Font = Font::new(false);
 pub static MONO_BOLD: Font = Font::new(true);
-pub const ICON: iced::Font = iced::Font::with_name("bootstrap-icons");
+pub const ICON: iced::Font = iced::Font::with_name("halloy-icons");
 
 #[derive(Debug, Clone)]
 pub struct Font {
@@ -63,6 +63,8 @@ pub fn load() -> Vec<Cow<'static, [u8]>> {
         include_bytes!("../fonts/iosevka-term-italic.ttf")
             .as_slice()
             .into(),
-        include_bytes!("../fonts/icons.ttf").as_slice().into(),
+        include_bytes!("../fonts/halloy-icons.ttf")
+            .as_slice()
+            .into(),
     ]
 }
