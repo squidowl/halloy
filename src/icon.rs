@@ -4,54 +4,48 @@ use iced::widget::text::LineHeight;
 use crate::widget::Text;
 use crate::{font, theme};
 
-// Based off https://github.com/iced-rs/iced_aw/blob/main/src/graphics/icons/bootstrap.rs
-
 pub fn dot<'a>() -> Text<'a> {
-    to_text('\u{f287}')
+    to_text('\u{F111}')
 }
 
 pub fn error<'a>() -> Text<'a> {
-    to_text('\u{f33a}')
+    to_text('\u{E80D}')
 }
 
-pub fn globe<'a>() -> Text<'a> {
-    to_text('\u{f3ef}')
+pub fn connected<'a>() -> Text<'a> {
+    to_text('\u{E800}')
 }
 
-pub fn wifi_off<'a>() -> Text<'a> {
-    to_text('\u{f61b}')
-}
-
-pub fn close<'a>() -> Text<'a> {
-    to_text('\u{f659}')
+pub fn cancel<'a>() -> Text<'a> {
+    to_text('\u{E80F}')
 }
 
 pub fn maximize<'a>() -> Text<'a> {
-    to_text('\u{f14a}')
+    to_text('\u{E801}')
 }
 
 pub fn restore<'a>() -> Text<'a> {
-    to_text('\u{f149}')
+    to_text('\u{E805}')
 }
 
 pub fn people<'a>() -> Text<'a> {
-    to_text('\u{f4db}')
+    to_text('\u{E804}')
 }
 
 pub fn topic<'a>() -> Text<'a> {
-    to_text('\u{f5af}')
+    to_text('\u{E803}')
 }
 
 pub fn search<'a>() -> Text<'a> {
-    to_text('\u{f52a}')
+    to_text('\u{E808}')
 }
 
 pub fn checkmark<'a>() -> Text<'a> {
-    to_text('\u{f633}')
+    to_text('\u{E806}')
 }
 
 pub fn file_transfer<'a>() -> Text<'a> {
-    to_text('\u{f1c7}')
+    to_text('\u{E802}')
 }
 
 fn to_text<'a>(unicode: char) -> Text<'a> {

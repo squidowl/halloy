@@ -222,7 +222,7 @@ impl TitleBar {
 
         // Add delete as long as it's not a single empty buffer
         if !(panes == 1 && matches!(buffer, Buffer::Empty)) {
-            let close_button = button(center(icon::close()))
+            let close_button = button(center(icon::cancel()))
                 .padding(5)
                 .width(22)
                 .height(22)
