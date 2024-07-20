@@ -169,7 +169,8 @@ impl<'de> Deserialize<'de> for Message {
             server_time: DateTime<Utc>,
             direction: Direction,
             target: Target,
-            content: Content,
+            // New field
+            content: Option<Content>,
             // Old field before we had fragments
             text: Option<String>,
         }
@@ -185,8 +186,11 @@ impl<'de> Deserialize<'de> for Message {
 
         let content = if let Some(text) = text {
             parse_fragments(text)
-        } else {
+        } else if let Some(content) = content {
             content
+        } else {
+            // Unreachable
+            Content::Plain("".to_string())
         };
 
         Ok(Message {
