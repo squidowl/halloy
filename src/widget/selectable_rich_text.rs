@@ -20,7 +20,7 @@ use super::selectable_text::{selection, Catalog, Interaction, Style, StyleFn};
 
 /// Creates a new [`Rich`] text widget with the provided spans.
 pub fn selectable_rich_text<'a, Message, Theme, Renderer>(
-    spans: impl Into<Cow<'a, [CustomSpan<'a, Renderer::Font>]>>,
+    spans: impl Into<Cow<'a, [SelectableSpan<'a, Renderer::Font>]>>,
 ) -> Rich<'a, Message, Theme, Renderer>
 where
     Theme: Catalog + 'a,
@@ -49,7 +49,6 @@ where
     link_graphemes: Vec<(usize, usize)>,
     on_link_pressed: Option<Box<dyn Fn(String) -> Message + 'a>>,
 }
-
 impl<'a, Message, Theme, Renderer> Rich<'a, Message, Theme, Renderer>
 where
     Theme: Catalog,
@@ -75,7 +74,7 @@ where
     }
 
     /// Creates a new [`Rich`] text with the given text spans.
-    pub fn with_spans(spans: impl Into<Cow<'a, [CustomSpan<'a, Renderer::Font>]>>) -> Self {
+    pub fn with_spans(spans: impl Into<Cow<'a, [SelectableSpan<'a, Renderer::Font>]>>) -> Self {
         let custom_spans = spans.into();
 
         let mut i = 0;
@@ -94,7 +93,7 @@ where
         let spans = custom_spans
             .iter()
             .cloned()
-            .map(CustomSpan::into_span)
+            .map(SelectableSpan::into_span)
             .collect::<Vec<_>>();
         let value = Value::new(&spans.iter().map(|s| s.text.as_ref()).join(""));
 
@@ -211,31 +210,31 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum CustomSpan<'a, Font = iced::Font> {
+pub enum SelectableSpan<'a, Font = iced::Font> {
     Span(Span<'a, Font>),
     Link(Span<'a, Font>),
 }
 
-impl<'a, Font> CustomSpan<'a, Font> {
+impl<'a, Font> SelectableSpan<'a, Font> {
     fn is_link(&self) -> bool {
         matches!(self, Self::Link(_))
     }
 
     fn into_span(self) -> Span<'a, Font> {
         match self {
-            CustomSpan::Span(s) => s,
-            CustomSpan::Link(s) => s,
+            SelectableSpan::Span(s) => s,
+            SelectableSpan::Link(s) => s,
         }
     }
 }
 
-impl<'a, Font> Deref for CustomSpan<'a, Font> {
+impl<'a, Font> Deref for SelectableSpan<'a, Font> {
     type Target = Span<'a, Font>;
 
     fn deref(&self) -> &Self::Target {
         match self {
-            CustomSpan::Span(s) => s,
-            CustomSpan::Link(s) => s,
+            SelectableSpan::Span(s) => s,
+            SelectableSpan::Link(s) => s,
         }
     }
 }

@@ -52,12 +52,10 @@ pub fn message_content<'a, M: 'a>(
                 .iter()
                 .map(|fragment| match fragment {
                     data::message::Fragment::Text(s) => {
-                        selectable_rich_text::CustomSpan::Span(span(s))
+                        selectable_rich_text::SelectableSpan::Span(span(s))
                     }
-                    data::message::Fragment::Url(s) => selectable_rich_text::CustomSpan::Link(
-                        span(s.as_str())
-                            // .font(font::MONO_BOLD.clone())
-                            .color(theme.colors().action.base),
+                    data::message::Fragment::Url(s) => selectable_rich_text::SelectableSpan::Link(
+                        span(s.as_str()).color(theme.colors().action.base),
                     ),
                 })
                 .collect::<Vec<_>>(),
