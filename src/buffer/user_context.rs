@@ -53,6 +53,7 @@ pub enum Message {
     SingleClick(Nick),
     ToggleAccessLevel(Nick, String),
     SendFile(Nick),
+    Link(String),
 }
 
 #[derive(Debug, Clone)]
@@ -64,13 +65,17 @@ pub enum Event {
     SendFile(Nick),
 }
 
-pub fn update(message: Message) -> Event {
+pub fn update(message: Message) -> Option<Event> {
     match message {
-        Message::Whois(nick) => Event::SendWhois(nick),
-        Message::Query(nick) => Event::OpenQuery(nick),
-        Message::SingleClick(nick) => Event::SingleClick(nick),
-        Message::ToggleAccessLevel(nick, mode) => Event::ToggleAccessLevel(nick, mode),
-        Message::SendFile(nick) => Event::SendFile(nick),
+        Message::Whois(nick) => Some(Event::SendWhois(nick)),
+        Message::Query(nick) => Some(Event::OpenQuery(nick)),
+        Message::SingleClick(nick) => Some(Event::SingleClick(nick)),
+        Message::ToggleAccessLevel(nick, mode) => Some(Event::ToggleAccessLevel(nick, mode)),
+        Message::SendFile(nick) => Some(Event::SendFile(nick)),
+        Message::Link(link) => {
+            let _ = open::that(link);
+            None
+        }
     }
 }
 

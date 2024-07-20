@@ -42,7 +42,7 @@ pub fn view<'a>(
                 match message.target.source() {
                     message::Source::Server(server) => {
                         let message = message_content(
-                            message,
+                            &message.content,
                             theme,
                             scroll_view::Message::Link,
                             move |theme| {
@@ -58,7 +58,7 @@ pub fn view<'a>(
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message = message_content(
-                            message,
+                            &message.content,
                             theme,
                             scroll_view::Message::Link,
                             move |theme| {

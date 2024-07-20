@@ -154,7 +154,7 @@ impl TitleBar {
         if let Buffer::Channel(state) = &buffer {
             // Show topic button only if there is a topic to show
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
-                if topic.text.is_some() {
+                if topic.content.is_some() {
                     let topic_button = button(center(icon::topic()))
                         .padding(5)
                         .width(22)
