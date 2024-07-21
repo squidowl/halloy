@@ -76,9 +76,9 @@
           <Custom Action="LaunchApp" Before="InstallFinalize"/>
         </InstallExecuteSequence>
 
-        <WixVariable Id="WixUILicenseRtf" Value="license.rtf"/>
-        <WixVariable Id="WixUIDialogBmp" Value="dialog.png"/>
-        <WixVariable Id="WixUIBannerBmp" Value="banner.png"/>
+        <WixVariable Id="WixUILicenseRtf" Value="wix/license.rtf"/>
+        <WixVariable Id="WixUIDialogBmp" Value="wix/dialog.png"/>
+        <WixVariable Id="WixUIBannerBmp" Value="wix/banner.png"/>
 
         <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     </Package>
