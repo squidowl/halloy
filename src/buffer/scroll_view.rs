@@ -217,7 +217,7 @@ impl State {
                 );
             }
             Message::Link(link) => {
-                let _ = open::that(link);
+                let _ = open::that_detached(link);
             }
         }
 

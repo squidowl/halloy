@@ -33,12 +33,12 @@ impl Welcome {
         match message {
             Message::RefreshConfiguration => Some(Event::RefreshConfiguration),
             Message::OpenConfigurationDirectory => {
-                let _ = open::that(Config::config_dir());
+                let _ = open::that_detached(Config::config_dir());
 
                 None
             }
             Message::OpenWikiWebsite => {
-                let _ = open::that(WIKI_WEBSITE);
+                let _ = open::that_detached(WIKI_WEBSITE);
 
                 None
             }
