@@ -245,9 +245,13 @@ pub fn parse_fragments(text: String) -> Content {
     let mut fragments = vec![];
 
     for (re_match, url) in URL_REGEX.find_iter(&text).filter_map(|re_match| {
-        Url::parse(re_match.as_str())
-            .ok()
-            .map(|url| (re_match, url))
+        let url = if re_match.as_str().starts_with("www") {
+            format!("https://{}", re_match.as_str())
+        } else {
+            re_match.as_str().to_string()
+        };
+
+        Url::parse(&url).ok().map(|url| (re_match, url))
     }) {
         if i < re_match.start() {
             fragments.push(Fragment::Text(text[i..re_match.start()].to_string()));
