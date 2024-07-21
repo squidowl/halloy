@@ -28,7 +28,7 @@
         <ComponentGroup Id="MainComponents" Directory="INSTALLFOLDER">
 
             <Component>
-                <File Id="Application" DiskId="1" Source="target/$(Target)/release/halloy.exe" KeyPath="yes">
+                <File Id="Application" DiskId="1" Source="target/release/halloy.exe" KeyPath="yes">
                     <Shortcut
                         Id="ApplicationStartMenuShortcutInFile"
                         Name="halloy.exe"
