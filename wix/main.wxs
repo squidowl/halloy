@@ -28,7 +28,7 @@
         <ComponentGroup Id="MainComponents" Directory="INSTALLFOLDER">
 
             <Component>
-                <File Id="Application" DiskId="1" Source="target/release/halloy.exe" KeyPath="yes">
+                <File Id="Application" DiskId="1" Source="target/$(Target)/release/halloy.exe" KeyPath="yes">
                     <Shortcut
                         Id="ApplicationStartMenuShortcutInFile"
                         Name="halloy.exe"
@@ -47,7 +47,7 @@
                 <RegistryValue Root="HKCR" Key="Halloy" Name="EditFlags" Value="2" Type="integer" />
                 <RegistryValue Root="HKCR" Key="Halloy" Name="FriendlyTypeName" Value="Web URL" Type="string" />
                 <RegistryValue Root="HKCR" Key="Halloy" Name="URL Protocol" Value="" Type="string" />
-                <RegistryValue Root="HKCR" Key="Halloy\DefaultIcon" Value="[INSTALLFOLDER]Halloy.exe,1" Type="string" />
+                <RegistryValue Root="HKCR" Key="Halloy\DefaultIcon" Value="[INSTALLFOLDER]halloy.exe,1" Type="string" />
                 <RegistryValue Root="HKCR" Key="Halloy\shell" Type="string" Value="open" />
                 <RegistryValue Root="HKCR" Key="Halloy\shell\open\command" Type="string" Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;" />
 
