@@ -73,7 +73,7 @@ pub fn update(message: Message) -> Option<Event> {
         Message::ToggleAccessLevel(nick, mode) => Some(Event::ToggleAccessLevel(nick, mode)),
         Message::SendFile(nick) => Some(Event::SendFile(nick)),
         Message::Link(link) => {
-            let _ = open::that(link);
+            let _ = open::that_detached(link);
             None
         }
     }
