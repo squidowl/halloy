@@ -1,172 +1,85 @@
-<?xml version='1.0' encoding='windows-1252'?>
+<?xml version="1.0" encoding="UTF-8" ?>
 
-<?if $(var.Platform) = x64 ?>
-    <?define Win64 = "yes" ?>
-    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
-<?else ?>
-  <?define Win64 = "no" ?>
-  <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
-<?endif ?>
+<Wix
+    xmlns="http://wixtoolset.org/schemas/v4/wxs"
+    xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
-<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
-    <Product
-        Id='*'
-        Name='Halloy'
-        UpgradeCode='3ed18662-fb43-4803-a4f9-89bbbc0b6d01'
-        Manufacturer='Squidowl'
-        Language='1033'
-        Codepage='1252'
-        Version='0.0.{{ VERSION }}'>
+    <Package
+        Name="Halloy"
+        Version="$(PackageVersion)"
+        Manufacturer="Squidowl"
+        Language="1033"
+        UpgradeCode="3ed18662-fb43-4803-a4f9-89bbbc0b6d01"
+        UpgradeStrategy="majorUpgrade"
+        Scope="perMachine">
 
-        <Package 
-            Id='*'
-            Keywords='Installer'
-            Description='IRC application written in Rust'
-            Manufacturer='Squidowl'
-            InstallerVersion='450'
-            Languages='1033'
-            Compressed='yes'
-            InstallScope='perMachine'
-            SummaryCodepage='1252'
-            Platform='$(var.Platform)'/>
+        <MajorUpgrade Schedule="afterInstallInitialize"
+            DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit."/>
 
-        <MajorUpgrade
-            Schedule='afterInstallInitialize'
-            DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
+        <Media Id="1" Cabinet="media1.cab" EmbedCab="yes"/>
 
-        <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' />
-        <Property Id='DiskPrompt' Value='Halloy Installation'/>
+        <StandardDirectory Id="ProgramFiles6432Folder">
+            <Directory
+                Id="INSTALLFOLDER"
+                Name="!(bind.Property.Manufacturer)\!(bind.Property.ProductName)"
+            />
+        </StandardDirectory>
 
-        <Directory Id='TARGETDIR' Name='SourceDir'>
-            <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
-                <Directory Id='APPLICATIONFOLDER' Name='Halloy'>
-                    <!-- Component for setting PATH environment variable -->
-                    <Component Id='Path' Guid='6112ca47-e424-4454-b780-081463624eee' Win64='$(var.Win64)' KeyPath='yes'>
-                        <Environment
-                            Id='PATH'
-                            Name='PATH'
-                            Value='[APPLICATIONFOLDER]'
-                            Permanent='no'
-                            Part='last'
-                            Action='set'
-                            System='yes'/>
-                    </Component>
+        <ComponentGroup Id="MainComponents" Directory="INSTALLFOLDER">
 
-                    <!-- Component for executable -->
-                    <Component Id='binary0' Guid='*' Win64='$(var.Win64)'>
-                        <File
-                            Id='exe0'
-                            Name='Halloy.exe'
-                            DiskId='1'
-                            Source='target\$(var.Profile)\halloy.exe'
-                            KeyPath='yes'>
-                            <Shortcut
-                                Id="ApplicationStartMenuShortcutInFile"
-                                Name="Halloy"
-                                Icon="HalloyIcon.exe"
-                                Directory="ApplicationProgramsFolder"
-                                Description="IRC application written in Rust"
-                                Advertise="yes"
-                                WorkingDirectory="APPLICATIONFOLDER">
-                                <ShortcutProperty Key="System.AppUserModel.ID" Value="org.squidowl.halloy" />
-                            </Shortcut>
-                        </File>
-                    </Component>
-
-                    <!-- Component for default program registration -->
-                    <Component Id='RegistryComponentDefaultPrograms' Guid='*'>
-                        <RegistryValue Root="HKCR" Key="Halloy" Value="Halloy" Type="string" />
-                        <RegistryValue Root="HKCR" Key="Halloy" Name="EditFlags" Value="2" Type="integer" />
-                        <RegistryValue Root="HKCR" Key="Halloy" Name="FriendlyTypeName" Value="Web URL" Type="string" />
-                        <RegistryValue Root="HKCR" Key="Halloy" Name="URL Protocol" Value="" Type="string" />
-                        <RegistryValue Root="HKCR" Key="Halloy\DefaultIcon" Value="[APPLICATIONFOLDER]Halloy.exe,1" Type="string" />
-                        <RegistryValue Root="HKCR" Key="Halloy\shell" Type="string" Value="open" />
-                        <RegistryValue Root="HKCR" Key="Halloy\shell\open\command" Type="string" Value="&quot;[APPLICATIONFOLDER]Halloy.exe&quot; &quot;%1&quot;" />
-
-                        <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationDescription" Value="IRC client" Type="string" />
-                        <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationIcon" Value="[APPLICATIONFOLDER]Halloy.exe,0" Type="string" />
-                        <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationName" Value="IRC Picker" Type="string" />
-                        <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\DefaultIcon" Value="[INSTALLFOLDER]Halloy.exe,1" Type="string" />
-                        <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="irc" Value="Halloy" Type="string" />
-                        <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="ircs" Value="Halloy" Type="string" />
-                        <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="halloy" Value="Halloy" Type="string" />
-                        <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\shell" Value="open" Type="string" />
-                        <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\shell\open\command" Value="&quot;[APPLICATIONFOLDER]Halloy.exe&quot; &quot;%1&quot;" Type="string" />
-                        <RegistryValue Root="HKLM" Key="SOFTWARE\RegisteredApplications" Name="Halloy" Value="SOFTWARE\Halloy\Capabilities" Type="string" />
-                    </Component>
-                </Directory>
-            </Directory>
-
-            <Directory Id="ProgramMenuFolder">
-                <Directory Id="ApplicationProgramsFolder" Name="Halloy"/>
-            </Directory>
-        </Directory>
-
-        <DirectoryRef Id="ApplicationProgramsFolder">
-            <Component Id="ApplicationShortcut" Guid="c28a5892-ccdf-4870-af36-f87a440b3415">
-                <Shortcut
-                    Id="ApplicationStartMenuShortcut"
-                    Name="Halloy"
-                    Description="IRC application written in Rust"
-                    Target="[binary0]"
-                    WorkingDirectory="APPLICATIONFOLDER"/>
-
-                <RemoveFolder
-                    Id="CleanUpShortCut"
-                    Directory="ApplicationProgramsFolder"
-                    On="uninstall"/>
-
-                <RegistryValue Root="HKCU" Key="Software\Halloy" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+            <Component>
+                <File Id="Application" DiskId="1" Source="target/release/halloy.exe" KeyPath="yes">
+                    <Shortcut
+                        Id="ApplicationStartMenuShortcutInFile"
+                        Name="halloy.exe"
+                        Icon="HalloyIcon.exe"
+                        Directory="ProgramMenuFolder"
+                        Description="IRC application written in Rust"
+                        Advertise="yes"
+                        WorkingDirectory="INSTALLFOLDER">
+                        <ShortcutProperty Key="System.AppUserModel.ID" Value="org.squidowl.halloy" />
+                    </Shortcut>
+                </File>
             </Component>
-        </DirectoryRef>
-
-        <!-- Features -->
-        <Feature
-            Id='Binaries'
-            Title='Application'
-            Level='1'
-            Description='Install binaries.'
-            ConfigurableDirectory='APPLICATIONFOLDER'
-            AllowAdvertise='no'
-            Display='expand'
-            Absent='disallow'>
-
-            <ComponentRef Id='binary0'/>
-            <ComponentRef Id='Path'/>
-            <ComponentRef Id='RegistryComponentDefaultPrograms' />
             
-            <Feature
-                Id='Shortcut'
-                Title='Start Menu Shortcut'
-                Level='1'
-                Absent='allow'>
-                <ComponentRef Id="ApplicationShortcut" />
-            </Feature>
-        </Feature>
+            <Component Id='RegistryComponentDefaultPrograms' Guid='*'>
+                <RegistryValue Root="HKCR" Key="Halloy" Value="Halloy" Type="string" />
+                <RegistryValue Root="HKCR" Key="Halloy" Name="EditFlags" Value="2" Type="integer" />
+                <RegistryValue Root="HKCR" Key="Halloy" Name="FriendlyTypeName" Value="Web URL" Type="string" />
+                <RegistryValue Root="HKCR" Key="Halloy" Name="URL Protocol" Value="" Type="string" />
+                <RegistryValue Root="HKCR" Key="Halloy\DefaultIcon" Value="[INSTALLFOLDER]Halloy.exe,1" Type="string" />
+                <RegistryValue Root="HKCR" Key="Halloy\shell" Type="string" Value="open" />
+                <RegistryValue Root="HKCR" Key="Halloy\shell\open\command" Type="string" Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;" />
 
-        <Property Id="WIXUI_INSTALLDIR" Value="APPLICATIONFOLDER" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationDescription" Value="IRC client" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationIcon" Value="[INSTALLFOLDER]Halloy.exe,0" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationName" Value="IRC Picker" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\DefaultIcon" Value="[INSTALLFOLDER]Halloy.exe,1" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="irc" Value="Halloy" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="ircs" Value="Halloy" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="halloy" Value="Halloy" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\shell" Value="open" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\shell\open\command" Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\RegisteredApplications" Name="Halloy" Value="SOFTWARE\Halloy\Capabilities" Type="string" />
+            </Component>
+
+        </ComponentGroup>
 
         <Icon Id="HalloyIcon.exe" SourceFile="assets/windows/halloy.ico" />
-        <Property Id='ARPPRODUCTICON' Value='HalloyIcon.exe' />
-        <Property Id='ARPHELPLINK' Value='https://squidowl.org/'/>
 
-        <UIRef Id='WixUI_InstallDir'/>
+        <Property Id="ARPPRODUCTICON" Value="HalloyIcon.exe"/>
+        <Property Id="APPHELPLINK" Value="https://halloy.squidowl.org/"/>
 
-        <CustomAction
-          Id="LaunchApp"
-          Impersonate="yes"
-          Execute="deferred"
-          FileKey="exe0"
-          ExeCommand=""
-          Return="asyncNoWait"
-        />
+        <CustomAction Id="LaunchApp" Impersonate="yes" Execute="deferred" FileRef="Application" ExeCommand="" Return="asyncNoWait" />
 
         <InstallExecuteSequence>
-          <Custom Action="LaunchApp" Before="InstallFinalize">NOT REMOVE</Custom>
+          <Custom Action="LaunchApp" Before="InstallFinalize"/>
         </InstallExecuteSequence>
 
-        <WixVariable Id="WixUILicenseRtf" Value="wix/license.rtf" />
-        <WixVariable Id='WixUIDialogBmp' Value='wix/dialog.png' />
-        <WixVariable Id='WixUIBannerBmp' Value='wix/banner.png' />
-    </Product>
+        <WixVariable Id="WixUILicenseRtf" Value="license.rtf"/>
+        <WixVariable Id="WixUIDialogBmp" Value="dialog.png"/>
+        <WixVariable Id="WixUIBannerBmp" Value="banner.png"/>
+
+        <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    </Package>
 </Wix>

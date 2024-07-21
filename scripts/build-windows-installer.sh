@@ -2,13 +2,11 @@
 WXS_FILE="wix/main.wxs"
 VERSION=$(cat VERSION)
 
-# update version and build
-sed -i '' -e "s/{{ VERSION }}/$VERSION/g" "$WXS_FILE"
+# install latest wix
+dotnet tool install --global wix
 
-# install wix tools, and ensure paths are set
-choco install wixtoolset -y --force --version=3.11.2
-$env:Path += ';C:\Program Files (x86)\Wix Toolset v3.11\bin'
+# add required wix extension
+wix extension add WixToolset.Ui.wixex
 
-# build msi installer
-cargo install cargo-wix
-cargo wix --nocapture --package halloy -o target/release/halloy-installer.msi
+# build the installer
+wix build -pdbtype none -arch x64 -d PackageVersion=$VERSION main.wxs -o halloy-installer.msi -ext .\.wix\extensions\WixToolset.Ui.wixext\5.0.1\wixext5\WixToolset.UI.wixext.dll
