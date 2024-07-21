@@ -42,7 +42,7 @@ pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
 pub fn message_content<'a, M: 'a>(
     content: &'a message::Content,
     theme: &'a Theme,
-    on_link_pressed: impl Fn(String) -> M + 'a,
+    on_link: impl Fn(String) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
 ) -> Element<'a, M> {
     match content {
@@ -51,16 +51,14 @@ pub fn message_content<'a, M: 'a>(
             fragments
                 .iter()
                 .map(|fragment| match fragment {
-                    data::message::Fragment::Text(s) => {
-                        selectable_rich_text::SelectableSpan::Span(span(s))
-                    }
-                    data::message::Fragment::Url(s) => selectable_rich_text::SelectableSpan::Link(
-                        span(s.as_str()).color(theme.colors().action.base),
-                    ),
+                    data::message::Fragment::Text(s) => span(s),
+                    data::message::Fragment::Url(s) => span(s.as_str())
+                        .color(theme.colors().action.base)
+                        .link(s.as_str().to_string()),
                 })
                 .collect::<Vec<_>>(),
         )
-        .on_link_pressed(on_link_pressed)
+        .on_link(on_link)
         .style(style)
         .into(),
     }
