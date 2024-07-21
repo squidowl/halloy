@@ -66,26 +66,28 @@ impl Send {
         }
     }
 
-    fn decode<'a>(args: impl Iterator<Item = &'a str>) -> Option<Self> {
-        let mut args: Vec<&str> = args.collect();
-        args.reverse();
+    fn decode<'a>(
+        args: impl std::iter::DoubleEndedIterator<Item = &'a str> + std::clone::Clone,
+    ) -> Option<Self> {
+        let mut args = args.rev();
+        let mut args_token = args.clone();
 
         // if token doesn't exist
         let mut token = None;
-        let mut size = args[0];
-        let mut port = args[1];
-        let mut host = args[2];
-        let mut filename = args.iter().skip(3);
+        let mut size = args.next()?;
+        let mut port = args.next()?;
+        let mut host = args.next()?;
+        let mut filename = args;
 
         // If token exists, port == 0
         // args[1] == port, if token doesn't exists.
         // args[2] == port, if token exists.
-        if args[1].parse::<u16>() == Ok(0) || args[2].parse::<u16>() == Ok(0) {
-            token = Some(args[0].parse::<NonZeroU16>().ok()?);
-            size = args[1];
-            port = args[2];
-            host = args[3];
-            filename = args.iter().skip(4);
+        if size.parse::<u16>() == Ok(0) || port.parse::<u16>() == Ok(0) {
+            token = Some(args_token.next()?.parse::<NonZeroU16>().ok()?);
+            size = args_token.next()?;
+            port = args_token.next()?;
+            host = args_token.next()?;
+            filename = args_token;
         }
 
         // Parse values
@@ -94,7 +96,7 @@ impl Send {
         let size = size.parse().ok()?;
         let filename = filename
             .rev()
-            .map(|&s| s.trim_matches('\"'))
+            .map(|s| s.trim_matches('\"'))
             .collect::<Vec<_>>()
             .join(" ");
 
