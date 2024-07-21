@@ -2,6 +2,9 @@
 WXS_FILE="wix/main.wxs"
 VERSION=$(cat VERSION)
 
+# build the binary
+scripts/build-windows.sh
+
 # install latest wix
 dotnet tool install --global wix
 
