@@ -1,41 +1,49 @@
-use std::borrow::Cow;
-use std::ops::Deref;
-
-use iced::advanced::layout::{self, Layout};
-use iced::advanced::renderer::{self, Quad};
+use iced::advanced::graphics::core::touch;
+use iced::advanced::layout;
+use iced::advanced::renderer;
+use iced::advanced::renderer::Quad;
 use iced::advanced::text::{self, Paragraph, Span, Text};
 use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Operation;
-use iced::advanced::Widget;
+use iced::advanced::{Clipboard, Layout, Shell, Widget};
+use iced::alignment;
+use iced::event;
+use iced::mouse;
+use iced::widget;
 use iced::widget::text::{LineHeight, Shaping};
 use iced::widget::text_input::Value;
-use iced::{alignment, event, Border, Shadow};
-use iced::{mouse, touch};
-use iced::{widget, Point};
-use iced::{Color, Element, Length, Pixels, Rectangle, Size};
+use iced::Border;
+use iced::Length;
+use iced::Point;
+use iced::Shadow;
+use iced::{self, Color, Element, Event, Pixels, Rectangle, Size};
 use itertools::Itertools;
-use unicode_segmentation::UnicodeSegmentation;
 
 use super::selectable_text::{selection, Catalog, Interaction, Style, StyleFn};
 
+use std::borrow::Cow;
+
 /// Creates a new [`Rich`] text widget with the provided spans.
-pub fn selectable_rich_text<'a, Message, Theme, Renderer>(
-    spans: impl Into<Cow<'a, [SelectableSpan<'a, Renderer::Font>]>>,
-) -> Rich<'a, Message, Theme, Renderer>
+pub fn selectable_rich_text<'a, Message, Link, Theme, Renderer>(
+    spans: impl Into<Cow<'a, [Span<'a, Link, Renderer::Font>]>>,
+) -> Rich<'a, Message, Link, Theme, Renderer>
 where
-    Theme: Catalog + 'a,
+    Link: Clone + 'static,
+    Theme: Catalog,
     Renderer: text::Renderer,
 {
     Rich::with_spans(spans)
 }
 
 /// A bunch of [`Rich`] text.
-pub struct Rich<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
+#[allow(missing_debug_implementations)]
+pub struct Rich<'a, Message, Link = (), Theme = iced::Theme, Renderer = iced::Renderer>
 where
+    Link: Clone + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
-    spans: Cow<'a, [Span<'a, Renderer::Font>]>,
+    spans: Cow<'a, [Span<'a, Link, Renderer::Font>]>,
     size: Option<Pixels>,
     line_height: LineHeight,
     width: Length,
@@ -44,13 +52,12 @@ where
     align_x: alignment::Horizontal,
     align_y: alignment::Vertical,
     class: Theme::Class<'a>,
-
-    value: Value,
-    link_graphemes: Vec<(usize, usize)>,
-    on_link_pressed: Option<Box<dyn Fn(String) -> Message + 'a>>,
+    on_link: Option<Box<dyn Fn(Link) -> Message + 'a>>,
 }
-impl<'a, Message, Theme, Renderer> Rich<'a, Message, Theme, Renderer>
+
+impl<'a, Message, Link, Theme, Renderer> Rich<'a, Message, Link, Theme, Renderer>
 where
+    Link: Clone + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
@@ -66,41 +73,14 @@ where
             align_x: alignment::Horizontal::Left,
             align_y: alignment::Vertical::Top,
             class: Theme::default(),
-
-            value: Value::new(""),
-            link_graphemes: vec![],
-            on_link_pressed: None,
+            on_link: None,
         }
     }
 
     /// Creates a new [`Rich`] text with the given text spans.
-    pub fn with_spans(spans: impl Into<Cow<'a, [SelectableSpan<'a, Renderer::Font>]>>) -> Self {
-        let custom_spans = spans.into();
-
-        let mut i = 0;
-        let link_graphemes = custom_spans.iter().fold(vec![], |mut acc, span| {
-            let count = UnicodeSegmentation::graphemes(span.text.as_ref(), true).count();
-
-            if span.is_link() {
-                acc.push((i, i + count));
-            }
-
-            i += count;
-
-            acc
-        });
-
-        let spans = custom_spans
-            .iter()
-            .cloned()
-            .map(SelectableSpan::into_span)
-            .collect::<Vec<_>>();
-        let value = Value::new(&spans.iter().map(|s| s.text.as_ref()).join(""));
-
+    pub fn with_spans(spans: impl Into<Cow<'a, [Span<'a, Link, Renderer::Font>]>>) -> Self {
         Self {
             spans: spans.into(),
-            value,
-            link_graphemes,
             ..Self::new()
         }
     }
@@ -184,23 +164,22 @@ where
         })
     }
 
-    /// Sets the default style class of the [`Rich`] text.
-    #[must_use]
-    pub fn class(mut self, class: impl Into<Theme::Class<'a>>) -> Self {
-        self.class = class.into();
+    /// Sets the message handler for link clicks on the [`Rich`] text.
+    pub fn on_link(mut self, on_link: impl Fn(Link) -> Message + 'a) -> Self {
+        self.on_link = Some(Box::new(on_link));
         self
     }
 
-    pub fn on_link_pressed(self, f: impl Fn(String) -> Message + 'a) -> Self {
-        Self {
-            on_link_pressed: Some(Box::new(f)),
-            ..self
-        }
+    /// Adds a new text [`Span`] to the [`Rich`] text.
+    pub fn push(mut self, span: impl Into<Span<'a, Link, Renderer::Font>>) -> Self {
+        self.spans.to_mut().push(span.into());
+        self
     }
 }
 
-impl<'a, Message, Theme, Renderer> Default for Rich<'a, Message, Theme, Renderer>
+impl<'a, Message, Link, Theme, Renderer> Default for Rich<'a, Message, Link, Theme, Renderer>
 where
+    Link: Clone + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
@@ -209,59 +188,30 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum SelectableSpan<'a, Font = iced::Font> {
-    Span(Span<'a, Font>),
-    Link(Span<'a, Font>),
-}
-
-impl<'a, Font> SelectableSpan<'a, Font> {
-    fn is_link(&self) -> bool {
-        matches!(self, Self::Link(_))
-    }
-
-    fn into_span(self) -> Span<'a, Font> {
-        match self {
-            SelectableSpan::Span(s) => s,
-            SelectableSpan::Link(s) => s,
-        }
-    }
-}
-
-impl<'a, Font> Deref for SelectableSpan<'a, Font> {
-    type Target = Span<'a, Font>;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            SelectableSpan::Span(s) => s,
-            SelectableSpan::Link(s) => s,
-        }
-    }
-}
-
-struct State<P: Paragraph> {
-    spans: Vec<Span<'static, P::Font>>,
+struct State<Link, P: Paragraph> {
+    spans: Vec<Span<'static, Link, P::Font>>,
+    span_pressed: Option<usize>,
     paragraph: P,
     interaction: Interaction,
-    pressed_link: Option<(usize, usize)>,
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Rich<'a, Message, Theme, Renderer>
+impl<'a, Message, Link, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Rich<'a, Message, Link, Theme, Renderer>
 where
+    Link: Clone + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<State<Renderer::Paragraph>>()
+        tree::Tag::of::<State<Link, Renderer::Paragraph>>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State {
+        tree::State::new(State::<Link, _> {
             spans: Vec::new(),
+            span_pressed: None,
             paragraph: Renderer::Paragraph::default(),
             interaction: Interaction::default(),
-            pressed_link: None,
         })
     }
 
@@ -279,7 +229,8 @@ where
         limits: &layout::Limits,
     ) -> layout::Node {
         layout(
-            tree.state.downcast_mut::<State<Renderer::Paragraph>>(),
+            tree.state
+                .downcast_mut::<State<Link, Renderer::Paragraph>>(),
             renderer,
             limits,
             self.width,
@@ -296,24 +247,28 @@ where
     fn on_event(
         &mut self,
         tree: &mut Tree,
-        event: iced::Event,
+        event: Event,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         _renderer: &Renderer,
-        _clipboard: &mut dyn iced::advanced::Clipboard,
-        shell: &mut iced::advanced::Shell<'_, Message>,
+        _clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
     ) -> event::Status {
-        let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
+        let state = tree
+            .state
+            .downcast_mut::<State<Link, Renderer::Paragraph>>();
+
+        let mut status = event::Status::Ignored;
 
         match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | iced::Event::Touch(touch::Event::FingerPressed { .. }) => {
-                if let Some(cursor) = cursor.position_in(layout.bounds()) {
-                    if let Some((start, end)) =
-                        is_over_link(cursor, &state.paragraph, &self.value, &self.link_graphemes)
-                    {
-                        state.pressed_link = Some((start, end));
+                if let Some(position) = cursor.position_in(layout.bounds()) {
+                    if let Some(span) = state.paragraph.hit_span(position) {
+                        state.span_pressed = Some(span);
+
+                        status = event::Status::Captured;
                     }
                 }
 
@@ -329,22 +284,20 @@ where
             iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
             | iced::Event::Touch(touch::Event::FingerLifted { .. })
             | iced::Event::Touch(touch::Event::FingerLost { .. }) => {
-                let pressed_link = state.pressed_link.take();
+                if let Some(on_link_click) = self.on_link.as_ref() {
+                    if let Some(span_pressed) = state.span_pressed {
+                        state.span_pressed = None;
 
-                if let Some(cursor) = cursor.position_in(layout.bounds()) {
-                    if let Some((start, end)) =
-                        is_over_link(cursor, &state.paragraph, &self.value, &self.link_graphemes)
-                    {
-                        // We clicked and released over same link
-                        if Some((start, end)) == pressed_link {
-                            let link = self.value.select(start, end).to_string();
-
-                            if let Some(f) = self.on_link_pressed.as_ref() {
-                                shell.publish((f)(link));
-
-                                state.interaction = Interaction::Idle;
-
-                                return event::Status::Captured;
+                        if let Some(position) = cursor.position_in(layout.bounds()) {
+                            match state.paragraph.hit_span(position) {
+                                Some(span) if span == span_pressed => {
+                                    if let Some(link) =
+                                        self.spans.get(span).and_then(|span| span.link.clone())
+                                    {
+                                        shell.publish(on_link_click(link));
+                                    }
+                                }
+                                _ => {}
                             }
                         }
                     }
@@ -367,7 +320,7 @@ where
             _ => {}
         }
 
-        event::Status::Ignored
+        status
     }
 
     fn draw(
@@ -386,7 +339,10 @@ where
             return;
         }
 
-        let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
+        let state = tree
+            .state
+            .downcast_ref::<State<Link, Renderer::Paragraph>>();
+
         let style = theme.style(&self.class);
 
         if let Some(selection) = state
@@ -458,17 +414,27 @@ where
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
-        let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
-
-        if let Some(cursor) = cursor.position_in(layout.bounds()) {
-            if is_over_link(cursor, &state.paragraph, &self.value, &self.link_graphemes).is_some() {
-                mouse::Interaction::Pointer
-            } else {
-                mouse::Interaction::Text
-            }
-        } else {
-            mouse::Interaction::default()
+        if self.on_link.is_none() {
+            return mouse::Interaction::None;
         }
+
+        if let Some(position) = cursor.position_in(layout.bounds()) {
+            let state = tree
+                .state
+                .downcast_ref::<State<Link, Renderer::Paragraph>>();
+
+            if let Some(span) = state
+                .paragraph
+                .hit_span(position)
+                .and_then(|span| self.spans.get(span))
+            {
+                if span.link.is_some() {
+                    return mouse::Interaction::Pointer;
+                }
+            }
+        }
+
+        mouse::Interaction::None
     }
 
     fn operate(
@@ -478,45 +444,30 @@ where
         _renderer: &Renderer,
         operation: &mut dyn Operation<()>,
     ) {
-        let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
+        let state = tree
+            .state
+            .downcast_ref::<State<Link, Renderer::Paragraph>>();
 
         let bounds = layout.bounds();
+        let value = Value::new(&self.spans.iter().map(|s| s.text.as_ref()).join(""));
         if let Some(selection) = state
             .interaction
             .selection()
-            .and_then(|raw| selection(raw, bounds, &state.paragraph, &self.value))
+            .and_then(|raw| selection(raw, bounds, &state.paragraph, &value))
         {
-            let content = self
-                .value
-                .select(selection.start, selection.end)
-                .to_string();
+            let content = value.select(selection.start, selection.end).to_string();
             operation.custom(&mut (bounds.y, content), None);
         }
     }
 }
 
-fn is_over_link<P: Paragraph>(
-    cursor: Point,
-    paragraph: &P,
-    value: &Value,
-    link_graphemes: &[(usize, usize)],
-) -> Option<(usize, usize)> {
-    if let Some(pos) = selection::find_cursor_position(paragraph, value, cursor) {
-        link_graphemes
-            .iter()
-            .find_map(|(start, end)| (*start..=*end).contains(&pos).then_some((*start, *end)))
-    } else {
-        None
-    }
-}
-
-fn layout<Renderer>(
-    state: &mut State<Renderer::Paragraph>,
+fn layout<Link, Renderer>(
+    state: &mut State<Link, Renderer::Paragraph>,
     renderer: &Renderer,
     limits: &layout::Limits,
     width: Length,
     height: Length,
-    spans: &[Span<'_, Renderer::Font>],
+    spans: &[Span<'_, Link, Renderer::Font>],
     line_height: LineHeight,
     size: Option<Pixels>,
     font: Option<Renderer::Font>,
@@ -524,6 +475,7 @@ fn layout<Renderer>(
     vertical_alignment: alignment::Vertical,
 ) -> layout::Node
 where
+    Link: Clone,
     Renderer: text::Renderer,
 {
     layout::sized(limits, width, height, |limits| {
@@ -571,13 +523,14 @@ where
     })
 }
 
-impl<'a, Message, Theme, Renderer> FromIterator<Span<'a, Renderer::Font>>
-    for Rich<'a, Message, Theme, Renderer>
+impl<'a, Message, Link, Theme, Renderer> FromIterator<Span<'a, Link, Renderer::Font>>
+    for Rich<'a, Message, Link, Theme, Renderer>
 where
+    Link: Clone + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
-    fn from_iter<T: IntoIterator<Item = Span<'a, Renderer::Font>>>(spans: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = Span<'a, Link, Renderer::Font>>>(spans: T) -> Self {
         Self {
             spans: spans.into_iter().collect(),
             ..Self::new()
@@ -585,14 +538,17 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer> From<Rich<'a, Message, Theme, Renderer>>
+impl<'a, Message, Link, Theme, Renderer> From<Rich<'a, Message, Link, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
+    Message: 'a,
+    Link: Clone + 'static,
     Theme: Catalog + 'a,
     Renderer: text::Renderer + 'a,
-    Message: 'a,
 {
-    fn from(text: Rich<'a, Message, Theme, Renderer>) -> Element<'a, Message, Theme, Renderer> {
+    fn from(
+        text: Rich<'a, Message, Link, Theme, Renderer>,
+    ) -> Element<'a, Message, Theme, Renderer> {
         Element::new(text)
     }
 }
