@@ -82,8 +82,8 @@ impl Send {
         // If token exists, port == 0
         // args[1] == port, if token doesn't exists.
         // args[2] == port, if token exists.
-        if size.parse::<u16>() == Ok(0) || port.parse::<u16>() == Ok(0) {
-            token = Some(args_token.next()?.parse::<NonZeroU16>().ok()?);
+        if port.parse::<u16>() == Ok(0) || host.parse::<u16>() == Ok(0) {
+            token = args_token.next();
             size = args_token.next()?;
             port = args_token.next()?;
             host = args_token.next()?;
