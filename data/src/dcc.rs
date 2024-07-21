@@ -92,7 +92,11 @@ impl Send {
         let host = decode_host(host)?;
         let port = NonZeroU16::new(port.parse().ok()?);
         let size = size.parse().ok()?;
-        let filename = filename.rev().copied().collect::<Vec<_>>().join(" ");
+        let filename = filename
+            .rev()
+            .map(|&s| s.trim_matches('\"'))
+            .collect::<Vec<_>>()
+            .join(" ");
 
         match (port, token) {
             (_, Some(token)) => Some(Self::Reverse {
