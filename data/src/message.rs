@@ -1,6 +1,9 @@
+use std::borrow::Cow;
+
 use chrono::{DateTime, Utc};
 use irc::proto;
 use irc::proto::Command;
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -86,7 +89,7 @@ pub enum Direction {
     Received,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct Message {
     pub received_at: Posix,
     pub server_time: DateTime<Utc>,
@@ -158,6 +161,35 @@ impl Message {
     }
 }
 
+impl Serialize for Message {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        struct Data<'a> {
+            received_at: &'a Posix,
+            server_time: &'a DateTime<Utc>,
+            direction: &'a Direction,
+            target: &'a Target,
+            content: &'a Content,
+            // Old field before we had fragments,
+            // added for downgrade compatability
+            text: Cow<'a, str>,
+        }
+
+        Data {
+            received_at: &self.received_at,
+            server_time: &self.server_time,
+            direction: &self.direction,
+            target: &self.target,
+            content: &self.content,
+            text: self.content.text(),
+        }
+        .serialize(serializer)
+    }
+}
+
 impl<'de> Deserialize<'de> for Message {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -169,7 +201,7 @@ impl<'de> Deserialize<'de> for Message {
             server_time: DateTime<Utc>,
             direction: Direction,
             target: Target,
-            // New field
+            // New field, optional for upgrade compatability
             content: Option<Content>,
             // Old field before we had fragments
             text: Option<String>,
@@ -184,10 +216,11 @@ impl<'de> Deserialize<'de> for Message {
             text,
         } = Data::deserialize(deserializer)?;
 
-        let content = if let Some(text) = text {
-            parse_fragments(text)
-        } else if let Some(content) = content {
+        let content = if let Some(content) = content {
             content
+        } else if let Some(text) = text {
+            // First time upgrading, convert text into content
+            parse_fragments(text)
         } else {
             // Unreachable
             Content::Plain("".to_string())
@@ -237,6 +270,15 @@ pub fn parse_fragments(text: String) -> Content {
 pub enum Content {
     Plain(String),
     Fragments(Vec<Fragment>),
+}
+
+impl Content {
+    fn text(&self) -> Cow<str> {
+        match self {
+            Content::Plain(s) => s.into(),
+            Content::Fragments(fragments) => fragments.iter().map(Fragment::as_str).join("").into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
