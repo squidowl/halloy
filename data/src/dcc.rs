@@ -66,12 +66,33 @@ impl Send {
         }
     }
 
-    fn decode<'a>(mut args: impl Iterator<Item = &'a str>) -> Option<Self> {
-        let filename = args.next()?.to_string();
-        let host = args.next().and_then(decode_host)?;
-        let port = NonZeroU16::new(args.next()?.parse().ok()?);
-        let size = args.next()?.parse().ok()?;
-        let token = args.next();
+    fn decode<'a>(args: impl Iterator<Item = &'a str>) -> Option<Self> {
+        let mut args: Vec<&str> = args.collect();
+        args.reverse();
+
+        // if token doesn't exist
+        let mut token = None;
+        let mut size = args[0];
+        let mut port = args[1];
+        let mut host = args[2];
+        let mut filename = args.iter().skip(3);
+
+        // If token exists, port == 0
+        // args[1] == port, if token doesn't exists.
+        // args[2] == port, if token exists.
+        if args[1].parse::<u16>() == Ok(0) || args[2].parse::<u16>() == Ok(0) {
+            token = Some(args[0].parse::<NonZeroU16>().ok()?);
+            size = args[1];
+            port = args[2];
+            host = args[3];
+            filename = args.iter().skip(4);
+        }
+
+        // Parse values
+        let host = decode_host(host)?;
+        let port = NonZeroU16::new(port.parse().ok()?);
+        let size = size.parse().ok()?;
+        let filename = filename.rev().copied().collect::<Vec<_>>().join(" ");
 
         match (port, token) {
             (_, Some(token)) => Some(Self::Reverse {
