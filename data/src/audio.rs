@@ -3,34 +3,10 @@ use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use rodio::{Decoder, OutputStream, OutputStreamHandle, Source};
+use rodio::{Decoder, OutputStream, Sink};
 use serde::Deserialize;
 
 use crate::Config;
-
-pub struct Manager {
-    _stream: OutputStream,
-    stream_handle: OutputStreamHandle,
-}
-
-impl Manager {
-    pub fn new() -> Result<Self, InitializationError> {
-        OutputStream::try_default()
-            .map(|(_stream, stream_handle)| Self {
-                _stream,
-                stream_handle,
-            })
-            .map_err(|_| InitializationError::Unsupported)
-    }
-
-    pub fn play(&mut self, sound: &Sound) -> Result<(), PlayError> {
-        let source = Decoder::new(Cursor::new(sound.0.clone()))?;
-        self.stream_handle
-            .play_raw(source.convert_samples())
-            .map_err(|_| PlayError::PlaySoundError)?;
-        Ok(())
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Sound(Vec<u8>);
@@ -48,6 +24,20 @@ impl Sound {
         };
 
         Ok(Sound(source))
+    }
+
+    pub fn play(&self) -> Result<(), PlayError> {
+        let (_stream, stream_handle) = OutputStream::try_default()?;
+
+        let sink = Sink::try_new(&stream_handle)?;
+
+        let source = Decoder::new(Cursor::new(self.0.clone()))?;
+
+        sink.append(source);
+
+        sink.sleep_until_end();
+
+        Ok(())
     }
 }
 
@@ -113,13 +103,27 @@ fn find_external_sound(sound: &str) -> Option<PathBuf> {
 pub enum PlayError {
     #[error(transparent)]
     Decoding(Arc<rodio::decoder::DecoderError>),
-    #[error("error occured when playing a sound")]
-    PlaySoundError,
+    #[error(transparent)]
+    Playing(Arc<rodio::PlayError>),
+    #[error(transparent)]
+    StreamInitialization(Arc<rodio::StreamError>),
 }
 
 impl From<rodio::decoder::DecoderError> for PlayError {
     fn from(error: rodio::decoder::DecoderError) -> Self {
         Self::Decoding(Arc::new(error))
+    }
+}
+
+impl From<rodio::PlayError> for PlayError {
+    fn from(error: rodio::PlayError) -> Self {
+        Self::Playing(Arc::new(error))
+    }
+}
+
+impl From<rodio::StreamError> for PlayError {
+    fn from(error: rodio::StreamError) -> Self {
+        Self::StreamInitialization(Arc::new(error))
     }
 }
 
