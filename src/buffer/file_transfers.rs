@@ -43,10 +43,9 @@ pub fn view<'a>(
 
     container(
         Scrollable::new(column)
-            .direction(scrollable::Direction::Vertical {
-                scrollbar: scrollable::Scrollbar::new().width(1).scroller_width(1),
-                spacing: None,
-            })
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new().width(1).scroller_width(1),
+            ))
             .style(theme::scrollable::hidden),
     )
     .width(Length::Fill)
@@ -227,18 +226,18 @@ mod transfer_row {
             file_transfer::Status::PendingApproval => {
                 buttons =
                     buttons.push(row_button(icon::checkmark(), Message::Approve(transfer.id)));
-                buttons = buttons.push(row_button(icon::close(), Message::Clear(transfer.id)));
+                buttons = buttons.push(row_button(icon::cancel(), Message::Clear(transfer.id)));
             }
             file_transfer::Status::PendingReverseConfirmation
             | file_transfer::Status::Queued
             | file_transfer::Status::Ready => {
-                buttons = buttons.push(row_button(icon::close(), Message::Clear(transfer.id)));
+                buttons = buttons.push(row_button(icon::cancel(), Message::Clear(transfer.id)));
             }
             file_transfer::Status::Active { .. } | file_transfer::Status::Completed { .. } => {
-                buttons = buttons.push(row_button(icon::close(), Message::Clear(transfer.id)));
+                buttons = buttons.push(row_button(icon::cancel(), Message::Clear(transfer.id)));
             }
             file_transfer::Status::Failed { .. } => {
-                buttons = buttons.push(row_button(icon::close(), Message::Clear(transfer.id)));
+                buttons = buttons.push(row_button(icon::cancel(), Message::Clear(transfer.id)));
             }
         }
 

@@ -33,12 +33,12 @@ impl Migration {
         match message {
             Message::RefreshConfiguration => Some(Event::RefreshConfiguration),
             Message::OpenConfigurationDirectory => {
-                let _ = open::that(Config::config_dir());
+                let _ = open::that_detached(Config::config_dir());
 
                 None
             }
             Message::OpenMigrationWebsite => {
-                let _ = open::that(MIGRATION_WEBSITE);
+                let _ = open::that_detached(MIGRATION_WEBSITE);
 
                 None
             }

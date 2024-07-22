@@ -355,7 +355,7 @@ impl Dashboard {
                         let (command, event) = match command {
                             command_bar::Command::Version(command) => match command {
                                 command_bar::Version::Application(_) => {
-                                    let _ = open::that(RELEASE_WEBSITE);
+                                    let _ = open::that_detached(RELEASE_WEBSITE);
                                     (Task::none(), None)
                                 }
                             },
@@ -397,11 +397,11 @@ impl Dashboard {
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::OpenDirectory => {
-                                    let _ = open::that(Config::config_dir());
+                                    let _ = open::that_detached(Config::config_dir());
                                     (Task::none(), None)
                                 }
                                 command_bar::Configuration::OpenWebsite => {
-                                    let _ = open::that(environment::WIKI_WEBSITE);
+                                    let _ = open::that_detached(environment::WIKI_WEBSITE);
                                     (Task::none(), None)
                                 }
                                 command_bar::Configuration::Reload => {
@@ -585,6 +585,7 @@ impl Dashboard {
         clients: &'a client::Map,
         version: &'a Version,
         config: &'a Config,
+        theme: &'a Theme,
     ) -> Element<'a, Message> {
         let focus = self.focus;
 
@@ -600,6 +601,7 @@ impl Dashboard {
                 &self.file_transfers,
                 &self.history,
                 config,
+                theme,
             )
         })
         .on_click(pane::Message::PaneClicked)

@@ -6,8 +6,8 @@ use iced::widget::{column, container, row};
 use iced::{padding, Length, Task};
 
 use super::{input_view, scroll_view, user_context};
-use crate::theme;
-use crate::widget::{selectable_text, Element};
+use crate::widget::{message_content, selectable_text, Element};
+use crate::{theme, Theme};
 
 mod topic;
 
@@ -29,6 +29,7 @@ pub fn view<'a>(
     history: &'a history::Manager,
     settings: &'a channel::Settings,
     config: &'a Config,
+    theme: &'a Theme,
     is_focused: bool,
 ) -> Element<'a, Message> {
     let buffer = state.buffer();
@@ -79,7 +80,12 @@ pub fn view<'a>(
                         .map(scroll_view::Message::UserContext);
 
                         let space = selectable_text(" ");
-                        let text = selectable_text(&message.text);
+                        let text = message_content(
+                            &message.content,
+                            theme,
+                            scroll_view::Message::Link,
+                            theme::selectable_text::default,
+                        );
 
                         Some(
                             container(
@@ -91,11 +97,7 @@ pub fn view<'a>(
                             )
                             .style(move |theme| match our_nick {
                                 Some(nick)
-                                    if message::reference_user(
-                                        user.nickname(),
-                                        nick,
-                                        &message.text,
-                                    ) =>
+                                    if message::reference_user(user.nickname(), nick, message) =>
                                 {
                                     theme::container::highlight(theme)
                                 }
@@ -105,30 +107,44 @@ pub fn view<'a>(
                         )
                     }
                     message::Source::Server(server) => {
-                        let message = selectable_text(&message.text).style(move |theme| {
-                            theme::selectable_text::server(
-                                theme,
-                                server.as_ref(),
-                                &config.buffer.server_messages,
-                            )
-                        });
+                        let message = message_content(
+                            &message.content,
+                            theme,
+                            scroll_view::Message::Link,
+                            move |theme| {
+                                theme::selectable_text::server(
+                                    theme,
+                                    server.as_ref(),
+                                    &config.buffer.server_messages,
+                                )
+                            },
+                        );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Action => {
-                        let message =
-                            selectable_text(&message.text).style(theme::selectable_text::accent);
+                        let message = message_content(
+                            &message.content,
+                            theme,
+                            scroll_view::Message::Link,
+                            theme::selectable_text::accent,
+                        );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
-                        let message = selectable_text(&message.text).style(move |theme| {
-                            theme::selectable_text::status(
-                                theme,
-                                *status,
-                                &config.buffer.internal_messages,
-                            )
-                        });
+                        let message = message_content(
+                            &message.content,
+                            theme,
+                            scroll_view::Message::Link,
+                            move |theme| {
+                                theme::selectable_text::status(
+                                    theme,
+                                    *status,
+                                    &config.buffer.internal_messages,
+                                )
+                            },
+                        );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
                     }
@@ -144,7 +160,7 @@ pub fn view<'a>(
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
-    let topic = topic(state, clients, users, our_user, settings, config)
+    let topic = topic(state, clients, users, our_user, settings, config, theme)
         .unwrap_or_else(|| column![].into());
 
     let show_text_input = match config.buffer.text_input.visibility {
@@ -252,7 +268,7 @@ impl Channel {
             }
             Message::UserContext(message) => (
                 Task::none(),
-                Some(Event::UserContext(user_context::update(message))),
+                user_context::update(message).map(Event::UserContext),
             ),
         }
     }
@@ -273,6 +289,7 @@ fn topic<'a>(
     our_user: Option<&'a User>,
     settings: &'a channel::Settings,
     config: &'a Config,
+    theme: &'a Theme,
 ) -> Option<Element<'a, Message>> {
     if !settings.topic.enabled {
         return None;
@@ -282,7 +299,7 @@ fn topic<'a>(
 
     Some(
         topic::view(
-            topic.text.as_deref()?,
+            topic.content.as_ref()?,
             topic.who.as_deref(),
             topic.time.as_ref(),
             config.buffer.channel.topic.max_lines,
@@ -290,6 +307,7 @@ fn topic<'a>(
             &state.buffer(),
             our_user,
             config,
+            theme,
         )
         .map(Message::UserContext),
     )
@@ -327,10 +345,9 @@ mod nick_list {
 
         container(
             Scrollable::new(column)
-                .direction(scrollable::Direction::Vertical {
-                    scrollbar: scrollable::Scrollbar::new().width(1).scroller_width(1),
-                    spacing: None,
-                })
+                .direction(scrollable::Direction::Vertical(
+                    scrollable::Scrollbar::new().width(1).scroller_width(1),
+                ))
                 .style(theme::scrollable::hidden),
         )
         .width(Length::Shrink)

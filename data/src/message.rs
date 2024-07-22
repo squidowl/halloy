@@ -1,12 +1,25 @@
+use std::borrow::Cow;
+
 use chrono::{DateTime, Utc};
 use irc::proto;
 use irc::proto::Command;
+use itertools::Itertools;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 pub use self::source::Source;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, Config, User};
+
+static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)"#,
+    )
+    .unwrap()
+});
 
 pub type Channel = String;
 
@@ -76,13 +89,13 @@ pub enum Direction {
     Received,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Message {
     pub received_at: Posix,
     pub server_time: DateTime<Utc>,
     pub direction: Direction,
     pub target: Target,
-    pub text: String,
+    pub content: Content,
 }
 
 impl Message {
@@ -98,7 +111,7 @@ impl Message {
         resolve_attributes: impl Fn(&User, &str) -> Option<User>,
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
-        let text = text(&encoded, &our_nick, config, &resolve_attributes)?;
+        let content = content(&encoded, &our_nick, config, &resolve_attributes)?;
         let target = target(encoded, &our_nick, &resolve_attributes)?;
 
         Some(Message {
@@ -106,7 +119,7 @@ impl Message {
             server_time,
             direction: Direction::Received,
             target,
-            text,
+            content,
         })
     }
 
@@ -119,7 +132,7 @@ impl Message {
                 nick: from.clone(),
                 source: Source::Action,
             },
-            text: format!(" ∙ {from} wants to send you \"{filename}\""),
+            content: plain(format!(" ∙ {from} wants to send you \"{filename}\"")),
         }
     }
 
@@ -132,12 +145,158 @@ impl Message {
                 nick: to.clone(),
                 source: Source::Action,
             },
-            text: format!(" ∙ offering to send {to} \"{filename}\""),
+            content: plain(format!(" ∙ offering to send {to} \"{filename}\"")),
         }
     }
 
     pub fn with_target(self, target: Target) -> Self {
         Self { target, ..self }
+    }
+
+    pub fn plain(&self) -> Option<&str> {
+        match &self.content {
+            Content::Plain(s) => Some(s),
+            Content::Fragments(_) => None,
+        }
+    }
+}
+
+impl Serialize for Message {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        struct Data<'a> {
+            received_at: &'a Posix,
+            server_time: &'a DateTime<Utc>,
+            direction: &'a Direction,
+            target: &'a Target,
+            content: &'a Content,
+            // Old field before we had fragments,
+            // added for downgrade compatability
+            text: Cow<'a, str>,
+        }
+
+        Data {
+            received_at: &self.received_at,
+            server_time: &self.server_time,
+            direction: &self.direction,
+            target: &self.target,
+            content: &self.content,
+            text: self.content.text(),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Message {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Data {
+            received_at: Posix,
+            server_time: DateTime<Utc>,
+            direction: Direction,
+            target: Target,
+            // New field, optional for upgrade compatability
+            content: Option<Content>,
+            // Old field before we had fragments
+            text: Option<String>,
+        }
+
+        let Data {
+            received_at,
+            server_time,
+            direction,
+            target,
+            content,
+            text,
+        } = Data::deserialize(deserializer)?;
+
+        let content = if let Some(content) = content {
+            content
+        } else if let Some(text) = text {
+            // First time upgrading, convert text into content
+            parse_fragments(text)
+        } else {
+            // Unreachable
+            Content::Plain("".to_string())
+        };
+
+        Ok(Message {
+            received_at,
+            server_time,
+            direction,
+            target,
+            content,
+        })
+    }
+}
+
+pub fn plain(text: String) -> Content {
+    Content::Plain(text)
+}
+
+pub fn parse_fragments(text: String) -> Content {
+    let mut i = 0;
+    let mut fragments = vec![];
+
+    for (re_match, url) in URL_REGEX.find_iter(&text).filter_map(|re_match| {
+        let url = if re_match.as_str().starts_with("www") {
+            format!("https://{}", re_match.as_str())
+        } else {
+            re_match.as_str().to_string()
+        };
+
+        Url::parse(&url).ok().map(|url| (re_match, url))
+    }) {
+        if i < re_match.start() {
+            fragments.push(Fragment::Text(text[i..re_match.start()].to_string()));
+        }
+        i = re_match.end();
+        fragments.push(Fragment::Url(url));
+    }
+
+    // No matches, avoid allocation
+    if i == 0 {
+        return plain(text);
+    } else if i < text.len() {
+        fragments.push(Fragment::Text(text[i..text.len()].to_string()));
+    }
+
+    Content::Fragments(fragments)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Content {
+    Plain(String),
+    Fragments(Vec<Fragment>),
+}
+
+impl Content {
+    fn text(&self) -> Cow<str> {
+        match self {
+            Content::Plain(s) => s.into(),
+            Content::Fragments(fragments) => fragments.iter().map(Fragment::as_str).join("").into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Fragment {
+    Text(String),
+    Url(Url),
+}
+
+impl Fragment {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Fragment::Text(s) => s,
+            Fragment::Url(u) => u.as_str(),
+        }
     }
 }
 
@@ -324,12 +483,12 @@ pub fn server_time(message: &Encoded) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
-fn text(
+fn content(
     message: &Encoded,
     our_nick: &Nick,
     config: &Config,
     resolve_attributes: &dyn Fn(&User, &str) -> Option<User>,
-) -> Option<String> {
+) -> Option<Content> {
     use irc::proto::command::Numeric::*;
 
     match &message.command {
@@ -339,7 +498,9 @@ fn text(
 
             let topic = topic.as_ref()?;
 
-            Some(format!(" ∙ {user} changed topic to {topic}"))
+            Some(parse_fragments(format!(
+                " ∙ {user} changed topic to {topic}"
+            )))
         }
         Command::PART(target, text) => {
             let raw_user = message.user()?;
@@ -352,17 +513,19 @@ fn text(
                 .map(|text| format!(" ({text})"))
                 .unwrap_or_default();
 
-            Some(format!("⟵ {user} has left the channel{text}"))
+            Some(parse_fragments(format!(
+                "⟵ {user} has left the channel{text}"
+            )))
         }
         Command::JOIN(target, _) => {
             let raw_user = message.user()?;
             let user = resolve_attributes(&raw_user, target).unwrap_or(raw_user);
 
             (user.nickname() != *our_nick).then(|| {
-                format!(
+                parse_fragments(format!(
                     "⟶ {} has joined the channel",
                     user.formatted(config.buffer.server_messages.join.username_format)
-                )
+                ))
             })
         }
         Command::KICK(channel, victim, comment) => {
@@ -379,7 +542,9 @@ fn text(
                 format!("{victim} has")
             };
 
-            Some(format!("⟵ {target} been kicked by {user}{comment}"))
+            Some(parse_fragments(format!(
+                "⟵ {target} been kicked by {user}{comment}"
+            )))
         }
         Command::MODE(target, modes, args) if proto::is_channel(target) => {
             let raw_user = message.user()?;
@@ -397,7 +562,9 @@ fn text(
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(format!(" ∙ {user} sets mode {modes} {args}"))
+            Some(parse_fragments(format!(
+                " ∙ {user} sets mode {modes} {args}"
+            )))
         }
         Command::PRIVMSG(_, text) => {
             // Check if a synthetic action message
@@ -407,13 +574,13 @@ fn text(
                 }
             }
 
-            Some(text.clone())
+            Some(parse_fragments(text.clone()))
         }
-        Command::NOTICE(_, text) => Some(text.clone()),
+        Command::NOTICE(_, text) => Some(parse_fragments(text.clone())),
         Command::Numeric(RPL_TOPIC, params) => {
             let topic = params.get(2)?;
 
-            Some(format!(" ∙ topic is {topic}"))
+            Some(parse_fragments(format!(" ∙ topic is {topic}")))
         }
         Command::Numeric(RPL_ENDOFWHOIS, _) => {
             // We skip the end message of a WHOIS.
@@ -434,51 +601,55 @@ fn text(
             let duration = std::time::Duration::from_secs(idle);
             let idle_readable = formatter.convert(duration);
 
-            Some(format!(
+            Some(parse_fragments(format!(
                 " ∙ {nick} signed on at {sign_on_datetime} and has been idle for {idle_readable}"
-            ))
+            )))
         }
         Command::Numeric(RPL_WHOISSERVER, params) => {
             let nick = params.get(1)?;
             let server = params.get(2)?;
             let region = params.get(3)?;
 
-            Some(format!(" ∙ {nick} is connected on {server} ({region})"))
+            Some(parse_fragments(format!(
+                " ∙ {nick} is connected on {server} ({region})"
+            )))
         }
         Command::Numeric(RPL_WHOISUSER, params) => {
             let nick = params.get(1)?;
             let userhost = format!("{}@{}", params.get(2)?, params.get(3)?);
             let real_name = params.get(5)?;
 
-            Some(format!(
+            Some(parse_fragments(format!(
                 " ∙ {nick} has userhost {userhost} and real name '{real_name}'"
-            ))
+            )))
         }
         Command::Numeric(RPL_WHOISCHANNELS, params) => {
             let nick = params.get(1)?;
             let channels = params.get(2)?;
 
-            Some(format!(" ∙ {nick} is in {channels}"))
+            Some(parse_fragments(format!(" ∙ {nick} is in {channels}")))
         }
         Command::Numeric(RPL_WHOISACTUALLY, params) => {
             let nick = params.get(1)?;
             let ip = params.get(2)?;
             let status_text = params.get(3)?;
 
-            Some(format!(" ∙ {nick} {status_text} {ip}"))
+            Some(parse_fragments(format!(" ∙ {nick} {status_text} {ip}")))
         }
         Command::Numeric(RPL_WHOISSECURE, params) => {
             let nick = params.get(1)?;
             let status_text = params.get(2)?;
 
-            Some(format!(" ∙ {nick} {status_text}"))
+            Some(parse_fragments(format!(" ∙ {nick} {status_text}")))
         }
         Command::Numeric(RPL_WHOISACCOUNT, params) => {
             let nick = params.get(1)?;
             let account = params.get(2)?;
             let status_text = params.get(3)?;
 
-            Some(format!(" ∙ {nick} {status_text} {account}"))
+            Some(parse_fragments(format!(
+                " ∙ {nick} {status_text} {account}"
+            )))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
             let nick = params.get(2)?;
@@ -491,7 +662,9 @@ fn text(
                 .and_then(Posix::datetime)?
                 .to_rfc2822();
 
-            Some(format!(" ∙ topic set by {nick} at {datetime}"))
+            Some(parse_fragments(format!(
+                " ∙ topic set by {nick} at {datetime}"
+            )))
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
             let mode = params
@@ -501,7 +674,7 @@ fn text(
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(format!(" ∙ Channel mode is {mode}"))
+            Some(parse_fragments(format!(" ∙ Channel mode is {mode}")))
         }
         Command::Numeric(RPL_AWAY, params) => {
             let user = params.get(1)?;
@@ -510,16 +683,16 @@ fn text(
                 .map(|away| format!(" ({away})"))
                 .unwrap_or_default();
 
-            Some(format!(" ∙ {user} is away{away_message}"))
+            Some(parse_fragments(format!(" ∙ {user} is away{away_message}")))
         }
-        Command::Numeric(_, responses) | Command::Unknown(_, responses) => Some(
+        Command::Numeric(_, responses) | Command::Unknown(_, responses) => Some(parse_fragments(
             responses
                 .iter()
                 .map(|s| s.as_str())
                 .skip(1)
                 .collect::<Vec<_>>()
                 .join(" "),
-        ),
+        )),
         _ => None,
     }
 }
@@ -552,16 +725,74 @@ pub fn is_action(text: &str) -> bool {
     }
 }
 
-pub fn parse_action(nick: NickRef, text: &str) -> Option<String> {
+fn parse_action(nick: NickRef, text: &str) -> Option<Content> {
     let query = ctcp::parse_query(text)?;
 
     Some(action_text(nick, query.params))
 }
 
-pub fn action_text(nick: NickRef, action: &str) -> String {
-    format!(" ∙ {nick} {action}")
+pub fn action_text(nick: NickRef, action: &str) -> Content {
+    plain(format!(" ∙ {nick} {action}"))
 }
 
-pub fn reference_user(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
+pub fn reference_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {
+    let has_nick = match &message.content {
+        Content::Plain(text) => text.contains(own_nick.as_ref()),
+        Content::Fragments(fragments) => fragments
+            .iter()
+            .any(|f| f.as_str().contains(own_nick.as_ref())),
+    };
+
+    sender != own_nick && has_nick
+}
+
+pub fn reference_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
     sender != own_nick && text.contains(own_nick.as_ref())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn fragment_parsing() {
+        let tests = [
+            (
+                "Checkout https://foo.bar/asdf?1=2 now!",
+                vec![
+                    Fragment::Text("Checkout ".into()),
+                    Fragment::Url("https://foo.bar/asdf?1=2".parse().unwrap()),
+                    Fragment::Text(" now!".into()),
+                ],
+            ),
+            (
+                "http://google.us.edi?34535/534534?dfg=g&fg",
+                vec![Fragment::Url(
+                    "http://google.us.edi?34535/534534?dfg=g&fg"
+                        .parse()
+                        .unwrap(),
+                )],
+            ),
+            (
+                "http://regexr.com is a great tool",
+                vec![
+                    Fragment::Url("http://regexr.com".parse().unwrap()),
+                    Fragment::Text(" is a great tool".into()),
+                ],
+            ),
+            (
+                "We have a wiki at https://halloy.squidowl.org",
+                vec![
+                    Fragment::Text("We have a wiki at ".into()),
+                    Fragment::Url("https://halloy.squidowl.org".parse().unwrap()),
+                ],
+            ),
+        ];
+
+        for (text, expected) in tests {
+            let actual = parse_fragments(text.to_string());
+
+            assert_eq!(Content::Fragments(expected), actual);
+        }
+    }
 }
