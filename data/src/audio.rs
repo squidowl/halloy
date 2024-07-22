@@ -1,15 +1,19 @@
 use std::fs::read;
-use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use rodio::{Decoder, OutputStream, Sink};
 use serde::Deserialize;
 
 use crate::Config;
 
 #[derive(Debug, Clone)]
-pub struct Sound(Vec<u8>);
+pub struct Sound(Arc<Vec<u8>>);
+
+impl AsRef<[u8]> for Sound {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
 
 impl Sound {
     pub fn load(name: &str) -> Result<Sound, LoadError> {
@@ -23,21 +27,7 @@ impl Sound {
             read(sound_path)?
         };
 
-        Ok(Sound(source))
-    }
-
-    pub fn play(&self) -> Result<(), PlayError> {
-        let (_stream, stream_handle) = OutputStream::try_default()?;
-
-        let sink = Sink::try_new(&stream_handle)?;
-
-        let source = Decoder::new(Cursor::new(self.0.clone()))?;
-
-        sink.append(source);
-
-        sink.sleep_until_end();
-
-        Ok(())
+        Ok(Sound(Arc::new(source)))
     }
 }
 
@@ -97,34 +87,6 @@ fn find_external_sound(sound: &str) -> Option<PathBuf> {
     }
 
     None
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum PlayError {
-    #[error(transparent)]
-    Decoding(Arc<rodio::decoder::DecoderError>),
-    #[error(transparent)]
-    Playing(Arc<rodio::PlayError>),
-    #[error(transparent)]
-    StreamInitialization(Arc<rodio::StreamError>),
-}
-
-impl From<rodio::decoder::DecoderError> for PlayError {
-    fn from(error: rodio::decoder::DecoderError) -> Self {
-        Self::Decoding(Arc::new(error))
-    }
-}
-
-impl From<rodio::PlayError> for PlayError {
-    fn from(error: rodio::PlayError) -> Self {
-        Self::Playing(Arc::new(error))
-    }
-}
-
-impl From<rodio::StreamError> for PlayError {
-    fn from(error: rodio::StreamError) -> Self {
-        Self::StreamInitialization(Arc::new(error))
-    }
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
