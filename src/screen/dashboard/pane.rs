@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
 use crate::widget::tooltip;
-use crate::{icon, theme, widget};
+use crate::{icon, theme, widget, Theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -54,6 +54,7 @@ impl Pane {
         file_transfers: &'a file_transfer::Manager,
         history: &'a history::Manager,
         config: &'a Config,
+        theme: &'a Theme,
     ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty => "".to_string(),
@@ -96,6 +97,7 @@ impl Pane {
                 history,
                 &self.settings,
                 config,
+                theme,
                 is_focused,
             )
             .map(move |msg| Message::Buffer(id, msg));
@@ -152,7 +154,7 @@ impl TitleBar {
         if let Buffer::Channel(state) = &buffer {
             // Show topic button only if there is a topic to show
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
-                if topic.text.is_some() {
+                if topic.content.is_some() {
                     let topic_button = button(center(icon::topic()))
                         .padding(5)
                         .width(22)
@@ -220,7 +222,7 @@ impl TitleBar {
 
         // Add delete as long as it's not a single empty buffer
         if !(panes == 1 && matches!(buffer, Buffer::Empty)) {
-            let close_button = button(center(icon::close()))
+            let close_button = button(center(icon::cancel()))
                 .padding(5)
                 .width(22)
                 .height(22)

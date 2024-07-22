@@ -80,14 +80,14 @@ impl Input {
                 server_time: Utc::now(),
                 direction: message::Direction::Sent,
                 target: to_target(target, message::Source::User(user))?,
-                text,
+                content: message::parse_fragments(text),
             }),
             Command::Me(target, action) => Some(Message {
                 received_at: Posix::now(),
                 server_time: Utc::now(),
                 direction: message::Direction::Sent,
                 target: to_target(target, message::Source::Action)?,
-                text: message::action_text(user.nickname(), &action),
+                content: message::action_text(user.nickname(), &action),
             }),
             _ => None,
         }

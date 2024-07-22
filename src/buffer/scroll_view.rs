@@ -19,6 +19,7 @@ pub enum Message {
         viewport: scrollable::Viewport,
     },
     UserContext(user_context::Message),
+    Link(String),
 }
 
 #[derive(Debug, Clone)]
@@ -103,13 +104,12 @@ pub fn view<'a>(
     };
 
     Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
-        .direction(scrollable::Direction::Vertical {
-            scrollbar: scrollable::Scrollbar::default()
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::default()
                 .anchor(status.alignment())
                 .width(5)
                 .scroller_width(5),
-            spacing: None,
-        })
+        ))
         .on_scroll(move |viewport| Message::Scrolled {
             count,
             remaining,
@@ -213,8 +213,11 @@ impl State {
             Message::UserContext(message) => {
                 return (
                     Task::none(),
-                    Some(Event::UserContext(user_context::update(message))),
+                    user_context::update(message).map(Event::UserContext),
                 );
+            }
+            Message::Link(link) => {
+                let _ = open::that_detached(link);
             }
         }
 

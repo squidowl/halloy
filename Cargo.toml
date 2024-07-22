@@ -32,6 +32,7 @@ open = "5.0.1"
 bytesize = "1.3.0"
 timeago = "0.4.2"
 futures = "0.3.30"
+itertools = "0.13.0"
 
 [dependencies.uuid]
 version = "1.0"
@@ -52,5 +53,5 @@ embed-resource = "2.1.1"
 members = ["data", "ipc", "irc", "irc/proto"]
 
 [patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced", rev = "bdf0430880f5c29443f5f0a0ae4895866dfef4c6" }
-iced_core = { git = "https://github.com/iced-rs/iced", rev = "bdf0430880f5c29443f5f0a0ae4895866dfef4c6" }
+iced = { git = "https://github.com/iced-rs/iced", rev = "5443e4d8289873895587d856dbcf46f980bda6ab" }
+iced_core = { git = "https://github.com/iced-rs/iced", rev = "5443e4d8289873895587d856dbcf46f980bda6ab" }

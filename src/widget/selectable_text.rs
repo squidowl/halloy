@@ -1,5 +1,5 @@
 use iced::advanced::renderer::Quad;
-use iced::advanced::text::Paragraph;
+use iced::advanced::text::{paragraph, Paragraph};
 use iced::advanced::widget::{operation, tree, Operation, Tree};
 use iced::advanced::{layout, mouse, renderer, text, widget, Layout, Widget};
 use iced::widget::text::{Fragment, IntoFragment};
@@ -9,10 +9,10 @@ use iced::{
     Size, Task,
 };
 
-use self::selection::selection;
+pub use self::selection::selection;
 pub use self::text::{LineHeight, Shaping};
 
-mod selection;
+pub mod selection;
 
 pub fn selectable_text<'a, Theme, Renderer>(
     fragment: impl IntoFragment<'a>,
@@ -389,7 +389,7 @@ where
         if let Some(selection) = state
             .interaction
             .selection()
-            .and_then(|raw| selection(raw, bounds, &state.paragraph, &value))
+            .and_then(|raw| selection(raw, bounds, state.paragraph.raw(), &value))
         {
             let content = value.select(selection.start, selection.end).to_string();
             operation.custom(&mut (bounds.y, content), None);
@@ -423,7 +423,7 @@ fn draw<Renderer>(
     };
 
     renderer.fill_paragraph(
-        paragraph,
+        paragraph.raw(),
         Point::new(x, y),
         appearance.color.unwrap_or(style.text_color),
         *viewport,
@@ -443,12 +443,12 @@ where
 
 #[derive(Debug, Default)]
 pub struct State<P: Paragraph> {
-    paragraph: P,
+    paragraph: paragraph::Plain<P>,
     interaction: Interaction,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-enum Interaction {
+pub enum Interaction {
     #[default]
     Idle,
     Selecting(selection::Raw),
@@ -456,7 +456,7 @@ enum Interaction {
 }
 
 impl Interaction {
-    fn selection(self) -> Option<selection::Raw> {
+    pub fn selection(self) -> Option<selection::Raw> {
         match &self {
             Interaction::Idle => None,
             Interaction::Selecting(raw) | Interaction::Selected(raw) => Some(*raw),
