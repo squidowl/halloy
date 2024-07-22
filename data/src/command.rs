@@ -26,17 +26,17 @@ impl FromStr for Kind {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "join" => Ok(Kind::Join),
+            "join" | "j" => Ok(Kind::Join),
             "motd" => Ok(Kind::Motd),
             "nick" => Ok(Kind::Nick),
             "quit" => Ok(Kind::Quit),
             "msg" => Ok(Kind::Msg),
-            "me" => Ok(Kind::Me),
+            "me" | "describe" => Ok(Kind::Me),
             "whois" => Ok(Kind::Whois),
-            "part" => Ok(Kind::Part),
-            "topic" => Ok(Kind::Topic),
+            "part" | "leave" => Ok(Kind::Part),
+            "topic" | "t" => Ok(Kind::Topic),
             "kick" => Ok(Kind::Kick),
-            "mode" => Ok(Kind::Mode),
+            "mode" | "m" => Ok(Kind::Mode),
             "raw" => Ok(Kind::Raw),
             _ => Err(()),
         }
