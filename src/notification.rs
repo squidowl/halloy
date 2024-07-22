@@ -4,6 +4,8 @@ use data::{
     user::{Nick, NickRef},
 };
 
+use crate::audio;
+
 pub use self::toast::prepare;
 
 mod toast;
@@ -46,12 +48,6 @@ fn show_notification(notification: &notification::Loaded, title: &str, body: imp
     }
 
     if let Some(sound) = &notification.sound {
-        let sound = sound.clone();
-
-        tokio::spawn(async move {
-            if let Err(error) = sound.play() {
-                log::debug!("Unable to play notification sound: {error}");
-            }
-        });
+        audio::play(sound.clone());
     }
 }
