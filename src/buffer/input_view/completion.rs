@@ -74,7 +74,7 @@ pub enum Entry {
 impl Entry {
     pub fn complete_input(&self, input: &str) -> String {
         match self {
-            Entry::Command(command) => format!("/{}", command.title),
+            Entry::Command(command) => format!("/{}", command.title.to_lowercase()),
             Entry::Text(value) => match input.rsplit_once(' ') {
                 Some((left, _)) => format!("{left} {value}"),
                 None => value.clone(),
@@ -263,10 +263,13 @@ impl Commands {
             }
             // Command fully typed, transition to showing known entry
             Self::Idle | Self::Selecting { .. } => {
-                if let Some(command) = command_list
-                    .into_iter()
-                    .find(|command| command.title.to_lowercase() == cmd.to_lowercase())
-                {
+                if let Some(command) = command_list.into_iter().find(|command| {
+                    command.title.to_lowercase() == cmd.to_lowercase()
+                        || command
+                            .alias()
+                            .iter()
+                            .any(|alias| alias.to_lowercase() == cmd.to_lowercase())
+                }) {
                     *self = Self::Selected { command };
                 } else {
                     *self = Self::Idle
@@ -343,7 +346,7 @@ impl Commands {
                 let content = |width| {
                     column(entries.iter().map(|(index, command)| {
                         let selected = Some(*index) == *highlighted;
-                        let content = text(format!("/{}", command.title));
+                        let content = text(format!("/{}", command.title.to_lowercase()));
 
                         Element::from(
                             container(content)
@@ -382,6 +385,44 @@ pub struct Command {
 }
 
 impl Command {
+    fn description(&self) -> Option<String> {
+        let message = match self.title.to_lowercase().as_str() {
+            "away" => Some("Mark yourself as away. If already away, the status is removed"),
+            "join" => Some("Join channel(s) with optional key(s)"),
+            "me" => Some("Send an action message to the channel"),
+            "mode" => Some("Set mode(s) on a channel or retrieve the current mode(s) set"),
+            "msg" => Some("Open a query with a nickname and send an optional message"),
+            "nick" => Some("Change your nickname on the current server"),
+            "part" => Some("Leave channel(s) with an optional reason"),
+            "quit" => Some("Disconnect from the server with an optional reason"),
+            "raw" => Some("Send data to the server without modifying it"),
+            "topic" => Some("Retrieve the topic of a channel or set a new topic"),
+            "whois" => Some("Retrieve information about user(s)"),
+
+            _ => None,
+        };
+
+        message.map(|s| s.to_string())
+    }
+
+    fn alias(&self) -> Vec<&str> {
+        match self.title.to_lowercase().as_str() {
+            "away" => vec![],
+            "join" => vec!["j"],
+            "me" => vec!["describe"],
+            "mode" => vec!["m"],
+            "msg" => vec![],
+            "nick" => vec![],
+            "part" => vec!["leave"],
+            "quit" => vec![""],
+            "raw" => vec![],
+            "topic" => vec!["t"],
+            "whois" => vec![],
+
+            _ => vec![],
+        }
+    }
+
     fn view<'a, Message: 'a>(&self, input: &str) -> Element<'a, Message> {
         let active_arg = [input, "_"]
             .concat()
@@ -433,11 +474,18 @@ impl Command {
             }
         });
 
-        container(row(title.into_iter().chain(args)))
-            .style(theme::container::context)
-            .padding(8)
-            .center_y(Length::Shrink)
-            .into()
+        container(
+            column![]
+                .push_maybe(
+                    self.description()
+                        .map(|description| text(description).style(theme::text::transparent)),
+                )
+                .push(row(title.into_iter().chain(args))),
+        )
+        .style(theme::container::context)
+        .padding(8)
+        .center_y(Length::Shrink)
+        .into()
     }
 }
 
