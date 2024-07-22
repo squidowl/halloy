@@ -5,6 +5,7 @@ use std::{
 
 use crate::ctcp;
 use irc::proto::{self, command};
+use itertools::Itertools;
 
 pub fn decode(content: &str) -> Option<Command> {
     let query = ctcp::parse_query(content)?;
@@ -27,7 +28,7 @@ pub enum Command {
     Unsupported(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Send {
     Reverse {
         filename: String,
@@ -66,39 +67,38 @@ impl Send {
         }
     }
 
-    fn decode<'a>(
-        args: impl std::iter::DoubleEndedIterator<Item = &'a str> + std::clone::Clone,
-    ) -> Option<Self> {
-        let mut args = args.rev();
-        let mut args_token = args.clone();
+    fn decode<'a>(args: impl Iterator<Item = &'a str>) -> Option<Self> {
+        let args = args.collect::<Vec<_>>();
 
-        // if token doesn't exist
-        let mut token = None;
-        let mut size = args.next()?;
-        let mut port = args.next()?;
-        let mut host = args.next()?;
-        let mut filename = args;
-
-        // If token exists, port == 0
-        // args[1] == port, if token doesn't exists.
-        // args[2] == port, if token exists.
-        if port.parse::<u16>() == Ok(0) || host.parse::<u16>() == Ok(0) {
-            token = args_token.next();
-            size = args_token.next()?;
-            port = args_token.next()?;
-            host = args_token.next()?;
-            filename = args_token;
+        if args.len() < 4 {
+            return None;
         }
 
-        // Parse values
-        let host = decode_host(host)?;
-        let port = NonZeroU16::new(port.parse().ok()?);
-        let size = size.parse().ok()?;
-        let filename = filename
-            .rev()
-            .map(|s| s.trim_matches('\"'))
-            .collect::<Vec<_>>()
-            .join(" ");
+        // Host will always be 3rd or 4th arg in reverse order
+        // The last arg to succesfully decode as host will be host
+        let host_pos = args.len()
+            - 1
+            - args
+                .iter()
+                .rev()
+                .take(4)
+                .enumerate()
+                .filter_map(|(i, arg)| decode_host(arg).map(|_| i))
+                .last()?;
+
+        let filename = args
+            .iter()
+            .take(host_pos)
+            .join(" ")
+            .trim_matches('\"')
+            .to_string();
+
+        let mut remaining_args = args.into_iter().skip(host_pos);
+
+        let host = remaining_args.next().and_then(decode_host)?;
+        let port = NonZeroU16::new(remaining_args.next()?.parse().ok()?);
+        let size = remaining_args.next()?.parse().ok()?;
+        let token = remaining_args.next();
 
         match (port, token) {
             (_, Some(token)) => Some(Self::Reverse {
