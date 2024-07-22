@@ -125,7 +125,6 @@ struct Halloy {
     servers: server::Map,
     modal: Option<Modal>,
     window: Window,
-    audio: audio::State,
 }
 
 impl Halloy {
@@ -186,7 +185,6 @@ impl Halloy {
                 config,
                 modal: None,
                 window: Window::load().unwrap_or_default(),
-                audio: audio::State::new(),
             },
             command,
         )
@@ -363,11 +361,7 @@ impl Halloy {
                         // Intial is sent when first trying to connect
                         dashboard.broadcast_connecting(&server, &self.config, sent_time);
                     } else {
-                        notification::disconnected(
-                            &self.config.notifications,
-                            &mut self.audio,
-                            &server,
-                        );
+                        notification::disconnected(&self.config.notifications, &server);
 
                         dashboard.broadcast_disconnected(&server, error, &self.config, sent_time);
                     }
@@ -387,19 +381,11 @@ impl Halloy {
                     };
 
                     if is_initial {
-                        notification::connected(
-                            &self.config.notifications,
-                            &mut self.audio,
-                            &server,
-                        );
+                        notification::connected(&self.config.notifications, &server);
 
                         dashboard.broadcast_connected(&server, &self.config, sent_time);
                     } else {
-                        notification::reconnected(
-                            &self.config.notifications,
-                            &mut self.audio,
-                            &server,
-                        );
+                        notification::reconnected(&self.config.notifications, &server);
 
                         dashboard.broadcast_reconnected(&server, &self.config, sent_time);
                     }
@@ -535,7 +521,6 @@ impl Halloy {
                                             ) => {
                                                 notification::highlight(
                                                     &self.config.notifications,
-                                                    &mut self.audio,
                                                     user.nickname(),
                                                     channel,
                                                 );
@@ -546,7 +531,6 @@ impl Halloy {
                                         if let Some(command) = dashboard.receive_file_transfer(
                                             &server,
                                             request,
-                                            &mut self.audio,
                                             &self.config,
                                         ) {
                                             commands.push(command.map(Message::Dashboard));
