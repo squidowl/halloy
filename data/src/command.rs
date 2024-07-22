@@ -30,7 +30,7 @@ impl FromStr for Kind {
             "motd" => Ok(Kind::Motd),
             "nick" => Ok(Kind::Nick),
             "quit" => Ok(Kind::Quit),
-            "msg" | "query" => Ok(Kind::Msg),
+            "msg" => Ok(Kind::Msg),
             "me" | "describe" => Ok(Kind::Me),
             "whois" => Ok(Kind::Whois),
             "part" | "leave" => Ok(Kind::Part),

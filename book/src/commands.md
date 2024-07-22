@@ -16,7 +16,7 @@ Halloy will first try to run below commands, and lastly send it directly to the 
 | `join`  | `j`        | Join channel(s) with optional key(s)                          |
 | `me`    | `describe` | Send an action message to the channel                         |
 | `mode`  | `m`        | Set mode(s) on a channel or retrieve the current mode(s) set  |
-| `msg`   | `query`    | Open a query with a nickname and send an optional message     |
+| `msg`   |            | Open a query with a nickname and send an optional message     |
 | `nick`  |            | Change your nickname on the current server                    |
 | `part`  | `leave`    | Leave channel(s) with an optional reason                      |
 | `quit`  |            | Disconnect from the server with an optional reason            |

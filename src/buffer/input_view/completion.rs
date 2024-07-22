@@ -411,7 +411,7 @@ impl Command {
             "join" => vec!["j"],
             "me" => vec!["describe"],
             "mode" => vec!["m"],
-            "msg" => vec!["query"],
+            "msg" => vec![],
             "nick" => vec![],
             "part" => vec!["leave"],
             "quit" => vec![""],
