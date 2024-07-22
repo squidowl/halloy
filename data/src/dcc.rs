@@ -81,7 +81,7 @@ impl Send {
             - args
                 .iter()
                 .rev()
-                .take(4)
+                .take(if args.len() > 4 { 4 } else { 3 })
                 .enumerate()
                 .filter_map(|(i, arg)| decode_host(arg).map(|_| i))
                 .last()?;
