@@ -1,49 +1,33 @@
+use std::fs::read;
 use std::path::PathBuf;
-use std::{io::Cursor, sync::Arc};
+use std::sync::Arc;
 
-use kira::{
-    manager::{backend::cpal::CpalBackend, AudioManager, AudioManagerSettings, DefaultBackend},
-    sound::static_sound::StaticSoundData,
-};
 use serde::Deserialize;
 
 use crate::Config;
 
-pub struct Manager(AudioManager<CpalBackend>);
-
-impl Manager {
-    pub fn new() -> Result<Self, InitializationError> {
-        AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())
-            .map(Self)
-            .map_err(|_| InitializationError::Unsupported)
-    }
-
-    pub fn play(&mut self, sound: &Sound) -> Result<(), PlayError> {
-        self.0
-            .play(sound.data.clone())
-            .map_err(|_| PlayError::PlaySoundError)?;
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone)]
-pub struct Sound {
-    data: StaticSoundData,
+pub struct Sound(Arc<Vec<u8>>);
+
+impl AsRef<[u8]> for Sound {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
 }
 
 impl Sound {
     pub fn load(name: &str) -> Result<Sound, LoadError> {
-        let data = if let Ok(internal) = Internal::try_from(name) {
-            StaticSoundData::from_cursor(Cursor::new(internal.bytes()))?
+        let source = if let Ok(internal) = Internal::try_from(name) {
+            internal.bytes()
         } else {
             let Some(sound_path) = find_external_sound(name) else {
                 return Err(LoadError::NoSoundFound);
             };
 
-            StaticSoundData::from_file(sound_path)?
+            read(sound_path)?
         };
 
-        Ok(Sound { data })
+        Ok(Sound(Arc::new(source)))
     }
 }
 
@@ -105,22 +89,16 @@ fn find_external_sound(sound: &str) -> Option<PathBuf> {
     None
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum PlayError {
-    #[error("error occured when playing a sound")]
-    PlaySoundError,
-}
-
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum LoadError {
     #[error(transparent)]
-    File(Arc<kira::sound::FromFileError>),
+    File(Arc<std::io::Error>),
     #[error("sound was not found")]
     NoSoundFound,
 }
 
-impl From<kira::sound::FromFileError> for LoadError {
-    fn from(error: kira::sound::FromFileError) -> Self {
+impl From<std::io::Error> for LoadError {
+    fn from(error: std::io::Error) -> Self {
         Self::File(Arc::new(error))
     }
 }
