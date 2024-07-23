@@ -641,22 +641,34 @@ mod test {
 
         // Insert before single message
         insert_message(&mut messages, message(0, None, "zero"), &None);
-        assert_eq!(messages[0].text, "zero".to_string());
+        assert_eq!(
+            messages[0].content,
+            message::parse_fragments("zero".to_string())
+        );
         messages.remove(0);
 
         // Insert after single message
         insert_message(&mut messages, message(2, None, "two"), &None);
-        assert_eq!(messages[1].text, "two".to_string());
+        assert_eq!(
+            messages[1].content,
+            message::parse_fragments("two".to_string())
+        );
         messages.remove(1);
 
         // Insert way before (search slice will be empty)
         insert_message(&mut messages, message(-3_000_000_000, None, "past"), &None);
-        assert_eq!(messages[0].text, "past".to_string());
+        assert_eq!(
+            messages[0].content,
+            message::parse_fragments("past".to_string())
+        );
         messages.remove(0);
 
         // Insert way after (search slice will be empty)
         insert_message(&mut messages, message(3_000_000_000, None, "future"), &None);
-        assert_eq!(messages[1].text, "future".to_string());
+        assert_eq!(
+            messages[1].content,
+            message::parse_fragments("future".to_string())
+        );
         messages.remove(1);
 
         // Insert in random order, assert messages are ordered
@@ -679,7 +691,10 @@ mod test {
             assert_eq!(messages.len(), 10_000);
 
             for i in 0usize..10_000 {
-                assert_eq!(messages[i].text, (i * 1000).to_string());
+                assert_eq!(
+                    messages[i].content,
+                    message::parse_fragments((i * 1000).to_string())
+                );
             }
         }
 
@@ -693,7 +708,10 @@ mod test {
                 &None,
             );
             assert_eq!(messages.len(), 10_000);
-            assert_eq!(messages[5000].text, diff.to_string());
+            assert_eq!(
+                messages[5000].content,
+                message::parse_fragments(diff.to_string())
+            );
         }
 
         // INSERT - id match outside FUZZ duration (1 second)
@@ -721,7 +739,10 @@ mod test {
         insert_message(&mut messages, message(0, None, "BAR"), &None);
         assert_eq!(messages.len(), 10_003);
         assert!(messages[1].id.is_none());
-        assert_eq!(messages[1].text, "BAR".to_string());
+        assert_eq!(
+            messages[1].content,
+            message::parse_fragments("BAR".to_string())
+        );
     }
 
     fn message(millis: i64, id: Option<&str>, text: impl ToString) -> Message {
@@ -733,7 +754,7 @@ mod test {
                 channel: "test".to_string(),
                 source: message::Source::Server(None),
             },
-            text: text.to_string(),
+            content: message::parse_fragments(text.to_string()),
             id: id.map(String::from),
         }
     }
