@@ -5,6 +5,7 @@ use std::{
 
 use crate::ctcp;
 use irc::proto::{self, command};
+use itertools::Itertools;
 
 pub fn decode(content: &str) -> Option<Command> {
     let query = ctcp::parse_query(content)?;
@@ -27,7 +28,7 @@ pub enum Command {
     Unsupported(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Send {
     Reverse {
         filename: String,
@@ -66,12 +67,38 @@ impl Send {
         }
     }
 
-    fn decode<'a>(mut args: impl Iterator<Item = &'a str>) -> Option<Self> {
-        let filename = args.next()?.to_string();
-        let host = args.next().and_then(decode_host)?;
-        let port = NonZeroU16::new(args.next()?.parse().ok()?);
-        let size = args.next()?.parse().ok()?;
-        let token = args.next();
+    fn decode<'a>(args: impl Iterator<Item = &'a str>) -> Option<Self> {
+        let args = args.collect::<Vec<_>>();
+
+        if args.len() < 4 {
+            return None;
+        }
+
+        // Host will always be 3rd or 4th arg in reverse order
+        // The last arg to succesfully decode as host will be host
+        let host_pos = args.len()
+            - 1
+            - args
+                .iter()
+                .rev()
+                .take(if args.len() > 4 { 4 } else { 3 })
+                .enumerate()
+                .filter_map(|(i, arg)| decode_host(arg).map(|_| i))
+                .last()?;
+
+        let filename = args
+            .iter()
+            .take(host_pos)
+            .join(" ")
+            .trim_matches('\"')
+            .to_string();
+
+        let mut remaining_args = args.into_iter().skip(host_pos);
+
+        let host = remaining_args.next().and_then(decode_host)?;
+        let port = NonZeroU16::new(remaining_args.next()?.parse().ok()?);
+        let size = remaining_args.next()?.parse().ok()?;
+        let token = remaining_args.next();
 
         match (port, token) {
             (_, Some(token)) => Some(Self::Reverse {
@@ -138,5 +165,133 @@ fn encode_host(host: IpAddr) -> String {
     match host {
         IpAddr::V4(v4) => u32::from(v4).to_string(),
         IpAddr::V6(v6) => v6.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn send_decode() {
+        let args = "my_file_name 1402301083 12350 1453953495";
+        let send = Send::decode(args.split_whitespace());
+        assert_eq!(
+            send,
+            Some(Send::Direct {
+                filename: "my_file_name".to_string(),
+                host: IpAddr::V4(Ipv4Addr::from(1402301083)),
+                port: NonZeroU16::new(12350).unwrap(),
+                size: 1453953495
+            })
+        );
+    }
+
+    #[test]
+    fn send_decode_whitespace() {
+        let args = "my file name 1402301083 12350 1453953495";
+        let send = Send::decode(args.split_whitespace());
+        assert_eq!(
+            send,
+            Some(Send::Direct {
+                filename: "my file name".to_string(),
+                host: IpAddr::V4(Ipv4Addr::from(1402301083)),
+                port: NonZeroU16::new(12350).unwrap(),
+                size: 1453953495
+            })
+        );
+    }
+
+    #[test]
+    fn send_decode_quotation_marks() {
+        let args = "\"my file name\" 1402301083 12350 1453953495";
+        let send = Send::decode(args.split_whitespace());
+        assert_eq!(
+            send,
+            Some(Send::Direct {
+                filename: "my file name".to_string(),
+                host: IpAddr::V4(Ipv4Addr::from(1402301083)),
+                port: NonZeroU16::new(12350).unwrap(),
+                size: 1453953495
+            })
+        );
+    }
+
+    #[test]
+    fn send_decode_token() {
+        let args = "\"my file name\" 1402301083 12345 1453953495 token";
+        let send = Send::decode(args.split_whitespace());
+        assert_eq!(
+            send,
+            Some(Send::Reverse {
+                filename: "my file name".to_string(),
+                host: IpAddr::V4(Ipv4Addr::from(1402301083)),
+                port: NonZeroU16::new(12345),
+                size: 1453953495,
+                token: "token".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn send_decode_port_zero() {
+        // Non-zero host is required when token is missing
+        let args = "\"my file name\" 1402301083 0 1453953495";
+        let send = Send::decode(args.split_whitespace());
+        assert_eq!(send, None);
+
+        // Works because token is provided
+        let args = "\"my file name\" 1402301083 0 1453953495 token";
+        let send = Send::decode(args.split_whitespace());
+        assert_eq!(
+            send,
+            Some(Send::Reverse {
+                filename: "my file name".to_string(),
+                host: IpAddr::V4(Ipv4Addr::from(1402301083)),
+                port: None,
+                size: 1453953495,
+                token: "token".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn send_decode_numeric_filename() {
+        // Succeeds because only 4 args so we know to only
+        // check up to last 3 for host
+        let args = "2 1402301083 12345 1453953495";
+        let send = Send::decode(args.split_whitespace());
+        assert_eq!(
+            send,
+            Some(Send::Direct {
+                filename: "2".to_string(),
+                host: IpAddr::V4(Ipv4Addr::from(1402301083)),
+                port: NonZeroU16::new(12345).unwrap(),
+                size: 1453953495,
+            })
+        );
+
+        // Succeeds because >= 5 args with token so last 4
+        // never overlap w/ filename
+        let args = "filename 2 1402301083 12345 1453953495 token";
+        let send = Send::decode(args.split_whitespace());
+        assert_eq!(
+            send,
+            Some(Send::Reverse {
+                filename: "filename 2".to_string(),
+                host: IpAddr::V4(Ipv4Addr::from(1402301083)),
+                port: NonZeroU16::new(12345),
+                size: 1453953495,
+                token: "token".to_string(),
+            })
+        );
+
+        // Fails because >= 5 args without token AND filename
+        // ending in numeric, so 4th arg (part of filename) is parsed
+        // as host and 3rd arg cannot be parsed as a u16 port so it
+        // returns None
+        let args = "filename 2 1402301083 12345 1453953495";
+        let send = Send::decode(args.split_whitespace());
+        assert_eq!(send, None);
     }
 }
