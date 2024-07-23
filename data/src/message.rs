@@ -746,15 +746,9 @@ fn content(
             let new_nick = Nick::from(nick.as_str());
             let ourself = *our_nick == old_nick;
 
-            Some(parse_fragments(nickname_text(
-                &old_nick, &new_nick, ourself,
-            )))
+            Some(nickname_text(&old_nick, &new_nick, ourself))
         }
-        Command::QUIT(comment) => Some(parse_fragments(quit_text(
-            &message.user()?,
-            comment,
-            config,
-        ))),
+        Command::QUIT(comment) => Some(quit_text(&message.user()?, comment, config)),
         Command::NOTICE(_, text) => Some(parse_fragments(text.clone())),
         Command::Numeric(RPL_TOPIC, params) => {
             let topic = params.get(2)?;
@@ -966,22 +960,22 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
 
 pub fn nickname_text(old_nick: &Nick, new_nick: &Nick, ourself: bool) -> String {
     if ourself {
-        format!(" ∙ You're now known as {new_nick}")
+        plain(format!(" ∙ You're now known as {new_nick}"))
     } else {
-        format!(" ∙ {old_nick} is now known as {new_nick}")
+        plain(format!(" ∙ {old_nick} is now known as {new_nick}"))
     }
 }
 
-pub fn quit_text(user: &User, comment: &Option<String>, config: &Config) -> String {
+pub fn quit_text(user: &User, comment: &Option<String>, config: &Config) -> Content {
     let comment = comment
         .as_ref()
         .map(|comment| format!(" ({comment})"))
         .unwrap_or_default();
 
-    format!(
+    parse_fragments(format!(
         "⟵ {} has quit{comment}",
         user.formatted(config.buffer.server_messages.quit.username_format)
-    )
+    ))
 }
 
 pub fn reference_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {
