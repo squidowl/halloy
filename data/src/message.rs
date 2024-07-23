@@ -732,7 +732,7 @@ fn parse_action(nick: NickRef, text: &str) -> Option<Content> {
 }
 
 pub fn action_text(nick: NickRef, action: &str) -> Content {
-    plain(format!(" ∙ {nick} {action}"))
+    parse_fragments(format!(" ∙ {nick} {action}"))
 }
 
 pub fn reference_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {
