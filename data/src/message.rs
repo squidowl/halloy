@@ -276,6 +276,7 @@ impl<'de> Deserialize<'de> for Message {
             content: Option<Content>,
             // Old field before we had fragments
             text: Option<String>,
+            id: Option<String>,
         }
 
         let Data {
@@ -285,6 +286,7 @@ impl<'de> Deserialize<'de> for Message {
             target,
             content,
             text,
+            id,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -303,6 +305,7 @@ impl<'de> Deserialize<'de> for Message {
             direction,
             target,
             content,
+            id,
         })
     }
 }
@@ -743,9 +746,15 @@ fn content(
             let new_nick = Nick::from(nick.as_str());
             let ourself = *our_nick == old_nick;
 
-            Some(nickname_text(&old_nick, &new_nick, ourself))
+            Some(parse_fragments(nickname_text(
+                &old_nick, &new_nick, ourself,
+            )))
         }
-        Command::QUIT(comment) => Some(quit_text(&message.user()?, comment, config)),
+        Command::QUIT(comment) => Some(parse_fragments(quit_text(
+            &message.user()?,
+            comment,
+            config,
+        ))),
         Command::NOTICE(_, text) => Some(parse_fragments(text.clone())),
         Command::Numeric(RPL_TOPIC, params) => {
             let topic = params.get(2)?;
