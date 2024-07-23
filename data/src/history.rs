@@ -595,7 +595,7 @@ fn has_matching_content(message: &Message, other: &Message) -> bool {
             }
         }
 
-        message.text == other.text
+        message.content == other.content
     } else {
         false
     }
