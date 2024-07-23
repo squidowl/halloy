@@ -643,19 +643,23 @@ impl Halloy {
                                                 let server = server.clone();
                                                 let limit = self.clients.get_server_chathistory_limit(&server);
 
-                                                let start_message_reference = history::load_targets_marker(&server)
-                                                    .map_or(MessageReference::None, |targets_marker| {
-                                                        MessageReference::Timestamp(targets_marker)
-                                                    });
+                                                commands.push(Task::perform(
+                                                    history::load_targets_marker(server.clone()),
+                                                    move |targets_marker| {
+                                                        let start_message_reference = targets_marker.map_or(MessageReference::None, |targets_marker| {
+                                                            MessageReference::Timestamp(targets_marker)
+                                                        });
 
-                                                self.clients.send_chathistory_request(
-                                                    &server,
-                                                    ChatHistorySubcommand::Targets(
-                                                        start_message_reference,
-                                                        MessageReference::None,
-                                                        limit,
-                                                    ),
-                                                );
+                                                        Message::ChatHistoryRequest(
+                                                            server.clone(),
+                                                            ChatHistorySubcommand::Targets(
+                                                                start_message_reference,
+                                                                MessageReference::None,
+                                                                limit,
+                                                            )
+                                                        )
+                                                    }
+                                                ));
                                             }
                                             data::client::HistoryRequest::Queries(
                                                 message_reference_types,

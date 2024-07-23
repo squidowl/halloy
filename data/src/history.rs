@@ -80,10 +80,10 @@ pub fn load_read_marker(server: &server::Server, kind: &Kind) -> Option<DateTime
     }
 }
 
-pub fn load_targets_marker(server: &server::Server) -> Option<DateTime<Utc>> {
-    let path = targets_marker_path(server);
+pub async fn load_targets_marker(server: server::Server) -> Option<DateTime<Utc>> {
+    let path = targets_marker_path(&server);
 
-    if let Ok(bytes) = std::fs::read(path) {
+    if let Ok(bytes) = fs::read(path).await {
         serde_json::from_slice(&bytes).unwrap_or_default()
     } else {
         None
@@ -115,7 +115,7 @@ pub async fn overwrite(
     fs::write(read_marker_path(server, kind), &bytes).await?;
 
     if let Some(read_marker) = read_marker {
-        let targets_marker = load_targets_marker(server);
+        let targets_marker = load_targets_marker(server.clone()).await;
 
         if !targets_marker.is_some_and(|targets_marker| targets_marker >= *read_marker) {
             let _ = overwrite_targets_marker(server.clone(), *read_marker).await;
