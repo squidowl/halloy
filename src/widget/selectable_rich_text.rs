@@ -432,27 +432,27 @@ where
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
-        if self.on_link.is_none() {
-            return mouse::Interaction::None;
-        }
-
         if let Some(position) = cursor.position_in(layout.bounds()) {
             let state = tree
                 .state
                 .downcast_ref::<State<Link, Renderer::Paragraph>>();
 
-            if let Some(span) = state
-                .paragraph
-                .hit_span(position)
-                .and_then(|span| self.spans.get(span))
-            {
-                if span.link.is_some() {
-                    return mouse::Interaction::Pointer;
+            if self.on_link.is_some() {
+                if let Some(span) = state
+                    .paragraph
+                    .hit_span(position)
+                    .and_then(|span| self.spans.get(span))
+                {
+                    if span.link.is_some() {
+                        return mouse::Interaction::Pointer;
+                    }
                 }
             }
-        }
 
-        mouse::Interaction::None
+            mouse::Interaction::Text
+        } else {
+            mouse::Interaction::None
+        }
     }
 
     fn operate(
