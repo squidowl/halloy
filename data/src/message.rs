@@ -9,7 +9,9 @@ use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
+pub use self::formatting::Formatting;
 pub use self::source::Source;
+
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, Config, User};
@@ -24,6 +26,7 @@ static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
 pub type Channel = String;
 
 pub(crate) mod broadcast;
+mod formatting;
 pub mod source;
 
 #[derive(Debug, Clone)]
@@ -261,14 +264,31 @@ pub fn parse_fragments(text: String) -> Content {
         fragments.push(Fragment::Url(url));
     }
 
-    // No matches, avoid allocation
+    // No matches
     if i == 0 {
-        return plain(text);
+        if let Some(formatted) = formatting::parse(&text) {
+            return Content::Fragments(formatted.into_iter().map(Fragment::from).collect());
+        } else {
+            return plain(text);
+        }
     } else if i < text.len() {
         fragments.push(Fragment::Text(text[i..text.len()].to_string()));
     }
 
-    Content::Fragments(fragments)
+    Content::Fragments(
+        fragments
+            .into_iter()
+            .flat_map(|fragment| {
+                if let Fragment::Text(text) = &fragment {
+                    if let Some(formatted) = formatting::parse(text) {
+                        return formatted.into_iter().map(Fragment::from).collect();
+                    }
+                }
+
+                vec![fragment]
+            })
+            .collect(),
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -290,6 +310,10 @@ impl Content {
 pub enum Fragment {
     Text(String),
     Url(Url),
+    Formatted {
+        text: String,
+        formatting: Formatting,
+    },
 }
 
 impl Fragment {
@@ -297,6 +321,18 @@ impl Fragment {
         match self {
             Fragment::Text(s) => s,
             Fragment::Url(u) => u.as_str(),
+            Fragment::Formatted { text, .. } => text,
+        }
+    }
+}
+
+impl From<formatting::Fragment> for Fragment {
+    fn from(value: formatting::Fragment) -> Self {
+        match value {
+            formatting::Fragment::Unformatted(text) => Self::Text(text),
+            formatting::Fragment::Formatted(text, formatting) => {
+                Self::Formatted { text, formatting }
+            }
         }
     }
 }

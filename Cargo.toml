@@ -58,5 +58,5 @@ windows_exe_info = "0.4"
 members = ["data", "ipc", "irc", "irc/proto"]
 
 [patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced", rev = "5443e4d8289873895587d856dbcf46f980bda6ab" }
-iced_core = { git = "https://github.com/iced-rs/iced", rev = "5443e4d8289873895587d856dbcf46f980bda6ab" }
+iced = { git = "https://github.com/tarkah/iced", rev = "1feb29ab4badb35a57ff5c612f25009e8e175766" }
+iced_core = { git = "https://github.com/tarkah/iced", rev = "1feb29ab4badb35a57ff5c612f25009e8e175766" }
