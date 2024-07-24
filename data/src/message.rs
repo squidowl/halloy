@@ -6,7 +6,7 @@ use irc::proto::Command;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
 pub use self::source::Source;
@@ -202,6 +202,7 @@ impl<'de> Deserialize<'de> for Message {
             direction: Direction,
             target: Target,
             // New field, optional for upgrade compatability
+            #[serde(default, deserialize_with = "fail_as_none")]
             content: Option<Content>,
             // Old field before we had fragments
             text: Option<String>,
@@ -753,6 +754,20 @@ pub fn reference_user(sender: NickRef, own_nick: NickRef, message: &Message) -> 
 
 pub fn reference_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
     sender != own_nick && text.contains(own_nick.as_ref())
+}
+
+fn fail_as_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    // We must fully consume valid json otherwise the error leaves the
+    // deserializer in an invalid state and it'll still fail
+    //
+    // This assumes we always use a json format
+    let intermediate = serde_json::Value::deserialize(deserializer)?;
+
+    Ok(Option::<T>::deserialize(intermediate).unwrap_or_default())
 }
 
 #[cfg(test)]
