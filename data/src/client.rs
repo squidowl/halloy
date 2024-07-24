@@ -506,42 +506,59 @@ impl Client {
                         {
                             if let Some(query) = ctcp::parse_query(text) {
                                 if matches!(&message.command, Command::PRIVMSG(_, _)) {
-                                    match query.command.as_ref() {
-                                        "CLIENTINFO" => {
-                                            let _ = self.handle.try_send(command!(
-                                            "NOTICE",
-                                            user.nickname().to_string(),
-                                            "\u{1}CLIENTINFO ACTION CLIENTINFO DCC PING SOURCE VERSION\u{1}"
-                                        ));
-                                        }
-                                        "PING" => {
+                                    match query.command {
+                                        ctcp::Command::Action => (),
+                                        ctcp::Command::ClientInfo => {
                                             let _ = self.handle.try_send(command!(
                                                 "NOTICE",
                                                 user.nickname().to_string(),
-                                                format!("\u{1}PING {}\u{1}", query.params)
-                                            ));
-                                        }
-                                        "SOURCE" => {
-                                            let _ = self.handle.try_send(command!(
-                                                "NOTICE",
-                                                user.nickname().to_string(),
-                                                format!(
-                                                    "\u{1}SOURCE {}\u{1}",
-                                                    crate::environment::SOURCE_WEBSITE
+                                                ctcp::format(
+                                                    &query.command,
+                                                    Some(
+                                                        "ACTION CLIENTINFO DCC PING SOURCE VERSION"
+                                                    )
                                                 )
                                             ));
                                         }
-                                        "VERSION" => {
+                                        ctcp::Command::DCC => (),
+                                        ctcp::Command::Ping => {
                                             let _ = self.handle.try_send(command!(
                                                 "NOTICE",
                                                 user.nickname().to_string(),
-                                                format!(
-                                                    "\u{1}VERSION Halloy {}\u{1}",
-                                                    crate::environment::VERSION
-                                                )
+                                                ctcp::format(&query.command, query.params),
                                             ));
                                         }
-                                        _ => (),
+                                        ctcp::Command::Source => {
+                                            let _ = self.handle.try_send(command!(
+                                                "NOTICE",
+                                                user.nickname().to_string(),
+                                                ctcp::format(
+                                                    &query.command,
+                                                    Some(crate::environment::SOURCE_WEBSITE),
+                                                ),
+                                            ));
+                                        }
+                                        ctcp::Command::Version => {
+                                            let _ = self.handle.try_send(command!(
+                                                "NOTICE",
+                                                user.nickname().to_string(),
+                                                ctcp::format(
+                                                    &query.command,
+                                                    Some(
+                                                        format!(
+                                                            "Halloy {}",
+                                                            crate::environment::VERSION
+                                                        )
+                                                        .as_ref()
+                                                    ),
+                                                ),
+                                            ));
+                                        }
+                                        ctcp::Command::Unknown(command) => {
+                                            log::debug!(
+                                                "Ignorning CTCP command {command}: Unknown command"
+                                            )
+                                        }
                                     }
                                 }
 
