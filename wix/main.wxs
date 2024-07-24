@@ -21,7 +21,7 @@
         <StandardDirectory Id="ProgramFiles6432Folder">
             <Directory
                 Id="INSTALLFOLDER"
-                Name="!(bind.Property.Manufacturer)\!(bind.Property.ProductName)"
+                Name="!(bind.Property.ProductName)"
             />
         </StandardDirectory>
 
