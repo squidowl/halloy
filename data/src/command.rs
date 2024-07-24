@@ -3,7 +3,7 @@ use std::str::FromStr;
 use irc::proto;
 use itertools::Itertools;
 
-use crate::Buffer;
+use crate::{ctcp, Buffer};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Kind {
@@ -183,7 +183,7 @@ impl TryFrom<Command> for proto::Command {
             Command::Quit(comment) => proto::Command::QUIT(comment),
             Command::Msg(target, msg) => proto::Command::PRIVMSG(target, msg),
             Command::Me(target, text) => {
-                proto::Command::PRIVMSG(target, format!("\u{1}ACTION {text}\u{1}"))
+                ctcp::query_command(&ctcp::Command::Action, target, Some(text))
             }
             Command::Whois(channel, user) => proto::Command::WHOIS(channel, user),
             Command::Part(chanlist, reason) => proto::Command::PART(chanlist, reason),
