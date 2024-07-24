@@ -511,7 +511,7 @@ impl Client {
                                             let _ = self.handle.try_send(command!(
                                             "NOTICE",
                                             user.nickname().to_string(),
-                                            "\u{1}CLIENTINFO CLIENTINFO ACTION CLIENTINFO DCC PING SOURCE VERSION\u{1}"
+                                            "\u{1}CLIENTINFO ACTION CLIENTINFO DCC PING SOURCE VERSION\u{1}"
                                         ));
                                         }
                                         "PING" => {
