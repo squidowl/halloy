@@ -18,7 +18,6 @@ pub enum Kind {
     Topic,
     Kick,
     Mode,
-    Raw,
 }
 
 impl FromStr for Kind {
@@ -37,7 +36,6 @@ impl FromStr for Kind {
             "topic" | "t" => Ok(Kind::Topic),
             "kick" => Ok(Kind::Kick),
             "mode" | "m" => Ok(Kind::Mode),
-            "raw" => Ok(Kind::Raw),
             _ => Err(()),
         }
     }
@@ -56,7 +54,7 @@ pub enum Command {
     Topic(String, Option<String>),
     Kick(String, String, Option<String>),
     Mode(String, Option<String>, Vec<String>),
-    Raw(String, Vec<String>),
+    Raw(String),
     Unknown(String, Vec<String>),
 }
 
@@ -65,6 +63,10 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
     // Don't allow leading whitespace before slash
     if !head.is_empty() {
         return Err(Error::MissingSlash);
+    }
+
+    if rest.to_lowercase().starts_with("raw ") {
+        return Ok(Command::Raw(rest.chars().skip(4).collect()));
     }
 
     let mut split = rest.split_ascii_whitespace();
@@ -118,14 +120,6 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
                     channel.to_string(),
                     Some(mode.to_string()),
                     users.iter().map(|s| s.to_string()).collect(),
-                ))
-            }
-            Kind::Raw => {
-                let (cmd, args) = args.split_first().ok_or(Error::MissingCommand)?;
-
-                Ok(Command::Raw(
-                    cmd.to_string(),
-                    args.iter().map(|s| s.to_string()).collect(),
                 ))
             }
         },
@@ -190,7 +184,7 @@ impl TryFrom<Command> for proto::Command {
             Command::Topic(channel, topic) => proto::Command::TOPIC(channel, topic),
             Command::Kick(channel, user, comment) => proto::Command::KICK(channel, user, comment),
             Command::Mode(channel, mode, users) => proto::Command::MODE(channel, mode, users),
-            Command::Raw(command, args) => proto::Command::Unknown(command, args),
+            Command::Raw(raw) => proto::Command::Raw(raw),
             Command::Unknown(command, args) => proto::Command::new(&command, args),
         })
     }
