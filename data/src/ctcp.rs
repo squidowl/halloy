@@ -1,6 +1,6 @@
 #[derive(Debug)]
 pub struct Query<'a> {
-    pub command: &'a str,
+    pub command: String,
     pub params: &'a str,
 }
 
@@ -15,10 +15,13 @@ pub fn parse_query(text: &str) -> Option<Query> {
         .strip_prefix('\u{1}')?;
 
     if let Some((command, params)) = query.split_once(char::is_whitespace) {
-        Some(Query { command, params })
+        Some(Query {
+            command: command.to_uppercase(),
+            params,
+        })
     } else {
         Some(Query {
-            command: query,
+            command: query.to_uppercase(),
             params: "",
         })
     }
