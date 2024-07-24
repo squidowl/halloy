@@ -109,6 +109,7 @@ pub enum Command {
 
     Numeric(Numeric, Vec<String>),
     Unknown(String, Vec<String>),
+    Raw(String),
 }
 
 impl Command {
@@ -253,6 +254,7 @@ impl Command {
             Command::USERIP(a) => vec![a],
             Command::Numeric(_, params) => params,
             Command::Unknown(_, params) => params,
+            Command::Raw(_) => vec![],
         }
     }
 
@@ -308,6 +310,7 @@ impl Command {
             USERIP(_) => "USERIP".to_string(),
             Numeric(numeric, _) => format!("{:03}", *numeric as u16),
             Unknown(tag, _) => tag.clone(),
+            Raw(_) => "".to_string(),
         }
     }
 }

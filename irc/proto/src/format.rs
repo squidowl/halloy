@@ -1,22 +1,33 @@
+use std::fmt::Write;
+
 use itertools::Itertools;
 
-use crate::{Message, Tag};
+use crate::{Command, Message, Tag};
 
 /// Most IRC servers limit messages to 512 bytes in length, including the trailing CR-LF characters.
 pub const BYTE_LIMIT: usize = 512;
 
 pub fn message(message: Message) -> String {
-    let command = message.command.command();
-
-    let params = parameters(message.command.parameters());
+    let mut output = String::with_capacity(BYTE_LIMIT);
 
     let tags = tags(message.tags);
 
-    if tags.is_empty() {
-        format!("{command} {params}\r\n")
-    } else {
-        format!("@{tags} {command} {params}\r\n")
+    if !tags.is_empty() {
+        let _ = write!(&mut output, "@{tags} ");
     }
+
+    if let Command::Raw(raw) = &message.command {
+        let _ = write!(&mut output, "{raw}");
+    } else {
+        let command = message.command.command();
+        let params = parameters(message.command.parameters());
+
+        let _ = write!(&mut output, "{command} {params}");
+    }
+
+    let _ = write!(&mut output, "\r\n");
+
+    output
 }
 
 fn tags(tags: Vec<Tag>) -> String {

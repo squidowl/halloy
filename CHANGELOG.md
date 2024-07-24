@@ -11,6 +11,7 @@ Fixed:
 
 - Text input missing key presses in certain instances
 - Connection timeout when UI is suspended on an offscreen workspace due to channel backpressure
+- Raw commands are passed through unmodified
 
 # 2024.8 (2024-07-05)
 
