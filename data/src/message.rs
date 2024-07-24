@@ -466,7 +466,8 @@ fn target(
         | Command::HELP(_)
         | Command::MODE(_, _, _)
         | Command::Numeric(_, _)
-        | Command::Unknown(_, _) => Some(Target::Server {
+        | Command::Unknown(_, _)
+        | Command::Raw(_) => Some(Target::Server {
             source: Source::Server(None),
         }),
     }
