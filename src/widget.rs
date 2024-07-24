@@ -2,7 +2,7 @@
 use data::message;
 use iced::widget::span;
 
-use crate::Theme;
+use crate::{font, Theme};
 
 pub use self::anchored_overlay::anchored_overlay;
 pub use self::combo_box::combo_box;
@@ -55,6 +55,34 @@ pub fn message_content<'a, M: 'a>(
                     data::message::Fragment::Url(s) => span(s.as_str())
                         .color(theme.colors().action.base)
                         .link(s.as_str().to_string()),
+                    data::message::Fragment::Formatted { text, formatting } => {
+                        let mut span = span(text)
+                            .color_maybe(
+                                formatting
+                                    .fg
+                                    .and_then(|color| color.into_iced(theme.colors())),
+                            )
+                            .background_maybe(
+                                formatting
+                                    .bg
+                                    .and_then(|color| color.into_iced(theme.colors())),
+                            );
+
+                        match (formatting.bold, formatting.italics) {
+                            (true, true) => {
+                                span = span.font(font::MONO_BOLD_ITALICS.clone());
+                            }
+                            (true, false) => {
+                                span = span.font(font::MONO_BOLD.clone());
+                            }
+                            (false, true) => {
+                                span = span.font(font::MONO_ITALICS.clone());
+                            }
+                            (false, false) => {}
+                        }
+
+                        span
+                    }
                 })
                 .collect::<Vec<_>>(),
         )
