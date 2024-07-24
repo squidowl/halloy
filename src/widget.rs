@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 use data::message;
+use iced::advanced::text::Background;
+use iced::border;
 use iced::widget::span;
 
 use crate::{font, Theme};
@@ -60,12 +62,22 @@ pub fn message_content<'a, M: 'a>(
                             .color_maybe(
                                 formatting
                                     .fg
-                                    .and_then(|color| color.into_iced(theme.colors())),
+                                    .and_then(|color| color.into_iced(theme.colors()))
+                                    .or_else(|| {
+                                        formatting.monospace.then_some(theme.colors().error.darker)
+                                    }),
                             )
                             .background_maybe(
                                 formatting
                                     .bg
-                                    .and_then(|color| color.into_iced(theme.colors())),
+                                    .and_then(|color| color.into_iced(theme.colors()))
+                                    .map(Background::from)
+                                    .or_else(|| {
+                                        formatting.monospace.then_some(Background {
+                                            color: theme.colors().background.lighter,
+                                            border: border::rounded(3),
+                                        })
+                                    }),
                             );
 
                         match (formatting.bold, formatting.italics) {
