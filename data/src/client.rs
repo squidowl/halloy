@@ -510,21 +510,21 @@ impl Client {
                                         "CLIENTINFO" => {
                                             let _ = self.handle.try_send(command!(
                                             "NOTICE",
-                                            user,
+                                            user.nickname().to_string(),
                                             "\u{1}CLIENTINFO ACTION CLIENTINFO DCC PING SOURCE VERSION\u{1}"
                                         ));
                                         }
                                         "PING" => {
                                             let _ = self.handle.try_send(command!(
                                                 "NOTICE",
-                                                user,
+                                                user.nickname().to_string(),
                                                 query.params
                                             ));
                                         }
                                         "SOURCE" => {
                                             let _ = self.handle.try_send(command!(
                                                 "NOTICE",
-                                                user,
+                                                user.nickname().to_string(),
                                                 format!(
                                                     "\u{1}{}\u{1}",
                                                     crate::environment::SOURCE_WEBSITE
@@ -534,7 +534,7 @@ impl Client {
                                         "VERSION" => {
                                             let _ = self.handle.try_send(command!(
                                                 "NOTICE",
-                                                user,
+                                                user.nickname().to_string(),
                                                 format!(
                                                     "\u{1}Halloy {}\u{1}",
                                                     crate::environment::VERSION
