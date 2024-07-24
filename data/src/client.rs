@@ -509,49 +509,35 @@ impl Client {
                                     match query.command {
                                         ctcp::Command::Action => (),
                                         ctcp::Command::ClientInfo => {
-                                            let _ = self.handle.try_send(command!(
-                                                "NOTICE",
+                                            let _ = self.handle.try_send(ctcp::response_message(
+                                                &query.command,
                                                 user.nickname().to_string(),
-                                                ctcp::format(
-                                                    &query.command,
-                                                    Some(
-                                                        "ACTION CLIENTINFO DCC PING SOURCE VERSION"
-                                                    )
-                                                )
+                                                Some("ACTION CLIENTINFO DCC PING SOURCE VERSION"),
                                             ));
                                         }
                                         ctcp::Command::DCC => (),
                                         ctcp::Command::Ping => {
-                                            let _ = self.handle.try_send(command!(
-                                                "NOTICE",
+                                            let _ = self.handle.try_send(ctcp::response_message(
+                                                &query.command,
                                                 user.nickname().to_string(),
-                                                ctcp::format(&query.command, query.params),
+                                                query.params,
                                             ));
                                         }
                                         ctcp::Command::Source => {
-                                            let _ = self.handle.try_send(command!(
-                                                "NOTICE",
+                                            let _ = self.handle.try_send(ctcp::response_message(
+                                                &query.command,
                                                 user.nickname().to_string(),
-                                                ctcp::format(
-                                                    &query.command,
-                                                    Some(crate::environment::SOURCE_WEBSITE),
-                                                ),
+                                                Some(crate::environment::SOURCE_WEBSITE),
                                             ));
                                         }
                                         ctcp::Command::Version => {
-                                            let _ = self.handle.try_send(command!(
-                                                "NOTICE",
+                                            let _ = self.handle.try_send(ctcp::response_message(
+                                                &query.command,
                                                 user.nickname().to_string(),
-                                                ctcp::format(
-                                                    &query.command,
-                                                    Some(
-                                                        format!(
-                                                            "Halloy {}",
-                                                            crate::environment::VERSION
-                                                        )
-                                                        .as_ref()
-                                                    ),
-                                                ),
+                                                Some(format!(
+                                                    "Halloy {}",
+                                                    crate::environment::VERSION
+                                                )),
                                             ));
                                         }
                                         ctcp::Command::Unknown(command) => {

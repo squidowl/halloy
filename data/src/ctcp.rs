@@ -1,3 +1,6 @@
+use irc::proto;
+use std::fmt;
+
 // Reference: https://rawgit.com/DanielOaks/irc-rfcs/master/dist/draft-oakley-irc-ctcp-latest.html
 
 #[derive(Debug)]
@@ -46,7 +49,7 @@ pub fn parse_query(text: &str) -> Option<Query> {
     Some(Query { command, params })
 }
 
-pub fn format(command: &Command, params: Option<&str>) -> String {
+pub fn format(command: &Command, params: Option<impl fmt::Display>) -> String {
     let command = match command {
         Command::Action => "ACTION",
         Command::ClientInfo => "CLIENTINFO",
@@ -62,4 +65,28 @@ pub fn format(command: &Command, params: Option<&str>) -> String {
     } else {
         format!("\u{1}{command}\u{1}")
     }
+}
+
+pub fn query_command(
+    command: &Command,
+    target: String,
+    params: Option<impl fmt::Display>,
+) -> proto::Command {
+    proto::Command::PRIVMSG(target, format(command, params))
+}
+
+pub fn query_message(
+    command: &Command,
+    target: String,
+    params: Option<impl fmt::Display>,
+) -> proto::Message {
+    proto::command!("PRIVMSG", target, format(command, params))
+}
+
+pub fn response_message(
+    command: &Command,
+    target: String,
+    params: Option<impl fmt::Display>,
+) -> proto::Message {
+    proto::command!("NOTICE", target, format(command, params))
 }
