@@ -133,7 +133,10 @@ impl Send {
                 command!(
                     "PRIVMSG",
                     target.to_string(),
-                    format!("\u{1}DCC SEND {filename} {host} {port} {size} {token}\u{1}")
+                    ctcp::format(
+                        &ctcp::Command::DCC,
+                        Some(format!("SEND {filename} {host} {port} {size} {token}").as_ref())
+                    )
                 )
             }
             Self::Direct {
@@ -147,7 +150,10 @@ impl Send {
                 command!(
                     "PRIVMSG",
                     target.to_string(),
-                    format!("\u{1}DCC SEND {filename} {host} {port} {size}\u{1}")
+                    ctcp::format(
+                        &ctcp::Command::DCC,
+                        Some(format!("SEND {filename} {host} {port} {size}").as_ref())
+                    )
                 )
             }
         }
