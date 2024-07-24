@@ -10,11 +10,11 @@ use itertools::Itertools;
 pub fn decode(content: &str) -> Option<Command> {
     let query = ctcp::parse_query(content)?;
 
-    if query.command != "DCC" {
+    if !matches!(query.command, ctcp::Command::DCC) {
         return None;
     }
 
-    let mut args = query.params.split_whitespace();
+    let mut args = query.params.map(|params| params.split_whitespace())?;
 
     match args.next()?.to_lowercase().as_str() {
         "send" => Send::decode(args).map(Command::Send),
