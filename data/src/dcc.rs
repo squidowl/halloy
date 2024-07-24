@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::ctcp;
-use irc::proto::{self, command};
+use irc::proto;
 use itertools::Itertools;
 
 pub fn decode(content: &str) -> Option<Command> {
@@ -130,13 +130,10 @@ impl Send {
                 let host = encode_host(host);
                 let port = port.map(NonZeroU16::get).unwrap_or(0);
 
-                command!(
-                    "PRIVMSG",
+                ctcp::query_message(
+                    &ctcp::Command::DCC,
                     target.to_string(),
-                    ctcp::format(
-                        &ctcp::Command::DCC,
-                        Some(format!("SEND {filename} {host} {port} {size} {token}").as_ref())
-                    )
+                    Some(format!("SEND {filename} {host} {port} {size} {token}")),
                 )
             }
             Self::Direct {
@@ -147,13 +144,10 @@ impl Send {
             } => {
                 let host = encode_host(host);
 
-                command!(
-                    "PRIVMSG",
+                ctcp::query_message(
+                    &ctcp::Command::DCC,
                     target.to_string(),
-                    ctcp::format(
-                        &ctcp::Command::DCC,
-                        Some(format!("SEND {filename} {host} {port} {size}").as_ref())
-                    )
+                    Some(format!("SEND {filename} {host} {port} {size}")),
                 )
             }
         }

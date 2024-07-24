@@ -182,10 +182,9 @@ impl TryFrom<Command> for proto::Command {
             Command::Nick(nick) => proto::Command::NICK(nick),
             Command::Quit(comment) => proto::Command::QUIT(comment),
             Command::Msg(target, msg) => proto::Command::PRIVMSG(target, msg),
-            Command::Me(target, text) => proto::Command::PRIVMSG(
-                target,
-                ctcp::format(&ctcp::Command::Action, Some(text.as_ref())),
-            ),
+            Command::Me(target, text) => {
+                ctcp::query_command(&ctcp::Command::Action, target, Some(text))
+            }
             Command::Whois(channel, user) => proto::Command::WHOIS(channel, user),
             Command::Part(chanlist, reason) => proto::Command::PART(chanlist, reason),
             Command::Topic(channel, topic) => proto::Command::TOPIC(channel, topic),
