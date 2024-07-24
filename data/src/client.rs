@@ -505,42 +505,44 @@ impl Client {
                             && !message::is_action(text)
                         {
                             if let Some(query) = ctcp::parse_query(text) {
-                                match query.command {
-                                    "CLIENTINFO" => {
-                                        let _ = self.handle.try_send(command!(
+                                if matches!(&message.command, Command::PRIVMSG(_, _)) {
+                                    match query.command.as_ref() {
+                                        "CLIENTINFO" => {
+                                            let _ = self.handle.try_send(command!(
                                             "NOTICE",
                                             user,
                                             "\u{1}CLIENTINFO ACTION CLIENTINFO DCC PING SOURCE VERSION\u{1}"
                                         ));
+                                        }
+                                        "PING" => {
+                                            let _ = self.handle.try_send(command!(
+                                                "NOTICE",
+                                                user,
+                                                query.params
+                                            ));
+                                        }
+                                        "SOURCE" => {
+                                            let _ = self.handle.try_send(command!(
+                                                "NOTICE",
+                                                user,
+                                                format!(
+                                                    "\u{1}{}\u{1}",
+                                                    crate::environment::SOURCE_WEBSITE
+                                                )
+                                            ));
+                                        }
+                                        "VERSION" => {
+                                            let _ = self.handle.try_send(command!(
+                                                "NOTICE",
+                                                user,
+                                                format!(
+                                                    "\u{1}Halloy {}\u{1}",
+                                                    crate::environment::VERSION
+                                                )
+                                            ));
+                                        }
+                                        _ => (),
                                     }
-                                    "PING" => {
-                                        let _ = self.handle.try_send(command!(
-                                            "NOTICE",
-                                            user,
-                                            query.params
-                                        ));
-                                    }
-                                    "SOURCE" => {
-                                        let _ = self.handle.try_send(command!(
-                                            "NOTICE",
-                                            user,
-                                            format!(
-                                                "\u{1}{}\u{1}",
-                                                crate::environment::SOURCE_WEBSITE
-                                            )
-                                        ));
-                                    }
-                                    "VERSION" => {
-                                        let _ = self.handle.try_send(command!(
-                                            "NOTICE",
-                                            user,
-                                            format!(
-                                                "\u{1}Halloy {}\u{1}",
-                                                crate::environment::VERSION
-                                            )
-                                        ));
-                                    }
-                                    _ => (),
                                 }
 
                                 return None;
