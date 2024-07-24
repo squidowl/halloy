@@ -2,6 +2,7 @@ use iced::advanced::graphics::core::touch;
 use iced::advanced::layout;
 use iced::advanced::renderer;
 use iced::advanced::renderer::Quad;
+use iced::advanced::text::Background;
 use iced::advanced::text::{self, Paragraph, Span, Text};
 use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Operation;
@@ -193,6 +194,7 @@ struct State<Link, P: Paragraph> {
     span_pressed: Option<usize>,
     paragraph: P,
     interaction: Interaction,
+    shown_spoiler: Option<(usize, Color, Background)>,
 }
 
 impl<'a, Message, Link, Theme, Renderer> Widget<Message, Theme, Renderer>
@@ -212,6 +214,7 @@ where
             span_pressed: None,
             paragraph: Renderer::Paragraph::default(),
             interaction: Interaction::default(),
+            shown_spoiler: None,
         })
     }
 
@@ -250,7 +253,7 @@ where
         event: Event,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
-        _renderer: &Renderer,
+        renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
@@ -316,6 +319,65 @@ where
                         raw.end = cursor;
                     }
                 }
+
+                let bounds = layout.bounds();
+
+                let size = self.size.unwrap_or_else(|| renderer.default_size());
+                let font = self.font.unwrap_or_else(|| renderer.default_font());
+
+                let text_with_spans = |spans| Text {
+                    content: spans,
+                    bounds: bounds.size(),
+                    size,
+                    line_height: self.line_height,
+                    font,
+                    horizontal_alignment: self.align_x,
+                    vertical_alignment: self.align_y,
+                    shaping: Shaping::Advanced,
+                };
+
+                // Check spoiler
+                if let Some(cursor) = cursor.position_in(bounds) {
+                    if state.shown_spoiler.is_none() {
+                        // Find if spoiler is hovered
+                        for (index, span) in state.spans.iter().enumerate() {
+                            if let Some((fg, bg)) = span.color.zip(span.background) {
+                                let is_spoiler = fg == bg.color;
+
+                                if is_spoiler
+                                    && state
+                                        .paragraph
+                                        .span_bounds(index)
+                                        .into_iter()
+                                        .any(|bounds| bounds.contains(cursor))
+                                {
+                                    state.shown_spoiler = Some((index, fg, bg));
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Show spoiler
+                        if let Some((index, _, _)) = state.shown_spoiler {
+                            // Safe we just got this index
+                            let span = &mut state.spans[index];
+                            span.color = None;
+                            span.background = None;
+                            state.paragraph = Renderer::Paragraph::with_spans(text_with_spans(
+                                state.spans.as_ref(),
+                            ));
+                        }
+                    }
+                }
+                // Hide spoiler
+                else if let Some((index, fg, bg)) = state.shown_spoiler.take() {
+                    if let Some(span) = state.spans.get_mut(index) {
+                        span.color = Some(fg);
+                        span.background = Some(bg);
+                    }
+                    state.paragraph =
+                        Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_ref()));
+                }
             }
             _ => {}
         }
@@ -346,7 +408,7 @@ where
         let style = theme.style(&self.class);
 
         // Draw backgrounds
-        for (index, span) in self.spans.iter().enumerate() {
+        for (index, span) in state.spans.iter().enumerate() {
             if let Some(background) = span.background {
                 let translation = layout.position() - Point::ORIGIN;
 
@@ -502,7 +564,7 @@ where
         let size = size.unwrap_or_else(|| renderer.default_size());
         let font = font.unwrap_or_else(|| renderer.default_font());
 
-        let text_with_spans = || Text {
+        let text_with_spans = |spans| Text {
             content: spans,
             bounds,
             size,
@@ -514,8 +576,18 @@ where
         };
 
         if state.spans != spans {
-            state.paragraph = Renderer::Paragraph::with_spans(text_with_spans());
             state.spans = spans.iter().cloned().map(Span::to_static).collect();
+
+            // Apply shown spoiler
+            if let Some((index, _, _)) = state.shown_spoiler {
+                if let Some(span) = state.spans.get_mut(index) {
+                    span.color = None;
+                    span.background = None;
+                }
+            }
+
+            state.paragraph =
+                Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_slice()));
         } else {
             match state.paragraph.compare(Text {
                 content: (),
@@ -532,7 +604,18 @@ where
                     state.paragraph.resize(bounds);
                 }
                 text::Difference::Shape => {
-                    state.paragraph = Renderer::Paragraph::with_spans(text_with_spans());
+                    state.spans = spans.iter().cloned().map(Span::to_static).collect();
+
+                    // Apply shown spoiler
+                    if let Some((index, _, _)) = state.shown_spoiler {
+                        if let Some(span) = state.spans.get_mut(index) {
+                            span.color = None;
+                            span.background = None;
+                        }
+                    }
+
+                    state.paragraph =
+                        Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_slice()));
                 }
             }
         }
