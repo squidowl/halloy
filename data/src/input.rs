@@ -87,7 +87,7 @@ impl Input {
                 server_time: Utc::now(),
                 direction: message::Direction::Sent,
                 target: to_target(target, message::Source::Action)?,
-                content: message::action_text(user.nickname(), &action),
+                content: message::action_text(user.nickname(), Some(&action)),
             }),
             _ => None,
         }

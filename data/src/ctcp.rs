@@ -1,7 +1,23 @@
+use irc::proto;
+use std::fmt;
+
+// Reference: https://rawgit.com/DanielOaks/irc-rfcs/master/dist/draft-oakley-irc-ctcp-latest.html
+
+#[derive(Debug)]
+pub enum Command {
+    Action,
+    ClientInfo,
+    DCC,
+    Ping,
+    Source,
+    Version,
+    Unknown(String),
+}
+
 #[derive(Debug)]
 pub struct Query<'a> {
-    pub command: &'a str,
-    pub params: &'a str,
+    pub command: Command,
+    pub params: Option<&'a str>,
 }
 
 pub fn is_query(text: &str) -> bool {
@@ -14,12 +30,63 @@ pub fn parse_query(text: &str) -> Option<Query> {
         .unwrap_or(text)
         .strip_prefix('\u{1}')?;
 
-    if let Some((command, params)) = query.split_once(char::is_whitespace) {
-        Some(Query { command, params })
+    let (command, params) = if let Some((command, params)) = query.split_once(char::is_whitespace) {
+        (command.to_uppercase(), Some(params))
     } else {
-        Some(Query {
-            command: query,
-            params: "",
-        })
+        (query.to_uppercase(), None)
+    };
+
+    let command = match command.as_ref() {
+        "ACTION" => Command::Action,
+        "CLIENTINFO" => Command::ClientInfo,
+        "DCC" => Command::DCC,
+        "PING" => Command::Ping,
+        "SOURCE" => Command::Source,
+        "VERSION" => Command::Version,
+        _ => Command::Unknown(command),
+    };
+
+    Some(Query { command, params })
+}
+
+pub fn format(command: &Command, params: Option<impl fmt::Display>) -> String {
+    let command = match command {
+        Command::Action => "ACTION",
+        Command::ClientInfo => "CLIENTINFO",
+        Command::DCC => "DCC",
+        Command::Ping => "PING",
+        Command::Source => "SOURCE",
+        Command::Version => "VERSION",
+        Command::Unknown(command) => command.as_ref(),
+    };
+
+    if let Some(params) = params {
+        format!("\u{1}{command} {params}\u{1}")
+    } else {
+        format!("\u{1}{command}\u{1}")
     }
+}
+
+pub fn query_command(
+    command: &Command,
+    target: String,
+    params: Option<impl fmt::Display>,
+) -> proto::Command {
+    proto::Command::PRIVMSG(target, format(command, params))
+}
+
+pub fn query_message(
+    command: &Command,
+    target: String,
+    params: Option<impl fmt::Display>,
+) -> proto::Message {
+    proto::command!("PRIVMSG", target, format(command, params))
+}
+
+pub fn response_message(
+    command: &Command,
+    target: String,
+    params: Option<impl fmt::Display>,
+) -> proto::Message {
+    proto::command!("NOTICE", target, format(command, params))
 }

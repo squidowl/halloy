@@ -719,7 +719,7 @@ impl Limit {
 
 pub fn is_action(text: &str) -> bool {
     if let Some(query) = ctcp::parse_query(text) {
-        query.command == "ACTION"
+        matches!(query.command, ctcp::Command::Action)
     } else {
         false
     }
@@ -731,8 +731,12 @@ fn parse_action(nick: NickRef, text: &str) -> Option<Content> {
     Some(action_text(nick, query.params))
 }
 
-pub fn action_text(nick: NickRef, action: &str) -> Content {
-    plain(format!(" ∙ {nick} {action}"))
+pub fn action_text(nick: NickRef, action: Option<&str>) -> Content {
+    if let Some(action) = action {
+        parse_fragments(format!(" ∙ {nick} {action}"))
+    } else {
+        plain(format!(" ∙ {nick}"))
+    }
 }
 
 pub fn reference_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {
