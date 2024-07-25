@@ -26,7 +26,7 @@ static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
 pub type Channel = String;
 
 pub(crate) mod broadcast;
-mod formatting;
+pub mod formatting;
 pub mod source;
 
 #[derive(Debug, Clone)]

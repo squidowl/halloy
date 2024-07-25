@@ -1,0 +1,21 @@
+Markdown:
+_italic_
+__bold__
+___italic & bold___
+`code`
+||spoiler||
+
+Toggles:
+$b - bold
+$i - italic
+$m - monospace
+$r - reset
+
+Color:
+$c0   - fg only
+$c0,1 - fg & bg
+$c    - end color
+
+Color Codes:
+0 - 99
+red, lightblue, etc

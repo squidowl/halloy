@@ -385,24 +385,23 @@ pub struct Command {
 }
 
 impl Command {
-    fn description(&self) -> Option<String> {
-        let message = match self.title.to_lowercase().as_str() {
-            "away" => Some("Mark yourself as away. If already away, the status is removed"),
-            "join" => Some("Join channel(s) with optional key(s)"),
-            "me" => Some("Send an action message to the channel"),
-            "mode" => Some("Set mode(s) on a channel or retrieve the current mode(s) set"),
-            "msg" => Some("Open a query with a nickname and send an optional message"),
-            "nick" => Some("Change your nickname on the current server"),
-            "part" => Some("Leave channel(s) with an optional reason"),
-            "quit" => Some("Disconnect from the server with an optional reason"),
-            "raw" => Some("Send data to the server without modifying it"),
-            "topic" => Some("Retrieve the topic of a channel or set a new topic"),
-            "whois" => Some("Retrieve information about user(s)"),
+    fn description(&self) -> Option<&'static str> {
+        Some(match self.title.to_lowercase().as_str() {
+            "away" => "Mark yourself as away. If already away, the status is removed",
+            "join" => "Join channel(s) with optional key(s)",
+            "me" => "Send an action message to the channel",
+            "mode" => "Set mode(s) on a channel or retrieve the current mode(s) set",
+            "msg" => "Open a query with a nickname and send an optional message",
+            "nick" => "Change your nickname on the current server",
+            "part" => "Leave channel(s) with an optional reason",
+            "quit" => "Disconnect from the server with an optional reason",
+            "raw" => "Send data to the server without modifying it",
+            "topic" => "Retrieve the topic of a channel or set a new topic",
+            "whois" => "Retrieve information about user(s)",
+            "format" => "Format text using markdown or $ sequences",
 
-            _ => None,
-        };
-
-        message.map(|s| s.to_string())
+            _ => return None,
+        })
     }
 
     fn alias(&self) -> Vec<&str> {
@@ -418,6 +417,7 @@ impl Command {
             "raw" => vec![],
             "topic" => vec!["t"],
             "whois" => vec![],
+            "format" => vec!["f"],
 
             _ => vec![],
         }
@@ -768,6 +768,16 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     text: "args",
                     optional: true,
                     tooltip: None,
+                },
+            ],
+        },
+        Command {
+            title: "FORMAT",
+            args: vec![
+                Arg {
+                    text: "text",
+                    optional: false,
+                    tooltip: Some(include_str!("./format_tooltip.txt").to_string()),
                 },
             ],
         },
