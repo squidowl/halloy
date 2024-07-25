@@ -60,14 +60,15 @@ This is a list of community created themes for Halloy.
 
 <img src="boo-berry.png">
 
-## Catpuccin Frappe - [Save](catpuccin-frappe.toml)
+## Catppuccin Frappe - [Save](catppuccin-frappe.toml)
 
-<img src="catpuccin-frappe.png">
+<img src="catppuccin-frappe.png">
 
-## Catpuccin Macchiato - [Save](catpuccin-macchiato.toml)
+## Catppuccin Macchiato - [Save](catppuccin-macchiato.toml)
 
-<img src="catpuccin-macchiato.png">
+<img src="catppuccin-macchiato.png">
 
-## Catpuccin Mocha - [Save](catpuccin-mocha.toml)
+## Catppuccin Mocha - [Save](catppuccin-mocha.toml)
 
-<img src="catpuccin-mocha.png">
+<img src="catppuccin-mocha.png">
+
