@@ -13,8 +13,8 @@ use nom::{
 
 use super::{Color, Modifier};
 
-pub fn encode(text: &str) -> String {
-    let Some(tokens) = parse(text) else {
+pub fn encode(text: &str, markdown_only: bool) -> String {
+    let Some(tokens) = parse(text, markdown_only) else {
         return text.to_string();
     };
 
@@ -80,7 +80,8 @@ pub fn encode(text: &str) -> String {
     out
 }
 
-fn parse(input: &str) -> Option<Vec<Token>> {
+fn parse(input: &str, markdown_only: bool) -> Option<Vec<Token>> {
+    let token = |i| token(i, markdown_only);
     let tokens = tuple((many0(token), eof));
 
     cut(tokens)(input)
@@ -89,32 +90,50 @@ fn parse(input: &str) -> Option<Vec<Token>> {
         .map(|(_, (tokens, _))| tokens)
 }
 
-fn token(input: &str) -> IResult<&str, Token> {
-    alt((
-        map(plain, Token::Plain),
-        map(markdown, Token::Markdown),
-        map(dollar, Token::Dollar),
-        map(anychar, Token::Unknown),
-    ))(input)
+fn token(input: &str, markdown_only: bool) -> IResult<&str, Token> {
+    if markdown_only {
+        alt((
+            map(|i| plain(i, markdown_only), Token::Plain),
+            map(|i| markdown(i, markdown_only), Token::Markdown),
+            map(anychar, Token::Unknown),
+        ))(input)
+    } else {
+        alt((
+            map(|i| plain(i, markdown_only), Token::Plain),
+            map(|i| markdown(i, markdown_only), Token::Markdown),
+            map(dollar, Token::Dollar),
+            map(anychar, Token::Unknown),
+        ))(input)
+    }
 }
 
-fn plain(input: &str) -> IResult<&str, &str> {
-    recognize(many1(escaped))(input)
+fn plain(input: &str, markdown_only: bool) -> IResult<&str, &str> {
+    recognize(many1(|i| escaped(i, markdown_only)))(input)
 }
 
-fn escaped(input: &str) -> IResult<&str, char> {
-    alt((
-        value('*', tag("\\*")),
-        value('_', tag("\\_")),
-        value('`', tag("\\`")),
-        value('|', tag("\\|")),
-        value('$', tag("\\$")),
-        none_of("*_`|$"),
-    ))(input)
+fn escaped(input: &str, markdown_only: bool) -> IResult<&str, char> {
+    if markdown_only {
+        alt((
+            value('*', tag("\\*")),
+            value('_', tag("\\_")),
+            value('`', tag("\\`")),
+            value('|', tag("\\|")),
+            none_of("*_`|"),
+        ))(input)
+    } else {
+        alt((
+            value('*', tag("\\*")),
+            value('_', tag("\\_")),
+            value('`', tag("\\`")),
+            value('|', tag("\\|")),
+            value('$', tag("\\$")),
+            none_of("*_`|$"),
+        ))(input)
+    }
 }
 
-fn markdown(input: &str) -> IResult<&str, Markdown> {
-    let between = |start, end| delimited(tag(start), plain, tag(end));
+fn markdown(input: &str, markdown_only: bool) -> IResult<&str, Markdown> {
+    let between = |start, end| delimited(tag(start), |i| plain(i, markdown_only), tag(end));
 
     let italic = alt((between("_", "_"), between("*", "*")));
     let bold = alt((between("__", "__"), between("**", "**")));
@@ -217,14 +236,15 @@ enum Dollar {
 
 #[test]
 fn internal_format() {
-    let _ = dbg!(encode("hello there friend!!"));
-    let _ = dbg!(encode("hello there _friend_!!"));
-    let _ = dbg!(encode("hello there __friend__!!"));
-    let _ = dbg!(encode("hello there ___friend___!!"));
-    let _ = dbg!(encode("hello there **_\\_fri\\_end\\__**!!"));
-    let _ = dbg!(encode("some code `let x = 0;`"));
-    let _ = dbg!(encode("spoiler --> ||super secret||"));
+    let _ = dbg!(encode("hello there friend!!", false));
+    let _ = dbg!(encode("hello there _friend_!!", false));
+    let _ = dbg!(encode("hello there __friend__!!", false));
+    let _ = dbg!(encode("hello there ___friend___!!", false));
+    let _ = dbg!(encode("hello there **_\\_fri\\_end\\__**!!", false));
+    let _ = dbg!(encode("some code `let x = 0;`", false));
+    let _ = dbg!(encode("spoiler --> ||super secret||", false));
     let _ = dbg!(encode(
-        "$c1,0black on white $c2now blue on white$r$b BOLD $i BOLD AND ITALIC$r $ccode yo"
+        "$c1,0black on white $c2now blue on white$r$b BOLD $i BOLD AND ITALIC$r $ccode yo",
+        false,
     ));
 }

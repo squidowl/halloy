@@ -130,6 +130,7 @@ impl Server {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
+        config: &Config,
     ) -> Task<Message> {
         match message {
             Message::ScrollView(message) => {
@@ -139,7 +140,9 @@ impl Server {
             Message::InputView(message) => {
                 let buffer = self.buffer();
 
-                let (command, event) = self.input_view.update(message, buffer, clients, history);
+                let (command, event) = self
+                    .input_view
+                    .update(message, buffer, clients, history, config);
                 let command = command.map(Message::InputView);
 
                 match event {
