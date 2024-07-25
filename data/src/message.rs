@@ -16,7 +16,7 @@ use crate::{ctcp, Config, User};
 
 static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)"#,
+        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b([-a-zA-Z0-9()@:%_\+.~#?&\/=]*)"#,
     )
     .unwrap()
 });
@@ -806,6 +806,14 @@ mod test {
                     Fragment::Text("We have a wiki at ".into()),
                     Fragment::Url("https://halloy.squidowl.org".parse().unwrap()),
                 ],
+            ),
+            (
+                "https://catgirl.delivery/2024/07/25/sometimes-it-is-correct-to-blame-the-compiler/",
+                vec![Fragment::Url(
+                    "https://catgirl.delivery/2024/07/25/sometimes-it-is-correct-to-blame-the-compiler/"
+                    .parse()
+                    .unwrap()
+                )],
             ),
         ];
 
