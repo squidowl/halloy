@@ -973,6 +973,7 @@ dependencies = [
  "irc",
  "itertools 0.12.1",
  "log",
+ "nom",
  "once_cell",
  "palette",
  "rand",

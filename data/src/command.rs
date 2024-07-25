@@ -3,7 +3,7 @@ use std::str::FromStr;
 use irc::proto;
 use itertools::Itertools;
 
-use crate::{ctcp, Buffer};
+use crate::{ctcp, message::formatting, Buffer};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Kind {
@@ -18,6 +18,7 @@ pub enum Kind {
     Topic,
     Kick,
     Mode,
+    Format,
 }
 
 impl FromStr for Kind {
@@ -36,6 +37,7 @@ impl FromStr for Kind {
             "topic" | "t" => Ok(Kind::Topic),
             "kick" => Ok(Kind::Kick),
             "mode" | "m" => Ok(Kind::Mode),
+            "format" | "f" => Ok(Kind::Format),
             _ => Err(()),
         }
     }
@@ -121,6 +123,15 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
                     Some(mode.to_string()),
                     users.iter().map(|s| s.to_string()).collect(),
                 ))
+            }
+            Kind::Format => {
+                if let Some(target) = buffer.and_then(|b| b.target()) {
+                    validated::<1, 0, true>(args, |[text], _| {
+                        Command::Msg(target, formatting::encode(&text))
+                    })
+                } else {
+                    Ok(unknown())
+                }
             }
         },
         Err(_) => Ok(unknown()),
