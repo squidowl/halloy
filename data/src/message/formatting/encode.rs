@@ -1,14 +1,15 @@
 //! Internal formatting specification
-use std::fmt::Write;
+use std::{convert::identity, fmt::Write};
 
 use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{anychar, char, none_of, satisfy},
-    combinator::{cut, eof, map, map_opt, opt, recognize, value},
+    combinator::{cond, cut, eof, map, map_opt, opt, recognize, value},
+    error::Error,
     multi::{many0, many1, many_m_n},
     sequence::{delimited, tuple},
-    Finish, IResult,
+    Finish, IResult, Parser,
 };
 
 use super::{Color, Modifier};
@@ -81,7 +82,7 @@ pub fn encode(text: &str, markdown_only: bool) -> String {
 }
 
 fn parse(input: &str, markdown_only: bool) -> Option<Vec<Token>> {
-    let token = |i| token(i, markdown_only);
+    let token = token(markdown_only);
     let tokens = tuple((many0(token), eof));
 
     cut(tokens)(input)
@@ -90,50 +91,42 @@ fn parse(input: &str, markdown_only: bool) -> Option<Vec<Token>> {
         .map(|(_, (tokens, _))| tokens)
 }
 
-fn token(input: &str, markdown_only: bool) -> IResult<&str, Token> {
-    if markdown_only {
-        alt((
-            map(|i| plain(i, markdown_only), Token::Plain),
-            map(|i| markdown(i, markdown_only), Token::Markdown),
-            map(anychar, Token::Unknown),
-        ))(input)
-    } else {
-        alt((
-            map(|i| plain(i, markdown_only), Token::Plain),
-            map(|i| markdown(i, markdown_only), Token::Markdown),
-            map(dollar, Token::Dollar),
-            map(anychar, Token::Unknown),
-        ))(input)
-    }
+fn token<'a>(markdown_only: bool) -> impl Parser<&'a str, Token<'a>, Error<&'a str>> {
+    alt((
+        map(plain(markdown_only), Token::Plain),
+        map(markdown(markdown_only), Token::Markdown),
+        skip(markdown_only, map(dollar, Token::Dollar)),
+        map(anychar, Token::Unknown),
+    ))
 }
 
-fn plain(input: &str, markdown_only: bool) -> IResult<&str, &str> {
-    recognize(many1(|i| escaped(i, markdown_only)))(input)
+fn plain<'a>(markdown_only: bool) -> impl Parser<&'a str, &'a str, Error<&'a str>> {
+    recognize(many1(escaped(markdown_only)))
 }
 
-fn escaped(input: &str, markdown_only: bool) -> IResult<&str, char> {
-    if markdown_only {
-        alt((
-            value('*', tag("\\*")),
-            value('_', tag("\\_")),
-            value('`', tag("\\`")),
-            value('|', tag("\\|")),
-            none_of("*_`|"),
-        ))(input)
-    } else {
-        alt((
-            value('*', tag("\\*")),
-            value('_', tag("\\_")),
-            value('`', tag("\\`")),
-            value('|', tag("\\|")),
-            value('$', tag("\\$")),
-            none_of("*_`|$"),
-        ))(input)
-    }
+fn escaped<'a>(markdown_only: bool) -> impl Parser<&'a str, char, Error<&'a str>> {
+    alt((
+        value('*', tag("\\*")),
+        value('_', tag("\\_")),
+        value('`', tag("\\`")),
+        value('|', tag("\\|")),
+        none_of("*_`|"),
+        skip(
+            markdown_only,
+            alt((value('$', tag("\\$")), value('$', tag("$$")), none_of("$"))),
+        ),
+    ))
 }
 
-fn markdown(input: &str, markdown_only: bool) -> IResult<&str, Markdown> {
-    let between = |start, end| delimited(tag(start), |i| plain(i, markdown_only), tag(end));
+fn skip<'a, F, O>(skip: bool, inner: F) -> impl Parser<&'a str, O, Error<&'a str>>
+where
+    F: Parser<&'a str, O, Error<&'a str>>,
+{
+    map_opt(cond(!skip, inner), identity)
+}
+
+fn markdown<'a>(markdown_only: bool) -> impl Parser<&'a str, Markdown<'a>, Error<&'a str>> {
+    let between = |start, end| delimited(tag(start), plain(markdown_only), tag(end));
 
     let italic = alt((between("_", "_"), between("*", "*")));
     let bold = alt((between("__", "__"), between("**", "**")));
@@ -152,7 +145,7 @@ fn markdown(input: &str, markdown_only: bool) -> IResult<&str, Markdown> {
         map(italic, Markdown::Italic),
         map(code, Markdown::Code),
         map(spoiler, Markdown::Spoiler),
-    ))(input)
+    ))
 }
 
 fn dollar(input: &str) -> IResult<&str, Dollar> {
