@@ -96,6 +96,7 @@ fn token<'a>(markdown_only: bool) -> impl Parser<&'a str, Token<'a>, Error<&'a s
         map(plain(markdown_only), Token::Plain),
         map(markdown(markdown_only), Token::Markdown),
         skip(markdown_only, map(dollar, Token::Dollar)),
+        // Catch invalid special char usage
         map(anychar, Token::Unknown),
     ))
 }
@@ -109,12 +110,13 @@ fn escaped<'a>(markdown_only: bool) -> impl Parser<&'a str, char, Error<&'a str>
         value('*', tag("\\*")),
         value('_', tag("\\_")),
         value('`', tag("\\`")),
+        value('`', tag("``")),
         value('|', tag("\\|")),
-        none_of("*_`|"),
         skip(
             markdown_only,
-            alt((value('$', tag("\\$")), value('$', tag("$$")), none_of("$"))),
+            alt((value('$', tag("\\$")), value('$', tag("$$")))),
         ),
+        ternary(markdown_only, none_of("*_`|"), none_of("*_`|$")),
     ))
 }
 
@@ -123,6 +125,14 @@ where
     F: Parser<&'a str, O, Error<&'a str>>,
 {
     map_opt(cond(!skip, inner), identity)
+}
+
+fn ternary<'a, F, G, O>(boolean: bool, a: F, b: G) -> impl Parser<&'a str, O, Error<&'a str>>
+where
+    F: Parser<&'a str, O, Error<&'a str>>,
+    G: Parser<&'a str, O, Error<&'a str>>,
+{
+    map_opt(cond(boolean, a), identity).or(b)
 }
 
 fn markdown<'a>(markdown_only: bool) -> impl Parser<&'a str, Markdown<'a>, Error<&'a str>> {
