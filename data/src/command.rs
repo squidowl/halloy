@@ -127,7 +127,7 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
             Kind::Format => {
                 if let Some(target) = buffer.and_then(|b| b.target()) {
                     validated::<1, 0, true>(args, |[text], _| {
-                        Command::Msg(target, formatting::encode(&text))
+                        Command::Msg(target, formatting::encode(&text, false))
                     })
                 } else {
                     Ok(unknown())

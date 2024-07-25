@@ -66,7 +66,7 @@ impl Buffer {
     ) -> (Task<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
-                let (command, event) = state.update(message, clients, history);
+                let (command, event) = state.update(message, clients, history, config);
 
                 let event = event.map(|event| match event {
                     channel::Event::UserContext(event) => Event::UserContext(event),
@@ -75,12 +75,12 @@ impl Buffer {
                 (command.map(Message::Channel), event)
             }
             (Buffer::Server(state), Message::Server(message)) => {
-                let command = state.update(message, clients, history);
+                let command = state.update(message, clients, history, config);
 
                 (command.map(Message::Server), None)
             }
             (Buffer::Query(state), Message::Query(message)) => {
-                let (command, event) = state.update(message, clients, history);
+                let (command, event) = state.update(message, clients, history, config);
 
                 let event = event.map(|event| match event {
                     query::Event::UserContext(event) => Event::UserContext(event),

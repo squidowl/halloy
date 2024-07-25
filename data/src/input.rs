@@ -4,15 +4,25 @@ use chrono::Utc;
 use irc::proto;
 use irc::proto::format;
 
+use crate::buffer::AutoFormat;
+use crate::message::formatting;
 use crate::time::Posix;
 use crate::{command, message, Buffer, Command, Message, Server, User};
 
 const INPUT_HISTORY_LENGTH: usize = 100;
 
-pub fn parse(buffer: Buffer, input: &str) -> Result<Input, Error> {
+pub fn parse(buffer: Buffer, auto_format: AutoFormat, input: &str) -> Result<Input, Error> {
     let content = match command::parse(input, Some(&buffer)) {
         Ok(command) => Content::Command(command),
-        Err(command::Error::MissingSlash) => Content::Text(input.to_string()),
+        Err(command::Error::MissingSlash) => {
+            let text = match auto_format {
+                AutoFormat::Disabled => input.to_string(),
+                AutoFormat::Markdown => formatting::encode(input, true),
+                AutoFormat::All => formatting::encode(input, false),
+            };
+
+            Content::Text(text)
+        }
         Err(error) => return Err(Error::Command(error)),
     };
 
