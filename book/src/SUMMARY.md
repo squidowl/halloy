@@ -29,3 +29,4 @@
 - [Portable mode](guides/portable-mode.md)
 - [Multiple servers](guides/multiple-servers.md)
 - [Storing passwords in a File](guides/password-file.md)
+- [Text Formatting](guides/text-formatting.md)
