@@ -3,7 +3,7 @@ use std::str::FromStr;
 use irc::proto;
 use itertools::Itertools;
 
-use crate::{ctcp, Buffer};
+use crate::{ctcp, message::formatting, Buffer};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Kind {
@@ -18,6 +18,8 @@ pub enum Kind {
     Topic,
     Kick,
     Mode,
+    Format,
+    Raw,
 }
 
 impl FromStr for Kind {
@@ -36,6 +38,8 @@ impl FromStr for Kind {
             "topic" | "t" => Ok(Kind::Topic),
             "kick" => Ok(Kind::Kick),
             "mode" | "m" => Ok(Kind::Mode),
+            "format" | "f" => Ok(Kind::Format),
+            "raw" => Ok(Kind::Raw),
             _ => Err(()),
         }
     }
@@ -65,14 +69,16 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
         return Err(Error::MissingSlash);
     }
 
-    if rest.to_lowercase().starts_with("raw ") {
-        return Ok(Command::Raw(rest.chars().skip(4).collect()));
-    }
-
     let mut split = rest.split_ascii_whitespace();
 
     let cmd = split.next().ok_or(Error::MissingCommand)?;
+
+    if rest.len() == cmd.len() {
+        return Err(Error::MissingArgs);
+    }
+
     let args = split.collect::<Vec<_>>();
+    let raw = &rest[cmd.len() + 1..];
 
     let unknown = || {
         Command::Unknown(
@@ -121,6 +127,14 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
                     Some(mode.to_string()),
                     users.iter().map(|s| s.to_string()).collect(),
                 ))
+            }
+            Kind::Raw => Ok(Command::Raw(raw.to_string())),
+            Kind::Format => {
+                if let Some(target) = buffer.and_then(|b| b.target()) {
+                    Ok(Command::Msg(target, formatting::encode(raw, false)))
+                } else {
+                    Ok(unknown())
+                }
             }
         },
         Err(_) => Ok(unknown()),
@@ -202,6 +216,8 @@ pub enum Error {
     MissingSlash,
     #[error("missing command")]
     MissingCommand,
+    #[error("missing args")]
+    MissingArgs,
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {

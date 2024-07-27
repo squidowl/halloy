@@ -69,7 +69,10 @@ impl From<config::Buffer> for Settings {
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 pub struct TextInput {
+    #[serde(default)]
     pub visibility: TextInputVisibility,
+    #[serde(default)]
+    pub auto_format: AutoFormat,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
@@ -78,6 +81,15 @@ pub enum TextInputVisibility {
     Focused,
     #[default]
     Always,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AutoFormat {
+    #[default]
+    Disabled,
+    Markdown,
+    All,
 }
 
 #[derive(Debug, Clone, Deserialize)]

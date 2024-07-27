@@ -4,20 +4,24 @@ use std::sync::OnceLock;
 use data::Config;
 use iced::font;
 
-pub static MONO: Font = Font::new(false);
-pub static MONO_BOLD: Font = Font::new(true);
+pub static MONO: Font = Font::new(false, false);
+pub static MONO_BOLD: Font = Font::new(true, false);
+pub static MONO_ITALICS: Font = Font::new(false, true);
+pub static MONO_BOLD_ITALICS: Font = Font::new(true, true);
 pub const ICON: iced::Font = iced::Font::with_name("halloy-icons");
 
 #[derive(Debug, Clone)]
 pub struct Font {
     bold: bool,
+    italics: bool,
     inner: OnceLock<iced::Font>,
 }
 
 impl Font {
-    const fn new(bold: bool) -> Self {
+    const fn new(bold: bool, italics: bool) -> Self {
         Self {
             bold,
+            italics,
             inner: OnceLock::new(),
         }
     }
@@ -29,9 +33,15 @@ impl Font {
         } else {
             font::Weight::Normal
         };
+        let style = if self.italics {
+            font::Style::Italic
+        } else {
+            font::Style::Normal
+        };
 
         let _ = self.inner.set(iced::Font {
             weight,
+            style,
             ..iced::Font::with_name(name)
         });
     }
@@ -49,7 +59,9 @@ pub fn set(config: Option<&Config>) {
         .unwrap_or_else(|| String::from("Iosevka Term"));
 
     MONO.set(family.clone());
-    MONO_BOLD.set(family);
+    MONO_BOLD.set(family.clone());
+    MONO_ITALICS.set(family.clone());
+    MONO_BOLD_ITALICS.set(family);
 }
 
 pub fn load() -> Vec<Cow<'static, [u8]>> {
