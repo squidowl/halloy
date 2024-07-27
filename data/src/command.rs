@@ -19,6 +19,7 @@ pub enum Kind {
     Kick,
     Mode,
     Format,
+    Raw,
 }
 
 impl FromStr for Kind {
@@ -38,6 +39,7 @@ impl FromStr for Kind {
             "kick" => Ok(Kind::Kick),
             "mode" | "m" => Ok(Kind::Mode),
             "format" | "f" => Ok(Kind::Format),
+            "raw" => Ok(Kind::Raw),
             _ => Err(()),
         }
     }
@@ -67,14 +69,16 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
         return Err(Error::MissingSlash);
     }
 
-    if rest.to_lowercase().starts_with("raw ") {
-        return Ok(Command::Raw(rest.chars().skip(4).collect()));
-    }
-
     let mut split = rest.split_ascii_whitespace();
 
     let cmd = split.next().ok_or(Error::MissingCommand)?;
+
+    if rest.len() == cmd.len() {
+        return Err(Error::MissingArgs);
+    }
+
     let args = split.collect::<Vec<_>>();
+    let raw = &rest[cmd.len() + 1..];
 
     let unknown = || {
         Command::Unknown(
@@ -124,11 +128,10 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
                     users.iter().map(|s| s.to_string()).collect(),
                 ))
             }
+            Kind::Raw => Ok(Command::Raw(raw.to_string())),
             Kind::Format => {
                 if let Some(target) = buffer.and_then(|b| b.target()) {
-                    validated::<1, 0, true>(args, |[text], _| {
-                        Command::Msg(target, formatting::encode(&text, false))
-                    })
+                    Ok(Command::Msg(target, formatting::encode(raw, false)))
                 } else {
                     Ok(unknown())
                 }
@@ -213,6 +216,8 @@ pub enum Error {
     MissingSlash,
     #[error("missing command")]
     MissingCommand,
+    #[error("missing args")]
+    MissingArgs,
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
