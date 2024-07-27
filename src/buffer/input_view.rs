@@ -1,6 +1,6 @@
 use data::input::{self, Cache, Draft};
 use data::user::Nick;
-use data::{client, history, Buffer};
+use data::{client, history, Buffer, Config};
 use iced::widget::{container, row, text, text_input};
 use iced::Task;
 
@@ -115,6 +115,7 @@ impl State {
         buffer: Buffer,
         clients: &mut client::Map,
         history: &mut history::Manager,
+        config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Input(input) => {
@@ -155,7 +156,11 @@ impl State {
                     self.completion.reset();
 
                     // Parse input
-                    let input = match input::parse(buffer.clone(), input) {
+                    let input = match input::parse(
+                        buffer.clone(),
+                        config.buffer.text_input.auto_format,
+                        input,
+                    ) {
                         Ok(input) => input,
                         Err(error) => {
                             self.error = Some(error.to_string());
