@@ -48,11 +48,13 @@ brackets = { left = "<string>", right = "<string>" }
 ```toml
 [buffer.text_input]
 visibility = "always" | "focused"
+auto_format = "disabled" | "markdown" | "all"
 ```
 
-| Key          | Description                                              | Default    |
-| ------------ | -------------------------------------------------------- | ---------- |
-| `visibility` | Text input visibility. Can be `"always"` or `"focused"`. | `"always"` |
+| Key           | Description                                              | Default      |
+| ------------- | -------------------------------------------------------- | ------------ |
+| `visibility`  | Text input visibility. Can be `"always"` or `"focused"`. | `"always"`   |
+| `auto_format` | Auto format text without using `format` command.         | `"disabled"` |
 
 ## `[buffer.channel]` Section
 
@@ -132,7 +134,7 @@ hex = "<string>"
 | `enabled`         | Control if the server message should appear in buffers or not                                                                                                    | `true`    |
 | `smart`           | Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.                                        | `not set` |
 | `username_format` | Adjust how the username should look. Can be `"full"` (shows the longest username available (nickname, username and hostname) or `"short"` (only shows nickname). | `"full"`  |
-| `hex`     | Overwrite the default color. Optional.                                           | `not set` |
+| `hex`             | Overwrite the default color. Optional.                                                                                                                           | `not set` |
 
 ## `[buffer.internal_messages]` Section
 
