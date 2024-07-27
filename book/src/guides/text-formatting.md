@@ -25,11 +25,11 @@ Will render the following:
 
 ## Color
 
-| Action              | Token   |
-| ------------------- | ------- |
-| Text color (fg)          | `$c0`   |
+| Action                        | Token   |
+| ----------------------------- | ------- |
+| Text color (fg)               | `$c0`   |
 | Text and background (fg & bg) | `$c0,1` |
-| End color           | `$c`    |
+| End color                     | `$c`    |
 
 The number next to the `$c` token indicates the color. For a comprehensive list of all numbers, see the following [ircdocs.horse documentation](https://modern.ircdocs.horse/formatting#colors-16-98). Below, the first 00 to 15 colors are defined and have been assigned aliases for convenience.
 
@@ -72,5 +72,5 @@ By default, Halloy will only format text when using the `/format` command. This,
 
 ```toml
 [buffer.text_input]
-auto_format: disabled | markdown | all
+auto_format: "disabled" | "markdown" | "all"
 ```
