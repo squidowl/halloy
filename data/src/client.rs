@@ -95,7 +95,6 @@ pub enum Event {
     ChatHistoryRequestFromHistory(HistoryRequest),
     ChatHistoryRequestReceived(ChatHistorySubcommand, usize),
     ChatHistoryTargetsReceived(DateTime<Utc>),
-    CheckForStoredUnread(String),
 }
 
 struct ChatHistoryRequest {
@@ -1102,8 +1101,6 @@ impl Client {
                             state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
                         }
                         log::debug!("[{}] {channel} - WHO requested", self.server);
-
-                        events.push(Event::CheckForStoredUnread(channel.clone()));
 
                         if self.supports_chathistory
                             && self.isupport.contains_key(&isupport::Kind::MSGREFTYPES)

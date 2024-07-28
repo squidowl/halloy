@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 use futures::{future, Future, FutureExt};
-use irc::proto;
 use itertools::Itertools;
 use tokio::{self, time::Instant};
 
@@ -183,21 +182,46 @@ impl Manager {
         );
     }
 
-    pub fn inc_unread_count(&mut self, server: &Server, target: &str) {
-        let kind = if proto::is_channel(target) {
-            history::Kind::Channel(target.to_string())
-        } else {
-            history::Kind::Query(target.to_string().into())
-        };
+    pub fn update_read_marker(
+        &mut self,
+        server: &Server,
+        kind: &history::Kind,
+        read_marker: Option<DateTime<Utc>>,
+    ) {
+        self.data.update_read_marker(server, kind, read_marker);
+    }
 
+    pub fn inc_unread_count(&mut self, server: &Server, kind: &history::Kind, increment: usize) {
         if let Some(ref mut history) = self
             .data
             .map
             .get_mut(server)
-            .and_then(|map| map.get_mut(&kind))
+            .and_then(|map| map.get_mut(kind))
         {
-            history.inc_unread_count();
+            history.inc_unread_count(increment);
         }
+    }
+
+    pub fn stored_messages_may_be_unread(
+        &self,
+        server: &Server,
+        kind: &history::Kind,
+        read_marker: Option<DateTime<Utc>>,
+    ) -> bool {
+        if let Some(ref mut history) = self.data.map.get(server).and_then(|map| map.get(kind)) {
+            match history {
+                History::Partial { messages, .. } => {
+                    if let Some(message) = messages.iter().next() {
+                        if !history::after_read_marker(message, &read_marker) {
+                            return false;
+                        }
+                    }
+                }
+                History::Full { .. } => return false,
+            }
+        }
+
+        true
     }
 
     pub fn get_oldest_message(
@@ -206,16 +230,10 @@ impl Manager {
         target: &str,
         message_reference_type: &isupport::MessageReferenceType,
     ) -> Option<&crate::Message> {
-        let kind = if proto::is_channel(target) {
-            history::Kind::Channel(target.to_string())
-        } else {
-            history::Kind::Query(target.to_string().into())
-        };
-
         self.data
             .map
             .get(server)
-            .and_then(|map| map.get(&kind))
+            .and_then(|map| map.get(&history::Kind::from(target)))
             .map(|history| history.get_oldest_message(message_reference_type))?
     }
 
@@ -480,32 +498,30 @@ impl Data {
                         history::insert_message(&mut messages, new_message, &read_marker);
                     });
                     entry.insert(History::Full {
-                        server,
-                        kind,
+                        server: server.clone(),
+                        kind: kind.clone(),
                         messages,
                         last_received_at,
                         read_marker,
                     });
                 }
                 _ => {
-                    let read_marker = history::load_read_marker(&server, &kind);
                     entry.insert(History::Full {
-                        server,
-                        kind,
+                        server: server.clone(),
+                        kind: kind.clone(),
                         messages,
                         last_received_at: None,
-                        read_marker,
+                        read_marker: None,
                     });
                 }
             },
             hash_map::Entry::Vacant(entry) => {
-                let read_marker = history::load_read_marker(&server, &kind);
                 entry.insert(History::Full {
-                    server,
-                    kind,
+                    server: server.clone(),
+                    kind: kind.clone(),
                     messages,
                     last_received_at: None,
-                    read_marker,
+                    read_marker: None,
                 });
             }
         }
@@ -665,14 +681,22 @@ impl Data {
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| {
-                History::partial(
-                    server.clone(),
-                    kind.clone(),
-                    history::load_read_marker(&server, &kind),
-                )
-            })
-            .add_message(message)
+            .or_insert_with(|| History::partial(server.clone(), kind.clone(), None))
+            .add_message(message);
+    }
+
+    fn update_read_marker(
+        &mut self,
+        server: &server::Server,
+        kind: &history::Kind,
+        read_marker: Option<DateTime<Utc>>,
+    ) {
+        self.map
+            .entry(server.clone())
+            .or_default()
+            .entry(kind.clone())
+            .or_insert_with(|| History::partial(server.clone(), kind.clone(), None))
+            .update_read_marker(read_marker);
     }
 
     fn untrack(

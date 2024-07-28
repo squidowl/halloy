@@ -19,7 +19,7 @@ mod window;
 use std::env;
 use std::time::{Duration, Instant};
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use data::config::{self, Config};
 use data::isupport::{ChatHistorySubcommand, MessageReference};
 use data::version::Version;
@@ -143,11 +143,42 @@ impl Halloy {
             Ok(config) => {
                 let (screen, command) = load_dashboard(&config);
 
-                (
-                    Screen::Dashboard(screen),
-                    config,
-                    command.map(Message::Dashboard),
-                )
+                let mut commands = vec![command.map(Message::Dashboard)];
+
+                for entry in config.servers.entries() {
+                    let server = entry.server.clone();
+
+                    commands.push(Task::perform(
+                        history::load_read_marker(server.clone(), history::Kind::Server),
+                        move |read_marker| {
+                            Message::UpdateReadMarker(
+                                server.clone(),
+                                history::Kind::Server,
+                                read_marker,
+                            )
+                        },
+                    ));
+
+                    for channel in entry.config.channels {
+                        let server = entry.server.clone();
+
+                        commands.push(Task::perform(
+                            history::load_read_marker(
+                                server.clone(),
+                                history::Kind::Channel(channel.clone()),
+                            ),
+                            move |read_marker| {
+                                Message::UpdateReadMarker(
+                                    server.clone(),
+                                    history::Kind::Channel(channel.clone()),
+                                    read_marker,
+                                )
+                            },
+                        ));
+                    }
+                }
+
+                (Screen::Dashboard(screen), config, Task::batch(commands))
             }
             Err(error) => match &error {
                 config::Error::Parse(_) | config::Error::LoadSounds(_) => (
@@ -215,6 +246,7 @@ pub enum Message {
     WindowSettingsSaved(Result<(), window::Error>),
     ChatHistoryRequest(server::Server, ChatHistorySubcommand),
     ChatHistoryTargetsMarked(server::Server, Result<(), history::Error>),
+    UpdateReadMarker(server::Server, history::Kind, Option<DateTime<Utc>>),
 }
 
 impl Halloy {
@@ -821,27 +853,6 @@ impl Halloy {
                                             self.clients.clear_chathistory_request(&server, target);
                                         }
                                     }
-                                    data::client::Event::CheckForStoredUnread(target) => {
-                                        let server = server.clone();
-
-                                        commands.push(
-                                            Task::perform(
-                                                history::num_stored_unread_messages(
-                                                    server.clone(),
-                                                    target.clone(),
-                                                ),
-                                                move |num_stored_unread_messages| {
-                                                    Message::Dashboard(
-                                                        dashboard::Message::StoredUnread(
-                                                            server.clone(),
-                                                            target.clone(),
-                                                            num_stored_unread_messages,
-                                                        ),
-                                                    )
-                                                }
-                                            )
-                                        );
-                                    }
                                 }
                             }
 
@@ -998,6 +1009,30 @@ impl Halloy {
                     Ok(_) => log::debug!("[{server}] chathistory targets marked"),
                     Err(error) => {
                         log::warn!("[{server}] failed to mark chathistory targets: {error}")
+                    }
+                }
+
+                Task::none()
+            }
+            Message::UpdateReadMarker(server, kind, read_marker) => {
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    dashboard.update_read_marker(&server, &kind, read_marker);
+
+                    if dashboard.stored_messages_may_be_unread(&server, &kind, read_marker) {
+                        return Task::perform(
+                            history::num_stored_unread_messages(
+                                server.clone(),
+                                kind.clone(),
+                                read_marker,
+                            ),
+                            move |num_stored_unread_messages| {
+                                Message::Dashboard(dashboard::Message::IncrementUnread(
+                                    server.clone(),
+                                    kind.clone(),
+                                    num_stored_unread_messages,
+                                ))
+                            },
+                        );
                     }
                 }
 

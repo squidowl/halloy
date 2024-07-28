@@ -5,9 +5,9 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use data::history::manager::Broadcast;
-use data::isupport::{ChatHistorySubcommand, MessageReference};
+use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::user::Nick;
-use data::{client, environment, file_transfer, history, isupport, Config, Server, User, Version};
+use data::{client, environment, file_transfer, history, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, Length, Task, Vector};
@@ -56,7 +56,8 @@ pub enum Message {
     SendFileSelected(Server, Nick, Option<PathBuf>),
     CloseContextMenu(bool),
     ThemeEditor(theme_editor::Message),
-    StoredUnread(Server, String, usize),
+    IncrementUnread(Server, history::Kind, usize),
+    UpdateReadMarker(Server, history::Kind, Option<DateTime<Utc>>),
 }
 
 #[derive(Debug)]
@@ -740,10 +741,11 @@ impl Dashboard {
 
                 return (Task::batch(tasks), event);
             }
-            Message::StoredUnread(server, target, num_stored_unread_messages) => {
-                for _ in 0..num_stored_unread_messages {
-                    self.inc_unread_count(&server, &target);
-                }
+            Message::IncrementUnread(server, kind, increment) => {
+                self.inc_unread_count(&server, &kind, increment);
+            }
+            Message::UpdateReadMarker(server, kind, read_marker) => {
+                self.update_read_marker(&server, &kind, read_marker);
             }
         }
 
@@ -1141,8 +1143,27 @@ impl Dashboard {
         self.history.get_unique_queries(server)
     }
 
-    pub fn inc_unread_count(&mut self, server: &Server, target: &str) {
-        self.history.inc_unread_count(server, target);
+    pub fn update_read_marker(
+        &mut self,
+        server: &Server,
+        kind: &history::Kind,
+        read_marker: Option<DateTime<Utc>>,
+    ) {
+        self.history.update_read_marker(server, kind, read_marker);
+    }
+
+    pub fn inc_unread_count(&mut self, server: &Server, kind: &history::Kind, increment: usize) {
+        self.history.inc_unread_count(server, kind, increment);
+    }
+
+    pub fn stored_messages_may_be_unread(
+        &self,
+        server: &Server,
+        kind: &history::Kind,
+        read_marker: Option<DateTime<Utc>>,
+    ) -> bool {
+        self.history
+            .stored_messages_may_be_unread(server, kind, read_marker)
     }
 
     pub fn get_oldest_message_reference(
