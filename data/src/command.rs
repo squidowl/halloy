@@ -19,6 +19,7 @@ pub enum Kind {
     Kick,
     Mode,
     Format,
+    Away,
     Raw,
 }
 
@@ -39,6 +40,7 @@ impl FromStr for Kind {
             "kick" => Ok(Kind::Kick),
             "mode" | "m" => Ok(Kind::Mode),
             "format" | "f" => Ok(Kind::Format),
+            "away" => Ok(Kind::Away),
             "raw" => Ok(Kind::Raw),
             _ => Err(()),
         }
@@ -58,6 +60,7 @@ pub enum Command {
     Topic(String, Option<String>),
     Kick(String, String, Option<String>),
     Mode(String, Option<String>, Vec<String>),
+    Away(Option<String>),
     Raw(String),
     Unknown(String, Vec<String>),
 }
@@ -127,7 +130,8 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
                     Some(mode.to_string()),
                     users.iter().map(|s| s.to_string()).collect(),
                 ))
-            }
+            },
+            Kind::Away => validated::<0, 1, true>(args, |_, [comment]| Command::Away(comment)),
             Kind::Raw => Ok(Command::Raw(raw.to_string())),
             Kind::Format => {
                 if let Some(target) = buffer.and_then(|b| b.target()) {
@@ -198,6 +202,7 @@ impl TryFrom<Command> for proto::Command {
             Command::Topic(channel, topic) => proto::Command::TOPIC(channel, topic),
             Command::Kick(channel, user, comment) => proto::Command::KICK(channel, user, comment),
             Command::Mode(channel, mode, users) => proto::Command::MODE(channel, mode, users),
+            Command::Away(comment) => proto::Command::AWAY(comment),
             Command::Raw(raw) => proto::Command::Raw(raw),
             Command::Unknown(command, args) => proto::Command::new(&command, args),
         })
