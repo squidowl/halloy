@@ -50,6 +50,16 @@ impl From<message::Target> for Kind {
     }
 }
 
+impl From<&str> for Kind {
+    fn from(target: &str) -> Self {
+        if proto::is_channel(target) {
+            Kind::Channel(target.to_string())
+        } else {
+            Kind::Query(target.to_string().into())
+        }
+    }
+}
+
 pub async fn load_messages(server: &server::Server, kind: &Kind) -> Vec<Message> {
     let path = messages_path(server, kind);
 
@@ -70,10 +80,10 @@ pub async fn load_messages(server: &server::Server, kind: &Kind) -> Vec<Message>
     }
 }
 
-pub fn load_read_marker(server: &server::Server, kind: &Kind) -> Option<DateTime<Utc>> {
-    let path = read_marker_path(server, kind);
+pub async fn load_read_marker(server: server::Server, kind: Kind) -> Option<DateTime<Utc>> {
+    let path = read_marker_path(&server, &kind);
 
-    if let Ok(bytes) = std::fs::read(path) {
+    if let Ok(bytes) = fs::read(path).await {
         serde_json::from_slice(&bytes).unwrap_or_default()
     } else {
         None
@@ -250,13 +260,13 @@ impl History {
         }
     }
 
-    pub fn inc_unread_count(&mut self) {
+    pub fn inc_unread_count(&mut self, increment: usize) {
         if let History::Partial {
             unread_message_count,
             ..
         } = self
         {
-            *unread_message_count += 1;
+            *unread_message_count += increment;
         }
     }
 
@@ -279,7 +289,7 @@ impl History {
                 insert_message(messages, message, read_marker)
             }
         } {
-            self.inc_unread_count();
+            self.inc_unread_count(1);
         }
     }
 
@@ -404,6 +414,47 @@ impl History {
                 .find(|message| is_referenceable_message(message, Some(message_reference_type))),
         }
     }
+
+    pub fn update_read_marker(&mut self, read_marker: Option<DateTime<Utc>>) {
+        if let Some(read_marker) = read_marker {
+            let history_read_marker = match self {
+                History::Partial {
+                    read_marker: history_read_marker,
+                    ..
+                } => history_read_marker,
+                History::Full {
+                    read_marker: history_read_marker,
+                    ..
+                } => history_read_marker,
+            };
+
+            if let Some(history_read_marker) = history_read_marker {
+                if read_marker <= *history_read_marker {
+                    return;
+                }
+            }
+
+            *history_read_marker = Some(read_marker);
+        } else {
+            return;
+        }
+
+        if let History::Partial {
+            messages,
+            unread_message_count,
+            read_marker: history_read_marker,
+            ..
+        } = self
+        {
+            *unread_message_count = 0;
+
+            for message in messages {
+                if message.triggers_unread(history_read_marker) {
+                    *unread_message_count += 1;
+                }
+            }
+        }
+    }
 }
 
 pub async fn get_latest_message_reference(
@@ -412,13 +463,7 @@ pub async fn get_latest_message_reference(
     message_reference_types: Vec<isupport::MessageReferenceType>,
     before_server_time: DateTime<Utc>,
 ) -> isupport::MessageReference {
-    let kind = if proto::is_channel(&target) {
-        Kind::Channel(target.clone())
-    } else {
-        Kind::Query(target.clone().into())
-    };
-
-    let messages = load_messages(&server, &kind).await;
+    let messages = load_messages(&server, &Kind::from(target.as_ref())).await;
 
     if let Some((latest_message, message_reference_type)) =
         message_reference_types
@@ -434,7 +479,6 @@ pub async fn get_latest_message_reference(
                     .map(|latest_message| (latest_message, message_reference_type))
             })
     {
-        log::debug!("[{server}] {target} - latest_message {:?}", latest_message);
         match message_reference_type {
             isupport::MessageReferenceType::MessageId => {
                 if let Some(id) = &latest_message.id {
@@ -495,15 +539,11 @@ pub async fn get_latest_connected_message_reference(
         })
 }
 
-pub async fn num_stored_unread_messages(server: Server, target: String) -> usize {
-    let kind = if proto::is_channel(&target) {
-        Kind::Channel(target.clone())
-    } else {
-        Kind::Query(target.clone().into())
-    };
-
-    let read_marker = load_read_marker(&server, &kind);
-
+pub async fn num_stored_unread_messages(
+    server: Server,
+    kind: Kind,
+    read_marker: Option<DateTime<Utc>>,
+) -> usize {
     let messages = load_messages(&server, &kind).await;
 
     messages
