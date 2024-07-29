@@ -1135,8 +1135,12 @@ impl Dashboard {
         }
     }
 
-    pub fn record_message(&mut self, server: &Server, message: data::Message) {
-        self.history.record_message(server, message);
+    pub fn record_message(
+        &mut self,
+        server: &Server,
+        message: data::Message,
+    ) -> Option<history::manager::Event> {
+        self.history.record_message(server, message)
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {

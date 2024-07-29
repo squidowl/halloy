@@ -521,14 +521,40 @@ impl Halloy {
                                         if let Some(message) =
                                             data::Message::received(encoded, our_nick, &self.config, resolve_user_attributes)
                                         {
-                                            dashboard.record_message(&server, message);
+                                            if let Some(history::manager::Event::LoadReadMarker(server, kind)) =
+                                                dashboard.record_message(&server, message)
+                                            {
+                                                commands.push(Task::perform(
+                                                    history::load_read_marker(server.clone(), kind.clone()),
+                                                    move |read_marker| {
+                                                        Message::UpdateReadMarker(
+                                                            server.clone(),
+                                                            kind.clone(),
+                                                            read_marker,
+                                                        )
+                                                    },
+                                                ));
+                                            }
                                         }
                                     }
                                     data::client::Event::WithTarget(encoded, our_nick, target) => {
                                         if let Some(message) =
                                             data::Message::received(encoded, our_nick, &self.config, resolve_user_attributes)
                                         {
-                                            dashboard.record_message(&server, message.with_target(target));
+                                            if let Some(history::manager::Event::LoadReadMarker(server, kind)) =
+                                                dashboard.record_message(&server, message.with_target(target))
+                                            {
+                                                commands.push(Task::perform(
+                                                    history::load_read_marker(server.clone(), kind.clone()),
+                                                    move |read_marker| {
+                                                        Message::UpdateReadMarker(
+                                                            server.clone(),
+                                                            kind.clone(),
+                                                            read_marker,
+                                                        )
+                                                    },
+                                                ));
+                                            }
                                         }
                                     }
                                     data::client::Event::Broadcast(broadcast) => match broadcast {
@@ -607,7 +633,20 @@ impl Halloy {
                                         if let Some(message) =
                                             data::Message::received(encoded, our_nick, &self.config, resolve_user_attributes)
                                         {
-                                            dashboard.record_message(&server, message);
+                                            if let Some(history::manager::Event::LoadReadMarker(server, kind)) =
+                                                dashboard.record_message(&server, message)
+                                            {
+                                                commands.push(Task::perform(
+                                                    history::load_read_marker(server.clone(), kind.clone()),
+                                                    move |read_marker| {
+                                                        Message::UpdateReadMarker(
+                                                            server.clone(),
+                                                            kind.clone(),
+                                                            read_marker,
+                                                        )
+                                                    },
+                                                ));
+                                            }
                                         }
 
                                         match notification {

@@ -25,6 +25,10 @@ pub enum Message {
     Flushed(server::Server, history::Kind, Result<(), history::Error>),
 }
 
+pub enum Event {
+    LoadReadMarker(server::Server, history::Kind),
+}
+
 #[derive(Debug, Default)]
 pub struct Manager {
     resources: HashSet<Resource>,
@@ -174,12 +178,12 @@ impl Manager {
         self.data.input.store_draft(draft);
     }
 
-    pub fn record_message(&mut self, server: &Server, message: crate::Message) {
+    pub fn record_message(&mut self, server: &Server, message: crate::Message) -> Option<Event> {
         self.data.add_message(
             server.clone(),
             history::Kind::from(message.target.clone()),
             message,
-        );
+        )
     }
 
     pub fn update_read_marker(
@@ -676,13 +680,28 @@ impl Data {
         server: server::Server,
         kind: history::Kind,
         message: crate::Message,
-    ) {
-        self.map
+    ) -> Option<Event> {
+        use std::collections::hash_map;
+
+        match self
+            .map
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| History::partial(server.clone(), kind.clone(), None))
-            .add_message(message);
+        {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().add_message(message);
+
+                None
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry
+                    .insert(History::partial(server.clone(), kind.clone(), None))
+                    .add_message(message);
+
+                Some(Event::LoadReadMarker(server.clone(), kind.clone()))
+            }
+        }
     }
 
     fn update_read_marker(
