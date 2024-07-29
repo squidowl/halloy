@@ -50,6 +50,12 @@ impl From<message::Target> for Kind {
     }
 }
 
+impl From<String> for Kind {
+    fn from(target: String) -> Self {
+        Kind::from(target.as_ref())
+    }
+}
+
 impl From<&str> for Kind {
     fn from(target: &str) -> Self {
         if proto::is_channel(target) {
@@ -107,7 +113,7 @@ pub async fn overwrite(
     read_marker: &Option<DateTime<Utc>>,
 ) -> Result<(), Error> {
     if messages.is_empty() {
-        return Ok(());
+        return overwrite_read_marker(server, kind, read_marker).await;
     }
 
     let latest = &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
@@ -120,6 +126,16 @@ pub async fn overwrite(
 
     fs::write(messages_path(server, kind), &compressed).await?;
 
+    overwrite_read_marker(server, kind, read_marker).await?;
+
+    Ok(())
+}
+
+pub async fn overwrite_read_marker(
+    server: &server::Server,
+    kind: &Kind,
+    read_marker: &Option<DateTime<Utc>>,
+) -> Result<(), Error> {
     let bytes = serde_json::to_vec(&read_marker)?;
 
     fs::write(read_marker_path(server, kind), &bytes).await?;
@@ -128,7 +144,7 @@ pub async fn overwrite(
         let targets_marker = load_targets_marker(server.clone()).await;
 
         if !targets_marker.is_some_and(|targets_marker| targets_marker >= *read_marker) {
-            let _ = overwrite_targets_marker(server.clone(), *read_marker).await;
+            overwrite_targets_marker(server.clone(), *read_marker).await?;
         }
     }
 
@@ -153,7 +169,7 @@ pub async fn append(
     read_marker: &Option<DateTime<Utc>>,
 ) -> Result<(), Error> {
     if messages.is_empty() {
-        return Ok(());
+        return overwrite_read_marker(server, kind, read_marker).await;
     }
 
     let mut all_messages = load_messages(server, kind).await;
@@ -306,18 +322,26 @@ impl History {
                 if let Some(last_received) = *last_received_at {
                     let since = now.duration_since(last_received);
 
-                    if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
+                    if since >= FLUSH_AFTER_LAST_RECEIVED {
                         let server = server.clone();
                         let kind = kind.clone();
                         let read_marker = *read_marker;
-                        *last_received_at = None;
 
-                        let messages = std::mem::take(messages);
+                        if messages.is_empty() {
+                            return Some(
+                                async move { overwrite_read_marker(&server, &kind, &read_marker).await }
+                                    .boxed(),
+                            );
+                        } else {
+                            *last_received_at = None;
 
-                        return Some(
-                            async move { append(&server, &kind, messages, &read_marker).await }
-                                .boxed(),
-                        );
+                            let messages = std::mem::take(messages);
+
+                            return Some(
+                                async move { append(&server, &kind, messages, &read_marker).await }
+                                    .boxed(),
+                            );
+                        }
                     }
                 }
 
@@ -334,21 +358,29 @@ impl History {
                 if let Some(last_received) = *last_received_at {
                     let since = now.duration_since(last_received);
 
-                    if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
+                    if since >= FLUSH_AFTER_LAST_RECEIVED {
                         let server = server.clone();
                         let kind = kind.clone();
                         let read_marker = *read_marker;
-                        *last_received_at = None;
 
-                        if messages.len() > MAX_MESSAGES {
-                            messages.drain(0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT));
+                        if messages.is_empty() {
+                            return Some(
+                                async move { overwrite_read_marker(&server, &kind, &read_marker).await }
+                                    .boxed(),
+                            );
+                        } else {
+                            *last_received_at = None;
+
+                            if messages.len() > MAX_MESSAGES {
+                                messages.drain(0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT));
+                            }
+                            let messages = messages.clone();
+
+                            return Some(
+                                async move { overwrite(&server, &kind, &messages, &read_marker).await }
+                                    .boxed(),
+                            );
                         }
-                        let messages = messages.clone();
-
-                        return Some(
-                            async move { overwrite(&server, &kind, &messages, &read_marker).await }
-                                .boxed(),
-                        );
                     }
                 }
 
@@ -463,7 +495,7 @@ pub async fn get_latest_message_reference(
     message_reference_types: Vec<isupport::MessageReferenceType>,
     before_server_time: DateTime<Utc>,
 ) -> isupport::MessageReference {
-    let messages = load_messages(&server, &Kind::from(target.as_ref())).await;
+    let messages = load_messages(&server, &Kind::from(target)).await;
 
     if let Some((latest_message, message_reference_type)) =
         message_reference_types
