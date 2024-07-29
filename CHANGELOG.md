@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2024.9 (2024-07-29)
+
 Added:
 
 - Rich formatted and clickable URLs
