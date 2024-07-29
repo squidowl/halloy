@@ -11,6 +11,8 @@ Below is a table with the supported text attributes.
 | _Italics_             | `_italic text_`         | `$iitalic text$i`         |
 | **Bold**              | `__bold text__`         | `$bbold text$b`           |
 | **_Italic and Bold_** | `___italic and bold___` | `$b$iitalic and bold$i$b` |
+| ~~Strikethrough~~     | `~~strikethrough~~`     | `$sstrikethrough$s`       |
+| Underline             | -                       | `$uunderline$u`           |
 | Code                  | `` `code` ``            | `$mcode$m`                |
 | Spoiler               | `\|\|spoiler\|\|`       | -                         |
 
@@ -20,8 +22,9 @@ Example
 /format __this is bold__ $iand this is italic$i
 ```
 
-Will render the following: 
-> __this is bold__ _and this is italic_
+Will render the following:
+
+> **this is bold** _and this is italic_
 
 ## Color
 
@@ -50,7 +53,7 @@ Colors
 <span style="display:inline-block;width:12px;height:12px;background-color:#0000fc;"></span> - 12 - lightblue  
 <span style="display:inline-block;width:12px;height:12px;background-color:#ff00ff;"></span> - 13 - pink  
 <span style="display:inline-block;width:12px;height:12px;background-color:#7f7f7f;"></span> - 14 - grey  
-<span style="display:inline-block;width:12px;height:12px;background-color:#d2d2d2;"></span> - 15 - lightgrey  
+<span style="display:inline-block;width:12px;height:12px;background-color:#d2d2d2;"></span> - 15 - lightgrey
 
 Example
 
@@ -59,12 +62,11 @@ Example
 /format $c04,09foobar$c
 ```
 
-Will both render the following: 
+Will both render the following:
 
 <span style="display: inline-block; background-color: #00fc00; color: #ff0000;">
   foobar
 </span>
-
 
 ## Configuration
 
