@@ -52,6 +52,10 @@ pub fn refresh<'a>() -> Text<'a> {
     to_text('\u{E807}')
 }
 
+pub fn megaphone<'a>() -> Text<'a> {
+    to_text('\u{E809}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .style(theme::text::primary)

@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use data::dashboard::DefaultAction;
-use data::{file_transfer, history, Buffer};
+use data::{file_transfer, history, Buffer, Version};
 use iced::widget::{
     button, center, column, container, horizontal_space, pane_grid, row, scrollable, text,
     vertical_space, Scrollable,
@@ -22,6 +22,7 @@ pub enum Message {
     ToggleFileTransfers,
     ToggleCommandBar,
     ReloadConfigFile,
+    OpenReleaseWebsite,
 }
 
 #[derive(Debug, Clone)]
@@ -34,6 +35,7 @@ pub enum Event {
     ToggleFileTransfers,
     ToggleCommandBar,
     ReloadConfigFile,
+    OpenReleaseWebsite,
 }
 
 #[derive(Clone)]
@@ -67,6 +69,7 @@ impl Sidebar {
                 self.timestamp = Some(Instant::now());
                 Event::ReloadConfigFile
             }
+            Message::OpenReleaseWebsite => Event::OpenReleaseWebsite,
         }
     }
 
@@ -80,6 +83,7 @@ impl Sidebar {
         config: data::config::Sidebar,
         show_tooltips: bool,
         file_transfers: &'a file_transfer::Manager,
+        version: &'a Version,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -152,11 +156,31 @@ impl Sidebar {
 
         let mut menu_buttons = row![].spacing(1).padding(padding::bottom(4));
 
+        if version.is_old() {
+            let button = button(center(icon::megaphone().style(theme::text::info)))
+                .on_press(Message::OpenReleaseWebsite)
+                .padding(5)
+                .width(22)
+                .height(22)
+                .style(theme::button::side_menu);
+
+            let button_with_tooltip = tooltip(
+                button,
+                show_tooltips.then_some("New Halloy version is available!"),
+                tooltip::Position::Top,
+            );
+
+            menu_buttons = menu_buttons.push(button_with_tooltip);
+        }
+
         if config.buttons.reload_config {
             let icon = self
                 .timestamp
                 .filter(|&timestamp| now.saturating_duration_since(timestamp) < Duration::new(1, 0))
-                .map_or_else(|| icon::refresh().style(theme::text::primary), |_| icon::checkmark().style(theme::text::success));
+                .map_or_else(
+                    || icon::refresh().style(theme::text::primary),
+                    |_| icon::checkmark().style(theme::text::success),
+                );
 
             let button = button(center(icon))
                 .on_press(Message::ReloadConfigFile)
