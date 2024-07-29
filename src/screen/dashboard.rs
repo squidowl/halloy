@@ -190,9 +190,29 @@ impl Dashboard {
                                     }
                                     buffer::user_context::Event::OpenQuery(nick) => {
                                         if let Some(data) = pane.buffer.data() {
-                                            let buffer =
-                                                data::Buffer::Query(data.server().clone(), nick);
-                                            return (self.open_buffer(buffer, config), None);
+                                            let server = data.server().clone();
+                                            let kind = history::Kind::Query(nick.clone());
+
+                                            let buffer = data::Buffer::Query(server.clone(), nick);
+                                            return (
+                                                Task::batch(vec![
+                                                    self.open_buffer(buffer, config),
+                                                    Task::perform(
+                                                        history::load_read_marker(
+                                                            server.clone(),
+                                                            kind.clone(),
+                                                        ),
+                                                        move |read_marker| {
+                                                            Message::UpdateReadMarker(
+                                                                server.clone(),
+                                                                kind.clone(),
+                                                                read_marker,
+                                                            )
+                                                        },
+                                                    ),
+                                                ]),
+                                                None,
+                                            );
                                         }
                                     }
                                     buffer::user_context::Event::SingleClick(nick) => {
@@ -935,8 +955,12 @@ impl Dashboard {
         }
     }
 
-    pub fn record_message(&mut self, server: &Server, message: data::Message) {
-        self.history.record_message(server, message);
+    pub fn record_message(
+        &mut self,
+        server: &Server,
+        message: data::Message,
+    ) -> Option<history::manager::Event> {
+        self.history.record_message(server, message)
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
