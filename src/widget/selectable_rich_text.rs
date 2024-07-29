@@ -2,7 +2,7 @@ use iced::advanced::graphics::core::touch;
 use iced::advanced::layout;
 use iced::advanced::renderer;
 use iced::advanced::renderer::Quad;
-use iced::advanced::text::Background;
+use iced::advanced::text::Highlight;
 use iced::advanced::text::{self, Paragraph, Span, Text};
 use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Operation;
@@ -17,7 +17,8 @@ use iced::Border;
 use iced::Length;
 use iced::Point;
 use iced::Shadow;
-use iced::{self, Color, Element, Event, Pixels, Rectangle, Size};
+use iced::Vector;
+use iced::{self, Background, Color, Element, Event, Pixels, Rectangle, Size};
 use itertools::Itertools;
 
 use super::selectable_text::{selection, Catalog, Interaction, Style, StyleFn};
@@ -194,7 +195,7 @@ struct State<Link, P: Paragraph> {
     span_pressed: Option<usize>,
     paragraph: P,
     interaction: Interaction,
-    shown_spoiler: Option<(usize, Color, Background)>,
+    shown_spoiler: Option<(usize, Color, Highlight)>,
 }
 
 impl<'a, Message, Link, Theme, Renderer> Widget<Message, Theme, Renderer>
@@ -341,8 +342,8 @@ where
                     if state.shown_spoiler.is_none() {
                         // Find if spoiler is hovered
                         for (index, span) in state.spans.iter().enumerate() {
-                            if let Some((fg, bg)) = span.color.zip(span.background) {
-                                let is_spoiler = fg == bg.color;
+                            if let Some((fg, highlight)) = span.color.zip(span.highlight) {
+                                let is_spoiler = highlight.background == Background::Color(fg);
 
                                 if is_spoiler
                                     && state
@@ -351,7 +352,7 @@ where
                                         .into_iter()
                                         .any(|bounds| bounds.contains(cursor))
                                 {
-                                    state.shown_spoiler = Some((index, fg, bg));
+                                    state.shown_spoiler = Some((index, fg, highlight));
                                     break;
                                 }
                             }
@@ -362,7 +363,7 @@ where
                             // Safe we just got this index
                             let span = &mut state.spans[index];
                             span.color = None;
-                            span.background = None;
+                            span.highlight = None;
                             state.paragraph = Renderer::Paragraph::with_spans(text_with_spans(
                                 state.spans.as_ref(),
                             ));
@@ -370,10 +371,10 @@ where
                     }
                 }
                 // Hide spoiler
-                else if let Some((index, fg, bg)) = state.shown_spoiler.take() {
+                else if let Some((index, fg, highlight)) = state.shown_spoiler.take() {
                     if let Some(span) = state.spans.get_mut(index) {
                         span.color = Some(fg);
-                        span.background = Some(bg);
+                        span.highlight = Some(highlight);
                     }
                     state.paragraph =
                         Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_ref()));
@@ -392,7 +393,7 @@ where
         theme: &Theme,
         defaults: &renderer::Style,
         layout: Layout<'_>,
-        _cursor_position: mouse::Cursor,
+        cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
         let bounds = layout.bounds();
@@ -407,20 +408,88 @@ where
 
         let style = theme.style(&self.class);
 
-        // Draw backgrounds
-        for (index, span) in state.spans.iter().enumerate() {
-            if let Some(background) = span.background {
-                let translation = layout.position() - Point::ORIGIN;
+        let hovered_span = cursor
+            .position_in(layout.bounds())
+            .and_then(|position| state.paragraph.hit_span(position));
 
-                for bounds in state.paragraph.span_bounds(index) {
-                    renderer.fill_quad(
-                        renderer::Quad {
-                            bounds: bounds + translation,
-                            border: background.border,
-                            ..Default::default()
-                        },
-                        background.color,
-                    );
+        for (index, span) in state.spans.iter().enumerate() {
+            let is_hovered_link = span.link.is_some() && Some(index) == hovered_span;
+
+            if span.highlight.is_some() || span.underline || span.strikethrough || is_hovered_link {
+                let translation = layout.position() - Point::ORIGIN;
+                let regions = state.paragraph.span_bounds(index);
+
+                if let Some(highlight) = span.highlight {
+                    for bounds in &regions {
+                        let bounds = Rectangle::new(
+                            bounds.position() - Vector::new(span.padding.left, span.padding.top),
+                            bounds.size()
+                                + Size::new(span.padding.horizontal(), span.padding.vertical()),
+                        );
+
+                        renderer.fill_quad(
+                            renderer::Quad {
+                                bounds: bounds + translation,
+                                border: highlight.border,
+                                ..Default::default()
+                            },
+                            highlight.background,
+                        );
+                    }
+                }
+
+                if span.underline || span.strikethrough || is_hovered_link {
+                    let size = span.size.or(self.size).unwrap_or(renderer.default_size());
+
+                    let line_height = span
+                        .line_height
+                        .unwrap_or(self.line_height)
+                        .to_absolute(size);
+
+                    let color = span.color.or(style.color).unwrap_or(defaults.text_color);
+
+                    let baseline =
+                        translation + Vector::new(0.0, size.0 + (line_height.0 - size.0) / 2.0);
+
+                    let snapped = |rect: Rectangle| {
+                        let fract = viewport.y.fract();
+                        let offset = if fract >= 0.5 { -(1.0 - fract) } else { fract };
+                        let adj = (rect.y - offset).round() + offset;
+
+                        Rectangle { y: adj, ..rect }
+                    };
+
+                    if span.underline || is_hovered_link {
+                        for bounds in &regions {
+                            renderer.fill_quad(
+                                renderer::Quad {
+                                    bounds: snapped(Rectangle::new(
+                                        bounds.position() + baseline
+                                            - Vector::new(0.0, size.0 * 0.08),
+                                        Size::new(bounds.width, 1.0),
+                                    )),
+                                    ..Default::default()
+                                },
+                                color,
+                            );
+                        }
+                    }
+
+                    if span.strikethrough {
+                        for bounds in &regions {
+                            renderer.fill_quad(
+                                renderer::Quad {
+                                    bounds: snapped(Rectangle::new(
+                                        bounds.position() + baseline
+                                            - Vector::new(0.0, size.0 / 2.0),
+                                        Size::new(bounds.width, 1.0),
+                                    )),
+                                    ..Default::default()
+                                },
+                                color,
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -582,7 +651,7 @@ where
             if let Some((index, _, _)) = state.shown_spoiler {
                 if let Some(span) = state.spans.get_mut(index) {
                     span.color = None;
-                    span.background = None;
+                    span.highlight = None;
                 }
             }
 
@@ -610,7 +679,7 @@ where
                     if let Some((index, _, _)) = state.shown_spoiler {
                         if let Some(span) = state.spans.get_mut(index) {
                             span.color = None;
-                            span.background = None;
+                            span.highlight = None;
                         }
                     }
 

@@ -4,11 +4,14 @@ __bold__
 ___italic & bold___
 `code`
 ||spoiler||
+~~strikethrough~~
 
 Toggles:
 $b - bold
 $i - italic
 $m - monospace
+$s - strikethrough
+$u - underline
 $r - reset
 
 Color:
