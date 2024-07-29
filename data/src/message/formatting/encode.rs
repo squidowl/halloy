@@ -213,6 +213,7 @@ fn markdown<'a>(
     let italic = alt((relaxed_run('*', 1), strict_run('_', 1)));
     let bold = alt((relaxed_run('*', 2), strict_run('_', 2)));
     let italic_bold = alt((relaxed_run('*', 3), strict_run('_', 3)));
+    let strikethrough = relaxed_run('~', 2);
     let spoiler = relaxed_run('|', 2);
     let code = map(
         alt((
@@ -232,6 +233,7 @@ fn markdown<'a>(
         map(italic_bold, Markdown::ItalicBold),
         map(bold, Markdown::Bold),
         map(italic, Markdown::Italic),
+        map(strikethrough, Markdown::Strikethrough),
         map(spoiler, Markdown::Spoiler),
         map(code, Markdown::Code),
     ))
@@ -282,6 +284,8 @@ fn dollar(input: &str) -> IResult<&str, Dollar> {
         map(tag("$b"), |_| Dollar::Bold),
         map(tag("$i"), |_| Dollar::Italics),
         map(tag("$m"), |_| Dollar::Monospace),
+        map(tag("$s"), |_| Dollar::Strikethrough),
+        map(tag("$u"), |_| Dollar::Underline),
         map(tag("$r"), |_| Dollar::Reset),
         map(start_color, |(fg, bg)| Dollar::StartColor(fg, bg)),
         // No valid colors after code == end
@@ -346,6 +350,14 @@ impl Token {
                     }
                     out.push(c);
                 }
+                Markdown::Strikethrough(tokens) => {
+                    let m = Modifier::Strikethrough.char();
+                    out.push(m);
+                    for token in tokens {
+                        token.encode(out);
+                    }
+                    out.push(m);
+                }
             },
             Token::Dollar(dollar) => match dollar {
                 Dollar::Bold => {
@@ -356,6 +368,12 @@ impl Token {
                 }
                 Dollar::Monospace => {
                     out.push(Modifier::Monospace.char());
+                }
+                Dollar::Strikethrough => {
+                    out.push(Modifier::Strikethrough.char());
+                }
+                Dollar::Underline => {
+                    out.push(Modifier::Underline.char());
                 }
                 Dollar::Reset => {
                     out.push(Modifier::Reset.char());
@@ -383,6 +401,7 @@ enum Markdown {
     Bold(Vec<Token>),
     Italic(Vec<Token>),
     ItalicBold(Vec<Token>),
+    Strikethrough(Vec<Token>),
     Code(Vec<Token>),
     Spoiler(Vec<Token>),
 }
@@ -392,6 +411,8 @@ enum Dollar {
     Bold,
     Italics,
     Monospace,
+    Strikethrough,
+    Underline,
     Reset,
     StartColor(Color, Option<Color>),
     EndColor,

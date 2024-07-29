@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 use data::message;
-use iced::advanced::text::Background;
 use iced::border;
 use iced::widget::span;
 
@@ -62,23 +61,22 @@ pub fn message_content<'a, M: 'a>(
                             .color_maybe(
                                 formatting
                                     .fg
-                                    .and_then(|color| color.into_iced(theme.colors()))
-                                    .or_else(|| {
-                                        formatting.monospace.then_some(theme.colors().error.darker)
-                                    }),
+                                    .and_then(|color| color.into_iced(theme.colors())),
                             )
                             .background_maybe(
                                 formatting
                                     .bg
-                                    .and_then(|color| color.into_iced(theme.colors()))
-                                    .map(Background::from)
-                                    .or_else(|| {
-                                        formatting.monospace.then_some(Background {
-                                            color: theme.colors().background.lighter,
-                                            border: border::rounded(3),
-                                        })
-                                    }),
-                            );
+                                    .and_then(|color| color.into_iced(theme.colors())),
+                            )
+                            .underline(formatting.underline)
+                            .strikethrough(formatting.strikethrough);
+
+                        if formatting.monospace {
+                            span = span
+                                .color(theme.colors().error.darker)
+                                .background(theme.colors().background.lighter)
+                                .border(border::rounded(3));
+                        }
 
                         match (formatting.bold, formatting.italics) {
                             (true, true) => {
