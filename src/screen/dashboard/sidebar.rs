@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use data::dashboard::DefaultAction;
 use data::{file_transfer, history, Buffer};
 use iced::widget::{
@@ -19,6 +21,7 @@ pub enum Message {
     Leave(Buffer),
     ToggleFileTransfers,
     ToggleCommandBar,
+    ReloadConfigFile,
 }
 
 #[derive(Debug, Clone)]
@@ -30,16 +33,21 @@ pub enum Event {
     Leave(Buffer),
     ToggleFileTransfers,
     ToggleCommandBar,
+    ReloadConfigFile,
 }
 
 #[derive(Clone)]
 pub struct Sidebar {
     hidden: bool,
+    timestamp: Option<Instant>,
 }
 
 impl Sidebar {
     pub fn new() -> Self {
-        Self { hidden: false }
+        Self {
+            hidden: false,
+            timestamp: None,
+        }
     }
 
     pub fn toggle_visibility(&mut self) {
@@ -55,11 +63,16 @@ impl Sidebar {
             Message::Leave(buffer) => Event::Leave(buffer),
             Message::ToggleFileTransfers => Event::ToggleFileTransfers,
             Message::ToggleCommandBar => Event::ToggleCommandBar,
+            Message::ReloadConfigFile => {
+                self.timestamp = Some(Instant::now());
+                Event::ReloadConfigFile
+            }
         }
     }
 
     pub fn view<'a>(
         &'a self,
+        now: Instant,
         clients: &data::client::Map,
         history: &'a history::Manager,
         panes: &pane_grid::State<Pane>,
@@ -138,6 +151,28 @@ impl Sidebar {
         }
 
         let mut menu_buttons = row![].spacing(1).padding(padding::bottom(4));
+
+        if config.buttons.reload_config {
+            let icon = self
+                .timestamp
+                .filter(|&timestamp| now.saturating_duration_since(timestamp) < Duration::new(1, 0))
+                .map_or_else(|| icon::refresh().style(theme::text::primary), |_| icon::checkmark().style(theme::text::success));
+
+            let button = button(center(icon))
+                .on_press(Message::ReloadConfigFile)
+                .padding(5)
+                .width(22)
+                .height(22)
+                .style(theme::button::side_menu);
+
+            let button_with_tooltip = tooltip(
+                button,
+                show_tooltips.then_some("Reload config file"),
+                tooltip::Position::Top,
+            );
+
+            menu_buttons = menu_buttons.push(button_with_tooltip);
+        }
 
         if config.buttons.command_bar {
             let button = button(center(icon::search()))

@@ -48,6 +48,10 @@ pub fn file_transfer<'a>() -> Text<'a> {
     to_text('\u{E802}')
 }
 
+pub fn refresh<'a>() -> Text<'a> {
+    to_text('\u{E807}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .style(theme::text::primary)

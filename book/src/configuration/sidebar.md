@@ -21,9 +21,11 @@ show_unread_indicators = true | false
 [sidebar.buttons]
 file_transfer = true | false
 command_bar = true | false
+reload_config = true | false
 ```
 
 | Key             | Description                      | Default |
 | --------------- | -------------------------------- | ------- |
 | `file_transfer` | File transfer button in sidebar. | `true`  |
 | `command_bar`   | Command bar button in sidebar.   | `true`  |
+| `reload_config` | Reload config button in sidebar. | `true`  |
