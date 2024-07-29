@@ -95,6 +95,7 @@ pub enum Event {
     ChatHistoryRequestFromHistory(HistoryRequest),
     ChatHistoryRequestReceived(ChatHistorySubcommand, usize),
     ChatHistoryTargetsReceived(DateTime<Utc>),
+    LoadReadMarker(String),
 }
 
 struct ChatHistoryRequest {
@@ -1075,6 +1076,8 @@ impl Client {
 
                 if user.nickname() == self.nickname() {
                     self.chanmap.insert(channel.clone(), Channel::default());
+
+                    events.push(Event::LoadReadMarker(channel.clone()));
 
                     if let Some(state) = self.chanmap.get_mut(channel) {
                         // Sends WHO to get away state on users.

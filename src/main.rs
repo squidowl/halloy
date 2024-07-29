@@ -158,24 +158,6 @@ impl Halloy {
                             )
                         },
                     ));
-
-                    for channel in entry.config.channels {
-                        let server = entry.server.clone();
-
-                        commands.push(Task::perform(
-                            history::load_read_marker(
-                                server.clone(),
-                                history::Kind::Channel(channel.clone()),
-                            ),
-                            move |read_marker| {
-                                Message::UpdateReadMarker(
-                                    server.clone(),
-                                    history::Kind::Channel(channel.clone()),
-                                    read_marker,
-                                )
-                            },
-                        ));
-                    }
                 }
 
                 (Screen::Dashboard(screen), config, Task::batch(commands))
@@ -326,10 +308,22 @@ impl Halloy {
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
+                let mut commands = vec![
+                    command.map(Message::Dashboard),
+                    track.map(Message::Dashboard),
+                ];
+
                 if let Some(event) = event {
                     match event {
                         dashboard::Event::ReloadConfiguration => match Config::load() {
                             Ok(updated) => {
+                                let added_servers = updated
+                                    .servers
+                                    .keys()
+                                    .filter(|server| !self.servers.contains(server))
+                                    .cloned()
+                                    .collect::<Vec<_>>();
+
                                 let removed_servers = self
                                     .servers
                                     .keys()
@@ -340,6 +334,24 @@ impl Halloy {
                                 self.servers = updated.servers.clone();
                                 self.theme = updated.themes.default.clone().into();
                                 self.config = updated;
+
+                                for server in added_servers {
+                                    let server = server.clone();
+
+                                    commands.push(Task::perform(
+                                        history::load_read_marker(
+                                            server.clone(),
+                                            history::Kind::Server,
+                                        ),
+                                        move |read_marker| {
+                                            Message::UpdateReadMarker(
+                                                server.clone(),
+                                                history::Kind::Server,
+                                                read_marker,
+                                            )
+                                        },
+                                    ));
+                                }
 
                                 for server in removed_servers {
                                     self.clients.quit(&server, None);
@@ -360,10 +372,7 @@ impl Halloy {
                     }
                 }
 
-                Task::batch(vec![
-                    command.map(Message::Dashboard),
-                    track.map(Message::Dashboard),
-                ])
+                Task::batch(commands)
             }
             Message::Version(remote) => {
                 // Set latest known remote version
@@ -852,6 +861,21 @@ impl Halloy {
                                         if let Some(target) = subcommand.target() {
                                             self.clients.clear_chathistory_request(&server, target);
                                         }
+                                    }
+                                    data::client::Event::LoadReadMarker(target) => {
+                                        let server = server.clone();
+                                        let kind = history::Kind::from(target);
+
+                                        commands.push(Task::perform(
+                                            history::load_read_marker(server.clone(), kind.clone()),
+                                            move |read_marker| {
+                                                Message::UpdateReadMarker(
+                                                    server.clone(),
+                                                    kind.clone(),
+                                                    read_marker,
+                                                )
+                                            },
+                                        ));
                                     }
                                 }
                             }
