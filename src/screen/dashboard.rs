@@ -305,6 +305,9 @@ impl Dashboard {
                             None,
                         );
                     }
+                    sidebar::Event::ReloadConfigFile => {
+                        return (Task::none(), Some(Event::ReloadConfiguration));
+                    }
                 }
             }
             Message::SelectedText(contents) => {
@@ -582,6 +585,7 @@ impl Dashboard {
 
     pub fn view<'a>(
         &'a self,
+        now: Instant,
         clients: &'a client::Map,
         version: &'a Version,
         config: &'a Config,
@@ -618,6 +622,7 @@ impl Dashboard {
         let side_menu = self
             .side_menu
             .view(
+                now,
                 clients,
                 &self.history,
                 &self.panes,

@@ -7,6 +7,7 @@ Added:
 - Support for CTCP queries CLIENTINFO, PING, SOURCE, and VERSION
 - Custom notification sounds. Use your own sounds or select from a few new built-in options. For more details, see [notification configuration](https://halloy.squidowl.org/configuration/notifications.html).
 - Support DCC Send requests with spaces in the filename
+- Reload config button in Sidebar
 
 Fixed:
 
