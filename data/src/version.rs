@@ -24,6 +24,13 @@ impl Version {
             remote: None,
         }
     }
+
+    pub fn is_old(&self) -> bool {
+        match &self.remote {
+            Some(remote) => &self.current != remote,
+            None => false,
+        }
+    }
 }
 
 pub async fn latest_remote_version() -> Option<String> {

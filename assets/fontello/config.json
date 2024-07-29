@@ -77,6 +77,12 @@
       "css": "arrows-ccw",
       "code": 59399,
       "src": "entypo"
+    },
+    {
+      "uid": "489090690d8bd1745e365485946e20a8",
+      "css": "megaphone",
+      "code": 59401,
+      "src": "entypo"
     }
   ]
 }
