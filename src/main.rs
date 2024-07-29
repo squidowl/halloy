@@ -659,9 +659,11 @@ impl Halloy {
     }
 
     fn view(&self) -> Element<Message> {
+        let now = Instant::now();
+
         let screen = match &self.screen {
             Screen::Dashboard(dashboard) => dashboard
-                .view(&self.clients, &self.version, &self.config, &self.theme)
+                .view(now, &self.clients, &self.version, &self.config, &self.theme)
                 .map(Message::Dashboard),
             Screen::Help(help) => help.view().map(Message::Help),
             Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),

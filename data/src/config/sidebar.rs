@@ -31,6 +31,8 @@ pub struct Buttons {
     pub file_transfer: bool,
     #[serde(default = "default_bool_true")]
     pub command_bar: bool,
+    #[serde(default = "default_bool_true")]
+    pub reload_config: bool,
 }
 
 impl Default for Buttons {
@@ -38,6 +40,7 @@ impl Default for Buttons {
         Buttons {
             file_transfer: default_bool_true(),
             command_bar: default_bool_true(),
+            reload_config: default_bool_true(),
         }
     }
 }
