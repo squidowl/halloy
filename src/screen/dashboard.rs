@@ -56,7 +56,7 @@ pub enum Message {
     SendFileSelected(Server, Nick, Option<PathBuf>),
     CloseContextMenu(bool),
     ThemeEditor(theme_editor::Message),
-    IncrementUnread(Server, history::Kind, usize),
+    IncrementUnread(Server, history::Kind, Option<DateTime<Utc>>, usize),
     UpdateReadMarker(Server, history::Kind, Option<DateTime<Utc>>),
 }
 
@@ -741,8 +741,10 @@ impl Dashboard {
 
                 return (Task::batch(tasks), event);
             }
-            Message::IncrementUnread(server, kind, increment) => {
-                self.inc_unread_count(&server, &kind, increment);
+            Message::IncrementUnread(server, kind, read_marker, increment) => {
+                if self.get_read_marker(&server, &kind) == read_marker {
+                    self.inc_unread_count(&server, &kind, increment);
+                }
             }
             Message::UpdateReadMarker(server, kind, read_marker) => {
                 self.update_read_marker(&server, &kind, read_marker);
@@ -1147,13 +1149,17 @@ impl Dashboard {
         self.history.get_unique_queries(server)
     }
 
+    pub fn get_read_marker(&self, server: &Server, kind: &history::Kind) -> Option<DateTime<Utc>> {
+        self.history.get_read_marker(server, kind)
+    }
+
     pub fn update_read_marker(
         &mut self,
         server: &Server,
         kind: &history::Kind,
         read_marker: Option<DateTime<Utc>>,
-    ) {
-        self.history.update_read_marker(server, kind, read_marker);
+    ) -> bool {
+        self.history.update_read_marker(server, kind, read_marker)
     }
 
     pub fn inc_unread_count(&mut self, server: &Server, kind: &history::Kind, increment: usize) {

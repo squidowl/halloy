@@ -1619,7 +1619,7 @@ impl Client {
                         "LATEST",
                         target,
                         command_message_reference.to_string(),
-                        limit.to_string()
+                        limit.to_string(),
                     ));
                 }
                 ChatHistorySubcommand::Before(target, message_reference, limit) => {
@@ -1637,7 +1637,7 @@ impl Client {
                         "BEFORE",
                         target,
                         command_message_reference.to_string(),
-                        limit.to_string()
+                        limit.to_string(),
                     ));
                 }
                 ChatHistorySubcommand::Between(
@@ -1665,7 +1665,7 @@ impl Client {
                         target,
                         command_start_message_reference.to_string(),
                         command_end_message_reference.to_string(),
-                        limit.to_string()
+                        limit.to_string(),
                     ));
                 }
                 ChatHistorySubcommand::Targets(
@@ -1701,7 +1701,7 @@ impl Client {
                         "TARGETS",
                         command_start_message_reference.to_string(),
                         command_end_message_reference.to_string(),
-                        limit.to_string()
+                        limit.to_string(),
                     ));
                 }
             }

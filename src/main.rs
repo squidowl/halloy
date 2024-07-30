@@ -1079,23 +1079,30 @@ impl Halloy {
             }
             Message::UpdateReadMarker(server, kind, read_marker) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
-                    dashboard.update_read_marker(&server, &kind, read_marker);
+                    if dashboard.update_read_marker(&server, &kind, read_marker) {
+                        log::debug!(
+                            "[{server}] updated read-marker for {kind} to {:?}",
+                            read_marker
+                        );
 
-                    if dashboard.stored_messages_may_be_unread(&server, &kind, read_marker) {
-                        return Task::perform(
-                            history::num_stored_unread_messages(
-                                server.clone(),
-                                kind.clone(),
-                                read_marker,
-                            ),
-                            move |num_stored_unread_messages| {
-                                Message::Dashboard(dashboard::Message::IncrementUnread(
+
+                        if dashboard.stored_messages_may_be_unread(&server, &kind, read_marker) {
+                            return Task::perform(
+                                history::num_stored_unread_messages(
                                     server.clone(),
                                     kind.clone(),
-                                    num_stored_unread_messages,
-                                ))
-                            },
-                        );
+                                    read_marker,
+                                ),
+                                move |num_stored_unread_messages| {
+                                    Message::Dashboard(dashboard::Message::IncrementUnread(
+                                        server.clone(),
+                                        kind.clone(),
+                                        read_marker,
+                                        num_stored_unread_messages,
+                                    ))
+                                },
+                            );
+                        }
                     }
                 }
 

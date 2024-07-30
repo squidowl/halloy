@@ -186,13 +186,17 @@ impl Manager {
         )
     }
 
+    pub fn get_read_marker(&self, server: &Server, kind: &history::Kind) -> Option<DateTime<Utc>> {
+        self.data.get_read_marker(server, kind)
+    }
+
     pub fn update_read_marker(
         &mut self,
         server: &Server,
         kind: &history::Kind,
         read_marker: Option<DateTime<Utc>>,
-    ) {
-        self.data.update_read_marker(server, kind, read_marker);
+    ) -> bool {
+        self.data.update_read_marker(server, kind, read_marker)
     }
 
     pub fn inc_unread_count(&mut self, server: &Server, kind: &history::Kind, increment: usize) {
@@ -704,18 +708,26 @@ impl Data {
         }
     }
 
+    fn get_read_marker(
+        &self,
+        server: &server::Server,
+        kind: &history::Kind,
+    ) -> Option<DateTime<Utc>> {
+        self.map.get(server)?.get(kind)?.get_read_marker()
+    }
+
     fn update_read_marker(
         &mut self,
         server: &server::Server,
         kind: &history::Kind,
         read_marker: Option<DateTime<Utc>>,
-    ) {
+    ) -> bool {
         self.map
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
             .or_insert_with(|| History::partial(server.clone(), kind.clone(), None))
-            .update_read_marker(read_marker);
+            .update_read_marker(read_marker)
     }
 
     fn untrack(
