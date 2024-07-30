@@ -74,5 +74,5 @@ By default, Halloy will only format text when using the `/format` command. This,
 
 ```toml
 [buffer.text_input]
-auto_format: "disabled" | "markdown" | "all"
+auto_format = "disabled" | "markdown" | "all"
 ```
