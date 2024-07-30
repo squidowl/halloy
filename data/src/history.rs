@@ -447,28 +447,35 @@ impl History {
         }
     }
 
-    pub fn update_read_marker(&mut self, read_marker: Option<DateTime<Utc>>) {
-        if let Some(read_marker) = read_marker {
-            let history_read_marker = match self {
-                History::Partial {
-                    read_marker: history_read_marker,
-                    ..
-                } => history_read_marker,
-                History::Full {
-                    read_marker: history_read_marker,
-                    ..
-                } => history_read_marker,
-            };
+    pub fn get_read_marker(&self) -> Option<DateTime<Utc>> {
+        match self {
+            History::Partial { read_marker, .. } => *read_marker,
+            History::Full { read_marker, .. } => *read_marker,
+        }
+    }
 
+    pub fn update_read_marker(&mut self, read_marker: Option<DateTime<Utc>>) -> bool {
+        let history_read_marker = match self {
+            History::Partial {
+                read_marker: history_read_marker,
+                ..
+            } => history_read_marker,
+            History::Full {
+                read_marker: history_read_marker,
+                ..
+            } => history_read_marker,
+        };
+
+        if let Some(read_marker) = read_marker {
             if let Some(history_read_marker) = history_read_marker {
                 if read_marker <= *history_read_marker {
-                    return;
+                    return false;
                 }
             }
 
             *history_read_marker = Some(read_marker);
         } else {
-            return;
+            return false;
         }
 
         if let History::Partial {
@@ -486,6 +493,8 @@ impl History {
                 }
             }
         }
+
+        true
     }
 }
 
@@ -580,6 +589,14 @@ pub async fn num_stored_unread_messages(
 
     messages
         .into_iter()
+        .rev()
+        .map_while(|message| {
+            if after_read_marker(&message, &read_marker) {
+                Some(message)
+            } else {
+                None
+            }
+        })
         .filter(|message| message.triggers_unread(&read_marker))
         .count()
 }
