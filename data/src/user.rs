@@ -161,6 +161,14 @@ impl User {
         Self { nickname, ..self }
     }
 
+    pub fn with_username_and_hostname(self, username: String, hostname: String) -> Self {
+        Self {
+            username: Some(username),
+            hostname: Some(hostname),
+            ..self
+        }
+    }
+
     pub fn highest_access_level(&self) -> AccessLevel {
         self.access_levels
             .iter()

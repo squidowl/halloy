@@ -352,6 +352,38 @@ impl Manager {
                 channel,
                 user_channels,
             } => message::broadcast::invite(inviter, channel, user_channels, sent_time),
+            Broadcast::ChangeHost {
+                old_user,
+                new_username,
+                new_hostname,
+                ourself,
+                user_channels,
+            } => {
+                if ourself {
+                    // If ourself, broadcast to all query channels (since we are in all of them)
+                    message::broadcast::change_host(
+                        user_channels,
+                        queries,
+                        &old_user,
+                        &new_username,
+                        &new_hostname,
+                        ourself,
+                        sent_time,
+                    )
+                } else {
+                    // Otherwise just the query channel of the user w/ host change
+                    let user_query = queries.find(|nick| old_user.nickname() == *nick);
+                    message::broadcast::change_host(
+                        user_channels,
+                        user_query,
+                        &old_user,
+                        &new_username,
+                        &new_hostname,
+                        ourself,
+                        sent_time,
+                    )
+                }
+            }
         };
 
         messages.into_iter().for_each(|message| {
@@ -628,6 +660,13 @@ pub enum Broadcast {
     Invite {
         inviter: Nick,
         channel: String,
+        user_channels: Vec<String>,
+    },
+    ChangeHost {
+        old_user: User,
+        new_username: String,
+        new_hostname: String,
+        ourself: bool,
         user_channels: Vec<String>,
     },
 }
