@@ -21,6 +21,7 @@
     * [chghost](https://ircv3.net/specs/extensions/chghost)
     * [account-notify](https://ircv3.net/specs/extensions/account-notify)
     * [extended-join](https://ircv3.net/specs/extensions/extended-join)
+    * [chathistory](https://ircv3.net/specs/extensions/chathistory)
 * SASL support
 * DCC Send
 * Keyboard shortcuts
