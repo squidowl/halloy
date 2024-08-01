@@ -970,6 +970,31 @@ impl Dashboard {
         );
     }
 
+    pub fn broadcast_change_host(
+        &mut self,
+        server: &Server,
+        old_user: User,
+        new_username: String,
+        new_hostname: String,
+        ourself: bool,
+        user_channels: Vec<String>,
+        config: &Config,
+        sent_time: DateTime<Utc>,
+    ) {
+        self.history.broadcast(
+            server,
+            Broadcast::ChangeHost {
+                old_user,
+                new_username,
+                new_hostname,
+                ourself,
+                user_channels,
+            },
+            config,
+            sent_time,
+        );
+    }
+
     pub fn broadcast_connecting(
         &mut self,
         server: &Server,

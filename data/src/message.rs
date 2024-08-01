@@ -495,6 +495,7 @@ fn target(
         | Command::CAP(_, _, _, _)
         | Command::AUTHENTICATE(_)
         | Command::BATCH(_, _)
+        | Command::CHGHOST(_, _)
         | Command::CNOTICE(_, _, _)
         | Command::CPRIVMSG(_, _, _)
         | Command::KNOCK(_, _)
