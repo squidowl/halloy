@@ -59,6 +59,8 @@ pub enum Message {
     CloseContextMenu(bool),
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
+    IncrementUnread(Server, history::Kind, Option<DateTime<Utc>>, usize),
+    UpdateReadMarker(Server, history::Kind, Option<DateTime<Utc>>),
 }
 
 #[derive(Debug)]
@@ -494,6 +496,22 @@ impl Dashboard {
                 }
             }
             Message::History(message) => {
+                if let history::manager::Message::Closed(ref server, ref kind, Ok(_)) = message {
+                    match kind {
+                        history::Kind::Server => (),
+                        history::Kind::Channel(channel) => clients.send_markread(
+                            server,
+                            channel,
+                            self.get_read_marker(server, kind),
+                        ),
+                        history::Kind::Query(nick) => clients.send_markread(
+                            server,
+                            nick.as_ref(),
+                            self.get_read_marker(server, kind),
+                        ),
+                    }
+                }
+
                 self.history.update(message);
             }
             Message::DashboardSaved(Ok(_)) => {
@@ -795,6 +813,14 @@ impl Dashboard {
             }
             Message::ConfigReloaded(config) => {
                 return (Task::none(), Some(Event::ConfigReloaded(config)));
+            }
+            Message::IncrementUnread(server, kind, read_marker, increment) => {
+                if self.get_read_marker(&server, &kind) == read_marker {
+                    self.inc_unread_count(&server, &kind, increment);
+                }
+            }
+            Message::UpdateReadMarker(server, kind, read_marker) => {
+                self.update_read_marker(&server, &kind, read_marker);
             }
         }
 
@@ -1321,6 +1347,33 @@ impl Dashboard {
             config,
             sent_time,
         );
+    }
+
+    pub fn get_read_marker(&self, server: &Server, kind: &history::Kind) -> Option<DateTime<Utc>> {
+        self.history.get_read_marker(server, kind)
+    }
+
+    pub fn update_read_marker(
+        &mut self,
+        server: &Server,
+        kind: &history::Kind,
+        read_marker: Option<DateTime<Utc>>,
+    ) -> bool {
+        self.history.update_read_marker(server, kind, read_marker)
+    }
+
+    pub fn inc_unread_count(&mut self, server: &Server, kind: &history::Kind, increment: usize) {
+        self.history.inc_unread_count(server, kind, increment);
+    }
+
+    pub fn stored_messages_may_be_unread(
+        &self,
+        server: &Server,
+        kind: &history::Kind,
+        read_marker: Option<DateTime<Utc>>,
+    ) -> bool {
+        self.history
+            .stored_messages_may_be_unread(server, kind, read_marker)
     }
 
     fn get_focused_mut(
