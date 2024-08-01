@@ -14,6 +14,7 @@ pub use self::formatting::Formatting;
 pub use self::source::Source;
 
 use crate::config::buffer::UsernameFormat;
+use crate::history::after_read_marker;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, Config, User};
@@ -152,7 +153,7 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn triggers_unread(&self) -> bool {
+    pub fn triggers_unread(&self, read_marker: &Option<DateTime<Utc>>) -> bool {
         matches!(self.direction, Direction::Received)
             && match self.target.source() {
                 Source::User(_) => true,
@@ -166,6 +167,7 @@ impl Message {
                 }
                 _ => false,
             }
+            && after_read_marker(self, read_marker)
     }
 
     pub fn received<'a>(
@@ -687,6 +689,7 @@ fn target(
         | Command::CNOTICE(_, _, _)
         | Command::CPRIVMSG(_, _, _)
         | Command::KNOCK(_, _)
+        | Command::MARKREAD(_, _)
         | Command::MONITOR(_, _)
         | Command::TAGMSG(_)
         | Command::USERIP(_)

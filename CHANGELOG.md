@@ -9,7 +9,7 @@ Added:
   - Ability to include or exclude channels for server messages (join, part, etc.). See [configuration](https://halloy.squidowl.org/configuration/buffer/server_messages/index.html).
   - Ability to color nicknames within channel messages. See [configuration](https://halloy.squidowl.org/configuration/buffer/channel/message.html#nickname_color)
   - Ability to define a shell command for loading a server password. See [configuration](https://halloy.squidowl.org/configuration/servers/index.html#password_command)
-- Enable support for IRCv3 `msgid`
+- Enable support for IRCv3 `msgid` and `read-marker`
 
 Fixed:
 

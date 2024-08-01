@@ -8,7 +8,6 @@ use tokio::time::Instant;
 
 use crate::history::{self, History};
 use crate::message::{self, Limit};
-use crate::time::Posix;
 use crate::user::Nick;
 use crate::{config, input};
 use crate::{server, Buffer, Config, Input, Server, User};
@@ -30,6 +29,10 @@ pub enum Message {
     Flushed(server::Server, history::Kind, Result<(), history::Error>),
 }
 
+pub enum Event {
+    LoadReadMarker(server::Server, history::Kind),
+}
+
 #[derive(Debug, Default)]
 pub struct Manager {
     resources: HashSet<Resource>,
@@ -43,7 +46,7 @@ impl Manager {
 
         let added = added.into_iter().map(|resource| {
             async move {
-                history::load(&resource.server.clone(), &resource.kind.clone())
+                history::load_messages(&resource.server.clone(), &resource.kind.clone())
                     .map(move |result| Message::Loaded(resource.server, resource.kind, result))
                     .await
             }
@@ -188,6 +191,52 @@ impl Manager {
             history::Kind::from(message.target.clone()),
             message,
         );
+    }
+
+    pub fn get_read_marker(&self, server: &Server, kind: &history::Kind) -> Option<DateTime<Utc>> {
+        self.data.get_read_marker(server, kind)
+    }
+
+    pub fn update_read_marker(
+        &mut self,
+        server: &Server,
+        kind: &history::Kind,
+        read_marker: Option<DateTime<Utc>>,
+    ) -> bool {
+        self.data.update_read_marker(server, kind, read_marker)
+    }
+
+    pub fn inc_unread_count(&mut self, server: &Server, kind: &history::Kind, increment: usize) {
+        if let Some(ref mut history) = self
+            .data
+            .map
+            .get_mut(server)
+            .and_then(|map| map.get_mut(kind))
+        {
+            history.inc_unread_count(increment);
+        }
+    }
+
+    pub fn stored_messages_may_be_unread(
+        &self,
+        server: &Server,
+        kind: &history::Kind,
+        read_marker: Option<DateTime<Utc>>,
+    ) -> bool {
+        if let Some(ref mut history) = self.data.map.get(server).and_then(|map| map.get(kind)) {
+            match history {
+                History::Partial { messages, .. } => {
+                    if let Some(message) = messages.iter().next() {
+                        if !history::after_read_marker(message, &read_marker) {
+                            return false;
+                        }
+                    }
+                }
+                History::Full { .. } => return false,
+            }
+        }
+
+        true
     }
 
     pub fn get_channel_messages(
@@ -441,18 +490,18 @@ impl Data {
                 History::Partial {
                     messages: new_messages,
                     last_received_at,
-                    opened_at,
+                    read_marker,
                     ..
                 } => {
                     let last_received_at = *last_received_at;
-                    let opened_at = *opened_at;
+                    let read_marker = *read_marker;
                     messages.extend(std::mem::take(new_messages));
                     entry.insert(History::Full {
                         server,
                         kind,
                         messages,
                         last_received_at,
-                        opened_at,
+                        read_marker,
                     });
                 }
                 _ => {
@@ -461,7 +510,7 @@ impl Data {
                         kind,
                         messages,
                         last_received_at: None,
-                        opened_at: Posix::now(),
+                        read_marker: None,
                     });
                 }
             },
@@ -471,7 +520,7 @@ impl Data {
                     kind,
                     messages,
                     last_received_at: None,
-                    opened_at: Posix::now(),
+                    read_marker: None,
                 });
             }
         }
@@ -486,7 +535,7 @@ impl Data {
     ) -> Option<history::View> {
         let History::Full {
             messages,
-            opened_at,
+            read_marker,
             ..
         } = self.map.get(server)?.get(kind)?
         else {
@@ -602,10 +651,13 @@ impl Data {
 
         let limited = with_limit(limit, filtered.into_iter());
 
-        let split_at = limited
-            .iter()
-            .position(|message| message.received_at >= *opened_at)
-            .unwrap_or(limited.len());
+        let split_at = read_marker.map_or(0, |read_marker| {
+            limited
+                .iter()
+                .rev()
+                .position(|message| message.server_time <= read_marker)
+                .map_or(limited.len(), |position| limited.len() - position)
+        });
 
         let (old, new) = limited.split_at(split_at);
 
@@ -623,13 +675,50 @@ impl Data {
         server: server::Server,
         kind: history::Kind,
         message: crate::Message,
-    ) {
+    ) -> Option<Event> {
+        use std::collections::hash_map;
+
+        match self
+            .map
+            .entry(server.clone())
+            .or_default()
+            .entry(kind.clone())
+        {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().add_message(message);
+
+                None
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry
+                    .insert(History::partial(server.clone(), kind.clone(), None))
+                    .add_message(message);
+
+                Some(Event::LoadReadMarker(server.clone(), kind.clone()))
+            }
+        }
+    }
+
+    fn get_read_marker(
+        &self,
+        server: &server::Server,
+        kind: &history::Kind,
+    ) -> Option<DateTime<Utc>> {
+        self.map.get(server)?.get(kind)?.get_read_marker()
+    }
+
+    fn update_read_marker(
+        &mut self,
+        server: &server::Server,
+        kind: &history::Kind,
+        read_marker: Option<DateTime<Utc>>,
+    ) -> bool {
         self.map
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| History::partial(server, kind, message.received_at))
-            .add_message(message)
+            .or_insert_with(|| History::partial(server.clone(), kind.clone(), None))
+            .update_read_marker(read_marker)
     }
 
     fn untrack(
