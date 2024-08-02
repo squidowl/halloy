@@ -16,9 +16,13 @@ use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, Config, User};
 
+// References:
+// - https://datatracker.ietf.org/doc/html/rfc1738#section-5
+// - https://www.ietf.org/rfc/rfc2396.txt
+
 static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b([-a-zA-Z0-9()@:%_\+.~#?&\/=]*)"#,
+        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b([a-zA-Z0-9-_.!~*'()%;?:@&=+$,\/]*)"#,
     )
     .unwrap()
 });
