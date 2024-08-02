@@ -16,9 +16,13 @@ use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, Config, User};
 
+// References:
+// - https://datatracker.ietf.org/doc/html/rfc1738#section-5
+// - https://www.ietf.org/rfc/rfc2396.txt
+
 static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b([-a-zA-Z0-9()@:%_\+.~#?&\/=]*)"#,
+        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b([a-zA-Z0-9-_.!~*'()%;?:@&=+$,\/]*)"#,
     )
     .unwrap()
 });
@@ -847,6 +851,14 @@ mod test {
                 "https://catgirl.delivery/2024/07/25/sometimes-it-is-correct-to-blame-the-compiler/",
                 vec![Fragment::Url(
                     "https://catgirl.delivery/2024/07/25/sometimes-it-is-correct-to-blame-the-compiler/"
+                    .parse()
+                    .unwrap()
+                )],
+            ),
+            (
+                "https://www.google.com/maps/@61.0873595,-27.322408,3z?entry=ttu",
+                vec![Fragment::Url(
+                    "https://www.google.com/maps/@61.0873595,-27.322408,3z?entry=ttu"
                     .parse()
                     .unwrap()
                 )],
