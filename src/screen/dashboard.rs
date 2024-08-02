@@ -308,6 +308,10 @@ impl Dashboard {
                     sidebar::Event::ReloadConfigFile => {
                         return (Task::none(), Some(Event::ReloadConfiguration));
                     }
+                    sidebar::Event::OpenReleaseWebsite => {
+                        let _ = open::that_detached(RELEASE_WEBSITE);
+                        return (Task::none(), None);
+                    }
                 }
             }
             Message::SelectedText(contents) => {
@@ -630,6 +634,7 @@ impl Dashboard {
                 config.sidebar,
                 config.tooltips,
                 &self.file_transfers,
+                version,
             )
             .map(|e| e.map(Message::Sidebar));
 
