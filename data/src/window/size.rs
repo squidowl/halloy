@@ -7,8 +7,8 @@ pub struct Size {
 }
 
 impl Size {
-    pub const MIN_WIDTH: f32 = 320.0;
-    pub const MIN_HEIGHT: f32 = 200.0;
+    pub const MIN_WIDTH: f32 = 426.0;
+    pub const MIN_HEIGHT: f32 = 240.0;
 
     pub fn new(width: f32, height: f32) -> Self {
         Self {
