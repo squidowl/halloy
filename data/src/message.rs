@@ -855,6 +855,14 @@ mod test {
                     .unwrap()
                 )],
             ),
+            (
+                "https://www.google.com/maps/@61.0873595,-27.322408,3z?entry=ttu",
+                vec![Fragment::Url(
+                    "https://www.google.com/maps/@61.0873595,-27.322408,3z?entry=ttu"
+                    .parse()
+                    .unwrap()
+                )],
+            ),
         ];
 
         for (text, expected) in tests {
