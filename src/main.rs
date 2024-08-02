@@ -77,7 +77,11 @@ pub fn main() -> iced::Result {
         }
     }
 
-    let window_load = Window::load().unwrap_or_default();
+    // TODO: Renable persistant window position and size:
+    // Winit currently has a bug with resize and move events.
+    // Until it have been fixed, the persistant position and size has been disabled.
+    //
+    // let window_load = Window::load().unwrap_or_default();
 
     if let Err(error) = iced::application("Halloy", Halloy::update, Halloy::view)
         .theme(Halloy::theme)
@@ -85,8 +89,12 @@ pub fn main() -> iced::Result {
         .subscription(Halloy::subscription)
         .settings(settings(&config_load))
         .window(window::Settings {
-            size: window_load.size.into(),
-            position: window_load.position.map(From::from).unwrap_or_default(),
+            size: data::window::Size::default().into(),
+            position: iced::window::Position::Default,
+            min_size: (Some(iced::Size::new(
+                data::window::Size::MIN_WIDTH,
+                data::window::Size::MIN_HEIGHT,
+            ))),
             exit_on_close_request: false,
             ..window::settings()
         })
