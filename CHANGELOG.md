@@ -3,6 +3,7 @@
 Added:
 
 - Small icon in sidemenu when a new release is available 
+- Enable support for IRCv3 `chghost`
 
 # 2024.9 (2024-07-29)
 
