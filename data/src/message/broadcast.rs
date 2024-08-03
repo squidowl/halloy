@@ -1,7 +1,7 @@
 //! Generate messages that can be broadcast into every buffer
 use chrono::{DateTime, Utc};
 
-use super::{nickname_text, parse_fragments, plain, quit_text, source, Content, Direction, Message, Source, Target};
+use super::{nickname_text, plain, quit_text, source, Content, Direction, Message, Source, Target};
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
 use crate::user::Nick;
