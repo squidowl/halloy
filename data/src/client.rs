@@ -59,6 +59,14 @@ pub enum Broadcast {
         user_channels: Vec<String>,
         sent_time: DateTime<Utc>,
     },
+    ChangeHost {
+        old_user: User,
+        new_username: String,
+        new_hostname: String,
+        ourself: bool,
+        channels: Vec<String>,
+        sent_time: DateTime<Utc>,
+    },
 }
 
 #[derive(Debug)]
@@ -322,6 +330,9 @@ impl Client {
                     if contains("server-time") {
                         requested.push("server-time");
                     }
+                    if contains("chghost") {
+                        requested.push("chghost");
+                    }
                     if contains("batch") {
                         requested.push("batch");
                     }
@@ -413,6 +424,9 @@ impl Client {
                 }
                 if newly_contains("server-time") {
                     requested.push("server-time");
+                }
+                if newly_contains("chghost") {
+                    requested.push("chghost");
                 }
                 if newly_contains("batch") {
                     requested.push("batch");
@@ -1005,6 +1019,31 @@ impl Client {
             }
             Command::TAGMSG(_) => {
                 return None;
+            }
+            Command::CHGHOST(new_username, new_hostname) => {
+                let old_user = message.user()?;
+
+                let ourself = old_user.nickname() == self.nickname();
+
+                self.chanmap.values_mut().for_each(|channel| {
+                    if let Some(user) = channel.users.take(&old_user) {
+                        channel.users.insert(user.with_username_and_hostname(
+                            new_username.clone(),
+                            new_hostname.clone(),
+                        ));
+                    }
+                });
+
+                let channels = self.user_channels(old_user.nickname());
+
+                return Some(vec![Event::Broadcast(Broadcast::ChangeHost {
+                    old_user,
+                    new_username: new_username.clone(),
+                    new_hostname: new_hostname.clone(),
+                    ourself,
+                    channels,
+                    sent_time: server_time(&message),
+                })]);
             }
             _ => {}
         }

@@ -96,6 +96,8 @@ pub enum Command {
 
     /* IRC extensions */
     BATCH(String, Vec<String>),
+    /// <new_username> <new_hostname>
+    CHGHOST(String, String),
     /// <nickname> <channel> :<message>
     CNOTICE(String, String, String),
     /// <nickname> <channel> :<message>
@@ -193,6 +195,7 @@ impl Command {
             "USERHOST" => USERHOST(params.collect()),
             "WALLOPS" if len > 0 => WALLOPS(req!()),
             "BATCH" if len > 0 => BATCH(req!(), params.collect()),
+            "CHGHOST" if len > 1 => CHGHOST(req!(), req!()),
             "CNOTICE" if len > 2 => CNOTICE(req!(), req!(), req!()),
             "CPRIVMSG" if len > 2 => CPRIVMSG(req!(), req!(), req!()),
             "KNOCK" if len > 0 => KNOCK(req!(), opt!()),
@@ -247,6 +250,7 @@ impl Command {
             Command::USERHOST(params) => params,
             Command::WALLOPS(a) => vec![a],
             Command::BATCH(a, rest) => std::iter::once(a).chain(rest).collect(),
+            Command::CHGHOST(a, b) => vec![a, b],
             Command::CNOTICE(a, b, c) => vec![a, b, c],
             Command::CPRIVMSG(a, b, c) => vec![a, b, c],
             Command::KNOCK(a, b) => std::iter::once(a).chain(b).collect(),
@@ -303,6 +307,7 @@ impl Command {
             USERHOST(_) => "USERHOST".to_string(),
             WALLOPS(_) => "WALLOPS".to_string(),
             BATCH(_, _) => "BATCH".to_string(),
+            CHGHOST(_, _) => "CHGHOST".to_string(),
             CNOTICE(_, _, _) => "CNOTICE".to_string(),
             CPRIVMSG(_, _, _) => "CPRIVMSG".to_string(),
             KNOCK(_, _) => "KNOCK".to_string(),

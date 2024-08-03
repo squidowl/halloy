@@ -507,6 +507,25 @@ impl Halloy {
                                                 sent_time,
                                             );
                                         }
+                                        data::client::Broadcast::ChangeHost {
+                                            old_user,
+                                            new_username,
+                                            new_hostname,
+                                            ourself,
+                                            channels,
+                                            sent_time,
+                                        } => {
+                                            dashboard.broadcast_change_host(
+                                                &server,
+                                                old_user,
+                                                new_username,
+                                                new_hostname,
+                                                ourself,
+                                                channels,
+                                                &self.config,
+                                                sent_time,
+                                            );
+                                        }
                                     },
                                     data::client::Event::Notification(
                                         encoded,
