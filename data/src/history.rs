@@ -657,6 +657,7 @@ pub fn insert_message(
     if let Some(index) = replace_at {
         if has_matching_content(&messages[index], &message) {
             messages[index].id = message.id;
+            messages[index].received_at = message.received_at;
             false
         } else {
             messages[index] = message;
