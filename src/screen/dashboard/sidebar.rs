@@ -1,12 +1,13 @@
 use std::time::{Duration, Instant};
 
+use data::config::sidebar;
 use data::dashboard::DefaultAction;
 use data::{file_transfer, history, Buffer, Version};
 use iced::widget::{
     button, center, column, container, horizontal_space, pane_grid, row, scrollable, text,
-    vertical_space, Scrollable,
+    vertical_rule, vertical_space, Column, Row, Scrollable,
 };
-use iced::{padding, Length};
+use iced::{padding, Alignment, Length};
 
 use super::pane::Pane;
 use crate::widget::{context_menu, tooltip, Element};
@@ -89,181 +90,142 @@ impl Sidebar {
             return None;
         }
 
-        let mut column = column![].spacing(1);
+        let menu_buttons = menu_buttons(
+            now,
+            self.timestamp,
+            panes,
+            config,
+            show_tooltips,
+            file_transfers,
+            version,
+        );
 
-        for (server, state) in clients.iter() {
+        let mut buffers = vec![];
+
+        for (i, (server, state)) in clients.iter().enumerate() {
             match state {
                 data::client::State::Disconnected => {
-                    column = column.push(buffer_button(
+                    buffers.push(buffer_button(
                         panes,
                         focus,
                         Buffer::Server(server.clone()),
                         false,
-                        false,
                         config.default_action,
+                        config.position,
+                        config.unread_indicator,
+                        false,
                     ));
                 }
                 data::client::State::Ready(connection) => {
-                    column = column.push(buffer_button(
+                    buffers.push(buffer_button(
                         panes,
                         focus,
                         Buffer::Server(server.clone()),
                         true,
-                        false,
                         config.default_action,
+                        config.position,
+                        config.unread_indicator,
+                        false,
                     ));
 
                     for channel in connection.channels() {
-                        column = column.push(buffer_button(
+                        buffers.push(buffer_button(
                             panes,
                             focus,
                             Buffer::Channel(server.clone(), channel.clone()),
                             true,
-                            config
-                                .show_unread_indicators
-                                .then(|| {
-                                    history.has_unread(
-                                        server,
-                                        &history::Kind::Channel(channel.clone()),
-                                    )
-                                })
-                                .unwrap_or(false),
                             config.default_action,
+                            config.position,
+                            config.unread_indicator,
+                            history.has_unread(server, &history::Kind::Channel(channel.clone())),
                         ));
                     }
 
                     let queries = history.get_unique_queries(server);
                     for user in queries {
-                        column = column.push(buffer_button(
+                        buffers.push(buffer_button(
                             panes,
                             focus,
                             Buffer::Query(server.clone(), user.clone()),
                             true,
-                            config
-                                .show_unread_indicators
-                                .then(|| {
-                                    history.has_unread(server, &history::Kind::Query(user.clone()))
-                                })
-                                .unwrap_or(false),
                             config.default_action,
+                            config.position,
+                            config.unread_indicator,
+                            history.has_unread(server, &history::Kind::Query(user.clone())),
                         ));
                     }
 
-                    column = column.push(vertical_space().height(12));
+                    // Separator between servers.
+                    if config.position.is_horizontal() {
+                        // TODO Optimize.
+                        if i + 1 < clients.len() {
+                            buffers.push(
+                                container(vertical_rule(1).style(theme::rule::separator))
+                                    .padding(padding::top(6))
+                                    .height(20)
+                                    .width(12)
+                                    .align_x(Alignment::Center)
+                                    .align_y(Alignment::Center)
+                                    .into(),
+                            )
+                        }
+                    } else {
+                        buffers.push(vertical_space().height(12).into());
+                    }
                 }
             }
         }
 
-        let mut menu_buttons = row![].spacing(1).padding(padding::bottom(4));
+        match config.position {
+            sidebar::Position::Left | sidebar::Position::Right => {
+                let content = column![Scrollable::new(Column::with_children(buffers).spacing(1))
+                    .direction(scrollable::Direction::Vertical(
+                        iced::widget::scrollable::Scrollbar::default()
+                            .width(0)
+                            .scroller_width(0),
+                    )),];
 
-        if version.is_old() {
-            let button = button(center(icon::megaphone().style(theme::text::info)))
-                .on_press(Message::OpenReleaseWebsite)
-                .padding(5)
-                .width(22)
-                .height(22)
-                .style(theme::button::side_menu);
+                let body = column![container(content).height(Length::Fill), menu_buttons];
+                let padding = match config.position {
+                    sidebar::Position::Left => padding::top(8).bottom(6).left(6),
+                    sidebar::Position::Right => padding::top(8).bottom(6).right(6),
+                    _ => iced::Padding::default(),
+                };
 
-            let button_with_tooltip = tooltip(
-                button,
-                show_tooltips.then_some("New Halloy version is available!"),
-                tooltip::Position::Top,
-            );
+                Some(
+                    container(body)
+                        .height(Length::Fill)
+                        .center_x(Length::Shrink)
+                        .padding(padding)
+                        .max_width(config.width)
+                        .into(),
+                )
+            }
+            sidebar::Position::Top | sidebar::Position::Bottom => {
+                let content = row![Scrollable::new(Row::with_children(buffers).spacing(2))
+                    .direction(scrollable::Direction::Horizontal(
+                        iced::widget::scrollable::Scrollbar::default()
+                            .width(0)
+                            .scroller_width(0),
+                    )),];
 
-            menu_buttons = menu_buttons.push(button_with_tooltip);
+                let body: Row<Message, theme::Theme> =
+                    row![container(content).width(Length::Fill), menu_buttons]
+                        .align_y(Alignment::Center);
+                let padding = match config.position {
+                    sidebar::Position::Top => padding::top(8).left(8).right(8),
+                    sidebar::Position::Bottom => padding::bottom(8).left(8).right(8),
+                    _ => iced::Padding::default(),
+                };
+
+                Some(
+                    container(body)
+                        .center_x(Length::Shrink)
+                        .padding(padding)
+                        .into(),
+                )
+            }
         }
-
-        if config.buttons.reload_config {
-            let icon = self
-                .timestamp
-                .filter(|&timestamp| now.saturating_duration_since(timestamp) < Duration::new(1, 0))
-                .map_or_else(
-                    || icon::refresh().style(theme::text::primary),
-                    |_| icon::checkmark().style(theme::text::success),
-                );
-
-            let button = button(center(icon))
-                .on_press(Message::ReloadConfigFile)
-                .padding(5)
-                .width(22)
-                .height(22)
-                .style(theme::button::side_menu);
-
-            let button_with_tooltip = tooltip(
-                button,
-                show_tooltips.then_some("Reload config file"),
-                tooltip::Position::Top,
-            );
-
-            menu_buttons = menu_buttons.push(button_with_tooltip);
-        }
-
-        if config.buttons.command_bar {
-            let button = button(center(icon::search()))
-                .on_press(Message::ToggleCommandBar)
-                .padding(5)
-                .width(22)
-                .height(22)
-                .style(theme::button::side_menu);
-
-            let button_with_tooltip = tooltip(
-                button,
-                show_tooltips.then_some("Command Bar"),
-                tooltip::Position::Top,
-            );
-
-            menu_buttons = menu_buttons.push(button_with_tooltip);
-        }
-
-        if config.buttons.file_transfer {
-            let file_transfers_open = panes
-                .iter()
-                .any(|(_, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
-
-            let button = button(center(icon::file_transfer().style(
-                if file_transfers.is_empty() {
-                    theme::text::primary
-                } else {
-                    theme::text::alert
-                },
-            )))
-            .on_press(Message::ToggleFileTransfers)
-            .padding(5)
-            .width(22)
-            .height(22)
-            .style(if file_transfers_open {
-                theme::button::side_menu_selected
-            } else {
-                theme::button::side_menu
-            });
-
-            let button_with_tooltip = tooltip(
-                button,
-                show_tooltips.then_some("File Transfers"),
-                tooltip::Position::Top,
-            );
-
-            menu_buttons = menu_buttons.push(button_with_tooltip);
-        }
-
-        let content = column![
-            Scrollable::new(column,).direction(scrollable::Direction::Vertical(
-                iced::widget::scrollable::Scrollbar::default()
-                    .width(0)
-                    .scroller_width(0),
-            )),
-        ];
-
-        let body = column![container(content).height(Length::Fill), menu_buttons];
-
-        Some(
-            container(body)
-                .height(Length::Fill)
-                .center_x(Length::Shrink)
-                .padding(padding::top(8).bottom(6).left(6))
-                .max_width(config.width)
-                .into(),
-        )
     }
 }
 
@@ -305,12 +267,41 @@ fn buffer_button<'a>(
     focus: Option<pane_grid::Pane>,
     buffer: Buffer,
     connected: bool,
-    has_unread: bool,
     default_action: DefaultAction,
+    position: sidebar::Position,
+    unread_indicator: sidebar::UnreadIndicator,
+    has_unread: bool,
 ) -> Element<'a, Message> {
     let open = panes
         .iter()
         .find_map(|(pane, state)| (state.buffer.data().as_ref() == Some(&buffer)).then_some(*pane));
+
+    let show_dot_indicator =
+        has_unread && matches!(unread_indicator, sidebar::UnreadIndicator::Dot);
+    let show_title_indicator =
+        has_unread && matches!(unread_indicator, sidebar::UnreadIndicator::Title);
+
+    let unread_dot_indicator_spacing = horizontal_space().width(match position.is_horizontal() {
+        true => {
+            if show_dot_indicator {
+                5
+            } else {
+                0
+            }
+        }
+        false => {
+            if show_dot_indicator {
+                11
+            } else {
+                16
+            }
+        }
+    });
+    let buffer_title_style = if show_title_indicator {
+        theme::text::info
+    } else {
+        theme::text::primary
+    };
 
     let row = match &buffer {
         Buffer::Server(server) => row![
@@ -327,29 +318,37 @@ fn buffer_button<'a>(
         .align_y(iced::Alignment::Center),
         Buffer::Channel(_, channel) => row![]
             .push(horizontal_space().width(3))
-            .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::text::info)))
-            .push(horizontal_space().width(if has_unread { 10 } else { 16 }))
+            .push_maybe(show_dot_indicator.then_some(icon::dot().size(6).style(theme::text::info)))
+            .push(unread_dot_indicator_spacing)
             .push(
                 text(channel.clone())
-                    .style(theme::text::primary)
+                    .style(buffer_title_style)
                     .shaping(text::Shaping::Advanced),
             )
+            .push(horizontal_space().width(3))
             .align_y(iced::Alignment::Center),
         Buffer::Query(_, nick) => row![]
             .push(horizontal_space().width(3))
-            .push_maybe(has_unread.then_some(icon::dot().size(6).style(theme::text::info)))
-            .push(horizontal_space().width(if has_unread { 10 } else { 16 }))
+            .push_maybe(show_dot_indicator.then_some(icon::dot().size(6).style(theme::text::info)))
+            .push(unread_dot_indicator_spacing)
             .push(
                 text(nick.to_string())
-                    .style(theme::text::primary)
+                    .style(buffer_title_style)
                     .shaping(text::Shaping::Advanced),
             )
+            .push(horizontal_space().width(3))
             .align_y(iced::Alignment::Center),
+    };
+
+    let width = if position.is_horizontal() {
+        Length::Shrink
+    } else {
+        Length::Fill
     };
 
     let base = button(row)
         .padding(5)
-        .width(Length::Fill)
+        .width(width)
         .style(if open.is_some() {
             theme::button::side_menu_selected
         } else {
@@ -395,4 +394,126 @@ fn buffer_button<'a>(
                 .into()
         })
     }
+}
+
+fn menu_buttons<'a>(
+    now: Instant,
+    timestamp: Option<Instant>,
+    panes: &pane_grid::State<Pane>,
+    config: data::config::Sidebar,
+    show_tooltips: bool,
+    file_transfers: &'a file_transfer::Manager,
+    version: &'a Version,
+) -> Element<'a, Message> {
+    let mut menu_buttons = row![]
+        .spacing(1)
+        .width(Length::Shrink)
+        .align_y(Alignment::End);
+
+    let tooltip_position = match config.position {
+        sidebar::Position::Top => tooltip::Position::Bottom,
+        sidebar::Position::Bottom | sidebar::Position::Left | sidebar::Position::Right => {
+            tooltip::Position::Top
+        }
+    };
+
+    if version.is_old() {
+        let button = button(center(icon::megaphone().style(theme::text::info)))
+            .on_press(Message::OpenReleaseWebsite)
+            .padding(5)
+            .width(22)
+            .height(22)
+            .style(theme::button::side_menu);
+
+        let button_with_tooltip = tooltip(
+            button,
+            show_tooltips.then_some("New Halloy version is available!"),
+            tooltip_position,
+        );
+
+        menu_buttons = menu_buttons.push(button_with_tooltip);
+    }
+
+    if config.buttons.reload_config {
+        let icon = timestamp
+            .filter(|&timestamp| now.saturating_duration_since(timestamp) < Duration::new(1, 0))
+            .map_or_else(
+                || icon::refresh().style(theme::text::primary),
+                |_| icon::checkmark().style(theme::text::success),
+            );
+
+        let button = button(center(icon))
+            .on_press(Message::ReloadConfigFile)
+            .padding(5)
+            .width(22)
+            .height(22)
+            .style(theme::button::side_menu);
+
+        let button_with_tooltip = tooltip(
+            button,
+            show_tooltips.then_some("Reload config file"),
+            tooltip_position,
+        );
+
+        menu_buttons = menu_buttons.push(button_with_tooltip);
+    }
+
+    if config.buttons.command_bar {
+        let button = button(center(icon::search()))
+            .on_press(Message::ToggleCommandBar)
+            .padding(5)
+            .width(22)
+            .height(22)
+            .style(theme::button::side_menu);
+
+        let button_with_tooltip = tooltip(
+            button,
+            show_tooltips.then_some("Command Bar"),
+            tooltip_position,
+        );
+
+        menu_buttons = menu_buttons.push(button_with_tooltip);
+    }
+
+    if config.buttons.file_transfer {
+        let file_transfers_open = panes
+            .iter()
+            .any(|(_, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
+
+        let button = button(center(icon::file_transfer().style(
+            if file_transfers.is_empty() {
+                theme::text::primary
+            } else {
+                theme::text::alert
+            },
+        )))
+        .on_press(Message::ToggleFileTransfers)
+        .padding(5)
+        .width(22)
+        .height(22)
+        .style(if file_transfers_open {
+            theme::button::side_menu_selected
+        } else {
+            theme::button::side_menu
+        });
+
+        let button_with_tooltip = tooltip(
+            button,
+            show_tooltips.then_some("File Transfers"),
+            tooltip_position,
+        );
+
+        menu_buttons = menu_buttons.push(button_with_tooltip);
+    }
+
+    let width = if config.position.is_horizontal() {
+        Length::Shrink
+    } else {
+        Length::Fill
+    };
+
+    container(menu_buttons)
+        .width(width)
+        .align_x(Alignment::Center)
+        .into()
 }
