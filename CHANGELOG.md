@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2024.10 (2024-08-04)
+
 Added:
 
 - Small icon in sidemenu when a new release is available 
