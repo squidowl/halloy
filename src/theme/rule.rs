@@ -22,3 +22,12 @@ pub fn primary(theme: &Theme) -> Style {
         fill_mode: FillMode::Full,
     }
 }
+
+pub fn separator(theme: &Theme) -> Style {
+    Style {
+        color: theme.colors().text.low_alpha,
+        width: 1,
+        radius: 0.0.into(),
+        fill_mode: FillMode::Full,
+    }
+}

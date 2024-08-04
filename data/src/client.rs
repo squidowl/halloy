@@ -1315,6 +1315,10 @@ impl HighlightBlackout {
 pub struct Map(BTreeMap<Server, State>);
 
 impl Map {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn disconnected(&mut self, server: Server) {
         self.0.insert(server, State::Disconnected);
     }
