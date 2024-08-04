@@ -510,7 +510,7 @@ impl Client {
                     let _ = self.handle.try_send(command!("CAP", "END"));
                 }
             }
-            Command::Numeric(RPL_LOGGEDIN, _) => {
+            Command::Numeric(RPL_LOGGEDIN, args) => {
                 log::info!("[{}] logged in", self.server);
 
                 if !self.registration_required_channels.is_empty() {
@@ -522,6 +522,31 @@ impl Client {
                     }
 
                     self.registration_required_channels.clear();
+                }
+
+                if !self.supports_account_notify {
+                    let accountname = args.first()?;
+
+                    let old_user = User::from(self.nickname().to_owned());
+
+                    self.chanmap.values_mut().for_each(|channel| {
+                        if let Some(user) = channel.users.take(&old_user) {
+                            channel.users.insert(user.with_accountname(accountname));
+                        }
+                    });
+                }
+            }
+            Command::Numeric(RPL_LOGGEDOUT, _) => {
+                log::info!("[{}] logged out", self.server);
+
+                if !self.supports_account_notify {
+                    let old_user = User::from(self.nickname().to_owned());
+
+                    self.chanmap.values_mut().for_each(|channel| {
+                        if let Some(user) = channel.users.take(&old_user) {
+                            channel.users.insert(user.with_accountname("*"));
+                        }
+                    });
                 }
             }
             Command::PRIVMSG(channel, text) | Command::NOTICE(channel, text) => {
