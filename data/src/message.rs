@@ -498,6 +498,7 @@ fn target(
         | Command::USERHOST(_)
         | Command::CAP(_, _, _, _)
         | Command::AUTHENTICATE(_)
+        | Command::ACCOUNT(_)
         | Command::BATCH(_, _)
         | Command::CHGHOST(_, _)
         | Command::CNOTICE(_, _, _)

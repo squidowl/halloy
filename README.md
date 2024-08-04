@@ -36,6 +36,8 @@ Halloy is also available from [Flathub](https://flathub.org/apps/org.squidowl.ha
     * [`WHOX`](https://ircv3.net/specs/extensions/whox)
     * [`UTF8ONLY`](https://ircv3.net/specs/extensions/utf8-only)
     * [chghost](https://ircv3.net/specs/extensions/chghost)
+    * [account-notify](https://ircv3.net/specs/extensions/account-notify)
+    * [extended-join](https://ircv3.net/specs/extensions/extended-join)
 * SASL support
 * DCC Send
 * Keyboard shortcuts
