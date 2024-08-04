@@ -3,7 +3,7 @@
 Added:
 
 - Small icon in sidemenu when a new release is available 
-- Enable support for IRCv3 `chghost`
+- Enable support for IRCv3 `chghost`, `account-notify`, and `extended-join`
 
 Removed:
 
