@@ -361,12 +361,29 @@ fn buffer_button<'a>(
         .style(move |theme, status| {
             theme::button::sidebar_buffer(theme, status, is_focused, open.is_some())
         })
-        .on_press(match default_action {
-            DefaultAction::NewPane => Message::Open(buffer.clone()),
-            DefaultAction::ReplacePane => match focus {
-                Some(pane) => Message::Replace(buffer.clone(), pane),
-                None => Message::Open(buffer.clone()),
-            },
+        .on_press({
+            let focus_pane_pressed =
+                panes
+                    .iter()
+                    .find(|(id, _)| Some(**id) == focus)
+                    .and_then(|(id, pane)| {
+                        if pane.buffer.data().as_ref() == Some(&buffer) {
+                            Some(id)
+                        } else {
+                            None
+                        }
+                    });
+
+            match focus_pane_pressed {
+                Some(id) => Message::Close(*id),
+                None => match default_action {
+                    DefaultAction::NewPane => Message::Open(buffer.clone()),
+                    DefaultAction::ReplacePane => match focus {
+                        Some(pane) => Message::Replace(buffer.clone(), pane),
+                        None => Message::Open(buffer.clone()),
+                    },
+                },
+            }
         });
 
     let entries = Entry::list(panes.len(), open, focus);
