@@ -19,6 +19,7 @@ pub struct User {
     nickname: Nick,
     username: Option<String>,
     hostname: Option<String>,
+    accountname: Option<String>,
     access_levels: HashSet<AccessLevel>,
     away: bool,
 }
@@ -93,6 +94,7 @@ impl<'a> TryFrom<&'a str> for User {
             nickname: Nick::from(nickname),
             username,
             hostname,
+            accountname: None,
             access_levels,
             away: false,
         })
@@ -118,6 +120,7 @@ impl From<Nick> for User {
             nickname,
             username: None,
             hostname: None,
+            accountname: None,
             access_levels: HashSet::default(),
             away: false,
         }
@@ -157,6 +160,10 @@ impl User {
         self.hostname.as_deref()
     }
 
+    pub fn accountname(&self) -> Option<&str> {
+        self.accountname.as_deref()
+    }
+
     pub fn with_nickname(self, nickname: Nick) -> Self {
         Self { nickname, ..self }
     }
@@ -165,6 +172,19 @@ impl User {
         Self {
             username: Some(username),
             hostname: Some(hostname),
+            ..self
+        }
+    }
+
+    pub fn with_accountname(self, accountname: &str) -> Self {
+        let accountname = if accountname == "*" || accountname == "0" {
+            None
+        } else {
+            Some(accountname.to_string())
+        };
+
+        Self {
+            accountname,
             ..self
         }
     }
@@ -221,6 +241,7 @@ impl From<proto::User> for User {
             nickname: Nick::from(user.nickname),
             username: user.username,
             hostname: user.hostname,
+            accountname: None,
             access_levels: HashSet::default(),
             away: false,
         }

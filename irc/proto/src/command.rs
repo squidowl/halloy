@@ -24,7 +24,8 @@ pub enum Command {
     ERROR(String),
 
     /* Channel Operations */
-    /// <channel>{,<channel>} [<key>{,<key>}]
+    /// <channel>{,<channel>} [<key>{,<key>}] (send)
+    /// <channel>{,<channel>} [<accountname>] (receive [extended-join])
     JOIN(String, Option<String>),
     /// <channel>{,<channel>} [<reason>]
     PART(String, Option<String>),
@@ -94,6 +95,8 @@ pub enum Command {
     /// <text>
     WALLOPS(String),
 
+    /// <accountname>
+    ACCOUNT(String),
     /* IRC extensions */
     BATCH(String, Vec<String>),
     /// <new_username> <new_hostname>
@@ -194,6 +197,7 @@ impl Command {
             "LINKS" => LINKS,
             "USERHOST" => USERHOST(params.collect()),
             "WALLOPS" if len > 0 => WALLOPS(req!()),
+            "ACCOUNT" if len > 0 => ACCOUNT(req!()),
             "BATCH" if len > 0 => BATCH(req!(), params.collect()),
             "CHGHOST" if len > 1 => CHGHOST(req!(), req!()),
             "CNOTICE" if len > 2 => CNOTICE(req!(), req!(), req!()),
@@ -249,6 +253,7 @@ impl Command {
             Command::LINKS => vec![],
             Command::USERHOST(params) => params,
             Command::WALLOPS(a) => vec![a],
+            Command::ACCOUNT(a) => vec![a],
             Command::BATCH(a, rest) => std::iter::once(a).chain(rest).collect(),
             Command::CHGHOST(a, b) => vec![a, b],
             Command::CNOTICE(a, b, c) => vec![a, b, c],
@@ -306,6 +311,7 @@ impl Command {
             LINKS => "LINKS".to_string(),
             USERHOST(_) => "USERHOST".to_string(),
             WALLOPS(_) => "WALLOPS".to_string(),
+            ACCOUNT(_) => "ACCOUNT".to_string(),
             BATCH(_, _) => "BATCH".to_string(),
             CHGHOST(_, _) => "CHGHOST".to_string(),
             CNOTICE(_, _, _) => "CNOTICE".to_string(),
