@@ -94,6 +94,8 @@ pub struct Client {
     listed_caps: Vec<String>,
     supports_labels: bool,
     supports_away_notify: bool,
+    supports_account_notify: bool,
+    supports_extended_join: bool,
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<String>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
@@ -144,6 +146,8 @@ impl Client {
             listed_caps: vec![],
             supports_labels: false,
             supports_away_notify: false,
+            supports_account_notify: false,
+            supports_extended_join: false,
             highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
             isupport: HashMap::new(),
@@ -333,6 +337,13 @@ impl Client {
                     if contains("chghost") {
                         requested.push("chghost");
                     }
+                    if contains("account-notify") {
+                        requested.push("account-notify");
+
+                        if contains("extended-join") {
+                            requested.push("extended-join");
+                        }
+                    }
                     if contains("batch") {
                         requested.push("batch");
                     }
@@ -375,6 +386,12 @@ impl Client {
                 }
                 if caps.contains(&"away-notify") {
                     self.supports_away_notify = true;
+                }
+                if caps.contains(&"account-notify") {
+                    self.supports_account_notify = true;
+                }
+                if caps.contains(&"extended-join") {
+                    self.supports_extended_join = true;
                 }
 
                 let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
@@ -428,6 +445,15 @@ impl Client {
                 if newly_contains("chghost") {
                     requested.push("chghost");
                 }
+                if contains("account-notify") || newly_contains("account-notify") {
+                    if newly_contains("account-notify") {
+                        requested.push("account-notify");
+                    }
+
+                    if newly_contains("extended-join") {
+                        requested.push("extended-join");
+                    }
+                }
                 if newly_contains("batch") {
                     requested.push("batch");
                 }
@@ -465,6 +491,12 @@ impl Client {
                 if del_caps.contains(&"away-notify") {
                     self.supports_away_notify = false;
                 }
+                if del_caps.contains(&"account-notify") {
+                    self.supports_account_notify = false;
+                }
+                if del_caps.contains(&"extended-join") {
+                    self.supports_extended_join = false;
+                }
 
                 self.listed_caps
                     .retain(|cap| !del_caps.iter().any(|del_cap| del_cap == cap));
@@ -478,7 +510,7 @@ impl Client {
                     let _ = self.handle.try_send(command!("CAP", "END"));
                 }
             }
-            Command::Numeric(RPL_LOGGEDIN, _) => {
+            Command::Numeric(RPL_LOGGEDIN, args) => {
                 log::info!("[{}] logged in", self.server);
 
                 if !self.registration_required_channels.is_empty() {
@@ -490,6 +522,31 @@ impl Client {
                     }
 
                     self.registration_required_channels.clear();
+                }
+
+                if !self.supports_account_notify {
+                    let accountname = args.first()?;
+
+                    let old_user = User::from(self.nickname().to_owned());
+
+                    self.chanmap.values_mut().for_each(|channel| {
+                        if let Some(user) = channel.users.take(&old_user) {
+                            channel.users.insert(user.with_accountname(accountname));
+                        }
+                    });
+                }
+            }
+            Command::Numeric(RPL_LOGGEDOUT, _) => {
+                log::info!("[{}] logged out", self.server);
+
+                if !self.supports_account_notify {
+                    let old_user = User::from(self.nickname().to_owned());
+
+                    self.chanmap.values_mut().for_each(|channel| {
+                        if let Some(user) = channel.users.take(&old_user) {
+                            channel.users.insert(user.with_accountname("*"));
+                        }
+                    });
                 }
             }
             Command::PRIVMSG(channel, text) | Command::NOTICE(channel, text) => {
@@ -738,7 +795,7 @@ impl Client {
                     channel.users.remove(&user);
                 }
             }
-            Command::JOIN(channel, _) => {
+            Command::JOIN(channel, accountname) => {
                 let user = message.user()?;
 
                 if user.nickname() == self.nickname() {
@@ -747,12 +804,19 @@ impl Client {
                     if let Some(state) = self.chanmap.get_mut(channel) {
                         // Sends WHO to get away state on users.
                         if self.isupport.contains_key(&isupport::Kind::WHOX) {
+                            let fields = if self.supports_account_notify {
+                                "tcnfa"
+                            } else {
+                                "tcnf"
+                            };
+
                             let _ = self.handle.try_send(command!(
                                 "WHO",
                                 channel,
-                                "tcnf",
+                                fields,
                                 isupport::WHO_POLL_TOKEN.to_owned()
                             ));
+
                             state.last_who = Some(WhoStatus::Requested(
                                 Instant::now(),
                                 Some(isupport::WHO_POLL_TOKEN),
@@ -764,6 +828,14 @@ impl Client {
                         log::debug!("[{}] {channel} - WHO requested", self.server);
                     }
                 } else if let Some(channel) = self.chanmap.get_mut(channel) {
+                    let user = if self.supports_extended_join {
+                        accountname.as_ref().map_or(user.clone(), |accountname| {
+                            user.with_accountname(accountname)
+                        })
+                    } else {
+                        user
+                    };
+
                     channel.users.insert(user);
                 }
             }
@@ -801,6 +873,12 @@ impl Client {
                 if proto::is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
                         channel.update_user_away(args.get(3)?, args.get(4)?);
+
+                        if self.supports_account_notify {
+                            if let (Some(user), Some(accountname)) = (args.get(3), args.get(5)) {
+                                channel.update_user_accountname(user, accountname);
+                            }
+                        }
 
                         if let Ok(token) = args.get(1)?.parse::<isupport::WhoToken>() {
                             if let Some(WhoStatus::Requested(_, Some(request_token))) =
@@ -1020,6 +1098,29 @@ impl Client {
             Command::TAGMSG(_) => {
                 return None;
             }
+            Command::ACCOUNT(accountname) => {
+                let old_user = message.user()?;
+
+                self.chanmap.values_mut().for_each(|channel| {
+                    if let Some(user) = channel.users.take(&old_user) {
+                        channel.users.insert(user.with_accountname(accountname));
+                    }
+                });
+
+                if old_user.nickname() == self.nickname()
+                    && accountname != "*"
+                    && !self.registration_required_channels.is_empty()
+                {
+                    for message in group_joins(
+                        &self.registration_required_channels,
+                        &self.config.channel_keys,
+                    ) {
+                        let _ = self.handle.try_send(message);
+                    }
+
+                    self.registration_required_channels.clear();
+                }
+            }
             Command::CHGHOST(new_username, new_hostname) => {
                 let old_user = message.user()?;
 
@@ -1136,12 +1237,19 @@ impl Client {
 
             if let Some(request) = request {
                 if self.isupport.contains_key(&isupport::Kind::WHOX) {
+                    let fields = if self.supports_account_notify {
+                        "tcnfa"
+                    } else {
+                        "tcnf"
+                    };
+
                     let _ = self.handle.try_send(command!(
                         "WHO",
                         channel,
-                        "tcnf",
+                        fields,
                         isupport::WHO_POLL_TOKEN.to_owned()
                     ));
+
                     state.last_who = Some(WhoStatus::Requested(
                         Instant::now(),
                         Some(isupport::WHO_POLL_TOKEN),
@@ -1436,6 +1544,14 @@ impl Channel {
                 user.update_away(away);
                 self.users.insert(user);
             }
+        }
+    }
+
+    pub fn update_user_accountname(&mut self, user: &str, accountname: &str) {
+        let user = User::from(Nick::from(user));
+
+        if let Some(user) = self.users.take(&user) {
+            self.users.insert(user.with_accountname(accountname));
         }
     }
 }
