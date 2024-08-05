@@ -41,24 +41,43 @@ pub trait Parser: Copy {
     fn from_char(c: char) -> Self;
 }
 
+// Reference: https://defs.ircdocs.horse/defs/chanmodes
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Channel {
+    Admin,
     Ban,
-    Exception,
-    Limit,
+    BlockCaps,
+    NoCTCP,
+    DelayJoins,
+    BanException,
+    ChanFilter,
+    StripBadWords,
+    Halfop,
+    History,
     InviteOnly,
     InviteException,
+    JoinThrottle,
+    KickNoRejoin,
     Key,
+    NoKnock,
+    Limit,
     Moderated,
+    NoExternalMessages,
+    NoNickChange,
+    Oper,
+    Permanent,
+    Founder,
     RegisteredOnly,
     Secret,
     ProtectedTopic,
-    NoExternalMessages,
-    Founder,
-    Admin,
-    Oper,
-    Halfop,
+    NoNotice,
     Voice,
+    NoInvite,
+    AutoOp,
+    ExemptChanOps,
+    OperPrefix,
+    OJoin,
     Unknown(char),
 }
 
@@ -67,22 +86,39 @@ impl From<char> for Channel {
         use Channel::*;
 
         match c {
+            'a' => Admin,
             'b' => Ban,
-            'e' => Exception,
-            'l' => Limit,
+            'B' => BlockCaps,
+            'C' => NoCTCP,
+            'D' => DelayJoins,
+            'e' => BanException,
+            'g' => ChanFilter,
+            'G' => StripBadWords,
+            'h' => Halfop,
+            'H' => History,
             'i' => InviteOnly,
             'I' => InviteException,
+            'j' => JoinThrottle,
+            'J' => KickNoRejoin,
             'k' => Key,
+            'K' => NoKnock,
+            'l' => Limit,
             'm' => Moderated,
+            'n' => NoExternalMessages,
+            'N' => NoNickChange,
+            'o' => Oper,
+            'P' => Permanent,
+            'q' => Founder,
             'r' => RegisteredOnly,
             's' => Secret,
             't' => ProtectedTopic,
-            'n' => NoExternalMessages,
-            'q' => Founder,
-            'a' => Admin,
-            'o' => Oper,
-            'h' => Halfop,
+            'T' => NoNotice,
             'v' => Voice,
+            'V' => NoInvite,
+            'w' => AutoOp,
+            'X' => ExemptChanOps,
+            'y' => OperPrefix,
+            'Y' => OJoin,
             _ => Unknown(c),
         }
     }
@@ -94,16 +130,92 @@ impl Parser for Channel {
 
         matches!(
             self,
-            Ban | Exception
-                | Limit
-                | InviteException
-                | Key
-                | Founder
-                | Admin
-                | Oper
+            Admin
+                | Ban
+                | BanException
+                | ChanFilter
                 | Halfop
+                | History
+                | JoinThrottle
+                | InviteException
+                | KickNoRejoin
+                | Key
+                | Limit
+                | Oper
+                | Founder
                 | Voice
+                | AutoOp
+                | ExemptChanOps
         )
+    }
+
+    fn from_char(c: char) -> Self {
+        Self::from(c)
+    }
+}
+
+// Reference: https://defs.ircdocs.horse/defs/chanmodes
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum User {
+    ServerAdmin,
+    Bot,
+    CoAdmin,
+    Deaf,
+    External,
+    RemoteClientConns,
+    HideOper,
+    Invisible,
+    HideChans,
+    Rej,
+    NetworkAdmin,
+    Spambots,
+    GlobalOperator,
+    LocalOperator,
+    Registered,
+    ServerNotices,
+    UnAuth,
+    WebTV,
+    WAllOps,
+    HostHiding,
+    Unknown(char),
+}
+
+impl From<char> for User {
+    fn from(c: char) -> Self {
+        use User::*;
+
+        match c {
+            'A' => ServerAdmin,
+            'B' => Bot,
+            'C' => CoAdmin,
+            'D' => Deaf,
+            'e' => External,
+            'F' => RemoteClientConns,
+            'H' => HideOper,
+            'i' => Invisible,
+            'I' => HideChans,
+            'j' => Rej,
+            'N' => NetworkAdmin,
+            'm' => Spambots,
+            'o' => GlobalOperator,
+            'O' => LocalOperator,
+            'r' | 'R' => Registered,
+            's' => ServerNotices,
+            'u' => UnAuth,
+            'V' => WebTV,
+            'w' => WAllOps,
+            'x' => HostHiding,
+            _ => Unknown(c),
+        }
+    }
+}
+
+impl Parser for User {
+    fn takes_arg(self) -> bool {
+        use User::*;
+
+        matches!(self, ServerNotices)
     }
 
     fn from_char(c: char) -> Self {
