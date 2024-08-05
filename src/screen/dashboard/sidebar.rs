@@ -157,7 +157,6 @@ impl Sidebar {
 
                     // Separator between servers.
                     if config.position.is_horizontal() {
-                        // TODO Optimize.
                         if i + 1 < clients.len() {
                             buffers.push(
                                 container(vertical_rule(1).style(theme::rule::separator))
@@ -165,7 +164,6 @@ impl Sidebar {
                                     .height(20)
                                     .width(12)
                                     .align_x(Alignment::Center)
-                                    .align_y(Alignment::Center)
                                     .into(),
                             )
                         }
