@@ -1,5 +1,14 @@
 # Unreleased
 
+Added:
+
+- Ability to position the sidebar at the top, bottom, right, or left. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
+
+Changed:
+
+- Unread indicator has changed from a boolean value to a enum. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
+
+
 # 2024.10 (2024-08-04)
 
 Added:

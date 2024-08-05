@@ -10,8 +10,38 @@ pub struct Sidebar {
     pub width: u16,
     #[serde(default)]
     pub buttons: Buttons,
-    #[serde(default = "default_bool_true")]
-    pub show_unread_indicators: bool,
+    #[serde(default)]
+    pub unread_indicator: UnreadIndicator,
+    #[serde(default)]
+    pub position: Position,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum UnreadIndicator {
+    #[default]
+    Dot,
+    Title,
+    None,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum Position {
+    #[default]
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
+impl Position {
+    pub fn is_horizontal(&self) -> bool {
+        match self {
+            Position::Left | Position::Right => false,
+            Position::Top | Position::Bottom => true,
+        }
+    }
 }
 
 impl Default for Sidebar {
@@ -20,7 +50,8 @@ impl Default for Sidebar {
             default_action: Default::default(),
             width: default_sidebar_width(),
             buttons: Default::default(),
-            show_unread_indicators: default_bool_true(),
+            unread_indicator: UnreadIndicator::default(),
+            position: Position::default(),
         }
     }
 }
