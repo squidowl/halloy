@@ -19,11 +19,12 @@ mod window;
 use std::env;
 use std::time::{Duration, Instant};
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use data::config::{self, Config};
+use data::isupport::{ChatHistorySubcommand, MessageReference};
 use data::version::Version;
 use data::window::Window;
-use data::{environment, server, version, User};
+use data::{environment, history, server, version, User};
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
@@ -150,11 +151,24 @@ impl Halloy {
             Ok(config) => {
                 let (screen, command) = load_dashboard(&config);
 
-                (
-                    Screen::Dashboard(screen),
-                    config,
-                    command.map(Message::Dashboard),
-                )
+                let mut commands = vec![command.map(Message::Dashboard)];
+
+                for entry in config.servers.entries() {
+                    let server = entry.server.clone();
+
+                    commands.push(Task::perform(
+                        history::load_read_marker(server.clone(), history::Kind::Server),
+                        move |read_marker| {
+                            Message::UpdateReadMarker(
+                                server.clone(),
+                                history::Kind::Server,
+                                read_marker,
+                            )
+                        },
+                    ));
+                }
+
+                (Screen::Dashboard(screen), config, Task::batch(commands))
             }
             Err(error) => match &error {
                 config::Error::Parse(_) => (
@@ -220,6 +234,9 @@ pub enum Message {
     RouteReceived(String),
     Window(data::window::Event),
     WindowSettingsSaved(Result<(), data::window::Error>),
+    ChatHistoryRequest(server::Server, ChatHistorySubcommand),
+    ChatHistoryTargetsMarked(server::Server, Result<(), history::Error>),
+    UpdateReadMarker(server::Server, history::Kind, Option<DateTime<Utc>>),
 }
 
 impl Halloy {
@@ -258,10 +275,22 @@ impl Halloy {
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
+                let mut commands = vec![
+                    command.map(Message::Dashboard),
+                    track.map(Message::Dashboard),
+                ];
+
                 if let Some(event) = event {
                     match event {
                         dashboard::Event::ReloadConfiguration => match Config::load() {
                             Ok(updated) => {
+                                let added_servers = updated
+                                    .servers
+                                    .keys()
+                                    .filter(|server| !self.servers.contains(server))
+                                    .cloned()
+                                    .collect::<Vec<_>>();
+
                                 let removed_servers = self
                                     .servers
                                     .keys()
@@ -272,6 +301,24 @@ impl Halloy {
                                 self.servers = updated.servers.clone();
                                 self.theme = updated.themes.default.clone().into();
                                 self.config = updated;
+
+                                for server in added_servers {
+                                    let server = server.clone();
+
+                                    commands.push(Task::perform(
+                                        history::load_read_marker(
+                                            server.clone(),
+                                            history::Kind::Server,
+                                        ),
+                                        move |read_marker| {
+                                            Message::UpdateReadMarker(
+                                                server.clone(),
+                                                history::Kind::Server,
+                                                read_marker,
+                                            )
+                                        },
+                                    ));
+                                }
 
                                 for server in removed_servers {
                                     self.clients.quit(&server, None);
@@ -287,10 +334,7 @@ impl Halloy {
                     }
                 }
 
-                Task::batch(vec![
-                    command.map(Message::Dashboard),
-                    track.map(Message::Dashboard),
-                ])
+                Task::batch(commands)
             }
             Message::Version(remote) => {
                 // Set latest known remote version
@@ -423,36 +467,53 @@ impl Halloy {
                         .flat_map(|message| {
                             let mut commands = vec![];
 
-                            for event in self.clients.receive(&server, message) {
+                            let events = self.clients.receive(&server, message);
+
+                            for event in events {
                                 // Resolve a user using client state which stores attributes
                                 let resolve_user_attributes = |user: &User, channel: &str| {
-                                    self.clients
-                                        .resolve_user_attributes(&server, channel, user)
-                                        .cloned()
+                                    self.clients.resolve_user_attributes(&server, channel, user).cloned()
                                 };
 
                                 match event {
                                     data::client::Event::Single(encoded, our_nick) => {
-                                        if let Some(message) = data::Message::received(
-                                            encoded,
-                                            our_nick,
-                                            &self.config,
-                                            resolve_user_attributes,
-                                        ) {
-                                            dashboard.record_message(&server, message);
+                                        if let Some(message) =
+                                            data::Message::received(encoded, our_nick, &self.config, resolve_user_attributes)
+                                        {
+                                            if let Some(history::manager::Event::LoadReadMarker(server, kind)) =
+                                                dashboard.record_message(&server, message)
+                                            {
+                                                commands.push(Task::perform(
+                                                    history::load_read_marker(server.clone(), kind.clone()),
+                                                    move |read_marker| {
+                                                        Message::UpdateReadMarker(
+                                                            server.clone(),
+                                                            kind.clone(),
+                                                            read_marker,
+                                                        )
+                                                    },
+                                                ));
+                                            }
                                         }
                                     }
                                     data::client::Event::WithTarget(encoded, our_nick, target) => {
-                                        if let Some(message) = data::Message::received(
-                                            encoded,
-                                            our_nick,
-                                            &self.config,
-                                            resolve_user_attributes,
-                                        ) {
-                                            dashboard.record_message(
-                                                &server,
-                                                message.with_target(target),
-                                            );
+                                        if let Some(message) =
+                                            data::Message::received(encoded, our_nick, &self.config, resolve_user_attributes)
+                                        {
+                                            if let Some(history::manager::Event::LoadReadMarker(server, kind)) =
+                                                dashboard.record_message(&server, message.with_target(target))
+                                            {
+                                                commands.push(Task::perform(
+                                                    history::load_read_marker(server.clone(), kind.clone()),
+                                                    move |read_marker| {
+                                                        Message::UpdateReadMarker(
+                                                            server.clone(),
+                                                            kind.clone(),
+                                                            read_marker,
+                                                        )
+                                                    },
+                                                ));
+                                            }
                                         }
                                     }
                                     data::client::Event::Broadcast(broadcast) => match broadcast {
@@ -468,7 +529,7 @@ impl Halloy {
                                                 comment,
                                                 channels,
                                                 &self.config,
-                                                sent_time,
+                                                sent_time
                                             );
                                         }
                                         data::client::Broadcast::Nickname {
@@ -527,18 +588,24 @@ impl Halloy {
                                             );
                                         }
                                     },
-                                    data::client::Event::Notification(
-                                        encoded,
-                                        our_nick,
-                                        notification,
-                                    ) => {
-                                        if let Some(message) = data::Message::received(
-                                            encoded,
-                                            our_nick,
-                                            &self.config,
-                                            resolve_user_attributes,
-                                        ) {
-                                            dashboard.record_message(&server, message);
+                                    data::client::Event::Notification(encoded, our_nick, notification) => {
+                                        if let Some(message) =
+                                            data::Message::received(encoded, our_nick, &self.config, resolve_user_attributes)
+                                        {
+                                            if let Some(history::manager::Event::LoadReadMarker(server, kind)) =
+                                                dashboard.record_message(&server, message)
+                                            {
+                                                commands.push(Task::perform(
+                                                    history::load_read_marker(server.clone(), kind.clone()),
+                                                    move |read_marker| {
+                                                        Message::UpdateReadMarker(
+                                                            server.clone(),
+                                                            kind.clone(),
+                                                            read_marker,
+                                                        )
+                                                    },
+                                                ));
+                                            }
                                         }
 
                                         match notification {
@@ -562,6 +629,213 @@ impl Halloy {
                                         ) {
                                             commands.push(command.map(Message::Dashboard));
                                         }
+                                    }
+                                    data::client::Event::ChatHistoryRequest(subcommand) => {
+                                        self.clients.send_chathistory_request(
+                                            &server,
+                                            subcommand,
+                                        );
+                                    }
+                                    data::client::Event::ChatHistoryRequestFromHistory(
+                                        history_request,
+                                    ) => {
+                                        match history_request {
+                                            data::client::HistoryRequest::Targets => {
+                                                let server = server.clone();
+                                                let limit = self.clients.get_server_chathistory_limit(&server);
+
+                                                commands.push(Task::perform(
+                                                    history::load_targets_marker(server.clone()),
+                                                    move |targets_marker| {
+                                                        let start_message_reference = targets_marker.map_or(MessageReference::None, |targets_marker| {
+                                                            MessageReference::Timestamp(targets_marker)
+                                                        });
+
+                                                        Message::ChatHistoryRequest(
+                                                            server.clone(),
+                                                            ChatHistorySubcommand::Targets(
+                                                                start_message_reference,
+                                                                MessageReference::None,
+                                                                limit,
+                                                            )
+                                                        )
+                                                    }
+                                                ));
+                                            }
+                                            data::client::HistoryRequest::Queries(
+                                                message_reference_types,
+                                                before_server_time,
+                                            ) => {
+                                                let queries = dashboard
+                                                    .get_unique_queries(&server)
+                                                    .iter()
+                                                    .map(|query| query.to_string())
+                                                    .collect::<Vec<_>>();
+
+                                                queries
+                                                    .into_iter()
+                                                    .for_each(|query| {
+                                                        let server = server.clone();
+                                                        let limit = self.clients.get_server_chathistory_limit(&server);
+                                                        commands.push(Task::perform(
+                                                            history::get_latest_message_reference(
+                                                                server.clone(),
+                                                                query.clone(),
+                                                                message_reference_types.clone(),
+                                                                before_server_time,
+                                                            ),
+                                                            move |latest_message_reference| {
+                                                                Message::ChatHistoryRequest(
+                                                                    server.clone(),
+                                                                    ChatHistorySubcommand::Latest(
+                                                                        query.clone(),
+                                                                        latest_message_reference,
+                                                                        limit,
+                                                                    ),
+                                                                )
+                                                            },
+                                                        ));
+                                                    });
+                                            }
+                                            data::client::HistoryRequest::Recent(
+                                                target,
+                                                message_reference_types,
+                                                before_server_time,
+                                            ) => {
+                                                let server = server.clone();
+                                                let limit = self.clients.get_server_chathistory_limit(&server);
+
+                                                commands.push(
+                                                    Task::perform(
+                                                        history::get_latest_message_reference(
+                                                            server.clone(),
+                                                            target.clone(),
+                                                            message_reference_types,
+                                                            before_server_time,
+                                                        ),
+                                                        move |latest_message_reference| {
+                                                            Message::ChatHistoryRequest(
+                                                                server.clone(),
+                                                                ChatHistorySubcommand::Latest(
+                                                                    target.clone(),
+                                                                    latest_message_reference,
+                                                                    limit,
+                                                                ),
+                                                            )
+                                                        }
+                                                    )
+                                                );
+                                            }
+                                            data::client::HistoryRequest::Older(
+                                                target,
+                                                message_reference_types,
+                                            ) => {
+                                                let message_reference = dashboard.get_oldest_message_reference(
+                                                        &server,
+                                                        &target,
+                                                        &message_reference_types,
+                                                    );
+
+                                                let subcommand = if matches!(message_reference, MessageReference::None) {
+                                                    ChatHistorySubcommand::Latest(
+                                                        target.clone(),
+                                                        message_reference,
+                                                        self.clients.get_server_chathistory_limit(&server),
+                                                    )
+                                                } else {
+                                                    ChatHistorySubcommand::Before(
+                                                        target.clone(),
+                                                        message_reference,
+                                                        self.clients.get_server_chathistory_limit(&server),
+                                                    )
+                                                };
+
+                                                self.clients.send_chathistory_request(
+                                                    &server,
+                                                    subcommand,
+                                                );
+                                            }
+                                        }
+                                    }
+                                    data::client::Event::ChatHistoryTargetsReceived(server_time) => {
+                                        let server = server.clone();
+
+                                        commands.push(Task::perform(
+                                            history::overwrite_targets_marker(server.clone(), server_time),
+                                            move |result| Message::ChatHistoryTargetsMarked(server.clone(), result),
+                                        ));
+                                    }
+                                    data::client::Event::ChatHistoryRequestReceived(
+                                        subcommand,
+                                        batch_len,
+                                    ) => {
+                                        match &subcommand {
+                                            ChatHistorySubcommand::Latest(target, message_reference, _) => {
+                                                log::debug!(
+                                                    "[{}] received latest {} messages in {} since {}",
+                                                    server,
+                                                    batch_len,
+                                                    target,
+                                                    message_reference,
+                                                );
+                                            }
+                                            ChatHistorySubcommand::Before(target, message_reference, _) => {
+                                                log::debug!(
+                                                    "[{}] received {} messages in {} before {}",
+                                                    server,
+                                                    batch_len,
+                                                    target,
+                                                    message_reference,
+                                                );
+                                            }
+                                            ChatHistorySubcommand::Between(
+                                                target,
+                                                start_message_reference,
+                                                end_message_reference,
+                                                _,
+                                            ) => {
+                                                log::debug!(
+                                                    "[{}] received {} messages in {} between {} and {}",
+                                                    server,
+                                                    batch_len,
+                                                    target,
+                                                    start_message_reference,
+                                                    end_message_reference,
+                                                );
+                                            }
+                                            ChatHistorySubcommand::Targets(
+                                                start_message_reference,
+                                                end_message_reference,
+                                                _,
+                                            ) => {
+                                                log::debug!(
+                                                    "[{}] received {} targets between {} and {}",
+                                                    server,
+                                                    batch_len,
+                                                    start_message_reference,
+                                                    end_message_reference,
+                                                );
+                                            }
+                                        }
+
+                                        if let Some(target) = subcommand.target() {
+                                            self.clients.clear_chathistory_request(&server, target);
+                                        }
+                                    }
+                                    data::client::Event::LoadReadMarker(target) => {
+                                        let server = server.clone();
+                                        let kind = history::Kind::from(target);
+
+                                        commands.push(Task::perform(
+                                            history::load_read_marker(server.clone(), kind.clone()),
+                                            move |read_marker| {
+                                                Message::UpdateReadMarker(
+                                                    server.clone(),
+                                                    kind.clone(),
+                                                    read_marker,
+                                                )
+                                            },
+                                        ));
                                     }
                                 }
                             }
@@ -606,7 +880,7 @@ impl Halloy {
                     dashboard
                         .handle_event(
                             event,
-                            &self.clients,
+                            &mut self.clients,
                             &self.version,
                             &self.config,
                             &mut self.theme,
@@ -678,6 +952,52 @@ impl Halloy {
             Message::WindowSettingsSaved(result) => {
                 if let Err(err) = result {
                     log::error!("window settings failed to save: {:?}", err)
+                }
+
+                Task::none()
+            }
+            Message::ChatHistoryRequest(server, subcommand) => {
+                self.clients.send_chathistory_request(&server, subcommand);
+
+                Task::none()
+            }
+            Message::ChatHistoryTargetsMarked(server, result) => {
+                match result {
+                    Ok(_) => log::debug!("[{server}] chathistory targets marked"),
+                    Err(error) => {
+                        log::warn!("[{server}] failed to mark chathistory targets: {error}")
+                    }
+                }
+
+                Task::none()
+            }
+            Message::UpdateReadMarker(server, kind, read_marker) => {
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    if dashboard.update_read_marker(&server, &kind, read_marker) {
+                        log::debug!(
+                            "[{server}] updated read-marker for {kind} to {:?}",
+                            read_marker
+                        );
+
+
+                        if dashboard.stored_messages_may_be_unread(&server, &kind, read_marker) {
+                            return Task::perform(
+                                history::num_stored_unread_messages(
+                                    server.clone(),
+                                    kind.clone(),
+                                    read_marker,
+                                ),
+                                move |num_stored_unread_messages| {
+                                    Message::Dashboard(dashboard::Message::IncrementUnread(
+                                        server.clone(),
+                                        kind.clone(),
+                                        read_marker,
+                                        num_stored_unread_messages,
+                                    ))
+                                },
+                            );
+                        }
+                    }
                 }
 
                 Task::none()

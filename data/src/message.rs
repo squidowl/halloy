@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use irc::proto;
 use irc::proto::Command;
 use itertools::Itertools;
@@ -12,6 +12,7 @@ use url::Url;
 pub use self::formatting::Formatting;
 pub use self::source::Source;
 
+use crate::history::after_read_marker;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, Config, User};
@@ -103,12 +104,14 @@ pub struct Message {
     pub direction: Direction,
     pub target: Target,
     pub content: Content,
+    pub id: Option<String>,
 }
 
 impl Message {
-    pub fn triggers_unread(&self) -> bool {
+    pub fn triggers_unread(&self, read_marker: &Option<DateTime<Utc>>) -> bool {
         matches!(self.direction, Direction::Received)
             && matches!(self.target.source(), Source::User(_) | Source::Action)
+            && after_read_marker(self, read_marker)
     }
 
     pub fn received(
@@ -118,6 +121,7 @@ impl Message {
         resolve_attributes: impl Fn(&User, &str) -> Option<User>,
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
+        let id = message_id(&encoded);
         let content = content(&encoded, &our_nick, config, &resolve_attributes)?;
         let target = target(encoded, &our_nick, &resolve_attributes)?;
 
@@ -127,6 +131,7 @@ impl Message {
             direction: Direction::Received,
             target,
             content,
+            id,
         })
     }
 
@@ -140,6 +145,7 @@ impl Message {
                 source: Source::Action,
             },
             content: plain(format!(" ∙ {from} wants to send you \"{filename}\"")),
+            id: None,
         }
     }
 
@@ -153,6 +159,7 @@ impl Message {
                 source: Source::Action,
             },
             content: plain(format!(" ∙ offering to send {to} \"{filename}\"")),
+            id: None,
         }
     }
 
@@ -213,6 +220,7 @@ impl<'de> Deserialize<'de> for Message {
             content: Option<Content>,
             // Old field before we had fragments
             text: Option<String>,
+            id: Option<String>,
         }
 
         let Data {
@@ -222,6 +230,7 @@ impl<'de> Deserialize<'de> for Message {
             target,
             content,
             text,
+            id,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -240,6 +249,7 @@ impl<'de> Deserialize<'de> for Message {
             direction,
             target,
             content,
+            id,
         })
     }
 }
@@ -500,6 +510,7 @@ fn target(
         | Command::AUTHENTICATE(_)
         | Command::ACCOUNT(_)
         | Command::BATCH(_, _)
+        | Command::CHATHISTORY(_, _)
         | Command::CHGHOST(_, _)
         | Command::CNOTICE(_, _, _)
         | Command::CPRIVMSG(_, _, _)
@@ -516,6 +527,14 @@ fn target(
     }
 }
 
+pub fn message_id(message: &Encoded) -> Option<String> {
+    message
+        .tags
+        .iter()
+        .find(|tag| &tag.key == "msgid")
+        .and_then(|tag| tag.value.clone())
+}
+
 pub fn server_time(message: &Encoded) -> DateTime<Utc> {
     message
         .tags
@@ -525,6 +544,20 @@ pub fn server_time(message: &Encoded) -> DateTime<Utc> {
         .and_then(|rfc3339| DateTime::parse_from_rfc3339(&rfc3339).ok())
         .map(|dt| dt.with_timezone(&Utc))
         .unwrap_or_else(Utc::now)
+}
+
+pub const FUZZ_SECONDS: i64 = 1;
+
+pub fn fuzz_start_server_time(server_time: DateTime<Utc>) -> DateTime<Utc> {
+    TimeDelta::try_seconds(FUZZ_SECONDS)
+        .and_then(|time_delta| server_time.checked_sub_signed(time_delta))
+        .map_or(server_time, |fuzzed_server_time| fuzzed_server_time)
+}
+
+pub fn fuzz_end_server_time(server_time: DateTime<Utc>) -> DateTime<Utc> {
+    TimeDelta::try_seconds(FUZZ_SECONDS)
+        .and_then(|time_delta| server_time.checked_add_signed(time_delta))
+        .map_or(server_time, |fuzzed_server_time| fuzzed_server_time)
 }
 
 fn content(
@@ -620,6 +653,14 @@ fn content(
 
             Some(parse_fragments(text.clone()))
         }
+        Command::NICK(nick) => {
+            let old_nick = Nick::from(message.user()?.nickname().as_ref());
+            let new_nick = Nick::from(nick.as_str());
+            let ourself = *our_nick == old_nick;
+
+            Some(nickname_text(&old_nick, &new_nick, ourself))
+        }
+        Command::QUIT(comment) => Some(quit_text(&message.user()?, comment, config)),
         Command::NOTICE(_, text) => Some(parse_fragments(text.clone())),
         Command::Numeric(RPL_TOPIC, params) => {
             let topic = params.get(2)?;
@@ -781,6 +822,26 @@ pub fn action_text(nick: NickRef, action: Option<&str>) -> Content {
     } else {
         plain(format!(" ∙ {nick}"))
     }
+}
+
+pub fn nickname_text(old_nick: &Nick, new_nick: &Nick, ourself: bool) -> Content {
+    if ourself {
+        plain(format!(" ∙ You're now known as {new_nick}"))
+    } else {
+        plain(format!(" ∙ {old_nick} is now known as {new_nick}"))
+    }
+}
+
+pub fn quit_text(user: &User, comment: &Option<String>, config: &Config) -> Content {
+    let comment = comment
+        .as_ref()
+        .map(|comment| format!(" ({comment})"))
+        .unwrap_or_default();
+
+    parse_fragments(format!(
+        "⟵ {} has quit{comment}",
+        user.formatted(config.buffer.server_messages.quit.username_format)
+    ))
 }
 
 pub fn reference_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {

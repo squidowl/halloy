@@ -21,6 +21,7 @@ pub enum Internal {
 pub enum Status {
     Success,
     Error,
+    Pending,
 }
 
 pub mod server {

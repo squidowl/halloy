@@ -91,6 +91,7 @@ impl Input {
                 direction: message::Direction::Sent,
                 target: to_target(target, message::Source::User(user))?,
                 content: message::parse_fragments(text),
+                id: None,
             }),
             Command::Me(target, action) => Some(Message {
                 received_at: Posix::now(),
@@ -98,6 +99,7 @@ impl Input {
                 direction: message::Direction::Sent,
                 target: to_target(target, message::Source::Action)?,
                 content: message::action_text(user.nickname(), Some(&action)),
+                id: None,
             }),
             _ => None,
         }

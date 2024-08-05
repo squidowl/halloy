@@ -39,6 +39,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    RequestOlderChatHistory,
 }
 
 impl Buffer {
@@ -70,6 +71,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     channel::Event::UserContext(event) => Event::UserContext(event),
+                    channel::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                 });
 
                 (command.map(Message::Channel), event)
@@ -84,6 +86,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     query::Event::UserContext(event) => Event::UserContext(event),
+                    query::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                 });
 
                 (command.map(Message::Query), event)
