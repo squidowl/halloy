@@ -22,7 +22,7 @@ use crate::{ctcp, Config, User};
 
 static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b([a-zA-Z0-9-_.!~*'()%;?:@&=+$,\/]*)"#,
+        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b([a-zA-Z0-9-_.!~*'()%;?:@&=+$,\/#]*)"#,
     )
     .unwrap()
 });
@@ -861,6 +861,14 @@ mod test {
                 "https://www.google.com/maps/@61.0873595,-27.322408,3z?entry=ttu",
                 vec![Fragment::Url(
                     "https://www.google.com/maps/@61.0873595,-27.322408,3z?entry=ttu"
+                    .parse()
+                    .unwrap()
+                )],
+            ),
+            (
+                "https://doc.rust-lang.org/book/ch03-05-control-flow.html#loop-labels-to-disambiguate-between-multiple-loops",
+                vec![Fragment::Url(
+                    "https://doc.rust-lang.org/book/ch03-05-control-flow.html#loop-labels-to-disambiguate-between-multiple-loops"
                     .parse()
                     .unwrap()
                 )],
