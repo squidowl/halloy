@@ -154,7 +154,7 @@ impl Parser for Channel {
     }
 }
 
-// Reference: https://defs.ircdocs.horse/defs/chanmodes
+// Reference: https://defs.ircdocs.horse/defs/usermodes
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum User {
