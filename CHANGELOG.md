@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Expanded recognized login notifications (used to join channels that report themselves as requiring registration after logging in)
+
 # 2024.10 (2024-08-04)
 
 Added:
