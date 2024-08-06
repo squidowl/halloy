@@ -949,19 +949,44 @@ impl Client {
                     }
                 }
             }
-            Command::MODE(target, Some(modes), args) if proto::is_channel(target) => {
-                let modes = mode::parse::<mode::Channel>(modes, args);
+            Command::MODE(target, Some(modes), args) => {
+                if proto::is_channel(target) {
+                    let modes = mode::parse::<mode::Channel>(modes, args);
 
-                if let Some(channel) = self.chanmap.get_mut(target) {
-                    for mode in modes {
-                        if let Some((op, lookup)) = mode
-                            .operation()
-                            .zip(mode.arg().map(|nick| User::from(Nick::from(nick))))
-                        {
-                            if let Some(mut user) = channel.users.take(&lookup) {
-                                user.update_access_level(op, *mode.value());
-                                channel.users.insert(user);
+                    if let Some(channel) = self.chanmap.get_mut(target) {
+                        for mode in modes {
+                            if let Some((op, lookup)) = mode
+                                .operation()
+                                .zip(mode.arg().map(|nick| User::from(Nick::from(nick))))
+                            {
+                                if let Some(mut user) = channel.users.take(&lookup) {
+                                    user.update_access_level(op, *mode.value());
+                                    channel.users.insert(user);
+                                }
                             }
+                        }
+                    }
+                } else {
+                    // Only check for being logged in via mode if account-notify is not available,
+                    // since it is not standardized across networks.
+
+                    if target == self.nickname().as_ref()
+                        && !self.supports_account_notify
+                        && !self.registration_required_channels.is_empty()
+                    {
+                        let modes = mode::parse::<mode::User>(modes, args);
+
+                        if modes.into_iter().any(|mode| {
+                            matches!(mode, mode::Mode::Add(mode::User::Registered, None))
+                        }) {
+                            for message in group_joins(
+                                &self.registration_required_channels,
+                                &self.config.channel_keys,
+                            ) {
+                                let _ = self.handle.try_send(message);
+                            }
+
+                            self.registration_required_channels.clear();
                         }
                     }
                 }
