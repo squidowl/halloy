@@ -33,15 +33,18 @@ pub struct ServerMessages {
     pub part: ServerMessage,
     #[serde(default)]
     pub quit: ServerMessage,
+    #[serde(default)]
+    pub change_host: ServerMessage,
 }
 
 impl ServerMessages {
     pub fn get(&self, server: &source::Server) -> Option<&ServerMessage> {
         match server.kind() {
             source::server::Kind::ReplyTopic => Some(&self.topic),
+            source::server::Kind::Join => Some(&self.join),
             source::server::Kind::Part => Some(&self.part),
             source::server::Kind::Quit => Some(&self.quit),
-            source::server::Kind::Join => Some(&self.join),
+            source::server::Kind::ChangeHost => Some(&self.change_host),
         }
     }
 }
