@@ -16,6 +16,7 @@ pub struct Dashboard {
 pub enum DefaultAction {
     #[default]
     NewPane,
+    TogglePane,
     ReplacePane,
 }
 

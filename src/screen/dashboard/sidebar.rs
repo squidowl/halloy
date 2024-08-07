@@ -361,6 +361,18 @@ fn buffer_button<'a>(
                 Some(pane) => Message::Replace(buffer.clone(), pane),
                 None => Message::Open(buffer.clone()),
             },
+            DefaultAction::TogglePane => {
+                let id = panes
+                    .iter()
+                    .find(|(_, pane)| pane.buffer.data().as_ref() == Some(&buffer))
+                    .map(|(id, _)| id);
+
+                if let Some(id) = id {
+                    Message::Close(*id)
+                } else {
+                    Message::Open(buffer.clone())
+                }
+            }
         });
 
     let entries = Entry::list(panes.len(), open, focus);

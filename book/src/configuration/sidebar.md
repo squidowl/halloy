@@ -9,11 +9,11 @@ width = <integer>
 show_unread_indicators = true | false
 ```
 
-| Key                      | Description                                                                            | Default      |
-| ------------------------ | -------------------------------------------------------------------------------------- | ------------ |
-| `default_action`         | Action when selecting buffers in the sidebar. Can be `"new-pane"` or `"replace-pane"`. | `"new-pane"` |
-| `width`                  | Specify sidebar width in pixels.                                                       | `120`        |
-| `show_unread_indicators` | Unread buffer indicators                                                               | `true`       |
+| Key                      | Description                                                                                              | Default      |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- | ------------ |
+| `default_action`         | Action when selecting buffers in the sidebar. Can be `"new-pane"`, `"replace-pane"`, or `"toggle-pane"`. | `"new-pane"` |
+| `width`                  | Specify sidebar width in pixels.                                                                         | `120`        |
+| `show_unread_indicators` | Unread buffer indicators                                                                                 | `true`       |
 
 ## `[sidebar.buttons]` Section
 
