@@ -464,6 +464,12 @@ fn target(
                 }),
             }
         }
+        Command::CHGHOST(_, _) => Some(Target::Server {
+            source: source::Source::Server(Some(source::Server::new(
+                source::server::Kind::ChangeHost,
+                user.map(|user| user.nickname().to_owned()),
+            ))),
+        }),
 
         // Server
         Command::PASS(_)
@@ -500,7 +506,6 @@ fn target(
         | Command::AUTHENTICATE(_)
         | Command::ACCOUNT(_)
         | Command::BATCH(_, _)
-        | Command::CHGHOST(_, _)
         | Command::CNOTICE(_, _, _)
         | Command::CPRIVMSG(_, _, _)
         | Command::KNOCK(_, _)

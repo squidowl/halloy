@@ -69,6 +69,9 @@ pub fn server(
             message::source::server::Kind::ReplyTopic => {
                 config.topic.hex.as_deref().and_then(hex_to_color)
             }
+            message::source::server::Kind::ChangeHost => {
+                config.change_host.hex.as_deref().and_then(hex_to_color)
+            }
         })
         .or_else(|| text::info(theme).color);
 
