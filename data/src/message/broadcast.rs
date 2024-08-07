@@ -226,7 +226,10 @@ pub fn change_host(
         channels,
         queries,
         false,
-        Cause::Server(None),
+        Cause::Server(Some(source::Server::new(
+            source::server::Kind::ChangeHost,
+            Some(old_user.nickname().to_owned()),
+        ))),
         content,
         sent_time,
     )

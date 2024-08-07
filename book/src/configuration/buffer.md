@@ -129,6 +129,13 @@ enabled = true | false
 hex = "<string>"
 ```
 
+```toml
+[buffer.server_messages.change_host]
+enabled = true | false
+smart = <integer>
+hex = "<string>"
+```
+
 | Key               | Description                                                                                                                                                      | Default   |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
 | `enabled`         | Control if the server message should appear in buffers or not                                                                                                    | `true`    |
