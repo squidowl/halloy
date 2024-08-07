@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Configuration options for hiding/coloring `chghost` messages.
+
 Fixed:
 
 - Expanded recognized login notifications (used to join channels that report themselves as requiring registration after logging in)
