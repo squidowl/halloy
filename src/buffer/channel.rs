@@ -70,6 +70,8 @@ pub fn view<'a>(
                             selectable_text(timestamp).style(theme::selectable_text::transparent)
                         });
 
+                let pad_space =  selectable_text("".pad_to_width(nick_length.into())).style(theme::selectable_text::transparent);
+
                 match message.target.source() {
                     message::Source::User(user) => {
                         let nick = user_context::view(
@@ -133,7 +135,7 @@ pub fn view<'a>(
                             },
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(container(row![].push_maybe(timestamp).push(pad_space).push(message)).into())
                     }
                     message::Source::Action => {
                         let message = message_content(
@@ -143,7 +145,7 @@ pub fn view<'a>(
                             theme::selectable_text::accent,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(container(row![].push_maybe(timestamp).push(pad_space).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message = message_content(
@@ -159,7 +161,7 @@ pub fn view<'a>(
                             },
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(container(row![].push_maybe(timestamp).push(pad_space).push(message)).into())
                     }
                 }
             },
