@@ -1,9 +1,12 @@
 use data::server::Server;
 use data::user::Nick;
 use data::User;
+use data::isupport;
 use data::{channel, history, message, Config};
 use iced::widget::{column, container, row};
 use iced::{padding, Length, Task};
+
+use pad::{PadStr, Alignment};
 
 use super::{input_view, scroll_view, user_context};
 use crate::widget::{message_content, selectable_text, Element};
@@ -42,6 +45,16 @@ pub fn view<'a>(
 
     let users = clients.get_channel_users(&state.server, &state.channel);
 
+    let isupport = clients.get_isupport(&state.server);
+
+    let nick_length = if let Some(isupport::Parameter::NICKLEN(max_len)) =
+        isupport.get(&isupport::Kind::NICKLEN)
+        {
+            Some(max_len)
+        } else {
+            None
+        }.unwrap_or(&0).to_owned();
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
@@ -57,10 +70,12 @@ pub fn view<'a>(
                             selectable_text(timestamp).style(theme::selectable_text::transparent)
                         });
 
+                let pad_space =  selectable_text("".pad_to_width(nick_length.into())).style(theme::selectable_text::transparent);
+
                 match message.target.source() {
                     message::Source::User(user) => {
                         let nick = user_context::view(
-                            selectable_text(config.buffer.nickname.brackets.format(user)).style(
+                            selectable_text(config.buffer.nickname.brackets.format(user).pad_to_width_with_alignment(nick_length.into(),Alignment::Right)).style(
                                 |theme| {
                                     theme::selectable_text::nickname(
                                         theme,
@@ -120,7 +135,7 @@ pub fn view<'a>(
                             },
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(container(row![].push_maybe(timestamp).push(pad_space).push(message)).into())
                     }
                     message::Source::Action => {
                         let message = message_content(
@@ -130,7 +145,7 @@ pub fn view<'a>(
                             theme::selectable_text::accent,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(container(row![].push_maybe(timestamp).push(pad_space).push(message)).into())
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message = message_content(
@@ -146,7 +161,7 @@ pub fn view<'a>(
                             },
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(container(row![].push_maybe(timestamp).push(pad_space).push(message)).into())
                     }
                 }
             },
