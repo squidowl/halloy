@@ -47,14 +47,13 @@ pub fn view<'a>(
 
     let isupport = clients.get_isupport(&state.server);
 
-    let var_name = if let Some(isupport::Parameter::NICKLEN(max_len)) =
+    let nick_length = if let Some(isupport::Parameter::NICKLEN(max_len)) =
         isupport.get(&isupport::Kind::NICKLEN)
         {
             Some(max_len)
         } else {
             None
-        };
-    let nick_length = var_name.unwrap_or(&0).to_owned();
+        }.unwrap_or(&0).to_owned();
 
     let messages = container(
         scroll_view::view(
