@@ -1738,6 +1738,7 @@ dependencies = [
  "notify-rust",
  "once_cell",
  "open",
+ "pad",
  "palette",
  "rfd",
  "rodio",
@@ -3185,6 +3186,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b41438d2fc63c46c74a2203bf5ccd82c41ba04347b2fcf5754f230b167067d5"
 dependencies = [
  "ttf-parser 0.21.1",
+]
+
+[[package]]
+name = "pad"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2ad9b889f1b12e0b9ee24db044b5129150d5eada288edc800f789928dc8c0e3"
+dependencies = [
+ "unicode-width",
 ]
 
 [[package]]
