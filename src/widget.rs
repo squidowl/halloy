@@ -15,6 +15,7 @@ pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
+pub use self::wrap::wrap;
 
 pub mod anchored_overlay;
 pub mod collection;
@@ -29,6 +30,7 @@ pub mod selectable_rich_text;
 pub mod selectable_text;
 pub mod shortcut;
 pub mod tooltip;
+pub mod wrap;
 
 pub type Renderer = iced::Renderer;
 pub type Element<'a, Message> = iced::Element<'a, Message, Theme, Renderer>;
