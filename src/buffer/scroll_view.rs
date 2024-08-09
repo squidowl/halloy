@@ -2,12 +2,15 @@ use data::message::Limit;
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
+use iced::advanced::graphics::text::Paragraph;
+use iced::advanced::text::Paragraph as _;
+use iced::advanced::Text;
 use iced::widget::{column, container, horizontal_rule, row, scrollable, text, Scrollable};
-use iced::{padding, Length, Task};
+use iced::{alignment, padding, Length, Size, Task};
 
 use super::user_context;
-use crate::theme;
 use crate::widget::Element;
+use crate::{font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -39,12 +42,13 @@ pub fn view<'a>(
     kind: Kind,
     history: &'a history::Manager,
     config: &'a Config,
-    format: impl Fn(&'a data::Message) -> Option<Element<'a, Message>> + 'a,
+    format: impl Fn(&'a data::Message, f32) -> Option<Element<'a, Message>> + 'a,
 ) -> Element<'a, Message> {
     let Some(history::View {
         total,
         old_messages,
         new_messages,
+        max_nick_chars,
     }) = (match kind {
         Kind::Server(server) => {
             history.get_server_messages(server, Some(state.limit), &config.buffer)
@@ -70,13 +74,26 @@ pub fn view<'a>(
         .unwrap_or_else(time::Posix::now);
     let status = state.status;
 
+    let max_nick_width = Paragraph::with_text(Text {
+        content: &" ".repeat(max_nick_chars),
+        bounds: Size::INFINITY,
+        size: theme::TEXT_SIZE.into(),
+        line_height: Default::default(),
+        font: font::MONO.clone().into(),
+        horizontal_alignment: alignment::Horizontal::Right,
+        vertical_alignment: alignment::Vertical::Top,
+        shaping: text::Shaping::Basic,
+    })
+    .min_bounds()
+    .width;
+
     let old = old_messages
         .into_iter()
-        .filter_map(&format)
+        .filter_map(|message| format(message, max_nick_width))
         .collect::<Vec<_>>();
     let new = new_messages
         .into_iter()
-        .filter_map(format)
+        .filter_map(|message| format(message, max_nick_width))
         .collect::<Vec<_>>();
 
     let show_divider = !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom));
