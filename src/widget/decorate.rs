@@ -5,20 +5,20 @@ use iced::{
     event, Element,
 };
 
-pub fn wrap<'a, Message, Theme, Renderer>(
+pub fn decorate<'a, Message, Theme, Renderer>(
     element: impl Into<Element<'a, Message, Theme, Renderer>>,
-) -> Wrap<'a, Message, Theme, Renderer> {
-    Wrap::new(element)
+) -> Decorate<'a, Message, Theme, Renderer> {
+    Decorate::new(element)
 }
 
-pub struct Wrap<'a, Message, Theme, Renderer, OnEvent = (), Layout = (), State = ()> {
+pub struct Decorate<'a, Message, Theme, Renderer, OnEvent = (), Layout = (), State = ()> {
     inner: Element<'a, Message, Theme, Renderer>,
     on_event: OnEvent,
     layout: Layout,
     state: PhantomData<State>,
 }
 
-impl<'a, Message, Theme, Renderer> Wrap<'a, Message, Theme, Renderer> {
+impl<'a, Message, Theme, Renderer> Decorate<'a, Message, Theme, Renderer> {
     pub fn new(inner: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
         Self {
             inner: inner.into(),
@@ -30,10 +30,13 @@ impl<'a, Message, Theme, Renderer> Wrap<'a, Message, Theme, Renderer> {
 }
 
 impl<'a, Message, Theme, Renderer, OnEvent, Layout, State>
-    Wrap<'a, Message, Theme, Renderer, OnEvent, Layout, State>
+    Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, State>
 {
-    pub fn on_event<T>(self, on_event: T) -> Wrap<'a, Message, Theme, Renderer, T, Layout, State> {
-        Wrap {
+    pub fn on_event<T>(
+        self,
+        on_event: T,
+    ) -> Decorate<'a, Message, Theme, Renderer, T, Layout, State> {
+        Decorate {
             inner: self.inner,
             layout: self.layout,
             state: self.state,
@@ -41,8 +44,8 @@ impl<'a, Message, Theme, Renderer, OnEvent, Layout, State>
         }
     }
 
-    pub fn layout<T>(self, layout: T) -> Wrap<'a, Message, Theme, Renderer, OnEvent, T, State> {
-        Wrap {
+    pub fn layout<T>(self, layout: T) -> Decorate<'a, Message, Theme, Renderer, OnEvent, T, State> {
+        Decorate {
             inner: self.inner,
             on_event: self.on_event,
             state: self.state,
@@ -50,8 +53,8 @@ impl<'a, Message, Theme, Renderer, OnEvent, Layout, State>
         }
     }
 
-    pub fn state<T>(self) -> Wrap<'a, Message, Theme, Renderer, OnEvent, Layout, T> {
-        Wrap {
+    pub fn state<T>(self) -> Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, T> {
+        Decorate {
             inner: self.inner,
             on_event: self.on_event,
             layout: self.layout,
@@ -185,7 +188,7 @@ where
 }
 
 impl<'a, Message, Theme, Renderer, OnEvent, Layout, State> Widget<Message, Theme, Renderer>
-    for Wrap<'a, Message, Theme, Renderer, OnEvent, Layout, State>
+    for Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, State>
 where
     Renderer: advanced::Renderer,
     OnEvent: self::OnEvent<'a, Message, Theme, Renderer, State>,
@@ -321,7 +324,7 @@ where
 }
 
 impl<'a, Message, Theme, Renderer, OnEvent, Layout, State>
-    From<Wrap<'a, Message, Theme, Renderer, OnEvent, Layout, State>>
+    From<Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, State>>
     for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
@@ -331,7 +334,7 @@ where
     Layout: self::Layout<'a, Message, Theme, Renderer, State> + 'a,
     State: Default + 'static,
 {
-    fn from(wrap: Wrap<'a, Message, Theme, Renderer, OnEvent, Layout, State>) -> Self {
+    fn from(wrap: Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, State>) -> Self {
         Element::new(wrap)
     }
 }
