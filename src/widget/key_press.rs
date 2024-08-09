@@ -2,7 +2,7 @@ use iced::advanced::{widget, Clipboard, Layout, Shell};
 pub use iced::keyboard::{key::Named, Key, Modifiers};
 use iced::{event, keyboard, mouse, Event, Rectangle};
 
-use super::{wrap, Element, Renderer};
+use super::{decorate, Element, Renderer};
 
 pub fn key_press<'a, Message>(
     base: impl Into<Element<'a, Message>>,
@@ -13,7 +13,7 @@ pub fn key_press<'a, Message>(
 where
     Message: 'a + Clone,
 {
-    wrap(base)
+    decorate(base)
         .on_event(
             move |_state: &mut (),
                   inner: &mut Element<'a, Message>,

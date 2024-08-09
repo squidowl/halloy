@@ -6,7 +6,7 @@ use iced::event;
 
 const TIMEOUT_MILLIS: u64 = 250;
 
-use crate::widget::{wrap, Renderer};
+use crate::widget::{decorate, Renderer};
 use crate::Element;
 
 pub fn double_click<'a, Message>(
@@ -16,7 +16,7 @@ pub fn double_click<'a, Message>(
 where
     Message: Clone + 'a,
 {
-    wrap(content)
+    decorate(content)
         .state::<Internal>()
         .on_event(
             move |state: &mut Internal,

@@ -5,7 +5,7 @@ use iced::{event, keyboard, mouse, Event};
 
 pub use data::shortcut::Command;
 
-use super::{wrap, Element, Renderer};
+use super::{decorate, Element, Renderer};
 
 pub fn shortcut<'a, Message>(
     base: impl Into<Element<'a, Message>>,
@@ -15,7 +15,7 @@ pub fn shortcut<'a, Message>(
 where
     Message: 'a,
 {
-    wrap(base)
+    decorate(base)
         .state::<shortcut::Modifiers>()
         .on_event(
             move |modifiers: &mut shortcut::Modifiers,
