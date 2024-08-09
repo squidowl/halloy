@@ -3,7 +3,7 @@ use data::user::Nick;
 use data::User;
 use data::{channel, history, message, Config};
 use iced::widget::{column, container, row};
-use iced::{padding, Length, Task};
+use iced::{alignment, padding, Length, Task};
 
 use super::{input_view, scroll_view, user_context};
 use crate::widget::{message_content, selectable_text, Element};
@@ -48,7 +48,7 @@ pub fn view<'a>(
             scroll_view::Kind::Channel(&state.server, &state.channel),
             history,
             config,
-            move |message| {
+            move |message, max_nick_width| {
                 let timestamp =
                     config
                         .buffer
@@ -60,8 +60,10 @@ pub fn view<'a>(
                 match message.target.source() {
                     message::Source::User(user) => {
                         let nick = user_context::view(
-                            selectable_text(config.buffer.nickname.brackets.format(user)).style(
-                                |theme| {
+                            selectable_text(config.buffer.nickname.brackets.format(user))
+                                .width(max_nick_width)
+                                .horizontal_alignment(alignment::Horizontal::Right)
+                                .style(|theme| {
                                     theme::selectable_text::nickname(
                                         theme,
                                         user.nick_color(
@@ -70,8 +72,7 @@ pub fn view<'a>(
                                         ),
                                         user.is_away(),
                                     )
-                                },
-                            ),
+                                }),
                             user,
                             users.iter().find(|current_user| *current_user == user),
                             state.buffer(),

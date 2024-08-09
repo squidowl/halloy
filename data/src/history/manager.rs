@@ -550,6 +550,19 @@ impl Data {
             .collect::<Vec<_>>();
 
         let total = filtered.len();
+
+        let max_nick_chars = filtered
+            .iter()
+            .filter_map(|message| {
+                if let message::Source::User(user) = message.target.source() {
+                    Some(buffer_config.nickname.brackets.format(user).chars().count())
+                } else {
+                    None
+                }
+            })
+            .max()
+            .unwrap_or_default();
+
         let limited = with_limit(limit, filtered.into_iter());
 
         let split_at = limited
@@ -563,6 +576,7 @@ impl Data {
             total,
             old_messages: old.to_vec(),
             new_messages: new.to_vec(),
+            max_nick_chars,
         })
     }
 
