@@ -65,11 +65,11 @@ impl Input {
         self.buffer.server()
     }
 
-    pub fn message(&self, user: User) -> Option<Message> {
-        let to_target = |target: String, source| {
-            if proto::is_channel(&target) {
+    pub fn messages(&self, user: User) -> Option<Vec<Message>> {
+        let to_target = |target: &str, source| {
+            if proto::is_channel(target) {
                 Some(message::Target::Channel {
-                    channel: target,
+                    channel: target.to_string(),
                     source,
                 })
             } else if let Ok(user) = User::try_from(target) {
@@ -85,20 +85,26 @@ impl Input {
         let command = self.content.command(&self.buffer)?;
 
         match command {
-            Command::Msg(target, text) => Some(Message {
+            Command::Msg(targets, text) => Some(
+                targets
+                    .split(',')
+                    .filter_map(|target| to_target(target, message::Source::User(user.clone())))
+                    .map(|target| Message {
+                        received_at: Posix::now(),
+                        server_time: Utc::now(),
+                        direction: message::Direction::Sent,
+                        target,
+                        content: message::parse_fragments(text.clone()),
+                    })
+                    .collect(),
+            ),
+            Command::Me(target, action) => Some(vec![Message {
                 received_at: Posix::now(),
                 server_time: Utc::now(),
                 direction: message::Direction::Sent,
-                target: to_target(target, message::Source::User(user))?,
-                content: message::parse_fragments(text),
-            }),
-            Command::Me(target, action) => Some(Message {
-                received_at: Posix::now(),
-                server_time: Utc::now(),
-                direction: message::Direction::Sent,
-                target: to_target(target, message::Source::Action)?,
+                target: to_target(&target, message::Source::Action)?,
                 content: message::action_text(user.nickname(), Some(&action)),
-            }),
+            }]),
             _ => None,
         }
     }
