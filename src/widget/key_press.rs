@@ -15,7 +15,8 @@ where
 {
     wrap(base)
         .on_event(
-            move |inner: &mut Element<'a, Message>,
+            move |_state: &mut (),
+                  inner: &mut Element<'a, Message>,
                   tree: &mut widget::Tree,
                   event: Event,
                   layout: Layout<'_>,
