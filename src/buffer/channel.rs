@@ -59,20 +59,25 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::User(user) => {
+                        let mut text = selectable_text(
+                            config.buffer.nickname.brackets.format(user),
+                        )
+                        .style(|theme| {
+                            theme::selectable_text::nickname(
+                                theme,
+                                user.nick_color(theme.colors(), &config.buffer.nickname.color),
+                                user.is_away(),
+                            )
+                        });
+
+                        if let Some(width) = max_nick_width {
+                            text = text
+                                .width(width)
+                                .horizontal_alignment(alignment::Horizontal::Right);
+                        }
+
                         let nick = user_context::view(
-                            selectable_text(config.buffer.nickname.brackets.format(user))
-                                .width(max_nick_width)
-                                .horizontal_alignment(alignment::Horizontal::Right)
-                                .style(|theme| {
-                                    theme::selectable_text::nickname(
-                                        theme,
-                                        user.nick_color(
-                                            theme.colors(),
-                                            &config.buffer.nickname.color,
-                                        ),
-                                        user.is_away(),
-                                    )
-                                }),
+                            text,
                             user,
                             users.iter().find(|current_user| *current_user == user),
                             state.buffer(),

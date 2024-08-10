@@ -42,7 +42,7 @@ pub fn view<'a>(
     kind: Kind,
     history: &'a history::Manager,
     config: &'a Config,
-    format: impl Fn(&'a data::Message, f32) -> Option<Element<'a, Message>> + 'a,
+    format: impl Fn(&'a data::Message, Option<f32>) -> Option<Element<'a, Message>> + 'a,
 ) -> Element<'a, Message> {
     let Some(history::View {
         total,
@@ -74,18 +74,20 @@ pub fn view<'a>(
         .unwrap_or_else(time::Posix::now);
     let status = state.status;
 
-    let max_nick_width = Paragraph::with_text(Text {
-        content: &" ".repeat(max_nick_chars),
-        bounds: Size::INFINITY,
-        size: theme::TEXT_SIZE.into(),
-        line_height: Default::default(),
-        font: font::MONO.clone().into(),
-        horizontal_alignment: alignment::Horizontal::Right,
-        vertical_alignment: alignment::Vertical::Top,
-        shaping: text::Shaping::Basic,
-    })
-    .min_bounds()
-    .width;
+    let max_nick_width = max_nick_chars.map(|len| {
+        Paragraph::with_text(Text {
+            content: &" ".repeat(len),
+            bounds: Size::INFINITY,
+            size: theme::TEXT_SIZE.into(),
+            line_height: Default::default(),
+            font: font::MONO.clone().into(),
+            horizontal_alignment: alignment::Horizontal::Right,
+            vertical_alignment: alignment::Vertical::Top,
+            shaping: text::Shaping::Basic,
+        })
+        .min_bounds()
+        .width
+    });
 
     let old = old_messages
         .into_iter()

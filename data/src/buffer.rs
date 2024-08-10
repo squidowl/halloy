@@ -115,6 +115,8 @@ pub struct Nickname {
     pub color: Color,
     #[serde(default)]
     pub brackets: Brackets,
+    #[serde(default)]
+    pub alignment: Alignment,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -167,6 +169,20 @@ impl<'de> Deserialize<'de> for Color {
             Format::Kind(kind) => Color { kind, hex: None },
             Format::Data(Data { kind, hex }) => Color { kind, hex },
         })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Alignment {
+    #[default]
+    Left,
+    Right,
+}
+
+impl Alignment {
+    pub fn is_right(&self) -> bool {
+        matches!(self, Self::Right)
     }
 }
 
