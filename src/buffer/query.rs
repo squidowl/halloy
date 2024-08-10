@@ -47,26 +47,25 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::User(user) => {
-                        let nick = user_context::view(
-                            selectable_text(config.buffer.nickname.brackets.format(user))
-                                .style(|theme| {
-                                    theme::selectable_text::nickname(
-                                        theme,
-                                        user.nick_color(
-                                            theme.colors(),
-                                            &config.buffer.nickname.color,
-                                        ),
-                                        false,
-                                    )
-                                })
-                                .width(max_nick_width)
-                                .horizontal_alignment(alignment::Horizontal::Right),
-                            user,
-                            None,
-                            state.buffer(),
-                            None,
+                        let mut text = selectable_text(
+                            config.buffer.nickname.brackets.format(user),
                         )
-                        .map(scroll_view::Message::UserContext);
+                        .style(|theme| {
+                            theme::selectable_text::nickname(
+                                theme,
+                                user.nick_color(theme.colors(), &config.buffer.nickname.color),
+                                false,
+                            )
+                        });
+
+                        if let Some(width) = max_nick_width {
+                            text = text
+                                .width(width)
+                                .horizontal_alignment(alignment::Horizontal::Right);
+                        }
+
+                        let nick = user_context::view(text, user, None, state.buffer(), None)
+                            .map(scroll_view::Message::UserContext);
 
                         let space = selectable_text(" ");
                         let message = message_content(

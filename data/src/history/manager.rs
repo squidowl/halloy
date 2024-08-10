@@ -551,17 +551,19 @@ impl Data {
 
         let total = filtered.len();
 
-        let max_nick_chars = filtered
-            .iter()
-            .filter_map(|message| {
-                if let message::Source::User(user) = message.target.source() {
-                    Some(buffer_config.nickname.brackets.format(user).chars().count())
-                } else {
-                    None
-                }
-            })
-            .max()
-            .unwrap_or_default();
+        let max_nick_chars = buffer_config.nickname.alignment.is_right().then(|| {
+            filtered
+                .iter()
+                .filter_map(|message| {
+                    if let message::Source::User(user) = message.target.source() {
+                        Some(buffer_config.nickname.brackets.format(user).chars().count())
+                    } else {
+                        None
+                    }
+                })
+                .max()
+                .unwrap_or_default()
+        });
 
         let limited = with_limit(limit, filtered.into_iter());
 

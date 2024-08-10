@@ -270,7 +270,7 @@ pub struct View<'a> {
     pub total: usize,
     pub old_messages: Vec<&'a Message>,
     pub new_messages: Vec<&'a Message>,
-    pub max_nick_chars: usize,
+    pub max_nick_chars: Option<usize>,
 }
 
 #[derive(Debug, thiserror::Error)]
