@@ -45,6 +45,7 @@ impl Buffer {
             Self::Channel(_, channel) => message::Target::Channel {
                 channel,
                 source: message::Source::Server(source),
+                prefix: None,
             },
             Self::Query(_, nick) => message::Target::Query {
                 nick,
