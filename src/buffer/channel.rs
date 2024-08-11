@@ -57,6 +57,10 @@ pub fn view<'a>(
                             selectable_text(timestamp).style(theme::selectable_text::transparent)
                         });
 
+                let prefix = message.target.prefix().map(|prefix| {
+                    selectable_text(format!("({prefix}) ")).style(theme::selectable_text::info)
+                });
+
                 match message.target.source() {
                     message::Source::User(user) => {
                         let mut text = selectable_text(
@@ -97,6 +101,7 @@ pub fn view<'a>(
                             container(
                                 row![]
                                     .push_maybe(timestamp)
+                                    .push_maybe(prefix)
                                     .push(nick)
                                     .push(space)
                                     .push(text),
@@ -136,7 +141,15 @@ pub fn view<'a>(
                             theme::selectable_text::accent,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(
+                            container(
+                                row![]
+                                    .push_maybe(timestamp)
+                                    .push_maybe(prefix)
+                                    .push(message),
+                            )
+                            .into(),
+                        )
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message = message_content(

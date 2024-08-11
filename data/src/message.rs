@@ -90,6 +90,14 @@ pub enum Target {
 }
 
 impl Target {
+    pub fn prefix(&self) -> &Option<char> {
+        match self {
+            Target::Server { .. } => &None,
+            Target::Channel { prefix, .. } => prefix,
+            Target::Query { .. } => &None,
+        }
+    }
+
     pub fn source(&self) -> &Source {
         match self {
             Target::Server { source } => source,
