@@ -663,6 +663,7 @@ fn content(
 
             let args = args
                 .iter()
+                .flatten()
                 .map(|arg| arg.to_string())
                 .collect::<Vec<_>>()
                 .join(" ");

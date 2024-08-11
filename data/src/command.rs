@@ -59,7 +59,7 @@ pub enum Command {
     Part(String, Option<String>),
     Topic(String, Option<String>),
     Kick(String, String, Option<String>),
-    Mode(String, Option<String>, Vec<String>),
+    Mode(String, Option<String>, Option<Vec<String>>),
     Away(Option<String>),
     Raw(String),
     Unknown(String, Vec<String>),
@@ -122,14 +122,29 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
                 Command::Kick(channel, user, comment)
             }),
             Kind::Mode => {
-                let (channel, rest) = args.split_first().ok_or(Error::MissingCommand)?;
-                let (mode, users) = rest.split_first().ok_or(Error::MissingCommand)?;
-
-                Ok(Command::Mode(
-                    channel.to_string(),
-                    Some(mode.to_string()),
-                    users.iter().map(|s| s.to_string()).collect(),
-                ))
+                if let Some((target, rest)) = args.split_first() {
+                    if let Some((modestring, modearguments)) = rest.split_first() {
+                        Ok(Command::Mode(
+                            target.to_string(),
+                            Some(modestring.to_string()),
+                            Some(modearguments.iter().map(|s| s.to_string()).collect()),
+                        ))
+                    }
+                    else {
+                        Ok(Command::Mode(
+                            target.to_string(),
+                            Some(rest.join(" ").to_string()),
+                            None,
+                        ))
+                    }
+                }
+                else {
+                    Ok(Command::Mode(
+                        args.join(" ").to_string(),
+                        None,
+                        None,
+                    ))
+                }
             },
             Kind::Away => validated::<0, 1, true>(args, |_, [comment]| Command::Away(comment)),
             Kind::Raw => Ok(Command::Raw(raw.to_string())),
@@ -201,7 +216,7 @@ impl TryFrom<Command> for proto::Command {
             Command::Part(chanlist, reason) => proto::Command::PART(chanlist, reason),
             Command::Topic(channel, topic) => proto::Command::TOPIC(channel, topic),
             Command::Kick(channel, user, comment) => proto::Command::KICK(channel, user, comment),
-            Command::Mode(channel, mode, users) => proto::Command::MODE(channel, mode, users),
+            Command::Mode(target, modestring, modearguments) => proto::Command::MODE(target, modestring, modearguments),
             Command::Away(comment) => proto::Command::AWAY(comment),
             Command::Raw(raw) => proto::Command::Raw(raw),
             Command::Unknown(command, args) => proto::Command::new(&command, args),

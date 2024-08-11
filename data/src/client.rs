@@ -949,7 +949,7 @@ impl Client {
                     }
                 }
             }
-            Command::MODE(target, Some(modes), args) => {
+            Command::MODE(target, Some(modes), Some(args)) => {
                 if proto::is_channel(target) {
                     let modes = mode::parse::<mode::Channel>(modes, args);
 
