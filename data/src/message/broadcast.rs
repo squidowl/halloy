@@ -42,6 +42,7 @@ fn expand(
                 Target::Channel {
                     channel,
                     source: source.clone(),
+                    prefix: None,
                 },
                 content.clone(),
             )

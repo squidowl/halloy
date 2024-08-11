@@ -58,6 +58,22 @@ pub fn is_channel(target: &str) -> bool {
 // Reference: https://defs.ircdocs.horse/defs/chanmembers
 pub const CHANNEL_MEMBERSHIP_PREFIXES: [char; 6] = ['~', '&', '!', '@', '%', '+'];
 
+pub fn parse_channel_from_target(target: &str) -> Option<(Option<char>, String)> {
+    if target.starts_with(CHANNEL_MEMBERSHIP_PREFIXES) {
+        let channel = target.strip_prefix(CHANNEL_MEMBERSHIP_PREFIXES)?;
+
+        if is_channel(channel) {
+            return Some((target.chars().next(), channel.to_string()));
+        }
+    }
+
+    if is_channel(target) {
+        Some((None, target.to_string()))
+    } else {
+        None
+    }
+}
+
 #[macro_export]
 macro_rules! command {
     ($c:expr) => (

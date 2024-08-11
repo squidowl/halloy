@@ -75,9 +75,18 @@ impl From<Encoded> for proto::Message {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Target {
-    Server { source: Source },
-    Channel { channel: Channel, source: Source },
-    Query { nick: Nick, source: Source },
+    Server {
+        source: Source,
+    },
+    Channel {
+        channel: Channel,
+        source: Source,
+        prefix: Option<char>,
+    },
+    Query {
+        nick: Nick,
+        source: Source,
+    },
 }
 
 impl Target {
@@ -355,10 +364,12 @@ fn target(
         Command::MODE(target, ..) if proto::is_channel(&target) => Some(Target::Channel {
             channel: target,
             source: source::Source::Server(None),
+            prefix: None,
         }),
         Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => Some(Target::Channel {
             channel,
             source: source::Source::Server(None),
+            prefix: None,
         }),
         Command::PART(channel, _) => Some(Target::Channel {
             channel,
@@ -366,6 +377,7 @@ fn target(
                 source::server::Kind::Part,
                 Some(user?.nickname().to_owned()),
             ))),
+            prefix: None,
         }),
         Command::JOIN(channel, _) => Some(Target::Channel {
             channel,
@@ -373,6 +385,7 @@ fn target(
                 source::server::Kind::Join,
                 Some(user?.nickname().to_owned()),
             ))),
+            prefix: None,
         }),
         Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME, params) => {
             let channel = params.get(1)?.clone();
@@ -382,6 +395,7 @@ fn target(
                     source::server::Kind::ReplyTopic,
                     None,
                 ))),
+                prefix: None,
             })
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
@@ -389,6 +403,7 @@ fn target(
             Some(Target::Channel {
                 channel,
                 source: source::Source::Server(None),
+                prefix: None,
             })
         }
         Command::Numeric(RPL_AWAY, params) => {
@@ -410,15 +425,16 @@ fn target(
                 }
             };
 
-            match (proto::is_channel(&target), user) {
-                (true, Some(user)) => {
+            match (proto::parse_channel_from_target(&target), user) {
+                (Some((prefix, channel)), Some(user)) => {
                     let source = source(resolve_attributes(&user, &target).unwrap_or(user));
                     Some(Target::Channel {
-                        channel: target,
+                        channel,
                         source,
+                        prefix,
                     })
                 }
-                (false, Some(user)) => {
+                (None, Some(user)) => {
                     let (nick, source) = if user.nickname() == *our_nick {
                         // Message from ourself, from another client.
                         let target = User::try_from(target.as_str()).ok()?;
@@ -443,15 +459,16 @@ fn target(
                 }
             };
 
-            match (proto::is_channel(&target), user) {
-                (true, Some(user)) => {
+            match (proto::parse_channel_from_target(&target), user) {
+                (Some((prefix, channel)), Some(user)) => {
                     let source = source(resolve_attributes(&user, &target).unwrap_or(user));
                     Some(Target::Channel {
-                        channel: target,
+                        channel,
                         source,
+                        prefix,
                     })
                 }
-                (false, Some(user)) => {
+                (None, Some(user)) => {
                     let target = User::try_from(target.as_str()).ok()?;
 
                     (target.nickname() == *our_nick).then(|| Target::Query {
