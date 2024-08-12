@@ -58,7 +58,11 @@ pub fn view<'a>(
                         });
 
                 let prefix = message.target.prefix().map(|prefix| {
-                    selectable_text(format!("({prefix}) ")).style(theme::selectable_text::info)
+                    selectable_text(format!(
+                        "{} ",
+                        config.buffer.status_message_prefix.brackets.format(prefix)
+                    ))
+                    .style(theme::selectable_text::info)
                 });
 
                 match message.target.source() {
