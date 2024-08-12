@@ -36,7 +36,7 @@ pub fn view<'a>(
             scroll_view::Kind::Query(&state.server, &state.nick),
             history,
             config,
-            move |message, max_nick_width| {
+            move |message, max_nick_width, _| {
                 let timestamp =
                     config
                         .buffer

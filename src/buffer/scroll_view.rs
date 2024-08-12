@@ -42,13 +42,14 @@ pub fn view<'a>(
     kind: Kind,
     history: &'a history::Manager,
     config: &'a Config,
-    format: impl Fn(&'a data::Message, Option<f32>) -> Option<Element<'a, Message>> + 'a,
+    format: impl Fn(&'a data::Message, Option<f32>, Option<f32>) -> Option<Element<'a, Message>> + 'a,
 ) -> Element<'a, Message> {
     let Some(history::View {
         total,
         old_messages,
         new_messages,
         max_nick_chars,
+        max_prefix_chars,
     }) = (match kind {
         Kind::Server(server) => {
             history.get_server_messages(server, Some(state.limit), &config.buffer)
@@ -74,28 +75,17 @@ pub fn view<'a>(
         .unwrap_or_else(time::Posix::now);
     let status = state.status;
 
-    let max_nick_width = max_nick_chars.map(|len| {
-        Paragraph::with_text(Text {
-            content: &" ".repeat(len),
-            bounds: Size::INFINITY,
-            size: theme::TEXT_SIZE.into(),
-            line_height: Default::default(),
-            font: font::MONO.clone().into(),
-            horizontal_alignment: alignment::Horizontal::Right,
-            vertical_alignment: alignment::Vertical::Top,
-            shaping: text::Shaping::Basic,
-        })
-        .min_bounds()
-        .width
-    });
+    let max_nick_width = width_from_chars(max_nick_chars);
+
+    let max_prefix_width = width_from_chars(max_prefix_chars);
 
     let old = old_messages
         .into_iter()
-        .filter_map(|message| format(message, max_nick_width))
+        .filter_map(|message| format(message, max_nick_width, max_prefix_width))
         .collect::<Vec<_>>();
     let new = new_messages
         .into_iter()
-        .filter_map(|message| format(message, max_nick_width))
+        .filter_map(|message| format(message, max_nick_width, max_prefix_width))
         .collect::<Vec<_>>();
 
     let show_divider = !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom));
@@ -138,6 +128,23 @@ pub fn view<'a>(
         })
         .id(state.scrollable.clone())
         .into()
+}
+
+fn width_from_chars(chars: Option<usize>) -> Option<f32> {
+    chars.map(|len| {
+        Paragraph::with_text(Text {
+            content: &" ".repeat(len),
+            bounds: Size::INFINITY,
+            size: theme::TEXT_SIZE.into(),
+            line_height: Default::default(),
+            font: font::MONO.clone().into(),
+            horizontal_alignment: alignment::Horizontal::Right,
+            vertical_alignment: alignment::Vertical::Top,
+            shaping: text::Shaping::Basic,
+        })
+        .min_bounds()
+        .width
+    })
 }
 
 #[derive(Debug, Clone)]
