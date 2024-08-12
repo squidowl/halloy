@@ -2,6 +2,7 @@
 
 Added:
 
+- Configuration option for right aligning nicks in buffers, see [configuration](https://halloy.squidowl.org/configuration/buffer.html#buffernickname-section).
 - Configuration options for hiding/coloring `chghost` messages.
 
 Fixed:

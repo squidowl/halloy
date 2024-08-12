@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use super::Channel;
 use crate::{
-    buffer::{Color, Nickname, TextInput, Timestamp},
+    buffer::{Alignment, Color, Nickname, TextInput, Timestamp},
     message::source,
 };
 
@@ -124,6 +124,7 @@ impl Default for Buffer {
             nickname: Nickname {
                 color: Color::default(),
                 brackets: Default::default(),
+                alignment: Alignment::default(),
             },
             text_input: Default::default(),
             channel: Channel::default(),
