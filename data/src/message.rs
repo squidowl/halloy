@@ -22,7 +22,7 @@ use crate::{ctcp, Config, User};
 
 static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b([a-zA-Z0-9-_.!~*'()%;?:@&=+$,\/#]*)"#,
+        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b([a-zA-Z0-9-_.!~*'()%;?:@&=+$,\/#]*[a-zA-Z0-9-_~*(%:@&=+$\/#]|[a-zA-Z0-9-_~*(%:@&=+$\/#]?)"#,
     )
     .unwrap()
 });
@@ -877,6 +877,16 @@ mod test {
                     .parse()
                     .unwrap()
                 )],
+            ),
+            (
+                "(https://yt.drgnz.club/watch?v=s_VH36ChGXw and https://invidious.incogniweb.net/watch?v=H3v9unphfi0).",
+                vec![
+                    Fragment::Text("(".into()),
+                    Fragment::Url("https://yt.drgnz.club/watch?v=s_VH36ChGXw".parse().unwrap()),
+                    Fragment::Text(" and ".into()),
+                    Fragment::Url("https://invidious.incogniweb.net/watch?v=H3v9unphfi0".parse().unwrap()),
+                    Fragment::Text(").".into()),
+                ],
             ),
         ];
 
