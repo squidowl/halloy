@@ -50,7 +50,16 @@ brackets = { left = "<string>", right = "<string>" }
 | Key        | Description                                                                                                                                  | Default                     |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
 | `format`   | Format expected is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html). To disable, simply pass empty string `""`. | `"%R"`                      |
-| `brackets` | Brackets for nicknames                                                                                                                       | `{ left = "", right = "" }` |
+| `brackets` | Brackets for timestamps.                                                                                                                     | `{ left = "", right = "" }` |
+
+```toml
+[buffer.status_message_prefix]
+brackets = { left = "<string>", right = "<string>" }
+```
+
+| Key        | Description                                                                                                                                  | Default                     |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `brackets` | Brackets for status message prefixes (uncommon).                                                                                             | `{ left = "", right = "" }` |
 
 ## `[buffer.text_input]` Section
 

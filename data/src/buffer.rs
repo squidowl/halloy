@@ -121,6 +121,12 @@ pub struct Nickname {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+pub struct StatusMessagePrefix {
+    #[serde(default)]
+    pub brackets: Brackets,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Brackets {
     pub left: String,
     pub right: String,
