@@ -167,8 +167,10 @@ impl Manager {
     }
 
     pub fn record_input(&mut self, input: Input, user: User) {
-        if let Some(message) = input.message(user) {
-            self.record_message(input.server(), message);
+        if let Some(messages) = input.messages(user) {
+            for message in messages {
+                self.record_message(input.server(), message);
+            }
         }
 
         if let Some(text) = input.raw() {

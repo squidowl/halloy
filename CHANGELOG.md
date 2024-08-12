@@ -8,6 +8,7 @@ Added:
 Fixed:
 
 - Expanded recognized login notifications (used to join channels that report themselves as requiring registration after logging in)
+- Messages with multiple targets are correctly recorded into multiple buffers (and/or multiple times into the same buffer) client-side.
 
 # 2024.10 (2024-08-04)
 
