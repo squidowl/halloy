@@ -573,18 +573,15 @@ impl Data {
                     .iter()
                     .filter_map(|message| {
                         message.target.prefix().map(|prefix| {
-                            Some(
-                                buffer_config
-                                    .status_message_prefix
-                                    .brackets
-                                    .format(prefix)
-                                    .chars()
-                                    .count()
-                                    + 1,
-                            )
+                            buffer_config
+                                .status_message_prefix
+                                .brackets
+                                .format(prefix)
+                                .chars()
+                                .count()
+                                + 1
                         })
                     })
-                    .flatten()
                     .max()
                     .unwrap_or_default()
             } else {
