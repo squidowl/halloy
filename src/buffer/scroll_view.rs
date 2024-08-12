@@ -75,9 +75,9 @@ pub fn view<'a>(
         .unwrap_or_else(time::Posix::now);
     let status = state.status;
 
-    let max_nick_width = width_from_chars(max_nick_chars);
+    let max_nick_width = width_from_chars(max_nick_chars, config);
 
-    let max_prefix_width = width_from_chars(max_prefix_chars);
+    let max_prefix_width = width_from_chars(max_prefix_chars, config);
 
     let old = old_messages
         .into_iter()
@@ -130,12 +130,17 @@ pub fn view<'a>(
         .into()
 }
 
-fn width_from_chars(chars: Option<usize>) -> Option<f32> {
+fn width_from_chars(chars: Option<usize>, config: &Config) -> Option<f32> {
     chars.map(|len| {
         Paragraph::with_text(Text {
             content: &" ".repeat(len),
             bounds: Size::INFINITY,
-            size: theme::TEXT_SIZE.into(),
+            size: config
+                .font
+                .size
+                .map(f32::from)
+                .unwrap_or(theme::TEXT_SIZE)
+                .into(),
             line_height: Default::default(),
             font: font::MONO.clone().into(),
             horizontal_alignment: alignment::Horizontal::Right,
