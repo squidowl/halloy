@@ -123,27 +123,24 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
             }),
             Kind::Mode => {
                 if let Some((target, rest)) = args.split_first() {
-                    if let Some((modestring, modearguments)) = rest.split_first() {
+                    if let Some((mode_string, mode_arguments)) = rest.split_first() {
+                        let mode_arguments: Vec<String> = mode_arguments.into_iter().map(|v| v.to_string()).collect();
                         Ok(Command::Mode(
                             target.to_string(),
-                            Some(modestring.to_string()),
-                            Some(modearguments.iter().map(|s| s.to_string()).collect()),
+                            Some(mode_string.to_string()),
+                            (!mode_arguments.is_empty()).then_some(mode_arguments)
                         ))
                     }
                     else {
                         Ok(Command::Mode(
                             target.to_string(),
-                            Some(rest.join(" ").to_string()),
+                            None,
                             None,
                         ))
                     }
                 }
                 else {
-                    Ok(Command::Mode(
-                        args.join(" ").to_string(),
-                        None,
-                        None,
-                    ))
+                    Err(Error::MissingArgs)
                 }
             },
             Kind::Away => validated::<0, 1, true>(args, |_, [comment]| Command::Away(comment)),

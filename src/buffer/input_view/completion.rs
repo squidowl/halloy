@@ -420,7 +420,7 @@ impl Command {
             "away" => "Mark yourself as away. If already away, the status is removed",
             "join" => "Join channel(s) with optional key(s)",
             "me" => "Send an action message to the channel",
-            "mode" => "Set mode(s) on a channel or retrieve the current mode(s) set",
+            "mode" => "Set mode(s) on a target or retrieve the current mode(s) set. A target can be a channel or an user",
             "msg" => "Open a query with a nickname and send an optional message",
             "nick" => "Change your nickname on the current server",
             "part" => "Leave channel(s) with an optional reason",
@@ -708,17 +708,17 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
             title: "MODE",
             args: vec![
                 Arg {
-                    text: "channel",
+                    text: "target",
                     optional: false,
                     tooltip: None,
                 },
                 Arg {
                     text: "mode",
-                    optional: false,
+                    optional: true,
                     tooltip: None,
                 },
                 Arg {
-                    text: "user",
+                    text: "arguments",
                     optional: true,
                     tooltip: None,
                 },

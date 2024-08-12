@@ -778,6 +778,16 @@ fn content(
 
             Some(parse_fragments(format!("Channel mode is {mode}")))
         }
+        Command::Numeric(RPL_UMODEIS, params) => {
+            let mode = params
+                .iter()
+                .skip(2)
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            Some(parse_fragments(format!(" ∙ User mode is {mode}")))
+        }
         Command::Numeric(RPL_AWAY, params) => {
             let user = params.get(1)?;
             let away_message = params
