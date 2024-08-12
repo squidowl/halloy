@@ -173,9 +173,11 @@ impl Dashboard {
                                                 }
                                             }
 
-                                            if let Some(message) = input.message(user) {
-                                                self.history
-                                                    .record_message(input.server(), message);
+                                            if let Some(messages) = input.messages(user) {
+                                                for message in messages {
+                                                    self.history
+                                                        .record_message(input.server(), message);
+                                                }
                                             }
                                         }
                                     }
