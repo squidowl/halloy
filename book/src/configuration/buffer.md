@@ -4,6 +4,15 @@
 
 ## `[buffer.nickname]` Section
 
+```toml
+[buffer.nickname]
+alignment = "left" | "right"
+```
+
+| Key         | Description                               | Default  |
+| ----------- | ----------------------------------------- | -------- |
+| `alignment` | Alignment option for nicknames in buffer. | `"left"` |
+
 ### `[buffer.nickname.color]` Section
 
 ```toml
