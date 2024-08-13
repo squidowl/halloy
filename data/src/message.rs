@@ -435,7 +435,7 @@ fn target(
 
             match (proto::parse_channel_from_target(&target), user) {
                 (Some((prefix, channel)), Some(user)) => {
-                    let source = source(resolve_attributes(&user, &target).unwrap_or(user));
+                    let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
                     Some(Target::Channel {
                         channel,
                         source,
@@ -469,7 +469,7 @@ fn target(
 
             match (proto::parse_channel_from_target(&target), user) {
                 (Some((prefix, channel)), Some(user)) => {
-                    let source = source(resolve_attributes(&user, &target).unwrap_or(user));
+                    let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
                     Some(Target::Channel {
                         channel,
                         source,
