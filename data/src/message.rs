@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use chrono::{DateTime, Utc};
+use const_format::concatcp;
 use irc::proto;
 use irc::proto::Command;
 use itertools::Itertools;
@@ -20,10 +21,34 @@ use crate::{ctcp, Config, User};
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
 // - https://www.ietf.org/rfc/rfc2396.txt
 
+const URL_PATH_UNRESERVED: &str = r#"a-zA-Z0-9-_.!~*'()"#;
+
+const URL_PATH_RESERVED: &str = r#";?:@&=+$,"#;
+
+const URL_PATH: &str = concatcp!(r#"["#, URL_PATH_UNRESERVED, URL_PATH_RESERVED, r#"%\/#]"#);
+
+const URL_PATH_UNRESERVED_EXC_PUNC: &str = r#"a-zA-Z0-9-_~*'("#;
+
+const URL_PATH_RESERVED_EXC_PUNC: &str = r#"@&=+$"#;
+
+const URL_PATH_EXC_PUNC: &str = concatcp!(
+    r#"["#,
+    URL_PATH_UNRESERVED_EXC_PUNC,
+    URL_PATH_RESERVED_EXC_PUNC,
+    r#"%\/#]"#
+);
+
 static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(
-        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b([a-zA-Z0-9-_.!~*'()%;?:@&=+$,\/#]*)"#,
-    )
+    Regex::new(concatcp!(
+        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b"#,
+        r#"("#,
+        URL_PATH,
+        r#"*"#,
+        URL_PATH_EXC_PUNC,
+        r#"|"#,
+        URL_PATH_EXC_PUNC,
+        r#"?)"#
+    ))
     .unwrap()
 });
 
@@ -877,6 +902,16 @@ mod test {
                     .parse()
                     .unwrap()
                 )],
+            ),
+            (
+                "(https://yt.drgnz.club/watch?v=s_VH36ChGXw and https://invidious.incogniweb.net/watch?v=H3v9unphfi0).",
+                vec![
+                    Fragment::Text("(".into()),
+                    Fragment::Url("https://yt.drgnz.club/watch?v=s_VH36ChGXw".parse().unwrap()),
+                    Fragment::Text(" and ".into()),
+                    Fragment::Url("https://invidious.incogniweb.net/watch?v=H3v9unphfi0".parse().unwrap()),
+                    Fragment::Text(").".into()),
+                ],
             ),
         ];
 
