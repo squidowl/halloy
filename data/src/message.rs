@@ -90,11 +90,11 @@ pub enum Target {
 }
 
 impl Target {
-    pub fn prefix(&self) -> &Option<char> {
+    pub fn prefix(&self) -> Option<&char> {
         match self {
-            Target::Server { .. } => &None,
-            Target::Channel { prefix, .. } => prefix,
-            Target::Query { .. } => &None,
+            Target::Server { .. } => None,
+            Target::Channel { prefix, .. } => prefix.as_ref(),
+            Target::Query { .. } => None,
         }
     }
 
