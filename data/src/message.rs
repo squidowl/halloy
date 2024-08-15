@@ -593,7 +593,6 @@ fn target(
         | Command::ACCOUNT(_)
         | Command::BATCH(_, _)
         | Command::CHATHISTORY(_, _)
-        | Command::CHGHOST(_, _)
         | Command::CNOTICE(_, _, _)
         | Command::CPRIVMSG(_, _, _)
         | Command::KNOCK(_, _)

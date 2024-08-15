@@ -681,7 +681,8 @@ fn has_matching_content(message: &Message, other: &Message) -> bool {
                 | message::source::server::Kind::Quit => {
                     return true;
                 }
-                message::source::server::Kind::ReplyTopic => (),
+                message::source::server::Kind::ReplyTopic
+                | message::source::server::Kind::ChangeHost => (),
             }
         }
 
@@ -845,6 +846,7 @@ mod test {
             target: message::Target::Channel {
                 channel: "test".to_string(),
                 source: message::Source::Server(None),
+                prefix: None,
             },
             content: message::parse_fragments(text.to_string()),
             id: id.map(String::from),

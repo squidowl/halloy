@@ -418,6 +418,7 @@ impl Client {
                                 let target = message::Target::Channel {
                                     channel: target,
                                     source: source::Source::Server(None),
+                                    prefix: None,
                                 };
 
                                 vec![Event::WithTarget(
@@ -435,6 +436,7 @@ impl Client {
                                             .user()
                                             .map(|user| Nick::from(user.nickname().as_ref())),
                                     ))),
+                                    prefix: None,
                                 };
 
                                 vec![Event::WithTarget(
@@ -1522,7 +1524,7 @@ impl Client {
                 if sub == "TARGETS" {
                     let target = args.first()?;
 
-                    if !proto::is_channel(target) {
+                    if proto::parse_channel_from_target(target).is_none() {
                         return Some(vec![Event::ChatHistoryRequestFromHistory(
                             HistoryRequest::Recent(
                                 target.clone(),

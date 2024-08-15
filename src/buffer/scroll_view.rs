@@ -3,7 +3,7 @@ use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
 use iced::widget::{button, column, container, horizontal_rule, row, scrollable, text, Scrollable};
-use iced::{padding, Length, Task};
+use iced::{alignment, padding, Length, Task};
 
 use super::user_context;
 use crate::widget::{Element, MESSAGE_MARKER_TEXT};
