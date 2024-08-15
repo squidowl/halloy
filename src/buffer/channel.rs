@@ -48,7 +48,7 @@ pub fn view<'a>(
             scroll_view::Kind::Channel(&state.server, &state.channel),
             history,
             config,
-            move |message, max_nick_width| {
+            move |message, max_nick_width, max_prefix_width| {
                 let timestamp =
                     config
                         .buffer
@@ -56,6 +56,32 @@ pub fn view<'a>(
                         .map(|timestamp| {
                             selectable_text(timestamp).style(theme::selectable_text::transparent)
                         });
+
+                let prefix = message.target.prefix().map_or(
+                    max_nick_width.and_then(|_| {
+                        max_prefix_width.map(|width| {
+                            selectable_text(" ")
+                                .width(width)
+                                .horizontal_alignment(alignment::Horizontal::Right)
+                        })
+                    }),
+                    |prefix| {
+                        let text = selectable_text(format!(
+                            "{} ",
+                            config.buffer.status_message_prefix.brackets.format(prefix)
+                        ))
+                        .style(theme::selectable_text::info);
+
+                        if let Some(width) = max_prefix_width {
+                            Some(
+                                text.width(width)
+                                    .horizontal_alignment(alignment::Horizontal::Right),
+                            )
+                        } else {
+                            Some(text)
+                        }
+                    },
+                );
 
                 match message.target.source() {
                     message::Source::User(user) => {
@@ -97,6 +123,7 @@ pub fn view<'a>(
                             container(
                                 row![]
                                     .push_maybe(timestamp)
+                                    .push_maybe(prefix)
                                     .push(nick)
                                     .push(space)
                                     .push(text),
@@ -136,7 +163,15 @@ pub fn view<'a>(
                             theme::selectable_text::accent,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(
+                            container(
+                                row![]
+                                    .push_maybe(timestamp)
+                                    .push_maybe(prefix)
+                                    .push(message),
+                            )
+                            .into(),
+                        )
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message = message_content(
