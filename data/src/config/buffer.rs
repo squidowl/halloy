@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use super::Channel;
 use crate::{
-    buffer::{Alignment, Color, Nickname, TextInput, Timestamp},
+    buffer::{Alignment, Color, Nickname, StatusMessagePrefix, TextInput, Timestamp},
     message::source,
 };
 
@@ -21,6 +21,8 @@ pub struct Buffer {
     pub server_messages: ServerMessages,
     #[serde(default)]
     pub internal_messages: InternalMessages,
+    #[serde(default)]
+    pub status_message_prefix: StatusMessagePrefix,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -130,6 +132,7 @@ impl Default for Buffer {
             channel: Channel::default(),
             server_messages: Default::default(),
             internal_messages: Default::default(),
+            status_message_prefix: Default::default(),
         }
     }
 }

@@ -567,6 +567,28 @@ impl Data {
                 .unwrap_or_default()
         });
 
+        let max_prefix_chars = buffer_config.nickname.alignment.is_right().then(|| {
+            if matches!(kind, history::Kind::Channel(_)) {
+                filtered
+                    .iter()
+                    .filter_map(|message| {
+                        message.target.prefix().map(|prefix| {
+                            buffer_config
+                                .status_message_prefix
+                                .brackets
+                                .format(prefix)
+                                .chars()
+                                .count()
+                                + 1
+                        })
+                    })
+                    .max()
+                    .unwrap_or_default()
+            } else {
+                0
+            }
+        });
+
         let limited = with_limit(limit, filtered.into_iter());
 
         let split_at = limited
@@ -581,6 +603,7 @@ impl Data {
             old_messages: old.to_vec(),
             new_messages: new.to_vec(),
             max_nick_chars,
+            max_prefix_chars,
         })
     }
 

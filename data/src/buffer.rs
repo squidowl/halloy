@@ -45,6 +45,7 @@ impl Buffer {
             Self::Channel(_, channel) => message::Target::Channel {
                 channel,
                 source: message::Source::Server(source),
+                prefix: None,
             },
             Self::Query(_, nick) => message::Target::Query {
                 nick,
@@ -117,6 +118,12 @@ pub struct Nickname {
     pub brackets: Brackets,
     #[serde(default)]
     pub alignment: Alignment,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct StatusMessagePrefix {
+    #[serde(default)]
+    pub brackets: Brackets,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

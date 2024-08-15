@@ -271,6 +271,7 @@ pub struct View<'a> {
     pub old_messages: Vec<&'a Message>,
     pub new_messages: Vec<&'a Message>,
     pub max_nick_chars: Option<usize>,
+    pub max_prefix_chars: Option<usize>,
 }
 
 #[derive(Debug, thiserror::Error)]

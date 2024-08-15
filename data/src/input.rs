@@ -67,10 +67,11 @@ impl Input {
 
     pub fn messages(&self, user: User) -> Option<Vec<Message>> {
         let to_target = |target: &str, source| {
-            if proto::is_channel(target) {
+            if let Some((prefix, channel)) = proto::parse_channel_from_target(target) {
                 Some(message::Target::Channel {
-                    channel: target.to_string(),
+                    channel,
                     source,
+                    prefix,
                 })
             } else if let Ok(user) = User::try_from(target) {
                 Some(message::Target::Query {
