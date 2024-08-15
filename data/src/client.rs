@@ -1524,7 +1524,17 @@ impl Client {
                 if sub == "TARGETS" {
                     let target = args.first()?;
 
-                    if proto::parse_channel_from_target(target).is_none() {
+                    if let Some((prefix, channel)) = proto::parse_channel_from_target(target) {
+                        if prefix.is_some() && self.chanmap.contains_key(&channel) {
+                            return Some(vec![Event::ChatHistoryRequestFromHistory(
+                                HistoryRequest::Recent(
+                                    target.clone(),
+                                    self.chathistory_message_reference_types(),
+                                    server_time(&message),
+                                ),
+                            )]);
+                        }
+                    } else {
                         return Some(vec![Event::ChatHistoryRequestFromHistory(
                             HistoryRequest::Recent(
                                 target.clone(),
