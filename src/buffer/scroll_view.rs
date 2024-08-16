@@ -148,6 +148,7 @@ fn width_from_chars(chars: Option<usize>, config: &Config) -> Option<f32> {
             shaping: text::Shaping::Basic,
         })
         .min_bounds()
+        .expand(Size::new(1.0, 0.0))
         .width
     })
 }
