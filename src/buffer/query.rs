@@ -4,7 +4,7 @@ use iced::widget::{column, container, row, vertical_space};
 use iced::{alignment, Length, Task};
 
 use super::{input_view, scroll_view, user_context};
-use crate::widget::{message_content, selectable_text, Element};
+use crate::widget::{message_content, message_marker, selectable_text, Element};
 use crate::{theme, Theme};
 
 #[derive(Debug, Clone)]
@@ -45,6 +45,8 @@ pub fn view<'a>(
                             selectable_text(timestamp).style(theme::selectable_text::transparent)
                         });
 
+                let space = selectable_text(" ");
+
                 match message.target.source() {
                     message::Source::User(user) => {
                         let mut text = selectable_text(
@@ -67,7 +69,6 @@ pub fn view<'a>(
                         let nick = user_context::view(text, user, None, state.buffer(), None)
                             .map(scroll_view::Message::UserContext);
 
-                        let space = selectable_text(" ");
                         let message = message_content(
                             &message.content,
                             theme,
@@ -87,22 +88,37 @@ pub fn view<'a>(
                         )
                     }
                     message::Source::Server(server) => {
+                        let message_style = move |message_theme: &Theme| {
+                            theme::selectable_text::server(
+                                message_theme,
+                                server.as_ref(),
+                                &config.buffer.server_messages,
+                            )
+                        };
+
+                        let marker = message_marker(max_nick_width, message_style);
+
                         let message = message_content(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
-                            move |theme| {
-                                theme::selectable_text::server(
-                                    theme,
-                                    server.as_ref(),
-                                    &config.buffer.server_messages,
-                                )
-                            },
+                            message_style,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(
+                            container(
+                                row![]
+                                    .push_maybe(timestamp)
+                                    .push(marker)
+                                    .push(space)
+                                    .push(message),
+                            )
+                            .into(),
+                        )
                     }
                     message::Source::Action => {
+                        let marker = message_marker(max_nick_width, theme::selectable_text::accent);
+
                         let message = message_content(
                             &message.content,
                             theme,
@@ -110,23 +126,45 @@ pub fn view<'a>(
                             theme::selectable_text::accent,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(
+                            container(
+                                row![]
+                                    .push_maybe(timestamp)
+                                    .push(marker)
+                                    .push(space)
+                                    .push(message),
+                            )
+                            .into(),
+                        )
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
+                        let message_style = move |message_theme: &Theme| {
+                            theme::selectable_text::status(
+                                message_theme,
+                                *status,
+                                &config.buffer.internal_messages,
+                            )
+                        };
+
+                        let marker = message_marker(max_nick_width, message_style);
+
                         let message = message_content(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
-                            move |theme| {
-                                theme::selectable_text::status(
-                                    theme,
-                                    *status,
-                                    &config.buffer.internal_messages,
-                                )
-                            },
+                            message_style,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(
+                            container(
+                                row![]
+                                    .push_maybe(timestamp)
+                                    .push(marker)
+                                    .push(space)
+                                    .push(message),
+                            )
+                            .into(),
+                        )
                     }
                 }
             },
