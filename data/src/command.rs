@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use irc::proto;
 use itertools::Itertools;
+use regex::Regex;
 
 use crate::{ctcp, message::formatting, Buffer};
 
@@ -124,12 +125,18 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
             Kind::Mode => {
                 if let Some((target, rest)) = args.split_first() {
                     if let Some((mode_string, mode_arguments)) = rest.split_first() {
-                        let mode_arguments: Vec<String> = mode_arguments.iter().map(|v| v.to_string()).collect();
-                        Ok(Command::Mode(
-                            target.to_string(),
-                            Some(mode_string.to_string()),
-                            (!mode_arguments.is_empty()).then_some(mode_arguments)
-                        ))
+                        let mode_string_regex = Regex::new(r"^((\+|\-)[A-Za-z]*)+$").unwrap();
+                        if!mode_string_regex.is_match(&mode_string) {
+                            Err(Error::InvalidModeString)
+                        }
+                        else {
+                            let mode_arguments: Vec<String> = mode_arguments.iter().map(|v| v.to_string()).collect();
+                            Ok(Command::Mode(
+                                target.to_string(),
+                                Some(mode_string.to_string()),
+                                (!mode_arguments.is_empty()).then_some(mode_arguments)
+                            ))
+                        }
                     }
                     else {
                         Ok(Command::Mode(
@@ -235,6 +242,8 @@ pub enum Error {
     MissingCommand,
     #[error("missing args")]
     MissingArgs,
+    #[error("invalid mode string")]
+    InvalidModeString
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
