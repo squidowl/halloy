@@ -126,7 +126,7 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
                 if let Some((target, rest)) = args.split_first() {
                     if let Some((mode_string, mode_arguments)) = rest.split_first() {
                         let mode_string_regex = Regex::new(r"^((\+|\-)[A-Za-z]*)+$").unwrap();
-                        if!mode_string_regex.is_match(&mode_string) {
+                        if!mode_string_regex.is_match(mode_string) {
                             Err(Error::InvalidModeString)
                         }
                         else {
