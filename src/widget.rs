@@ -108,7 +108,7 @@ pub fn message_marker<'a, M: 'a>(
     width: Option<f32>,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
 ) -> Element<'a, M> {
-    let marker = selectable_text("∙");
+    let marker = selectable_text(" ∙");
 
     if let Some(width) = width {
         marker
