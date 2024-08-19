@@ -9,7 +9,7 @@ use iced::widget::{column, container, horizontal_rule, row, scrollable, text, Sc
 use iced::{alignment, padding, Length, Size, Task};
 
 use super::user_context;
-use crate::widget::Element;
+use crate::widget::{Element, MESSAGE_MARKER_TEXT};
 use crate::{font, theme};
 
 #[derive(Debug, Clone)]
@@ -75,7 +75,10 @@ pub fn view<'a>(
         .unwrap_or_else(time::Posix::now);
     let status = state.status;
 
-    let max_nick_width = width_from_chars(max_nick_chars, config);
+    let max_nick_width = width_from_chars(
+        max_nick_chars.map(|len| usize::max(len, MESSAGE_MARKER_TEXT.chars().count())),
+        config,
+    );
 
     let max_prefix_width = width_from_chars(max_prefix_chars, config);
 
