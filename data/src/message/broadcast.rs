@@ -68,7 +68,7 @@ fn expand(
 }
 
 pub fn connecting(sent_time: DateTime<Utc>) -> Vec<Message> {
-    let content = plain(" ∙ connecting to server...".into());
+    let content = plain("connecting to server...".into());
     expand(
         [],
         [],
@@ -80,7 +80,7 @@ pub fn connecting(sent_time: DateTime<Utc>) -> Vec<Message> {
 }
 
 pub fn connected(sent_time: DateTime<Utc>) -> Vec<Message> {
-    let content = plain(" ∙ connected".into());
+    let content = plain("connected".into());
     expand(
         [],
         [],
@@ -92,7 +92,7 @@ pub fn connected(sent_time: DateTime<Utc>) -> Vec<Message> {
 }
 
 pub fn connection_failed(error: String, sent_time: DateTime<Utc>) -> Vec<Message> {
-    let content = plain(format!(" ∙ connection to server failed ({error})"));
+    let content = plain(format!("connection to server failed ({error})"));
     expand(
         [],
         [],
@@ -110,7 +110,7 @@ pub fn disconnected(
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let error = error.map(|error| format!(" ({error})")).unwrap_or_default();
-    let content = plain(format!(" ∙ connection to server lost{error}"));
+    let content = plain(format!("connection to server lost{error}"));
     expand(
         channels,
         queries,
@@ -126,7 +126,7 @@ pub fn reconnected(
     queries: impl IntoIterator<Item = Nick>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let content = plain(" ∙ connection to server restored".into());
+    let content = plain("connection to server restored".into());
     expand(
         channels,
         queries,
@@ -177,9 +177,9 @@ pub fn nickname(
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let content = if ourself {
-        plain(format!(" ∙ You're now known as {new_nick}"))
+        plain(format!("You're now known as {new_nick}"))
     } else {
-        plain(format!(" ∙ {old_nick} is now known as {new_nick}"))
+        plain(format!("{old_nick} is now known as {new_nick}"))
     };
 
     expand(
@@ -198,7 +198,7 @@ pub fn invite(
     channels: impl IntoIterator<Item = String>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let content = plain(format!(" ∙ {inviter} invited you to join {channel}"));
+    let content = plain(format!("{inviter} invited you to join {channel}"));
 
     expand(channels, [], false, Cause::Server(None), content, sent_time)
 }
@@ -214,11 +214,11 @@ pub fn change_host(
 ) -> Vec<Message> {
     let content = if ourself {
         plain(format!(
-            " ∙ You've changed host to {new_username}@{new_hostname}",
+            "You've changed host to {new_username}@{new_hostname}",
         ))
     } else {
         plain(format!(
-            " ∙ {} changed host to {new_username}@{new_hostname}",
+            "{} changed host to {new_username}@{new_hostname}",
             old_user.formatted(UsernameFormat::Full)
         ))
     };
