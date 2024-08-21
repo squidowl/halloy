@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use data::message;
-use iced::border;
 use iced::widget::span;
+use iced::{alignment, border};
 
 use crate::{font, Theme};
 
@@ -103,3 +103,22 @@ pub fn message_content<'a, M: 'a>(
         .into(),
     }
 }
+
+pub fn message_marker<'a, M: 'a>(
+    width: Option<f32>,
+    style: impl Fn(&Theme) -> selectable_text::Style + 'a,
+) -> Element<'a, M> {
+    let marker = selectable_text(MESSAGE_MARKER_TEXT);
+
+    if let Some(width) = width {
+        marker
+            .width(width)
+            .horizontal_alignment(alignment::Horizontal::Right)
+    } else {
+        marker
+    }
+    .style(style)
+    .into()
+}
+
+pub const MESSAGE_MARKER_TEXT: &str = " ∙";

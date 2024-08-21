@@ -6,7 +6,7 @@ use iced::widget::{column, container, row};
 use iced::{alignment, padding, Length, Task};
 
 use super::{input_view, scroll_view, user_context};
-use crate::widget::{message_content, selectable_text, Element};
+use crate::widget::{message_content, message_marker, selectable_text, Element};
 use crate::{theme, Theme};
 
 mod topic;
@@ -60,7 +60,7 @@ pub fn view<'a>(
                 let prefix = message.target.prefix().map_or(
                     max_nick_width.and_then(|_| {
                         max_prefix_width.map(|width| {
-                            selectable_text(" ")
+                            selectable_text("")
                                 .width(width)
                                 .horizontal_alignment(alignment::Horizontal::Right)
                         })
@@ -82,6 +82,8 @@ pub fn view<'a>(
                         }
                     },
                 );
+
+                let space = selectable_text(" ");
 
                 match message.target.source() {
                     message::Source::User(user) => {
@@ -111,7 +113,6 @@ pub fn view<'a>(
                         )
                         .map(scroll_view::Message::UserContext);
 
-                        let space = selectable_text(" ");
                         let text = message_content(
                             &message.content,
                             theme,
@@ -140,22 +141,38 @@ pub fn view<'a>(
                         )
                     }
                     message::Source::Server(server) => {
+                        let message_style = move |message_theme: &Theme| {
+                            theme::selectable_text::server(
+                                message_theme,
+                                server.as_ref(),
+                                &config.buffer.server_messages,
+                            )
+                        };
+
+                        let marker = message_marker(max_nick_width, message_style);
+
                         let message = message_content(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
-                            move |theme| {
-                                theme::selectable_text::server(
-                                    theme,
-                                    server.as_ref(),
-                                    &config.buffer.server_messages,
-                                )
-                            },
+                            message_style,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(
+                            container(
+                                row![]
+                                    .push_maybe(timestamp)
+                                    .push_maybe(prefix)
+                                    .push(marker)
+                                    .push(space)
+                                    .push(message),
+                            )
+                            .into(),
+                        )
                     }
                     message::Source::Action => {
+                        let marker = message_marker(max_nick_width, theme::selectable_text::accent);
+
                         let message = message_content(
                             &message.content,
                             theme,
@@ -168,26 +185,42 @@ pub fn view<'a>(
                                 row![]
                                     .push_maybe(timestamp)
                                     .push_maybe(prefix)
+                                    .push(marker)
+                                    .push(space)
                                     .push(message),
                             )
                             .into(),
                         )
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
+                        let message_style = move |message_theme: &Theme| {
+                            theme::selectable_text::status(
+                                message_theme,
+                                *status,
+                                &config.buffer.internal_messages,
+                            )
+                        };
+
+                        let marker = message_marker(max_nick_width, message_style);
+
                         let message = message_content(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
-                            move |theme| {
-                                theme::selectable_text::status(
-                                    theme,
-                                    *status,
-                                    &config.buffer.internal_messages,
-                                )
-                            },
+                            message_style,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(
+                            container(
+                                row![]
+                                    .push_maybe(timestamp)
+                                    .push_maybe(prefix)
+                                    .push(marker)
+                                    .push(space)
+                                    .push(message),
+                            )
+                            .into(),
+                        )
                     }
                 }
             },
