@@ -10,6 +10,12 @@ Fixed:
 - Expanded recognized login notifications (used to join channels that report themselves as requiring registration after logging in)
 - Messages with multiple targets are correctly recorded into multiple buffers (and/or multiple times into the same buffer) client-side.
 - Messages sent with a STATUSMSG prefix are recorded and indicated in the corresponding channel.
+- Ability to position the sidebar at the top, bottom, right, or left. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
+
+Changed:
+
+- Unread indicator has changed from a boolean value to a enum. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
+
 
 # 2024.10 (2024-08-04)
 
