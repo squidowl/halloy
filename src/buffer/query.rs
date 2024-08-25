@@ -114,7 +114,7 @@ pub fn view<'a>(
                         )
                     }
                     message::Source::Action => {
-                        let marker = message_marker(max_nick_width, theme::selectable_text::accent);
+                        let marker = message_marker(max_nick_width, theme::selectable_text::action);
 
                         let message = message_content(
                             &message.content,
