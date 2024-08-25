@@ -15,9 +15,12 @@ impl Catalog for Theme {
 }
 
 pub fn primary(theme: &Theme) -> Style {
+    let general = theme.colors().general;
+    let text = theme.colors().text;
+
     Style {
-        background: iced::Background::Color(theme.colors().background.darker),
-        bar: iced::Background::Color(theme.colors().accent.low_alpha),
+        background: iced::Background::Color(general.background),
+        bar: iced::Background::Color(text.tertiary),
         border: iced::Border {
             color: iced::Color::TRANSPARENT,
             width: 0.0,

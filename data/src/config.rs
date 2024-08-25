@@ -18,7 +18,7 @@ pub use self::sidebar::Sidebar;
 use crate::audio::{self, Sound};
 use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
-use crate::theme::Palette;
+use crate::theme::Colors;
 use crate::{environment, Theme};
 
 pub mod buffer;
@@ -197,16 +197,16 @@ impl Config {
             #[serde(default)]
             pub name: String,
             #[serde(default)]
-            pub palette: Palette,
+            pub colors: Colors,
         }
 
         let read_entry = |entry: fs::DirEntry| {
             let content = fs::read_to_string(entry.path())?;
 
-            let Data { name, palette } =
+            let Data { name, colors } =
                 toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
-            Ok::<Theme, Error>(Theme::new(name, &palette))
+            Ok::<Theme, Error>(Theme::new(name, colors))
         };
 
         let mut all = vec![];

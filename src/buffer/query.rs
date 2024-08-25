@@ -42,7 +42,7 @@ pub fn view<'a>(
                         .buffer
                         .format_timestamp(&message.server_time)
                         .map(|timestamp| {
-                            selectable_text(timestamp).style(theme::selectable_text::transparent)
+                            selectable_text(timestamp).style(theme::selectable_text::timestamp)
                         });
 
                 let space = selectable_text(" ");
@@ -57,6 +57,7 @@ pub fn view<'a>(
                                 theme,
                                 user.nick_color(theme.colors(), &config.buffer.nickname.color),
                                 false,
+                                config.buffer.nickname.away_transparency,
                             )
                         });
 
@@ -89,11 +90,7 @@ pub fn view<'a>(
                     }
                     message::Source::Server(server) => {
                         let message_style = move |message_theme: &Theme| {
-                            theme::selectable_text::server(
-                                message_theme,
-                                server.as_ref(),
-                                &config.buffer.server_messages,
-                            )
+                            theme::selectable_text::server(message_theme, server.as_ref())
                         };
 
                         let marker = message_marker(max_nick_width, message_style);
@@ -123,7 +120,7 @@ pub fn view<'a>(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
-                            theme::selectable_text::accent,
+                            theme::selectable_text::action,
                         );
 
                         Some(
@@ -139,11 +136,7 @@ pub fn view<'a>(
                     }
                     message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message_style = move |message_theme: &Theme| {
-                            theme::selectable_text::status(
-                                message_theme,
-                                *status,
-                                &config.buffer.internal_messages,
-                            )
+                            theme::selectable_text::status(message_theme, *status)
                         };
 
                         let marker = message_marker(max_nick_width, message_style);

@@ -70,8 +70,8 @@ impl Default for Theme {
 impl application::DefaultStyle for Theme {
     fn default_style(&self) -> application::Appearance {
         application::Appearance {
-            background_color: self.colors().background.base,
-            text_color: self.colors().text.base,
+            background_color: self.colors().general.background,
+            text_color: self.colors().text.primary,
         }
     }
 }

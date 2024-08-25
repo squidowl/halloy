@@ -352,9 +352,9 @@ impl Commands {
                             container(content)
                                 .width(width)
                                 .style(if selected {
-                                    theme::container::command_selected
+                                    theme::container::primary_background_hover
                                 } else {
-                                    theme::container::command
+                                    theme::container::none
                                 })
                                 .padding(6)
                                 .center_y(Length::Shrink),
@@ -368,7 +368,7 @@ impl Commands {
 
                     container(double_pass(first_pass, second_pass))
                         .padding(4)
-                        .style(theme::container::context)
+                        .style(theme::container::tooltip)
                         .width(Length::Shrink)
                         .into()
                 })
@@ -436,7 +436,7 @@ impl Command {
         let args = self.args.iter().enumerate().map(|(index, arg)| {
             let content = text(format!("{arg}")).style(move |theme| {
                 if index == active_arg {
-                    theme::text::accent(theme)
+                    theme::text::tertiary(theme)
                 } else {
                     theme::text::none(theme)
                 }
@@ -446,7 +446,7 @@ impl Command {
                 let tooltip_indicator = text("*")
                     .style(move |theme| {
                         if index == active_arg {
-                            theme::text::accent(theme)
+                            theme::text::tertiary(theme)
                         } else {
                             theme::text::none(theme)
                         }
@@ -459,12 +459,12 @@ impl Command {
                         row![content, tooltip_indicator].align_y(iced::Alignment::Start),
                         container(text(arg_tooltip.clone()).style(move |theme| {
                             if index == active_arg {
-                                theme::text::transparent_accent(theme)
+                                theme::text::tertiary(theme)
                             } else {
-                                theme::text::transparent(theme)
+                                theme::text::secondary(theme)
                             }
                         }))
-                        .style(theme::container::context)
+                        .style(theme::container::tooltip)
                         .padding(8),
                         tooltip::Position::Top,
                     )
@@ -478,11 +478,11 @@ impl Command {
             column![]
                 .push_maybe(
                     self.description()
-                        .map(|description| text(description).style(theme::text::transparent)),
+                        .map(|description| text(description).style(theme::text::secondary)),
                 )
                 .push(row(title.into_iter().chain(args))),
         )
-        .style(theme::container::context)
+        .style(theme::container::tooltip)
         .padding(8)
         .center_y(Length::Shrink)
         .into()

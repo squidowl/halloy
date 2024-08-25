@@ -1,6 +1,6 @@
 use iced::{
     widget::checkbox::{Catalog, Status, Style, StyleFn},
-    Border,
+    Border, Color,
 };
 
 use super::Theme;
@@ -18,36 +18,46 @@ impl Catalog for Theme {
 }
 
 pub fn primary(theme: &Theme, status: Status) -> Style {
+    let general = theme.colors().general;
+    let text = theme.colors().text;
+
     match status {
         Status::Active { .. } => Style {
-            background: iced::Background::Color(theme.colors().background.dark),
-            icon_color: theme.colors().accent.base,
+            background: iced::Background::Color(general.background),
+            icon_color: text.primary,
             border: Border {
-                color: theme.colors().accent.base,
+                color: general.border,
                 width: 1.0,
-                radius: 2.into(),
+                radius: 4.0.into(),
             },
-            text_color: Some(theme.colors().text.base),
+            text_color: Some(text.primary),
         },
         Status::Hovered { .. } => Style {
-            background: iced::Background::Color(theme.colors().background.dark),
-            icon_color: theme.colors().accent.med_alpha,
+            background: iced::Background::Color(general.background),
+            icon_color: text.primary,
             border: Border {
-                color: theme.colors().accent.base,
+                color: general.border,
                 width: 1.0,
-                radius: 2.into(),
+                radius: 4.0.into(),
             },
-            text_color: Some(theme.colors().text.base),
+            text_color: Some(text.primary),
         },
         Status::Disabled { .. } => Style {
-            background: iced::Background::Color(theme.colors().background.dark),
-            icon_color: theme.colors().accent.med_alpha,
-            border: Border {
-                color: theme.colors().accent.med_alpha,
-                width: 1.0,
-                radius: 2.into(),
+            background: iced::Background::Color(general.background),
+
+            icon_color: Color {
+                a: 0.2,
+                ..text.primary
             },
-            text_color: Some(theme.colors().text.med_alpha),
+            border: Border {
+                color: Color::TRANSPARENT,
+                width: 1.0,
+                radius: 4.0.into(),
+            },
+            text_color: Some(Color {
+                a: 0.2,
+                ..text.primary
+            }),
         },
     }
 }

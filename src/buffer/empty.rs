@@ -4,8 +4,6 @@ use iced::{alignment, Length};
 use crate::widget::Element;
 
 pub fn view<'a, Message: 'a>() -> Element<'a, Message> {
-    // TODO: Consider if we can completetly remove this buffer.
-
     let content = column![]
         .push(text("⟵ select buffer").shaping(text::Shaping::Advanced))
         .align_x(iced::Alignment::Center);

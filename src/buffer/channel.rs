@@ -54,7 +54,7 @@ pub fn view<'a>(
                         .buffer
                         .format_timestamp(&message.server_time)
                         .map(|timestamp| {
-                            selectable_text(timestamp).style(theme::selectable_text::transparent)
+                            selectable_text(timestamp).style(theme::selectable_text::timestamp)
                         });
 
                 let prefix = message.target.prefix().map_or(
@@ -70,7 +70,7 @@ pub fn view<'a>(
                             "{} ",
                             config.buffer.status_message_prefix.brackets.format(prefix)
                         ))
-                        .style(theme::selectable_text::info);
+                        .style(theme::selectable_text::tertiary);
 
                         if let Some(width) = max_prefix_width {
                             Some(
@@ -95,6 +95,7 @@ pub fn view<'a>(
                                 theme,
                                 user.nick_color(theme.colors(), &config.buffer.nickname.color),
                                 user.is_away(),
+                                config.buffer.nickname.away_transparency,
                             )
                         });
 
@@ -177,7 +178,7 @@ pub fn view<'a>(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
-                            theme::selectable_text::accent,
+                            theme::selectable_text::action,
                         );
 
                         Some(
@@ -412,6 +413,7 @@ mod nick_list {
                     theme,
                     user.nick_color(theme.colors(), &config.buffer.channel.nicklist.color),
                     user.is_away(),
+                    config.buffer.channel.nicklist.away_transparency,
                 )
             });
 

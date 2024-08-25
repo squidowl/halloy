@@ -53,7 +53,7 @@ impl Migration {
         )
         .padding(5)
         .width(Length::Fill)
-        .style(theme::button::secondary)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::OpenConfigurationDirectory);
 
         let wiki_button = button(
@@ -63,7 +63,7 @@ impl Migration {
         )
         .padding(5)
         .width(Length::Fill)
-        .style(theme::button::secondary)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::OpenMigrationWebsite);
 
         let refresh_button = button(
@@ -73,7 +73,7 @@ impl Migration {
         )
         .padding(5)
         .width(Length::Fill)
-        .style(theme::button::primary)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::RefreshConfiguration);
 
         let content = column![]

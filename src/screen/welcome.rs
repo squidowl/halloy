@@ -55,7 +55,7 @@ impl Welcome {
         )
         .padding([5, 20])
         .width(Length::Shrink)
-        .style(theme::button::secondary)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::OpenConfigurationDirectory);
 
         let documentation_button = button(
@@ -65,7 +65,7 @@ impl Welcome {
         )
         .padding(5)
         .width(Length::Fill)
-        .style(theme::button::primary)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::OpenWikiWebsite);
 
         let reload_button = button(
@@ -75,7 +75,7 @@ impl Welcome {
         )
         .padding(5)
         .width(Length::Fill)
-        .style(theme::button::primary)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::RefreshConfiguration);
 
         let logo_bytes = include_bytes!("../../assets/logo.png").to_vec();
@@ -88,7 +88,7 @@ impl Welcome {
             .push(text("Halloy is configured through a config file."))
             .push(row![
                 text("You can find the "),
-                text("config.toml").style(theme::text::info),
+                text("config.toml").style(theme::text::action),
                 text(" file at the following path:"),
             ])
             .push(vertical_space().height(8))

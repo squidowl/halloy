@@ -20,7 +20,7 @@ where
             entries.iter().copied().map(|entry| view(entry, length)),
         ))
         .padding(4)
-        .style(theme::container::context)
+        .style(theme::container::tooltip)
     };
 
     let menu = double_pass(

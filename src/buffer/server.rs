@@ -36,7 +36,7 @@ pub fn view<'a>(
                         .buffer
                         .format_timestamp(&message.server_time)
                         .map(|timestamp| {
-                            selectable_text(timestamp).style(theme::selectable_text::transparent)
+                            selectable_text(timestamp).style(theme::selectable_text::timestamp)
                         });
 
                 match message.target.source() {
@@ -45,13 +45,7 @@ pub fn view<'a>(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
-                            move |theme| {
-                                theme::selectable_text::server(
-                                    theme,
-                                    server.as_ref(),
-                                    &config.buffer.server_messages,
-                                )
-                            },
+                            move |theme| theme::selectable_text::server(theme, server.as_ref()),
                         );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
@@ -61,13 +55,7 @@ pub fn view<'a>(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
-                            move |theme| {
-                                theme::selectable_text::status(
-                                    theme,
-                                    *status,
-                                    &config.buffer.internal_messages,
-                                )
-                            },
+                            move |theme| theme::selectable_text::status(theme, *status),
                         );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())

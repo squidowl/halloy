@@ -65,7 +65,6 @@ impl CommandBar {
             .on_close(Message::Unfocused)
             .on_option_hovered(Message::Hovered)
             .size(font_size)
-            .menu_style(theme::menu::combo_box)
             .padding([8, 8]);
 
         // Capture ESC so we can close the combobox manually from application
@@ -92,7 +91,7 @@ impl CommandBar {
             .padding([0, 20]),
             container(combo_box)
                 .padding(1)
-                .style(theme::container::context)
+                .style(theme::container::tooltip)
                 .width(Length::Fill),
         )
     }
