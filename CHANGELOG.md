@@ -10,6 +10,7 @@ Added:
   - Show/hide user access levels in buffer and nicklist. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferchannelnicklist-section)
   - `buffer_focused_action` added to `sidebar` to enable actions a focused buffer. See [configuration](https://halloy.squidowl.org/configuration/sidebar.html#sidebar-section).
   - Notification for direct messages. See [notification configuration](https://halloy.squidowl.org/configuration/notifications.html).
+- Enable support for IRCv3 `Monitor`
 
 Fixed:
 
