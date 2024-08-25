@@ -54,7 +54,7 @@ pub struct General {
     pub background: Color,
     pub horizontal_rule: Color,
     pub unread_indicator: Color,
-    pub border: Color, // Move this?
+    pub border: Color,
 }
 
 #[derive(Debug, Clone, Copy)]
