@@ -1,6 +1,6 @@
 use core::fmt;
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::user::Nick;
 use crate::{channel, config, message, Server};
@@ -110,7 +110,7 @@ impl Default for Timestamp {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Nickname {
     #[serde(default)]
     pub color: Color,
@@ -118,6 +118,19 @@ pub struct Nickname {
     pub brackets: Brackets,
     #[serde(default)]
     pub alignment: Alignment,
+    #[serde(default = "default_away_transparency")]
+    pub away_transparency: f32,
+}
+
+impl Default for Nickname {
+    fn default() -> Self {
+        Self {
+            color: Default::default(),
+            brackets: Default::default(),
+            alignment: Default::default(),
+            away_transparency: default_away_transparency(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -140,43 +153,10 @@ impl Brackets {
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum ColorKind {
+pub enum Color {
     Solid,
     #[default]
     Unique,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct Color {
-    pub kind: ColorKind,
-    pub hex: Option<String>,
-}
-
-// Support backwards compatibility of deserializing
-// from a single "color kind" string
-impl<'de> Deserialize<'de> for Color {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct Data {
-            kind: ColorKind,
-            hex: Option<String>,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Format {
-            Kind(ColorKind),
-            Data(Data),
-        }
-
-        Ok(match Format::deserialize(deserializer)? {
-            Format::Kind(kind) => Color { kind, hex: None },
-            Format::Data(Data { kind, hex }) => Color { kind, hex },
-        })
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -216,4 +196,8 @@ impl Resize {
 
 fn default_timestamp() -> String {
     "%R".to_string()
+}
+
+fn default_away_transparency() -> f32 {
+    0.2
 }

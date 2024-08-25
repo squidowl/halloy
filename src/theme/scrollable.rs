@@ -25,7 +25,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
         background: None,
         border: Border::default(),
         scroller: Scroller {
-            color: theme.colors().background.darker,
+            color: theme.colors().buffer.background,
             border: Border {
                 radius: 8.0.into(),
                 width: 0.0,

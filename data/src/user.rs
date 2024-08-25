@@ -5,12 +5,7 @@ use std::hash::Hash;
 use irc::proto;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    buffer,
-    config::buffer::UsernameFormat,
-    mode,
-    theme::{hex_to_color, Colors},
-};
+use crate::{buffer, config::buffer::UsernameFormat, mode, theme::Colors};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(into = "String")]
@@ -142,16 +137,11 @@ impl From<Nick> for User {
 }
 
 impl User {
-    pub fn nick_color(&self, colors: &Colors, color: &buffer::Color) -> NickColor {
-        let buffer::Color { kind, hex } = color;
-        let color = hex
-            .as_deref()
-            .and_then(hex_to_color)
-            .unwrap_or(colors.action.base);
-
+    pub fn nick_color(&self, colors: &Colors, kind: &buffer::Color) -> NickColor {
+        let color = colors.buffer.nickname;
         match kind {
-            buffer::ColorKind::Solid => NickColor { seed: None, color },
-            buffer::ColorKind::Unique => NickColor {
+            buffer::Color::Solid => NickColor { seed: None, color },
+            buffer::Color::Unique => NickColor {
                 seed: Some(self.nickname().as_ref().to_string()),
                 color,
             },

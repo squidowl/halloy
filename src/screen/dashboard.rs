@@ -671,7 +671,7 @@ impl Dashboard {
                 container(Space::new(Length::Fill, Length::Fill))
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .style(theme::container::semi_transparent),
+                    .style(theme::container::transparent_overlay),
                 anchored_overlay::Anchor::BelowTopCentered,
                 0.0,
             );

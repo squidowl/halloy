@@ -6,38 +6,18 @@
 
 ```toml
 [buffer.nickname]
-alignment = "left" | "right"
+alignment = "left" | "right" 
+color = "unique" | "solid"
+brackets = { left = "<string>", right = "<string>" }
 ```
 
-| Key         | Description                               | Default  |
-| ----------- | ----------------------------------------- | -------- |
-| `alignment` | Alignment option for nicknames in buffer. | `"left"` |
+| Key         | Description                                                                                                                                                                                                         | Default                     |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `alignment` | Alignment option for nicknames in buffer.                                                                                                                                                                           | `"left"`                    |
+| `color`     | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme. | `"unique"`                  |
+| `brackets`  | Brackets for nicknames.                                                                                                                                                                                             | `{ left = "", right = "" }` |
 
-### `[buffer.nickname.color]` Section
 
-```toml
-[buffer.nickname.color]
-kind = "unique" | "solid"
-hex = "<string>"
-```
-
-| Key    | Description                                                                                                                                                                                                                                                 | Default           |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `kind` | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the action color provided by the theme. This color can be overwritten with `hex`. | `kind = "unique"` |
-| `hex`  | Overwrite the default color. Optional.                                                                                                                                                                                                                      | `not set`         |
-
-### `[buffer.nickname.brackets]` Section
-
-```toml
-[buffer.nickname.brackets]
-left = "<string>"
-right = "<string>"
-```
-
-| Key     | Description                  | Default      |
-| ------- | ---------------------------- | ------------ |
-| `left`  | Left bracket for nicknames.  | `left = ""`  |
-| `right` | Right bracket for nicknames. | `right = ""` |
 
 ## `[buffer.timestamp]` Section
 
@@ -57,9 +37,9 @@ brackets = { left = "<string>", right = "<string>" }
 brackets = { left = "<string>", right = "<string>" }
 ```
 
-| Key        | Description                                                                                                                                  | Default                     |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `brackets` | Brackets for status message prefixes (uncommon).                                                                                             | `{ left = "", right = "" }` |
+| Key        | Description                                      | Default                     |
+| ---------- | ------------------------------------------------ | --------------------------- |
+| `brackets` | Brackets for status message prefixes (uncommon). | `{ left = "", right = "" }` |
 
 ## `[buffer.text_input]` Section
 
@@ -82,25 +62,15 @@ auto_format = "disabled" | "markdown" | "all"
 [buffer.channel.nicklist]
 enabled = true | false
 position = "left" | "right"
+color = "unique" | "solid"
 ```
 
-| Key        | Description                                      | Default   |
-| ---------- | ------------------------------------------------ | --------- |
-| `enabled`  | Control if nicklist should be shown or not       | `true`    |
-| `position` | Nicklist position. Can be `"left"` or `"right"`. | `"right"` |
+| Key        | Description                                                                                                                                                                                                         | Default    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `enabled`  | Control if nicklist should be shown or not                                                                                                                                                                          | `true`     |
+| `position` | Nicklist position. Can be `"left"` or `"right"`.                                                                                                                                                                    | `"right"`  |
+| `color`    | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme. | `"unique"` |
 
-### `[buffer.channel.nicklist.color]` Section
-
-```toml
-[buffer.channel.nicklist.color]
-kind = "unique" | "solid"
-hex = "<string>"
-```
-
-| Key    | Description                                                                                                                                                                                                                                                 | Default           |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `kind` | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the action color provided by the theme. This color can be overwritten with `hex`. | `kind = "unique"` |
-| `hex`  | Overwrite the default color. Optional.                                                                                                                                                                                                                      | `not set`         |
 
 ### `[buffer.channel.topic]` Section
 
@@ -122,7 +92,6 @@ max_lines = <integer>
 enabled = true | false
 smart = <integer>
 username_format = "full" | "short"
-hex = "<string>"
 ```
 
 ```toml
@@ -130,7 +99,6 @@ hex = "<string>"
 enabled = true | false
 smart = <integer>
 username_format = "full" | "short"
-hex = "<string>"
 ```
 
 ```toml
@@ -138,20 +106,17 @@ hex = "<string>"
 enabled = true | false
 smart = <integer>
 username_format = "full" | "short"
-hex = "<string>"
 ```
 
 ```toml
 [buffer.server_messages.topic]
 enabled = true | false
-hex = "<string>"
 ```
 
 ```toml
 [buffer.server_messages.change_host]
 enabled = true | false
 smart = <integer>
-hex = "<string>"
 ```
 
 | Key               | Description                                                                                                                                                      | Default   |
@@ -159,7 +124,6 @@ hex = "<string>"
 | `enabled`         | Control if the server message should appear in buffers or not                                                                                                    | `true`    |
 | `smart`           | Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.                                        | `not set` |
 | `username_format` | Adjust how the username should look. Can be `"full"` (shows the longest username available (nickname, username and hostname) or `"short"` (only shows nickname). | `"full"`  |
-| `hex`             | Overwrite the default color. Optional.                                                                                                                           | `not set` |
 
 ## `[buffer.internal_messages]` Section
 
@@ -167,18 +131,15 @@ hex = "<string>"
 [buffer.internal_messages.success]
 enabled = true | false
 smart = <integer>
-hex = "<string>"
 ```
 
 ```toml
 [buffer.internal_messages.error]
 enabled = true | false
 smart = <integer>
-hex = "<string>"
 ```
 
 | Key       | Description                                                                      | Default   |
 | --------- | -------------------------------------------------------------------------------- | --------- |
 | `enabled` | Control if the internal message should appear in buffers or not                  | `true`    |
 | `smart`   | Only show internal message if received within the given time duration (seconds). | `not set` |
-| `hex`     | Overwrite the default color. Optional.                                           | `not set` |

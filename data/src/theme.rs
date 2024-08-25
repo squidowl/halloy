@@ -12,127 +12,137 @@ pub struct Theme {
     pub colors: Colors,
 }
 
-impl Theme {
-    pub fn new(name: String, palette: &Palette) -> Self {
-        Theme {
-            name,
-            colors: Colors::new(palette),
-        }
-    }
-}
-
 impl Default for Theme {
     fn default() -> Self {
         Self {
             name: DEFAULT_THEME_NAME.to_string(),
-            colors: Colors::new(&Palette::default()),
+            colors: Colors::default(),
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Colors {
-    pub background: Subpalette,
-    pub text: Subpalette,
-    pub action: Subpalette,
-    pub accent: Subpalette,
-    pub alert: Subpalette,
-    pub error: Subpalette,
-    pub info: Subpalette,
-    pub success: Subpalette,
-}
-
-impl Colors {
-    pub fn new(palette: &Palette) -> Self {
-        Colors {
-            background: Subpalette::from_color(palette.background, palette),
-            text: Subpalette::from_color(palette.text, palette),
-            action: Subpalette::from_color(palette.action, palette),
-            accent: Subpalette::from_color(palette.accent, palette),
-            alert: Subpalette::from_color(palette.alert, palette),
-            error: Subpalette::from_color(palette.error, palette),
-            info: Subpalette::from_color(palette.info, palette),
-            success: Subpalette::from_color(palette.success, palette),
-        }
-    }
-
-    pub fn is_dark_theme(&self) -> bool {
-        self.background.is_dark()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Subpalette {
-    pub base: Color,
-    pub light: Color,
-    pub lighter: Color,
-    pub lightest: Color,
-    pub dark: Color,
-    pub darker: Color,
-    pub darkest: Color,
-    pub low_alpha: Color,
-    pub med_alpha: Color,
-    pub high_alpha: Color,
-}
-
-impl Subpalette {
-    pub fn from_color(color: Color, palette: &Palette) -> Subpalette {
-        let is_dark = is_dark(palette.background);
-
-        Subpalette {
-            base: color,
-            light: lighten(color, 0.03),
-            lighter: lighten(color, 0.06),
-            lightest: lighten(color, 0.12),
-            dark: darken(color, 0.03),
-            darker: darken(color, 0.06),
-            darkest: darken(color, 0.12),
-            low_alpha: if is_dark {
-                alpha(color, 0.4)
-            } else {
-                alpha(color, 0.8)
-            },
-            med_alpha: if is_dark {
-                alpha(color, 0.2)
-            } else {
-                alpha(color, 0.4)
-            },
-            high_alpha: if is_dark {
-                alpha(color, 0.1)
-            } else {
-                alpha(color, 0.3)
-            },
-        }
-    }
-
-    pub fn is_dark(&self) -> bool {
-        is_dark(self.base)
+impl Theme {
+    pub fn new(name: String, colors: Colors) -> Self {
+        Theme { name, colors }
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Palette {
-    pub background: Color,
-    pub text: Color,
-    pub action: Color,
-    pub accent: Color,
-    pub alert: Color,
-    pub error: Color,
-    pub info: Color,
-    pub success: Color,
+pub struct Colors {
+    pub general: General,
+    pub buffer: Buffer,
+    pub text: Text,
+    pub buttons: Buttons,
 }
 
-impl Default for Palette {
-    fn default() -> Palette {
-        Palette {
-            background: hex_to_color("#2b292d").unwrap(),
-            text: hex_to_color("#fecdb2").unwrap(),
-            action: hex_to_color("#b1b695").unwrap(),
-            accent: hex_to_color("#d1d1e0").unwrap(),
-            alert: hex_to_color("#ffa07a").unwrap(),
-            error: hex_to_color("#e06b75").unwrap(),
-            info: hex_to_color("#f5d76e").unwrap(),
-            success: hex_to_color("#b1b695").unwrap(),
+#[derive(Debug, Clone, Copy)]
+pub struct Buttons {
+    pub primary: Button,
+    pub secondary: Button,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Button {
+    pub background: Color,
+    pub background_hover: Color,
+    pub background_selected: Color,
+    pub background_selected_hover: Color,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct General {
+    pub background: Color,
+    pub horizontal_rule: Color,
+    pub unread_indicator: Color,
+    pub border: Color, // Move this?
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Buffer {
+    pub background: Color,
+    pub timestamp: Color,
+    pub server_messages: ServerMessages,
+    pub action: Color,
+    pub topic: Color,
+    pub text_input: Color,
+    pub title_bar: Color,
+    pub highlight: Color,
+    pub nickname: Color,
+    pub url: Color,
+    pub code: Color,
+    pub selection: Color,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ServerMessages {
+    pub join: Option<Color>,
+    pub part: Option<Color>,
+    pub quit: Option<Color>,
+    pub reply_topic: Option<Color>,
+    pub change_host: Option<Color>,
+    pub default: Color,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Text {
+    pub primary: Color,
+    pub secondary: Color,
+    pub tertiary: Color,
+    pub success: Color,
+    pub error: Color,
+}
+
+impl Default for Colors {
+    fn default() -> Self {
+        Self {
+            buffer: Buffer {
+                background: hex_to_color("#242226").unwrap(),
+                action: hex_to_color("#b1b695").unwrap(),
+                server_messages: ServerMessages {
+                    join: None,
+                    part: None,
+                    quit: None,
+                    reply_topic: None,
+                    change_host: None,
+                    default: hex_to_color("#f5d76e").unwrap(),
+                },
+                timestamp: hex_to_color("#685650").unwrap(),
+                topic: hex_to_color("#AB8A79").unwrap(),
+                text_input: hex_to_color("#1D1B1E").unwrap(),
+                title_bar: hex_to_color("#222024").unwrap(),
+                highlight: hex_to_color("#473f30").unwrap(),
+                nickname: hex_to_color("#f6b6c9").unwrap(),
+                url: hex_to_color("#d7bde2").unwrap(),
+                code: hex_to_color("#f6b6c9").unwrap(),
+                selection: hex_to_color("#6f5d63").unwrap(),
+            },
+            general: General {
+                background: hex_to_color("#2b292d").unwrap(),
+                horizontal_rule: hex_to_color("#323034").unwrap(),
+                unread_indicator: hex_to_color("#ffa07a").unwrap(),
+                border: hex_to_color("#7D6E76").unwrap(),
+            },
+            text: Text {
+                primary: hex_to_color("#fecdb2").unwrap(),
+                secondary: hex_to_color("#AB8A79").unwrap(),
+                tertiary: hex_to_color("#d1d1e0").unwrap(),
+                success: hex_to_color("#b1b695").unwrap(),
+                error: hex_to_color("#e06b75").unwrap(),
+            },
+            buttons: Buttons {
+                primary: Button {
+                    background: hex_to_color("#2b292d").unwrap(),
+                    background_hover: hex_to_color("#242226").unwrap(),
+                    background_selected: hex_to_color("#1d1b1e").unwrap(),
+                    background_selected_hover: hex_to_color("#0D0C0D").unwrap(),
+                },
+                secondary: Button {
+                    background: hex_to_color("#323034").unwrap(),
+                    background_hover: hex_to_color("#323034").unwrap(),
+                    background_selected: hex_to_color("#606155").unwrap(),
+                    background_selected_hover: hex_to_color("#6F7160").unwrap(),
+                },
+            },
         }
     }
 }
@@ -226,77 +236,182 @@ pub fn darken(color: Color, amount: f32) -> Color {
     from_hsl(hsl)
 }
 
-pub mod palette_serde {
-    use iced_core::Color;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+pub mod colors_serde {
+    use serde::{Deserialize, Deserializer};
 
-    use super::{hex_to_color, Palette};
+    use crate::theme::{Buffer, Button, Buttons, General, ServerMessages, Text};
 
-    #[derive(Debug, Clone, Default, Deserialize, Serialize)]
-    struct HexPalette {
-        background: String,
-        text: String,
-        action: String,
-        accent: String,
-        alert: String,
-        error: String,
-        info: String,
-        success: String,
-    }
+    use super::{hex_to_color, Colors};
 
-    impl Serialize for Palette {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            fn as_hex(color: Color) -> String {
-                format!(
-                    "#{:02x}{:02x}{:02x}",
-                    (255.0 * color.r).round() as u8,
-                    (255.0 * color.g).round() as u8,
-                    (255.0 * color.b).round() as u8
-                )
-            }
-
-            let hex_theme = HexPalette {
-                background: as_hex(self.background),
-                text: as_hex(self.text),
-                action: as_hex(self.action),
-                accent: as_hex(self.accent),
-                alert: as_hex(self.alert),
-                error: as_hex(self.error),
-                info: as_hex(self.info),
-                success: as_hex(self.success),
-            };
-
-            hex_theme.serialize(serializer)
-        }
-    }
-
-    impl<'de> Deserialize<'de> for Palette {
-        fn deserialize<D>(deserializer: D) -> Result<Palette, D::Error>
+    impl<'de> Deserialize<'de> for Colors {
+        fn deserialize<D>(deserializer: D) -> Result<Colors, D::Error>
         where
             D: Deserializer<'de>,
         {
-            let hex_palette: HexPalette = serde::Deserialize::deserialize(deserializer)?;
+            #[derive(Deserialize)]
+            struct HexColors {
+                general: HexGeneral,
+                buffer: HexBuffer,
+                text: HexText,
+                buttons: HexButtons,
+            }
 
-            Ok(Palette {
-                background: hex_to_color(hex_palette.background.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                text: hex_to_color(hex_palette.text.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                action: hex_to_color(hex_palette.action.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                accent: hex_to_color(hex_palette.accent.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                alert: hex_to_color(hex_palette.alert.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                error: hex_to_color(hex_palette.error.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                info: hex_to_color(hex_palette.info.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                success: hex_to_color(hex_palette.success.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
+            #[derive(Deserialize)]
+            struct HexGeneral {
+                background: String,
+                horizontal_rule: String,
+                unread_indicator: String,
+                border: String,
+            }
+
+            #[derive(Deserialize)]
+            struct HexBuffer {
+                background: String,
+                timestamp: String,
+                server_messages: HexServerMessages,
+                action: String,
+                topic: String,
+                text_input: String,
+                title_bar: String,
+                highlight: String,
+                nickname: String,
+                url: String,
+                code: String,
+                selection: String,
+            }
+
+            #[derive(Deserialize)]
+            struct HexText {
+                pub primary: String,
+                pub secondary: String,
+                pub tertiary: String,
+                pub success: String,
+                pub error: String,
+            }
+
+            #[derive(Deserialize)]
+            struct HexButtons {
+                primary: HexButton,
+                secondary: HexButton,
+            }
+
+            #[derive(Deserialize)]
+            struct HexButton {
+                background: String,
+                background_hover: String,
+                background_selected: String,
+                background_selected_hover: String,
+            }
+
+            #[derive(Deserialize)]
+            pub struct HexServerMessages {
+                #[serde(default)]
+                pub join: Option<String>,
+                #[serde(default)]
+                pub part: Option<String>,
+                #[serde(default)]
+                pub quit: Option<String>,
+                #[serde(default)]
+                pub reply_topic: Option<String>,
+                #[serde(default)]
+                pub change_host: Option<String>,
+                pub default: String,
+            }
+
+            let hex_colors: HexColors = serde::Deserialize::deserialize(deserializer)?;
+
+            let hex_to_color_checked = |hex: &str| {
+                hex_to_color(hex).ok_or_else(|| {
+                    serde::de::Error::custom(format!("'{}' is not a valid hex color", hex))
+                })
+            };
+
+            Ok(Colors {
+                general: General {
+                    background: hex_to_color_checked(&hex_colors.general.background)?,
+                    horizontal_rule: hex_to_color_checked(&hex_colors.general.horizontal_rule)?,
+                    unread_indicator: hex_to_color_checked(&hex_colors.general.unread_indicator)?,
+                    border: hex_to_color_checked(&hex_colors.general.border)?,
+                },
+                buffer: Buffer {
+                    background: hex_to_color_checked(&hex_colors.buffer.background)?,
+                    timestamp: hex_to_color_checked(&hex_colors.buffer.timestamp)?,
+                    action: hex_to_color_checked(&hex_colors.buffer.action)?,
+                    topic: hex_to_color_checked(&hex_colors.buffer.topic)?,
+                    text_input: hex_to_color_checked(&hex_colors.buffer.text_input)?,
+                    title_bar: hex_to_color_checked(&hex_colors.buffer.title_bar)?,
+                    highlight: hex_to_color_checked(&hex_colors.buffer.highlight)?,
+                    nickname: hex_to_color_checked(&hex_colors.buffer.nickname)?,
+                    url: hex_to_color_checked(&hex_colors.buffer.url)?,
+                    code: hex_to_color_checked(&hex_colors.buffer.code)?,
+                    selection: hex_to_color_checked(&hex_colors.buffer.selection)?,
+                    server_messages: ServerMessages {
+                        join: hex_colors
+                            .buffer
+                            .server_messages
+                            .join
+                            .as_ref()
+                            .and_then(|hex| hex_to_color_checked(hex).ok()),
+                        part: hex_colors
+                            .buffer
+                            .server_messages
+                            .part
+                            .as_ref()
+                            .and_then(|hex| hex_to_color_checked(hex).ok()),
+                        quit: hex_colors
+                            .buffer
+                            .server_messages
+                            .quit
+                            .as_ref()
+                            .and_then(|hex| hex_to_color_checked(hex).ok()),
+                        reply_topic: hex_colors
+                            .buffer
+                            .server_messages
+                            .reply_topic
+                            .as_ref()
+                            .and_then(|hex| hex_to_color_checked(hex).ok()),
+                        change_host: hex_colors
+                            .buffer
+                            .server_messages
+                            .change_host
+                            .as_ref()
+                            .and_then(|hex| hex_to_color_checked(hex).ok()),
+                        default: hex_to_color_checked(&hex_colors.buffer.server_messages.default)?,
+                    },
+                },
+                text: Text {
+                    primary: hex_to_color_checked(&hex_colors.text.primary)?,
+                    secondary: hex_to_color_checked(&hex_colors.text.secondary)?,
+                    tertiary: hex_to_color_checked(&hex_colors.text.tertiary)?,
+                    success: hex_to_color_checked(&hex_colors.text.success)?,
+                    error: hex_to_color_checked(&hex_colors.text.error)?,
+                },
+                buttons: Buttons {
+                    primary: Button {
+                        background: hex_to_color_checked(&hex_colors.buttons.primary.background)?,
+                        background_hover: hex_to_color_checked(
+                            &hex_colors.buttons.primary.background_hover,
+                        )?,
+                        background_selected: hex_to_color_checked(
+                            &hex_colors.buttons.primary.background_selected,
+                        )?,
+                        background_selected_hover: hex_to_color_checked(
+                            &hex_colors.buttons.primary.background_selected_hover,
+                        )?,
+                    },
+                    secondary: Button {
+                        background: hex_to_color_checked(&hex_colors.buttons.secondary.background)?,
+                        background_hover: hex_to_color_checked(
+                            &hex_colors.buttons.secondary.background_hover,
+                        )?,
+                        background_selected: hex_to_color_checked(
+                            &hex_colors.buttons.secondary.background_selected,
+                        )?,
+                        background_selected_hover: hex_to_color_checked(
+                            &hex_colors.buttons.secondary.background_selected_hover,
+                        )?,
+                    },
+                },
             })
         }
     }

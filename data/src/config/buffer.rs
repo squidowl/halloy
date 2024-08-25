@@ -3,11 +3,11 @@ use serde::Deserialize;
 
 use super::Channel;
 use crate::{
-    buffer::{Alignment, Color, Nickname, StatusMessagePrefix, TextInput, Timestamp},
+    buffer::{Nickname, StatusMessagePrefix, TextInput, Timestamp},
     message::source,
 };
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct Buffer {
     #[serde(default)]
     pub timestamp: Timestamp,
@@ -59,8 +59,6 @@ pub struct ServerMessage {
     pub smart: Option<i64>,
     #[serde(default)]
     pub username_format: UsernameFormat,
-    #[serde(default)]
-    pub hex: Option<String>,
 }
 
 impl Default for ServerMessage {
@@ -69,7 +67,6 @@ impl Default for ServerMessage {
             enabled: true,
             smart: Default::default(),
             username_format: UsernameFormat::default(),
-            hex: None,
         }
     }
 }
@@ -97,8 +94,6 @@ pub struct InternalMessage {
     pub enabled: bool,
     #[serde(default)]
     pub smart: Option<i64>,
-    #[serde(default)]
-    pub hex: Option<String>,
 }
 
 impl Default for InternalMessage {
@@ -106,7 +101,6 @@ impl Default for InternalMessage {
         Self {
             enabled: true,
             smart: Default::default(),
-            hex: None,
         }
     }
 }
@@ -117,24 +111,6 @@ pub enum UsernameFormat {
     Short,
     #[default]
     Full,
-}
-
-impl Default for Buffer {
-    fn default() -> Self {
-        Buffer {
-            timestamp: Timestamp::default(),
-            nickname: Nickname {
-                color: Color::default(),
-                brackets: Default::default(),
-                alignment: Alignment::default(),
-            },
-            text_input: Default::default(),
-            channel: Channel::default(),
-            server_messages: Default::default(),
-            internal_messages: Default::default(),
-            status_message_prefix: Default::default(),
-        }
-    }
 }
 
 impl Buffer {

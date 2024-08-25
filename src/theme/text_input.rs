@@ -19,23 +19,27 @@ impl Catalog for Theme {
 
 pub fn primary(theme: &Theme, status: Status) -> Style {
     let active = Style {
-        background: Background::Color(theme.colors().background.darker),
+        background: Background::Color(theme.colors().buffer.text_input),
         border: Border {
             radius: 4.0.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
             // XXX Not currently displayed in application.
         },
-        icon: theme.colors().text.base,
-        placeholder: theme.colors().text.low_alpha,
-        value: theme.colors().text.base,
-        selection: theme.colors().accent.high_alpha,
+        icon: theme.colors().text.primary,
+        placeholder: theme.colors().text.secondary,
+        value: theme.colors().text.primary,
+        selection: theme.colors().buffer.selection,
     };
 
     match status {
         Status::Active | Status::Hovered | Status::Focused => active,
         Status::Disabled => Style {
-            background: Background::Color(theme.colors().background.low_alpha),
+            background: Background::Color(theme.colors().buffer.text_input),
+            placeholder: Color {
+                a: 0.2,
+                ..theme.colors().text.secondary
+            },
             border: Border {
                 radius: 4.0.into(),
                 width: 0.0,
@@ -55,7 +59,7 @@ pub fn error(theme: &Theme, status: Status) -> Style {
             border: Border {
                 radius: 4.0.into(),
                 width: 1.0,
-                color: theme.colors().error.base,
+                color: theme.colors().text.error,
             },
             ..primary
         },

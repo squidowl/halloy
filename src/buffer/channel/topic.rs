@@ -29,6 +29,7 @@ pub fn view<'a>(
                         theme,
                         user.nick_color(theme.colors(), &config.buffer.nickname.color),
                         false,
+                        config.buffer.nickname.away_transparency,
                     )
                 }),
                 user,
@@ -38,15 +39,15 @@ pub fn view<'a>(
             )
         } else {
             selectable_text(who)
-                .style(theme::selectable_text::info)
+                .style(theme::selectable_text::tertiary)
                 .into()
         };
 
         Some(row![
-            selectable_text("set by ").style(theme::selectable_text::transparent),
+            selectable_text("set by ").style(theme::selectable_text::topic),
             user,
             selectable_text(format!(" at {}", time?.to_rfc2822()))
-                .style(theme::selectable_text::transparent),
+                .style(theme::selectable_text::topic),
         ])
     });
 
@@ -54,7 +55,7 @@ pub fn view<'a>(
         content,
         theme,
         user_context::Message::Link,
-        theme::selectable_text::transparent
+        theme::selectable_text::topic
     )]
     .push_maybe(set_by);
 

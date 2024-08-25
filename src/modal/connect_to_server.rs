@@ -12,7 +12,7 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
     container(
         column![
             text("Connect to server?"),
-            text(raw).style(theme::text::info),
+            text(raw).style(theme::text::tertiary),
         ]
         .push(
             checkbox(
@@ -30,7 +30,7 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
                 )
                 .padding(5)
                 .width(Length::Fixed(250.0))
-                .style(theme::button::primary)
+                .style(|theme, status| theme::button::secondary(theme, status, false))
                 .on_press(Message::AcceptNewServer),
                 button(
                     container(text("Close"))
@@ -39,7 +39,7 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
                 )
                 .padding(5)
                 .width(Length::Fixed(250.0))
-                .style(theme::button::primary)
+                .style(|theme, status| theme::button::secondary(theme, status, false))
                 .on_press(Message::Cancel),
             ]
             .spacing(4),
@@ -48,7 +48,7 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
         .align_x(iced::Alignment::Center),
     )
     .width(Length::Shrink)
-    .style(theme::container::default_banner)
+    .style(theme::container::tooltip)
     .padding(25)
     .into()
 }

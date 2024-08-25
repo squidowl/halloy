@@ -24,59 +24,75 @@ pub fn none(_theme: &Theme) -> Style {
 
 pub fn primary(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().text.base),
+        color: Some(theme.colors().text.primary),
     }
 }
 
-pub fn accent(theme: &Theme) -> Style {
+pub fn secondary(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().accent.base),
+        color: Some(theme.colors().text.secondary),
     }
 }
 
-pub fn alert(theme: &Theme) -> Style {
+pub fn tertiary(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().alert.base),
-    }
-}
-
-pub fn info(theme: &Theme) -> Style {
-    Style {
-        color: Some(theme.colors().info.base),
+        color: Some(theme.colors().text.tertiary),
     }
 }
 
 pub fn error(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().error.base),
+        color: Some(theme.colors().text.error),
     }
 }
 
 pub fn success(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().success.base),
+        color: Some(theme.colors().text.success),
     }
 }
 
-pub fn transparent(theme: &Theme) -> Style {
+pub fn action(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().text.low_alpha),
+        color: Some(theme.colors().buffer.action),
     }
 }
 
-pub fn transparent_accent(theme: &Theme) -> Style {
+pub fn timestamp(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().accent.low_alpha),
+        color: Some(theme.colors().buffer.timestamp),
     }
 }
 
-pub fn nickname(theme: &Theme, nick_color: NickColor, transparent: bool) -> Style {
-    let dark_theme = theme.colors().is_dark_theme();
+pub fn topic(theme: &Theme) -> Style {
+    Style {
+        color: Some(theme.colors().buffer.topic),
+    }
+}
+
+pub fn buffer_title_bar(theme: &Theme) -> Style {
+    Style {
+        color: Some(theme.colors().buffer.topic),
+    }
+}
+
+pub fn unread_indicator(theme: &Theme) -> Style {
+    Style {
+        color: Some(theme.colors().general.unread_indicator),
+    }
+}
+
+pub fn nickname(
+    _theme: &Theme,
+    nick_color: NickColor,
+    away: bool,
+    away_transparency: f32,
+) -> Style {
     let NickColor { color, seed } = nick_color;
 
     let Some(seed) = seed else {
-        let color = if transparent {
-            alpha(color, if dark_theme { 0.2 } else { 0.4 })
+        let color = if away {
+            alpha(color, away_transparency)
         } else {
             color
         };
@@ -85,8 +101,8 @@ pub fn nickname(theme: &Theme, nick_color: NickColor, transparent: bool) -> Styl
     };
 
     let randomized_color = randomize_color(color, &seed);
-    let color = if transparent {
-        alpha(randomized_color, if dark_theme { 0.2 } else { 0.4 })
+    let color = if away {
+        alpha(randomized_color, away_transparency)
     } else {
         randomized_color
     };

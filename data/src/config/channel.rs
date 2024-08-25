@@ -19,6 +19,8 @@ pub struct Nicklist {
     pub position: Position,
     #[serde(default)]
     pub color: Color,
+    #[serde(default = "default_away_transparency")]
+    pub away_transparency: f32,
 }
 
 impl Default for Nicklist {
@@ -27,6 +29,7 @@ impl Default for Nicklist {
             enabled: true,
             position: Position::default(),
             color: Color::default(),
+            away_transparency: default_away_transparency(),
         }
     }
 }
@@ -54,4 +57,8 @@ fn default_topic_banner_max_lines() -> u16 {
 
 fn default_bool_true() -> bool {
     true
+}
+
+fn default_away_transparency() -> f32 {
+    0.2
 }

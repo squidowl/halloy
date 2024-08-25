@@ -52,7 +52,7 @@ impl Help {
         )
         .padding(5)
         .width(Length::Fixed(250.0))
-        .style(theme::button::secondary)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::OpenConfigurationDirectory);
 
         let wiki_button = button(
@@ -62,7 +62,7 @@ impl Help {
         )
         .padding(5)
         .width(Length::Fill)
-        .style(theme::button::secondary)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::OpenWikiWebsite);
 
         let refresh_button = button(
@@ -72,7 +72,7 @@ impl Help {
         )
         .padding(5)
         .width(Length::Fixed(250.0))
-        .style(theme::button::primary)
+        .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::RefreshConfiguration);
 
         let content = column![]

@@ -15,55 +15,31 @@ impl Catalog for Theme {
     }
 }
 
-pub fn table_row(theme: &Theme, idx: usize) -> Style {
-    let background = if idx % 2 != 0 {
-        theme.colors().background.base
-    } else {
-        theme.colors().background.light
-    };
+pub fn buffer(theme: &Theme, selected: bool) -> Style {
+    let general = theme.colors().general;
+    let colors = theme.colors().buffer;
 
     Style {
-        background: Some(Background::Color(background)),
-        text_color: Some(theme.colors().text.base),
-        ..Default::default()
-    }
-}
-
-pub fn primary(theme: &Theme) -> Style {
-    Style {
-        background: Some(Background::Color(theme.colors().background.base)),
-        text_color: Some(theme.colors().text.base),
-        ..Default::default()
-    }
-}
-
-pub fn pane_body(theme: &Theme) -> Style {
-    Style {
-        background: Some(Background::Color(theme.colors().background.dark)),
+        background: Some(Background::Color(colors.background)),
         border: Border {
             radius: 4.0.into(),
             width: 1.0,
-            color: Color::TRANSPARENT,
+            color: if selected {
+                general.border
+            } else {
+                Color::TRANSPARENT
+            },
         },
         ..Default::default()
     }
 }
 
-pub fn pane_body_selected(theme: &Theme) -> Style {
-    let pane_body = pane_body(theme);
+pub fn buffer_title_bar(theme: &Theme) -> Style {
+    let colors = theme.colors().buffer;
 
     Style {
-        border: Border {
-            color: theme.colors().action.base,
-            ..pane_body.border
-        },
-        ..pane_body
-    }
-}
-
-pub fn pane_header(theme: &Theme) -> Style {
-    Style {
-        background: Some(Background::Color(theme.colors().background.darker)),
+        background: Some(Background::Color(colors.title_bar)),
+        text_color: Some(theme.colors().text.secondary),
         border: Border {
             radius: border::top_left(4).top_right(4),
             width: 1.0,
@@ -73,32 +49,38 @@ pub fn pane_header(theme: &Theme) -> Style {
     }
 }
 
-pub fn command(_theme: &Theme) -> Style {
+pub fn table(theme: &Theme, idx: usize) -> Style {
+    let general = theme.colors().general;
+    let buffer = theme.colors().buffer;
+
+    let background = if idx % 2 != 0 {
+        general.background
+    } else {
+        buffer.background
+    };
+
+    Style {
+        background: Some(Background::Color(background)),
+        text_color: Some(theme.colors().text.primary),
+        ..Default::default()
+    }
+}
+
+pub fn none(_theme: &Theme) -> Style {
     Style {
         background: None,
         ..Default::default()
     }
 }
 
-pub fn command_selected(theme: &Theme) -> Style {
+pub fn primary_background_hover(theme: &Theme) -> Style {
     Style {
-        background: Some(Background::Color(theme.colors().background.darker)),
-        border: Border {
-            radius: 3.0.into(),
-            ..Default::default()
-        },
-        ..Default::default()
-    }
-}
-
-pub fn context(theme: &Theme) -> Style {
-    Style {
-        //TODO: Blur background when possible?
-        background: Some(Background::Color(theme.colors().background.base)),
+        background: Some(Background::Color(
+            theme.colors().buttons.primary.background_hover,
+        )),
         border: Border {
             radius: 4.0.into(),
-            width: 1.0,
-            color: theme.colors().background.darker,
+            ..Default::default()
         },
         ..Default::default()
     }
@@ -106,7 +88,7 @@ pub fn context(theme: &Theme) -> Style {
 
 pub fn highlight(theme: &Theme) -> Style {
     Style {
-        background: Some(Background::Color(theme.colors().info.high_alpha)),
+        background: Some(Background::Color(theme.colors().buffer.highlight)),
         border: Border {
             radius: 0.0.into(),
             ..Default::default()
@@ -115,39 +97,52 @@ pub fn highlight(theme: &Theme) -> Style {
     }
 }
 
-pub fn semi_transparent(theme: &Theme) -> Style {
+pub fn general(theme: &Theme) -> Style {
     Style {
-        background: Some(
-            Color {
-                a: 0.80,
-                ..theme.colors().background.base
-            }
-            .into(),
-        ),
+        background: Some(Background::Color(theme.colors().general.background)),
+        text_color: Some(theme.colors().text.primary),
         ..Default::default()
     }
 }
 
-pub fn default_banner(theme: &Theme) -> Style {
+pub fn tooltip(theme: &Theme) -> Style {
+    let general = theme.colors().general;
+
     Style {
-        background: Some(Background::Color(theme.colors().background.dark)),
+        background: Some(Background::Color(general.background)),
         border: Border {
             radius: 4.0.into(),
             width: 1.0,
-            color: theme.colors().background.lighter,
+            color: general.border,
         },
         ..Default::default()
     }
 }
 
-pub fn error_modal(theme: &Theme) -> Style {
+pub fn error_tooltip(theme: &Theme) -> Style {
+    let general = theme.colors().general;
+    let text = theme.colors().text;
+
     Style {
-        background: Some(Background::Color(theme.colors().background.dark)),
+        background: Some(Background::Color(general.background)),
         border: Border {
             radius: 4.0.into(),
             width: 1.0,
-            color: theme.colors().error.base,
+            color: text.error,
         },
+        ..Default::default()
+    }
+}
+
+pub fn transparent_overlay(theme: &Theme) -> Style {
+    let general = theme.colors().general;
+
+    Style {
+        //TODO: Blur background when possible?
+        background: Some(Background::Color(Color {
+            a: 0.7,
+            ..general.background
+        })),
         ..Default::default()
     }
 }
