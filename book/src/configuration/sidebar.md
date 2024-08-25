@@ -5,15 +5,17 @@
 ```toml
 [sidebar]
 default_action = "new-pane" | "replace-pane"
+unread_indicators = "dot" | "title" | "none"
+position = "left" | "right" | "top" | "bottom"
 width = <integer>
-show_unread_indicators = true | false
 ```
 
-| Key                      | Description                                                                            | Default      |
-| ------------------------ | -------------------------------------------------------------------------------------- | ------------ |
-| `default_action`         | Action when selecting buffers in the sidebar. Can be `"new-pane"` or `"replace-pane"`. | `"new-pane"` |
-| `width`                  | Specify sidebar width in pixels.                                                       | `120`        |
-| `show_unread_indicators` | Unread buffer indicators                                                               | `true`       |
+| Key                 | Description                                                                            | Default      |
+| ------------------- | -------------------------------------------------------------------------------------- | ------------ |
+| `default_action`    | Action when selecting buffers in the sidebar. Can be `"new-pane"` or `"replace-pane"`. | `"new-pane"` |
+| `unread_indicators` | Unread buffer indicator style.                                                         | `"dot"`      |
+| `position`          | Sidebar position.                                                                      | `"left"`     |
+| `width`             | Specify sidebar width in pixels. Only used if `position` is `"left"` or `"right"`.     | `120`        |
 
 ## `[sidebar.buttons]` Section
 

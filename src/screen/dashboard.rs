@@ -645,13 +645,25 @@ impl Dashboard {
         // space occupied by the traffic light buttons.
         let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
 
-        let base = row![]
-            // Prevent diff when hiding side_menu
-            .push(side_menu.unwrap_or_else(|| column![].into()))
-            .push(pane_grid)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(padding::top(height_margin));
+        let base: Element<Message> = if config.sidebar.position.is_horizontal() {
+            column![]
+                // Prevent diff when hiding side_menu
+                .push(side_menu.unwrap_or_else(|| row![].into()))
+                .push(pane_grid)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .padding(padding::top(height_margin))
+                .into()
+        } else {
+            row![]
+                // Prevent diff when hiding side_menu
+                .push(side_menu.unwrap_or_else(|| column![].into()))
+                .push(pane_grid)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .padding(padding::top(height_margin))
+                .into()
+        };
 
         let base = if let Some(command_bar) = self.command_bar.as_ref() {
             let background = anchored_overlay(
