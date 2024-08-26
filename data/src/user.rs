@@ -69,25 +69,33 @@ impl<'a> TryFrom<&'a str> for User {
             return Err("nickname can't be empty");
         }
 
-        let access_levels = value
-            .chars()
-            .map(|c| AccessLevel::try_from(c).ok())
-            .take_while(Option::is_some)
-            .flatten()
-            .collect::<HashSet<_>>();
+        let Some(index) = value.find(|c: char| c.is_alphabetic() || "[\\]^_`{|}".find(c).is_some())
+        else {
+            return Err("nickname must start with alphabetic or [ \\ ] ^ _ ` { | }");
+        };
 
-        // Safe as access levels are just ASCII
-        let rest = &value[access_levels.len()..];
+        let (access_levels, rest) = (&value[..index], &value[index..]);
+
+        let access_levels = access_levels
+            .chars()
+            .filter_map(|c| AccessLevel::try_from(c).ok())
+            .collect::<HashSet<_>>();
 
         let (nickname, username, hostname) = match (rest.find('!'), rest.find('@')) {
             (None, None) => (rest, None, None),
             (Some(i), None) => (&rest[..i], Some(rest[i + 1..].to_string()), None),
             (None, Some(i)) => (&rest[..i], None, Some(rest[i + 1..].to_string())),
-            (Some(i), Some(j)) => (
-                &rest[..i],
-                Some(rest[i + 1..j].to_string()),
-                Some(rest[j + 1..].to_string()),
-            ),
+            (Some(i), Some(j)) => {
+                if i < j {
+                    (
+                        &rest[..i],
+                        Some(rest[i + 1..j].to_string()),
+                        Some(rest[j + 1..].to_string()),
+                    )
+                } else {
+                    return Err("found username delimiter @ before nickname delimiter !");
+                }
+            }
         };
 
         Ok(User {
