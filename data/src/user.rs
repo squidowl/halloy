@@ -93,7 +93,7 @@ impl<'a> TryFrom<&'a str> for User {
                         Some(rest[j + 1..].to_string()),
                     )
                 } else {
-                    return Err("found username delimiter @ before nickname delimiter !");
+                    (&rest[..i], Some(rest[i + 1..].to_string()), None)
                 }
             }
         };
@@ -392,5 +392,57 @@ impl TryFrom<mode::Channel> for AccessLevel {
             mode::Channel::Voice => Self::Voice,
             _ => return Err(()),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn user_try_from() {
+        let tests = [
+            (
+                "dan!d@localhost",
+                User {
+                    nickname: "dan".into(),
+                    username: Some("d".into()),
+                    hostname: Some("localhost".into()),
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::new(),
+                    away: false,
+                },
+            ),
+            (
+                "$@H1N5!the.flu@in.you",
+                User {
+                    nickname: "H1N5".into(),
+                    username: Some("the.flu".into()),
+                    hostname: Some("in.you".into()),
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::from([AccessLevel::Oper]),
+                    away: false,
+                },
+            ),
+        ];
+
+        for (test, expected) in tests {
+            let user = super::User::try_from(test).unwrap();
+
+            assert_eq!(
+                (
+                    user.nickname,
+                    user.username,
+                    user.hostname,
+                    user.access_levels
+                ),
+                (
+                    expected.nickname,
+                    expected.username,
+                    expected.hostname,
+                    expected.access_levels
+                )
+            );
+        }
     }
 }
