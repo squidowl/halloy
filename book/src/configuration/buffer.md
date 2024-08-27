@@ -9,13 +9,15 @@
 alignment = "left" | "right" 
 color = "unique" | "solid"
 brackets = { left = "<string>", right = "<string>" }
+away_transparency = <float>
 ```
 
-| Key         | Description                                                                                                                                                                                                         | Default                     |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `alignment` | Alignment option for nicknames in buffer.                                                                                                                                                                           | `"left"`                    |
-| `color`     | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme. | `"unique"`                  |
-| `brackets`  | Brackets for nicknames.                                                                                                                                                                                             | `{ left = "", right = "" }` |
+| Key                 | Description                                                                                                                                                                                                         | Default                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `alignment`         | Alignment option for nicknames in buffer.                                                                                                                                                                           | `"left"`                    |
+| `color`             | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme. | `"unique"`                  |
+| `brackets`          | Brackets for nicknames.                                                                                                                                                                                             | `{ left = "", right = "" }` |
+| `away_transparency` | Transparency amount for away users. Value between 0.0 - 1.0.                                                                                                                                                        | `0.2`                       |
 
 
 
@@ -63,13 +65,15 @@ auto_format = "disabled" | "markdown" | "all"
 enabled = true | false
 position = "left" | "right"
 color = "unique" | "solid"
+away_transparency = <float>
 ```
 
-| Key        | Description                                                                                                                                                                                                         | Default    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `enabled`  | Control if nicklist should be shown or not                                                                                                                                                                          | `true`     |
-| `position` | Nicklist position. Can be `"left"` or `"right"`.                                                                                                                                                                    | `"right"`  |
-| `color`    | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme. | `"unique"` |
+| Key                 | Description                                                                                                                                                                                                         | Default    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `enabled`           | Control if nicklist should be shown or not                                                                                                                                                                          | `true`     |
+| `position`          | Nicklist position. Can be `"left"` or `"right"`.                                                                                                                                                                    | `"right"`  |
+| `color`             | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme. | `"unique"` |
+| `away_transparency` | Transparency amount for away users. Value between 0.0 - 1.0.                                                                                                                                                        | `0.2`      |
 
 
 ### `[buffer.channel.topic]` Section

@@ -4,6 +4,7 @@ Added:
 
 - Configuration option for right aligning nicks in buffers, see [configuration](https://halloy.squidowl.org/configuration/buffer.html#buffernickname-section).
 - Configuration options for hiding/coloring `chghost` messages.
+- Configuration options for adjusting away transparency for nicknames (both in buffer and nicklist).
 
 Fixed:
 
@@ -11,10 +12,18 @@ Fixed:
 - Messages with multiple targets are correctly recorded into multiple buffers (and/or multiple times into the same buffer) client-side.
 - Messages sent with a STATUSMSG prefix are recorded and indicated in the corresponding channel.
 - Ability to position the sidebar at the top, bottom, right, or left. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
+- 
 
 Changed:
 
 - Unread indicator has changed from a boolean value to a enum. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
+- Reworked themes to add better customization possibilities
+  - **NOTE** Old theme files are not compatibile with the new format. However all the themes in the [theme community](https://halloy.squidowl.org/configuration/themes/community.html) has been updated to the new format.
+
+Removed:
+
+- Removed `hex` configuration option for server messages and nicknames.
+  - `hex` was previously used to overwrite a color value. This is now done through the new theme format.
 
 
 # 2024.10 (2024-08-04)
