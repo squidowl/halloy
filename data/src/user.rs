@@ -92,6 +92,12 @@ impl<'a> TryFrom<&'a str> for User {
                         Some(rest[i + 1..j].to_string()),
                         Some(rest[j + 1..].to_string()),
                     )
+                } else if let Some(k) = rest[i + 1..].find('@') {
+                    (
+                        &rest[..i],
+                        Some(rest[i + 1..i + k + 1].to_string()),
+                        Some(rest[i + k + 2..].to_string()),
+                    )
                 } else {
                     (&rest[..i], Some(rest[i + 1..].to_string()), None)
                 }
@@ -421,6 +427,28 @@ mod tests {
                     hostname: Some("in.you".into()),
                     accountname: None,
                     access_levels: HashSet::<AccessLevel>::from([AccessLevel::Oper]),
+                    away: false,
+                },
+            ),
+            (
+                "d@n!d@localhost",
+                User {
+                    nickname: "d@n".into(),
+                    username: Some("d".into()),
+                    hostname: Some("localhost".into()),
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::new(),
+                    away: false,
+                },
+            ),
+            (
+                "d@n!d",
+                User {
+                    nickname: "d@n".into(),
+                    username: Some("d".into()),
+                    hostname: None,
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::new(),
                     away: false,
                 },
             ),
