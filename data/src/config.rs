@@ -195,16 +195,20 @@ impl Config {
         #[derive(Deserialize)]
         pub struct Data {
             #[serde(default)]
-            pub name: String,
-            #[serde(default)]
             pub colors: Colors,
         }
 
         let read_entry = |entry: fs::DirEntry| {
             let content = fs::read_to_string(entry.path())?;
 
-            let Data { name, colors } =
+            let Data { colors } =
                 toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
+            let name = entry
+                .path()
+                .file_stem()
+                .ok_or(Error::Parse("error reading theme filename".to_owned()))?
+                .to_string_lossy()
+                .to_string();
 
             Ok::<Theme, Error>(Theme::new(name, colors))
         };
