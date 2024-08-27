@@ -16,18 +16,17 @@ impl Catalog for Theme {
 }
 
 pub fn buffer(theme: &Theme, selected: bool) -> Style {
-    let general = theme.colors().general;
-    let colors = theme.colors().buffer;
+    let buffer = theme.colors().buffer;
 
     Style {
-        background: Some(Background::Color(colors.background)),
+        background: Some(Background::Color(buffer.background)),
         border: Border {
             radius: 4.0.into(),
             width: 1.0,
             color: if selected {
-                general.border
+                buffer.border_selected
             } else {
-                Color::TRANSPARENT
+                buffer.border
             },
         },
         ..Default::default()
@@ -38,7 +37,7 @@ pub fn buffer_title_bar(theme: &Theme) -> Style {
     let colors = theme.colors().buffer;
 
     Style {
-        background: Some(Background::Color(colors.title_bar)),
+        background: Some(Background::Color(colors.background_title_bar)),
         text_color: Some(theme.colors().text.secondary),
         border: Border {
             radius: border::top_left(4).top_right(4),

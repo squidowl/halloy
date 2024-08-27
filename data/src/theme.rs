@@ -1,6 +1,6 @@
 use iced_core::Color;
 use palette::rgb::Rgb;
-use palette::{DarkenAssign, FromColor, LightenAssign, Mix, Okhsl, Srgb};
+use palette::{FromColor, Okhsl, Srgb};
 use rand::prelude::*;
 use rand_chacha::ChaChaRng;
 
@@ -30,8 +30,8 @@ impl Theme {
 #[derive(Debug, Clone, Copy)]
 pub struct Colors {
     pub general: General,
-    pub buffer: Buffer,
     pub text: Text,
+    pub buffer: Buffer,
     pub buttons: Buttons,
 }
 
@@ -52,25 +52,27 @@ pub struct Button {
 #[derive(Debug, Clone, Copy)]
 pub struct General {
     pub background: Color,
+    pub border: Color,
     pub horizontal_rule: Color,
     pub unread_indicator: Color,
-    pub border: Color,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Buffer {
-    pub background: Color,
-    pub timestamp: Color,
-    pub server_messages: ServerMessages,
     pub action: Color,
-    pub topic: Color,
-    pub text_input: Color,
-    pub title_bar: Color,
+    pub background: Color,
+    pub background_text_input: Color,
+    pub background_title_bar: Color,
+    pub border: Color,
+    pub border_selected: Color,
+    pub code: Color,
     pub highlight: Color,
     pub nickname: Color,
-    pub url: Color,
-    pub code: Color,
     pub selection: Color,
+    pub server_messages: ServerMessages,
+    pub timestamp: Color,
+    pub topic: Color,
+    pub url: Color,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -97,6 +99,8 @@ impl Default for Colors {
         Self {
             buffer: Buffer {
                 background: hex_to_color("#242226").unwrap(),
+                background_text_input: hex_to_color("#1D1B1E").unwrap(),
+                background_title_bar: hex_to_color("#222024").unwrap(),
                 action: hex_to_color("#b1b695").unwrap(),
                 server_messages: ServerMessages {
                     join: None,
@@ -108,19 +112,19 @@ impl Default for Colors {
                 },
                 timestamp: hex_to_color("#685650").unwrap(),
                 topic: hex_to_color("#AB8A79").unwrap(),
-                text_input: hex_to_color("#1D1B1E").unwrap(),
-                title_bar: hex_to_color("#222024").unwrap(),
                 highlight: hex_to_color("#473f30").unwrap(),
                 nickname: hex_to_color("#f6b6c9").unwrap(),
                 url: hex_to_color("#d7bde2").unwrap(),
-                code: hex_to_color("#f6b6c9").unwrap(),
-                selection: hex_to_color("#6f5d63").unwrap(),
+                code: hex_to_color("#af8d9f").unwrap(),
+                selection: hex_to_color("#453d41").unwrap(),
+                border: iced_core::Color::TRANSPARENT,
+                border_selected: hex_to_color("#7D6E76").unwrap(),
             },
             general: General {
                 background: hex_to_color("#2b292d").unwrap(),
                 horizontal_rule: hex_to_color("#323034").unwrap(),
                 unread_indicator: hex_to_color("#ffa07a").unwrap(),
-                border: hex_to_color("#7D6E76").unwrap(),
+                border: hex_to_color("#4f474d").unwrap(),
             },
             text: Text {
                 primary: hex_to_color("#fecdb2").unwrap(),
@@ -191,10 +195,6 @@ pub fn randomize_color(original_color: Color, seed: &str) -> Color {
     from_hsl(randomized_hsl)
 }
 
-pub fn is_dark(color: Color) -> bool {
-    to_hsl(color).lightness < 0.5
-}
-
 pub fn to_hsl(color: Color) -> Okhsl {
     let mut hsl = Okhsl::from_color(Rgb::from(color));
     if hsl.saturation.is_nan() {
@@ -212,30 +212,6 @@ pub fn alpha(color: Color, alpha: f32) -> Color {
     Color { a: alpha, ..color }
 }
 
-pub fn mix(a: Color, b: Color, factor: f32) -> Color {
-    let a_hsl = to_hsl(a);
-    let b_hsl = to_hsl(b);
-
-    let mixed = a_hsl.mix(b_hsl, factor);
-    from_hsl(mixed)
-}
-
-pub fn lighten(color: Color, amount: f32) -> Color {
-    let mut hsl = to_hsl(color);
-
-    hsl.lighten_fixed_assign(amount);
-
-    from_hsl(hsl)
-}
-
-pub fn darken(color: Color, amount: f32) -> Color {
-    let mut hsl = to_hsl(color);
-
-    hsl.darken_fixed_assign(amount);
-
-    from_hsl(hsl)
-}
-
 pub mod colors_serde {
     use serde::{Deserialize, Deserializer};
 
@@ -250,60 +226,95 @@ pub mod colors_serde {
         {
             #[derive(Deserialize)]
             struct HexColors {
+                #[serde(default)]
                 general: HexGeneral,
+                #[serde(default)]
                 buffer: HexBuffer,
+                #[serde(default)]
                 text: HexText,
+                #[serde(default)]
                 buttons: HexButtons,
             }
 
-            #[derive(Deserialize)]
+            #[derive(Deserialize, Default)]
             struct HexGeneral {
-                background: String,
-                horizontal_rule: String,
-                unread_indicator: String,
-                border: String,
+                #[serde(default)]
+                background: Option<String>,
+                #[serde(default)]
+                horizontal_rule: Option<String>,
+                #[serde(default)]
+                unread_indicator: Option<String>,
+                #[serde(default)]
+                border: Option<String>,
             }
 
-            #[derive(Deserialize)]
+            #[derive(Deserialize, Default)]
             struct HexBuffer {
-                background: String,
-                timestamp: String,
+                #[serde(default)]
+                background: Option<String>,
+                #[serde(default)]
+                background_text_input: Option<String>,
+                #[serde(default)]
+                background_title_bar: Option<String>,
+                #[serde(default)]
+                timestamp: Option<String>,
+                #[serde(default)]
                 server_messages: HexServerMessages,
-                action: String,
-                topic: String,
-                text_input: String,
-                title_bar: String,
-                highlight: String,
-                nickname: String,
-                url: String,
-                code: String,
-                selection: String,
+                #[serde(default)]
+                action: Option<String>,
+                #[serde(default)]
+                topic: Option<String>,
+                #[serde(default)]
+                highlight: Option<String>,
+                #[serde(default)]
+                nickname: Option<String>,
+                #[serde(default)]
+                url: Option<String>,
+                #[serde(default)]
+                code: Option<String>,
+                #[serde(default)]
+                selection: Option<String>,
+                #[serde(default)]
+                pub border: Option<String>,
+                #[serde(default)]
+                pub border_selected: Option<String>,
             }
 
-            #[derive(Deserialize)]
+            #[derive(Deserialize, Default)]
             struct HexText {
-                pub primary: String,
-                pub secondary: String,
-                pub tertiary: String,
-                pub success: String,
-                pub error: String,
+                #[serde(default)]
+                pub primary: Option<String>,
+                #[serde(default)]
+                pub secondary: Option<String>,
+                #[serde(default)]
+                pub tertiary: Option<String>,
+                #[serde(default)]
+                pub success: Option<String>,
+                #[serde(default)]
+                pub error: Option<String>,
             }
 
-            #[derive(Deserialize)]
+            #[derive(Deserialize, Default)]
             struct HexButtons {
+                #[serde(default)]
                 primary: HexButton,
+                #[serde(default)]
                 secondary: HexButton,
             }
 
-            #[derive(Deserialize)]
+            #[derive(Deserialize, Default)]
             struct HexButton {
-                background: String,
-                background_hover: String,
-                background_selected: String,
-                background_selected_hover: String,
+                #[serde(default)]
+                background: Option<String>,
+                #[serde(default)]
+                background_hover: Option<String>,
+                #[serde(default)]
+                background_selected: Option<String>,
+                #[serde(default)]
+                background_selected_hover: Option<String>,
             }
 
-            #[derive(Deserialize)]
+            #[derive(Deserialize, Default)]
             pub struct HexServerMessages {
                 #[serde(default)]
                 pub join: Option<String>,
@@ -315,101 +326,109 @@ pub mod colors_serde {
                 pub reply_topic: Option<String>,
                 #[serde(default)]
                 pub change_host: Option<String>,
-                pub default: String,
+                #[serde(default)]
+                pub default: Option<String>,
             }
 
             let hex_colors: HexColors = serde::Deserialize::deserialize(deserializer)?;
 
-            let hex_to_color_checked = |hex: &str| {
-                hex_to_color(hex).ok_or_else(|| {
-                    serde::de::Error::custom(format!("'{}' is not a valid hex color", hex))
-                })
+            let color_or_transparent = |color: Option<&String>| {
+                color
+                    .and_then(|hex| hex_to_color(hex))
+                    .unwrap_or(iced_core::Color::TRANSPARENT)
             };
+
+            let color_or_none = |color: Option<&String>| color.and_then(|hex| hex_to_color(hex));
 
             Ok(Colors {
                 general: General {
-                    background: hex_to_color_checked(&hex_colors.general.background)?,
-                    horizontal_rule: hex_to_color_checked(&hex_colors.general.horizontal_rule)?,
-                    unread_indicator: hex_to_color_checked(&hex_colors.general.unread_indicator)?,
-                    border: hex_to_color_checked(&hex_colors.general.border)?,
+                    background: color_or_transparent(hex_colors.general.background.as_ref()),
+                    horizontal_rule: color_or_transparent(
+                        hex_colors.general.horizontal_rule.as_ref(),
+                    ),
+                    unread_indicator: color_or_transparent(
+                        hex_colors.general.unread_indicator.as_ref(),
+                    ),
+                    border: color_or_transparent(hex_colors.general.border.as_ref()),
                 },
                 buffer: Buffer {
-                    background: hex_to_color_checked(&hex_colors.buffer.background)?,
-                    timestamp: hex_to_color_checked(&hex_colors.buffer.timestamp)?,
-                    action: hex_to_color_checked(&hex_colors.buffer.action)?,
-                    topic: hex_to_color_checked(&hex_colors.buffer.topic)?,
-                    text_input: hex_to_color_checked(&hex_colors.buffer.text_input)?,
-                    title_bar: hex_to_color_checked(&hex_colors.buffer.title_bar)?,
-                    highlight: hex_to_color_checked(&hex_colors.buffer.highlight)?,
-                    nickname: hex_to_color_checked(&hex_colors.buffer.nickname)?,
-                    url: hex_to_color_checked(&hex_colors.buffer.url)?,
-                    code: hex_to_color_checked(&hex_colors.buffer.code)?,
-                    selection: hex_to_color_checked(&hex_colors.buffer.selection)?,
+                    background: color_or_transparent(hex_colors.buffer.background.as_ref()),
+                    background_text_input: color_or_transparent(
+                        hex_colors.buffer.background_text_input.as_ref(),
+                    ),
+                    background_title_bar: color_or_transparent(
+                        hex_colors.buffer.background_title_bar.as_ref(),
+                    ),
+                    timestamp: color_or_transparent(hex_colors.buffer.timestamp.as_ref()),
+                    action: color_or_transparent(hex_colors.buffer.action.as_ref()),
+                    topic: color_or_transparent(hex_colors.buffer.topic.as_ref()),
+                    highlight: color_or_transparent(hex_colors.buffer.highlight.as_ref()),
+                    nickname: color_or_transparent(hex_colors.buffer.nickname.as_ref()),
+                    url: color_or_transparent(hex_colors.buffer.url.as_ref()),
+                    code: color_or_transparent(hex_colors.buffer.code.as_ref()),
+                    selection: color_or_transparent(hex_colors.buffer.selection.as_ref()),
                     server_messages: ServerMessages {
-                        join: hex_colors
-                            .buffer
-                            .server_messages
-                            .join
-                            .as_ref()
-                            .and_then(|hex| hex_to_color_checked(hex).ok()),
-                        part: hex_colors
-                            .buffer
-                            .server_messages
-                            .part
-                            .as_ref()
-                            .and_then(|hex| hex_to_color_checked(hex).ok()),
-                        quit: hex_colors
-                            .buffer
-                            .server_messages
-                            .quit
-                            .as_ref()
-                            .and_then(|hex| hex_to_color_checked(hex).ok()),
-                        reply_topic: hex_colors
-                            .buffer
-                            .server_messages
-                            .reply_topic
-                            .as_ref()
-                            .and_then(|hex| hex_to_color_checked(hex).ok()),
-                        change_host: hex_colors
-                            .buffer
-                            .server_messages
-                            .change_host
-                            .as_ref()
-                            .and_then(|hex| hex_to_color_checked(hex).ok()),
-                        default: hex_to_color_checked(&hex_colors.buffer.server_messages.default)?,
+                        join: color_or_none(hex_colors.buffer.server_messages.join.as_ref()),
+                        part: color_or_none(hex_colors.buffer.server_messages.part.as_ref()),
+                        quit: color_or_none(hex_colors.buffer.server_messages.quit.as_ref()),
+                        reply_topic: color_or_none(
+                            hex_colors.buffer.server_messages.reply_topic.as_ref(),
+                        ),
+                        change_host: color_or_none(
+                            hex_colors.buffer.server_messages.change_host.as_ref(),
+                        ),
+                        default: color_or_transparent(
+                            hex_colors.buffer.server_messages.default.as_ref(),
+                        ),
                     },
+                    border: color_or_transparent(hex_colors.buffer.border.as_ref()),
+                    border_selected: color_or_transparent(
+                        hex_colors.buffer.border_selected.as_ref(),
+                    ),
                 },
                 text: Text {
-                    primary: hex_to_color_checked(&hex_colors.text.primary)?,
-                    secondary: hex_to_color_checked(&hex_colors.text.secondary)?,
-                    tertiary: hex_to_color_checked(&hex_colors.text.tertiary)?,
-                    success: hex_to_color_checked(&hex_colors.text.success)?,
-                    error: hex_to_color_checked(&hex_colors.text.error)?,
+                    primary: color_or_transparent(hex_colors.text.primary.as_ref()),
+                    secondary: color_or_transparent(hex_colors.text.secondary.as_ref()),
+                    tertiary: color_or_transparent(hex_colors.text.tertiary.as_ref()),
+                    success: color_or_transparent(hex_colors.text.success.as_ref()),
+                    error: color_or_transparent(hex_colors.text.error.as_ref()),
                 },
                 buttons: Buttons {
                     primary: Button {
-                        background: hex_to_color_checked(&hex_colors.buttons.primary.background)?,
-                        background_hover: hex_to_color_checked(
-                            &hex_colors.buttons.primary.background_hover,
-                        )?,
-                        background_selected: hex_to_color_checked(
-                            &hex_colors.buttons.primary.background_selected,
-                        )?,
-                        background_selected_hover: hex_to_color_checked(
-                            &hex_colors.buttons.primary.background_selected_hover,
-                        )?,
+                        background: color_or_transparent(
+                            hex_colors.buttons.primary.background.as_ref(),
+                        ),
+                        background_hover: color_or_transparent(
+                            hex_colors.buttons.primary.background_hover.as_ref(),
+                        ),
+                        background_selected: color_or_transparent(
+                            hex_colors.buttons.primary.background_selected.as_ref(),
+                        ),
+                        background_selected_hover: color_or_transparent(
+                            hex_colors
+                                .buttons
+                                .primary
+                                .background_selected_hover
+                                .as_ref(),
+                        ),
                     },
                     secondary: Button {
-                        background: hex_to_color_checked(&hex_colors.buttons.secondary.background)?,
-                        background_hover: hex_to_color_checked(
-                            &hex_colors.buttons.secondary.background_hover,
-                        )?,
-                        background_selected: hex_to_color_checked(
-                            &hex_colors.buttons.secondary.background_selected,
-                        )?,
-                        background_selected_hover: hex_to_color_checked(
-                            &hex_colors.buttons.secondary.background_selected_hover,
-                        )?,
+                        background: color_or_transparent(
+                            hex_colors.buttons.secondary.background.as_ref(),
+                        ),
+                        background_hover: color_or_transparent(
+                            hex_colors.buttons.secondary.background_hover.as_ref(),
+                        ),
+                        background_selected: color_or_transparent(
+                            hex_colors.buttons.secondary.background_selected.as_ref(),
+                        ),
+                        background_selected_hover: color_or_transparent(
+                            hex_colors
+                                .buttons
+                                .secondary
+                                .background_selected_hover
+                                .as_ref(),
+                        ),
                     },
                 },
             })
