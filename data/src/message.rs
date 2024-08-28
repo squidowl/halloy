@@ -151,7 +151,18 @@ pub struct Message {
 impl Message {
     pub fn triggers_unread(&self) -> bool {
         matches!(self.direction, Direction::Received)
-            && matches!(self.target.source(), Source::User(_) | Source::Action)
+            && match self.target.source() {
+                Source::User(_) => true,
+                Source::Action => true,
+                Source::Server(Some(server)) => {
+                    matches!(
+                        server.kind(),
+                        source::server::Kind::MonitoredOnline
+                            | source::server::Kind::MonitoredOffline
+                    )
+                }
+                _ => false,
+            }
     }
 
     pub fn received(
