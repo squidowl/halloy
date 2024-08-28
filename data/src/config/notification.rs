@@ -34,6 +34,10 @@ pub struct Notifications<T = String> {
     pub highlight: Notification<T>,
     #[serde(default)]
     pub file_transfer_request: Notification<T>,
+    #[serde(default)]
+    pub monitored_online: Notification<T>,
+    #[serde(default)]
+    pub monitored_offline: Notification<T>,
 }
 
 impl<T> Default for Notifications<T> {
@@ -45,6 +49,8 @@ impl<T> Default for Notifications<T> {
             direct_message: Notification::default(),
             highlight: Notification::default(),
             file_transfer_request: Notification::default(),
+            monitored_online: Notification::default(),
+            monitored_offline: Notification::default(),
         }
     }
 }
@@ -65,6 +71,8 @@ impl Notifications {
             direct_message: load(&self.direct_message)?,
             highlight: load(&self.highlight)?,
             file_transfer_request: load(&self.file_transfer_request)?,
+            monitored_online: load(&self.monitored_online)?,
+            monitored_offline: load(&self.monitored_offline)?,
         })
     }
 }

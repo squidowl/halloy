@@ -565,6 +565,28 @@ impl Halloy {
                                                     channel,
                                                 );
                                             }
+                                            data::client::Notification::MonitoredOnline(
+                                                targets,
+                                            ) => {
+                                                targets.into_iter().for_each(|target| {
+                                                    notification::monitored_online(
+                                                        &self.config.notifications,
+                                                        target.nickname().to_owned(),
+                                                        server.clone(),
+                                                    );
+                                                });
+                                            }
+                                            data::client::Notification::MonitoredOffline(
+                                                targets,
+                                            ) => {
+                                                targets.into_iter().for_each(|target| {
+                                                    notification::monitored_offline(
+                                                        &self.config.notifications,
+                                                        target,
+                                                        server.clone(),
+                                                    );
+                                                });
+                                            }
                                         }
                                     }
                                     data::client::Event::FileTransferRequest(request) => {
