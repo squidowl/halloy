@@ -11,7 +11,7 @@ pub struct Channel {
     pub topic: Topic,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Nicklist {
     #[serde(default = "default_bool_true")]
     pub enabled: bool,
@@ -19,19 +19,6 @@ pub struct Nicklist {
     pub position: Position,
     #[serde(default)]
     pub color: Color,
-    #[serde(default = "default_away_transparency")]
-    pub away_transparency: f32,
-}
-
-impl Default for Nicklist {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            position: Position::default(),
-            color: Color::default(),
-            away_transparency: default_away_transparency(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -57,8 +44,4 @@ fn default_topic_banner_max_lines() -> u16 {
 
 fn default_bool_true() -> bool {
     true
-}
-
-fn default_away_transparency() -> f32 {
-    0.2
 }

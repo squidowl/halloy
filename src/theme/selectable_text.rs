@@ -77,8 +77,8 @@ pub fn server(theme: &Theme, server: Option<&message::source::Server>) -> Style 
     }
 }
 
-pub fn nickname(theme: &Theme, nick_color: NickColor, away: bool, away_transparency: f32) -> Style {
-    let color = text::nickname(theme, nick_color, away, away_transparency).color;
+pub fn nickname(theme: &Theme, nick_color: NickColor, away: bool) -> Style {
+    let color = text::nickname(theme, nick_color, away).color;
 
     Style {
         color,
