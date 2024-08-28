@@ -521,6 +521,18 @@ fn target(
                 user.map(|user| user.nickname().to_owned()),
             ))),
         }),
+        Command::Numeric(RPL_MONONLINE, _) => Some(Target::Server {
+            source: source::Source::Server(Some(source::Server::new(
+                source::server::Kind::MonitoredOnline,
+                None,
+            ))),
+        }),
+        Command::Numeric(RPL_MONOFFLINE, _) => Some(Target::Server {
+            source: source::Source::Server(Some(source::Server::new(
+                source::server::Kind::MonitoredOffline,
+                None,
+            ))),
+        }),
 
         // Server
         Command::PASS(_)

@@ -37,6 +37,10 @@ pub struct ServerMessages {
     pub quit: ServerMessage,
     #[serde(default)]
     pub change_host: ServerMessage,
+    #[serde(default)]
+    pub monitored_online: ServerMessage,
+    #[serde(default)]
+    pub monitored_offline: ServerMessage,
 }
 
 impl ServerMessages {
@@ -47,6 +51,8 @@ impl ServerMessages {
             source::server::Kind::Part => Some(&self.part),
             source::server::Kind::Quit => Some(&self.quit),
             source::server::Kind::ChangeHost => Some(&self.change_host),
+            source::server::Kind::MonitoredOnline => Some(&self.monitored_online),
+            source::server::Kind::MonitoredOffline => Some(&self.monitored_offline),
         }
     }
 }
