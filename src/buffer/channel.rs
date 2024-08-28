@@ -95,7 +95,6 @@ pub fn view<'a>(
                                 theme,
                                 user.nick_color(theme.colors(), &config.buffer.nickname.color),
                                 user.is_away(),
-                                config.buffer.nickname.away_transparency,
                             )
                         });
 
@@ -405,7 +404,6 @@ mod nick_list {
                     theme,
                     user.nick_color(theme.colors(), &config.buffer.channel.nicklist.color),
                     user.is_away(),
-                    config.buffer.channel.nicklist.away_transparency,
                 )
             });
 

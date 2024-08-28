@@ -172,6 +172,14 @@ pub fn hex_to_color(hex: &str) -> Option<Color> {
     None
 }
 
+/// Adjusts the transparency of the foreground color based on the background color's lightness.
+pub fn alpha_color(min_alpha: f32, max_alpha: f32, background: Color, foreground: Color) -> Color {
+    alpha(
+        foreground,
+        min_alpha + to_hsl(background).lightness * (max_alpha - min_alpha),
+    )
+}
+
 /// Randomizes the hue value of an `iced::Color` based on a seed.
 pub fn randomize_color(original_color: Color, seed: &str) -> Color {
     // Generate a 64-bit hash from the seed string

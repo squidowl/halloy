@@ -29,7 +29,6 @@ pub fn view<'a>(
                         theme,
                         user.nick_color(theme.colors(), &config.buffer.nickname.color),
                         false,
-                        config.buffer.nickname.away_transparency,
                     )
                 }),
                 user,

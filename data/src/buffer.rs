@@ -110,7 +110,7 @@ impl Default for Timestamp {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Nickname {
     #[serde(default)]
     pub color: Color,
@@ -118,19 +118,6 @@ pub struct Nickname {
     pub brackets: Brackets,
     #[serde(default)]
     pub alignment: Alignment,
-    #[serde(default = "default_away_transparency")]
-    pub away_transparency: f32,
-}
-
-impl Default for Nickname {
-    fn default() -> Self {
-        Self {
-            color: Default::default(),
-            brackets: Default::default(),
-            alignment: Default::default(),
-            away_transparency: default_away_transparency(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -196,8 +183,4 @@ impl Resize {
 
 fn default_timestamp() -> String {
     "%R".to_string()
-}
-
-fn default_away_transparency() -> f32 {
-    0.2
 }
