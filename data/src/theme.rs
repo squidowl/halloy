@@ -3,8 +3,10 @@ use palette::rgb::Rgb;
 use palette::{FromColor, Okhsl, Srgb};
 use rand::prelude::*;
 use rand_chacha::ChaChaRng;
+use serde::Deserialize;
 
 const DEFAULT_THEME_NAME: &str = "Ferra";
+const DEFAULT_THEME_CONTENT: &[u8] = include_bytes!("../../assets/themes/ferra.toml");
 
 #[derive(Debug, Clone)]
 pub struct Theme {
@@ -96,58 +98,16 @@ pub struct Text {
 
 impl Default for Colors {
     fn default() -> Self {
-        Self {
-            buffer: Buffer {
-                background: hex_to_color("#242226").unwrap(),
-                background_text_input: hex_to_color("#1D1B1E").unwrap(),
-                background_title_bar: hex_to_color("#222024").unwrap(),
-                action: hex_to_color("#b1b695").unwrap(),
-                server_messages: ServerMessages {
-                    join: None,
-                    part: None,
-                    quit: None,
-                    reply_topic: None,
-                    change_host: None,
-                    default: hex_to_color("#f5d76e").unwrap(),
-                },
-                timestamp: hex_to_color("#685650").unwrap(),
-                topic: hex_to_color("#AB8A79").unwrap(),
-                highlight: hex_to_color("#473f30").unwrap(),
-                nickname: hex_to_color("#f6b6c9").unwrap(),
-                url: hex_to_color("#d7bde2").unwrap(),
-                code: hex_to_color("#af8d9f").unwrap(),
-                selection: hex_to_color("#453d41").unwrap(),
-                border: iced_core::Color::TRANSPARENT,
-                border_selected: hex_to_color("#7D6E76").unwrap(),
-            },
-            general: General {
-                background: hex_to_color("#2b292d").unwrap(),
-                horizontal_rule: hex_to_color("#323034").unwrap(),
-                unread_indicator: hex_to_color("#ffa07a").unwrap(),
-                border: hex_to_color("#4f474d").unwrap(),
-            },
-            text: Text {
-                primary: hex_to_color("#fecdb2").unwrap(),
-                secondary: hex_to_color("#AB8A79").unwrap(),
-                tertiary: hex_to_color("#d1d1e0").unwrap(),
-                success: hex_to_color("#b1b695").unwrap(),
-                error: hex_to_color("#e06b75").unwrap(),
-            },
-            buttons: Buttons {
-                primary: Button {
-                    background: hex_to_color("#2b292d").unwrap(),
-                    background_hover: hex_to_color("#242226").unwrap(),
-                    background_selected: hex_to_color("#1d1b1e").unwrap(),
-                    background_selected_hover: hex_to_color("#0D0C0D").unwrap(),
-                },
-                secondary: Button {
-                    background: hex_to_color("#323034").unwrap(),
-                    background_hover: hex_to_color("#323034").unwrap(),
-                    background_selected: hex_to_color("#606155").unwrap(),
-                    background_selected_hover: hex_to_color("#6F7160").unwrap(),
-                },
-            },
+        #[derive(Deserialize)]
+        pub struct Data {
+            #[serde(default)]
+            pub colors: Colors,
         }
+
+        let toml_str = std::str::from_utf8(DEFAULT_THEME_CONTENT).expect("default theme exist");
+        let Data { colors } = toml::from_str(toml_str).expect("parse default theme");
+
+        colors
     }
 }
 

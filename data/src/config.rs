@@ -282,16 +282,6 @@ pub fn random_nickname_with_seed<R: Rng>(rng: &mut R) -> String {
     rand_nick
 }
 
-pub fn create_themes_dir() {
-    const CONTENT: &[u8] = include_bytes!("../../assets/themes/ferra.toml");
-
-    // Create default theme file.
-    let file = Config::themes_dir().join(DEFAULT_THEME_FILE_NAME);
-    if !file.exists() {
-        let _ = fs::write(file, CONTENT);
-    }
-}
-
 /// Has YAML configuration file.
 pub fn has_yaml_config() -> bool {
     config_dir().join("config.yaml").exists()
