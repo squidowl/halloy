@@ -3,10 +3,9 @@ use palette::rgb::Rgb;
 use palette::{FromColor, Okhsl, Srgb};
 use rand::prelude::*;
 use rand_chacha::ChaChaRng;
-use serde::Deserialize;
 
 const DEFAULT_THEME_NAME: &str = "Ferra";
-const DEFAULT_THEME_CONTENT: &[u8] = include_bytes!("../../assets/themes/ferra.toml");
+const DEFAULT_THEME_CONTENT: &str = include_str!("../../assets/themes/ferra.toml");
 
 #[derive(Debug, Clone)]
 pub struct Theme {
@@ -98,16 +97,7 @@ pub struct Text {
 
 impl Default for Colors {
     fn default() -> Self {
-        #[derive(Deserialize)]
-        pub struct Data {
-            #[serde(default)]
-            pub colors: Colors,
-        }
-
-        let toml_str = std::str::from_utf8(DEFAULT_THEME_CONTENT).expect("default theme exist");
-        let Data { colors } = toml::from_str(toml_str).expect("parse default theme");
-
-        colors
+        toml::from_str(DEFAULT_THEME_CONTENT).expect("parse default theme")
     }
 }
 
