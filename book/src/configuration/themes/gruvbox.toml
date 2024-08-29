@@ -1,11 +1,40 @@
-name = "Gruvbox"
-
-[palette]
+[colors.general]
 background = "#282828"
-text = "#ebdbb2"
-action = "#98971a"
-accent = "#d79921"
-alert = "#b16286"
-error = "#cc241d"
-info = "#fabd2f"
+horizontal_rule = "#3c3836"
+unread_indicator = "#b16286"
+border = "#928374"
+
+[colors.text]
+primary = "#ebdbb2"
+secondary = "#a89984"
+tertiary = "#b16286"
 success = "#98971a"
+error = "#cc241d"
+
+[colors.buffer]
+background = "#1d2021"
+background_text_input = "#282828"
+background_title_bar = "#1f2121"
+timestamp = "#665c54"
+action = "#d65d0e"
+topic = "#928374"
+highlight = "#3C3836"
+code = "#689d5a"
+nickname = "#8ec07c"
+url = "#458588"
+selection = "#3D3937"
+border_selected = "#928374"
+
+[colors.buffer.server_messages]
+default = "#d79921"
+
+[colors.buttons.primary]
+background_hover = "#2E2E2E"
+background_selected = "#323232"
+background_selected_hover = "#393939"
+
+[colors.buttons.secondary]
+background = "#222627"
+background_hover = "#252A2B"
+background_selected = "#413c37"
+background_selected_hover = "#5a524a"
