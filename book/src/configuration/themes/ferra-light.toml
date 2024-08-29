@@ -1,17 +1,17 @@
-[colors.general]
+[general]
 background = "#f4ece6"
 horizontal_rule = "#e9d9ce"
 unread_indicator = "#ffa07a"
 border = "#ddd0c8"
 
-[colors.text]
+[text]
 primary = "#685650"
 secondary = "#a79891"
 tertiary = "#a352c5"
 success = "#74862d"
 error = "#df525e"
 
-[colors.buffer]
+[buffer]
 background = "#f1e6de"
 background_text_input = "#eee0d5"
 background_title_bar = "#efe2d8"
@@ -25,16 +25,16 @@ url = "#6360d6"
 selection = "#e6c6c3"
 border_selected = "#c7b9b1"
 
-[colors.buffer.server_messages]
+[buffer.server_messages]
 default = "#c19317"
 
-[colors.buttons.primary]
+[buttons.primary]
 background = "#f4ece6"
 background_hover = "#f1e5dd"
 background_selected = "#eadad0"
 background_selected_hover = "#e6d5c9"
 
-[colors.buttons.secondary]
+[buttons.secondary]
 background = "#e9d5c8"
 background_hover = "#dfc2ad"
 background_selected = "#d9d1bb"
