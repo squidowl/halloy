@@ -21,7 +21,7 @@ impl Sound {
             internal.bytes()
         } else {
             let Some(sound_path) = find_external_sound(name) else {
-                return Err(LoadError::NoSoundFound);
+                return Err(LoadError::NoSoundFound(name.to_string()));
             };
 
             read(sound_path)?
@@ -93,8 +93,8 @@ fn find_external_sound(sound: &str) -> Option<PathBuf> {
 pub enum LoadError {
     #[error(transparent)]
     File(Arc<std::io::Error>),
-    #[error("sound was not found")]
-    NoSoundFound,
+    #[error("sound \"{0}\" was not found")]
+    NoSoundFound(String),
 }
 
 impl From<std::io::Error> for LoadError {
