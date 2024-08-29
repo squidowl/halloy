@@ -1,11 +1,41 @@
-name = "catppuccin-macchiato"
+[colors.general]
+background = "#181926"
+horizontal_rule = "#24273a"
+unread_indicator = "#c6a0f6"
+border = "#6E738D"
 
-[palette]
-background = "#24273a"
-text = "#cad3f5"
-action = "#f4dbd6"
-accent = "#b8c0e0"
-alert = "#eed49f"
-error = "#ed8796"
-info = "#8aadf4"
+[colors.text]
+primary = "#cad3f5"
+secondary = "#a5adcb"
+tertiary = "#c6a0f6"
 success = "#a6da95"
+error = "#ed8796"
+
+[colors.buffer]
+background = "#1e2030"
+background_text_input = "#24273a"
+background_title_bar = "#24273a"
+timestamp = "#5B6076"
+action = "#f5a97f"
+topic = "#8087a2"
+highlight = "#594c76"
+code = "#b7bdf8"
+nickname = "#91d7e3"
+url = "#8aadf4"
+selection = "#2C324A"
+border_selected = "#4c4163"
+border = "#181926"
+
+[colors.buffer.server_messages]
+default = "#eed49f"
+
+[colors.buttons.primary]
+background_hover = "#1E1F2F"
+background_selected = "#222335"
+background_selected_hover = "#27283D"
+
+[colors.buttons.secondary]
+background = "#292C42"
+background_hover = "#323550"
+background_selected = "#4a4062"
+background_selected_hover = "#8d74b1"

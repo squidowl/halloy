@@ -1,11 +1,41 @@
-name = "dracula"
+[colors.general]
+background = "#21222C"
+horizontal_rule = "#44475A"
+unread_indicator = "#BD93F9"
+border = "#1d1f27"
 
-[palette]
-background = "#282a36"
-text = "#f8f8f2"
-action = "#50fa7b"
-accent = "#8be9fd"
-alert = "#ff79c6"
-error = "#ff5555"
-info = "#6272a4"
-success = "#f1fa8c"
+[colors.text]
+primary = "#F8F8F2"
+secondary = "#44475A"
+tertiary = "#bd93fa"
+success = "#50FA7B"
+error = "#FF5555"
+
+[colors.buffer]
+background = "#282A36"
+background_text_input = "#242631"
+background_title_bar = "#262833"
+timestamp = "#44475A"
+action = "#FFB86C"
+topic = "#6272A4"
+highlight = "#594c76"
+code = "#FF79C6"
+nickname = "#FF79C6"
+url = "#8BE9FD"
+selection = "#353947"
+border_selected = "#bd93fa"
+
+[colors.buffer.server_messages]
+default = "#F1FA8C"
+
+[colors.buttons.primary]
+background = "#21222C"
+background_hover = "#282A36"
+background_selected = "#3D3D51"
+background_selected_hover = "#313141"
+
+[colors.buttons.secondary]
+background = "#2B2E3A"
+background_hover = "#323644"
+background_selected = "#3b364e"
+background_selected_hover = "#564a72"

@@ -1,11 +1,41 @@
-name = "catppuccin-mocha"
+[colors.general]
+background = "#11111b"
+horizontal_rule = "#1e1e2e"
+unread_indicator = "#cba6f7"
+border = "#6c7086"
 
-[palette]
-background = "#1e1e2e"
-text = "#cdd6f4"
-action = "#f5e0dc"
-accent = "#bac2de"
-alert = "#f9e2af"
-error = "#f38ba8"
-info = "#89b4fa"
+[colors.text]
+primary = "#cdd6f4"
+secondary = "#a6adc8"
+tertiary = "#cba6f7"
 success = "#a6e3a1"
+error = "#f38ba8"
+
+[colors.buffer]
+background = "#181825"
+background_text_input = "#1e1e2e"
+background_title_bar = "#1e1e2e"
+timestamp = "#585a6e"
+action = "#fab387"
+topic = "#7f849c"
+highlight = "#594c76"
+code = "#b7bdf8"
+nickname = "#89dceb"
+url = "#89b4fa"
+selection = "#2C324A"
+border_selected = "#4c4163"
+border = "#11111b"
+
+[colors.buffer.server_messages]
+default = "#f9e2af"
+
+[colors.buttons.primary]
+background_hover = "#1A1A29"
+background_selected = "#1E1E2F"
+background_selected_hover = "#222236"
+
+[colors.buttons.secondary]
+background = "#232336"
+background_hover = "#2B2B42"
+background_selected = "#4c4163"
+background_selected_hover = "#685786"
