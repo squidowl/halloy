@@ -3,6 +3,7 @@ use palette::rgb::Rgb;
 use palette::{FromColor, Okhsl, Srgb};
 use rand::prelude::*;
 use rand_chacha::ChaChaRng;
+use serde::{Deserialize, Deserializer};
 
 const DEFAULT_THEME_NAME: &str = "Ferra";
 const DEFAULT_THEME_CONTENT: &str = include_str!("../../assets/themes/ferra.toml");
@@ -28,70 +29,108 @@ impl Theme {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 pub struct Colors {
+    #[serde(default)]
     pub general: General,
+    #[serde(default)]
     pub text: Text,
+    #[serde(default)]
     pub buffer: Buffer,
+    #[serde(default)]
     pub buttons: Buttons,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
 pub struct Buttons {
+    #[serde(default)]
     pub primary: Button,
+    #[serde(default)]
     pub secondary: Button,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
 pub struct Button {
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub background: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub background_hover: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub background_selected: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub background_selected_hover: Color,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
 pub struct General {
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub background: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub border: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub horizontal_rule: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub unread_indicator: Color,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
 pub struct Buffer {
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub action: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub background: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub background_text_input: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub background_title_bar: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub border: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub border_selected: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub code: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub highlight: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub nickname: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub selection: Color,
     pub server_messages: ServerMessages,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub timestamp: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub topic: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub url: Color,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
 pub struct ServerMessages {
+    #[serde(default, deserialize_with = "color_deser_maybe")]
     pub join: Option<Color>,
+    #[serde(default, deserialize_with = "color_deser_maybe")]
     pub part: Option<Color>,
+    #[serde(default, deserialize_with = "color_deser_maybe")]
     pub quit: Option<Color>,
+    #[serde(default, deserialize_with = "color_deser_maybe")]
     pub reply_topic: Option<Color>,
+    #[serde(default, deserialize_with = "color_deser_maybe")]
     pub change_host: Option<Color>,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub default: Color,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
 pub struct Text {
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub primary: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub secondary: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub tertiary: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub success: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub error: Color,
 }
 
@@ -170,226 +209,22 @@ pub fn alpha(color: Color, alpha: f32) -> Color {
     Color { a: alpha, ..color }
 }
 
-pub mod colors_serde {
-    use serde::{Deserialize, Deserializer};
+fn default_transparent() -> Color {
+    Color::TRANSPARENT
+}
 
-    use crate::theme::{Buffer, Button, Buttons, General, ServerMessages, Text};
+fn color_deser<'de, D>(deserializer: D) -> Result<Color, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(String::deserialize(deserializer)
+        .map(|hex| hex_to_color(&hex))?
+        .unwrap_or(Color::TRANSPARENT))
+}
 
-    use super::{hex_to_color, Colors};
-
-    impl<'de> Deserialize<'de> for Colors {
-        fn deserialize<D>(deserializer: D) -> Result<Colors, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            #[derive(Deserialize)]
-            struct HexColors {
-                #[serde(default)]
-                general: HexGeneral,
-                #[serde(default)]
-                buffer: HexBuffer,
-                #[serde(default)]
-                text: HexText,
-                #[serde(default)]
-                buttons: HexButtons,
-            }
-
-            #[derive(Deserialize, Default)]
-            struct HexGeneral {
-                #[serde(default)]
-                background: Option<String>,
-                #[serde(default)]
-                horizontal_rule: Option<String>,
-                #[serde(default)]
-                unread_indicator: Option<String>,
-                #[serde(default)]
-                border: Option<String>,
-            }
-
-            #[derive(Deserialize, Default)]
-            struct HexBuffer {
-                #[serde(default)]
-                background: Option<String>,
-                #[serde(default)]
-                background_text_input: Option<String>,
-                #[serde(default)]
-                background_title_bar: Option<String>,
-                #[serde(default)]
-                timestamp: Option<String>,
-                #[serde(default)]
-                server_messages: HexServerMessages,
-                #[serde(default)]
-                action: Option<String>,
-                #[serde(default)]
-                topic: Option<String>,
-                #[serde(default)]
-                highlight: Option<String>,
-                #[serde(default)]
-                nickname: Option<String>,
-                #[serde(default)]
-                url: Option<String>,
-                #[serde(default)]
-                code: Option<String>,
-                #[serde(default)]
-                selection: Option<String>,
-                #[serde(default)]
-                pub border: Option<String>,
-                #[serde(default)]
-                pub border_selected: Option<String>,
-            }
-
-            #[derive(Deserialize, Default)]
-            struct HexText {
-                #[serde(default)]
-                pub primary: Option<String>,
-                #[serde(default)]
-                pub secondary: Option<String>,
-                #[serde(default)]
-                pub tertiary: Option<String>,
-                #[serde(default)]
-                pub success: Option<String>,
-                #[serde(default)]
-                pub error: Option<String>,
-            }
-
-            #[derive(Deserialize, Default)]
-            struct HexButtons {
-                #[serde(default)]
-                primary: HexButton,
-                #[serde(default)]
-                secondary: HexButton,
-            }
-
-            #[derive(Deserialize, Default)]
-            struct HexButton {
-                #[serde(default)]
-                background: Option<String>,
-                #[serde(default)]
-                background_hover: Option<String>,
-                #[serde(default)]
-                background_selected: Option<String>,
-                #[serde(default)]
-                background_selected_hover: Option<String>,
-            }
-
-            #[derive(Deserialize, Default)]
-            pub struct HexServerMessages {
-                #[serde(default)]
-                pub join: Option<String>,
-                #[serde(default)]
-                pub part: Option<String>,
-                #[serde(default)]
-                pub quit: Option<String>,
-                #[serde(default)]
-                pub reply_topic: Option<String>,
-                #[serde(default)]
-                pub change_host: Option<String>,
-                #[serde(default)]
-                pub default: Option<String>,
-            }
-
-            let hex_colors: HexColors = serde::Deserialize::deserialize(deserializer)?;
-
-            let color_or_transparent = |color: Option<&String>| {
-                color
-                    .and_then(|hex| hex_to_color(hex))
-                    .unwrap_or(iced_core::Color::TRANSPARENT)
-            };
-
-            let color_or_none = |color: Option<&String>| color.and_then(|hex| hex_to_color(hex));
-
-            Ok(Colors {
-                general: General {
-                    background: color_or_transparent(hex_colors.general.background.as_ref()),
-                    horizontal_rule: color_or_transparent(
-                        hex_colors.general.horizontal_rule.as_ref(),
-                    ),
-                    unread_indicator: color_or_transparent(
-                        hex_colors.general.unread_indicator.as_ref(),
-                    ),
-                    border: color_or_transparent(hex_colors.general.border.as_ref()),
-                },
-                buffer: Buffer {
-                    background: color_or_transparent(hex_colors.buffer.background.as_ref()),
-                    background_text_input: color_or_transparent(
-                        hex_colors.buffer.background_text_input.as_ref(),
-                    ),
-                    background_title_bar: color_or_transparent(
-                        hex_colors.buffer.background_title_bar.as_ref(),
-                    ),
-                    timestamp: color_or_transparent(hex_colors.buffer.timestamp.as_ref()),
-                    action: color_or_transparent(hex_colors.buffer.action.as_ref()),
-                    topic: color_or_transparent(hex_colors.buffer.topic.as_ref()),
-                    highlight: color_or_transparent(hex_colors.buffer.highlight.as_ref()),
-                    nickname: color_or_transparent(hex_colors.buffer.nickname.as_ref()),
-                    url: color_or_transparent(hex_colors.buffer.url.as_ref()),
-                    code: color_or_transparent(hex_colors.buffer.code.as_ref()),
-                    selection: color_or_transparent(hex_colors.buffer.selection.as_ref()),
-                    server_messages: ServerMessages {
-                        join: color_or_none(hex_colors.buffer.server_messages.join.as_ref()),
-                        part: color_or_none(hex_colors.buffer.server_messages.part.as_ref()),
-                        quit: color_or_none(hex_colors.buffer.server_messages.quit.as_ref()),
-                        reply_topic: color_or_none(
-                            hex_colors.buffer.server_messages.reply_topic.as_ref(),
-                        ),
-                        change_host: color_or_none(
-                            hex_colors.buffer.server_messages.change_host.as_ref(),
-                        ),
-                        default: color_or_transparent(
-                            hex_colors.buffer.server_messages.default.as_ref(),
-                        ),
-                    },
-                    border: color_or_transparent(hex_colors.buffer.border.as_ref()),
-                    border_selected: color_or_transparent(
-                        hex_colors.buffer.border_selected.as_ref(),
-                    ),
-                },
-                text: Text {
-                    primary: color_or_transparent(hex_colors.text.primary.as_ref()),
-                    secondary: color_or_transparent(hex_colors.text.secondary.as_ref()),
-                    tertiary: color_or_transparent(hex_colors.text.tertiary.as_ref()),
-                    success: color_or_transparent(hex_colors.text.success.as_ref()),
-                    error: color_or_transparent(hex_colors.text.error.as_ref()),
-                },
-                buttons: Buttons {
-                    primary: Button {
-                        background: color_or_transparent(
-                            hex_colors.buttons.primary.background.as_ref(),
-                        ),
-                        background_hover: color_or_transparent(
-                            hex_colors.buttons.primary.background_hover.as_ref(),
-                        ),
-                        background_selected: color_or_transparent(
-                            hex_colors.buttons.primary.background_selected.as_ref(),
-                        ),
-                        background_selected_hover: color_or_transparent(
-                            hex_colors
-                                .buttons
-                                .primary
-                                .background_selected_hover
-                                .as_ref(),
-                        ),
-                    },
-                    secondary: Button {
-                        background: color_or_transparent(
-                            hex_colors.buttons.secondary.background.as_ref(),
-                        ),
-                        background_hover: color_or_transparent(
-                            hex_colors.buttons.secondary.background_hover.as_ref(),
-                        ),
-                        background_selected: color_or_transparent(
-                            hex_colors.buttons.secondary.background_selected.as_ref(),
-                        ),
-                        background_selected_hover: color_or_transparent(
-                            hex_colors
-                                .buttons
-                                .secondary
-                                .background_selected_hover
-                                .as_ref(),
-                        ),
-                    },
-                },
-            })
-        }
-    }
+fn color_deser_maybe<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<String>::deserialize(deserializer)?.and_then(|hex| hex_to_color(&hex)))
 }
