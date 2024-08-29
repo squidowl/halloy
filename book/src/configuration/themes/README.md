@@ -21,32 +21,32 @@ To create a custom theme for Halloy, simply place a theme file (with a `.toml` e
  Each `"<string>"` is expected to be a valid hex color. If invalid, or if the key is removed, the color will fallback to transparent. A custom theme is structured as follows:
 
 ```toml
-[colors.general]
+[general]
 background = "<string>"
 border = "<string>"
 horizontal_rule = "<string>"
 unread_indicator = "<string>"
 
-[colors.text]
+[text]
 primary = "<string>"
 secondary = "<string>"
 tertiary = "<string>"
 success = "<string>"
 error = "<string>"
 
-[colors.buttons.primary]
+[buttons.primary]
 background = "<string>"
 background_hover = "<string>"
 background_selected = "<string>"
 background_selected_hover = "<string>"
 
-[colors.buttons.secondary]
+[buttons.secondary]
 background = "<string>"
 background_hover = "<string>"
 background_selected = "<string>"
 background_selected_hover = "<string>"
 
-[colors.buffer]
+[buffer]
 action = "<string>"
 background = "<string>"
 background_text_input = "<string>"
@@ -61,7 +61,7 @@ timestamp = "<string>"
 topic = "<string>"
 url = "<string>"
 
-[colors.buffer.server_messages]
+[buffer.server_messages]
 # Set below if you want to have a unique color for each.
 # Otherwise simply set `default` to use that for all server messages.
 #
