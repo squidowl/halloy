@@ -240,7 +240,7 @@ impl TitleBar {
                 .shaping(text::Shaping::Advanced),
         )
         .height(22)
-        .padding([0, 4])
+        .padding([0, 10])
         .align_y(iced::alignment::Vertical::Center);
 
         widget::TitleBar::new(title).controls(controls).padding(6)
