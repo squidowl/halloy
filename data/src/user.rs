@@ -148,6 +148,13 @@ impl User {
         }
     }
 
+    pub fn display(&self, with_access_levels: bool) -> String {
+        match with_access_levels {
+            true => format!("{}{}", self.highest_access_level(), self.nickname()),
+            false => self.nickname().to_string(),
+        }
+    }
+
     pub fn is_away(&self) -> bool {
         self.away
     }
@@ -249,12 +256,6 @@ impl From<proto::User> for User {
             access_levels: HashSet::default(),
             away: false,
         }
-    }
-}
-
-impl fmt::Display for User {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.highest_access_level(), self.nickname())
     }
 }
 
