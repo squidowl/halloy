@@ -713,7 +713,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     tooltip: None,
                 },
                 Arg {
-                    text: "mode",
+                    text: "modestring",
                     optional: true,
                     tooltip: None,
                 },
