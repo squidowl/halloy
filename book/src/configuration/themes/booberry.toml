@@ -29,7 +29,7 @@ border_selected = "#A4A0E8"
 default = "#FFCD1D"
 
 [buttons.primary]
-background_hover = "#4A2B5F"
+background_hover = "#4F2E65"
 background_selected = "#54316C"
 background_selected_hover = "#56326E"
 
