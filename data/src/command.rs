@@ -242,7 +242,7 @@ pub enum Error {
     MissingCommand,
     #[error("missing args")]
     MissingArgs,
-    #[error("invalid mode string")]
+    #[error("invalid modestring")]
     InvalidModeString
 }
 
