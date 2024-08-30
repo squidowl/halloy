@@ -273,6 +273,11 @@ fn buffer_button<'a>(
     let open = panes
         .iter()
         .find_map(|(pane, state)| (state.buffer.data().as_ref() == Some(&buffer)).then_some(*pane));
+    let is_focused = panes
+        .iter()
+        .find(|(id, _)| Some(**id) == focus)
+        .map(|(_, pane)| pane.buffer.data().as_ref() == Some(&buffer))
+        .unwrap_or_default();
 
     let show_unread_indicator =
         has_unread && matches!(unread_indicator, sidebar::UnreadIndicator::Dot);
@@ -353,7 +358,9 @@ fn buffer_button<'a>(
     let base = button(row)
         .padding(5)
         .width(width)
-        .style(move |theme, status| theme::button::primary(theme, status, open.is_some()))
+        .style(move |theme, status| {
+            theme::button::sidebar_buffer(theme, status, is_focused, open.is_some())
+        })
         .on_press(match default_action {
             DefaultAction::NewPane => Message::Open(buffer.clone()),
             DefaultAction::ReplacePane => match focus {

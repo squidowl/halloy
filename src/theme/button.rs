@@ -19,19 +19,10 @@ fn default(theme: &Theme, status: Status) -> Style {
     primary(theme, status, false)
 }
 
-fn button(
-    button_colors: data::theme::Button,
-    foreground: Color,
-    status: Status,
-    selected: bool,
-) -> Style {
+fn button(foreground: Color, background: Color, background_hover: Color, status: Status) -> Style {
     match status {
         Status::Active | Status::Pressed => Style {
-            background: Some(Background::Color(if selected {
-                button_colors.background_selected
-            } else {
-                button_colors.background
-            })),
+            background: Some(Background::Color(background)),
             text_color: foreground,
             border: Border {
                 radius: 4.0.into(),
@@ -40,11 +31,7 @@ fn button(
             ..Default::default()
         },
         Status::Hovered => Style {
-            background: Some(Background::Color(if selected {
-                button_colors.background_selected_hover
-            } else {
-                button_colors.background_hover
-            })),
+            background: Some(Background::Color(background_hover)),
             text_color: foreground,
             border: Border {
                 radius: 4.0.into(),
@@ -53,7 +40,7 @@ fn button(
             ..Default::default()
         },
         Status::Disabled => {
-            let active: Style = button(button_colors, foreground, Status::Active, selected);
+            let active: Style = button(foreground, background, background_hover, Status::Active);
 
             Style {
                 text_color: Color {
@@ -66,18 +53,60 @@ fn button(
     }
 }
 
-pub fn primary(theme: &Theme, status: Status, selected: bool) -> Style {
+pub fn sidebar_buffer(theme: &Theme, status: Status, is_focused: bool, is_open: bool) -> Style {
+    let foreground = theme.colors().text.primary;
     let button_colors = theme.colors().buttons.primary;
-    let foreground_color = theme.colors().text.primary;
 
-    button(button_colors, foreground_color, status, selected)
+    let background = match (is_focused, is_open) {
+        (true, true) => button_colors.background_selected,
+        (false, true) => button_colors.background_hover,
+        (_, _) => button_colors.background,
+    };
+
+    let background_hover = match (is_focused, is_open) {
+        (true, true) => button_colors.background_selected_hover,
+        (_, _) => button_colors.background_hover,
+    };
+
+    button(foreground, background, background_hover, status)
+}
+
+pub fn primary(theme: &Theme, status: Status, selected: bool) -> Style {
+    let foreground = theme.colors().text.primary;
+    let button_colors = theme.colors().buttons.primary;
+
+    let background = if selected {
+        button_colors.background_selected
+    } else {
+        button_colors.background
+    };
+
+    let background_hover = if selected {
+        button_colors.background_selected_hover
+    } else {
+        button_colors.background_hover
+    };
+
+    button(foreground, background, background_hover, status)
 }
 
 pub fn secondary(theme: &Theme, status: Status, selected: bool) -> Style {
+    let foreground = theme.colors().text.primary;
     let button_colors = theme.colors().buttons.secondary;
-    let foreground_color = theme.colors().text.primary;
 
-    button(button_colors, foreground_color, status, selected)
+    let background = if selected {
+        button_colors.background_selected
+    } else {
+        button_colors.background
+    };
+
+    let background_hover = if selected {
+        button_colors.background_selected_hover
+    } else {
+        button_colors.background_hover
+    };
+
+    button(foreground, background, background_hover, status)
 }
 
 pub fn bare(_theme: &Theme, status: Status) -> Style {
