@@ -781,7 +781,7 @@ fn content(
         Command::Numeric(RPL_UMODEIS, params) => {
             let mode = params
                 .iter()
-                .skip(2)
+                .skip(1)
                 .map(|s| s.as_str())
                 .collect::<Vec<_>>()
                 .join(" ");
