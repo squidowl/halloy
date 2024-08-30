@@ -1519,7 +1519,7 @@ fn remove_tag(key: &str, tags: &mut Vec<irc::proto::Tag>) -> Option<String> {
 fn start_reroute(command: &Command) -> bool {
     use Command::*;
 
-    matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..))
+    matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..) | MODE(..))
 }
 
 fn stop_reroute(command: &Command) -> bool {
@@ -1535,7 +1535,10 @@ fn stop_reroute(command: &Command) -> bool {
                 | ERR_NOSUCHSERVER
                 | ERR_NONICKNAMEGIVEN
                 | ERR_WASNOSUCHNICK
-                | ERR_NEEDMOREPARAMS,
+                | ERR_NEEDMOREPARAMS
+                | ERR_USERSDONTMATCH
+                | RPL_UMODEIS
+                | ERR_UMODEUNKNOWNFLAG,
             _
         )
     )
