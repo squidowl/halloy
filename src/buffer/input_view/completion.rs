@@ -75,10 +75,32 @@ impl Entry {
     pub fn complete_input(&self, input: &str) -> String {
         match self {
             Entry::Command(command) => format!("/{}", command.title.to_lowercase()),
-            Entry::Text(value) => match input.rsplit_once(' ') {
-                Some((left, _)) => format!("{left} {value}"),
-                None => value.clone(),
-            },
+            Entry::Text(next) => {
+                let is_channel = next.starts_with('#');
+                let colon_space = ": ";
+
+                let trimmed_input = input.trim_end_matches(colon_space);
+                let mut words: Vec<_> = trimmed_input.split_whitespace().collect();
+
+                // Replace the last word with the next word
+                if let Some(last_word) = words.last_mut() {
+                    *last_word = next;
+                } else {
+                    words.push(next);
+                }
+
+                let mut new_input = words.join(" ");
+
+                if words.len() == 1 && !is_channel {
+                    // If completed at the beginning of the input line, ': ' (colon space) is appended.
+                    new_input.push_str(colon_space);
+                } else {
+                    // Otherwise, a space is appended to the completion.
+                    new_input.push(' ');
+                }
+
+                new_input
+            }
         }
     }
 }
@@ -578,11 +600,9 @@ impl Text {
             }
         }
 
-        if let Some(index) = self.selected {
-            self.filtered.get(index).cloned()
-        } else {
-            (!self.prompt.is_empty()).then(|| self.prompt.clone())
-        }
+        self.selected
+            .and_then(|index| self.filtered.get(index))
+            .cloned()
     }
 }
 

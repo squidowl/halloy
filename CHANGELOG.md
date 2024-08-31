@@ -23,12 +23,13 @@ Changed:
   - **NOTE** Old theme files are not compatibile with the new format. However all the themes in the [theme community](https://halloy.squidowl.org/configuration/themes/community.html) has been updated to the new format.
 - Unread indicator has changed from a boolean value to a enum. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
 - Renamed `sidebar.default_action` to `sidebar.buffer_action`.
-
-
+- Auto-completing (with tab) a nickname at the beginning of the input line will append ': ' (colon space). Otherwise, a space is appended to the completion.
+ 
 Removed:
 
 - Removed `hex` configuration option for server messages and nicknames.
   - `hex` was previously used to overwrite a color value. This is now done through the new theme format.
+
 
 
 # 2024.10 (2024-08-04)
