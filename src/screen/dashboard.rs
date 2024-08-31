@@ -1356,6 +1356,10 @@ impl Dashboard {
             file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
         }
     }
+
+    pub fn get_history(&self) -> &history::Manager {
+        &self.history
+    }
 }
 
 impl<'a> From<&'a Dashboard> for data::Dashboard {

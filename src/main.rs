@@ -23,7 +23,7 @@ use chrono::Utc;
 use data::config::{self, Config};
 use data::version::Version;
 use data::window::Window;
-use data::{environment, server, version, User};
+use data::{environment, history, server, version, User};
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
@@ -539,6 +539,20 @@ impl Halloy {
                                         }
 
                                         match notification {
+                                            data::client::Notification::DirectMessage(user) => {
+                                                // only send notification if query has unread
+                                                if dashboard.get_history().has_unread(
+                                                    &server,
+                                                    &history::Kind::Query(
+                                                        user.nickname().to_owned(),
+                                                    ),
+                                                ) {
+                                                    notification::direct_message(
+                                                        &self.config.notifications,
+                                                        user.nickname(),
+                                                    );
+                                                }
+                                            }
                                             data::client::Notification::Highlight(
                                                 user,
                                                 channel,

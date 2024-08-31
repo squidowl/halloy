@@ -29,6 +29,8 @@ pub struct Notifications<T = String> {
     #[serde(default)]
     pub reconnected: Notification<T>,
     #[serde(default)]
+    pub direct_message: Notification<T>,
+    #[serde(default)]
     pub highlight: Notification<T>,
     #[serde(default)]
     pub file_transfer_request: Notification<T>,
@@ -40,6 +42,7 @@ impl<T> Default for Notifications<T> {
             connected: Notification::default(),
             disconnected: Notification::default(),
             reconnected: Notification::default(),
+            direct_message: Notification::default(),
             highlight: Notification::default(),
             file_transfer_request: Notification::default(),
         }
@@ -59,6 +62,7 @@ impl Notifications {
             connected: load(&self.connected)?,
             disconnected: load(&self.disconnected)?,
             reconnected: load(&self.reconnected)?,
+            direct_message: load(&self.direct_message)?,
             highlight: load(&self.highlight)?,
             file_transfer_request: load(&self.file_transfer_request)?,
         })
