@@ -35,6 +35,7 @@ pub enum State {
 
 #[derive(Debug)]
 pub enum Notification {
+    DirectMessage(User),
     Highlight(User, String),
 }
 
@@ -635,6 +636,15 @@ impl Client {
                         } else if user.nickname() == self.nickname() && context.is_some() {
                             // If we sent (echo) & context exists (we sent from this client), ignore
                             return None;
+                        }
+
+                        // use `channel` to confirm the direct message, then send notification
+                        if channel == &self.nickname().to_string() {
+                            return Some(vec![Event::Notification(
+                                message.clone(),
+                                self.nickname().to_owned(),
+                                Notification::DirectMessage(user),
+                            )]);
                         }
                     }
                 }
