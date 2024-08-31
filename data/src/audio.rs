@@ -20,9 +20,7 @@ impl Sound {
         let source = if let Ok(internal) = Internal::try_from(name) {
             internal.bytes()
         } else {
-            let Some(sound_path) = find_external_sound(name) else {
-                return Err(LoadError::NoSoundFound);
-            };
+            let sound_path = find_external_sound(name)?;
 
             read(sound_path)?
         };
@@ -74,27 +72,33 @@ impl TryFrom<&str> for Internal {
     }
 }
 
-fn find_external_sound(sound: &str) -> Option<PathBuf> {
+fn find_external_sound(sound: &str) -> Result<PathBuf, LoadError> {
     let sounds_dir = Config::sounds_dir();
 
-    for e in walkdir::WalkDir::new(sounds_dir)
+    for e in walkdir::WalkDir::new(sounds_dir.clone())
         .into_iter()
         .filter_map(|e| e.ok())
     {
         if e.metadata().map(|data| data.is_file()).unwrap_or_default() && e.file_name() == sound {
-            return Some(e.path().to_path_buf());
+            return Ok(e.path().to_path_buf());
         }
     }
 
-    None
+    let sounds_dir = if let Ok(sounds_dir) = sounds_dir.into_os_string().into_string() {
+        format!(" in {sounds_dir}")
+    } else {
+        "".to_string()
+    };
+
+    Err(LoadError::NoSoundFound(sound.to_string(), sounds_dir))
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum LoadError {
     #[error(transparent)]
     File(Arc<std::io::Error>),
-    #[error("sound was not found")]
-    NoSoundFound,
+    #[error("sound \"{0}\" was not found{1}")]
+    NoSoundFound(String, String),
 }
 
 impl From<std::io::Error> for LoadError {

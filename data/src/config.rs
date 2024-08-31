@@ -305,7 +305,7 @@ pub enum Error {
     Io(String),
     #[error("{0}")]
     Parse(String),
-    #[error("error loading sound: {0}")]
+    #[error(transparent)]
     LoadSounds(#[from] audio::LoadError),
 }
 

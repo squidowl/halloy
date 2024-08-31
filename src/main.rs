@@ -157,7 +157,7 @@ impl Halloy {
                 )
             }
             Err(error) => match &error {
-                config::Error::Parse(_) => (
+                config::Error::Parse(_) | config::Error::LoadSounds(_) => (
                     Screen::Help(screen::Help::new(error)),
                     Config::default(),
                     Task::none(),
