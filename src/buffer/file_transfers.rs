@@ -23,8 +23,8 @@ pub fn view<'a>(
             column![
                 icon::file_transfer()
                     .size(theme::TEXT_SIZE + 3.0)
-                    .style(theme::text::transparent),
-                text("No transfers found").style(theme::text::transparent)
+                    .style(theme::text::secondary),
+                text("No transfers found").style(theme::text::secondary)
             ]
             .spacing(8)
             .align_x(iced::Alignment::Center),
@@ -118,14 +118,14 @@ mod transfer_row {
                         "Transfer to {}. Waiting for them to accept.",
                         transfer.remote_user
                     ))
-                    .style(theme::text::transparent),
+                    .style(theme::text::secondary),
                 ),
                 file_transfer::Direction::Received => container(
                     text(format!(
                         "Transfer from {}. Accept to begin.",
                         transfer.remote_user
                     ))
-                    .style(theme::text::transparent),
+                    .style(theme::text::secondary),
                 ),
             },
             file_transfer::Status::Queued => {
@@ -139,7 +139,7 @@ mod transfer_row {
                         "Transfer {} {}. Waiting for open port.",
                         direction, transfer.remote_user,
                     ))
-                    .style(theme::text::transparent),
+                    .style(theme::text::secondary),
                 )
             }
             file_transfer::Status::Ready => {
@@ -153,7 +153,7 @@ mod transfer_row {
                         "Transfer {} {}. Waiting for remote user to connect.",
                         direction, transfer.remote_user
                     ))
-                    .style(theme::text::transparent),
+                    .style(theme::text::secondary),
                 )
             }
             file_transfer::Status::Active {
@@ -179,7 +179,7 @@ mod transfer_row {
                 container(
                     column![
                         text(format!("{transferred} of {file_size} {transfer_speed}"))
-                            .style(theme::text::transparent),
+                            .style(theme::text::secondary),
                         progress_bar
                     ]
                     .spacing(0),
@@ -203,7 +203,7 @@ mod transfer_row {
                         "Completed {} {} in {elapsed}. sha256: {sha256}",
                         direction, transfer.remote_user,
                     ))
-                    .style(theme::text::transparent),
+                    .style(theme::text::secondary),
                 )
             }
             file_transfer::Status::Failed { error } => {
@@ -249,7 +249,7 @@ mod transfer_row {
             .padding(padding::top(6).bottom(6).right(4).left(8))
             .width(Length::Fill)
             .align_y(alignment::Vertical::Center)
-            .style(move |theme| theme::container::table_row(theme, idx))
+            .style(move |theme| theme::container::table(theme, idx))
             .into()
     }
 }
@@ -260,6 +260,6 @@ fn row_button(icon: Text, message: Message) -> Element<Message> {
         .padding(5)
         .width(22)
         .height(22)
-        .style(|theme, status| theme::button::tertiary(theme, status, false))
+        .style(|theme, status| theme::button::secondary(theme, status, false))
         .into()
 }

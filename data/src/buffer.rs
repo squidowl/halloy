@@ -1,6 +1,6 @@
 use core::fmt;
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::user::Nick;
 use crate::{channel, config, message, Server};
@@ -140,43 +140,10 @@ impl Brackets {
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum ColorKind {
+pub enum Color {
     Solid,
     #[default]
     Unique,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct Color {
-    pub kind: ColorKind,
-    pub hex: Option<String>,
-}
-
-// Support backwards compatibility of deserializing
-// from a single "color kind" string
-impl<'de> Deserialize<'de> for Color {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        struct Data {
-            kind: ColorKind,
-            hex: Option<String>,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Format {
-            Kind(ColorKind),
-            Data(Data),
-        }
-
-        Ok(match Format::deserialize(deserializer)? {
-            Format::Kind(kind) => Color { kind, hex: None },
-            Format::Data(Data { kind, hex }) => Color { kind, hex },
-        })
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]

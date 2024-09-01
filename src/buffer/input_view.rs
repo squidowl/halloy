@@ -81,7 +81,7 @@ pub fn view<'a>(
 fn error<'a, 'b, Message: 'a>(error: &'b str) -> Element<'a, Message> {
     container(text(error.to_string()).style(theme::text::error))
         .padding(8)
-        .style(theme::container::context)
+        .style(theme::container::tooltip)
         .into()
 }
 

@@ -56,7 +56,7 @@ pub fn message_content<'a, M: 'a>(
                 .map(|fragment| match fragment {
                     data::message::Fragment::Text(s) => span(s),
                     data::message::Fragment::Url(s) => span(s.as_str())
-                        .color(theme.colors().action.base)
+                        .color(theme.colors().buffer.url)
                         .link(s.as_str().to_string()),
                     data::message::Fragment::Formatted { text, formatting } => {
                         let mut span = span(text)
@@ -75,9 +75,13 @@ pub fn message_content<'a, M: 'a>(
 
                         if formatting.monospace {
                             span = span
-                                .color(theme.colors().error.darker)
-                                .background(theme.colors().background.lighter)
-                                .border(border::rounded(3));
+                                .padding([0, 4])
+                                .color(theme.colors().buffer.code)
+                                .border(
+                                    border::rounded(3)
+                                        .color(theme.colors().general.border)
+                                        .width(1),
+                                );
                         }
 
                         match (formatting.bold, formatting.italics) {

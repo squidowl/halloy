@@ -18,7 +18,7 @@ pub use self::sidebar::Sidebar;
 use crate::audio::{self, Sound};
 use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
-use crate::theme::Palette;
+use crate::theme::Colors;
 use crate::{environment, Theme};
 
 pub mod buffer;
@@ -193,20 +193,25 @@ impl Config {
 
     fn load_themes(default_key: &str) -> Result<Themes, Error> {
         #[derive(Deserialize)]
-        pub struct Data {
-            #[serde(default)]
-            pub name: String,
-            #[serde(default)]
-            pub palette: Palette,
+        #[serde(untagged)]
+        pub enum Data {
+            V1 {
+                #[serde(rename = "name")]
+                _name: String,
+            },
+            V2(Colors),
         }
 
         let read_entry = |entry: fs::DirEntry| {
-            let content = fs::read_to_string(entry.path())?;
+            let content = fs::read_to_string(entry.path()).ok()?;
 
-            let Data { name, palette } =
-                toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
+            let data: Data = toml::from_str(content.as_ref()).ok()?;
+            let name = entry.path().file_stem()?.to_string_lossy().to_string();
 
-            Ok::<Theme, Error>(Theme::new(name, &palette))
+            match data {
+                Data::V1 { .. } => None,
+                Data::V2(colors) => Some(Theme::new(name, colors)),
+            }
         };
 
         let mut all = vec![];
@@ -223,7 +228,7 @@ impl Config {
             };
 
             if file_name.ends_with(".toml") {
-                if let Ok(theme) = read_entry(entry) {
+                if let Some(theme) = read_entry(entry) {
                     if file_name.strip_suffix(".toml").unwrap_or_default() == default_key
                         || file_name == default_key
                     {
@@ -276,16 +281,6 @@ pub fn random_nickname_with_seed<R: Rng>(rng: &mut R) -> String {
     let rand_nick = format!("halloy{rand_digit}");
 
     rand_nick
-}
-
-pub fn create_themes_dir() {
-    const CONTENT: &[u8] = include_bytes!("../../assets/themes/ferra.toml");
-
-    // Create default theme file.
-    let file = Config::themes_dir().join(DEFAULT_THEME_FILE_NAME);
-    if !file.exists() {
-        let _ = fs::write(file, CONTENT);
-    }
 }
 
 /// Has YAML configuration file.

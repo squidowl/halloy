@@ -159,7 +159,7 @@ impl Sidebar {
                     if config.position.is_horizontal() {
                         if i + 1 < clients.len() {
                             buffers.push(
-                                container(vertical_rule(1).style(theme::rule::separator))
+                                container(vertical_rule(1))
                                     .padding(padding::top(6))
                                     .height(20)
                                     .width(12)
@@ -273,22 +273,27 @@ fn buffer_button<'a>(
     let open = panes
         .iter()
         .find_map(|(pane, state)| (state.buffer.data().as_ref() == Some(&buffer)).then_some(*pane));
+    let is_focused = panes
+        .iter()
+        .find(|(id, _)| Some(**id) == focus)
+        .map(|(_, pane)| pane.buffer.data().as_ref() == Some(&buffer))
+        .unwrap_or_default();
 
-    let show_dot_indicator =
+    let show_unread_indicator =
         has_unread && matches!(unread_indicator, sidebar::UnreadIndicator::Dot);
     let show_title_indicator =
         has_unread && matches!(unread_indicator, sidebar::UnreadIndicator::Title);
 
     let unread_dot_indicator_spacing = horizontal_space().width(match position.is_horizontal() {
         true => {
-            if show_dot_indicator {
+            if show_unread_indicator {
                 5
             } else {
                 0
             }
         }
         false => {
-            if show_dot_indicator {
+            if show_unread_indicator {
                 11
             } else {
                 16
@@ -296,7 +301,7 @@ fn buffer_button<'a>(
         }
     });
     let buffer_title_style = if show_title_indicator {
-        theme::text::info
+        theme::text::unread_indicator
     } else {
         theme::text::primary
     };
@@ -316,7 +321,10 @@ fn buffer_button<'a>(
         .align_y(iced::Alignment::Center),
         Buffer::Channel(_, channel) => row![]
             .push(horizontal_space().width(3))
-            .push_maybe(show_dot_indicator.then_some(icon::dot().size(6).style(theme::text::info)))
+            .push_maybe(
+                show_unread_indicator
+                    .then_some(icon::dot().size(6).style(theme::text::unread_indicator)),
+            )
             .push(unread_dot_indicator_spacing)
             .push(
                 text(channel.clone())
@@ -327,7 +335,10 @@ fn buffer_button<'a>(
             .align_y(iced::Alignment::Center),
         Buffer::Query(_, nick) => row![]
             .push(horizontal_space().width(3))
-            .push_maybe(show_dot_indicator.then_some(icon::dot().size(6).style(theme::text::info)))
+            .push_maybe(
+                show_unread_indicator
+                    .then_some(icon::dot().size(6).style(theme::text::unread_indicator)),
+            )
             .push(unread_dot_indicator_spacing)
             .push(
                 text(nick.to_string())
@@ -347,10 +358,8 @@ fn buffer_button<'a>(
     let base = button(row)
         .padding(5)
         .width(width)
-        .style(if open.is_some() {
-            theme::button::side_menu_selected
-        } else {
-            theme::button::side_menu
+        .style(move |theme, status| {
+            theme::button::sidebar_buffer(theme, status, is_focused, open.is_some())
         })
         .on_press(match default_action {
             DefaultAction::NewPane => Message::Open(buffer.clone()),
@@ -387,7 +396,6 @@ fn buffer_button<'a>(
             button(text(content).style(theme::text::primary))
                 .width(length)
                 .padding(5)
-                .style(theme::button::context)
                 .on_press(message)
                 .into()
         })
@@ -416,12 +424,12 @@ fn menu_buttons<'a>(
     };
 
     if version.is_old() {
-        let button = button(center(icon::megaphone().style(theme::text::info)))
+        let button = button(center(icon::megaphone().style(theme::text::tertiary)))
             .on_press(Message::OpenReleaseWebsite)
             .padding(5)
             .width(22)
             .height(22)
-            .style(theme::button::side_menu);
+            .style(|theme, status| theme::button::primary(theme, status, false));
 
         let button_with_tooltip = tooltip(
             button,
@@ -445,7 +453,7 @@ fn menu_buttons<'a>(
             .padding(5)
             .width(22)
             .height(22)
-            .style(theme::button::side_menu);
+            .style(|theme, status| theme::button::primary(theme, status, false));
 
         let button_with_tooltip = tooltip(
             button,
@@ -462,7 +470,7 @@ fn menu_buttons<'a>(
             .padding(5)
             .width(22)
             .height(22)
-            .style(theme::button::side_menu);
+            .style(|theme, status| theme::button::primary(theme, status, false));
 
         let button_with_tooltip = tooltip(
             button,
@@ -482,18 +490,14 @@ fn menu_buttons<'a>(
             if file_transfers.is_empty() {
                 theme::text::primary
             } else {
-                theme::text::alert
+                theme::text::action
             },
         )))
         .on_press(Message::ToggleFileTransfers)
         .padding(5)
         .width(22)
         .height(22)
-        .style(if file_transfers_open {
-            theme::button::side_menu_selected
-        } else {
-            theme::button::side_menu
-        });
+        .style(move |theme, status| theme::button::primary(theme, status, file_transfers_open));
 
         let button_with_tooltip = tooltip(
             button,

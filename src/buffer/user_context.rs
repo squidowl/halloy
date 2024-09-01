@@ -143,7 +143,6 @@ fn menu_button(content: &str, message: Message, length: Length) -> Element<'_, M
     button(text(content).style(theme::text::primary))
         .padding(5)
         .width(length)
-        .style(theme::button::context)
         .on_press(message)
         .into()
 }
@@ -156,11 +155,11 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
     if let Some(current_user) = current_user {
         if current_user.is_away() {
             row![]
-                .push(text("Away").style(theme::text::transparent).width(length))
+                .push(text("Away").style(theme::text::secondary).width(length))
                 .push(
                     icon::dot()
                         .size(6)
-                        .style(theme::text::info)
+                        .style(theme::text::tertiary)
                         .shaping(text::Shaping::Advanced),
                 )
                 .padding(right_justified_padding())
@@ -168,7 +167,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
                 .into()
         } else {
             row![]
-                .push(text("Online").style(theme::text::transparent).width(length))
+                .push(text("Online").style(theme::text::secondary).width(length))
                 .push(
                     icon::dot()
                         .size(6)
@@ -181,11 +180,7 @@ fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message
         }
     } else {
         row![]
-            .push(
-                text("Offline")
-                    .style(theme::text::transparent)
-                    .width(length),
-            )
+            .push(text("Offline").style(theme::text::secondary).width(length))
             .push(
                 icon::dot()
                     .size(6)

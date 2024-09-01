@@ -103,12 +103,8 @@ impl Pane {
             .map(move |msg| Message::Buffer(id, msg));
 
         widget::Content::new(content)
-            .style(if is_focused {
-                theme::container::pane_body_selected
-            } else {
-                theme::container::pane_body
-            })
-            .title_bar(title_bar.style(theme::container::pane_header))
+            .style(move |theme| theme::container::buffer(theme, is_focused))
+            .title_bar(title_bar.style(theme::container::buffer_title_bar))
     }
 
     pub fn resource(&self) -> Option<history::Resource> {
@@ -161,7 +157,7 @@ impl TitleBar {
                         .height(22)
                         .on_press(Message::ToggleShowTopic)
                         .style(|theme, status| {
-                            theme::button::tertiary(theme, status, settings.channel.topic.enabled)
+                            theme::button::secondary(theme, status, settings.channel.topic.enabled)
                         });
 
                     let topic_button_with_tooltip = tooltip(
@@ -180,7 +176,7 @@ impl TitleBar {
                 .height(22)
                 .on_press(Message::ToggleShowUserList)
                 .style(|theme, status| {
-                    theme::button::tertiary(theme, status, settings.channel.nicklist.enabled)
+                    theme::button::secondary(theme, status, settings.channel.nicklist.enabled)
                 });
 
             let nicklist_button_with_tooltip = tooltip(
@@ -203,7 +199,7 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(Message::MaximizePane)
-            .style(move |theme, status| theme::button::tertiary(theme, status, maximized));
+            .style(move |theme, status| theme::button::secondary(theme, status, maximized));
 
             let maximize_button_with_tooltip = tooltip(
                 maximize_button,
@@ -227,7 +223,7 @@ impl TitleBar {
                 .width(22)
                 .height(22)
                 .on_press(Message::ClosePane)
-                .style(|theme, status| theme::button::tertiary(theme, status, false));
+                .style(|theme, status| theme::button::secondary(theme, status, false));
 
             let close_button_with_tooltip = tooltip(
                 close_button,
@@ -240,11 +236,11 @@ impl TitleBar {
 
         let title = container(
             text(value)
-                .style(theme::text::transparent)
+                .style(theme::text::buffer_title_bar)
                 .shaping(text::Shaping::Advanced),
         )
         .height(22)
-        .padding([0, 4])
+        .padding([0, 10])
         .align_y(iced::alignment::Vertical::Center);
 
         widget::TitleBar::new(title).controls(controls).padding(6)
