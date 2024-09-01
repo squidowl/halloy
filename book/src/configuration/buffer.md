@@ -134,14 +134,12 @@ smart = <integer>
 [buffer.server_messages.monitored_online]
 enabled = true | false
 smart = <integer>
-hex = "<string>"
 ```
 
 ```toml
 [buffer.server_messages.monitored_offline]
 enabled = true | false
 smart = <integer>
-hex = "<string>"
 ```
 
 | Key               | Description                                                                                                                                                      | Default   |

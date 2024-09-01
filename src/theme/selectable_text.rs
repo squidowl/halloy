@@ -68,6 +68,8 @@ pub fn server(theme: &Theme, server: Option<&message::source::Server>) -> Style 
             message::source::server::Kind::Quit => colors.quit,
             message::source::server::Kind::ReplyTopic => colors.reply_topic,
             message::source::server::Kind::ChangeHost => colors.change_host,
+            message::source::server::Kind::MonitoredOnline => colors.monitored_online,
+            message::source::server::Kind::MonitoredOffline => colors.monitored_offline,
         })
         .or(Some(colors.default));
 

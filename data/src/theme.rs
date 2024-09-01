@@ -116,6 +116,10 @@ pub struct ServerMessages {
     pub reply_topic: Option<Color>,
     #[serde(default, deserialize_with = "color_deser_maybe")]
     pub change_host: Option<Color>,
+    #[serde(default, deserialize_with = "color_deser_maybe")]
+    pub monitored_online: Option<Color>,
+    #[serde(default, deserialize_with = "color_deser_maybe")]
+    pub monitored_offline: Option<Color>,
     #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub default: Color,
 }
