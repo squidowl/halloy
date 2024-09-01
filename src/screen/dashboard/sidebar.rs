@@ -325,8 +325,8 @@ fn buffer_button<'a>(
     let row = match &buffer {
         Buffer::Server(server) => row![
             icon::connected().style(if connected {
-                if show_dot_indicator {
-                    theme::text::info
+                if show_unread_indicator {
+                    theme::text::unread_indicator
                 } else {
                     theme::text::primary
                 }
