@@ -14,8 +14,8 @@ pub fn tooltip<'a, Message: 'a>(
     match tooltip {
         Some(tooltip) => iced::widget::tooltip(
             content,
-            container(text(tooltip).style(theme::text::transparent))
-                .style(theme::container::context)
+            container(text(tooltip).style(theme::text::secondary))
+                .style(theme::container::tooltip)
                 .padding(8),
             position,
         )

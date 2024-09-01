@@ -1,10 +1,12 @@
 use iced_core::Color;
 use palette::rgb::Rgb;
-use palette::{DarkenAssign, FromColor, LightenAssign, Mix, Okhsl, Srgb};
+use palette::{FromColor, Okhsl, Srgb};
 use rand::prelude::*;
 use rand_chacha::ChaChaRng;
+use serde::{Deserialize, Deserializer};
 
 const DEFAULT_THEME_NAME: &str = "Ferra";
+const DEFAULT_THEME_CONTENT: &str = include_str!("../../assets/themes/ferra.toml");
 
 #[derive(Debug, Clone)]
 pub struct Theme {
@@ -12,128 +14,129 @@ pub struct Theme {
     pub colors: Colors,
 }
 
-impl Theme {
-    pub fn new(name: String, palette: &Palette) -> Self {
-        Theme {
-            name,
-            colors: Colors::new(palette),
-        }
-    }
-}
-
 impl Default for Theme {
     fn default() -> Self {
         Self {
             name: DEFAULT_THEME_NAME.to_string(),
-            colors: Colors::new(&Palette::default()),
+            colors: Colors::default(),
         }
     }
 }
 
-#[derive(Debug, Clone)]
+impl Theme {
+    pub fn new(name: String, colors: Colors) -> Self {
+        Theme { name, colors }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
 pub struct Colors {
-    pub background: Subpalette,
-    pub text: Subpalette,
-    pub action: Subpalette,
-    pub accent: Subpalette,
-    pub alert: Subpalette,
-    pub error: Subpalette,
-    pub info: Subpalette,
-    pub success: Subpalette,
+    #[serde(default)]
+    pub general: General,
+    #[serde(default)]
+    pub text: Text,
+    #[serde(default)]
+    pub buffer: Buffer,
+    #[serde(default)]
+    pub buttons: Buttons,
 }
 
-impl Colors {
-    pub fn new(palette: &Palette) -> Self {
-        Colors {
-            background: Subpalette::from_color(palette.background, palette),
-            text: Subpalette::from_color(palette.text, palette),
-            action: Subpalette::from_color(palette.action, palette),
-            accent: Subpalette::from_color(palette.accent, palette),
-            alert: Subpalette::from_color(palette.alert, palette),
-            error: Subpalette::from_color(palette.error, palette),
-            info: Subpalette::from_color(palette.info, palette),
-            success: Subpalette::from_color(palette.success, palette),
-        }
-    }
-
-    pub fn is_dark_theme(&self) -> bool {
-        self.background.is_dark()
-    }
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
+pub struct Buttons {
+    #[serde(default)]
+    pub primary: Button,
+    #[serde(default)]
+    pub secondary: Button,
 }
 
-#[derive(Debug, Clone)]
-pub struct Subpalette {
-    pub base: Color,
-    pub light: Color,
-    pub lighter: Color,
-    pub lightest: Color,
-    pub dark: Color,
-    pub darker: Color,
-    pub darkest: Color,
-    pub low_alpha: Color,
-    pub med_alpha: Color,
-    pub high_alpha: Color,
-}
-
-impl Subpalette {
-    pub fn from_color(color: Color, palette: &Palette) -> Subpalette {
-        let is_dark = is_dark(palette.background);
-
-        Subpalette {
-            base: color,
-            light: lighten(color, 0.03),
-            lighter: lighten(color, 0.06),
-            lightest: lighten(color, 0.12),
-            dark: darken(color, 0.03),
-            darker: darken(color, 0.06),
-            darkest: darken(color, 0.12),
-            low_alpha: if is_dark {
-                alpha(color, 0.4)
-            } else {
-                alpha(color, 0.8)
-            },
-            med_alpha: if is_dark {
-                alpha(color, 0.2)
-            } else {
-                alpha(color, 0.4)
-            },
-            high_alpha: if is_dark {
-                alpha(color, 0.1)
-            } else {
-                alpha(color, 0.3)
-            },
-        }
-    }
-
-    pub fn is_dark(&self) -> bool {
-        is_dark(self.base)
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Palette {
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
+pub struct Button {
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
     pub background: Color,
-    pub text: Color,
-    pub action: Color,
-    pub accent: Color,
-    pub alert: Color,
-    pub error: Color,
-    pub info: Color,
-    pub success: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub background_hover: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub background_selected: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub background_selected_hover: Color,
 }
 
-impl Default for Palette {
-    fn default() -> Palette {
-        Palette {
-            background: hex_to_color("#2b292d").unwrap(),
-            text: hex_to_color("#fecdb2").unwrap(),
-            action: hex_to_color("#b1b695").unwrap(),
-            accent: hex_to_color("#d1d1e0").unwrap(),
-            alert: hex_to_color("#ffa07a").unwrap(),
-            error: hex_to_color("#e06b75").unwrap(),
-            info: hex_to_color("#f5d76e").unwrap(),
-            success: hex_to_color("#b1b695").unwrap(),
-        }
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
+pub struct General {
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub background: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub border: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub horizontal_rule: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub unread_indicator: Color,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
+pub struct Buffer {
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub action: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub background: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub background_text_input: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub background_title_bar: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub border: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub border_selected: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub code: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub highlight: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub nickname: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub selection: Color,
+    pub server_messages: ServerMessages,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub timestamp: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub topic: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub url: Color,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
+pub struct ServerMessages {
+    #[serde(default, deserialize_with = "color_deser_maybe")]
+    pub join: Option<Color>,
+    #[serde(default, deserialize_with = "color_deser_maybe")]
+    pub part: Option<Color>,
+    #[serde(default, deserialize_with = "color_deser_maybe")]
+    pub quit: Option<Color>,
+    #[serde(default, deserialize_with = "color_deser_maybe")]
+    pub reply_topic: Option<Color>,
+    #[serde(default, deserialize_with = "color_deser_maybe")]
+    pub change_host: Option<Color>,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub default: Color,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
+pub struct Text {
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub primary: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub secondary: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub tertiary: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub success: Color,
+    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    pub error: Color,
+}
+
+impl Default for Colors {
+    fn default() -> Self {
+        toml::from_str(DEFAULT_THEME_CONTENT).expect("parse default theme")
     }
 }
 
@@ -156,6 +159,14 @@ pub fn hex_to_color(hex: &str) -> Option<Color> {
     }
 
     None
+}
+
+/// Adjusts the transparency of the foreground color based on the background color's lightness.
+pub fn alpha_color(min_alpha: f32, max_alpha: f32, background: Color, foreground: Color) -> Color {
+    alpha(
+        foreground,
+        min_alpha + to_hsl(background).lightness * (max_alpha - min_alpha),
+    )
 }
 
 /// Randomizes the hue value of an `iced::Color` based on a seed.
@@ -181,10 +192,6 @@ pub fn randomize_color(original_color: Color, seed: &str) -> Color {
     from_hsl(randomized_hsl)
 }
 
-pub fn is_dark(color: Color) -> bool {
-    to_hsl(color).lightness < 0.5
-}
-
 pub fn to_hsl(color: Color) -> Okhsl {
     let mut hsl = Okhsl::from_color(Rgb::from(color));
     if hsl.saturation.is_nan() {
@@ -202,102 +209,22 @@ pub fn alpha(color: Color, alpha: f32) -> Color {
     Color { a: alpha, ..color }
 }
 
-pub fn mix(a: Color, b: Color, factor: f32) -> Color {
-    let a_hsl = to_hsl(a);
-    let b_hsl = to_hsl(b);
-
-    let mixed = a_hsl.mix(b_hsl, factor);
-    from_hsl(mixed)
+fn default_transparent() -> Color {
+    Color::TRANSPARENT
 }
 
-pub fn lighten(color: Color, amount: f32) -> Color {
-    let mut hsl = to_hsl(color);
-
-    hsl.lighten_fixed_assign(amount);
-
-    from_hsl(hsl)
+fn color_deser<'de, D>(deserializer: D) -> Result<Color, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(String::deserialize(deserializer)
+        .map(|hex| hex_to_color(&hex))?
+        .unwrap_or(Color::TRANSPARENT))
 }
 
-pub fn darken(color: Color, amount: f32) -> Color {
-    let mut hsl = to_hsl(color);
-
-    hsl.darken_fixed_assign(amount);
-
-    from_hsl(hsl)
-}
-
-pub mod palette_serde {
-    use iced_core::Color;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    use super::{hex_to_color, Palette};
-
-    #[derive(Debug, Clone, Default, Deserialize, Serialize)]
-    struct HexPalette {
-        background: String,
-        text: String,
-        action: String,
-        accent: String,
-        alert: String,
-        error: String,
-        info: String,
-        success: String,
-    }
-
-    impl Serialize for Palette {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            fn as_hex(color: Color) -> String {
-                format!(
-                    "#{:02x}{:02x}{:02x}",
-                    (255.0 * color.r).round() as u8,
-                    (255.0 * color.g).round() as u8,
-                    (255.0 * color.b).round() as u8
-                )
-            }
-
-            let hex_theme = HexPalette {
-                background: as_hex(self.background),
-                text: as_hex(self.text),
-                action: as_hex(self.action),
-                accent: as_hex(self.accent),
-                alert: as_hex(self.alert),
-                error: as_hex(self.error),
-                info: as_hex(self.info),
-                success: as_hex(self.success),
-            };
-
-            hex_theme.serialize(serializer)
-        }
-    }
-
-    impl<'de> Deserialize<'de> for Palette {
-        fn deserialize<D>(deserializer: D) -> Result<Palette, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let hex_palette: HexPalette = serde::Deserialize::deserialize(deserializer)?;
-
-            Ok(Palette {
-                background: hex_to_color(hex_palette.background.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                text: hex_to_color(hex_palette.text.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                action: hex_to_color(hex_palette.action.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                accent: hex_to_color(hex_palette.accent.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                alert: hex_to_color(hex_palette.alert.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                error: hex_to_color(hex_palette.error.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                info: hex_to_color(hex_palette.info.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-                success: hex_to_color(hex_palette.success.as_str())
-                    .ok_or_else(|| serde::de::Error::custom("not a valid hex"))?,
-            })
-        }
-    }
+fn color_deser_maybe<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<String>::deserialize(deserializer)?.and_then(|hex| hex_to_color(&hex)))
 }

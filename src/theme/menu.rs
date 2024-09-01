@@ -19,33 +19,19 @@ impl Catalog for Theme {
 }
 
 pub fn primary(theme: &Theme) -> Style {
-    Style {
-        text_color: theme.colors().text.base,
-        background: Background::Color(theme.colors().background.base),
-        border: Border {
-            width: 1.0,
-            radius: 4.0.into(),
-            color: theme.colors().action.base,
-        },
-        selected_text_color: theme.colors().text.high_alpha,
-        selected_background: Background::Color(theme.colors().background.high_alpha),
-    }
-}
+    let buttons = theme.colors().buttons;
+    let general = theme.colors().general;
+    let text = theme.colors().text;
 
-pub fn combo_box(theme: &Theme) -> Style {
     Style {
-        text_color: theme.colors().text.base,
-        background: Background::Color(theme.colors().background.base),
+        text_color: text.primary,
+        background: Background::Color(general.background),
         border: Border {
             width: 1.0,
             radius: 4.0.into(),
-            color: if theme.colors().is_dark_theme() {
-                theme.colors().background.lighter
-            } else {
-                theme.colors().background.darker
-            },
+            color: general.border,
         },
-        selected_text_color: theme.colors().text.base,
-        selected_background: Background::Color(theme.colors().background.dark),
+        selected_text_color: text.primary,
+        selected_background: Background::Color(buttons.primary.background_hover),
     }
 }

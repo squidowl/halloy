@@ -102,7 +102,7 @@ pub fn view<'a>(
                 .padding(padding::right(6)),
             text("backlog")
                 .size(font_size)
-                .style(theme::text::transparent),
+                .style(theme::text::secondary),
             container(horizontal_rule(1))
                 .width(Length::Fill)
                 .padding(padding::left(6))

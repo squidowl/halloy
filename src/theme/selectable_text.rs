@@ -1,4 +1,4 @@
-use data::{config, message, theme::hex_to_color, user::NickColor};
+use data::{message, user::NickColor};
 
 use crate::widget::selectable_text::{Catalog, Style, StyleFn};
 
@@ -19,99 +19,81 @@ impl Catalog for Theme {
 pub fn default(theme: &Theme) -> Style {
     Style {
         color: None,
-        selection_color: theme.colors().accent.high_alpha,
+        selection_color: theme.colors().buffer.selection,
     }
 }
 
-pub fn transparent(theme: &Theme) -> Style {
-    let color = text::transparent(theme).color;
+pub fn action(theme: &Theme) -> Style {
+    let color: Option<iced::Color> = text::action(theme).color;
 
     Style {
         color,
-        selection_color: theme.colors().accent.high_alpha,
+        selection_color: theme.colors().buffer.selection,
     }
 }
 
-pub fn info(theme: &Theme) -> Style {
-    let color = text::info(theme).color;
+pub fn tertiary(theme: &Theme) -> Style {
+    let color = text::tertiary(theme).color;
 
     Style {
         color,
-        selection_color: theme.colors().accent.high_alpha,
+        selection_color: theme.colors().buffer.selection,
     }
 }
 
-pub fn accent(theme: &Theme) -> Style {
-    let color = text::accent(theme).color;
+pub fn timestamp(theme: &Theme) -> Style {
+    let color = text::timestamp(theme).color;
 
     Style {
         color,
-        selection_color: theme.colors().accent.high_alpha,
+        selection_color: theme.colors().buffer.selection,
     }
 }
 
-pub fn server(
-    theme: &Theme,
-    server: Option<&message::source::Server>,
-    config: &config::buffer::ServerMessages,
-) -> Style {
+pub fn topic(theme: &Theme) -> Style {
+    let color = text::topic(theme).color;
+
+    Style {
+        color,
+        selection_color: theme.colors().buffer.selection,
+    }
+}
+
+pub fn server(theme: &Theme, server: Option<&message::source::Server>) -> Style {
+    let colors = theme.colors().buffer.server_messages;
     let color = server
         .and_then(|server| match server.kind() {
-            message::source::server::Kind::Join => {
-                config.join.hex.as_deref().and_then(hex_to_color)
-            }
-            message::source::server::Kind::Part => {
-                config.part.hex.as_deref().and_then(hex_to_color)
-            }
-            message::source::server::Kind::Quit => {
-                config.quit.hex.as_deref().and_then(hex_to_color)
-            }
-            message::source::server::Kind::ReplyTopic => {
-                config.topic.hex.as_deref().and_then(hex_to_color)
-            }
-            message::source::server::Kind::ChangeHost => {
-                config.change_host.hex.as_deref().and_then(hex_to_color)
-            }
+            message::source::server::Kind::Join => colors.join,
+            message::source::server::Kind::Part => colors.part,
+            message::source::server::Kind::Quit => colors.quit,
+            message::source::server::Kind::ReplyTopic => colors.reply_topic,
+            message::source::server::Kind::ChangeHost => colors.change_host,
         })
-        .or_else(|| text::info(theme).color);
+        .or(Some(colors.default));
 
     Style {
         color,
-        selection_color: theme.colors().accent.high_alpha,
+        selection_color: theme.colors().buffer.selection,
     }
 }
 
-pub fn nickname(theme: &Theme, nick_color: NickColor, transparent: bool) -> Style {
-    let color = text::nickname(theme, nick_color, transparent).color;
+pub fn nickname(theme: &Theme, nick_color: NickColor, away: bool) -> Style {
+    let color = text::nickname(theme, nick_color, away).color;
 
     Style {
         color,
-        selection_color: theme.colors().accent.high_alpha,
+        selection_color: theme.colors().buffer.selection,
     }
 }
 
-pub fn status(
-    theme: &Theme,
-    status: message::source::Status,
-    config: &config::buffer::InternalMessages,
-) -> Style {
+pub fn status(theme: &Theme, status: message::source::Status) -> Style {
     let color = match status {
-        message::source::Status::Success => config
-            .success
-            .hex
-            .as_deref()
-            .and_then(hex_to_color)
-            .or_else(|| text::success(theme).color),
-        message::source::Status::Error => config
-            .error
-            .hex
-            .as_deref()
-            .and_then(hex_to_color)
-            .or_else(|| text::error(theme).color),
+        message::source::Status::Success => text::success(theme).color,
+        message::source::Status::Error => text::error(theme).color,
     };
 
     Style {
         color,
-        selection_color: theme.colors().accent.high_alpha,
+        selection_color: theme.colors().buffer.selection,
     }
 }

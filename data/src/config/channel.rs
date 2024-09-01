@@ -11,7 +11,7 @@ pub struct Channel {
     pub topic: Topic,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Nicklist {
     #[serde(default = "default_bool_true")]
     pub enabled: bool,
@@ -19,16 +19,6 @@ pub struct Nicklist {
     pub position: Position,
     #[serde(default)]
     pub color: Color,
-}
-
-impl Default for Nicklist {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            position: Position::default(),
-            color: Color::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]

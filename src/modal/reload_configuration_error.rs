@@ -18,16 +18,16 @@ pub fn view<'a>(error: &config::Error) -> Element<'a, Message> {
                     .align_x(alignment::Horizontal::Center)
                     .width(Length::Fill),
             )
+            .style(|theme, status| theme::button::secondary(theme, status, false))
             .padding(5)
             .width(Length::Fixed(250.0))
-            .style(theme::button::primary)
             .on_press(Message::Cancel)
         ]
         .spacing(20)
         .align_x(iced::Alignment::Center),
     )
     .width(Length::Shrink)
-    .style(theme::container::error_modal)
+    .style(theme::container::error_tooltip)
     .padding(25)
     .into()
 }

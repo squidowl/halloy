@@ -61,9 +61,6 @@ pub fn main() -> iced::Result {
     log::info!("config dir: {:?}", environment::config_dir());
     log::info!("data dir: {:?}", environment::data_dir());
 
-    // Create themes directory
-    config::create_themes_dir();
-
     let config_load = Config::load();
 
     // DANGER ZONE - font must be set using config
@@ -700,7 +697,7 @@ impl Halloy {
         let content = container(screen)
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(theme::container::primary);
+            .style(theme::container::general);
 
         if let (Some(modal), Screen::Dashboard(_)) = (&self.modal, &self.screen) {
             widget::modal(content, modal.view().map(Message::Modal), || {

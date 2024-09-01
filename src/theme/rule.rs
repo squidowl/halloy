@@ -16,16 +16,7 @@ impl Catalog for Theme {
 
 pub fn primary(theme: &Theme) -> Style {
     Style {
-        color: theme.colors().background.light,
-        width: 1,
-        radius: 0.0.into(),
-        fill_mode: FillMode::Full,
-    }
-}
-
-pub fn separator(theme: &Theme) -> Style {
-    Style {
-        color: theme.colors().text.low_alpha,
+        color: theme.colors().general.horizontal_rule,
         width: 1,
         radius: 0.0.into(),
         fill_mode: FillMode::Full,
