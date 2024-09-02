@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use data::config::sidebar;
-use data::dashboard::DefaultAction;
+use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{file_transfer, history, Buffer, Version};
 use iced::widget::{
     button, center, column, container, horizontal_space, pane_grid, row, scrollable, text,
@@ -110,7 +110,8 @@ impl Sidebar {
                         focus,
                         Buffer::Server(server.clone()),
                         false,
-                        config.default_action,
+                        config.buffer_action,
+                        config.buffer_focused_action,
                         config.position,
                         config.unread_indicator,
                         false,
@@ -122,7 +123,8 @@ impl Sidebar {
                         focus,
                         Buffer::Server(server.clone()),
                         true,
-                        config.default_action,
+                        config.buffer_action,
+                        config.buffer_focused_action,
                         config.position,
                         config.unread_indicator,
                         false,
@@ -134,7 +136,8 @@ impl Sidebar {
                             focus,
                             Buffer::Channel(server.clone(), channel.clone()),
                             true,
-                            config.default_action,
+                            config.buffer_action,
+                            config.buffer_focused_action,
                             config.position,
                             config.unread_indicator,
                             history.has_unread(server, &history::Kind::Channel(channel.clone())),
@@ -148,7 +151,8 @@ impl Sidebar {
                             focus,
                             Buffer::Query(server.clone(), user.clone()),
                             true,
-                            config.default_action,
+                            config.buffer_action,
+                            config.buffer_focused_action,
                             config.position,
                             config.unread_indicator,
                             history.has_unread(server, &history::Kind::Query(user.clone())),
@@ -265,7 +269,8 @@ fn buffer_button<'a>(
     focus: Option<pane_grid::Pane>,
     buffer: Buffer,
     connected: bool,
-    default_action: DefaultAction,
+    buffer_action: BufferAction,
+    focused_buffer_action: Option<BufferFocusedAction>,
     position: sidebar::Position,
     unread_indicator: sidebar::UnreadIndicator,
     has_unread: bool,
@@ -276,8 +281,13 @@ fn buffer_button<'a>(
     let is_focused = panes
         .iter()
         .find(|(id, _)| Some(**id) == focus)
-        .map(|(_, pane)| pane.buffer.data().as_ref() == Some(&buffer))
-        .unwrap_or_default();
+        .and_then(|(id, pane)| {
+            if pane.buffer.data().as_ref() == Some(&buffer) {
+                Some(*id)
+            } else {
+                None
+            }
+        });
 
     let show_unread_indicator =
         has_unread && matches!(unread_indicator, sidebar::UnreadIndicator::Dot);
@@ -359,14 +369,27 @@ fn buffer_button<'a>(
         .padding(5)
         .width(width)
         .style(move |theme, status| {
-            theme::button::sidebar_buffer(theme, status, is_focused, open.is_some())
+            theme::button::sidebar_buffer(theme, status, is_focused.is_some(), open.is_some())
         })
-        .on_press(match default_action {
-            DefaultAction::NewPane => Message::Open(buffer.clone()),
-            DefaultAction::ReplacePane => match focus {
-                Some(pane) => Message::Replace(buffer.clone(), pane),
-                None => Message::Open(buffer.clone()),
-            },
+        .on_press({
+            match is_focused {
+                Some(id) => {
+                    if let Some(focus_action) = focused_buffer_action {
+                        match focus_action {
+                            BufferFocusedAction::ClosePane => Message::Close(id),
+                        }
+                    } else {
+                        Message::Open(buffer.clone())
+                    }
+                }
+                None => match buffer_action {
+                    BufferAction::NewPane => Message::Open(buffer.clone()),
+                    BufferAction::ReplacePane => match focus {
+                        Some(pane) => Message::Replace(buffer.clone(), pane),
+                        None => Message::Open(buffer.clone()),
+                    },
+                },
+            }
         });
 
     let entries = Entry::list(panes.len(), open, focus);

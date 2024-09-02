@@ -278,7 +278,12 @@ impl Dashboard {
                         }
                     }
                     sidebar::Event::Close(pane) => {
-                        self.panes.close(pane);
+                        if self.panes.close(pane).is_none() {
+                            if let Some(state) = self.panes.get_mut(pane) {
+                                state.buffer = Buffer::Empty;
+                            }
+                        }
+
                         self.last_changed = Some(Instant::now());
 
                         if self.focus == Some(pane) {
