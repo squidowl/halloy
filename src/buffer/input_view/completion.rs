@@ -53,7 +53,7 @@ impl Completion {
     }
 
     pub fn tab(&mut self, reverse: bool) -> Option<Entry> {
-        if !self.commands.tab() {
+        if !self.commands.tab(reverse) {
             self.text.tab(reverse).map(Entry::Text)
         } else {
             None
@@ -320,7 +320,7 @@ impl Commands {
         None
     }
 
-    fn tab(&mut self) -> bool {
+    fn tab(&mut self, reverse: bool) -> bool {
         if let Self::Selecting {
             highlighted,
             filtered,
@@ -329,9 +329,17 @@ impl Commands {
             if filtered.is_empty() {
                 *highlighted = None;
             } else if let Some(index) = highlighted {
-                *index = (*index + 1) % filtered.len();
+                if reverse {
+                    if *index > 0 {
+                        *index -= 1;
+                    } else {
+                        *index = filtered.len() - 1;
+                    }
+                } else {
+                    *index = (*index + 1) % filtered.len();
+                }
             } else {
-                *highlighted = Some(0);
+                *highlighted = Some(if reverse { filtered.len() - 1 } else { 0 });
             }
 
             true
