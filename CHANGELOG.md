@@ -8,6 +8,7 @@ Added:
   - Hiding `chghost` messages. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferserver_messages-section).
   - Overwrite nicklist `width` in channels. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferchannelnicklist-section).
   - Show/hide user access levels in buffer and nicklist. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferchannelnicklist-section)
+  - `buffer_focused_action` added to `sidebar` to enable actions a focused buffer. See [configuration](https://halloy.squidowl.org/configuration/sidebar.html#sidebar-section).
 
 Fixed:
 
@@ -19,9 +20,11 @@ Fixed:
 
 Changed:
 
-- Unread indicator has changed from a boolean value to a enum. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
 - Reworked themes to add better customization possibilities
   - **NOTE** Old theme files are not compatibile with the new format. However all the themes in the [theme community](https://halloy.squidowl.org/configuration/themes/community.html) has been updated to the new format.
+- Unread indicator has changed from a boolean value to a enum. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
+- Renamed `sidebar.default_action` to `sidebar.buffer_action`.
+
 
 Removed:
 
