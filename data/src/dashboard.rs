@@ -13,10 +13,17 @@ pub struct Dashboard {
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum DefaultAction {
+pub enum BufferAction {
     #[default]
     NewPane,
     ReplacePane,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum BufferFocusedAction {
+    #[default]
+    ClosePane,
 }
 
 impl Dashboard {
