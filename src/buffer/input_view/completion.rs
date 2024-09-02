@@ -596,12 +596,10 @@ impl Text {
                     } else {
                         self.selected = None;
                     }
+                } else if *index < self.filtered.len() - 1 {
+                    *index += 1;
                 } else {
-                    if *index < self.filtered.len() - 1 {
-                        *index += 1;
-                    } else {
-                        self.selected = None;
-                    }
+                    self.selected = None;
                 }
             } else {
                 self.selected = Some(if reverse { self.filtered.len() - 1 } else { 0 });
