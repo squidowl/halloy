@@ -786,7 +786,7 @@ fn content(
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(parse_fragments(format!(" ∙ User mode is {mode}")))
+            Some(parse_fragments(format!("User mode is {mode}")))
         }
         Command::Numeric(RPL_AWAY, params) => {
             let user = params.get(1)?;
