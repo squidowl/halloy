@@ -86,7 +86,7 @@ pub struct Server {
         deserialize_with = "deserialize_duration_from_u64"
     )]
     pub who_retry_interval: Duration,
-    /// A list of nicknames to monitor (iff MONITOR is supported by the server).
+    /// A list of nicknames to monitor (if MONITOR is supported by the server).
     #[serde(default)]
     pub monitor: Vec<String>,
 }
