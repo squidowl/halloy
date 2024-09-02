@@ -340,6 +340,9 @@ impl Client {
                     if contains("chghost") {
                         requested.push("chghost");
                     }
+                    if contains("extended-monitor") {
+                        requested.push("extended-monitor");
+                    }
                     if contains("account-notify") {
                         requested.push("account-notify");
 
@@ -447,6 +450,9 @@ impl Client {
                 }
                 if newly_contains("chghost") {
                     requested.push("chghost");
+                }
+                if newly_contains("extended-monitor") {
+                    requested.push("extended-monitor");
                 }
                 if contains("account-notify") || newly_contains("account-notify") {
                     if newly_contains("account-notify") {
