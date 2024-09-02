@@ -552,13 +552,21 @@ impl Data {
             .collect::<Vec<_>>();
 
         let total = filtered.len();
+        let with_access_levels = buffer_config.nickname.show_access_levels;
 
         let max_nick_chars = buffer_config.nickname.alignment.is_right().then(|| {
             filtered
                 .iter()
                 .filter_map(|message| {
                     if let message::Source::User(user) = message.target.source() {
-                        Some(buffer_config.nickname.brackets.format(user).chars().count())
+                        Some(
+                            buffer_config
+                                .nickname
+                                .brackets
+                                .format(user.display(with_access_levels))
+                                .chars()
+                                .count(),
+                        )
                     } else {
                         None
                     }

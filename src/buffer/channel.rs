@@ -84,11 +84,16 @@ pub fn view<'a>(
                 );
 
                 let space = selectable_text(" ");
+                let with_access_levels = config.buffer.nickname.show_access_levels;
 
                 match message.target.source() {
                     message::Source::User(user) => {
                         let mut text = selectable_text(
-                            config.buffer.nickname.brackets.format(user),
+                            config
+                                .buffer
+                                .nickname
+                                .brackets
+                                .format(user.display(with_access_levels)),
                         )
                         .style(|theme| {
                             theme::selectable_text::nickname(
@@ -222,7 +227,8 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let nick_list = nick_list::view(users, &buffer, our_user, config).map(Message::UserContext);
+    let nick_list = nick_list::view(users, &buffer, our_user, &config.buffer.channel.nicklist)
+        .map(Message::UserContext);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
@@ -253,14 +259,11 @@ pub fn view<'a>(
         settings.nicklist.enabled,
         config.buffer.channel.nicklist.position,
     ) {
-        (true, data::channel::Position::Left) => {
-            row![nick_list, content]
-        }
-        (true, data::channel::Position::Right) => {
-            row![content, nick_list]
-        }
+        (true, data::channel::Position::Left) => row![nick_list, content],
+        (true, data::channel::Position::Right) => row![content, nick_list],
         (false, _) => { row![content] }.height(Length::Fill),
-    };
+    }
+    .spacing(4);
 
     let body = column![]
         .push(container(content).height(Length::Fill))
@@ -383,45 +386,62 @@ fn topic<'a>(
 }
 
 mod nick_list {
-    use data::{Buffer, Config, User};
-    use iced::widget::{column, container, scrollable, text, Scrollable};
-    use iced::Length;
+    use data::{config, Buffer, User};
+    use iced::widget::{column, scrollable, text, Scrollable};
+    use iced::{alignment, Length};
     use user_context::Message;
 
     use crate::buffer::user_context;
     use crate::theme;
-    use crate::widget::Element;
+    use crate::widget::{double_pass, Element};
 
     pub fn view<'a>(
         users: &'a [User],
         buffer: &Buffer,
         our_user: Option<&'a User>,
-        config: &'a Config,
+        config: &'a config::channel::Nicklist,
     ) -> Element<'a, Message> {
-        let column = column(users.iter().map(|user| {
-            let content = text(user.to_string()).style(|theme| {
-                theme::text::nickname(
-                    theme,
-                    user.nick_color(theme.colors(), &config.buffer.channel.nicklist.color),
-                    user.is_away(),
-                )
-            });
+        let content = |width| {
+            column(users.iter().map(|user| {
+                let content = text(user.display(config.show_access_levels))
+                    .style(|theme| {
+                        theme::text::nickname(
+                            theme,
+                            user.nick_color(theme.colors(), &config.color),
+                            user.is_away(),
+                        )
+                    })
+                    .align_x(match config.alignment {
+                        config::channel::Alignment::Left => alignment::Horizontal::Left,
+                        config::channel::Alignment::Right => alignment::Horizontal::Right,
+                    })
+                    .width(width);
 
-            user_context::view(content, user, Some(user), buffer.clone(), our_user)
-        }))
-        .padding(4)
-        .spacing(1);
-
-        container(
-            Scrollable::new(column)
-                .direction(scrollable::Direction::Vertical(
-                    scrollable::Scrollbar::new().width(1).scroller_width(1),
+                Element::from(user_context::view(
+                    content,
+                    user,
+                    Some(user),
+                    buffer.clone(),
+                    our_user,
                 ))
-                .style(theme::scrollable::hidden),
-        )
-        .width(Length::Shrink)
-        .max_width(120)
-        .height(Length::Fill)
-        .into()
+            }))
+        };
+
+        let column: Element<Message> = match config.width {
+            Some(width) => content(Length::Fixed(width)).into(),
+            None => {
+                let first_pass = content(Length::Shrink);
+                let second_pass = content(Length::Fill);
+                double_pass(first_pass, second_pass)
+            }
+        };
+
+        Scrollable::new(column)
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new().width(1).scroller_width(1),
+            ))
+            .width(Length::Shrink)
+            .style(theme::scrollable::hidden)
+            .into()
     }
 }

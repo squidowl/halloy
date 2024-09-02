@@ -19,6 +19,20 @@ pub struct Nicklist {
     pub position: Position,
     #[serde(default)]
     pub color: Color,
+    #[serde(default)]
+    pub width: Option<f32>,
+    #[serde(default)]
+    pub alignment: Alignment,
+    #[serde(default = "default_bool_true")]
+    pub show_access_levels: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Alignment {
+    #[default]
+    Left,
+    Right,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]

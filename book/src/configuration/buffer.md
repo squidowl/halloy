@@ -9,13 +9,15 @@
 alignment = "left" | "right" 
 color = "unique" | "solid"
 brackets = { left = "<string>", right = "<string>" }
+show_access_levels = true | false
 ```
 
-| Key         | Description                                                                                                                                                                                                         | Default                     |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `alignment` | Alignment option for nicknames in buffer.                                                                                                                                                                           | `"left"`                    |
-| `color`     | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme. | `"unique"`                  |
-| `brackets`  | Brackets for nicknames.                                                                                                                                                                                             | `{ left = "", right = "" }` |
+| Key                  | Description                                                                                                                                                                                                         | Default                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| `alignment`          | Alignment option for nicknames in buffer.                                                                                                                                                                           | `"left"`                    |
+| `color`              | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme. | `"unique"`                  |
+| `brackets`           | Brackets for nicknames.                                                                                                                                                                                             | `{ left = "", right = "" }` |
+| `show_access_levels` | Show access levels (@, +, ~, etc.) on nicknames                                                                                                                                                                     | `true`                      |
 
 
 
@@ -62,14 +64,22 @@ auto_format = "disabled" | "markdown" | "all"
 [buffer.channel.nicklist]
 enabled = true | false
 position = "left" | "right"
+alignment = "left" | "right"
 color = "unique" | "solid"
+width = <number>
+show_access_levels = true | false
+
 ```
 
-| Key        | Description                                                                                                                                                                                                         | Default    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `enabled`  | Control if nicklist should be shown or not                                                                                                                                                                          | `true`     |
-| `position` | Nicklist position. Can be `"left"` or `"right"`.                                                                                                                                                                    | `"right"`  |
-| `color`    | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme. | `"unique"` |
+| Key                  | Description                                                                                                                                                                                                         | Default    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `enabled`            | Control if nicklist should be shown or not                                                                                                                                                                          | `true`     |
+| `position`           | Nicklist position. Can be `"left"` or `"right"`.                                                                                                                                                                    | `"right"`  |
+| `alignment`          | Horizontal nicknames alignment                                                                                                                                                                                      | `"left"`   |
+| `color`              | Controls whether nickname color is `"solid"` or `"unique"`. `"unique"` generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme. | `"unique"` |
+| `width`              | Overwrite nicklist width in pixels                                                                                                                                                                                  | `not set`  |
+| `show_access_levels` | Show access levels (@, +, ~, etc.) on nicknames                                                                                                                                                                     | `true`     |
+
 
 
 

@@ -118,6 +118,8 @@ pub struct Nickname {
     pub brackets: Brackets,
     #[serde(default)]
     pub alignment: Alignment,
+    #[serde(default = "default_bool_true")]
+    pub show_access_levels: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -183,4 +185,8 @@ impl Resize {
 
 fn default_timestamp() -> String {
     "%R".to_string()
+}
+
+fn default_bool_true() -> bool {
+    true
 }

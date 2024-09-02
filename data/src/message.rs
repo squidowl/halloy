@@ -596,6 +596,8 @@ fn content(
             let user = resolve_attributes(&raw_user, target).unwrap_or(raw_user);
 
             let topic = topic.as_ref()?;
+            let with_access_levels = config.buffer.nickname.show_access_levels;
+            let user = user.display(with_access_levels);
 
             Some(parse_fragments(format!("{user} changed topic to {topic}")))
         }
@@ -627,7 +629,10 @@ fn content(
         }
         Command::KICK(channel, victim, comment) => {
             let raw_user = message.user()?;
-            let user = resolve_attributes(&raw_user, channel).unwrap_or(raw_user);
+            let with_access_levels = config.buffer.nickname.show_access_levels;
+            let user = resolve_attributes(&raw_user, channel)
+                .unwrap_or(raw_user)
+                .display(with_access_levels);
 
             let comment = comment
                 .as_ref()
@@ -645,7 +650,10 @@ fn content(
         }
         Command::MODE(target, modes, args) if proto::is_channel(target) => {
             let raw_user = message.user()?;
-            let user = resolve_attributes(&raw_user, target).unwrap_or(raw_user);
+            let with_access_levels = config.buffer.nickname.show_access_levels;
+            let user = resolve_attributes(&raw_user, target)
+                .unwrap_or(raw_user)
+                .display(with_access_levels);
 
             let modes = modes
                 .iter()
