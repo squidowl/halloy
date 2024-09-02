@@ -1518,8 +1518,12 @@ fn remove_tag(key: &str, tags: &mut Vec<irc::proto::Tag>) -> Option<String> {
 
 fn start_reroute(command: &Command) -> bool {
     use Command::*;
-
-    matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..) | MODE(..))
+    
+    if let MODE(target, _, _) = command {
+        !proto::is_channel(target)
+    } else {
+        matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..))
+    }
 }
 
 fn stop_reroute(command: &Command) -> bool {
