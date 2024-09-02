@@ -2,8 +2,12 @@
 
 Added:
 
-- Configuration option for right aligning nicks in buffers, see [configuration](https://halloy.squidowl.org/configuration/buffer.html#buffernickname-section).
-- Configuration options for hiding/coloring `chghost` messages.
+- New configuration options
+  - Right aligning nicks in buffers. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#buffernickname-section).
+  - Right aligning nicks in nicklist. See [configuration](https://halloy.squidowl.org/configuration/buffer).
+  - Hiding `chghost` messages. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferserver_messages-section).
+  - Overwrite nicklist `width` in channels. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferchannelnicklist-section).
+  - Show/hide user access levels in buffer and nicklist. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferchannelnicklist-section)
 
 Fixed:
 

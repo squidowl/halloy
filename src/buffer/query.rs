@@ -49,8 +49,13 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::User(user) => {
+                        let with_access_levels = config.buffer.nickname.show_access_levels;
                         let mut text = selectable_text(
-                            config.buffer.nickname.brackets.format(user),
+                            config
+                                .buffer
+                                .nickname
+                                .brackets
+                                .format(user.display(with_access_levels)),
                         )
                         .style(|theme| {
                             theme::selectable_text::nickname(
