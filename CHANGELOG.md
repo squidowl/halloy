@@ -16,7 +16,6 @@ Fixed:
 - Messages with multiple targets are correctly recorded into multiple buffers (and/or multiple times into the same buffer) client-side.
 - Messages sent with a STATUSMSG prefix are recorded and indicated in the corresponding channel.
 - Ability to position the sidebar at the top, bottom, right, or left. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
-- 
 
 Changed:
 
