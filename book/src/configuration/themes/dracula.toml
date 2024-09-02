@@ -1,7 +1,7 @@
 [general]
-background = "#21222C"
+background = "#282a36"
 horizontal_rule = "#44475A"
-unread_indicator = "#BD93F9"
+unread_indicator = "#6272a4"
 border = "#1d1f27"
 
 [text]
@@ -12,24 +12,24 @@ success = "#50FA7B"
 error = "#FF5555"
 
 [buffer]
-background = "#282A36"
-background_text_input = "#242631"
-background_title_bar = "#262833"
+background = "#1f222d"
+background_text_input = "#1a1b24"
+background_title_bar = "#1a1b24"
 timestamp = "#919293"
 action = "#FFB86C"
 topic = "#c0c1bf"
-highlight = "#594c76"
+highlight = "#2B2E3A"
 code = "#FF79C6"
 nickname = "#FF79C6"
 url = "#8BE9FD"
 selection = "#353947"
-border_selected = "#bd93fa"
+border_selected = "#50FA7B"
 
 [buffer.server_messages]
 default = "#F1FA8C"
 
 [buttons.primary]
-background = "#21222C"
+background = "#282a36"
 background_hover = "#282A36"
 background_selected = "#3D3D51"
 background_selected_hover = "#313141"
