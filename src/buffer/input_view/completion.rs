@@ -52,9 +52,9 @@ impl Completion {
         self.commands.select().map(Entry::Command)
     }
 
-    pub fn tab(&mut self) -> Option<Entry> {
+    pub fn tab(&mut self, reverse: bool) -> Option<Entry> {
         if !self.commands.tab() {
-            self.text.tab().map(Entry::Text)
+            self.text.tab(reverse).map(Entry::Text)
         } else {
             None
         }
@@ -587,16 +587,24 @@ impl Text {
         true
     }
 
-    fn tab(&mut self) -> Option<String> {
+    fn tab(&mut self, reverse: bool) -> Option<String> {
         if !self.filtered.is_empty() {
             if let Some(index) = &mut self.selected {
-                if *index < self.filtered.len() - 1 {
-                    *index += 1;
+                if reverse {
+                    if *index > 0 {
+                        *index -= 1;
+                    } else {
+                        self.selected = None;
+                    }
                 } else {
-                    self.selected = None;
+                    if *index < self.filtered.len() - 1 {
+                        *index += 1;
+                    } else {
+                        self.selected = None;
+                    }
                 }
             } else {
-                self.selected = Some(0);
+                self.selected = Some(if reverse { self.filtered.len() - 1 } else { 0 });
             }
         }
 

@@ -18,7 +18,7 @@ pub enum Event {
 pub enum Message {
     Input(String),
     Send,
-    Tab,
+    Tab(bool),
     Up,
     Down,
 }
@@ -47,10 +47,15 @@ pub fn view<'a>(
 
     // Add tab support
     let mut input = key_press(
-        text_input,
+        key_press(
+            text_input,
+            key_press::Key::Named(key_press::Named::Tab),
+            key_press::Modifiers::SHIFT,
+            Message::Tab(true),
+        ),
         key_press::Key::Named(key_press::Named::Tab),
         key_press::Modifiers::default(),
-        Message::Tab,
+        Message::Tab(false),
     );
 
     // Add up / down support for history cycling
@@ -192,10 +197,10 @@ impl State {
                     (Task::none(), None)
                 }
             }
-            Message::Tab => {
+            Message::Tab(reverse) => {
                 let input = history.input(&buffer).draft;
 
-                if let Some(entry) = self.completion.tab() {
+                if let Some(entry) = self.completion.tab(reverse) {
                     let new_input = entry.complete_input(input);
 
                     self.on_completion(buffer, history, new_input)
