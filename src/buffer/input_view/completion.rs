@@ -52,9 +52,9 @@ impl Completion {
         self.commands.select().map(Entry::Command)
     }
 
-    pub fn tab(&mut self) -> Option<Entry> {
-        if !self.commands.tab() {
-            self.text.tab().map(Entry::Text)
+    pub fn tab(&mut self, reverse: bool) -> Option<Entry> {
+        if !self.commands.tab(reverse) {
+            self.text.tab(reverse).map(Entry::Text)
         } else {
             None
         }
@@ -75,10 +75,32 @@ impl Entry {
     pub fn complete_input(&self, input: &str) -> String {
         match self {
             Entry::Command(command) => format!("/{}", command.title.to_lowercase()),
-            Entry::Text(value) => match input.rsplit_once(' ') {
-                Some((left, _)) => format!("{left} {value}"),
-                None => value.clone(),
-            },
+            Entry::Text(next) => {
+                let is_channel = next.starts_with('#');
+                let colon_space = ": ";
+
+                let trimmed_input = input.trim_end_matches(colon_space);
+                let mut words: Vec<_> = trimmed_input.split_whitespace().collect();
+
+                // Replace the last word with the next word
+                if let Some(last_word) = words.last_mut() {
+                    *last_word = next;
+                } else {
+                    words.push(next);
+                }
+
+                let mut new_input = words.join(" ");
+
+                if words.len() == 1 && !is_channel {
+                    // If completed at the beginning of the input line, ': ' (colon space) is appended.
+                    new_input.push_str(colon_space);
+                } else {
+                    // Otherwise, a space is appended to the completion.
+                    new_input.push(' ');
+                }
+
+                new_input
+            }
         }
     }
 }
@@ -298,7 +320,7 @@ impl Commands {
         None
     }
 
-    fn tab(&mut self) -> bool {
+    fn tab(&mut self, reverse: bool) -> bool {
         if let Self::Selecting {
             highlighted,
             filtered,
@@ -307,9 +329,17 @@ impl Commands {
             if filtered.is_empty() {
                 *highlighted = None;
             } else if let Some(index) = highlighted {
-                *index = (*index + 1) % filtered.len();
+                if reverse {
+                    if *index > 0 {
+                        *index -= 1;
+                    } else {
+                        *index = filtered.len() - 1;
+                    }
+                } else {
+                    *index = (*index + 1) % filtered.len();
+                }
             } else {
-                *highlighted = Some(0);
+                *highlighted = Some(if reverse { filtered.len() - 1 } else { 0 });
             }
 
             true
@@ -565,16 +595,22 @@ impl Text {
         true
     }
 
-    fn tab(&mut self) -> Option<String> {
+    fn tab(&mut self, reverse: bool) -> Option<String> {
         if !self.filtered.is_empty() {
             if let Some(index) = &mut self.selected {
-                if *index < self.filtered.len() - 1 {
+                if reverse {
+                    if *index > 0 {
+                        *index -= 1;
+                    } else {
+                        self.selected = None;
+                    }
+                } else if *index < self.filtered.len() - 1 {
                     *index += 1;
                 } else {
                     self.selected = None;
                 }
             } else {
-                self.selected = Some(0);
+                self.selected = Some(if reverse { self.filtered.len() - 1 } else { 0 });
             }
         }
 
