@@ -1,6 +1,6 @@
 use iced_core::Color;
-use palette::rgb::Rgb;
-use palette::{FromColor, Okhsl, Srgb};
+use palette::rgb::{Rgb, Rgba};
+use palette::{FromColor, Hsva, Okhsl, Srgb, Srgba};
 use rand::prelude::*;
 use rand_chacha::ChaChaRng;
 use serde::{Deserialize, Deserializer};
@@ -203,6 +203,14 @@ pub fn to_hsl(color: Color) -> Okhsl {
     }
 
     hsl
+}
+
+pub fn to_hsva(color: Color) -> Hsva {
+    Hsva::from_color(Rgba::from(color))
+}
+
+pub fn from_hsva(color: Hsva) -> Color {
+    Srgba::from_color(color).into()
 }
 
 pub fn from_hsl(hsl: Okhsl) -> Color {

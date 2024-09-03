@@ -11,10 +11,12 @@ pub fn decorate<'a, Message, Theme, Renderer>(
     Decorate::new(element)
 }
 
-pub struct Decorate<'a, Message, Theme, Renderer, OnEvent = (), Layout = (), State = ()> {
+pub struct Decorate<'a, Message, Theme, Renderer, OnEvent = (), Layout = (), Draw = (), State = ()>
+{
     inner: Element<'a, Message, Theme, Renderer>,
     on_event: OnEvent,
     layout: Layout,
+    draw: Draw,
     state: PhantomData<State>,
 }
 
@@ -24,40 +26,60 @@ impl<'a, Message, Theme, Renderer> Decorate<'a, Message, Theme, Renderer> {
             inner: inner.into(),
             on_event: (),
             layout: (),
+            draw: (),
             state: PhantomData,
         }
     }
 }
 
-impl<'a, Message, Theme, Renderer, OnEvent, Layout, State>
-    Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, State>
+impl<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>
+    Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>
 {
     pub fn on_event<T>(
         self,
         on_event: T,
-    ) -> Decorate<'a, Message, Theme, Renderer, T, Layout, State> {
+    ) -> Decorate<'a, Message, Theme, Renderer, T, Layout, Draw, State> {
         Decorate {
             inner: self.inner,
             layout: self.layout,
+            draw: self.draw,
             state: self.state,
             on_event,
         }
     }
 
-    pub fn layout<T>(self, layout: T) -> Decorate<'a, Message, Theme, Renderer, OnEvent, T, State> {
+    pub fn layout<T>(
+        self,
+        layout: T,
+    ) -> Decorate<'a, Message, Theme, Renderer, OnEvent, T, Draw, State> {
         Decorate {
             inner: self.inner,
             on_event: self.on_event,
+            draw: self.draw,
             state: self.state,
             layout,
         }
     }
 
-    pub fn state<T>(self) -> Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, T> {
+    pub fn draw<T>(
+        self,
+        draw: T,
+    ) -> Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, T, State> {
         Decorate {
             inner: self.inner,
             on_event: self.on_event,
             layout: self.layout,
+            state: self.state,
+            draw,
+        }
+    }
+
+    pub fn state<T>(self) -> Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, T> {
+        Decorate {
+            inner: self.inner,
+            on_event: self.on_event,
+            layout: self.layout,
+            draw: self.draw,
             state: PhantomData,
         }
     }
@@ -187,12 +209,82 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer, OnEvent, Layout, State> Widget<Message, Theme, Renderer>
-    for Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, State>
+pub trait Draw<'a, Message, Theme, Renderer, State> {
+    fn draw(
+        &self,
+        state: &State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &iced::advanced::widget::Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &iced::advanced::renderer::Style,
+        layout: iced::advanced::Layout<'_>,
+        cursor: iced::advanced::mouse::Cursor,
+        viewport: &iced::Rectangle,
+    );
+}
+
+impl<'a, Message, Theme, Renderer, State> Draw<'a, Message, Theme, Renderer, State> for ()
+where
+    Renderer: advanced::Renderer + 'a,
+{
+    fn draw(
+        &self,
+        _state: &State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &iced::advanced::widget::Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &iced::advanced::renderer::Style,
+        layout: iced::advanced::Layout<'_>,
+        cursor: iced::advanced::mouse::Cursor,
+        viewport: &iced::Rectangle,
+    ) {
+        inner
+            .as_widget()
+            .draw(tree, renderer, theme, style, layout, cursor, viewport)
+    }
+}
+
+impl<'a, T, Message, Theme, Renderer, State> Draw<'a, Message, Theme, Renderer, State> for T
+where
+    T: Fn(
+            &State,
+            &Element<'a, Message, Theme, Renderer>,
+            &iced::advanced::widget::Tree,
+            &mut Renderer,
+            &Theme,
+            &iced::advanced::renderer::Style,
+            iced::advanced::Layout<'_>,
+            iced::advanced::mouse::Cursor,
+            &iced::Rectangle,
+        ) + 'a,
+{
+    fn draw(
+        &self,
+        state: &State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &iced::advanced::widget::Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &iced::advanced::renderer::Style,
+        layout: iced::advanced::Layout<'_>,
+        cursor: iced::advanced::mouse::Cursor,
+        viewport: &iced::Rectangle,
+    ) {
+        self(
+            state, inner, tree, renderer, theme, style, layout, cursor, viewport,
+        )
+    }
+}
+
+impl<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State> Widget<Message, Theme, Renderer>
+    for Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>
 where
     Renderer: advanced::Renderer,
     OnEvent: self::OnEvent<'a, Message, Theme, Renderer, State>,
     Layout: self::Layout<'a, Message, Theme, Renderer, State>,
+    Draw: self::Draw<'a, Message, Theme, Renderer, State>,
     State: Default + 'static,
 {
     fn size(&self) -> iced::Size<iced::Length> {
@@ -224,7 +316,9 @@ where
         cursor: iced::advanced::mouse::Cursor,
         viewport: &iced::Rectangle,
     ) {
-        self.inner.as_widget().draw(
+        self.draw.draw(
+            tree.state.downcast_ref(),
+            &self.inner,
             &tree.children[0],
             renderer,
             theme,
@@ -323,8 +417,8 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer, OnEvent, Layout, State>
-    From<Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, State>>
+impl<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>
+    From<Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>>
     for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
@@ -332,9 +426,10 @@ where
     Renderer: advanced::Renderer + 'a,
     OnEvent: self::OnEvent<'a, Message, Theme, Renderer, State> + 'a,
     Layout: self::Layout<'a, Message, Theme, Renderer, State> + 'a,
+    Draw: self::Draw<'a, Message, Theme, Renderer, State> + 'a,
     State: Default + 'static,
 {
-    fn from(wrap: Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, State>) -> Self {
+    fn from(wrap: Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>) -> Self {
         Element::new(wrap)
     }
 }

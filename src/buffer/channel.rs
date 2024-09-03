@@ -3,10 +3,10 @@ use data::user::Nick;
 use data::User;
 use data::{channel, history, message, Config};
 use iced::widget::{column, container, row};
-use iced::{alignment, padding, Length, Task};
+use iced::{alignment, color, padding, Color, Length, Task};
 
 use super::{input_view, scroll_view, user_context};
-use crate::widget::{message_content, message_marker, selectable_text, Element};
+use crate::widget::{color_picker, message_content, message_marker, selectable_text, Element};
 use crate::{theme, Theme};
 
 mod topic;
@@ -16,6 +16,7 @@ pub enum Message {
     ScrollView(scroll_view::Message),
     InputView(input_view::Message),
     UserContext(user_context::Message),
+    Color(Color),
 }
 
 #[derive(Debug, Clone)]
@@ -266,6 +267,11 @@ pub fn view<'a>(
     .spacing(4);
 
     let body = column![]
+        .push(
+            container(color_picker(state.color, Message::Color))
+                .width(Length::Fill)
+                .height(100),
+        )
         .push(container(content).height(Length::Fill))
         .push_maybe(text_input)
         .spacing(4)
@@ -285,6 +291,8 @@ pub struct Channel {
 
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
+
+    color: Color,
 }
 
 impl Channel {
@@ -294,6 +302,7 @@ impl Channel {
             channel,
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
+            color: color!(0x00FF00),
         }
     }
 
@@ -342,6 +351,10 @@ impl Channel {
                 Task::none(),
                 user_context::update(message).map(Event::UserContext),
             ),
+            Message::Color(color) => {
+                self.color = color;
+                (Task::none(), None)
+            }
         }
     }
 
