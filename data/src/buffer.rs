@@ -110,7 +110,7 @@ impl Default for Timestamp {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Nickname {
     #[serde(default)]
     pub color: Color,
@@ -120,6 +120,17 @@ pub struct Nickname {
     pub alignment: Alignment,
     #[serde(default = "default_bool_true")]
     pub show_access_levels: bool,
+}
+
+impl Default for Nickname {
+    fn default() -> Self {
+        Self {
+            color: Default::default(),
+            brackets: Default::default(),
+            alignment: Default::default(),
+            show_access_levels: default_bool_true(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
