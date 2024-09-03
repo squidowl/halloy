@@ -3,6 +3,7 @@ use std::fmt;
 use std::hash::Hash;
 
 use irc::proto;
+use itertools::sorted;
 use serde::{Deserialize, Serialize};
 
 use crate::{buffer, config::buffer::UsernameFormat, mode, theme::Colors};
@@ -112,14 +113,20 @@ impl<'a> TryFrom<&'a str> for User {
 
 impl From<User> for String {
     fn from(user: User) -> Self {
-        let nick = user.nickname();
+        let access_levels: String = sorted(user.access_levels.iter())
+            .map(ToString::to_string)
+            .collect();
+        let nickname = user.nickname();
+        let username = user
+            .username()
+            .map(|username| format!("!{username}"))
+            .unwrap_or(String::new());
+        let hostname = user
+            .hostname()
+            .map(|hostname| format!("@{hostname}"))
+            .unwrap_or(String::new());
 
-        match (user.username(), user.hostname()) {
-            (None, None) => nick.to_string(),
-            (None, Some(host)) => format!("{nick}@{host}",),
-            (Some(user), None) => format!("{nick}!{user}"),
-            (Some(user), Some(host)) => format!("{nick}!{user}@{host}"),
-        }
+        format!("{access_levels}{nickname}{username}{hostname}")
     }
 }
 
@@ -395,6 +402,78 @@ impl TryFrom<mode::Channel> for AccessLevel {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn string_try_from() {
+        let tests = [
+            (
+                User {
+                    nickname: "dan".into(),
+                    username: None,
+                    hostname: None,
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::from([
+                        AccessLevel::Oper,
+                        AccessLevel::Voice,
+                    ]),
+                    away: false,
+                },
+                "+@dan",
+            ),
+            (
+                User {
+                    nickname: "d@n".into(),
+                    username: Some("d".into()),
+                    hostname: Some("localhost".into()),
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::from([AccessLevel::Oper]),
+                    away: false,
+                },
+                "@d@n!d@localhost",
+            ),
+            (
+                User {
+                    nickname: "foobar".into(),
+                    username: None,
+                    hostname: None,
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::new(),
+                    away: false,
+                },
+                "foobar",
+            ),
+            (
+                User {
+                    nickname: "foobar".into(),
+                    username: Some("8a027a9a4a".into()),
+                    hostname: Some("2201:12f1:2:1162:1242:1fg:he11:abde".into()),
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::new(),
+                    away: false,
+                },
+                "foobar!8a027a9a4a@2201:12f1:2:1162:1242:1fg:he11:abde",
+            ),
+            (
+                User {
+                    nickname: "foobar".into(),
+                    username: Some("~foobar".into()),
+                    hostname: Some("12.521.212.521".into()),
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::from([
+                        AccessLevel::Oper,
+                        AccessLevel::Voice,
+                    ]),
+                    away: false,
+                },
+                "+@foobar!~foobar@12.521.212.521",
+            ),
+        ];
+
+        for (test, expected) in tests {
+            let user = String::from(test);
+            assert_eq!(user, expected);
+        }
+    }
 
     #[test]
     fn user_try_from() {
