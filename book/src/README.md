@@ -2,6 +2,8 @@
 
 <img src="images/banner-logo.png" style="width: 100%">
 
+![halloy](./images/animation.gif)
+
 **Halloy** is an open-source IRC client written in Rust, with the [iced](https://github.com/iced-rs/iced/) GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.
 
 * IRCv3.2 capabilities
