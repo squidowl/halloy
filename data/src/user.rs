@@ -120,11 +120,11 @@ impl From<User> for String {
         let username = user
             .username()
             .map(|username| format!("!{username}"))
-            .unwrap_or(String::new());
+            .unwrap_or_default();
         let hostname = user
             .hostname()
             .map(|hostname| format!("@{hostname}"))
-            .unwrap_or(String::new());
+            .unwrap_or_default();
 
         format!("{access_levels}{nickname}{username}{hostname}")
     }
