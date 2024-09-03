@@ -11,7 +11,7 @@ pub struct Channel {
     pub topic: Topic,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Nicklist {
     #[serde(default = "default_bool_true")]
     pub enabled: bool,
@@ -25,6 +25,19 @@ pub struct Nicklist {
     pub alignment: Alignment,
     #[serde(default = "default_bool_true")]
     pub show_access_levels: bool,
+}
+
+impl Default for Nicklist {
+    fn default() -> Self {
+        Self {
+            enabled: default_bool_true(),
+            position: Default::default(),
+            color: Default::default(),
+            width: Default::default(),
+            alignment: Default::default(),
+            show_access_levels: default_bool_true(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
