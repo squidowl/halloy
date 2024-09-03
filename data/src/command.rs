@@ -77,12 +77,12 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
 
     let cmd = split.next().ok_or(Error::MissingCommand)?;
 
-    if rest.len() == cmd.len() {
-        return Err(Error::MissingArgs);
-    }
-
     let args = split.collect::<Vec<_>>();
-    let raw = &rest[cmd.len() + 1..];
+    let raw = if rest.len() == cmd.len() {
+        ""
+    } else {
+        &rest[cmd.len() + 1..]
+    };
 
     let unknown = || {
         Command::Unknown(
