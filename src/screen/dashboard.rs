@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{client, environment, history, Config, Server, User, Version};
+use data::{client, environment, history, window::Window, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, padding, window, Length, Task};
@@ -719,6 +719,7 @@ impl Dashboard {
         version: &Version,
         config: &Config,
         theme: &mut Theme,
+        window: &mut Window,
     ) -> Task<Message> {
         use event::Event::*;
 
@@ -775,6 +776,14 @@ impl Dashboard {
                 };
 
                 Task::perform(task, move |_| Message::Close(window))
+            }
+            Focused => {
+                window.update(data::window::Event::Focused);
+                Task::none()
+            }
+            Unfocused => {
+                window.update(data::window::Event::Unfocused);
+                Task::none()
             }
         }
     }
