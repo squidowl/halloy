@@ -541,12 +541,13 @@ impl Halloy {
                                         match notification {
                                             data::client::Notification::DirectMessage(user) => {
                                                 // only send notification if query has unread
+                                                // or if window is not focused
                                                 if dashboard.get_history().has_unread(
                                                     &server,
                                                     &history::Kind::Query(
                                                         user.nickname().to_owned(),
                                                     ),
-                                                ) {
+                                                ) || !&self.window.focused {
                                                     notification::direct_message(
                                                         &self.config.notifications,
                                                         user.nickname(),
@@ -621,6 +622,7 @@ impl Halloy {
                             &self.version,
                             &self.config,
                             &mut self.theme,
+                            &mut self.window,
                         )
                         .map(Message::Dashboard)
                 } else if let event::Event::CloseRequested(window) = event {
@@ -682,7 +684,7 @@ impl Halloy {
                 Task::none()
             }
             Message::Window(event) => {
-                self.window = self.window.update(event);
+                self.window.update(event);
 
                 Task::perform(self.window.save(), Message::WindowSettingsSaved)
             }

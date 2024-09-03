@@ -80,6 +80,12 @@ enum State<T: Stream<Item = Event>> {
         stream: T,
         size: window::Size,
     },
+    Focused {
+        stream: T,
+    },
+    Unfocused {
+        stream: T,
+    },
     MovingAndResizing {
         stream: T,
         position: window::Position,
@@ -118,6 +124,8 @@ impl subscription::Recipe for Events {
                     iced::window::Event::Resized(Size { width, height }) => {
                         Some(Event::Resized(window::Size::new(width, height)))
                     }
+                    iced::window::Event::Focused => Some(Event::Focused),
+                    iced::window::Event::Unfocused => Some(Event::Unfocused),
                     _ => None,
                 },
                 _ => None,
@@ -136,6 +144,8 @@ impl subscription::Recipe for Events {
                             match event {
                                 Event::Moved(position) => State::Moving { stream, position },
                                 Event::Resized(size) => State::Resizing { stream, size },
+                                Event::Focused => State::Focused { stream },
+                                Event::Unfocused => State::Unfocused { stream },
                             },
                         )
                     }),
@@ -208,6 +218,32 @@ impl subscription::Recipe for Events {
                                 vec![Event::Moved(position), Event::Resized(size)],
                                 State::Idle { stream },
                             )),
+                            _ => None,
+                        }
+                    }
+                    State::Focused { mut stream } => {
+                        let next_event = tokio::time::timeout(TIMEOUT, stream.next()).await;
+
+                        match next_event {
+                            Ok(Some(Event::Focused)) => {
+                                Some((vec![], State::Focused { stream }))
+                            }
+                            Ok(Some(Event::Unfocused)) => {
+                                Some((vec![], State::Unfocused { stream }))
+                            }
+                            _ => None,
+                        }
+                    }
+                    State::Unfocused { mut stream } => {
+                        let next_event = tokio::time::timeout(TIMEOUT, stream.next()).await;
+
+                        match next_event {
+                            Ok(Some(Event::Focused)) => {
+                                Some((vec![], State::Focused { stream }))
+                            }
+                            Ok(Some(Event::Unfocused)) => {
+                                Some((vec![], State::Unfocused { stream }))
+                            }
                             _ => None,
                         }
                     }
