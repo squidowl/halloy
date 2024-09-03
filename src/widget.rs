@@ -6,6 +6,7 @@ use iced::{alignment, border};
 use crate::{font, Theme};
 
 pub use self::anchored_overlay::anchored_overlay;
+pub use self::color_picker::color_picker;
 pub use self::combo_box::combo_box;
 pub use self::context_menu::context_menu;
 pub use self::decorate::decorate;
@@ -19,6 +20,7 @@ pub use self::tooltip::tooltip;
 
 pub mod anchored_overlay;
 pub mod collection;
+pub mod color_picker;
 pub mod combo_box;
 pub mod context_menu;
 pub mod decorate;
