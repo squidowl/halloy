@@ -20,7 +20,9 @@ use self::pane::Pane;
 use self::sidebar::Sidebar;
 use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
-use crate::widget::{anchored_overlay, context_menu, selectable_text, shortcut, Element};
+use crate::widget::{
+    anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
+};
 use crate::{event, notification, theme, Theme};
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
@@ -650,20 +652,23 @@ impl Dashboard {
         // space occupied by the traffic light buttons.
         let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
 
+        let content = match config.sidebar.position {
+            data::config::sidebar::Position::Left | data::config::sidebar::Position::Top => {
+                vec![side_menu.unwrap_or_else(|| row![].into()), pane_grid.into()]
+            }
+            data::config::sidebar::Position::Right | data::config::sidebar::Position::Bottom => {
+                vec![pane_grid.into(), side_menu.unwrap_or_else(|| row![].into())]
+            }
+        };
+
         let base: Element<Message> = if config.sidebar.position.is_horizontal() {
-            column![]
-                // Prevent diff when hiding side_menu
-                .push(side_menu.unwrap_or_else(|| row![].into()))
-                .push(pane_grid)
+            Column::with_children(content)
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .padding(padding::top(height_margin))
                 .into()
         } else {
-            row![]
-                // Prevent diff when hiding side_menu
-                .push(side_menu.unwrap_or_else(|| column![].into()))
-                .push(pane_grid)
+            Row::with_children(content)
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .padding(padding::top(height_margin))
