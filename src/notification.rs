@@ -50,6 +50,22 @@ pub fn file_transfer_request(
     );
 }
 
+pub fn monitored_online(config: &config::Notifications<Sound>, nick: Nick, server: impl ToString) {
+    show_notification(
+        &config.monitored_online,
+        &format!("{} is online", nick),
+        server,
+    );
+}
+
+pub fn monitored_offline(config: &config::Notifications<Sound>, nick: Nick, server: impl ToString) {
+    show_notification(
+        &config.monitored_offline,
+        &format!("{} is offline", nick),
+        server,
+    );
+}
+
 fn show_notification(notification: &notification::Loaded, title: &str, body: impl ToString) {
     if notification.show_toast {
         toast::show(title, body);

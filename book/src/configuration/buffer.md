@@ -130,6 +130,18 @@ enabled = true | false
 smart = <integer>
 ```
 
+```toml
+[buffer.server_messages.monitored_online]
+enabled = true | false
+smart = <integer>
+```
+
+```toml
+[buffer.server_messages.monitored_offline]
+enabled = true | false
+smart = <integer>
+```
+
 | Key               | Description                                                                                                                                                      | Default   |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
 | `enabled`         | Control if the server message should appear in buffers or not                                                                                                    | `true`    |

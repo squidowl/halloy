@@ -37,6 +37,8 @@ pub enum State {
 pub enum Notification {
     DirectMessage(User),
     Highlight(User, String),
+    MonitoredOnline(Vec<User>),
+    MonitoredOffline(Vec<Nick>),
 }
 
 #[derive(Debug)]
@@ -338,6 +340,9 @@ impl Client {
                     if contains("chghost") {
                         requested.push("chghost");
                     }
+                    if contains("extended-monitor") {
+                        requested.push("extended-monitor");
+                    }
                     if contains("account-notify") {
                         requested.push("account-notify");
 
@@ -445,6 +450,9 @@ impl Client {
                 }
                 if newly_contains("chghost") {
                     requested.push("chghost");
+                }
+                if newly_contains("extended-monitor") {
+                    requested.push("extended-monitor");
                 }
                 if contains("account-notify") || newly_contains("account-notify") {
                     if newly_contains("account-notify") {
@@ -1094,7 +1102,19 @@ impl Client {
                                             self.server,
                                             parameter
                                         );
-                                        self.isupport.insert(kind, parameter);
+
+                                        self.isupport.insert(kind, parameter.clone());
+
+                                        if let isupport::Parameter::MONITOR(target_limit) =
+                                            parameter
+                                        {
+                                            let messages =
+                                                group_monitors(&self.config.monitor, target_limit);
+
+                                            for message in messages {
+                                                let _ = self.handle.try_send(message);
+                                            }
+                                        }
                                     } else {
                                         log::debug!(
                                             "[{}] ignoring ISUPPORT parameter: {:?}",
@@ -1180,6 +1200,31 @@ impl Client {
                     channels,
                     sent_time: server_time(&message),
                 })]);
+            }
+            Command::Numeric(RPL_MONONLINE, args) => {
+                let targets = args
+                    .get(1)?
+                    .split(',')
+                    .filter_map(|target| User::try_from(target).ok())
+                    .collect::<Vec<_>>();
+
+                return Some(vec![Event::Notification(
+                    message.clone(),
+                    self.nickname().to_owned(),
+                    Notification::MonitoredOnline(targets),
+                )]);
+            }
+            Command::Numeric(RPL_MONOFFLINE, args) => {
+                let targets = args.get(1)?.split(',').map(Nick::from).collect::<Vec<_>>();
+
+                return Some(vec![Event::Notification(
+                    message.clone(),
+                    self.nickname().to_owned(),
+                    Notification::MonitoredOffline(targets),
+                )]);
+            }
+            Command::Numeric(RPL_ENDOFMONLIST, _) => {
+                return None;
             }
             _ => {}
         }
@@ -1664,4 +1709,29 @@ fn group_joins<'a>(
         });
 
     joins_without_keys.chain(joins_with_keys)
+}
+
+fn group_monitors(
+    targets: &[String],
+    target_limit: Option<u16>,
+) -> impl Iterator<Item = proto::Message> + '_ {
+    const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"MONITOR + \r\n".len();
+
+    if let Some(target_limit) = target_limit.map(usize::from) {
+        &targets[0..std::cmp::min(target_limit, targets.len())]
+    } else {
+        targets
+    }
+    .iter()
+    .scan(0, |count, target| {
+        // Target + a comma
+        *count += target.len() + 1;
+
+        let chunk = *count / MAX_LEN;
+
+        Some((chunk, target))
+    })
+    .into_group_map()
+    .into_values()
+    .map(|targets| command!("MONITOR", "+", targets.into_iter().join(","),))
 }

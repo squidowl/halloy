@@ -120,7 +120,7 @@ impl Sidebar {
                         config.buffer_focused_action,
                         config.position,
                         config.unread_indicator,
-                        false,
+                        history.has_unread(server, &history::Kind::Server),
                     ));
                 }
                 data::client::State::Ready(connection) => {
@@ -133,7 +133,7 @@ impl Sidebar {
                         config.buffer_focused_action,
                         config.position,
                         config.unread_indicator,
-                        false,
+                        history.has_unread(server, &history::Kind::Server),
                     ));
 
                     for channel in connection.channels() {
@@ -325,12 +325,16 @@ fn buffer_button<'a>(
     let row = match &buffer {
         Buffer::Server(server) => row![
             icon::connected().style(if connected {
-                theme::text::primary
+                if show_unread_indicator {
+                    theme::text::unread_indicator
+                } else {
+                    theme::text::primary
+                }
             } else {
                 theme::text::error
             }),
             text(server.to_string())
-                .style(theme::text::primary)
+                .style(buffer_title_style)
                 .shaping(text::Shaping::Advanced)
         ]
         .spacing(8)

@@ -114,6 +114,7 @@ enum Commands {
     },
     Selected {
         command: Command,
+        subcommand: Option<Command>,
     },
 }
 
@@ -241,28 +242,34 @@ impl Commands {
 
                 command.clone()
             })
-            .chain(isupport.iter().filter_map(|(_, isupport_parameter)| {
-                if matches!(isupport_parameter, isupport::Parameter::SAFELIST) {
-                    let search_extensions =
-                        if let Some(isupport::Parameter::ELIST(search_extensions)) =
-                            isupport.get(&isupport::Kind::ELIST)
-                        {
-                            Some(search_extensions)
-                        } else {
-                            None
-                        };
+            .chain(
+                isupport
+                    .iter()
+                    .filter_map(|(_, isupport_parameter)| match isupport_parameter {
+                        isupport::Parameter::MONITOR(target_limit) => {
+                            Some(monitor_command(target_limit))
+                        }
+                        isupport::Parameter::SAFELIST => {
+                            let search_extensions =
+                                if let Some(isupport::Parameter::ELIST(search_extensions)) =
+                                    isupport.get(&isupport::Kind::ELIST)
+                                {
+                                    Some(search_extensions)
+                                } else {
+                                    None
+                                };
 
-                    let target_limit = find_target_limit(isupport, "LIST");
+                            let target_limit = find_target_limit(isupport, "LIST");
 
-                    if search_extensions.is_some() || target_limit.is_some() {
-                        Some(list_command(search_extensions, target_limit))
-                    } else {
-                        Some(LIST_COMMAND.clone())
-                    }
-                } else {
-                    isupport_parameter_to_command(isupport_parameter)
-                }
-            }))
+                            if search_extensions.is_some() || target_limit.is_some() {
+                                Some(list_command(search_extensions, target_limit))
+                            } else {
+                                Some(LIST_COMMAND.clone())
+                            }
+                        }
+                        _ => isupport_parameter_to_command(isupport_parameter),
+                    }),
+            )
             .collect::<Vec<_>>();
 
         match self {
@@ -292,13 +299,37 @@ impl Commands {
                             .iter()
                             .any(|alias| alias.to_lowercase() == cmd.to_lowercase())
                 }) {
-                    *self = Self::Selected { command };
+                    *self = Self::Selected {
+                        command,
+                        subcommand: None,
+                    };
                 } else {
                     *self = Self::Idle
                 }
             }
-            // Command fully typed & already selected, do nothing
-            Self::Selected { .. } => {}
+            // Command fully typed & already selected, check for subcommand if any exist
+            Self::Selected { command, .. } => {
+                if let Some(subcommands) = &command.subcommands {
+                    let subcmd = if let Some(index) = &rest[cmd.len() + 1..].find(' ') {
+                        &rest[0..cmd.len() + 1 + index]
+                    } else {
+                        rest
+                    };
+
+                    let subcommand = subcommands.iter().find(|subcommand| {
+                        subcommand.title.to_lowercase() == subcmd.to_lowercase()
+                            || subcommand
+                                .alias()
+                                .iter()
+                                .any(|alias| alias.to_lowercase() == subcmd.to_lowercase())
+                    });
+
+                    *self = Self::Selected {
+                        command: command.clone(),
+                        subcommand: subcommand.cloned(),
+                    };
+                }
+            }
         }
     }
 
@@ -311,6 +342,7 @@ impl Commands {
             if let Some(command) = filtered.get(*index).cloned() {
                 *self = Self::Selected {
                     command: command.clone(),
+                    subcommand: None,
                 };
 
                 return Some(command);
@@ -403,7 +435,16 @@ impl Commands {
                         .into()
                 })
             }
-            Self::Selected { command } => Some(command.view(input)),
+            Self::Selected {
+                command,
+                subcommand,
+            } => {
+                if let Some(subcommand) = subcommand {
+                    Some(subcommand.view(input))
+                } else {
+                    Some(command.view(input))
+                }
+            }
         }
     }
 }
@@ -412,6 +453,7 @@ impl Commands {
 pub struct Command {
     title: &'static str,
     args: Vec<Arg>,
+    subcommands: Option<Vec<Command>>,
 }
 
 impl Command {
@@ -421,6 +463,12 @@ impl Command {
             "join" => "Join channel(s) with optional key(s)",
             "me" => "Send an action message to the channel",
             "mode" => "Set mode(s) on a target or retrieve the current mode(s) set. A target can be a channel or an user",
+            "monitor" => "System to notify when users become online/offline",
+            "monitor +" => "Add user(s) to list being monitored",
+            "monitor -" => "Remove user(s) from list being monitored",
+            "monitor c" => "Clear the list of users being monitored",
+            "monitor l" => "Get list of users being monitored",
+            "monitor s" => "For each user in the list being monitored, get the current status",
             "msg" => "Open a query with a nickname and send an optional message",
             "nick" => "Change your nickname on the current server",
             "part" => "Leave channel(s) with an optional reason",
@@ -638,6 +686,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     tooltip: Some(String::from("comma-separated")),
                 },
             ],
+            subcommands: None,
         },
         Command {
             title: "MOTD",
@@ -646,6 +695,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 optional: true,
                 tooltip: None,
             }],
+            subcommands: None,
         },
         Command {
             title: "NICK",
@@ -654,6 +704,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 optional: false,
                 tooltip: None,
             }],
+            subcommands: None,
         },
         Command {
             title: "QUIT",
@@ -662,6 +713,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 optional: true,
                 tooltip: None,
             }],
+            subcommands: None,
         },
         Command {
             title: "MSG",
@@ -679,6 +731,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     tooltip: None,
                 },
             ],
+            subcommands: None,
         },
         Command {
             title: "WHOIS",
@@ -687,6 +740,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 optional: false,
                 tooltip: Some(String::from("comma-separated")),
             }],
+            subcommands: None,
         },
         Command {
             title: "AWAY",
@@ -695,6 +749,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 optional: true,
                 tooltip: None,
             }],
+            subcommands: None,
         },
         Command {
             title: "ME",
@@ -703,6 +758,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 optional: false,
                 tooltip: None,
             }],
+            subcommands: None,
         },
         Command {
             title: "MODE",
@@ -723,6 +779,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     tooltip: None,
                 },
             ],
+            subcommands: None,
         },
         Command {
             title: "PART",
@@ -738,6 +795,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     tooltip: None,
                 },
             ],
+            subcommands: None,
         },
         Command {
             title: "TOPIC",
@@ -753,6 +811,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     tooltip: None,
                 },
             ],
+            subcommands: None,
         },
         Command {
             title: "WHO",
@@ -761,6 +820,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                 optional: false,
                 tooltip: None,
             }],
+            subcommands: None,
         },
         Command {
             title: "NAMES",
@@ -771,6 +831,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     tooltip: Some(String::from("comma-separated")),
                 },
             ],
+            subcommands: None,
         },
         Command {
             title: "KICK",
@@ -791,6 +852,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     tooltip: None,
                 },
             ],
+            subcommands: None,
         },
         Command {
             title: "RAW",
@@ -806,6 +868,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     tooltip: None,
                 },
             ],
+            subcommands: None,
         },
         Command {
             title: "FORMAT",
@@ -816,6 +879,7 @@ static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
                     tooltip: Some(include_str!("./format_tooltip.txt").to_string()),
                 },
             ],
+            subcommands: None,
         },
     ]
 });
@@ -853,6 +917,7 @@ fn away_command(max_len: &u16) -> Command {
             optional: true,
             tooltip: Some(format!("maximum length: {}", max_len)),
         }],
+        subcommands: None,
     }
 }
 
@@ -875,6 +940,7 @@ static CNOTICE_COMMAND: Lazy<Command> = Lazy::new(|| Command {
             tooltip: None,
         },
     ],
+    subcommands: None,
 });
 
 static CPRIVMSG_COMMAND: Lazy<Command> = Lazy::new(|| Command {
@@ -896,6 +962,7 @@ static CPRIVMSG_COMMAND: Lazy<Command> = Lazy::new(|| Command {
             tooltip: None,
         },
     ],
+    subcommands: None,
 });
 
 fn join_command(
@@ -947,6 +1014,7 @@ fn join_command(
                 tooltip: Some(keys_tooltip),
             },
         ],
+        subcommands: None,
     }
 }
 
@@ -964,6 +1032,7 @@ static KNOCK_COMMAND: Lazy<Command> = Lazy::new(|| Command {
             tooltip: None,
         },
     ],
+    subcommands: None,
 });
 
 static LIST_COMMAND: Lazy<Command> = Lazy::new(|| Command {
@@ -973,6 +1042,7 @@ static LIST_COMMAND: Lazy<Command> = Lazy::new(|| Command {
         optional: true,
         tooltip: Some(String::from("comma-separated")),
     }],
+    subcommands: None,
 });
 
 fn list_command(
@@ -1021,6 +1091,7 @@ fn list_command(
                     tooltip: Some(elistconds_tooltip),
                 },
             ],
+            subcommands: None,
         }
     } else {
         Command {
@@ -1030,9 +1101,84 @@ fn list_command(
                 optional: true,
                 tooltip: Some(channels_tooltip),
             }],
+            subcommands: None,
         }
     }
 }
+
+fn monitor_command(target_limit: &Option<u16>) -> Command {
+    Command {
+        title: "MONITOR",
+        args: vec![Arg {
+            text: "subcommand",
+            optional: false,
+            tooltip: Some(String::from(
+                "+: Add user(s) to list being monitored\n\
+                 -: Remove user(s) from list being monitored\n\
+                 C: Clear the list of users being monitored\n\
+                 L: Get list of users being monitored\n\
+                 S: For each user in the list being monitored, get their current status",
+            )),
+        }],
+        subcommands: Some(vec![
+            monitor_add_command(target_limit),
+            MONITOR_REMOVE_COMMAND.clone(),
+            MONITOR_CLEAR_COMMAND.clone(),
+            MONITOR_LIST_COMMAND.clone(),
+            MONITOR_STATUS_COMMAND.clone(),
+        ]),
+    }
+}
+
+fn monitor_add_command(target_limit: &Option<u16>) -> Command {
+    let mut targets_tooltip = String::from("comma-separated users");
+
+    if let Some(target_limit) = target_limit {
+        targets_tooltip.push_str(format!("\nup to {} target", target_limit).as_str());
+        if *target_limit > 1 {
+            targets_tooltip.push('s')
+        }
+        targets_tooltip.push_str(" in total");
+    }
+
+    Command {
+        title: "MONITOR +",
+        args: vec![Arg {
+            text: "targets",
+            optional: false,
+            tooltip: Some(targets_tooltip),
+        }],
+        subcommands: None,
+    }
+}
+
+static MONITOR_REMOVE_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+    title: "MONITOR -",
+    args: vec![Arg {
+        text: "targets",
+        optional: false,
+        tooltip: Some(String::from("comma-separated")),
+    }],
+    subcommands: None,
+});
+
+static MONITOR_CLEAR_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+    title: "MONITOR C",
+    args: vec![],
+    subcommands: None,
+});
+
+static MONITOR_LIST_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+    title: "MONITOR L",
+    args: vec![],
+    subcommands: None,
+});
+
+static MONITOR_STATUS_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+    title: "MONITOR S",
+    args: vec![],
+    subcommands: None,
+});
 
 fn msg_command(
     channel_membership_prefixes: Option<&String>,
@@ -1081,6 +1227,7 @@ fn msg_command(
                 tooltip: None,
             },
         ],
+        subcommands: None,
     }
 }
 
@@ -1101,6 +1248,7 @@ fn names_command(target_limit: &isupport::CommandTargetLimit) -> Command {
             optional: false,
             tooltip: Some(channels_tooltip),
         }],
+        subcommands: None,
     }
 }
 
@@ -1112,6 +1260,7 @@ fn nick_command(max_len: &u16) -> Command {
             optional: false,
             tooltip: Some(format!("maximum length: {}", max_len)),
         }],
+        subcommands: None,
     }
 }
 
@@ -1133,6 +1282,7 @@ fn part_command(max_len: &u16) -> Command {
                 tooltip: None,
             },
         ],
+        subcommands: None,
     }
 }
 
@@ -1151,6 +1301,7 @@ fn topic_command(max_len: &u16) -> Command {
                 tooltip: Some(format!("maximum length: {}", max_len)),
             },
         ],
+        subcommands: None,
     }
 }
 
@@ -1161,6 +1312,7 @@ static USERIP_COMMAND: Lazy<Command> = Lazy::new(|| Command {
         optional: false,
         tooltip: None,
     }],
+    subcommands: None,
 });
 
 static WHOX_COMMAND: Lazy<Command> = Lazy::new(|| Command {
@@ -1176,18 +1328,18 @@ static WHOX_COMMAND: Lazy<Command> = Lazy::new(|| Command {
             optional: true,
             tooltip: Some(String::from(
                 "t: token\n\
-                c: channel\n\
-                u: username\n\
-                i: IP address\n\
-                h: hostname\n\
-                s: server name\n\
-                n: nickname\n\
-                f: WHO flags\n\
-                d: hop count\n\
-                l: idle seconds\n\
-                a: account name\n\
-                o: channel op level\n\
-                r: realname",
+                 c: channel\n\
+                 u: username\n\
+                 i: IP address\n\
+                 h: hostname\n\
+                 s: server name\n\
+                 n: nickname\n\
+                 f: WHO flags\n\
+                 d: hop count\n\
+                 l: idle seconds\n\
+                 a: account name\n\
+                 o: channel op level\n\
+                 r: realname",
             )),
         },
         Arg {
@@ -1196,6 +1348,7 @@ static WHOX_COMMAND: Lazy<Command> = Lazy::new(|| Command {
             tooltip: Some(String::from("1-3 digits")),
         },
     ],
+    subcommands: None,
 });
 
 fn whois_command(target_limit: &isupport::CommandTargetLimit) -> Command {
@@ -1215,5 +1368,6 @@ fn whois_command(target_limit: &isupport::CommandTargetLimit) -> Command {
             optional: false,
             tooltip: Some(nicks_tooltip),
         }],
+        subcommands: None,
     }
 }
