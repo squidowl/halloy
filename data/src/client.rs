@@ -1518,7 +1518,7 @@ fn remove_tag(key: &str, tags: &mut Vec<irc::proto::Tag>) -> Option<String> {
 
 fn start_reroute(command: &Command) -> bool {
     use Command::*;
-    
+
     if let MODE(target, _, _) = command {
         !proto::is_channel(target)
     } else {

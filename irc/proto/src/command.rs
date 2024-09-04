@@ -237,7 +237,10 @@ impl Command {
             Command::STATS(a, b) => std::iter::once(a).chain(b).collect(),
             Command::HELP(a) => a.into_iter().collect(),
             Command::INFO => vec![],
-            Command::MODE(a, b, c) => std::iter::once(a).chain(b).chain(c.into_iter().flatten()).collect(),
+            Command::MODE(a, b, c) => std::iter::once(a)
+                .chain(b)
+                .chain(c.into_iter().flatten())
+                .collect(),
             Command::PRIVMSG(a, b) => vec![a, b],
             Command::NOTICE(a, b) => vec![a, b],
             Command::WHO(a, b, c) => std::iter::once(a)

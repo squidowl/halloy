@@ -126,30 +126,24 @@ pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
                 if let Some((target, rest)) = args.split_first() {
                     if let Some((mode_string, mode_arguments)) = rest.split_first() {
                         let mode_string_regex = Regex::new(r"^((\+|\-)[A-Za-z]*)+$").unwrap();
-                        if!mode_string_regex.is_match(mode_string) {
+                        if !mode_string_regex.is_match(mode_string) {
                             Err(Error::InvalidModeString)
-                        }
-                        else {
-                            let mode_arguments: Vec<String> = mode_arguments.iter().map(|v| v.to_string()).collect();
+                        } else {
+                            let mode_arguments: Vec<String> =
+                                mode_arguments.iter().map(|v| v.to_string()).collect();
                             Ok(Command::Mode(
                                 target.to_string(),
                                 Some(mode_string.to_string()),
-                                (!mode_arguments.is_empty()).then_some(mode_arguments)
+                                (!mode_arguments.is_empty()).then_some(mode_arguments),
                             ))
                         }
+                    } else {
+                        Ok(Command::Mode(target.to_string(), None, None))
                     }
-                    else {
-                        Ok(Command::Mode(
-                            target.to_string(),
-                            None,
-                            None,
-                        ))
-                    }
-                }
-                else {
+                } else {
                     Err(Error::MissingArgs)
                 }
-            },
+            }
             Kind::Away => validated::<0, 1, true>(args, |_, [comment]| Command::Away(comment)),
             Kind::Raw => Ok(Command::Raw(raw.to_string())),
             Kind::Format => {
@@ -220,7 +214,9 @@ impl TryFrom<Command> for proto::Command {
             Command::Part(chanlist, reason) => proto::Command::PART(chanlist, reason),
             Command::Topic(channel, topic) => proto::Command::TOPIC(channel, topic),
             Command::Kick(channel, user, comment) => proto::Command::KICK(channel, user, comment),
-            Command::Mode(target, modestring, modearguments) => proto::Command::MODE(target, modestring, modearguments),
+            Command::Mode(target, modestring, modearguments) => {
+                proto::Command::MODE(target, modestring, modearguments)
+            }
             Command::Away(comment) => proto::Command::AWAY(comment),
             Command::Raw(raw) => proto::Command::Raw(raw),
             Command::Unknown(command, args) => proto::Command::new(&command, args),
@@ -243,7 +239,7 @@ pub enum Error {
     #[error("missing args")]
     MissingArgs,
     #[error("invalid modestring")]
-    InvalidModeString
+    InvalidModeString,
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
