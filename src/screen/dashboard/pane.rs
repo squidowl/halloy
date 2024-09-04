@@ -102,7 +102,7 @@ impl Pane {
                 config,
                 theme,
                 is_focused,
-                sidebar
+                sidebar,
             )
             .map(move |msg| Message::Buffer(id, msg));
 
@@ -247,7 +247,9 @@ impl TitleBar {
         .padding([0, 10])
         .align_y(iced::alignment::Vertical::Center);
 
-        widget::TitleBar::new(title).controls(pane_grid::Controls::new(controls)).padding(6)
+        widget::TitleBar::new(title)
+            .controls(pane_grid::Controls::new(controls))
+            .padding(6)
     }
 }
 

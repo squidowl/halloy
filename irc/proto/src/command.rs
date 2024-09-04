@@ -61,7 +61,7 @@ pub enum Command {
     /// None
     INFO,
     /// <target> [<modestring> [<mode arguments>...]]
-    MODE(String, Option<String>, Vec<String>),
+    MODE(String, Option<String>, Option<Vec<String>>),
 
     /* Sending Messages */
     /// <target>{,<target>} <text to be sent>
@@ -177,7 +177,7 @@ impl Command {
             "STATS" if len > 0 => STATS(req!(), opt!()),
             "HELP" => HELP(opt!()),
             "INFO" => INFO,
-            "MODE" if len > 0 => MODE(req!(), opt!(), params.collect()),
+            "MODE" if len > 0 => MODE(req!(), opt!(), Some(params.collect())),
             "PRIVMSG" if len > 1 => PRIVMSG(req!(), req!()),
             "NOTICE" if len > 1 => NOTICE(req!(), req!()),
             "WHO" if len > 0 => WHO(req!(), opt!(), opt!()),
@@ -237,7 +237,10 @@ impl Command {
             Command::STATS(a, b) => std::iter::once(a).chain(b).collect(),
             Command::HELP(a) => a.into_iter().collect(),
             Command::INFO => vec![],
-            Command::MODE(a, b, c) => std::iter::once(a).chain(b).chain(c).collect(),
+            Command::MODE(a, b, c) => std::iter::once(a)
+                .chain(b)
+                .chain(c.into_iter().flatten())
+                .collect(),
             Command::PRIVMSG(a, b) => vec![a, b],
             Command::NOTICE(a, b) => vec![a, b],
             Command::WHO(a, b, c) => std::iter::once(a)
