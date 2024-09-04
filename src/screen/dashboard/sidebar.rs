@@ -41,7 +41,7 @@ pub enum Event {
 
 #[derive(Clone)]
 pub struct Sidebar {
-    hidden: bool,
+    pub hidden: bool,
     timestamp: Option<Instant>,
 }
 

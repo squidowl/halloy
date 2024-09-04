@@ -1,11 +1,20 @@
+use data::Config;
 use iced::widget::{column, container, text};
 use iced::{alignment, Length};
 
+use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
 
-pub fn view<'a, Message: 'a>() -> Element<'a, Message> {
+pub fn view<'a, Message: 'a>(config: &'a Config, sidebar: &'a sidebar::Sidebar) -> Element<'a, Message> {
+    let arrow = sidebar.hidden.then_some(' ').unwrap_or_else(|| match config.sidebar.position {
+        data::config::sidebar::Position::Left => '⟵',
+        data::config::sidebar::Position::Right => '⟶',
+        data::config::sidebar::Position::Top => '↑',
+        data::config::sidebar::Position::Bottom => '↓',
+    });
+
     let content = column![]
-        .push(text("⟵ select buffer").shaping(text::Shaping::Advanced))
+        .push(text(format!("{arrow} select buffer")).shaping(text::Shaping::Advanced))
         .align_x(iced::Alignment::Center);
 
     container(content)
