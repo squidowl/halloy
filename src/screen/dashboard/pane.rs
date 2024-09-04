@@ -243,7 +243,7 @@ impl TitleBar {
         .padding([0, 10])
         .align_y(iced::alignment::Vertical::Center);
 
-        widget::TitleBar::new(title).controls(controls).padding(6)
+        widget::TitleBar::new(title).controls(pane_grid::Controls::new(controls)).padding(6)
     }
 }
 
