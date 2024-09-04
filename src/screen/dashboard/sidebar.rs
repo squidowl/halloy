@@ -41,8 +41,14 @@ pub enum Event {
 
 #[derive(Clone)]
 pub struct Sidebar {
-    hidden: bool,
+    pub hidden: bool,
     timestamp: Option<Instant>,
+}
+
+impl Default for Sidebar {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Sidebar {
