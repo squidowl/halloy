@@ -7,6 +7,8 @@ pub enum Event {
     Escape,
     Home,
     End,
+    Focused,
+    Unfocused,
 }
 
 pub fn events() -> Subscription<Event> {
@@ -39,6 +41,8 @@ fn filtered_events(
             ..
         }) if ignored(status) => Some(Event::End),
         iced::Event::Window(window::Event::CloseRequested) => Some(Event::CloseRequested(window)),
+        iced::Event::Window(window::Event::Focused) => Some(Event::Focused),
+        iced::Event::Window(window::Event::Unfocused) => Some(Event::Unfocused),
         _ => None,
     }
 }

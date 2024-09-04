@@ -118,6 +118,8 @@ impl subscription::Recipe for Events {
                     iced::window::Event::Resized(Size { width, height }) => {
                         Some(Event::Resized(window::Size::new(width, height)))
                     }
+                    iced::window::Event::Focused => Some(Event::Focused),
+                    iced::window::Event::Unfocused => Some(Event::Unfocused),
                     _ => None,
                 },
                 _ => None,
@@ -130,14 +132,11 @@ impl subscription::Recipe for Events {
             },
             move |state| async move {
                 match state {
-                    State::Idle { mut stream } => stream.next().await.map(|event| {
-                        (
-                            vec![],
-                            match event {
-                                Event::Moved(position) => State::Moving { stream, position },
-                                Event::Resized(size) => State::Resizing { stream, size },
-                            },
-                        )
+                    State::Idle { mut stream } => stream.next().await.map(|event| match event {
+                        Event::Moved(position) => (vec![], State::Moving { stream, position }),
+                        Event::Resized(size) => (vec![], State::Resizing { stream, size }),
+                        Event::Focused => (vec![Event::Focused], State::Idle { stream }),
+                        Event::Unfocused => (vec![Event::Unfocused], State::Idle { stream }),
                     }),
                     State::Moving {
                         mut stream,
