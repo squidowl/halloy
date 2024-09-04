@@ -20,7 +20,7 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn update(&mut self, event: Event) -> Self {
+    pub fn update(&mut self, event: Event) {
         match event {
             Event::Moved(position) => {
                 self.position = Some(position);
@@ -35,7 +35,6 @@ impl Window {
                 self.focused = Some(false);
             }
         }
-        *self
     }
 
     pub fn focused(&self) -> bool {

@@ -24,6 +24,7 @@ iced = { version = "0.13.0-dev", features = [
     "lazy",
     "advanced",
     "image",
+    "multi-window"
 ] }
 log = "0.4.16"
 once_cell = "1.18"
