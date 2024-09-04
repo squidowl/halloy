@@ -9,6 +9,7 @@ Added:
   - Overwrite nicklist `width` in channels. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferchannelnicklist-section).
   - Show/hide user access levels in buffer and nicklist. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferchannelnicklist-section)
   - `buffer_focused_action` added to `sidebar` to enable actions a focused buffer. See [configuration](https://halloy.squidowl.org/configuration/sidebar.html#sidebar-section).
+  - Notification for direct messages. See [notification configuration](https://halloy.squidowl.org/configuration/notifications.html).
 
 Fixed:
 

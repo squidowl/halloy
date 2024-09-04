@@ -22,6 +22,14 @@ pub fn disconnected(config: &config::Notifications<Sound>, server: impl ToString
     show_notification(&config.disconnected, "Disconnected", server);
 }
 
+pub fn direct_message(config: &config::Notifications<Sound>, nick: NickRef) {
+    show_notification(
+        &config.direct_message,
+        "Direct message",
+        format!("{} sent you a direct message", nick),
+    );
+}
+
 pub fn highlight(config: &config::Notifications<Sound>, nick: NickRef, channel: String) {
     show_notification(
         &config.highlight,

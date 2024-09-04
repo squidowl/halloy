@@ -15,17 +15,33 @@ pub mod size;
 pub struct Window {
     pub position: Option<Position>,
     pub size: Size,
+    #[serde(skip)]
+    focused: Option<bool>,
 }
 
 impl Window {
-    pub fn update(self, event: Event) -> Self {
+    pub fn update(&mut self, event: Event) -> Self {
         match event {
-            Event::Moved(position) => Self {
-                position: Some(position),
-                ..self
-            },
-            Event::Resized(size) => Self { size, ..self },
+            Event::Moved(position) => {
+                self.position = Some(position);
+            }
+            Event::Resized(size) => {
+                self.size = size;
+            }
+            Event::Focused => {
+                self.focused = Some(true);
+            }
+            Event::Unfocused => {
+                self.focused = Some(false);
+            }
         }
+        *self
+    }
+
+    pub fn focused(&self) -> bool {
+        // Assume window is initially focused until an
+        // `Event` is received to set this field
+        self.focused.unwrap_or(true)
     }
 
     pub fn load() -> Result<Self, Error> {
@@ -68,4 +84,6 @@ pub enum Error {
 pub enum Event {
     Moved(Position),
     Resized(Size),
+    Focused,
+    Unfocused,
 }

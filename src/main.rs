@@ -23,7 +23,7 @@ use chrono::Utc;
 use data::config::{self, Config};
 use data::version::Version;
 use data::window::Window;
-use data::{environment, server, version, User};
+use data::{environment, history, server, version, User};
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
@@ -539,6 +539,22 @@ impl Halloy {
                                         }
 
                                         match notification {
+                                            data::client::Notification::DirectMessage(user) => {
+                                                // only send notification if query has unread
+                                                // or if window is not focused
+                                                if dashboard.history().has_unread(
+                                                    &server,
+                                                    &history::Kind::Query(
+                                                        user.nickname().to_owned(),
+                                                    ),
+                                                ) || !self.window.focused()
+                                                {
+                                                    notification::direct_message(
+                                                        &self.config.notifications,
+                                                        user.nickname(),
+                                                    );
+                                                }
+                                            }
                                             data::client::Notification::Highlight(
                                                 user,
                                                 channel,
@@ -607,6 +623,7 @@ impl Halloy {
                             &self.version,
                             &self.config,
                             &mut self.theme,
+                            &mut self.window,
                         )
                         .map(Message::Dashboard)
                 } else if let event::Event::CloseRequested(window) = event {
@@ -668,7 +685,7 @@ impl Halloy {
                 Task::none()
             }
             Message::Window(event) => {
-                self.window = self.window.update(event);
+                self.window.update(event);
 
                 Task::perform(self.window.save(), Message::WindowSettingsSaved)
             }

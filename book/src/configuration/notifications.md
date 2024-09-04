@@ -18,6 +18,7 @@ Following notifications are available:
 - `connected` 
 - `disconnected`
 - `reconnected`
+- `direct_message`
 - `highlight`
 - `file_transfer_request`
 
