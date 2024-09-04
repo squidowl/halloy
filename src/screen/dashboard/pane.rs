@@ -6,6 +6,8 @@ use crate::buffer::{self, Buffer};
 use crate::widget::tooltip;
 use crate::{icon, theme, widget, Theme};
 
+use super::sidebar;
+
 #[derive(Debug, Clone)]
 pub enum Message {
     PaneClicked(pane_grid::Pane),
@@ -53,6 +55,7 @@ impl Pane {
         clients: &'a data::client::Map,
         file_transfers: &'a file_transfer::Manager,
         history: &'a history::Manager,
+        sidebar: &'a sidebar::Sidebar,
         config: &'a Config,
         theme: &'a Theme,
     ) -> widget::Content<'a, Message> {
@@ -99,6 +102,7 @@ impl Pane {
                 config,
                 theme,
                 is_focused,
+                sidebar
             )
             .map(move |msg| Message::Buffer(id, msg));
 
