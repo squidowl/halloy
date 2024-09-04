@@ -23,22 +23,23 @@ Halloy is also available from [Flathub](https://flathub.org/apps/org.squidowl.ha
 ## Features
 
 * IRCv3.2 capabilities
+    * [account-notify](https://ircv3.net/specs/extensions/account-notify)
     * [away-notify](https://ircv3.net/specs/extensions/away-notify)
     * [batch](https://ircv3.net/specs/extensions/batch)
-    * [server-time](https://ircv3.net/specs/extensions/server-time)
-    * [labeled-response](https://ircv3.net/specs/extensions/labeled-response)
-    * [echo-message](https://ircv3.net/specs/extensions/echo-message)
-    * [invite-notify](https://ircv3.net/specs/extensions/invite-notify)
-    * [userhost-in-names](https://ircv3.net/specs/extensions/userhost-in-names)
-    * [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)
     * [cap-notify](https://ircv3.net/specs/extensions/capability-negotiation.html#cap-notify)
-    * [multi-prefix](https://ircv3.net/specs/extensions/multi-prefix)
-    * [message-tags](https://ircv3.net/specs/extensions/message-tags)
-    * [`WHOX`](https://ircv3.net/specs/extensions/whox)
-    * [`UTF8ONLY`](https://ircv3.net/specs/extensions/utf8-only)
     * [chghost](https://ircv3.net/specs/extensions/chghost)
-    * [account-notify](https://ircv3.net/specs/extensions/account-notify)
+    * [echo-message](https://ircv3.net/specs/extensions/echo-message)
     * [extended-join](https://ircv3.net/specs/extensions/extended-join)
+    * [invite-notify](https://ircv3.net/specs/extensions/invite-notify)
+    * [labeled-response](https://ircv3.net/specs/extensions/labeled-response)
+    * [message-tags](https://ircv3.net/specs/extensions/message-tags)
+    * [Monitor](https://ircv3.net/specs/extensions/monitor)
+    * [multi-prefix](https://ircv3.net/specs/extensions/multi-prefix)
+    * [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)
+    * [server-time](https://ircv3.net/specs/extensions/server-time)
+    * [userhost-in-names](https://ircv3.net/specs/extensions/userhost-in-names)
+    * [`UTF8ONLY`](https://ircv3.net/specs/extensions/utf8-only)
+    * [`WHOX`](https://ircv3.net/specs/extensions/whox)
 * SASL support
 * DCC Send
 * Keyboard shortcuts

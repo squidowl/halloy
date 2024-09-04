@@ -13,6 +13,7 @@ use url::Url;
 pub use self::formatting::Formatting;
 pub use self::source::Source;
 
+use crate::config::buffer::UsernameFormat;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, Config, User};
@@ -150,7 +151,18 @@ pub struct Message {
 impl Message {
     pub fn triggers_unread(&self) -> bool {
         matches!(self.direction, Direction::Received)
-            && matches!(self.target.source(), Source::User(_) | Source::Action)
+            && match self.target.source() {
+                Source::User(_) => true,
+                Source::Action => true,
+                Source::Server(Some(server)) => {
+                    matches!(
+                        server.kind(),
+                        source::server::Kind::MonitoredOnline
+                            | source::server::Kind::MonitoredOffline
+                    )
+                }
+                _ => false,
+            }
     }
 
     pub fn received(
@@ -520,6 +532,18 @@ fn target(
                 user.map(|user| user.nickname().to_owned()),
             ))),
         }),
+        Command::Numeric(RPL_MONONLINE, _) => Some(Target::Server {
+            source: source::Source::Server(Some(source::Server::new(
+                source::server::Kind::MonitoredOnline,
+                None,
+            ))),
+        }),
+        Command::Numeric(RPL_MONOFFLINE, _) => Some(Target::Server {
+            source: source::Source::Server(Some(source::Server::new(
+                source::server::Kind::MonitoredOffline,
+                None,
+            ))),
+        }),
 
         // Server
         Command::PASS(_)
@@ -559,6 +583,7 @@ fn target(
         | Command::CNOTICE(_, _, _)
         | Command::CPRIVMSG(_, _, _)
         | Command::KNOCK(_, _)
+        | Command::MONITOR(_, _)
         | Command::TAGMSG(_)
         | Command::USERIP(_)
         | Command::HELP(_)
@@ -797,6 +822,29 @@ fn content(
 
             Some(parse_fragments(format!("{user} is away{away_message}")))
         }
+        Command::Numeric(RPL_MONONLINE, params) => {
+            let targets = params
+                .get(1)?
+                .split(',')
+                .filter_map(|target| User::try_from(target).ok())
+                .map(|user| user.formatted(UsernameFormat::Full))
+                .collect::<Vec<_>>();
+
+            let targets = monitored_targets_text(targets)?;
+
+            Some(plain(format!("Monitored {targets} online")))
+        }
+        Command::Numeric(RPL_MONOFFLINE, params) => {
+            let targets = params
+                .get(1)?
+                .split(',')
+                .map(String::from)
+                .collect::<Vec<_>>();
+
+            let targets = monitored_targets_text(targets)?;
+
+            Some(plain(format!("Monitored {targets} offline")))
+        }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => Some(parse_fragments(
             responses
                 .iter()
@@ -848,6 +896,21 @@ pub fn action_text(nick: NickRef, action: Option<&str>) -> Content {
         parse_fragments(format!("{nick} {action}"))
     } else {
         plain(format!("{nick}"))
+    }
+}
+
+fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
+    let (last_target, targets) = targets.split_last()?;
+
+    if targets.is_empty() {
+        Some(format!("user {last_target} is"))
+    } else if targets.len() == 1 {
+        Some(format!("users {} and {last_target} are", targets.first()?))
+    } else {
+        Some(format!(
+            "users {}, and {last_target} are",
+            targets.join(", ")
+        ))
     }
 }
 

@@ -86,6 +86,9 @@ pub struct Server {
         deserialize_with = "deserialize_duration_from_u64"
     )]
     pub who_retry_interval: Duration,
+    /// A list of nicknames to monitor (if MONITOR is supported by the server).
+    #[serde(default)]
+    pub monitor: Vec<String>,
 }
 
 impl Server {
@@ -161,6 +164,7 @@ impl Default for Server {
             on_connect: Default::default(),
             who_poll_interval: default_who_poll_interval(),
             who_retry_interval: default_who_retry_interval(),
+            monitor: Default::default(),
         }
     }
 }

@@ -65,6 +65,8 @@ pub mod server {
         Quit,
         ReplyTopic,
         ChangeHost,
+        MonitoredOnline,
+        MonitoredOffline,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
