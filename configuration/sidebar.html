@@ -192,14 +192,18 @@
                         <h1 id="sidebar"><a class="header" href="#sidebar">Sidebar</a></h1>
 <h2 id="sidebar-section"><a class="header" href="#sidebar-section"><code>[sidebar]</code> Section</a></h2>
 <pre><code class="language-toml">[sidebar]
-default_action = "new-pane" | "replace-pane"
+buffer_action = "new-pane" | "replace-pane"
+buffer_focused_action = "close-pane"
+unread_indicators = "dot" | "title" | "none"
+position = "left" | "right" | "top" | "bottom"
 width = &lt;integer&gt;
-show_unread_indicators = true | false
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
-<tr><td><code>default_action</code></td><td>Action when selecting buffers in the sidebar. Can be <code>"new-pane"</code> or <code>"replace-pane"</code>.</td><td><code>"new-pane"</code></td></tr>
-<tr><td><code>width</code></td><td>Specify sidebar width in pixels.</td><td><code>120</code></td></tr>
-<tr><td><code>show_unread_indicators</code></td><td>Unread buffer indicators</td><td><code>true</code></td></tr>
+<tr><td><code>buffer_action</code></td><td>Action when pressing buffers in the sidebar. <code>"new-pane"</code> opens a new pane, and <code>"replace-pane"</code> replaces the focused pane</td><td><code>"new-pane"</code></td></tr>
+<tr><td><code>buffer_focused_action</code></td><td>Action when pressing a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</td><td><code>not set</code></td></tr>
+<tr><td><code>unread_indicators</code></td><td>Unread buffer indicator style.</td><td><code>"dot"</code></td></tr>
+<tr><td><code>position</code></td><td>Sidebar position.</td><td><code>"left"</code></td></tr>
+<tr><td><code>width</code></td><td>Specify sidebar width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</td><td><code>120</code></td></tr>
 </tbody></table>
 </div>
 <h2 id="sidebarbuttons-section"><a class="header" href="#sidebarbuttons-section"><code>[sidebar.buttons]</code> Section</a></h2>

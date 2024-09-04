@@ -210,24 +210,64 @@
 <blockquote>
 <p>💡  The configuration direction can be found <a href="../../configuration/">here</a>.</p>
 </blockquote>
-<p>A custom theme is structured as follows.</p>
-<pre><code class="language-toml">name = "&lt;string&gt;"
-
-[palette]
+<p>Each <code>"&lt;string&gt;"</code> is expected to be a valid hex color. If invalid, or if the key is removed, the color will fallback to transparent. A custom theme is structured as follows:</p>
+<pre><code class="language-toml">[general]
 background = "&lt;string&gt;"
-text = "&lt;string&gt;"
-action = "&lt;string&gt;"
-accent = "&lt;string&gt;"
-alert = "&lt;string&gt;"
-error = "&lt;string&gt;"
-info = "&lt;string&gt;"
+border = "&lt;string&gt;"
+horizontal_rule = "&lt;string&gt;"
+unread_indicator = "&lt;string&gt;"
+
+[text]
+primary = "&lt;string&gt;"
+secondary = "&lt;string&gt;"
+tertiary = "&lt;string&gt;"
 success = "&lt;string&gt;"
+error = "&lt;string&gt;"
+
+[buttons.primary]
+background = "&lt;string&gt;"
+background_hover = "&lt;string&gt;"
+background_selected = "&lt;string&gt;"
+background_selected_hover = "&lt;string&gt;"
+
+[buttons.secondary]
+background = "&lt;string&gt;"
+background_hover = "&lt;string&gt;"
+background_selected = "&lt;string&gt;"
+background_selected_hover = "&lt;string&gt;"
+
+[buffer]
+action = "&lt;string&gt;"
+background = "&lt;string&gt;"
+background_text_input = "&lt;string&gt;"
+background_title_bar = "&lt;string&gt;"
+border = "&lt;string&gt;"
+border_selected = "&lt;string&gt;"
+code = "&lt;string&gt;"
+highlight = "&lt;string&gt;"
+nickname = "&lt;string&gt;"
+selection = "&lt;string&gt;"
+timestamp = "&lt;string&gt;"
+topic = "&lt;string&gt;"
+url = "&lt;string&gt;"
+
+[buffer.server_messages]
+# Set below if you want to have a unique color for each.
+# Otherwise simply set `default` to use that for all server messages.
+#
+# change_host = "&lt;string&gt;"
+# join = "&lt;string&gt;"
+# part = "&lt;string&gt;"
+# quit = "&lt;string&gt;"
+# reply_topic = "&lt;string&gt;"
+# monitored_online = "&lt;string&gt;"
+# monitored_offline = "&lt;string&gt;"
+default = "&lt;string&gt;"
 </code></pre>
-<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>name</code></td><td>Name of the theme to use</td></tr>
-<tr><td><code>palette</code></td><td>Colors expect a hex color string. Eg: <code>"#2b292d"</code></td></tr>
-</tbody></table>
-</div>
+<blockquote>
+<p>💡  The default Ferra theme toml file can be viewed <a href="https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml">here</a>.</p>
+</blockquote>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

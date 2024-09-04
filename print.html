@@ -189,26 +189,28 @@
                     <main>
                         <h1 id="halloy"><a class="header" href="#halloy">Halloy</a></h1>
 <img src="images/banner-logo.png" style="width: 100%">
+<p><img src="./images/animation.gif" alt="halloy" /></p>
 <p><strong>Halloy</strong> is an open-source IRC client written in Rust, with the <a href="https://github.com/iced-rs/iced/">iced</a> GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.</p>
 <ul>
 <li>IRCv3.2 capabilities
 <ul>
+<li><a href="https://ircv3.net/specs/extensions/account-notify">account-notify</a></li>
 <li><a href="https://ircv3.net/specs/extensions/away-notify">away-notify</a></li>
 <li><a href="https://ircv3.net/specs/extensions/batch">batch</a></li>
-<li><a href="https://ircv3.net/specs/extensions/server-time">server-time</a></li>
-<li><a href="https://ircv3.net/specs/extensions/labeled-response">labeled-response</a></li>
-<li><a href="https://ircv3.net/specs/extensions/echo-message">echo-message</a></li>
-<li><a href="https://ircv3.net/specs/extensions/invite-notify">invite-notify</a></li>
-<li><a href="https://ircv3.net/specs/extensions/userhost-in-names">userhost-in-names</a></li>
-<li><a href="https://ircv3.net/specs/extensions/sasl-3.1">sasl-3.1</a></li>
 <li><a href="https://ircv3.net/specs/extensions/capability-negotiation.html#cap-notify">cap-notify</a></li>
-<li><a href="https://ircv3.net/specs/extensions/multi-prefix">multi-prefix</a></li>
-<li><a href="https://ircv3.net/specs/extensions/message-tags">message-tags</a></li>
-<li><a href="https://ircv3.net/specs/extensions/whox"><code>WHOX</code></a></li>
-<li><a href="https://ircv3.net/specs/extensions/utf8-only"><code>UTF8ONLY</code></a></li>
 <li><a href="https://ircv3.net/specs/extensions/chghost">chghost</a></li>
-<li><a href="https://ircv3.net/specs/extensions/account-notify">account-notify</a></li>
+<li><a href="https://ircv3.net/specs/extensions/echo-message">echo-message</a></li>
 <li><a href="https://ircv3.net/specs/extensions/extended-join">extended-join</a></li>
+<li><a href="https://ircv3.net/specs/extensions/invite-notify">invite-notify</a></li>
+<li><a href="https://ircv3.net/specs/extensions/labeled-response">labeled-response</a></li>
+<li><a href="https://ircv3.net/specs/extensions/message-tags">message-tags</a></li>
+<li><a href="https://ircv3.net/specs/extensions/monitor">Monitor</a></li>
+<li><a href="https://ircv3.net/specs/extensions/multi-prefix">multi-prefix</a></li>
+<li><a href="https://ircv3.net/specs/extensions/sasl-3.1">sasl-3.1</a></li>
+<li><a href="https://ircv3.net/specs/extensions/server-time">server-time</a></li>
+<li><a href="https://ircv3.net/specs/extensions/userhost-in-names">userhost-in-names</a></li>
+<li><a href="https://ircv3.net/specs/extensions/utf8-only"><code>UTF8ONLY</code></a></li>
+<li><a href="https://ircv3.net/specs/extensions/whox"><code>WHOX</code></a></li>
 </ul>
 </li>
 <li>SASL support</li>
@@ -319,24 +321,17 @@ enabled = true
 <div style="break-before: page; page-break-before: always;"></div><h1 id="buffer"><a class="header" href="#buffer">Buffer</a></h1>
 <h2 id="buffer-section"><a class="header" href="#buffer-section"><code>[buffer]</code> Section</a></h2>
 <h2 id="buffernickname-section"><a class="header" href="#buffernickname-section"><code>[buffer.nickname]</code> Section</a></h2>
-<h3 id="buffernicknamecolor-section"><a class="header" href="#buffernicknamecolor-section"><code>[buffer.nickname.color]</code> Section</a></h3>
-<pre><code class="language-toml">[buffer.nickname.color]
-kind = "unique" | "solid"
-hex = "&lt;string&gt;"
+<pre><code class="language-toml">[buffer.nickname]
+alignment = "left" | "right" 
+color = "unique" | "solid"
+brackets = { left = "&lt;string&gt;", right = "&lt;string&gt;" }
+show_access_levels = true | false
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
-<tr><td><code>kind</code></td><td>Controls whether nickname color is <code>"solid"</code> or <code>"unique"</code>. <code>"unique"</code> generates colors by randomzing a hue which is used together with the saturation and lightness from the action color provided by the theme. This color can be overwritten with <code>hex</code>.</td><td><code>kind = "unique"</code></td></tr>
-<tr><td><code>hex</code></td><td>Overwrite the default color. Optional.</td><td><code>not set</code></td></tr>
-</tbody></table>
-</div>
-<h3 id="buffernicknamebrackets-section"><a class="header" href="#buffernicknamebrackets-section"><code>[buffer.nickname.brackets]</code> Section</a></h3>
-<pre><code class="language-toml">[buffer.nickname.brackets]
-left = "&lt;string&gt;"
-right = "&lt;string&gt;"
-</code></pre>
-<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
-<tr><td><code>left</code></td><td>Left bracket for nicknames.</td><td><code>left = ""</code></td></tr>
-<tr><td><code>right</code></td><td>Right bracket for nicknames.</td><td><code>right = ""</code></td></tr>
+<tr><td><code>alignment</code></td><td>Alignment option for nicknames in buffer.</td><td><code>"left"</code></td></tr>
+<tr><td><code>color</code></td><td>Controls whether nickname color is <code>"solid"</code> or <code>"unique"</code>. <code>"unique"</code> generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme.</td><td><code>"unique"</code></td></tr>
+<tr><td><code>brackets</code></td><td>Brackets for nicknames.</td><td><code>{ left = "", right = "" }</code></td></tr>
+<tr><td><code>show_access_levels</code></td><td>Show access levels (@, +, ~, etc.) on nicknames</td><td><code>true</code></td></tr>
 </tbody></table>
 </div>
 <h2 id="buffertimestamp-section"><a class="header" href="#buffertimestamp-section"><code>[buffer.timestamp]</code> Section</a></h2>
@@ -346,7 +341,14 @@ brackets = { left = "&lt;string&gt;", right = "&lt;string&gt;" }
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
 <tr><td><code>format</code></td><td>Format expected is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>. To disable, simply pass empty string <code>""</code>.</td><td><code>"%R"</code></td></tr>
-<tr><td><code>brackets</code></td><td>Brackets for nicknames</td><td><code>{ left = "", right = "" }</code></td></tr>
+<tr><td><code>brackets</code></td><td>Brackets for timestamps.</td><td><code>{ left = "", right = "" }</code></td></tr>
+</tbody></table>
+</div>
+<pre><code class="language-toml">[buffer.status_message_prefix]
+brackets = { left = "&lt;string&gt;", right = "&lt;string&gt;" }
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>brackets</code></td><td>Brackets for status message prefixes (uncommon).</td><td><code>{ left = "", right = "" }</code></td></tr>
 </tbody></table>
 </div>
 <h2 id="buffertext_input-section"><a class="header" href="#buffertext_input-section"><code>[buffer.text_input]</code> Section</a></h2>
@@ -364,20 +366,19 @@ auto_format = "disabled" | "markdown" | "all"
 <pre><code class="language-toml">[buffer.channel.nicklist]
 enabled = true | false
 position = "left" | "right"
+alignment = "left" | "right"
+color = "unique" | "solid"
+width = &lt;number&gt;
+show_access_levels = true | false
+
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
 <tr><td><code>enabled</code></td><td>Control if nicklist should be shown or not</td><td><code>true</code></td></tr>
 <tr><td><code>position</code></td><td>Nicklist position. Can be <code>"left"</code> or <code>"right"</code>.</td><td><code>"right"</code></td></tr>
-</tbody></table>
-</div>
-<h3 id="bufferchannelnicklistcolor-section"><a class="header" href="#bufferchannelnicklistcolor-section"><code>[buffer.channel.nicklist.color]</code> Section</a></h3>
-<pre><code class="language-toml">[buffer.channel.nicklist.color]
-kind = "unique" | "solid"
-hex = "&lt;string&gt;"
-</code></pre>
-<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
-<tr><td><code>kind</code></td><td>Controls whether nickname color is <code>"solid"</code> or <code>"unique"</code>. <code>"unique"</code> generates colors by randomzing a hue which is used together with the saturation and lightness from the action color provided by the theme. This color can be overwritten with <code>hex</code>.</td><td><code>kind = "unique"</code></td></tr>
-<tr><td><code>hex</code></td><td>Overwrite the default color. Optional.</td><td><code>not set</code></td></tr>
+<tr><td><code>alignment</code></td><td>Horizontal nicknames alignment</td><td><code>"left"</code></td></tr>
+<tr><td><code>color</code></td><td>Controls whether nickname color is <code>"solid"</code> or <code>"unique"</code>. <code>"unique"</code> generates colors by randomzing a hue which is used together with the saturation and lightness from the nickname color provided by the theme.</td><td><code>"unique"</code></td></tr>
+<tr><td><code>width</code></td><td>Overwrite nicklist width in pixels</td><td><code>not set</code></td></tr>
+<tr><td><code>show_access_levels</code></td><td>Show access levels (@, +, ~, etc.) on nicknames</td><td><code>true</code></td></tr>
 </tbody></table>
 </div>
 <h3 id="bufferchanneltopic-section"><a class="header" href="#bufferchanneltopic-section"><code>[buffer.channel.topic]</code> Section</a></h3>
@@ -395,46 +396,50 @@ max_lines = &lt;integer&gt;
 enabled = true | false
 smart = &lt;integer&gt;
 username_format = "full" | "short"
-hex = "&lt;string&gt;"
 </code></pre>
 <pre><code class="language-toml">[buffer.server_messages.part]
 enabled = true | false
 smart = &lt;integer&gt;
 username_format = "full" | "short"
-hex = "&lt;string&gt;"
 </code></pre>
 <pre><code class="language-toml">[buffer.server_messages.quit]
 enabled = true | false
 smart = &lt;integer&gt;
 username_format = "full" | "short"
-hex = "&lt;string&gt;"
 </code></pre>
 <pre><code class="language-toml">[buffer.server_messages.topic]
 enabled = true | false
-hex = "&lt;string&gt;"
+</code></pre>
+<pre><code class="language-toml">[buffer.server_messages.change_host]
+enabled = true | false
+smart = &lt;integer&gt;
+</code></pre>
+<pre><code class="language-toml">[buffer.server_messages.monitored_online]
+enabled = true | false
+smart = &lt;integer&gt;
+</code></pre>
+<pre><code class="language-toml">[buffer.server_messages.monitored_offline]
+enabled = true | false
+smart = &lt;integer&gt;
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
 <tr><td><code>enabled</code></td><td>Control if the server message should appear in buffers or not</td><td><code>true</code></td></tr>
 <tr><td><code>smart</code></td><td>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</td><td><code>not set</code></td></tr>
 <tr><td><code>username_format</code></td><td>Adjust how the username should look. Can be <code>"full"</code> (shows the longest username available (nickname, username and hostname) or <code>"short"</code> (only shows nickname).</td><td><code>"full"</code></td></tr>
-<tr><td><code>hex</code></td><td>Overwrite the default color. Optional.</td><td><code>not set</code></td></tr>
 </tbody></table>
 </div>
 <h2 id="bufferinternal_messages-section"><a class="header" href="#bufferinternal_messages-section"><code>[buffer.internal_messages]</code> Section</a></h2>
 <pre><code class="language-toml">[buffer.internal_messages.success]
 enabled = true | false
 smart = &lt;integer&gt;
-hex = "&lt;string&gt;"
 </code></pre>
 <pre><code class="language-toml">[buffer.internal_messages.error]
 enabled = true | false
 smart = &lt;integer&gt;
-hex = "&lt;string&gt;"
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
 <tr><td><code>enabled</code></td><td>Control if the internal message should appear in buffers or not</td><td><code>true</code></td></tr>
 <tr><td><code>smart</code></td><td>Only show internal message if received within the given time duration (seconds).</td><td><code>not set</code></td></tr>
-<tr><td><code>hex</code></td><td>Overwrite the default color. Optional.</td><td><code>not set</code></td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="file-transfer"><a class="header" href="#file-transfer">File Transfer</a></h1>
 <h2 id="file_transfer-section"><a class="header" href="#file_transfer-section"><code>[file_transfer]</code> Section</a></h2>
@@ -537,6 +542,7 @@ sound = "barbaz.ogg"
 <li><code>connected</code></li>
 <li><code>disconnected</code></li>
 <li><code>reconnected</code></li>
+<li><code>direct_message</code></li>
 <li><code>highlight</code></li>
 <li><code>file_transfer_request</code></li>
 </ul>
@@ -633,6 +639,7 @@ channels = ["#halloy"]
 <tr><td style="text-align: left"><code>on_connect</code></td><td style="text-align: left">Commands which are executed once connected. Example. <code>["/msg NickServ IDENTIFY foo bar"]</code>.</td><td style="text-align: left"><code>[]</code></td></tr>
 <tr><td style="text-align: left"><code>who_poll_interval</code></td><td style="text-align: left">WHO poll interval (in seconds) for servers without away-notify.</td><td style="text-align: left"><code>180</code><sup class="footnote-reference"><a href="#2">2</a></sup></td></tr>
 <tr><td style="text-align: left"><code>who_retry_interval</code></td><td style="text-align: left">WHO retry interval (in seconds) for servers without away-notify.</td><td style="text-align: left"><code>10</code><sup class="footnote-reference"><a href="#2">2</a></sup></td></tr>
+<tr><td style="text-align: left"><code>monitor</code></td><td style="text-align: left">A list of nicknames to monitor (if IRCv3 Monitor<sup class="footnote-reference"><a href="#3">3</a></sup> is supported by the server).</td><td style="text-align: left"><code>[]</code></td></tr>
 </tbody></table>
 </div>
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
@@ -640,6 +647,9 @@ channels = ["#halloy"]
 </div>
 <div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
 <p>Limited between <code>5</code> and <code>3600</code> seconds.</p>
+</div>
+<div class="footnote-definition" id="3"><sup class="footnote-definition-label">3</sup>
+<p><a href="https://ircv3.net/specs/extensions/monitor">https://ircv3.net/specs/extensions/monitor</a></p>
 </div>
 <h2 id="serverssasl-section"><a class="header" href="#serverssasl-section"><code>[servers.sasl]</code> Section</a></h2>
 <h3 id="saslplain"><a class="header" href="#saslplain"><code>[sasl.plain]</code>:</a></h3>
@@ -675,14 +685,18 @@ key = "&lt;string&gt;"
 <div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar">Sidebar</a></h1>
 <h2 id="sidebar-section"><a class="header" href="#sidebar-section"><code>[sidebar]</code> Section</a></h2>
 <pre><code class="language-toml">[sidebar]
-default_action = "new-pane" | "replace-pane"
+buffer_action = "new-pane" | "replace-pane"
+buffer_focused_action = "close-pane"
+unread_indicators = "dot" | "title" | "none"
+position = "left" | "right" | "top" | "bottom"
 width = &lt;integer&gt;
-show_unread_indicators = true | false
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
-<tr><td><code>default_action</code></td><td>Action when selecting buffers in the sidebar. Can be <code>"new-pane"</code> or <code>"replace-pane"</code>.</td><td><code>"new-pane"</code></td></tr>
-<tr><td><code>width</code></td><td>Specify sidebar width in pixels.</td><td><code>120</code></td></tr>
-<tr><td><code>show_unread_indicators</code></td><td>Unread buffer indicators</td><td><code>true</code></td></tr>
+<tr><td><code>buffer_action</code></td><td>Action when pressing buffers in the sidebar. <code>"new-pane"</code> opens a new pane, and <code>"replace-pane"</code> replaces the focused pane</td><td><code>"new-pane"</code></td></tr>
+<tr><td><code>buffer_focused_action</code></td><td>Action when pressing a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</td><td><code>not set</code></td></tr>
+<tr><td><code>unread_indicators</code></td><td>Unread buffer indicator style.</td><td><code>"dot"</code></td></tr>
+<tr><td><code>position</code></td><td>Sidebar position.</td><td><code>"left"</code></td></tr>
+<tr><td><code>width</code></td><td>Specify sidebar width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</td><td><code>120</code></td></tr>
 </tbody></table>
 </div>
 <h2 id="sidebarbuttons-section"><a class="header" href="#sidebarbuttons-section"><code>[sidebar.buttons]</code> Section</a></h2>
@@ -717,62 +731,84 @@ reload_config = true | false
 <blockquote>
 <p>💡  The configuration direction can be found <a href="configuration/themes/../../configuration/">here</a>.</p>
 </blockquote>
-<p>A custom theme is structured as follows.</p>
-<pre><code class="language-toml">name = "&lt;string&gt;"
-
-[palette]
+<p>Each <code>"&lt;string&gt;"</code> is expected to be a valid hex color. If invalid, or if the key is removed, the color will fallback to transparent. A custom theme is structured as follows:</p>
+<pre><code class="language-toml">[general]
 background = "&lt;string&gt;"
-text = "&lt;string&gt;"
-action = "&lt;string&gt;"
-accent = "&lt;string&gt;"
-alert = "&lt;string&gt;"
-error = "&lt;string&gt;"
-info = "&lt;string&gt;"
+border = "&lt;string&gt;"
+horizontal_rule = "&lt;string&gt;"
+unread_indicator = "&lt;string&gt;"
+
+[text]
+primary = "&lt;string&gt;"
+secondary = "&lt;string&gt;"
+tertiary = "&lt;string&gt;"
 success = "&lt;string&gt;"
+error = "&lt;string&gt;"
+
+[buttons.primary]
+background = "&lt;string&gt;"
+background_hover = "&lt;string&gt;"
+background_selected = "&lt;string&gt;"
+background_selected_hover = "&lt;string&gt;"
+
+[buttons.secondary]
+background = "&lt;string&gt;"
+background_hover = "&lt;string&gt;"
+background_selected = "&lt;string&gt;"
+background_selected_hover = "&lt;string&gt;"
+
+[buffer]
+action = "&lt;string&gt;"
+background = "&lt;string&gt;"
+background_text_input = "&lt;string&gt;"
+background_title_bar = "&lt;string&gt;"
+border = "&lt;string&gt;"
+border_selected = "&lt;string&gt;"
+code = "&lt;string&gt;"
+highlight = "&lt;string&gt;"
+nickname = "&lt;string&gt;"
+selection = "&lt;string&gt;"
+timestamp = "&lt;string&gt;"
+topic = "&lt;string&gt;"
+url = "&lt;string&gt;"
+
+[buffer.server_messages]
+# Set below if you want to have a unique color for each.
+# Otherwise simply set `default` to use that for all server messages.
+#
+# change_host = "&lt;string&gt;"
+# join = "&lt;string&gt;"
+# part = "&lt;string&gt;"
+# quit = "&lt;string&gt;"
+# reply_topic = "&lt;string&gt;"
+# monitored_online = "&lt;string&gt;"
+# monitored_offline = "&lt;string&gt;"
+default = "&lt;string&gt;"
 </code></pre>
-<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>name</code></td><td>Name of the theme to use</td></tr>
-<tr><td><code>palette</code></td><td>Colors expect a hex color string. Eg: <code>"#2b292d"</code></td></tr>
-</tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="community"><a class="header" href="#community">Community</a></h1>
+<blockquote>
+<p>💡  The default Ferra theme toml file can be viewed <a href="https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml">here</a>.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="community"><a class="header" href="#community">Community</a></h1>
 <p>This is a list of community created themes for Halloy.</p>
 <blockquote>
 <p>💡 Have a great theme you want to share? Open a pull-request <a href="https://github.com/squidowl/halloy/pulls">here</a>.</p>
 </blockquote>
 <h2 id="oxocarbon---save"><a class="header" href="#oxocarbon---save">Oxocarbon - <a href="configuration/themes/oxocarbon.toml">Save</a></a></h2>
 <img src="configuration/themes/oxocarbon.png">
-<h2 id="zenburn---save"><a class="header" href="#zenburn---save">Zenburn - <a href="configuration/themes/zenburn.toml">Save</a></a></h2>
-<img src="configuration/themes/zenburn.png">
-<h2 id="material---save"><a class="header" href="#material---save">Material - <a href="configuration/themes/material.toml">Save</a></a></h2>
-<img src="configuration/themes/material.png">
-<h2 id="oceanic-next---save"><a class="header" href="#oceanic-next---save">Oceanic Next - <a href="configuration/themes/oceanic-next.toml">Save</a></a></h2>
-<img src="configuration/themes/oceanic-next.png">
-<h2 id="tomorrow-night---save"><a class="header" href="#tomorrow-night---save">Tomorrow Night - <a href="configuration/themes/tomorrow-night.toml">Save</a></a></h2>
-<img src="configuration/themes/tomorrow-night.png">
-<h2 id="monokai-pro---save"><a class="header" href="#monokai-pro---save">Monokai Pro - <a href="configuration/themes/monokai-pro.toml">Save</a></a></h2>
-<img src="configuration/themes/monokai-pro.png">
-<h2 id="one-dark-pro---save"><a class="header" href="#one-dark-pro---save">One Dark Pro - <a href="configuration/themes/one-dark-pro.toml">Save</a></a></h2>
-<img src="configuration/themes/one-dark-pro.png">
-<h2 id="nord---save"><a class="header" href="#nord---save">Nord - <a href="configuration/themes/nord.toml">Save</a></a></h2>
-<img src="configuration/themes/nord.png">
-<h2 id="solarized-dark---save"><a class="header" href="#solarized-dark---save">Solarized (Dark) - <a href="configuration/themes/solarized-dark.toml">Save</a></a></h2>
-<img src="configuration/themes/solarized-dark.png">
-<h2 id="harmony-dark---save"><a class="header" href="#harmony-dark---save">Harmony (Dark) - <a href="configuration/themes/harmony-dark.toml">Save</a></a></h2>
-<img src="configuration/themes/harmony-dark.png">
 <h2 id="dracula---save"><a class="header" href="#dracula---save">Dracula - <a href="configuration/themes/dracula.toml">Save</a></a></h2>
 <img src="configuration/themes/dracula.png">
 <h2 id="gruvbox---save"><a class="header" href="#gruvbox---save">Gruvbox - <a href="configuration/themes/gruvbox.toml">Save</a></a></h2>
 <img src="configuration/themes/gruvbox.png">
-<h2 id="kanagawa---save"><a class="header" href="#kanagawa---save">Kanagawa - <a href="configuration/themes/kanagawa.toml">Save</a></a></h2>
-<img src="configuration/themes/kanagawa.png">
-<h2 id="boo-berry---save"><a class="header" href="#boo-berry---save">Boo berry - <a href="configuration/themes/boo-berry.toml">Save</a></a></h2>
-<img src="configuration/themes/boo-berry.png">
-<h2 id="catppuccin-frappe---save"><a class="header" href="#catppuccin-frappe---save">Catppuccin Frappe - <a href="configuration/themes/catppuccin-frappe.toml">Save</a></a></h2>
-<img src="configuration/themes/catppuccin-frappe.png">
+<h2 id="catppuccin-latte---save"><a class="header" href="#catppuccin-latte---save">Catppuccin Latte - <a href="configuration/themes/catppuccin-latte.toml">Save</a></a></h2>
+<img src="configuration/themes/catppuccin-latte.png">
 <h2 id="catppuccin-macchiato---save"><a class="header" href="#catppuccin-macchiato---save">Catppuccin Macchiato - <a href="configuration/themes/catppuccin-macchiato.toml">Save</a></a></h2>
 <img src="configuration/themes/catppuccin-macchiato.png">
 <h2 id="catppuccin-mocha---save"><a class="header" href="#catppuccin-mocha---save">Catppuccin Mocha - <a href="configuration/themes/catppuccin-mocha.toml">Save</a></a></h2>
 <img src="configuration/themes/catppuccin-mocha.png">
+<h2 id="ferra-light---save"><a class="header" href="#ferra-light---save">Ferra Light - <a href="configuration/themes/ferra-light.toml">Save</a></a></h2>
+<img src="configuration/themes/ferra-light.png">
+<h2 id="booberry---save"><a class="header" href="#booberry---save">Booberry - <a href="configuration/themes/booberry.toml">Save</a></a></h2>
+<img src="configuration/themes/booberry.png">
 <div style="break-before: page; page-break-before: always;"></div><h1 id="tooltips"><a class="header" href="#tooltips">Tooltips</a></h1>
 <pre><code class="language-toml">tooltips = true | false
 </code></pre>
