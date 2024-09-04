@@ -144,7 +144,7 @@ impl Dashboard {
                                     let command = data::Command::Mode(
                                         target,
                                         Some(mode),
-                                        vec![nick.to_string()],
+                                        Some(vec![nick.to_string()]),
                                     );
                                     let input = data::Input::command(buffer.clone(), command);
 

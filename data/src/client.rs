@@ -949,7 +949,7 @@ impl Client {
                     }
                 }
             }
-            Command::MODE(target, Some(modes), args) => {
+            Command::MODE(target, Some(modes), Some(args)) => {
                 if proto::is_channel(target) {
                     let modes = mode::parse::<mode::Channel>(modes, args);
 
@@ -1519,7 +1519,11 @@ fn remove_tag(key: &str, tags: &mut Vec<irc::proto::Tag>) -> Option<String> {
 fn start_reroute(command: &Command) -> bool {
     use Command::*;
 
-    matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..))
+    if let MODE(target, _, _) = command {
+        !proto::is_channel(target)
+    } else {
+        matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..))
+    }
 }
 
 fn stop_reroute(command: &Command) -> bool {
@@ -1535,7 +1539,10 @@ fn stop_reroute(command: &Command) -> bool {
                 | ERR_NOSUCHSERVER
                 | ERR_NONICKNAMEGIVEN
                 | ERR_WASNOSUCHNICK
-                | ERR_NEEDMOREPARAMS,
+                | ERR_NEEDMOREPARAMS
+                | ERR_USERSDONTMATCH
+                | RPL_UMODEIS
+                | ERR_UMODEUNKNOWNFLAG,
             _
         )
     )
