@@ -127,8 +127,8 @@ pub fn view<'a>(
 
                         Some(
                             row![]
-                                .push(container(row![].push_maybe(timestamp).push_maybe(prefix)))
-                                .push(container(row![nick, space, text]).style(move |theme| {
+                                .push(container(row![].push_maybe(timestamp).push_maybe(prefix).push(nick).push(space)))
+                                .push(container(text).style(move |theme| {
                                     match our_nick {
                                         Some(nick)
                                             if message::reference_user(
