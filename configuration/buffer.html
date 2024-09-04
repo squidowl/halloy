@@ -285,6 +285,14 @@ enabled = true | false
 enabled = true | false
 smart = &lt;integer&gt;
 </code></pre>
+<pre><code class="language-toml">[buffer.server_messages.monitored_online]
+enabled = true | false
+smart = &lt;integer&gt;
+</code></pre>
+<pre><code class="language-toml">[buffer.server_messages.monitored_offline]
+enabled = true | false
+smart = &lt;integer&gt;
+</code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead><tbody>
 <tr><td><code>enabled</code></td><td>Control if the server message should appear in buffers or not</td><td><code>true</code></td></tr>
 <tr><td><code>smart</code></td><td>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</td><td><code>not set</code></td></tr>

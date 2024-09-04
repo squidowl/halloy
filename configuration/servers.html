@@ -223,6 +223,7 @@ channels = ["#halloy"]
 <tr><td style="text-align: left"><code>on_connect</code></td><td style="text-align: left">Commands which are executed once connected. Example. <code>["/msg NickServ IDENTIFY foo bar"]</code>.</td><td style="text-align: left"><code>[]</code></td></tr>
 <tr><td style="text-align: left"><code>who_poll_interval</code></td><td style="text-align: left">WHO poll interval (in seconds) for servers without away-notify.</td><td style="text-align: left"><code>180</code><sup class="footnote-reference"><a href="#2">2</a></sup></td></tr>
 <tr><td style="text-align: left"><code>who_retry_interval</code></td><td style="text-align: left">WHO retry interval (in seconds) for servers without away-notify.</td><td style="text-align: left"><code>10</code><sup class="footnote-reference"><a href="#2">2</a></sup></td></tr>
+<tr><td style="text-align: left"><code>monitor</code></td><td style="text-align: left">A list of nicknames to monitor (if IRCv3 Monitor<sup class="footnote-reference"><a href="#3">3</a></sup> is supported by the server).</td><td style="text-align: left"><code>[]</code></td></tr>
 </tbody></table>
 </div>
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
@@ -230,6 +231,9 @@ channels = ["#halloy"]
 </div>
 <div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
 <p>Limited between <code>5</code> and <code>3600</code> seconds.</p>
+</div>
+<div class="footnote-definition" id="3"><sup class="footnote-definition-label">3</sup>
+<p><a href="https://ircv3.net/specs/extensions/monitor">https://ircv3.net/specs/extensions/monitor</a></p>
 </div>
 <h2 id="serverssasl-section"><a class="header" href="#serverssasl-section"><code>[servers.sasl]</code> Section</a></h2>
 <h3 id="saslplain"><a class="header" href="#saslplain"><code>[sasl.plain]</code>:</a></h3>
