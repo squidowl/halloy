@@ -38,7 +38,7 @@ channels = ["#halloy"]
 | `on_connect`                       | Commands which are executed once connected. Example. `["/msg NickServ IDENTIFY foo bar"]`.          | `[]`        |
 | `who_poll_interval`                | WHO poll interval (in seconds) for servers without away-notify.                                     | `180`[^2]   |
 | `who_retry_interval`               | WHO retry interval (in seconds) for servers without away-notify.                                    | `10`[^2]    |
-| `monitor`                          | A list of nicknames to monitor (if IRCv3 Monitor[^3] is supported by the server).                   | `[""]`      |
+| `monitor`                          | A list of nicknames to monitor (if IRCv3 Monitor[^3] is supported by the server).                   | `[]`      |
 
 [^1]: Shell expansions (e.g. `"~/"` → `"/home/user/"`) are not supported in path strings.
 [^2]: Limited between `5` and `3600` seconds.
