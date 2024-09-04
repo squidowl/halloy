@@ -6,7 +6,7 @@ use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
 
 pub fn view<'a, Message: 'a>(config: &'a Config, sidebar: &'a sidebar::Sidebar) -> Element<'a, Message> {
-    let arrow = sidebar.hidden.then_some(' ').unwrap_or_else(|| match config.sidebar.position {
+    let arrow = sidebar.hidden.then_some(' ').unwrap_or(match config.sidebar.position {
         data::config::sidebar::Position::Left => '⟵',
         data::config::sidebar::Position::Right => '⟶',
         data::config::sidebar::Position::Top => '↑',

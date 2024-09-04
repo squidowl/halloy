@@ -45,6 +45,12 @@ pub struct Sidebar {
     timestamp: Option<Instant>,
 }
 
+impl Default for Sidebar {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Sidebar {
     pub fn new() -> Self {
         Self {
