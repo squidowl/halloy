@@ -5,13 +5,20 @@ use iced::{alignment, Length};
 use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
 
-pub fn view<'a, Message: 'a>(config: &'a Config, sidebar: &'a sidebar::Sidebar) -> Element<'a, Message> {
-    let arrow = sidebar.hidden.then_some(' ').unwrap_or(match config.sidebar.position {
-        data::config::sidebar::Position::Left => '⟵',
-        data::config::sidebar::Position::Right => '⟶',
-        data::config::sidebar::Position::Top => '↑',
-        data::config::sidebar::Position::Bottom => '↓',
-    });
+pub fn view<'a, Message: 'a>(
+    config: &'a Config,
+    sidebar: &'a sidebar::Sidebar,
+) -> Element<'a, Message> {
+    let arrow = if sidebar.hidden {
+        ' '
+    } else {
+        match config.sidebar.position {
+            data::config::sidebar::Position::Left => '⟵',
+            data::config::sidebar::Position::Right => '⟶',
+            data::config::sidebar::Position::Top => '↑',
+            data::config::sidebar::Position::Bottom => '↓',
+        }
+    };
 
     let content = column![]
         .push(text(format!("{arrow} select buffer")).shaping(text::Shaping::Advanced))
