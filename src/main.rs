@@ -547,7 +547,8 @@ impl Halloy {
                                                     &history::Kind::Query(
                                                         user.nickname().to_owned(),
                                                     ),
-                                                ) || !&self.window.focused {
+                                                ) || !self.window.focused()
+                                                {
                                                     notification::direct_message(
                                                         &self.config.notifications,
                                                         user.nickname(),

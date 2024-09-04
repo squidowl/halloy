@@ -15,7 +15,8 @@ pub mod size;
 pub struct Window {
     pub position: Option<Position>,
     pub size: Size,
-    pub focused: bool,
+    #[serde(skip)]
+    focused: Option<bool>,
 }
 
 impl Window {
@@ -28,13 +29,19 @@ impl Window {
                 self.size = size;
             }
             Event::Focused => {
-                self.focused = true;
+                self.focused = Some(true);
             }
             Event::Unfocused => {
-                self.focused = false;
+                self.focused = Some(false);
             }
         }
         *self
+    }
+
+    pub fn focused(&self) -> bool {
+        // Assume window is initially focused until an
+        // `Event` is received to set this field
+        self.focused.unwrap_or(true)
     }
 
     pub fn load() -> Result<Self, Error> {
