@@ -615,6 +615,7 @@ impl Dashboard {
                 clients,
                 &self.file_transfers,
                 &self.history,
+                &self.side_menu,
                 config,
                 theme,
             )

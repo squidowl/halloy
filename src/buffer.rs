@@ -7,6 +7,7 @@ use self::channel::Channel;
 use self::file_transfers::FileTransfers;
 use self::query::Query;
 use self::server::Server;
+use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
 use crate::Theme;
 
@@ -106,9 +107,10 @@ impl Buffer {
         config: &'a Config,
         theme: &'a Theme,
         is_focused: bool,
+        sidebar: &'a sidebar::Sidebar,
     ) -> Element<'a, Message> {
         match self {
-            Buffer::Empty => empty::view(),
+            Buffer::Empty => empty::view(config, sidebar),
             Buffer::Channel(state) => channel::view(
                 state,
                 clients,
