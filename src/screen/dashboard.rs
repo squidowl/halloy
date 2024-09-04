@@ -1366,7 +1366,7 @@ impl Dashboard {
         }
     }
 
-    pub fn get_history(&self) -> &history::Manager {
+    pub fn history(&self) -> &history::Manager {
         &self.history
     }
 }

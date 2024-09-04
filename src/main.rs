@@ -542,7 +542,7 @@ impl Halloy {
                                             data::client::Notification::DirectMessage(user) => {
                                                 // only send notification if query has unread
                                                 // or if window is not focused
-                                                if dashboard.get_history().has_unread(
+                                                if dashboard.history().has_unread(
                                                     &server,
                                                     &history::Kind::Query(
                                                         user.nickname().to_owned(),
