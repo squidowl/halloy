@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2024.11 (2024-09-04)
+
 Added:
 
 - New configuration options
