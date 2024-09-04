@@ -1,8 +1,84 @@
-use futures::{stream::BoxStream, Stream, StreamExt};
-pub use iced::window::{close, Settings};
+use futures::{stream::BoxStream, Future, Stream, StreamExt};
 use iced::{advanced::graphics::futures::subscription, Point, Size, Subscription};
 
-use data::window::{self, Event};
+use data::window;
+
+pub use data::window::{Error, Event};
+pub use iced::window::{close, open, Id, Settings};
+use log::warn;
+
+#[derive(Debug, Clone, Copy)]
+pub enum Kind {
+    Main,
+    ThemeEditor,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Windows {
+    pub main: Window,
+    pub theme_editor: Option<Window>,
+}
+
+impl Windows {
+    pub fn kind(&self, id: Id) -> Option<Kind> {
+        if id == self.main.id {
+            Some(Kind::Main)
+        } else if self.theme_editor.as_ref().map(|w| w.id) == Some(id) {
+            Some(Kind::ThemeEditor)
+        } else {
+            None
+        }
+    }
+
+    pub fn save(&self) -> impl Future<Output = Result<(), Error>> {
+        let main = self.main;
+
+        async move { main.data.save().await }
+    }
+
+    pub fn close(&mut self, id: Id) -> Option<Kind> {
+        if id == self.main.id {
+            Some(Kind::Main)
+        } else if self.theme_editor.as_ref().map(|w| w.id) == Some(id) {
+            self.theme_editor = None;
+            Some(Kind::ThemeEditor)
+        } else {
+            None
+        }
+    }
+
+    pub fn update(&mut self, id: Id, event: Event) {
+        if id == self.main.id {
+            self.main.data.update(event);
+        } else if self.theme_editor.as_ref().map(|w| w.id) == Some(id) {
+            self.theme_editor.as_mut().unwrap().data.update(event);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Window {
+    pub id: Id,
+    pub data: data::Window,
+}
+
+impl Window {
+    pub fn new(id: Id) -> Self {
+        Self {
+            id,
+            data: data::Window::default(),
+        }
+    }
+
+    pub fn load(id: Id) -> Self {
+        Self {
+            id,
+            data: data::Window::load()
+                .inspect_err(|err| warn!("Failed to load window data, {err}"))
+                .unwrap_or_default(),
+        }
+    }
+}
 
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 pub fn settings() -> Settings {
@@ -64,24 +140,27 @@ pub fn settings() -> Settings {
     }
 }
 
-pub fn events() -> Subscription<Event> {
+pub fn events() -> Subscription<(Id, Event)> {
     subscription::from_recipe(Events)
 }
 
-enum State<T: Stream<Item = Event>> {
+enum State<T: Stream<Item = (Id, Event)>> {
     Idle {
         stream: T,
     },
     Moving {
         stream: T,
+        id: Id,
         position: window::Position,
     },
     Resizing {
         stream: T,
+        id: Id,
         size: window::Size,
     },
     MovingAndResizing {
         stream: T,
+        id: Id,
         position: window::Position,
         size: window::Size,
     },
@@ -90,7 +169,7 @@ enum State<T: Stream<Item = Event>> {
 struct Events;
 
 impl subscription::Recipe for Events {
-    type Output = Event;
+    type Output = (Id, Event);
 
     fn hash(&self, state: &mut subscription::Hasher) {
         use std::hash::Hash;
@@ -108,18 +187,18 @@ impl subscription::Recipe for Events {
         let window_events = events.filter_map(|event| {
             futures::future::ready(match event {
                 subscription::Event::Interaction {
-                    window: _,
+                    window: id,
                     event: iced::Event::Window(window_event),
                     status: _,
                 } => match window_event {
                     iced::window::Event::Moved(Point { x, y }) => {
-                        Some(Event::Moved(window::Position::new(x, y)))
+                        Some((id, Event::Moved(window::Position::new(x, y))))
                     }
                     iced::window::Event::Resized(Size { width, height }) => {
-                        Some(Event::Resized(window::Size::new(width, height)))
+                        Some((id, Event::Resized(window::Size::new(width, height))))
                     }
-                    iced::window::Event::Focused => Some(Event::Focused),
-                    iced::window::Event::Unfocused => Some(Event::Unfocused),
+                    iced::window::Event::Focused => Some((id, Event::Focused)),
+                    iced::window::Event::Unfocused => Some((id, Event::Unfocused)),
                     _ => None,
                 },
                 _ => None,
@@ -132,82 +211,105 @@ impl subscription::Recipe for Events {
             },
             move |state| async move {
                 match state {
-                    State::Idle { mut stream } => stream.next().await.map(|event| match event {
-                        Event::Moved(position) => (vec![], State::Moving { stream, position }),
-                        Event::Resized(size) => (vec![], State::Resizing { stream, size }),
-                        Event::Focused => (vec![Event::Focused], State::Idle { stream }),
-                        Event::Unfocused => (vec![Event::Unfocused], State::Idle { stream }),
-                    }),
+                    State::Idle { mut stream } => {
+                        stream.next().await.map(|(id, event)| match event {
+                            Event::Moved(position) => (
+                                vec![],
+                                State::Moving {
+                                    stream,
+                                    id,
+                                    position,
+                                },
+                            ),
+                            Event::Resized(size) => (vec![], State::Resizing { stream, id, size }),
+                            Event::Focused => (vec![(id, Event::Focused)], State::Idle { stream }),
+                            Event::Unfocused => {
+                                (vec![(id, Event::Unfocused)], State::Idle { stream })
+                            }
+                        })
+                    }
                     State::Moving {
                         mut stream,
+                        id,
                         position,
                     } => {
                         let next_event = tokio::time::timeout(TIMEOUT, stream.next()).await;
 
                         match next_event {
-                            Ok(Some(Event::Moved(position))) => {
-                                Some((vec![], State::Moving { stream, position }))
-                            }
-                            Ok(Some(Event::Resized(size))) => Some((
+                            Ok(Some((next_id, Event::Moved(position)))) if next_id == id => Some((
+                                vec![],
+                                State::Moving {
+                                    stream,
+                                    id,
+                                    position,
+                                },
+                            )),
+                            Ok(Some((next_id, Event::Resized(size)))) if next_id == id => Some((
                                 vec![],
                                 State::MovingAndResizing {
                                     stream,
+                                    id,
                                     position,
                                     size,
                                 },
                             )),
-                            Err(_) => Some((vec![Event::Moved(position)], State::Idle { stream })),
-                            _ => None,
+                            _ => Some((vec![(id, Event::Moved(position))], State::Idle { stream })),
                         }
                     }
-                    State::Resizing { mut stream, size } => {
+                    State::Resizing {
+                        mut stream,
+                        id,
+                        size,
+                    } => {
                         let next_event = tokio::time::timeout(TIMEOUT, stream.next()).await;
 
                         match next_event {
-                            Ok(Some(Event::Resized(size))) => {
-                                Some((vec![], State::Resizing { stream, size }))
+                            Ok(Some((next_id, Event::Resized(size)))) if next_id == id => {
+                                Some((vec![], State::Resizing { stream, id, size }))
                             }
-                            Ok(Some(Event::Moved(position))) => Some((
+                            Ok(Some((next_id, Event::Moved(position)))) if next_id == id => Some((
                                 vec![],
                                 State::MovingAndResizing {
                                     stream,
+                                    id,
                                     position,
                                     size,
                                 },
                             )),
-                            Err(_) => Some((vec![Event::Resized(size)], State::Idle { stream })),
-                            _ => None,
+                            _ => Some((vec![(id, Event::Resized(size))], State::Idle { stream })),
                         }
                     }
                     State::MovingAndResizing {
                         mut stream,
+                        id,
                         position,
                         size,
                     } => {
                         let next_event = tokio::time::timeout(TIMEOUT, stream.next()).await;
 
                         match next_event {
-                            Ok(Some(Event::Moved(position))) => Some((
+                            Ok(Some((next_id, Event::Moved(position)))) if next_id == id => Some((
                                 vec![],
                                 State::MovingAndResizing {
                                     stream,
+                                    id,
                                     position,
                                     size,
                                 },
                             )),
-                            Ok(Some(Event::Resized(size))) => Some((
+                            Ok(Some((next_id, Event::Resized(size)))) if next_id == id => Some((
                                 vec![],
                                 State::MovingAndResizing {
                                     stream,
+                                    id,
                                     position,
                                     size,
                                 },
                             )),
-                            Err(_) => Some((
-                                vec![Event::Moved(position), Event::Resized(size)],
+                            _ => Some((
+                                vec![(id, Event::Moved(position)), (id, Event::Resized(size))],
                                 State::Idle { stream },
                             )),
-                            _ => None,
                         }
                     }
                 }

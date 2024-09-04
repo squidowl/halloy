@@ -83,6 +83,12 @@
       "css": "megaphone",
       "code": 59401,
       "src": "entypo"
+    },
+    {
+      "uid": "80451d627470ea7f977a263fdb771d7b",
+      "css": "palette",
+      "code": 59402,
+      "src": "entypo"
     }
   ]
 }

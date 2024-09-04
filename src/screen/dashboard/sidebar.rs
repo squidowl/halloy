@@ -22,6 +22,7 @@ pub enum Message {
     Leave(Buffer),
     ToggleFileTransfers,
     ToggleCommandBar,
+    ToggleThemeEditor,
     ReloadConfigFile,
     OpenReleaseWebsite,
 }
@@ -35,6 +36,7 @@ pub enum Event {
     Leave(Buffer),
     ToggleFileTransfers,
     ToggleCommandBar,
+    ToggleThemeEditor,
     ReloadConfigFile,
     OpenReleaseWebsite,
 }
@@ -72,6 +74,7 @@ impl Sidebar {
             Message::Leave(buffer) => Event::Leave(buffer),
             Message::ToggleFileTransfers => Event::ToggleFileTransfers,
             Message::ToggleCommandBar => Event::ToggleCommandBar,
+            Message::ToggleThemeEditor => Event::ToggleThemeEditor,
             Message::ReloadConfigFile => {
                 self.timestamp = Some(Instant::now());
                 Event::ReloadConfigFile
@@ -91,6 +94,7 @@ impl Sidebar {
         show_tooltips: bool,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
+        theme_editor_open: bool,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -104,6 +108,7 @@ impl Sidebar {
             show_tooltips,
             file_transfers,
             version,
+            theme_editor_open,
         );
 
         let mut buffers = vec![];
@@ -443,6 +448,7 @@ fn menu_buttons<'a>(
     show_tooltips: bool,
     file_transfers: &'a file_transfer::Manager,
     version: &'a Version,
+    theme_editor_open: bool,
 ) -> Element<'a, Message> {
     let mut menu_buttons = row![]
         .spacing(1)
@@ -535,6 +541,23 @@ fn menu_buttons<'a>(
         let button_with_tooltip = tooltip(
             button,
             show_tooltips.then_some("File Transfers"),
+            tooltip_position,
+        );
+
+        menu_buttons = menu_buttons.push(button_with_tooltip);
+    }
+
+    if config.buttons.theme_editor {
+        let button = button(center(icon::theme_editor().style(theme::text::primary)))
+            .on_press(Message::ToggleThemeEditor)
+            .padding(5)
+            .width(22)
+            .height(22)
+            .style(move |theme, status| theme::button::primary(theme, status, theme_editor_open));
+
+        let button_with_tooltip = tooltip(
+            button,
+            show_tooltips.then_some("Theme Editor"),
             tooltip_position,
         );
 
