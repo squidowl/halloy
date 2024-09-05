@@ -329,6 +329,7 @@ impl Dashboard {
                     }
                     sidebar::Event::ToggleThemeEditor => {
                         if let Some(editor) = self.theme_editor.take() {
+                            *theme = theme.selected();
                             return (window::close(editor.id), None);
                         } else {
                             let (editor, task) = ThemeEditor::open(main_window);
@@ -606,8 +607,20 @@ impl Dashboard {
                 }
             }
             Message::ThemeEditor(message) => {
+                let mut event = None;
+
                 if let Some(editor) = self.theme_editor.as_mut() {
-                    editor.update(message);
+                    event = editor.update(message, theme);
+                }
+
+                if let Some(event) = event {
+                    match event {
+                        theme_editor::Event::Close => {
+                            if let Some(editor) = self.theme_editor.take() {
+                                return (window::close(editor.id), None);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -615,10 +628,15 @@ impl Dashboard {
         (Task::none(), None)
     }
 
-    pub fn view_window(&self, id: window::Id) -> Element<Message> {
+    pub fn view_window<'a>(
+        &'a self,
+        id: window::Id,
+        theme: &'a Theme,
+        config: &'a Config,
+    ) -> Element<'a, Message> {
         if let Some(editor) = self.theme_editor.as_ref() {
             if editor.id == id {
-                return editor.view().map(Message::ThemeEditor);
+                return editor.view(theme, config).map(Message::ThemeEditor);
             }
         }
 
@@ -1370,17 +1388,17 @@ impl Dashboard {
         &self.history
     }
 
-    pub fn theme_editor(&self) -> Option<Element<Message>> {
-        self.theme_editor
-            .as_ref()
-            .map(|e| e.view().map(Message::ThemeEditor))
-    }
-
-    pub fn handle_window_event(&mut self, id: window::Id, event: window::Event) -> Task<Message> {
+    pub fn handle_window_event(
+        &mut self,
+        id: window::Id,
+        event: window::Event,
+        theme: &mut Theme,
+    ) -> Task<Message> {
         if Some(id) == self.theme_editor.as_ref().map(|e| e.id) {
             match event {
                 window::Event::CloseRequested => {
                     if let Some(editor) = self.theme_editor.take() {
+                        *theme = theme.selected();
                         return window::close(editor.id);
                     }
                 }

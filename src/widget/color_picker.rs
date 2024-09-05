@@ -4,7 +4,7 @@ use iced::{advanced, border, event, mouse, touch, Color, Length::*, Rectangle};
 use iced::{advanced::Layout, widget::Space};
 use palette::{Hsva, RgbHue};
 
-use super::{decorate, Element, Renderer};
+use super::{decorate, Container, Element, Renderer};
 use crate::theme::Theme;
 
 const HANDLE_RADIUS: f32 = 7.0;
@@ -16,31 +16,31 @@ pub fn color_picker<'a, Message: 'a>(
 ) -> Element<'a, Message> {
     column![
         row![
-            container(preview(color)).width(FillPortion(2)),
-            container(axis(
+            bordered(preview(color)).width(FillPortion(2)),
+            bordered(axis(
                 Component::Saturation,
                 Component::Value,
                 color,
                 on_color.clone(),
                 HANDLE_RADIUS,
-            ),)
+            ))
             .width(FillPortion(8))
         ]
         .spacing(4),
-        slider(
+        bordered(slider(
             Component::Alpha,
             color,
             on_color.clone(),
             SLIDER_HEIGHT,
             HANDLE_RADIUS
-        ),
-        slider(
+        )),
+        bordered(slider(
             Component::Hue,
             color,
             on_color,
             SLIDER_HEIGHT,
             HANDLE_RADIUS
-        ),
+        )),
     ]
     .spacing(4)
     .into()
@@ -118,6 +118,19 @@ impl Value {
             offset
         }
     }
+}
+
+fn bordered<'a, Message: 'a>(element: impl Into<Element<'a, Message>>) -> Container<'a, Message> {
+    container(element)
+        .padding(1)
+        .style(|theme| container::Style {
+            text_color: None,
+            background: None,
+            border: border::rounded(2)
+                .width(1)
+                .color(theme.colors().general.border),
+            shadow: Default::default(),
+        })
 }
 
 fn preview<'a, Message: 'a>(color: Color) -> Element<'a, Message> {
@@ -276,8 +289,10 @@ fn axis<'a, Message: 'a>(
                 let bounds = layout.bounds();
                 let handle = axis_handle(x_value, y_value, color, bounds, handle_radius);
 
-                for x in 0..bounds.width as usize {
-                    for y in 0..bounds.height as usize {
+                let color = Hsva::new_srgb(color.hue, 1.0, 1.0, 1.0);
+
+                for x in 0..bounds.width.round() as usize {
+                    for y in 0..bounds.height.round() as usize {
                         let color = y_value.color(
                             x_value.color(color, x as f32 / bounds.width),
                             y as f32 / bounds.height,
@@ -288,8 +303,10 @@ fn axis<'a, Message: 'a>(
                                 bounds: Rectangle {
                                     x: bounds.x + x as f32,
                                     y: bounds.y + y as f32,
-                                    width: 1.0,
-                                    height: 1.0,
+                                    // prevent snapping
+                                    width: 1.01,
+                                    // prevent snapping
+                                    height: 1.01,
                                 },
                                 border: Default::default(),
                                 shadow: Default::default(),
@@ -418,6 +435,8 @@ fn slider<'a, Message: 'a>(
                   viewport: &iced::Rectangle| {
                 let bounds = layout.bounds();
                 let handle = slider_handle(value, color, bounds, handle_radius);
+
+                let color = Hsva::new_srgb(color.hue, 1.0, 1.0, 1.0);
 
                 for x in 0..bounds.width as usize {
                     renderer.fill_quad(

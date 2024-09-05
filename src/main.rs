@@ -742,7 +742,7 @@ impl Halloy {
                     )
                 } else if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
-                        .handle_window_event(id, event)
+                        .handle_window_event(id, event, &mut self.theme)
                         .map(Message::Dashboard)
                 } else {
                     Task::none()
@@ -786,7 +786,9 @@ impl Halloy {
                 column![content].into()
             }
         } else if let Screen::Dashboard(dashboard) = &self.screen {
-            dashboard.view_window(id).map(Message::Dashboard)
+            dashboard
+                .view_window(id, &self.theme, &self.config)
+                .map(Message::Dashboard)
         } else {
             column![].into()
         }
