@@ -29,6 +29,7 @@ impl Theme {
     }
 }
 
+// IMPORTANT: Make sure any new components are added to the theme editor
 #[derive(Debug, Clone, Copy, Deserialize)]
 pub struct Colors {
     #[serde(default)]
@@ -145,24 +146,52 @@ impl Default for Colors {
 }
 
 pub fn hex_to_color(hex: &str) -> Option<Color> {
-    if hex.len() == 7 {
+    if hex.len() == 7 || hex.len() == 9 {
         let hash = &hex[0..1];
         let r = u8::from_str_radix(&hex[1..3], 16);
         let g = u8::from_str_radix(&hex[3..5], 16);
         let b = u8::from_str_radix(&hex[5..7], 16);
+        let a = (hex.len() == 9)
+            .then(|| u8::from_str_radix(&hex[7..9], 16).ok())
+            .flatten();
 
-        return match (hash, r, g, b) {
-            ("#", Ok(r), Ok(g), Ok(b)) => Some(Color {
+        return match (hash, r, g, b, a) {
+            ("#", Ok(r), Ok(g), Ok(b), None) => Some(Color {
                 r: r as f32 / 255.0,
                 g: g as f32 / 255.0,
                 b: b as f32 / 255.0,
                 a: 1.0,
+            }),
+            ("#", Ok(r), Ok(g), Ok(b), Some(a)) => Some(Color {
+                r: r as f32 / 255.0,
+                g: g as f32 / 255.0,
+                b: b as f32 / 255.0,
+                a: a as f32 / 255.0,
             }),
             _ => None,
         };
     }
 
     None
+}
+
+pub fn color_to_hex(color: Color) -> String {
+    use std::fmt::Write;
+
+    let mut hex = String::with_capacity(9);
+
+    let [r, g, b, a] = color.into_rgba8();
+
+    let _ = write!(&mut hex, "#");
+    let _ = write!(&mut hex, "{:02X}", r);
+    let _ = write!(&mut hex, "{:02X}", g);
+    let _ = write!(&mut hex, "{:02X}", b);
+
+    if a < u8::MAX {
+        let _ = write!(&mut hex, "{:02X}", a);
+    }
+
+    hex
 }
 
 /// Adjusts the transparency of the foreground color based on the background color's lightness.
