@@ -31,7 +31,7 @@ use self::event::{events, Event};
 use self::modal::Modal;
 use self::theme::Theme;
 use self::widget::Element;
-use self::window::{Window, Windows};
+use self::window::Window;
 
 pub fn main() -> iced::Result {
     let mut args = env::args();
@@ -119,7 +119,7 @@ struct Halloy {
     clients: data::client::Map,
     servers: server::Map,
     modal: Option<Modal>,
-    windows: Windows,
+    main_window: Window,
 }
 
 impl Halloy {
@@ -182,10 +182,7 @@ impl Halloy {
                 servers: config.servers.clone(),
                 config,
                 modal: None,
-                windows: Windows {
-                    main: Window::load(main_window),
-                    theme_editor: None,
-                },
+                main_window: Window::new(main_window),
             },
             command,
         )
@@ -206,13 +203,12 @@ pub enum Message {
     Help(help::Message),
     Welcome(welcome::Message),
     Migration(migration::Message),
-    Event(Event),
+    Event(window::Id, Event),
     Tick(Instant),
     Version(Option<String>),
     Modal(modal::Message),
     RouteReceived(String),
     Window(window::Id, window::Event),
-    WindowOpened(window::Id),
     WindowSettingsSaved(Result<(), window::Error>),
 }
 
@@ -222,12 +218,9 @@ impl Halloy {
         url_received: Option<data::Url>,
     ) -> (Halloy, Task<Message>) {
         let (main_window, open_main_window) = window::open(window::Settings {
-            size: data::window::Size::default().into(),
-            position: iced::window::Position::Default,
-            min_size: (Some(iced::Size::new(
-                data::window::Size::MIN_WIDTH,
-                data::window::Size::MIN_HEIGHT,
-            ))),
+            size: window::default_size(),
+            position: window::Position::Default,
+            min_size: Some(window::MIN_SIZE),
             exit_on_close_request: false,
             ..window::settings()
         });
@@ -237,7 +230,7 @@ impl Halloy {
             Task::perform(version::latest_remote_version(), Message::Version);
 
         let command = Task::batch(vec![
-            open_main_window.map(Message::WindowOpened),
+            open_main_window.then(|_| Task::none()),
             command,
             latest_remote_version,
         ]);
@@ -262,7 +255,7 @@ impl Halloy {
                     &mut self.theme,
                     &self.version,
                     &self.config,
-                    &mut self.windows,
+                    &self.main_window,
                 );
 
                 // Retrack after dashboard state changes
@@ -317,7 +310,7 @@ impl Halloy {
                     match event {
                         help::Event::RefreshConfiguration => {
                             let (halloy, command) =
-                                Halloy::load_from_state(self.windows.main.id, Config::load());
+                                Halloy::load_from_state(self.main_window.id, Config::load());
                             *self = halloy;
 
                             return command;
@@ -336,7 +329,7 @@ impl Halloy {
                     match event {
                         welcome::Event::RefreshConfiguration => {
                             let (halloy, command) =
-                                Halloy::load_from_state(self.windows.main.id, Config::load());
+                                Halloy::load_from_state(self.main_window.id, Config::load());
                             *self = halloy;
 
                             return command;
@@ -355,7 +348,7 @@ impl Halloy {
                     match event {
                         migration::Event::RefreshConfiguration => {
                             let (halloy, command) =
-                                Halloy::load_from_state(self.windows.main.id, Config::load());
+                                Halloy::load_from_state(self.main_window.id, Config::load());
                             *self = halloy;
 
                             return command;
@@ -563,7 +556,7 @@ impl Halloy {
                                                     &history::Kind::Query(
                                                         user.nickname().to_owned(),
                                                     ),
-                                                ) || !self.windows.main.data.focused()
+                                                ) || !self.main_window.focused
                                                 {
                                                     notification::direct_message(
                                                         &self.config.notifications,
@@ -652,23 +645,23 @@ impl Halloy {
                     Task::none()
                 }
             },
-            Message::Event(event) => {
-                if let Screen::Dashboard(dashboard) = &mut self.screen {
-                    dashboard
-                        .handle_event(
-                            event,
-                            &self.clients,
-                            &self.version,
-                            &self.config,
-                            &mut self.theme,
-                            &mut self.windows,
-                        )
-                        .map(Message::Dashboard)
-                } else if let event::Event::CloseRequested(_) = event {
-                    iced::exit()
-                } else {
-                    Task::none()
+            Message::Event(window, event) => {
+                // Events only enabled for main window
+                if window == self.main_window.id {
+                    if let Screen::Dashboard(dashboard) = &mut self.screen {
+                        return dashboard
+                            .handle_event(
+                                event,
+                                &self.clients,
+                                &self.version,
+                                &self.config,
+                                &mut self.theme,
+                            )
+                            .map(Message::Dashboard);
+                    }
                 }
+
+                Task::none()
             }
             Message::Tick(now) => {
                 self.clients.tick(now);
@@ -723,9 +716,37 @@ impl Halloy {
                 Task::none()
             }
             Message::Window(id, event) => {
-                self.windows.update(id, event);
+                if id == self.main_window.id {
+                    match event {
+                        window::Event::Moved(position) => {
+                            self.main_window.position = Some(position)
+                        }
+                        window::Event::Resized(size) => self.main_window.size = size,
+                        window::Event::Focused => self.main_window.focused = true,
+                        window::Event::Unfocused => self.main_window.focused = false,
+                        window::Event::Opened { position, size } => {
+                            self.main_window.opened(position, size)
+                        }
+                        window::Event::CloseRequested => {
+                            if let Screen::Dashboard(dashboard) = &mut self.screen {
+                                return dashboard.exit().then(|_| iced::exit());
+                            } else {
+                                return iced::exit();
+                            }
+                        }
+                    }
 
-                Task::perform(self.windows.save(), Message::WindowSettingsSaved)
+                    Task::perform(
+                        data::Window::from(self.main_window).save(),
+                        Message::WindowSettingsSaved,
+                    )
+                } else if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    dashboard
+                        .handle_window_event(id, event)
+                        .map(Message::Dashboard)
+                } else {
+                    Task::none()
+                }
             }
             Message::WindowSettingsSaved(result) => {
                 if let Err(err) = result {
@@ -734,51 +755,40 @@ impl Halloy {
 
                 Task::none()
             }
-            Message::WindowOpened(_) => Task::none(),
         }
     }
 
     fn view(&self, id: window::Id) -> Element<Message> {
-        match self.windows.kind(id) {
-            Some(window::Kind::Main) => {
-                let now = Instant::now();
+        if id == self.main_window.id {
+            let now = Instant::now();
 
-                let screen = match &self.screen {
-                    Screen::Dashboard(dashboard) => dashboard
-                        .view(now, &self.clients, &self.version, &self.config, &self.theme)
-                        .map(Message::Dashboard),
-                    Screen::Help(help) => help.view().map(Message::Help),
-                    Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
-                    Screen::Migration(migration) => migration.view().map(Message::Migration),
-                };
+            let screen = match &self.screen {
+                Screen::Dashboard(dashboard) => dashboard
+                    .view(now, &self.clients, &self.version, &self.config, &self.theme)
+                    .map(Message::Dashboard),
+                Screen::Help(help) => help.view().map(Message::Help),
+                Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
+                Screen::Migration(migration) => migration.view().map(Message::Migration),
+            };
 
-                let content = container(screen)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .style(theme::container::general);
+            let content = container(screen)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(theme::container::general);
 
-                if let (Some(modal), Screen::Dashboard(_)) = (&self.modal, &self.screen) {
-                    widget::modal(content, modal.view().map(Message::Modal), || {
-                        Message::Modal(modal::Message::Cancel)
-                    })
-                } else {
-                    // Align `content` into same view tree shape as `modal`
-                    // to prevent diff from firing when displaying modal
-                    column![content].into()
-                }
+            if let (Some(modal), Screen::Dashboard(_)) = (&self.modal, &self.screen) {
+                widget::modal(content, modal.view().map(Message::Modal), || {
+                    Message::Modal(modal::Message::Cancel)
+                })
+            } else {
+                // Align `content` into same view tree shape as `modal`
+                // to prevent diff from firing when displaying modal
+                column![content].into()
             }
-            // Theme editor is only available on dashboard
-            Some(window::Kind::ThemeEditor) => {
-                let Screen::Dashboard(dashboard) = &self.screen else {
-                    return column![].into();
-                };
-
-                dashboard
-                    .theme_editor()
-                    .unwrap_or_else(|| column![].into())
-                    .map(Message::Dashboard)
-            }
-            None => column![].into(),
+        } else if let Screen::Dashboard(dashboard) = &self.screen {
+            dashboard.view_window(id).map(Message::Dashboard)
+        } else {
+            column![].into()
         }
     }
 
@@ -802,10 +812,10 @@ impl Halloy {
 
         Subscription::batch(vec![
             url::listen().map(Message::RouteReceived),
-            window::events().map(|(id, event)| Message::Window(id, event)),
+            events().map(|(window, event)| Message::Event(window, event)),
+            window::events().map(|(window, event)| Message::Window(window, event)),
             tick,
             streams,
-            events().map(Message::Event),
         ])
     }
 }
