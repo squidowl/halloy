@@ -20,7 +20,7 @@ use crate::buffer::{self, Buffer};
 use crate::widget::{
     anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
 };
-use crate::window::{Window, Windows};
+use crate::window::Window;
 use crate::{event, notification, theme, window, Theme};
 
 mod command_bar;
@@ -102,7 +102,7 @@ impl Dashboard {
         theme: &mut Theme,
         version: &Version,
         config: &Config,
-        windows: &mut Windows,
+        main_window: &Window,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Pane(message) => match message {
@@ -328,33 +328,12 @@ impl Dashboard {
                         return (Task::none(), None);
                     }
                     sidebar::Event::ToggleThemeEditor => {
-                        if self.theme_editor.is_some() {
-                            self.theme_editor = None;
-
-                            if let Some(window) = windows.theme_editor.take() {
-                                return (window::close(window.id), None);
-                            }
+                        if let Some(editor) = self.theme_editor.take() {
+                            return (window::close(editor.id), None);
                         } else {
-                            self.theme_editor = Some(ThemeEditor::default());
-                            // TODO: Window settings?
-                            let (id, task) = window::open(window::Settings {
-                                size: iced::Size::new(300.0, 200.0),
-                                position: windows
-                                    .main
-                                    .data
-                                    .position
-                                    .map(|point| {
-                                        iced::window::Position::Specific(
-                                            iced::Point::from(point)
-                                                + iced::Vector::new(20.0, 20.0),
-                                        )
-                                    })
-                                    .unwrap_or_default(),
-                                exit_on_close_request: false,
-                                ..Default::default()
-                            });
+                            let (editor, task) = ThemeEditor::open(main_window);
 
-                            windows.theme_editor = Some(Window::new(id));
+                            self.theme_editor = Some(editor);
 
                             return (task.then(|_| Task::none()), None);
                         }
@@ -636,6 +615,16 @@ impl Dashboard {
         (Task::none(), None)
     }
 
+    pub fn view_window(&self, id: window::Id) -> Element<Message> {
+        if let Some(editor) = self.theme_editor.as_ref() {
+            if editor.id == id {
+                return editor.view().map(Message::ThemeEditor);
+            }
+        }
+
+        column![].into()
+    }
+
     pub fn view<'a>(
         &'a self,
         now: Instant,
@@ -760,7 +749,6 @@ impl Dashboard {
         version: &Version,
         config: &Config,
         theme: &mut Theme,
-        windows: &mut Windows,
     ) -> Task<Message> {
         use event::Event::*;
 
@@ -796,45 +784,6 @@ impl Dashboard {
                         .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
                 })
                 .unwrap_or_else(Task::none),
-            CloseRequested(id) => match windows.close(id) {
-                Some(window) => match window {
-                    window::Kind::Main => {
-                        let history = self.history.close_all();
-                        let last_changed = self.last_changed;
-                        let dashboard = data::Dashboard::from(&*self);
-
-                        let task = async move {
-                            history.await;
-
-                            if last_changed.is_some() {
-                                match dashboard.save().await {
-                                    Ok(_) => {
-                                        log::info!("dashboard saved");
-                                    }
-                                    Err(error) => {
-                                        log::warn!("error saving dashboard: {error}");
-                                    }
-                                }
-                            }
-                        };
-
-                        Task::perform(task, move |_| ()).then(|_| iced::exit())
-                    }
-                    window::Kind::ThemeEditor => {
-                        self.theme_editor = None;
-                        window::close(id)
-                    }
-                },
-                None => Task::none(),
-            },
-            Focused(id) => {
-                windows.update(id, data::window::Event::Focused);
-                Task::none()
-            }
-            Unfocused(id) => {
-                windows.update(id, data::window::Event::Unfocused);
-                Task::none()
-            }
         }
     }
 
@@ -1425,6 +1374,48 @@ impl Dashboard {
         self.theme_editor
             .as_ref()
             .map(|e| e.view().map(Message::ThemeEditor))
+    }
+
+    pub fn handle_window_event(&mut self, id: window::Id, event: window::Event) -> Task<Message> {
+        if Some(id) == self.theme_editor.as_ref().map(|e| e.id) {
+            match event {
+                window::Event::CloseRequested => {
+                    if let Some(editor) = self.theme_editor.take() {
+                        return window::close(editor.id);
+                    }
+                }
+                window::Event::Moved(_)
+                | window::Event::Resized(_)
+                | window::Event::Focused
+                | window::Event::Unfocused
+                | window::Event::Opened { .. } => {}
+            }
+        }
+
+        Task::none()
+    }
+
+    pub fn exit(&mut self) -> Task<()> {
+        let history = self.history.close_all();
+        let last_changed = self.last_changed;
+        let dashboard = data::Dashboard::from(&*self);
+
+        let task = async move {
+            history.await;
+
+            if last_changed.is_some() {
+                match dashboard.save().await {
+                    Ok(_) => {
+                        log::info!("dashboard saved");
+                    }
+                    Err(error) => {
+                        log::warn!("error saving dashboard: {error}");
+                    }
+                }
+            }
+        };
+
+        Task::perform(task, move |_| ())
     }
 }
 
