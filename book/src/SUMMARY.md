@@ -7,14 +7,14 @@
 - [Get in touch](get-in-touch.md)
 
 # Guides
-
-- [Migrating from YAML](guides/migrating-from-yaml.md)
+ 
 - [Connect with soju](guides/connect-with-soju.md)
 - [Connect with ZNC](guides/connect-with-znc.md)
 - [Portable mode](guides/portable-mode.md)
 - [Multiple servers](guides/multiple-servers.md)
 - [Storing passwords in a File](guides/password-file.md)
 - [Text Formatting](guides/text-formatting.md)
+- [Monitor users](guides/monitor-users.md)
 
 # Configuration
 
@@ -23,9 +23,10 @@
     - [Channel](configuration/buffer/channel/README.md)
       - [Nicklist](configuration/buffer/channel/nicklist.md)
       - [Topic](configuration/buffer/channel/topic.md)
+    - [Internal Messages](configuration/buffer/internal_messages/README.md)
+        - [Success](configuration/buffer/internal_messages/success.md)
+        - [Error](configuration/buffer/internal_messages/error.md)
     - [Nickname](configuration/buffer/nickname.md)
-    - [Text Input](configuration/buffer/text_input.md)
-    - [Timestamp](configuration/buffer/timestamp.md)
     - [Server Messages](configuration/buffer/server_messages/README.md)
       - [Change Host](configuration/buffer/server_messages/change_host.md)
       - [Join](configuration/buffer/server_messages/join.md)
@@ -34,9 +35,8 @@
       - [Part](configuration/buffer/server_messages/part.md)
       - [Quit](configuration/buffer/server_messages/quit.md)
       - [Topic](configuration/buffer/server_messages/topic.md)
-    - [Internal Messages](configuration/buffer/internal_messages/README.md)
-        - [Success](configuration/buffer/internal_messages/success.md)
-        - [Error](configuration/buffer/internal_messages/error.md)
+    - [Text Input](configuration/buffer/text_input.md)
+    - [Timestamp](configuration/buffer/timestamp.md)
   - [File Transfer](configuration/file_transfer/README.md)
     - [Server](configuration/file_transfer/server.md)
   - [Font](configuration/font.md)

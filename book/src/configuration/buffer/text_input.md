@@ -20,8 +20,11 @@ Text input visibility. When set to `"focused"` it will only be visible when the 
 
 ## `auto_format`
 
-Control if the text input should auto format the input. By default text is only formatted when using the `/format` command (Read more: [Text Formatting](../../guides/text-formatting.html)).
+Control if the text input should auto format the input. By default text is only formatted when using the `/format` command.
 
 - **type**: string
 - **values**: `"disabled"`, `"markdown"`, `"all"`
 - **default**: `"disabled"`
+
+
+> 💡 Read more about [text formatting](../../guides/text-formatting.html).

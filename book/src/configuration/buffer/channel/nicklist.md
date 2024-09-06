@@ -1,6 +1,6 @@
 # `[buffer.channel.nicklist]`
 
-The `[buffer.channel.nicklist]` section allows you to customize the nicklist within a channel buffer.
+Customize the nicklist within a channel buffer.
 
 **Example**
 

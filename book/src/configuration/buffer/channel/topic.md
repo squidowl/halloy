@@ -1,6 +1,6 @@
 # `[buffer.channel.topic]`
 
-The `[buffer.channel.topic]` section allows you to customize the topic banner within a channel buffer.
+Customize the topic banner within a channel buffer.
 
 **Example**
 
