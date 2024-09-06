@@ -113,7 +113,7 @@ impl Config {
         dir
     }
 
-    fn themes_dir() -> PathBuf {
+    pub fn themes_dir() -> PathBuf {
         let dir = Self::config_dir().join("themes");
 
         if !dir.exists() {

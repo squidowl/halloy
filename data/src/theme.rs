@@ -1,9 +1,13 @@
+use std::path::PathBuf;
+
 use iced_core::Color;
 use palette::rgb::{Rgb, Rgba};
 use palette::{FromColor, Hsva, Okhsl, Srgb, Srgba};
 use rand::prelude::*;
 use rand_chacha::ChaChaRng;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+use tokio::fs;
 
 const DEFAULT_THEME_NAME: &str = "Ferra";
 const DEFAULT_THEME_CONTENT: &str = include_str!("../../assets/themes/ferra.toml");
@@ -30,7 +34,7 @@ impl Theme {
 }
 
 // IMPORTANT: Make sure any new components are added to the theme editor
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Colors {
     #[serde(default)]
     pub general: General,
@@ -42,7 +46,25 @@ pub struct Colors {
     pub buttons: Buttons,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+impl Colors {
+    pub async fn save(self, path: PathBuf) -> Result<(), SaveError> {
+        let content = toml::to_string(&self)?;
+
+        fs::write(path, &content).await?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum SaveError {
+    #[error("Failed to serialize theme to toml: {0}")]
+    Encode(#[from] toml::ser::Error),
+    #[error("Failed to write theme file: {0}")]
+    Write(#[from] std::io::Error),
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct Buttons {
     #[serde(default)]
     pub primary: Button,
@@ -50,92 +72,92 @@ pub struct Buttons {
     pub secondary: Button,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct Button {
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub background: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub background_hover: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub background_selected: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub background_selected_hover: Color,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct General {
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub background: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub border: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub horizontal_rule: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub unread_indicator: Color,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct Buffer {
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub action: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub background: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub background_text_input: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub background_title_bar: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub border: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub border_selected: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub code: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub highlight: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub nickname: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub selection: Color,
     pub server_messages: ServerMessages,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub timestamp: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub topic: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub url: Color,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct ServerMessages {
-    #[serde(default, deserialize_with = "color_deser_maybe")]
+    #[serde(default, with = "color_serde_maybe")]
     pub join: Option<Color>,
-    #[serde(default, deserialize_with = "color_deser_maybe")]
+    #[serde(default, with = "color_serde_maybe")]
     pub part: Option<Color>,
-    #[serde(default, deserialize_with = "color_deser_maybe")]
+    #[serde(default, with = "color_serde_maybe")]
     pub quit: Option<Color>,
-    #[serde(default, deserialize_with = "color_deser_maybe")]
+    #[serde(default, with = "color_serde_maybe")]
     pub reply_topic: Option<Color>,
-    #[serde(default, deserialize_with = "color_deser_maybe")]
+    #[serde(default, with = "color_serde_maybe")]
     pub change_host: Option<Color>,
-    #[serde(default, deserialize_with = "color_deser_maybe")]
+    #[serde(default, with = "color_serde_maybe")]
     pub monitored_online: Option<Color>,
-    #[serde(default, deserialize_with = "color_deser_maybe")]
+    #[serde(default, with = "color_serde_maybe")]
     pub monitored_offline: Option<Color>,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub default: Color,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct Text {
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub primary: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub secondary: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub tertiary: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub success: Color,
-    #[serde(default = "default_transparent", deserialize_with = "color_deser")]
+    #[serde(default = "default_transparent", with = "color_serde")]
     pub error: Color,
 }
 
@@ -254,18 +276,42 @@ fn default_transparent() -> Color {
     Color::TRANSPARENT
 }
 
-fn color_deser<'de, D>(deserializer: D) -> Result<Color, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Ok(String::deserialize(deserializer)
-        .map(|hex| hex_to_color(&hex))?
-        .unwrap_or(Color::TRANSPARENT))
+mod color_serde {
+    use iced_core::Color;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Color, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(String::deserialize(deserializer)
+            .map(|hex| super::hex_to_color(&hex))?
+            .unwrap_or(Color::TRANSPARENT))
+    }
+
+    pub fn serialize<S>(color: &Color, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        super::color_to_hex(*color).serialize(serializer)
+    }
 }
 
-fn color_deser_maybe<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Ok(Option::<String>::deserialize(deserializer)?.and_then(|hex| hex_to_color(&hex)))
+mod color_serde_maybe {
+    use iced_core::Color;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Option::<String>::deserialize(deserializer)?.and_then(|hex| super::hex_to_color(&hex)))
+    }
+
+    pub fn serialize<S>(color: &Option<Color>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        color.map(super::color_to_hex).serialize(serializer)
+    }
 }

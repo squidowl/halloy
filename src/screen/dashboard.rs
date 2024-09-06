@@ -608,20 +608,26 @@ impl Dashboard {
             }
             Message::ThemeEditor(message) => {
                 let mut event = None;
+                let mut tasks = vec![];
 
                 if let Some(editor) = self.theme_editor.as_mut() {
-                    event = editor.update(message, theme);
+                    let (task, _event) = editor.update(message, theme);
+
+                    tasks.push(task.map(Message::ThemeEditor));
+                    event = _event;
                 }
 
                 if let Some(event) = event {
                     match event {
                         theme_editor::Event::Close => {
                             if let Some(editor) = self.theme_editor.take() {
-                                return (window::close(editor.id), None);
+                                tasks.push(window::close(editor.id));
                             }
                         }
                     }
                 }
+
+                return (Task::batch(tasks), None);
             }
         }
 

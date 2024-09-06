@@ -1,10 +1,17 @@
+use std::path::PathBuf;
+use std::time::Duration;
+
 use data::{config, Config};
+use futures::TryFutureExt;
+use iced::widget::text::LineHeight;
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{alignment, padding, Length::*};
 use iced::{Color, Length};
 use iced::{Task, Vector};
 use strum::IntoEnumIterator;
+use tokio::time;
 
+use crate::icon;
 use crate::theme::{self, Colors, Theme};
 use crate::widget::{color_picker, combo_box, Element};
 use crate::window::{self, Window};
@@ -22,6 +29,9 @@ pub enum Message {
     Save,
     Apply,
     Discard,
+    SavePath(Option<PathBuf>),
+    Saved(Result<(), String>),
+    ClearSaveResult,
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +40,7 @@ pub struct ThemeEditor {
     combo_box: combo_box::State<Component>,
     component: Component,
     hex_input: String,
+    save_result: Option<bool>,
 }
 
 impl ThemeEditor {
@@ -52,6 +63,7 @@ impl ThemeEditor {
                 combo_box: combo_box::State::new(components().collect()),
                 component: Component::General(General::Background),
                 hex_input: String::default(),
+                save_result: None,
             },
             task,
         )
@@ -59,7 +71,11 @@ impl ThemeEditor {
 }
 
 impl ThemeEditor {
-    pub fn update(&mut self, message: Message, theme: &mut Theme) -> Option<Event> {
+    pub fn update(
+        &mut self,
+        message: Message,
+        theme: &mut Theme,
+    ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Color(color) => {
                 self.hex_input.clear();
@@ -68,7 +84,7 @@ impl ThemeEditor {
 
                 self.component.update(&mut colors, Some(color));
 
-                *theme = theme.preview(data::Theme::new("Theme Editor".into(), colors));
+                *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
             }
             Message::Component(component) => {
                 self.hex_input.clear();
@@ -84,24 +100,71 @@ impl ThemeEditor {
 
                     self.component.update(&mut colors, Some(color));
 
-                    *theme = theme.preview(data::Theme::new("Theme Editor".into(), colors));
+                    *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
                 }
             }
-            Message::Save => {}
+            Message::Save => {
+                let task = async move {
+                    rfd::AsyncFileDialog::new()
+                        .set_directory(Config::themes_dir())
+                        .set_file_name("custom-theme.toml")
+                        .save_file()
+                        .await
+                        .map(|handle| handle.path().to_path_buf())
+                };
+
+                return (Task::perform(task, Message::SavePath), None);
+            }
             Message::Apply => {
                 // Keep theme in preview mode, it'll get overwritten the next time they
                 // change theme in-app
-                return Some(Event::Close);
+                return (Task::none(), Some(Event::Close));
             }
             Message::Discard => {
                 // Remove preview to discard it
                 *theme = theme.selected();
 
-                return Some(Event::Close);
+                return (Task::none(), Some(Event::Close));
+            }
+            Message::SavePath(None) => {}
+            Message::SavePath(Some(path)) => {
+                log::debug!("Saving theme to {path:?}");
+
+                let colors = *theme.colors();
+
+                return (
+                    Task::perform(colors.save(path).map_err(|e| e.to_string()), Message::Saved),
+                    None,
+                );
+            }
+            Message::Saved(Err(err)) => {
+                log::error!("Failed to save theme: {err}");
+                self.save_result = Some(false);
+
+                return (
+                    Task::perform(time::sleep(Duration::from_secs(2)), |_| {
+                        Message::ClearSaveResult
+                    }),
+                    None,
+                );
+            }
+            Message::Saved(Ok(_)) => {
+                log::debug!("Theme saved");
+                self.save_result = Some(true);
+
+                return (
+                    Task::perform(time::sleep(Duration::from_secs(2)), |_| {
+                        Message::ClearSaveResult
+                    }),
+                    None,
+                );
+            }
+            Message::ClearSaveResult => {
+                self.save_result = None;
             }
         }
 
-        None
+        (Task::none(), None)
     }
 
     pub fn view<'a>(&'a self, theme: &'a Theme, config: &'a Config) -> Element<'a, Message> {
@@ -117,7 +180,10 @@ impl ThemeEditor {
             Message::Component,
         );
 
-        let save = secondary_button("Save", Message::Save);
+        let save = match self.save_result {
+            Some(is_success) => status_button(is_success),
+            None => secondary_button("Save", Message::Save),
+        };
         let apply = secondary_button("Apply", Message::Apply);
         let discard = secondary_button("Discard", Message::Discard);
 
@@ -149,7 +215,7 @@ impl ThemeEditor {
         container(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(20.0)
+            .padding(8)
             .into()
     }
 }
@@ -164,6 +230,24 @@ fn secondary_button(label: &str, message: Message) -> Element<Message> {
     .width(Fill)
     .style(|theme, status| theme::button::secondary(theme, status, false))
     .on_press(message)
+    .into()
+}
+
+fn status_button<'a>(is_success: bool) -> Element<'a, Message> {
+    button(
+        container(if is_success {
+            icon::checkmark().style(theme::text::success)
+        } else {
+            icon::error().style(theme::text::error)
+        })
+        .align_x(alignment::Horizontal::Center)
+        .align_y(alignment::Vertical::Center)
+        .width(Fill)
+        .height(LineHeight::default().to_absolute(theme::TEXT_SIZE.into())),
+    )
+    .padding(5)
+    .width(Fill)
+    .style(|theme, status| theme::button::secondary(theme, status, false))
     .into()
 }
 
