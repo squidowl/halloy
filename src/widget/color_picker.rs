@@ -1,6 +1,10 @@
 use iced::advanced::renderer::{Quad, Renderer as _};
 use iced::widget::{column, container, row};
-use iced::{advanced, border, event, mouse, touch, Color, Length::*, Rectangle};
+use iced::{
+    advanced, border, event, mouse, touch, Color,
+    Length::{self, *},
+    Point, Rectangle,
+};
 use iced::{advanced::Layout, widget::Space};
 use palette::{Hsva, RgbHue};
 
@@ -17,7 +21,7 @@ pub fn color_picker<'a, Message: 'a>(
     column![
         row![
             bordered(preview(color)).width(FillPortion(2)),
-            bordered(axis(
+            bordered(grid(
                 Component::Saturation,
                 Component::Value,
                 color,
@@ -44,6 +48,44 @@ pub fn color_picker<'a, Message: 'a>(
     ]
     .spacing(4)
     .into()
+}
+
+fn bordered<'a, Message: 'a>(element: impl Into<Element<'a, Message>>) -> Container<'a, Message> {
+    container(element)
+        .padding(1)
+        .style(|theme| container::Style {
+            text_color: None,
+            background: None,
+            border: border::rounded(2)
+                .width(1)
+                .color(theme.colors().general.border),
+            shadow: Default::default(),
+        })
+}
+
+fn preview<'a, Message: 'a>(color: Color) -> Element<'a, Message> {
+    decorate(Space::new(Fill, Fill))
+        .draw(
+            move |_state: &(),
+                  _inner: &Element<'a, Message>,
+                  _tree: &iced::advanced::widget::Tree,
+                  renderer: &mut Renderer,
+                  _theme: &Theme,
+                  _style: &iced::advanced::renderer::Style,
+                  layout: Layout,
+                  _cursor: iced::advanced::mouse::Cursor,
+                  _viewport: &iced::Rectangle| {
+                renderer.fill_quad(
+                    Quad {
+                        bounds: layout.bounds(),
+                        border: Default::default(),
+                        shadow: Default::default(),
+                    },
+                    color,
+                )
+            },
+        )
+        .into()
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -120,217 +162,115 @@ impl Value {
     }
 }
 
-fn bordered<'a, Message: 'a>(element: impl Into<Element<'a, Message>>) -> Container<'a, Message> {
-    container(element)
-        .padding(1)
-        .style(|theme| container::Style {
-            text_color: None,
-            background: None,
-            border: border::rounded(2)
-                .width(1)
-                .color(theme.colors().general.border),
-            shadow: Default::default(),
-        })
+#[derive(Debug, Clone, Copy)]
+enum Picker {
+    Slider(Value),
+    Grid { x: Value, y: Value },
 }
 
-fn preview<'a, Message: 'a>(color: Color) -> Element<'a, Message> {
-    decorate(Space::new(Fill, Fill))
-        .draw(
-            move |_state: &(),
-                  _inner: &Element<'a, Message>,
-                  _tree: &iced::advanced::widget::Tree,
-                  renderer: &mut Renderer,
-                  _theme: &Theme,
-                  _style: &iced::advanced::renderer::Style,
-                  layout: Layout,
-                  _cursor: iced::advanced::mouse::Cursor,
-                  _viewport: &iced::Rectangle| {
-                renderer.fill_quad(
-                    Quad {
-                        bounds: layout.bounds(),
-                        border: Default::default(),
-                        shadow: Default::default(),
-                    },
-                    color,
-                )
-            },
-        )
-        .into()
-}
-
-fn axis<'a, Message: 'a>(
-    x_component: Component,
-    y_component: Component,
-    color: Color,
-    on_color: impl Fn(Color) -> Message + Clone + 'a,
-    handle_radius: f32,
-) -> Element<'a, Message> {
-    let color = data::theme::to_hsva(color);
-
-    let x_value = Value::new(x_component, Direction::Horizontal);
-    let y_value = Value::new(y_component, Direction::Vertical);
-
-    fn axis_handle(
-        x_value: Value,
-        y_value: Value,
-        color: Hsva,
-        bounds: Rectangle,
-        radius: f32,
-    ) -> Rectangle {
+impl Picker {
+    fn handle_from_color(&self, color: Hsva, bounds: Rectangle, radius: f32) -> Rectangle {
         let width = bounds.width - radius;
         let height = bounds.height - radius;
 
-        Rectangle {
-            x: bounds.x + (x_value.offset(color) * width) - radius / 2.0,
-            y: bounds.y + (y_value.offset(color) * height) - radius / 2.0,
-            width: radius * 2.0,
-            height: radius * 2.0,
+        match self {
+            Picker::Slider(x) => Rectangle {
+                x: bounds.x + (x.offset(color) * width) - radius / 2.0,
+                y: bounds.center_y() - radius,
+                width: radius * 2.0,
+                height: radius * 2.0,
+            },
+            Picker::Grid { x, y } => Rectangle {
+                x: bounds.x + (x.offset(color) * width) - radius / 2.0,
+                y: bounds.y + (y.offset(color) * height) - radius / 2.0,
+                width: radius * 2.0,
+                height: radius * 2.0,
+            },
         }
     }
 
-    decorate(Space::new(Fill, Fill))
-        .state::<Option<Rectangle>>()
-        .on_event(
-            move |state: &mut Option<Rectangle>,
-                  _inner: &mut Element<'a, Message>,
-                  _tree: &mut advanced::widget::Tree,
-                  event: iced::Event,
-                  layout: advanced::Layout<'_>,
-                  cursor: advanced::mouse::Cursor,
-                  _renderer: &Renderer,
-                  _clipboard: &mut dyn advanced::Clipboard,
-                  shell: &mut advanced::Shell<'_, Message>,
-                  _viewport: &iced::Rectangle| {
-                let bounds = layout.bounds();
-                let handle = axis_handle(x_value, y_value, color, bounds, handle_radius);
-
-                match event {
-                    iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
-                    | iced::Event::Touch(touch::Event::FingerPressed { .. })
-                        if state.is_none() =>
-                    {
-                        if cursor.is_over(handle) {
-                            *state = Some(handle);
-                        } else if let Some(position) = cursor.position_over(bounds) {
-                            let new_handle = Rectangle {
-                                x: position.x.clamp(bounds.x, bounds.x + bounds.width)
-                                    - handle_radius,
-                                y: position.y.clamp(bounds.y, bounds.y + bounds.height)
-                                    - handle_radius,
-                                ..handle
-                            };
-
-                            let color = y_value.color(
-                                x_value.color(
-                                    color,
-                                    (new_handle.center_x() - bounds.x) / bounds.width,
-                                ),
-                                (new_handle.center_y() - bounds.y) / bounds.height,
-                            );
-
-                            shell.publish((on_color)(data::theme::from_hsva(color)));
-
-                            *state = Some(new_handle);
-                        }
-                    }
-                    iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
-                    | iced::Event::Touch(touch::Event::FingerLost { .. })
-                        if state.is_some() =>
-                    {
-                        if let Some(last_handle) = state.take() {
-                            let color = y_value.color(
-                                x_value.color(
-                                    color,
-                                    (last_handle.center_x() - bounds.x) / bounds.width,
-                                ),
-                                (last_handle.center_y() - bounds.y) / bounds.height,
-                            );
-
-                            shell.publish((on_color)(data::theme::from_hsva(color)));
-                        }
-                    }
-                    iced::Event::Mouse(mouse::Event::CursorMoved { position })
-                    | iced::Event::Touch(touch::Event::FingerMoved { position, .. })
-                        if state.is_some() =>
-                    {
-                        if let Some(last_handle) = state.as_mut() {
-                            last_handle.x =
-                                position.x.clamp(bounds.x, bounds.x + bounds.width) - handle_radius;
-                            last_handle.y = position.y.clamp(bounds.y, bounds.y + bounds.height)
-                                - handle_radius;
-
-                            let color = y_value.color(
-                                x_value.color(
-                                    color,
-                                    (last_handle.center_x() - bounds.x) / bounds.width,
-                                ),
-                                (last_handle.center_y() - bounds.y) / bounds.height,
-                            );
-
-                            shell.publish((on_color)(data::theme::from_hsva(color)));
-                        }
-                    }
-                    _ => {}
-                }
-
-                event::Status::Ignored
+    fn handle_from_cursor(&self, cursor: Point, bounds: Rectangle, radius: f32) -> Rectangle {
+        match self {
+            Picker::Slider(_) => Rectangle {
+                x: cursor.x.clamp(bounds.x, bounds.x + bounds.width) - radius,
+                y: bounds.center_y() - radius,
+                width: radius * 2.0,
+                height: radius * 2.0,
             },
-        )
-        .draw(
-            move |_state: &Option<Rectangle>,
-                  _inner: &Element<'a, Message>,
-                  _tree: &iced::advanced::widget::Tree,
-                  renderer: &mut Renderer,
-                  _theme: &Theme,
-                  _style: &iced::advanced::renderer::Style,
-                  layout: Layout,
-                  _cursor: iced::advanced::mouse::Cursor,
-                  viewport: &iced::Rectangle| {
-                let bounds = layout.bounds();
-                let handle = axis_handle(x_value, y_value, color, bounds, handle_radius);
+            Picker::Grid { .. } => Rectangle {
+                x: cursor.x.clamp(bounds.x, bounds.x + bounds.width) - radius,
+                y: cursor.y.clamp(bounds.y, bounds.y + bounds.height) - radius,
+                width: radius * 2.0,
+                height: radius * 2.0,
+            },
+        }
+    }
 
+    fn color_at_handle(&self, color: Hsva, handle: Rectangle, bounds: Rectangle) -> Hsva {
+        match self {
+            Picker::Slider(x) => x.color(color, (handle.center_x() - bounds.x) / bounds.width),
+            Picker::Grid { x, y } => x.color(
+                y.color(color, (handle.center_y() - bounds.y) / bounds.height),
+                (handle.center_x() - bounds.x) / bounds.width,
+            ),
+        }
+    }
+
+    fn with_cells(&self, color: Hsva, bounds: Rectangle, mut f: impl FnMut(usize, usize, Hsva)) {
+        match self {
+            Picker::Slider(x_value) => {
+                let color = match x_value.component {
+                    // Full S/V and cycle every hue
+                    Component::Hue => Hsva::new_srgb(0.0, 1.0, 1.0, 1.0),
+                    // Otherwise slide should change based on color
+                    _ => color,
+                };
+
+                for x in 0..bounds.width.round() as usize {
+                    let color = x_value.color(color, x as f32 / bounds.width);
+
+                    (f)(x, 0, color);
+                }
+            }
+            Picker::Grid {
+                x: x_value,
+                y: y_value,
+            } => {
                 let color = Hsva::new_srgb(color.hue, 1.0, 1.0, 1.0);
 
                 for x in 0..bounds.width.round() as usize {
                     for y in 0..bounds.height.round() as usize {
-                        let color = y_value.color(
-                            x_value.color(color, x as f32 / bounds.width),
-                            y as f32 / bounds.height,
+                        let color = x_value.color(
+                            y_value.color(color, y as f32 / bounds.height),
+                            x as f32 / bounds.width,
                         );
 
-                        renderer.fill_quad(
-                            Quad {
-                                bounds: Rectangle {
-                                    x: bounds.x + x as f32,
-                                    y: bounds.y + y as f32,
-                                    // prevent snapping
-                                    width: 1.01,
-                                    // prevent snapping
-                                    height: 1.01,
-                                },
-                                border: Default::default(),
-                                shadow: Default::default(),
-                            },
-                            data::theme::from_hsva(color),
-                        )
+                        (f)(x, y, color);
                     }
                 }
+            }
+        }
+    }
+}
 
-                renderer.with_layer(*viewport, |renderer| {
-                    renderer.fill_quad(
-                        Quad {
-                            bounds: handle,
-                            border: border::rounded(handle.width / 2.0)
-                                .color(Color::BLACK)
-                                .width(1.0),
-                            shadow: Default::default(),
-                        },
-                        Color::WHITE,
-                    );
-                });
-            },
-        )
-        .into()
+fn grid<'a, Message: 'a>(
+    x: Component,
+    y: Component,
+    color: Color,
+    on_color: impl Fn(Color) -> Message + Clone + 'a,
+    handle_radius: f32,
+) -> Element<'a, Message> {
+    let x = Value::new(x, Direction::Horizontal);
+    let y = Value::new(y, Direction::Vertical);
+
+    picker(
+        Picker::Grid { x, y },
+        color,
+        on_color,
+        Fill,
+        Fill,
+        handle_radius,
+    )
 }
 
 fn slider<'a, Message: 'a>(
@@ -340,21 +280,27 @@ fn slider<'a, Message: 'a>(
     height: f32,
     handle_radius: f32,
 ) -> Element<'a, Message> {
+    picker(
+        Picker::Slider(Value::new(component, Direction::Horizontal)),
+        color,
+        on_color,
+        Fill,
+        height,
+        handle_radius,
+    )
+}
+
+fn picker<'a, Message: 'a>(
+    picker: Picker,
+    color: Color,
+    on_color: impl Fn(Color) -> Message + Clone + 'a,
+    width: impl Into<Length>,
+    height: impl Into<Length>,
+    handle_radius: f32,
+) -> Element<'a, Message> {
     let color = data::theme::to_hsva(color);
-    let value = Value::new(component, Direction::Horizontal);
 
-    fn slider_handle(value: Value, color: Hsva, bounds: Rectangle, radius: f32) -> Rectangle {
-        let width = bounds.width - radius;
-
-        Rectangle {
-            x: bounds.x + (value.offset(color) * width) - radius / 2.0,
-            y: bounds.center_y() - radius,
-            width: radius * 2.0,
-            height: radius * 2.0,
-        }
-    }
-
-    decorate(Space::new(Fill, height))
+    decorate(Space::new(width, height))
         .state::<Option<Rectangle>>()
         .on_event(
             move |state: &mut Option<Rectangle>,
@@ -368,7 +314,7 @@ fn slider<'a, Message: 'a>(
                   shell: &mut advanced::Shell<'_, Message>,
                   _viewport: &iced::Rectangle| {
                 let bounds = layout.bounds();
-                let handle = slider_handle(value, color, bounds, handle_radius);
+                let handle = picker.handle_from_color(color, bounds, handle_radius);
 
                 match event {
                     iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
@@ -378,14 +324,9 @@ fn slider<'a, Message: 'a>(
                         if cursor.is_over(handle) {
                             *state = Some(handle);
                         } else if let Some(position) = cursor.position_over(bounds) {
-                            let new_handle = Rectangle {
-                                x: position.x.clamp(bounds.x, bounds.x + bounds.width)
-                                    - handle_radius,
-                                ..handle
-                            };
-
-                            let color = value
-                                .color(color, (new_handle.center_x() - bounds.x) / bounds.width);
+                            let new_handle =
+                                picker.handle_from_cursor(position, bounds, handle_radius);
+                            let color = picker.color_at_handle(color, new_handle, bounds);
 
                             shell.publish((on_color)(data::theme::from_hsva(color)));
 
@@ -397,8 +338,7 @@ fn slider<'a, Message: 'a>(
                         if state.is_some() =>
                     {
                         if let Some(last_handle) = state.take() {
-                            let color = value
-                                .color(color, (last_handle.center_x() - bounds.x) / bounds.width);
+                            let color = picker.color_at_handle(color, last_handle, bounds);
 
                             shell.publish((on_color)(data::theme::from_hsva(color)));
                         }
@@ -408,11 +348,23 @@ fn slider<'a, Message: 'a>(
                         if state.is_some() =>
                     {
                         if let Some(last_handle) = state.as_mut() {
-                            last_handle.x =
-                                position.x.clamp(bounds.x, bounds.x + bounds.width) - handle_radius;
+                            match picker {
+                                Picker::Slider(_) => {
+                                    last_handle.x =
+                                        position.x.clamp(bounds.x, bounds.x + bounds.width)
+                                            - handle_radius;
+                                }
+                                Picker::Grid { .. } => {
+                                    last_handle.x =
+                                        position.x.clamp(bounds.x, bounds.x + bounds.width)
+                                            - handle_radius;
+                                    last_handle.y =
+                                        position.y.clamp(bounds.y, bounds.y + bounds.height)
+                                            - handle_radius;
+                                }
+                            }
 
-                            let color = value
-                                .color(color, (last_handle.center_x() - bounds.x) / bounds.width);
+                            let color = picker.color_at_handle(color, *last_handle, bounds);
 
                             shell.publish((on_color)(data::theme::from_hsva(color)));
                         }
@@ -434,30 +386,28 @@ fn slider<'a, Message: 'a>(
                   _cursor: iced::advanced::mouse::Cursor,
                   viewport: &iced::Rectangle| {
                 let bounds = layout.bounds();
-                let handle = slider_handle(value, color, bounds, handle_radius);
+                let handle = picker.handle_from_color(color, bounds, handle_radius);
 
-                let color = match component {
-                    // Full S/V and cycle every hue
-                    Component::Hue => Hsva::new_srgb(0.0, 1.0, 1.0, 1.0),
-                    // Otherwise slide should change based on color
-                    _ => color,
+                let cell_height = match picker {
+                    Picker::Slider(_) => bounds.height,
+                    Picker::Grid { .. } => 1.0,
                 };
 
-                for x in 0..bounds.width as usize {
+                picker.with_cells(color, bounds, |x, y, color| {
                     renderer.fill_quad(
                         Quad {
                             bounds: Rectangle {
                                 x: bounds.x + x as f32,
-                                y: bounds.y,
+                                y: bounds.y + y as f32,
                                 width: 1.0,
-                                height: bounds.height,
+                                height: cell_height,
                             },
                             border: Default::default(),
                             shadow: Default::default(),
                         },
-                        data::theme::from_hsva(value.color(color, x as f32 / bounds.width)),
-                    )
-                }
+                        data::theme::from_hsva(color),
+                    );
+                });
 
                 renderer.with_layer(*viewport, |renderer| {
                     renderer.fill_quad(
