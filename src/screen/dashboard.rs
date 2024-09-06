@@ -60,6 +60,7 @@ pub enum Message {
 #[derive(Debug)]
 pub enum Event {
     ReloadConfiguration,
+    ReloadThemes,
     QuitServer(Server),
 }
 
@@ -607,27 +608,31 @@ impl Dashboard {
                 }
             }
             Message::ThemeEditor(message) => {
+                let mut editor_event = None;
                 let mut event = None;
                 let mut tasks = vec![];
 
                 if let Some(editor) = self.theme_editor.as_mut() {
-                    let (task, _event) = editor.update(message, theme);
+                    let (task, event) = editor.update(message, theme);
 
                     tasks.push(task.map(Message::ThemeEditor));
-                    event = _event;
+                    editor_event = event;
                 }
 
-                if let Some(event) = event {
-                    match event {
+                if let Some(editor_event) = editor_event {
+                    match editor_event {
                         theme_editor::Event::Close => {
                             if let Some(editor) = self.theme_editor.take() {
                                 tasks.push(window::close(editor.id));
                             }
                         }
+                        theme_editor::Event::ReloadThemes => {
+                            event = Some(Event::ReloadThemes);
+                        }
                     }
                 }
 
-                return (Task::batch(tasks), None);
+                return (Task::batch(tasks), event);
             }
         }
 

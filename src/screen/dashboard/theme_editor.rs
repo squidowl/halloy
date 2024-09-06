@@ -19,6 +19,7 @@ use crate::window::{self, Window};
 #[derive(Debug, Clone)]
 pub enum Event {
     Close,
+    ReloadThemes,
 }
 
 #[derive(Debug, Clone)]
@@ -156,7 +157,7 @@ impl ThemeEditor {
                     Task::perform(time::sleep(Duration::from_secs(2)), |_| {
                         Message::ClearSaveResult
                     }),
-                    None,
+                    Some(Event::ReloadThemes),
                 );
             }
             Message::ClearSaveResult => {

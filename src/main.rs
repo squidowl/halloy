@@ -284,6 +284,11 @@ impl Halloy {
                                 self.modal = Some(Modal::ReloadConfigurationError(error));
                             }
                         },
+                        dashboard::Event::ReloadThemes => {
+                            if let Ok(updated) = Config::load() {
+                                self.config.themes = updated.themes;
+                            }
+                        }
                         dashboard::Event::QuitServer(server) => {
                             self.clients.quit(&server, None);
                         }
