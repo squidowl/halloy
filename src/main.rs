@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::version::Version;
-use data::{environment, history, server, version, User};
+use data::{environment, history, server, version, Url, User};
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
@@ -229,17 +229,42 @@ impl Halloy {
         let latest_remote_version =
             Task::perform(version::latest_remote_version(), Message::Version);
 
-        let command = Task::batch(vec![
+        let mut commands = vec![
             open_main_window.then(|_| Task::none()),
             command,
             latest_remote_version,
-        ]);
+        ];
 
         if let Some(url) = url_received {
-            halloy.modal = Some(Modal::RouteReceived(url));
+            commands.push(halloy.handle_url(url));
         }
 
-        (halloy, command)
+        (halloy, Task::batch(commands))
+    }
+
+    fn handle_url(&mut self, url: Url) -> Task<Message> {
+        match url {
+            data::Url::ServerConnect {
+                url,
+                server,
+                config,
+            } => {
+                self.modal = Some(Modal::ServerConnect {
+                    url,
+                    server,
+                    config,
+                });
+            }
+            data::Url::Theme { colors, .. } => {
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    return dashboard
+                        .preview_theme_in_editor(colors, &self.main_window, &mut self.theme)
+                        .map(Message::Dashboard);
+                }
+            }
+        }
+
+        Task::none()
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
@@ -688,11 +713,8 @@ impl Halloy {
                             self.modal = None;
                         }
                         modal::Event::AcceptNewServer => {
-                            if let Some(Modal::RouteReceived(data::Url::ServerConnect {
-                                server,
-                                config,
-                                ..
-                            })) = self.modal.take()
+                            if let Some(Modal::ServerConnect { server, config, .. }) =
+                                self.modal.take()
                             {
                                 let existing_entry = self.servers.entries().find(|entry| {
                                     entry.server == server || entry.config.server == config.server
@@ -715,7 +737,7 @@ impl Halloy {
                 log::info!("RouteRecived: {:?}", route);
 
                 if let Ok(url) = route.parse() {
-                    self.modal = Some(Modal::RouteReceived(url));
+                    return self.handle_url(url);
                 };
 
                 Task::none()

@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use data::{config, Config};
+use data::{config, url, Config};
 use futures::TryFutureExt;
 use iced::widget::text::LineHeight;
 use iced::widget::{button, center, column, container, row, text, text_input};
-use iced::{alignment, padding, Length::*};
+use iced::{alignment, clipboard, padding, Length::*};
 use iced::{Color, Length};
 use iced::{Task, Vector};
 use strum::IntoEnumIterator;
@@ -32,9 +32,11 @@ pub enum Message {
     Discard,
     Revert,
     Clear,
+    Copy,
     SavePath(Option<PathBuf>),
     Saved(Result<(), String>),
     ClearSaveResult,
+    ClearCopy,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +46,7 @@ pub struct ThemeEditor {
     component: Component,
     hex_input: String,
     save_result: Option<bool>,
+    copied: bool,
 }
 
 impl ThemeEditor {
@@ -67,6 +70,7 @@ impl ThemeEditor {
                 component: Component::General(General::Background),
                 hex_input: String::default(),
                 save_result: None,
+                copied: false,
             },
             task,
         )
@@ -148,6 +152,19 @@ impl ThemeEditor {
 
                 *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
             }
+            Message::Copy => {
+                self.copied = true;
+
+                let url = url::theme(theme.colors());
+
+                return (
+                    Task::batch(vec![
+                        clipboard::write(url),
+                        Task::perform(time::sleep(Duration::from_secs(2)), |_| Message::ClearCopy),
+                    ]),
+                    None,
+                );
+            }
             Message::SavePath(None) => {}
             Message::SavePath(Some(path)) => {
                 log::debug!("Saving theme to {path:?}");
@@ -183,6 +200,9 @@ impl ThemeEditor {
             }
             Message::ClearSaveResult => {
                 self.save_result = None;
+            }
+            Message::ClearCopy => {
+                self.copied = false;
             }
         }
 
@@ -224,6 +244,13 @@ impl ThemeEditor {
         let apply = secondary_button("Apply", Message::Apply);
         let discard = secondary_button("Discard", Message::Discard);
 
+        let share = text_input("", &url::theme(theme.colors()));
+        let copy = if self.copied {
+            success_icon()
+        } else {
+            icon(icon::copy(), "Copy", Message::Copy)
+        };
+
         let color_picker = color_picker(color, Message::Color);
 
         let content = column![
@@ -232,6 +259,11 @@ impl ThemeEditor {
                 subtitled("Hex", container(hex_input).width(80), &config.font),
                 subtitled("", undo, &config.font),
                 subtitled("", clear, &config.font),
+            ]
+            .spacing(4),
+            row![
+                subtitled("Share", share, &config.font),
+                subtitled("", copy, &config.font)
             ]
             .spacing(4),
             row![save, apply, discard].spacing(4),
@@ -258,6 +290,15 @@ fn icon<'a>(icon: widget::Text<'a>, tip: &'a str, message: Message) -> Element<'
         Some(tip),
         tooltip::Position::Bottom,
     )
+}
+
+fn success_icon<'a>() -> Element<'a, Message> {
+    button(center(icon::checkmark().style(theme::text::success)))
+        .width(22)
+        .height(22)
+        .padding(5)
+        .style(theme::button::bare)
+        .into()
 }
 
 fn secondary_button(label: &str, message: Message) -> Element<Message> {
