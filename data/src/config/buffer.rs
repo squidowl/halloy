@@ -66,9 +66,9 @@ pub struct ServerMessage {
     #[serde(default)]
     pub username_format: UsernameFormat,
     #[serde(default)]
-    pub excluded: Vec<String>,
+    pub exclude: Vec<String>,
     #[serde(default)]
-    pub included: Vec<String>,
+    pub include: Vec<String>,
 }
 
 impl Default for ServerMessage {
@@ -77,8 +77,8 @@ impl Default for ServerMessage {
             enabled: true,
             smart: Default::default(),
             username_format: UsernameFormat::default(),
-            excluded: Default::default(),
-            included: Default::default(),
+            exclude: Default::default(),
+            include: Default::default(),
         }
     }
 }
@@ -98,10 +98,10 @@ impl ServerMessage {
             })
         };
 
-        let channel_included = is_channel_filtered(&self.included, channel);
-        let channel_excluded = is_channel_filtered(&self.excluded, channel);
+        let channel_included = is_channel_filtered(&self.include, channel);
+        let channel_excluded = is_channel_filtered(&self.exclude, channel);
 
-        // If the channel is included, it has precedence over exclusion.
+        // If the channel is included, it has precedence over excluded.
         if channel_included || !channel_excluded {
             return true;
         }
