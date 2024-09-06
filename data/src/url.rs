@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use regex::Regex;
 
-use crate::{config, Server};
+use crate::{config, theme, Server};
 
 #[derive(Debug, Clone)]
 pub enum Url {
@@ -10,6 +10,10 @@ pub enum Url {
         url: String,
         server: Server,
         config: config::Server,
+    },
+    Theme {
+        url: String,
+        colors: theme::Colors,
     },
 }
 
@@ -19,10 +23,14 @@ impl std::fmt::Display for Url {
             f,
             "{}",
             match self {
-                Url::ServerConnect { url, .. } => url,
+                Url::ServerConnect { url, .. } | Url::Theme { url, .. } => url,
             }
         )
     }
+}
+
+pub fn theme(colors: &theme::Colors) -> String {
+    format!("halloy:///theme?encoded={}", colors.encode_base64())
 }
 
 impl Url {
@@ -47,6 +55,19 @@ impl FromStr for Url {
                     url,
                     server: server.into(),
                     config,
+                })
+            }
+            "halloy" if url.path() == "/theme" => {
+                let (_, encoded) = url
+                    .query_pairs()
+                    .find(|(key, _)| key == "encoded")
+                    .ok_or(Error::MissingQueryPair)?;
+
+                let colors = theme::Colors::decode_base64(&encoded)?;
+
+                Ok(Self::Theme {
+                    url: url.into(),
+                    colors,
                 })
             }
             _ => Err(Error::Unsupported),
@@ -116,7 +137,7 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
     ))
 }
 
-#[derive(Debug, thiserror::Error, Clone)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
     ParseUrl(#[from] url::ParseError),
@@ -124,4 +145,8 @@ pub enum Error {
     ParseServer,
     #[error("unsupported route")]
     Unsupported,
+    #[error("missing query pair")]
+    MissingQueryPair,
+    #[error("failed to parse encoded theme: {0}")]
+    ParseEncodedTheme(#[from] theme::Error),
 }

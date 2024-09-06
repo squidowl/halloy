@@ -1,5 +1,5 @@
 use crate::widget::Element;
-use data::{config, Url};
+use data::{config, Server};
 
 pub mod connect_to_server;
 pub mod reload_configuration_error;
@@ -7,7 +7,11 @@ pub mod reload_configuration_error;
 #[derive(Debug)]
 pub enum Modal {
     ReloadConfigurationError(config::Error),
-    RouteReceived(Url),
+    ServerConnect {
+        url: String,
+        server: Server,
+        config: config::Server,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -28,7 +32,7 @@ impl Modal {
             Message::Cancel => Some(Event::CloseModal),
             Message::AcceptNewServer => Some(Event::AcceptNewServer),
             Message::DangerouslyAcceptInvalidCerts(toggle) => {
-                if let Modal::RouteReceived(Url::ServerConnect { config, .. }) = self {
+                if let Modal::ServerConnect { config, .. } = self {
                     config.dangerously_accept_invalid_certs = toggle;
                 }
 
@@ -40,11 +44,9 @@ impl Modal {
     pub fn view(&self) -> Element<Message> {
         match self {
             Modal::ReloadConfigurationError(error) => reload_configuration_error::view(error),
-            Modal::RouteReceived(url) => match url {
-                Url::ServerConnect {
-                    url: raw, config, ..
-                } => connect_to_server::view(raw, config),
-            },
+            Modal::ServerConnect {
+                url: raw, config, ..
+            } => connect_to_server::view(raw, config),
         }
     }
 }

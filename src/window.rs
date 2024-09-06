@@ -2,7 +2,7 @@ use futures::{stream::BoxStream, Stream, StreamExt};
 use iced::{advanced::graphics::futures::subscription, Point, Size, Subscription};
 
 pub use data::window::{default_size, Error, MIN_SIZE};
-pub use iced::window::{close, open, Id, Position, Settings};
+pub use iced::window::{close, gain_focus, open, Id, Position, Settings};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Window {

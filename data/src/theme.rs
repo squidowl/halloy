@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use base64::Engine;
 use iced_core::Color;
 use palette::rgb::{Rgb, Rgba};
 use palette::{FromColor, Hsva, Okhsl, Srgb, Srgba};
@@ -47,21 +48,42 @@ pub struct Colors {
 }
 
 impl Colors {
-    pub async fn save(self, path: PathBuf) -> Result<(), SaveError> {
+    pub async fn save(self, path: PathBuf) -> Result<(), Error> {
         let content = toml::to_string(&self)?;
 
         fs::write(path, &content).await?;
 
         Ok(())
     }
+
+    pub fn encode_base64(&self) -> String {
+        let Ok(content) = toml::to_string(&self) else {
+            // "Impossible" state
+            return String::new();
+        };
+
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&content)
+    }
+
+    pub fn decode_base64(content: &str) -> Result<Self, Error> {
+        let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(content)?;
+
+        Ok(toml::from_str(&String::from_utf8(bytes)?)?)
+    }
 }
 
 #[derive(Debug, Error)]
-pub enum SaveError {
+pub enum Error {
     #[error("Failed to serialize theme to toml: {0}")]
     Encode(#[from] toml::ser::Error),
+    #[error("Failed to deserialize theme to toml: {0}")]
+    Decode(#[from] toml::de::Error),
     #[error("Failed to write theme file: {0}")]
     Write(#[from] std::io::Error),
+    #[error("Encoded theme string is not valid UTF8: {0}")]
+    InvalidUTF8(#[from] std::string::FromUtf8Error),
+    #[error("Failed to decode base64 theme string: {0}")]
+    Base64Decode(#[from] base64::DecodeError),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]

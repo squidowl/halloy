@@ -1424,6 +1424,25 @@ impl Dashboard {
         Task::none()
     }
 
+    pub fn preview_theme_in_editor(
+        &mut self,
+        colors: theme::Colors,
+        main_window: &Window,
+        theme: &mut Theme,
+    ) -> Task<Message> {
+        *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
+
+        if let Some(editor) = &self.theme_editor {
+            window::gain_focus(editor.id)
+        } else {
+            let (editor, task) = ThemeEditor::open(main_window);
+
+            self.theme_editor = Some(editor);
+
+            task.then(|_| Task::none())
+        }
+    }
+
     pub fn exit(&mut self) -> Task<()> {
         let history = self.history.close_all();
         let last_changed = self.last_changed;
