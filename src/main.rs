@@ -262,6 +262,9 @@ impl Halloy {
                         .map(Message::Dashboard);
                 }
             }
+            data::Url::Unknown(url) => {
+                log::warn!("Received unknown url: {url}");
+            }
         }
 
         Task::none()
