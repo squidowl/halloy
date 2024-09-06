@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Regression where messages sent to ZNC virtual users were routed to the wrong buffer (e.g. `*status` routed to `status`).
+
 # 2024.11 (2024-09-04)
 
 Added:

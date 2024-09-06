@@ -523,6 +523,17 @@ mod tests {
                     away: false,
                 },
             ),
+            (
+                "*status",
+                User {
+                    nickname: "*status".into(),
+                    username: None,
+                    hostname: None,
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::new(),
+                    away: false,
+                },
+            ),
         ];
 
         for (test, expected) in tests {
