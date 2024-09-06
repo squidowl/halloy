@@ -2,6 +2,7 @@
 
 Server message is sent if a monitored user goes online.
 
+> 💡 Read more about [monitoring users](../../../guides/monitor-users.html).
 **Example**
 
 ```toml

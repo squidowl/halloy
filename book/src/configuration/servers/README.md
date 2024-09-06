@@ -226,6 +226,8 @@ WHO retry interval (in seconds) for servers without away-notify.
 A list of nicknames to [monitor](https://ircv3.net/specs/extensions/monitor) (if IRCv3 Monitor3 is supported by the server).  
 Example: `["Foo", "Bar"]`
 
+> 💡 Read more about [monitoring users](../../guides/monitor-users.html).
+
 - **type**: array of strings
 - **values**: array of any strings
 - **default**: not set
