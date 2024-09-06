@@ -89,6 +89,18 @@
       "css": "palette",
       "code": 59402,
       "src": "entypo"
+    },
+    {
+      "uid": "465bb89b6f204234e5787c326b4ae54c",
+      "css": "ccw",
+      "code": 59403,
+      "src": "entypo"
+    },
+    {
+      "uid": "2626e3a1bbcd90e45849af3b58a1d594",
+      "css": "trash",
+      "code": 59404,
+      "src": "entypo"
     }
   ]
 }

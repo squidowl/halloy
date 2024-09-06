@@ -4,17 +4,17 @@ use std::time::Duration;
 use data::{config, Config};
 use futures::TryFutureExt;
 use iced::widget::text::LineHeight;
-use iced::widget::{button, column, container, row, text, text_input};
+use iced::widget::{button, center, column, container, row, text, text_input};
 use iced::{alignment, padding, Length::*};
 use iced::{Color, Length};
 use iced::{Task, Vector};
 use strum::IntoEnumIterator;
 use tokio::time;
 
-use crate::icon;
 use crate::theme::{self, Colors, Theme};
-use crate::widget::{color_picker, combo_box, Element};
+use crate::widget::{color_picker, combo_box, tooltip, Element};
 use crate::window::{self, Window};
+use crate::{icon, widget};
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -30,6 +30,8 @@ pub enum Message {
     Save,
     Apply,
     Discard,
+    Revert,
+    Clear,
     SavePath(Option<PathBuf>),
     Saved(Result<(), String>),
     ClearSaveResult,
@@ -48,7 +50,7 @@ impl ThemeEditor {
     pub fn open(main_window: &Window) -> (Self, Task<window::Id>) {
         let (id, task) = window::open(window::Settings {
             // Just big enough to show all components in combobox
-            size: iced::Size::new(425.0, 300.0),
+            size: iced::Size::new(470.0, 300.0),
             resizable: false,
             position: main_window
                 .position
@@ -127,6 +129,25 @@ impl ThemeEditor {
 
                 return (Task::none(), Some(Event::Close));
             }
+            Message::Revert => {
+                self.hex_input.clear();
+
+                let mut colors = *theme.selected().colors();
+                let original = self.component.color(&colors);
+
+                self.component.update(&mut colors, original);
+
+                *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
+            }
+            Message::Clear => {
+                self.hex_input.clear();
+
+                let mut colors = *theme.colors();
+
+                self.component.update(&mut colors, None);
+
+                *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
+            }
             Message::SavePath(None) => {}
             Message::SavePath(Some(path)) => {
                 log::debug!("Saving theme to {path:?}");
@@ -181,13 +202,6 @@ impl ThemeEditor {
             Message::Component,
         );
 
-        let save = match self.save_result {
-            Some(is_success) => status_button(is_success),
-            None => secondary_button("Save", Message::Save),
-        };
-        let apply = secondary_button("Apply", Message::Apply);
-        let discard = secondary_button("Discard", Message::Discard);
-
         let is_input_valid =
             self.hex_input.is_empty() || theme::hex_to_color(&self.hex_input).is_some();
         let hex_input = text_input(&theme::color_to_hex(color), &self.hex_input)
@@ -200,12 +214,24 @@ impl ThemeEditor {
                 }
             });
 
+        let undo = icon(icon::undo(), "Revert", Message::Revert);
+        let clear = icon(icon::delete(), "Clear", Message::Clear);
+
+        let save = match self.save_result {
+            Some(is_success) => status_button(is_success),
+            None => secondary_button("Save", Message::Save),
+        };
+        let apply = secondary_button("Apply", Message::Apply);
+        let discard = secondary_button("Discard", Message::Discard);
+
         let color_picker = color_picker(color, Message::Color);
 
         let content = column![
             row![
                 subtitled("Component", container(component).width(Fill), &config.font),
                 subtitled("Hex", container(hex_input).width(80), &config.font),
+                subtitled("", undo, &config.font),
+                subtitled("", clear, &config.font),
             ]
             .spacing(4),
             row![save, apply, discard].spacing(4),
@@ -219,6 +245,19 @@ impl ThemeEditor {
             .padding(8)
             .into()
     }
+}
+
+fn icon<'a>(icon: widget::Text<'a>, tip: &'a str, message: Message) -> Element<'a, Message> {
+    tooltip(
+        button(center(icon.style(theme::text::primary)))
+            .width(22)
+            .height(22)
+            .padding(5)
+            .style(theme::button::bare)
+            .on_press(message),
+        Some(tip),
+        tooltip::Position::Bottom,
+    )
 }
 
 fn secondary_button(label: &str, message: Message) -> Element<Message> {
