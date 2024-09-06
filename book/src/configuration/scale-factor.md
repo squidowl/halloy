@@ -1,13 +1,18 @@
 # Scale factor
 
+Application wide scale factor.
+
+**Example**
+
 ```toml
-scale_factor = <float>
+scale_factor = 1.1
 ```
 
-| Key            | Description                                             | Default |
-| -------------- | ------------------------------------------------------- | ------- |
-| `scale_factor`[^1] | Control the scale factor of the entire application. | `1.0`[^2]   |
+## `scale_factor`
 
+Control the scale factor in Halloy.  
+Note: `scale_factor` is a root key, so it must be placed before any section.
 
-[^1]: `scale_factor` is a root key, so it must be placed before any section.
-[^2]: Limited between `0.1` and `3.0`.
+- **type**: float
+- **values**: `0.1` .. `3.0`
+- **default**: `1.0`

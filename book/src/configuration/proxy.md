@@ -1,20 +1,52 @@
-# Proxy
+# `[proxy]`
 
-## `[proxy]` Section
+Proxy settings for Halloy.
 
-Example
+**Example**
 
 ```toml
 [proxy]
 type = "socks5"
-host = "<string>"
-port = <integer>
+host = "192.168.1.100"
+port = 1080
 ```
 
-| Key        | Description                                              | Default     |
-| :--------- | :------------------------------------------------------- | :---------- |
-| `type`     | Proxy type. `http` and `socks5` are currently supported. | `""`        |
-| `host`     | Proxy host to connect to                                 | `""`        |
-| `port`     | Proxy port to connect on                                 | `""`        |
-| `username` | Proxy username, optional                                 | `""`        |
-| `password` | Proxy password, optional                                 | `""`        |
+## `type`
+
+Proxy type.
+
+- **type**: string
+- **values**: `http`, `socks5`
+- **default**: not set
+   
+## `host`
+
+Proxy host to connect to .
+
+- **type**: string
+- **values**: any string
+- **default**: not set
+ 
+## `port`
+
+Proxy port to connect on.
+
+- **type**: integer
+- **values**: any positive integer
+- **default**: not set
+- 
+## `username`
+
+Proxy username (optional).
+
+- **type**: string
+- **values**: any string
+- **default**: not set
+  
+## `password`
+
+Proxy password (optional).
+
+- **type**: string
+- **values**: any string
+- **default**: not set
