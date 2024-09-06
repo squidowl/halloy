@@ -30,7 +30,7 @@ impl std::fmt::Display for Url {
 }
 
 pub fn theme(colors: &theme::Colors) -> String {
-    format!("halloy:///theme?encoded={}", colors.encode_base64())
+    format!("halloy:///theme?e={}", colors.encode_base64())
 }
 
 impl Url {
@@ -60,7 +60,7 @@ impl FromStr for Url {
             "halloy" if url.path() == "/theme" => {
                 let (_, encoded) = url
                     .query_pairs()
-                    .find(|(key, _)| key == "encoded")
+                    .find(|(key, _)| key == "e")
                     .ok_or(Error::MissingQueryPair)?;
 
                 let colors = theme::Colors::decode_base64(&encoded)?;
