@@ -500,7 +500,12 @@ impl Data {
             .filter(|message| match message.target.source() {
                 message::Source::Server(Some(source)) => {
                     if let Some(server_message) = buffer_config.server_messages.get(source) {
-                        if !server_message.enabled {
+                        let channel = match &message.target {
+                            message::Target::Channel { channel, .. } => Some(channel.as_ref()),
+                            _ => None,
+                        };
+
+                        if !server_message.should_send_message(channel) {
                             return false;
                         }
 
