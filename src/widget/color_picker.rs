@@ -436,7 +436,12 @@ fn slider<'a, Message: 'a>(
                 let bounds = layout.bounds();
                 let handle = slider_handle(value, color, bounds, handle_radius);
 
-                let color = Hsva::new_srgb(color.hue, 1.0, 1.0, 1.0);
+                let color = match component {
+                    // Full S/V and cycle every hue
+                    Component::Hue => Hsva::new_srgb(0.0, 1.0, 1.0, 1.0),
+                    // Otherwise slide should change based on color
+                    _ => color,
+                };
 
                 for x in 0..bounds.width as usize {
                     renderer.fill_quad(

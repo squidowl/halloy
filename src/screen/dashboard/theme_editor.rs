@@ -44,7 +44,7 @@ pub struct ThemeEditor {
     pub id: window::Id,
     combo_box: combo_box::State<Component>,
     component: Component,
-    hex_input: String,
+    hex_input: Option<String>,
     save_result: Option<bool>,
     copied: bool,
 }
@@ -67,8 +67,10 @@ impl ThemeEditor {
             Self {
                 id,
                 combo_box: combo_box::State::new(components().collect()),
-                component: Component::General(General::Background),
-                hex_input: String::default(),
+                // Defaulting to general / background is confusing
+                // since picker is same color as background
+                component: Component::Text(Text::Primary),
+                hex_input: None,
                 save_result: None,
                 copied: false,
             },
@@ -85,7 +87,7 @@ impl ThemeEditor {
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Color(color) => {
-                self.hex_input.clear();
+                self.hex_input = None;
 
                 let mut colors = *theme.colors();
 
@@ -94,21 +96,21 @@ impl ThemeEditor {
                 *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
             }
             Message::Component(component) => {
-                self.hex_input.clear();
+                self.hex_input = None;
                 self.combo_box = combo_box::State::new(components().collect());
 
                 self.component = component
             }
             Message::HexInput(input) => {
-                self.hex_input = input;
-
-                if let Some(color) = theme::hex_to_color(&self.hex_input) {
+                if let Some(color) = theme::hex_to_color(&input) {
                     let mut colors = *theme.colors();
 
                     self.component.update(&mut colors, Some(color));
 
                     *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
                 }
+
+                self.hex_input = Some(input);
             }
             Message::Save => {
                 let task = async move {
@@ -134,7 +136,7 @@ impl ThemeEditor {
                 return (Task::none(), Some(Event::Close));
             }
             Message::Revert => {
-                self.hex_input.clear();
+                self.hex_input = None;
 
                 let mut colors = *theme.selected().colors();
                 let original = self.component.color(&colors);
@@ -144,7 +146,7 @@ impl ThemeEditor {
                 *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
             }
             Message::Clear => {
-                self.hex_input.clear();
+                self.hex_input = None;
 
                 let mut colors = *theme.colors();
 
@@ -222,17 +224,26 @@ impl ThemeEditor {
             Message::Component,
         );
 
-        let is_input_valid =
-            self.hex_input.is_empty() || theme::hex_to_color(&self.hex_input).is_some();
-        let hex_input = text_input(&theme::color_to_hex(color), &self.hex_input)
-            .on_input(Message::HexInput)
-            .style(move |theme, status| {
-                if is_input_valid {
-                    theme::text_input::primary(theme, status)
-                } else {
-                    theme::text_input::error(theme, status)
-                }
-            });
+        let is_input_valid = self.hex_input.is_none()
+            || self
+                .hex_input
+                .as_deref()
+                .and_then(theme::hex_to_color)
+                .is_some();
+        let hex_input = text_input(
+            "",
+            self.hex_input
+                .as_deref()
+                .unwrap_or(theme::color_to_hex(color).as_str()),
+        )
+        .on_input(Message::HexInput)
+        .style(move |theme, status| {
+            if is_input_valid {
+                theme::text_input::primary(theme, status)
+            } else {
+                theme::text_input::error(theme, status)
+            }
+        });
 
         let undo = icon(icon::undo(), "Revert", Message::Revert);
         let clear = icon(icon::delete(), "Clear", Message::Clear);
