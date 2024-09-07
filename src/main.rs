@@ -24,7 +24,7 @@ use data::config::{self, Config};
 use data::version::Version;
 use data::{environment, history, server, version, Url, User};
 use iced::widget::{column, container};
-use iced::{Length, Subscription, Task};
+use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
 
 use self::event::{events, Event};
@@ -789,7 +789,7 @@ impl Halloy {
     }
 
     fn view(&self, id: window::Id) -> Element<Message> {
-        if id == self.main_window.id {
+        let content = if id == self.main_window.id {
             let now = Instant::now();
 
             let screen = match &self.screen {
@@ -821,7 +821,16 @@ impl Halloy {
                 .map(Message::Dashboard)
         } else {
             column![].into()
-        }
+        };
+
+        // The height margin varies across different operating systems due to design differences.
+        // For instance, on macOS, the menubar is hidden, resulting in a need for additional padding to accommodate the
+        // space occupied by the traffic light buttons.
+        let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
+
+        container(content)
+            .padding(padding::top(height_margin))
+            .into()
     }
 
     fn theme(&self, _window: window::Id) -> Theme {

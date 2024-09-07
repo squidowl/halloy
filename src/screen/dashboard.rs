@@ -9,7 +9,7 @@ use data::user::Nick;
 use data::{client, environment, history, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
-use iced::{clipboard, padding, Length, Task};
+use iced::{clipboard, Length, Task};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -707,11 +707,6 @@ impl Dashboard {
             )
             .map(|e| e.map(Message::Sidebar));
 
-        // The height margin varies across different operating systems due to design differences.
-        // For instance, on macOS, the menubar is hidden, resulting in a need for additional padding to accommodate the
-        // space occupied by the traffic light buttons.
-        let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
-
         let content = match config.sidebar.position {
             data::config::sidebar::Position::Left | data::config::sidebar::Position::Top => {
                 vec![side_menu.unwrap_or_else(|| row![].into()), pane_grid.into()]
@@ -725,13 +720,11 @@ impl Dashboard {
             Column::with_children(content)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(padding::top(height_margin))
                 .into()
         } else {
             Row::with_children(content)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(padding::top(height_margin))
                 .into()
         };
 
