@@ -5,12 +5,12 @@
 Added:
 
 - New configuration options
-  - Right aligning nicks in buffers. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#buffernickname-section).
-  - Right aligning nicks in nicklist. See [configuration](https://halloy.squidowl.org/configuration/buffer).
-  - Hiding `chghost` messages. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferserver_messages-section).
-  - Overwrite nicklist `width` in channels. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferchannelnicklist-section).
-  - Show/hide user access levels in buffer and nicklist. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferchannelnicklist-section)
-  - `buffer_focused_action` added to `sidebar` to enable actions a focused buffer. See [configuration](https://halloy.squidowl.org/configuration/sidebar.html#sidebar-section).
+  - Right aligning nicks in buffers. See [configuration](https://halloy.squidowl.org/configuration/buffer/nickname.html#alignment).
+  - Right aligning nicks in nicklist. See [configuration](https://halloy.squidowl.org/configuration/buffer/channel/nicklist.html#alignment).
+  - Hiding `chghost` messages. See [configuration](https://halloy.squidowl.org/configuration/buffer/server_messages/change_host.html).
+  - Overwrite nicklist `width` in channels. See [configuration](https://halloy.squidowl.org/configuration/buffer/channel/nicklist.html#width).
+  - Show/hide user access levels in buffer and nicklist. See [configuration](https://halloy.squidowl.org/configuration/buffer/channel/nicklist.html#show_access_levels)
+  - `buffer_focused_action` added to `sidebar` to enable actions a focused buffer. See [configuration](https://halloy.squidowl.org/configuration/sidebar/index.html#buffer_focused_action).
   - Notification for direct messages. See [notification configuration](https://halloy.squidowl.org/configuration/notifications.html).
 - Enable support for IRCv3 [`Monitor`](https://ircv3.net/specs/extensions/monitor) and [`extended-monitor`](https://ircv3.net/specs/extensions/extended-monitor)
 
@@ -19,14 +19,14 @@ Fixed:
 - Expanded recognized login notifications (used to join channels that report themselves as requiring registration after logging in)
 - Messages with multiple targets are correctly recorded into multiple buffers (and/or multiple times into the same buffer) client-side.
 - Messages sent with a STATUSMSG prefix are recorded and indicated in the corresponding channel.
-- Ability to position the sidebar at the top, bottom, right, or left. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
+- Ability to position the sidebar at the top, bottom, right, or left. See [configuration](https://halloy.squidowl.org/configuration/sidebar/index.html#position).
 - `/mode` requires too many parameters for certain commands. 
 
 Changed:
 
 - Reworked themes to add better customization possibilities
   - **NOTE** Old theme files are not compatibile with the new format. However all the themes in the [theme community](https://halloy.squidowl.org/configuration/themes/community.html) has been updated to the new format.
-- Unread indicator has changed from a boolean value to a enum. See [Sidebar configuration](https://halloy.squidowl.org/configuration/sidebar.html).
+- Unread indicator has changed from a boolean value to a enum. See [configuration](https://halloy.squidowl.org/configuration/sidebar/index.html#unread_indicators).
 - Renamed `sidebar.default_action` to `sidebar.buffer_action`.
 - Auto-completing (with tab) a nickname at the beginning of the input line will append ': ' (colon space). Otherwise, a space is appended to the completion.
  
