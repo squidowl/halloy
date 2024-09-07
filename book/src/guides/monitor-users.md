@@ -1,6 +1,6 @@
 # Monitor users
 
-Halloy has [monitor](https://ircv3.net/specs/extensions/monitor) support if the server has the IRCv3 Monitor3 extension.
+Halloy has [monitor](https://ircv3.net/specs/extensions/monitor) support if the server has the IRCv3 Monitor extension.
 
 > 💡 A protocol for notification of when clients become online/offline
 

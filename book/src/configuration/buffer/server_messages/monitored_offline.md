@@ -10,7 +10,6 @@ Server message is sent if a monitored user goes offline.
 [buffer.server_messages.monitored_offline]
 enabled = true
 smart = 180
-username_format = "full"
 ```
 
 ## `enabled`

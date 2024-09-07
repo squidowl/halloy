@@ -3,13 +3,13 @@
 Server message is sent if a monitored user goes online.
 
 > 💡 Read more about [monitoring users](../../../guides/monitor-users.html).
+
 **Example**
 
 ```toml
 [buffer.server_messages.monitored_online]
 enabled = true
 smart = 180
-username_format = "full"
 ```
 
 ## `enabled`
