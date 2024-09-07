@@ -451,6 +451,17 @@ impl Dashboard {
                                     *theme = Theme::from(new);
                                     (Task::none(), None)
                                 }
+                                command_bar::Theme::OpenEditor => {
+                                    if let Some(editor) = &self.theme_editor {
+                                        (window::gain_focus(editor.id), None)
+                                    } else {
+                                        let (editor, task) = ThemeEditor::open(main_window);
+
+                                        self.theme_editor = Some(editor);
+
+                                        (task.then(|_| Task::none()), None)
+                                    }
+                                }
                             },
                         };
 
