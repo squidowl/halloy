@@ -65,9 +65,10 @@ impl<'a> TryFrom<&'a str> for User {
             return Err("nickname can't be empty");
         }
 
-        let Some(index) = value.find(|c: char| c.is_alphabetic() || "[\\]^_`{|}".find(c).is_some())
+        let Some(index) =
+            value.find(|c: char| c.is_alphabetic() || "[\\]^_`{|}*".find(c).is_some())
         else {
-            return Err("nickname must start with alphabetic or [ \\ ] ^ _ ` { | }");
+            return Err("nickname must start with alphabetic or [ \\ ] ^ _ ` { | } *");
         };
 
         let (access_levels, rest) = (&value[..index], &value[index..]);
@@ -516,6 +517,17 @@ mod tests {
                 User {
                     nickname: "d@n".into(),
                     username: Some("d".into()),
+                    hostname: None,
+                    accountname: None,
+                    access_levels: HashSet::<AccessLevel>::new(),
+                    away: false,
+                },
+            ),
+            (
+                "*status",
+                User {
+                    nickname: "*status".into(),
+                    username: None,
                     hostname: None,
                     accountname: None,
                     access_levels: HashSet::<AccessLevel>::new(),
