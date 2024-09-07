@@ -8,7 +8,6 @@ Server message is sent when a user's host changes.
 [buffer.server_messages.change_host]
 enabled = true
 smart = 180
-username_format = "full"
 ```
 
 ## `enabled`
@@ -26,11 +25,3 @@ Only show server message if the user has sent a message in the given time interv
 - **type**: integer
 - **values**: any positive integer
 - **default**: not set
-
-## `username_format`
-
-Adjust the amount of information displayed for a username in server messages. If you choose `"short"`, only the nickname will be shown. If you choose `"full"`, the nickname, username, and hostname (if available) will be displayed.
-
-- **type**: string
-- **values**: `"full"`, `"short"`
-- **default**: `"full"`

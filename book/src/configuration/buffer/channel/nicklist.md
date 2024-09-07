@@ -35,7 +35,7 @@ Control if nicklist should be shown or not by default.
 
 ## `position`
 
-Nicklist position in the buffer.
+Nicklist position in the pane.
 
 - **type**: string
 - **values**: `"left"`, `"right"`
