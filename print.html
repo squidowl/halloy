@@ -321,26 +321,20 @@ For feature requests or reporting issues, please open a ticket on <a href="https
 <li><a href="https://github.com/tarkah">https://github.com/tarkah</a></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="connect-with-soju"><a class="header" href="#connect-with-soju">Connect with Soju</a></h1>
-<p>To connect with a <strong>soju</strong><sup class="footnote-reference"><a href="#1">1</a></sup> bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.</p>
+<p>To connect with a <a href="https://soju.im/"><strong>soju</strong></a> bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.</p>
 <pre><code class="language-toml">[servers.libera]
 nickname = "casperstorm"
 username = "&lt;your-username&gt;/irc.libera.chat@desktop"
 server = "irc.squidowl.org"
 password = "&lt;your-password&gt;"
 </code></pre>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p><a href="https://soju.im/">https://soju.im/</a></p>
-</div>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="connect-with-znc"><a class="header" href="#connect-with-znc">Connect with ZNC</a></h1>
-<p>To connect with a <strong>ZNC</strong><sup class="footnote-reference"><a href="#1">1</a></sup> bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.</p>
+<p>To connect with a <a href="https://wiki.znc.in/ZNC"><strong>ZNC</strong></a> bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.</p>
 <pre><code class="language-toml">[servers.libera]
 nickname = "&lt;znc-user&gt;/&lt;znc-network&gt;"
 server = "znc.example.com"
 password = "&lt;your-password&gt;"
 </code></pre>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p><a href="https://wiki.znc.in/ZNC">https://wiki.znc.in/ZNC</a></p>
-</div>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="portable-mode"><a class="header" href="#portable-mode">Portable mode</a></h1>
 <p>To enable portable mode for Halloy, simply place the <code>config.toml</code> file in the same directory as the running executable.</p>
 <pre><code>.
@@ -434,7 +428,7 @@ channels = ["#halloy"]
 auto_format = "disabled" | "markdown" | "all"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="monitor-users"><a class="header" href="#monitor-users">Monitor users</a></h1>
-<p>Halloy has <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> support if the server has the IRCv3 Monitor3 extension.</p>
+<p>Halloy has <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> support if the server has the IRCv3 Monitor extension.</p>
 <blockquote>
 <p>💡 A protocol for notification of when clients become online/offline</p>
 </blockquote>
@@ -525,7 +519,7 @@ show_access_levels = true
 <li><strong>default</strong>: <code>true</code></li>
 </ul>
 <h2 id="position"><a class="header" href="#position"><code>position</code></a></h2>
-<p>Nicklist position in the buffer.</p>
+<p>Nicklist position in the pane.</p>
 <ul>
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: <code>"left"</code>, <code>"right"</code></li>
@@ -656,13 +650,13 @@ show_access_levels = true
 <p>Server messages are messages sent from a irc server.</p>
 <h2 id="configuration-5"><a class="header" href="#configuration-5">Configuration</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td><a href="configuration/buffer/server_messages/./success.html">Change Host</a></td><td>Message is sent when a user changes host</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./success.html">Join</a></td><td>Message is sent when a user joins a channel</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./success.html">Monitored Offline</a></td><td>Message is sent when a monitored user goes offline</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./error.html">Monitored Online</a></td><td>Message is sent when a monitored user goes online</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./success.html">Part</a></td><td>Message is sent when a user leaves a channel</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./success.html">Quit</a></td><td>Message is sent when a user closes the connection to a channel or server</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./success.html">Topic</a></td><td>Message is sent when a user changes channel topic</td></tr>
+<tr><td><a href="configuration/buffer/server_messages/./change_host.html">Change Host</a></td><td>Message is sent when a user changes host</td></tr>
+<tr><td><a href="configuration/buffer/server_messages/./join.html">Join</a></td><td>Message is sent when a user joins a channel</td></tr>
+<tr><td><a href="configuration/buffer/server_messages/./monitored_offline.html">Monitored Offline</a></td><td>Message is sent when a monitored user goes offline</td></tr>
+<tr><td><a href="configuration/buffer/server_messages/./monitored_online.html">Monitored Online</a></td><td>Message is sent when a monitored user goes online</td></tr>
+<tr><td><a href="configuration/buffer/server_messages/./part.html">Part</a></td><td>Message is sent when a user leaves a channel</td></tr>
+<tr><td><a href="configuration/buffer/server_messages/./quit.html">Quit</a></td><td>Message is sent when a user closes the connection to a channel or server</td></tr>
+<tr><td><a href="configuration/buffer/server_messages/./topic.html">Topic</a></td><td>Message is sent when a user changes channel topic</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messageschange_host"><a class="header" href="#bufferserver_messageschange_host"><code>[buffer.server_messages.change_host]</code></a></h1>
 <p>Server message is sent when a user's host changes.</p>
@@ -670,7 +664,6 @@ show_access_levels = true
 <pre><code class="language-toml">[buffer.server_messages.change_host]
 enabled = true
 smart = 180
-username_format = "full"
 </code></pre>
 <h2 id="enabled-4"><a class="header" href="#enabled-4"><code>enabled</code></a></h2>
 <p>Control if internal message type is enabled.</p>
@@ -685,13 +678,6 @@ username_format = "full"
 <li><strong>type</strong>: integer</li>
 <li><strong>values</strong>: any positive integer</li>
 <li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="username_format"><a class="header" href="#username_format"><code>username_format</code></a></h2>
-<p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"full"</code>, <code>"short"</code></li>
-<li><strong>default</strong>: <code>"full"</code></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messagesjoin"><a class="header" href="#bufferserver_messagesjoin"><code>[buffer.server_messages.join]</code></a></h1>
 <p>Server message is sent when a user joins a channel.</p>
@@ -715,7 +701,7 @@ username_format = "full"
 <li><strong>values</strong>: any positive integer</li>
 <li><strong>default</strong>: not set</li>
 </ul>
-<h2 id="username_format-1"><a class="header" href="#username_format-1"><code>username_format</code></a></h2>
+<h2 id="username_format"><a class="header" href="#username_format"><code>username_format</code></a></h2>
 <p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
 <ul>
 <li><strong>type</strong>: string</li>
@@ -731,7 +717,6 @@ username_format = "full"
 <pre><code class="language-toml">[buffer.server_messages.monitored_offline]
 enabled = true
 smart = 180
-username_format = "full"
 </code></pre>
 <h2 id="enabled-6"><a class="header" href="#enabled-6"><code>enabled</code></a></h2>
 <p>Control if internal message type is enabled.</p>
@@ -750,13 +735,12 @@ username_format = "full"
 <div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messagesmonitored_online"><a class="header" href="#bufferserver_messagesmonitored_online"><code>[buffer.server_messages.monitored_online]</code></a></h1>
 <p>Server message is sent if a monitored user goes online.</p>
 <blockquote>
-<p>💡 Read more about <a href="configuration/buffer/server_messages/../../../guides/monitor-users.html">monitoring users</a>.
-<strong>Example</strong></p>
+<p>💡 Read more about <a href="configuration/buffer/server_messages/../../../guides/monitor-users.html">monitoring users</a>.</p>
 </blockquote>
+<p><strong>Example</strong></p>
 <pre><code class="language-toml">[buffer.server_messages.monitored_online]
 enabled = true
 smart = 180
-username_format = "full"
 </code></pre>
 <h2 id="enabled-7"><a class="header" href="#enabled-7"><code>enabled</code></a></h2>
 <p>Control if internal message type is enabled.</p>
@@ -794,7 +778,7 @@ username_format = "full"
 <li><strong>values</strong>: any positive integer</li>
 <li><strong>default</strong>: not set</li>
 </ul>
-<h2 id="username_format-2"><a class="header" href="#username_format-2"><code>username_format</code></a></h2>
+<h2 id="username_format-1"><a class="header" href="#username_format-1"><code>username_format</code></a></h2>
 <p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
 <ul>
 <li><strong>type</strong>: string</li>
@@ -823,7 +807,7 @@ username_format = "full"
 <li><strong>values</strong>: any positive integer</li>
 <li><strong>default</strong>: not set</li>
 </ul>
-<h2 id="username_format-3"><a class="header" href="#username_format-3"><code>username_format</code></a></h2>
+<h2 id="username_format-2"><a class="header" href="#username_format-2"><code>username_format</code></a></h2>
 <p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
 <ul>
 <li><strong>type</strong>: string</li>
@@ -1291,7 +1275,7 @@ Example. <code>["/msg NickServ IDENTIFY foo bar"]</code>.</p>
 <li><strong>default</strong>: <code>10</code></li>
 </ul>
 <h2 id="monitor"><a class="header" href="#monitor"><code>monitor</code></a></h2>
-<p>A list of nicknames to <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> (if IRCv3 Monitor3 is supported by the server).<br />
+<p>A list of nicknames to <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> (if IRCv3 Monitor is supported by the server).
 Example: <code>["Foo", "Bar"]</code></p>
 <blockquote>
 <p>💡 Read more about <a href="configuration/servers/../../guides/monitor-users.html">monitoring users</a>.</p>
