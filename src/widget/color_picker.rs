@@ -6,6 +6,7 @@ use iced::{
     Point, Rectangle,
 };
 use iced::{advanced::Layout, widget::Space};
+use iced::{Size, Vector};
 use palette::{Hsva, RgbHue};
 
 use super::{decorate, Container, Element, Renderer};
@@ -387,6 +388,47 @@ fn picker<'a, Message: 'a>(
                   viewport: &iced::Rectangle| {
                 let bounds = layout.bounds();
                 let handle = picker.handle_from_color(color, bounds, handle_radius);
+
+                // Draw checkerboard for alpha slider
+                if matches!(
+                    picker,
+                    Picker::Slider(Value {
+                        component: Component::Alpha,
+                        ..
+                    })
+                ) {
+                    const WIDTH: f32 = 5.0;
+                    const HEIGHT: f32 = 5.0;
+                    const COLOR_EVEN: Color = Color::from_rgb(0.9803, 0.9882, 0.9922);
+                    const COLOR_ODD: Color = Color::from_rgb(0.7529, 0.7725, 0.8);
+
+                    let num_rows = (bounds.height / HEIGHT) as usize + 1;
+                    let num_columns = (bounds.width / WIDTH) as usize + 1;
+
+                    for row in 0..num_rows {
+                        for col in 0..num_columns {
+                            let x = col as f32 * WIDTH;
+                            let y = row as f32 * HEIGHT;
+                            let width = (bounds.width - x).min(WIDTH);
+                            let height = (bounds.height - y).min(HEIGHT);
+                            let top_left = bounds.position() + Vector::new(x, y);
+                            let color = if (row + col) % 2 == 0 {
+                                COLOR_EVEN
+                            } else {
+                                COLOR_ODD
+                            };
+
+                            renderer.fill_quad(
+                                Quad {
+                                    bounds: Rectangle::new(top_left, Size::new(width, height)),
+                                    border: Default::default(),
+                                    shadow: Default::default(),
+                                },
+                                color,
+                            );
+                        }
+                    }
+                }
 
                 let cell_height = match picker {
                     Picker::Slider(_) => bounds.height,
