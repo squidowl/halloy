@@ -225,7 +225,7 @@ impl FromStr for Operation {
                                             None,
                                             types.to_string(),
                                         )))
-                                    } else if prefix.chars().all(|c| c.is_ascii()) {
+                                    } else if prefix.is_ascii() {
                                         Ok(Operation::Add(Parameter::EXTBAN(
                                             prefix.chars().next(),
                                             types.to_string(),

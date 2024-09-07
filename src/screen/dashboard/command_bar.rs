@@ -141,6 +141,7 @@ pub enum Ui {
 #[derive(Debug, Clone)]
 pub enum Theme {
     Switch(data::Theme),
+    OpenEditor,
 }
 
 impl Command {
@@ -234,12 +235,9 @@ impl Ui {
 
 impl Theme {
     fn list(config: &Config) -> Vec<Self> {
-        config
-            .themes
-            .all
-            .iter()
-            .cloned()
-            .map(Self::Switch)
+        Some(Self::OpenEditor)
+            .into_iter()
+            .chain(config.themes.all.iter().cloned().map(Self::Switch))
             .collect()
     }
 }
@@ -311,6 +309,7 @@ impl std::fmt::Display for Theme {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Theme::Switch(theme) => write!(f, "Switch to {}", theme.name),
+            Theme::OpenEditor => write!(f, "Open editor"),
         }
     }
 }
