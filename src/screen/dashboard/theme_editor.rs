@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use data::{config, url, Config};
+use data::{url, Config};
 use futures::TryFutureExt;
+use iced::alignment::Vertical;
 use iced::widget::text::LineHeight;
-use iced::widget::{button, center, column, container, row, text, text_input};
-use iced::{alignment, clipboard, padding, Length::*};
+use iced::widget::{button, center, column, container, row, text_input};
+use iced::{alignment, clipboard, Length::*};
 use iced::{Color, Length};
 use iced::{Task, Vector};
 use strum::IntoEnumIterator;
@@ -114,9 +115,17 @@ impl ThemeEditor {
             }
             Message::Save => {
                 let task = async move {
-                    rfd::AsyncFileDialog::new()
-                        .set_directory(Config::themes_dir())
-                        .set_file_name("custom-theme.toml")
+                    // TODO: rfd `set_directory` can't be used in combination with `set_file_name` on macOS.
+                    // https://github.com/PolyMeilex/rfd/issues/214
+
+                    let mut dialog =
+                        rfd::AsyncFileDialog::new().set_directory(Config::themes_dir());
+
+                    if !cfg!(target_os = "macos") {
+                        dialog = dialog.set_file_name("custom-theme.toml");
+                    }
+
+                    dialog
                         .save_file()
                         .await
                         .map(|handle| handle.path().to_path_buf())
@@ -211,7 +220,7 @@ impl ThemeEditor {
         (Task::none(), None)
     }
 
-    pub fn view<'a>(&'a self, theme: &'a Theme, config: &'a Config) -> Element<'a, Message> {
+    pub fn view<'a>(&'a self, theme: &'a Theme) -> Element<'a, Message> {
         let color = self
             .component
             .color(theme.colors())
@@ -245,40 +254,33 @@ impl ThemeEditor {
             }
         });
 
-        let undo = icon(icon::undo(), "Revert", Message::Revert);
-        let clear = icon(icon::delete(), "Clear", Message::Clear);
+        let undo = icon(icon::undo(), "Revert Color", Message::Revert);
 
         let save = match self.save_result {
             Some(is_success) => status_button(is_success),
-            None => secondary_button("Save", Message::Save),
+            None => secondary_button("Save to Disk", Message::Save),
         };
-        let apply = secondary_button("Apply", Message::Apply);
-        let discard = secondary_button("Discard", Message::Discard);
+        let apply = secondary_button("Apply Colors", Message::Apply);
 
-        let share = text_input("", &url::theme(theme.colors()));
         let copy = if self.copied {
             success_icon()
         } else {
-            icon(icon::copy(), "Copy", Message::Copy)
+            icon(icon::copy(), "Copy URL to theme", Message::Copy)
         };
 
         let color_picker = color_picker(color, Message::Color);
 
         let content = column![
             row![
-                subtitled("Component", container(component).width(Fill), &config.font),
-                subtitled("Hex", container(hex_input).width(80), &config.font),
-                subtitled("", undo, &config.font),
-                subtitled("", clear, &config.font),
+                container(component).width(Fill),
+                container(hex_input).width(80),
+                undo,
+                copy,
             ]
+            .align_y(Vertical::Center)
             .spacing(4),
-            row![
-                subtitled("Share", share, &config.font),
-                subtitled("", copy, &config.font)
-            ]
-            .spacing(4),
-            row![save, apply, discard].spacing(4),
-            color_picker
+            color_picker,
+            row![apply, save].spacing(4),
         ]
         .spacing(8);
 
@@ -296,7 +298,7 @@ fn icon<'a>(icon: widget::Text<'a>, tip: &'a str, message: Message) -> Element<'
             .width(22)
             .height(22)
             .padding(5)
-            .style(theme::button::bare)
+            .style(|theme, style| theme::button::primary(theme, style, false))
             .on_press(message),
         Some(tip),
         tooltip::Position::Bottom,
@@ -340,24 +342,6 @@ fn status_button<'a>(is_success: bool) -> Element<'a, Message> {
     .padding(5)
     .width(Fill)
     .style(|theme, status| theme::button::secondary(theme, status, false))
-    .into()
-}
-
-fn subtitled<'a>(
-    subtitle: &'static str,
-    inner: impl Into<Element<'a, Message>>,
-    config: &config::Font,
-) -> Element<'a, Message> {
-    column![
-        container(
-            text(subtitle)
-                .size(config.size.map(|u| u as f32).unwrap_or(theme::TEXT_SIZE) - 2.0)
-                .style(theme::text::secondary)
-        )
-        .padding(padding::left(2)),
-        inner.into()
-    ]
-    .spacing(2)
     .into()
 }
 
