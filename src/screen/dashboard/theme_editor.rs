@@ -288,6 +288,7 @@ impl ThemeEditor {
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(8)
+            .style(theme::container::general)
             .into()
     }
 }
