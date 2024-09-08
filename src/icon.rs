@@ -64,10 +64,6 @@ pub fn undo<'a>() -> Text<'a> {
     to_text('\u{E80B}')
 }
 
-pub fn delete<'a>() -> Text<'a> {
-    to_text('\u{E80C}')
-}
-
 pub fn copy<'a>() -> Text<'a> {
     to_text('\u{F0C5}')
 }

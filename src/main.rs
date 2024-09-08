@@ -817,7 +817,7 @@ impl Halloy {
             }
         } else if let Screen::Dashboard(dashboard) = &self.screen {
             dashboard
-                .view_window(id, &self.theme, &self.config)
+                .view_window(id, &self.theme)
                 .map(Message::Dashboard)
         } else {
             column![].into()

@@ -650,15 +650,10 @@ impl Dashboard {
         (Task::none(), None)
     }
 
-    pub fn view_window<'a>(
-        &'a self,
-        id: window::Id,
-        theme: &'a Theme,
-        config: &'a Config,
-    ) -> Element<'a, Message> {
+    pub fn view_window<'a>(&'a self, id: window::Id, theme: &'a Theme) -> Element<'a, Message> {
         if let Some(editor) = self.theme_editor.as_ref() {
             if editor.id == id {
-                return editor.view(theme, config).map(Message::ThemeEditor);
+                return editor.view(theme).map(Message::ThemeEditor);
             }
         }
 

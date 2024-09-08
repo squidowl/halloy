@@ -12,8 +12,8 @@ use palette::{Hsva, RgbHue};
 use super::{decorate, Container, Element, Renderer};
 use crate::theme::Theme;
 
-const HANDLE_RADIUS: f32 = 7.0;
-const SLIDER_HEIGHT: f32 = 10.0;
+const HANDLE_RADIUS: f32 = 10.0;
+const SLIDER_HEIGHT: f32 = 20.0;
 
 pub fn color_picker<'a, Message: 'a>(
     color: Color,
