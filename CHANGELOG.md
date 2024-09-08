@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- In-app theme editor with ability to with share it via a halloy:// URL.
+
 Fixed:
 
 - Regression where messages sent to ZNC virtual users were routed to the wrong buffer (e.g. `*status` routed to `status`).
