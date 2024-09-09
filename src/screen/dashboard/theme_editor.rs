@@ -265,7 +265,7 @@ impl ThemeEditor {
         let copy = if self.copied {
             success_icon()
         } else {
-            icon(icon::copy(), "Copy URL to theme", Message::Copy)
+            icon(icon::copy(), "Copy Theme to URL", Message::Copy)
         };
 
         let color_picker = color_picker(color, Message::Color);
