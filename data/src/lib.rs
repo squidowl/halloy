@@ -14,6 +14,7 @@ pub use self::theme::Theme;
 pub use self::url::Url;
 pub use self::user::User;
 pub use self::version::Version;
+pub use self::window::Window;
 
 pub mod audio;
 pub mod buffer;
