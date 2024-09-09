@@ -37,6 +37,8 @@ walkdir = "2.5.0"
 once_cell = "1.19.0"
 nom = "7.1"
 const_format = "0.2.32"
+strum = { version = "0.26.3", features = ["derive"] }
+derive_more = { version = "1.0.0", features = ["full"] }
 
 [dependencies.irc]
 path = "../irc"
