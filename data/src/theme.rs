@@ -10,8 +10,6 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::fs;
 
-use crate::compression;
-
 const DEFAULT_THEME_NAME: &str = "Ferra";
 const DEFAULT_THEME_CONTENT: &str = include_str!("../../assets/themes/ferra.toml");
 
@@ -37,6 +35,7 @@ impl Theme {
 }
 
 // IMPORTANT: Make sure any new components are added to the theme editor
+// and `binary` representation
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Colors {
     #[serde(default)]
@@ -59,20 +58,15 @@ impl Colors {
     }
 
     pub fn encode_base64(&self) -> String {
-        let Ok(compressed) = compression::compress(&compact::Colors::from(*self)) else {
-            // "Impossible" state
-            return String::new();
-        };
+        let bytes = binary::encode(self);
 
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&compressed)
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&bytes)
     }
 
     pub fn decode_base64(content: &str) -> Result<Self, Error> {
         let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(content)?;
 
-        compression::decompress::<compact::Colors>(&bytes)
-            .map_err(Error::Decompress)
-            .map(Self::from)
+        Ok(binary::decode(&bytes))
     }
 }
 
@@ -84,8 +78,6 @@ pub enum Error {
     Write(#[from] std::io::Error),
     #[error("Failed to decode base64 theme string: {0}")]
     Base64Decode(#[from] base64::DecodeError),
-    #[error("Failed to decompress theme: {0}")]
-    Decompress(#[source] compression::Error),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
@@ -341,283 +333,210 @@ mod color_serde_maybe {
     }
 }
 
-mod compact {
+mod binary {
     use iced_core::Color;
-    use serde::{Deserialize, Serialize};
+    use strum::{IntoEnumIterator, VariantArray};
 
-    use super::default_transparent;
+    use super::{Buffer, Buttons, Colors, General, Text};
 
-    impl From<Colors> for super::Colors {
-        fn from(colors: Colors) -> Self {
-            super::Colors {
-                general: super::General {
-                    background: colors.g.ba,
-                    border: colors.g.bo,
-                    horizontal_rule: colors.g.hr,
-                    unread_indicator: colors.g.ui,
-                },
-                text: super::Text {
-                    primary: colors.t.p,
-                    secondary: colors.t.se,
-                    tertiary: colors.t.t,
-                    success: colors.t.su,
-                    error: colors.t.e,
-                },
-                buffer: super::Buffer {
-                    action: colors.bf.a,
-                    background: colors.bf.ba,
-                    background_text_input: colors.bf.bati,
-                    background_title_bar: colors.bf.batb,
-                    border: colors.bf.bo,
-                    border_selected: colors.bf.bos,
-                    code: colors.bf.c,
-                    highlight: colors.bf.h,
-                    nickname: colors.bf.n,
-                    selection: colors.bf.sl,
-                    server_messages: super::ServerMessages {
-                        join: colors.bf.sm.j,
-                        part: colors.bf.sm.p,
-                        quit: colors.bf.sm.q,
-                        reply_topic: colors.bf.sm.rt,
-                        change_host: colors.bf.sm.ch,
-                        monitored_online: colors.bf.sm.mon,
-                        monitored_offline: colors.bf.sm.mof,
-                        default: colors.bf.sm.d,
-                    },
-                    timestamp: colors.bf.ti,
-                    topic: colors.bf.to,
-                    url: colors.bf.u,
-                },
-                buttons: super::Buttons {
-                    primary: super::Button {
-                        background: colors.bt.p.b,
-                        background_hover: colors.bt.p.bh,
-                        background_selected: colors.bt.p.bs,
-                        background_selected_hover: colors.bt.p.bsh,
-                    },
-                    secondary: super::Button {
-                        background: colors.bt.s.b,
-                        background_hover: colors.bt.s.bh,
-                        background_selected: colors.bt.s.bs,
-                        background_selected_hover: colors.bt.s.bsh,
-                    },
-                },
+    pub fn encode(colors: &Colors) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(Tag::VARIANTS.len() * (1 + 4));
+
+        for tag in Tag::iter() {
+            if let Some(color) = tag.encode(colors) {
+                bytes.push(tag as u8);
+                bytes.extend(color);
             }
         }
+
+        bytes
     }
 
-    impl From<super::Colors> for Colors {
-        fn from(colors: super::Colors) -> Self {
-            Colors {
-                g: General {
-                    ba: colors.general.background,
-                    bo: colors.general.border,
-                    hr: colors.general.horizontal_rule,
-                    ui: colors.general.unread_indicator,
-                },
-                t: Text {
-                    p: colors.text.primary,
-                    se: colors.text.secondary,
-                    t: colors.text.tertiary,
-                    su: colors.text.success,
-                    e: colors.text.error,
-                },
-                bf: Buffer {
-                    a: colors.buffer.action,
-                    ba: colors.buffer.background,
-                    bati: colors.buffer.background_text_input,
-                    batb: colors.buffer.background_title_bar,
-                    bo: colors.buffer.border,
-                    bos: colors.buffer.border_selected,
-                    c: colors.buffer.code,
-                    h: colors.buffer.highlight,
-                    n: colors.buffer.nickname,
-                    sl: colors.buffer.selection,
-                    sm: ServerMessages {
-                        j: colors.buffer.server_messages.join,
-                        p: colors.buffer.server_messages.part,
-                        q: colors.buffer.server_messages.quit,
-                        rt: colors.buffer.server_messages.reply_topic,
-                        ch: colors.buffer.server_messages.change_host,
-                        mon: colors.buffer.server_messages.monitored_online,
-                        mof: colors.buffer.server_messages.monitored_offline,
-                        d: colors.buffer.server_messages.default,
-                    },
-                    ti: colors.buffer.timestamp,
-                    to: colors.buffer.topic,
-                    u: colors.buffer.url,
-                },
-                bt: Buttons {
-                    p: Button {
-                        b: colors.buttons.primary.background,
-                        bh: colors.buttons.primary.background_hover,
-                        bs: colors.buttons.primary.background_selected,
-                        bsh: colors.buttons.primary.background_selected_hover,
-                    },
-                    s: Button {
-                        b: colors.buttons.secondary.background,
-                        bh: colors.buttons.secondary.background_hover,
-                        bs: colors.buttons.secondary.background_selected,
-                        bsh: colors.buttons.secondary.background_selected_hover,
-                    },
-                },
+    pub fn decode(bytes: &[u8]) -> Colors {
+        let mut colors = Colors {
+            general: General::default(),
+            text: Text::default(),
+            buffer: Buffer::default(),
+            buttons: Buttons::default(),
+        };
+
+        for chunk in bytes.chunks(5) {
+            if chunk.len() == 5 {
+                if let Ok(tag) = Tag::try_from(chunk[0]) {
+                    let color =
+                        Color::from_rgba8(chunk[1], chunk[2], chunk[3], chunk[4] as f32 / 255.0);
+
+                    tag.update_colors(&mut colors, color);
+                }
             }
         }
+
+        colors
     }
 
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-    pub struct Colors {
-        #[serde(default)]
-        pub g: General,
-        #[serde(default)]
-        pub t: Text,
-        #[serde(default)]
-        pub bf: Buffer,
-        #[serde(default)]
-        pub bt: Buttons,
+    // IMPORTANT: Tags cannot be rearranged or deleted to preserve
+    // backwards compatability. Only append new items in the future
+    #[derive(Debug, Clone, Copy, strum::EnumIter, strum::VariantArray, derive_more::TryFrom)]
+    #[try_from(repr)]
+    #[repr(u8)]
+    pub enum Tag {
+        GeneralBackground = 0,
+        GeneralBorder = 1,
+        GeneralHorizontalRule = 2,
+        GeneralUnreadIndicator = 3,
+        TextPrimary = 4,
+        TextSecondary = 5,
+        TextTertiary = 6,
+        TextSuccess = 7,
+        TextError = 8,
+        BufferAction = 9,
+        BufferBackground = 10,
+        BufferBackgroundTextInput = 11,
+        BufferBackgroundTitleBar = 12,
+        BufferBorder = 13,
+        BufferBorderSelected = 14,
+        BufferCode = 15,
+        BufferHighlight = 16,
+        BufferNickname = 17,
+        BufferSelection = 18,
+        BufferTimestamp = 19,
+        BufferTopic = 20,
+        BufferUrl = 21,
+        BufferServerMessagesJoin = 22,
+        BufferServerMessagesPart = 23,
+        BufferServerMessagesQuit = 24,
+        BufferServerMessagesReplyTopic = 25,
+        BufferServerMessagesChangeHost = 26,
+        BufferServerMessagesMonitoredOnline = 27,
+        BufferServerMessagesMonitoredOffline = 28,
+        BufferServerMessagesDefault = 29,
+        ButtonsPrimaryBackground = 30,
+        ButtonsPrimaryBackgroundHover = 31,
+        ButtonsPrimaryBackgroundSelected = 32,
+        ButtonsPrimaryBackgroundSelectedHover = 33,
+        ButtonsSecondaryBackground = 34,
+        ButtonsSecondaryBackgroundHover = 35,
+        ButtonsSecondaryBackgroundSelected = 36,
+        ButtonsSecondaryBackgroundSelectedHover = 37,
     }
 
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-    pub struct Buttons {
-        #[serde(default)]
-        pub p: Button,
-        #[serde(default)]
-        pub s: Button,
-    }
+    impl Tag {
+        pub fn encode(&self, colors: &Colors) -> Option<[u8; 4]> {
+            let color = match self {
+                Tag::GeneralBackground => colors.general.background,
+                Tag::GeneralBorder => colors.general.border,
+                Tag::GeneralHorizontalRule => colors.general.horizontal_rule,
+                Tag::GeneralUnreadIndicator => colors.general.unread_indicator,
+                Tag::TextPrimary => colors.text.primary,
+                Tag::TextSecondary => colors.text.secondary,
+                Tag::TextTertiary => colors.text.tertiary,
+                Tag::TextSuccess => colors.text.success,
+                Tag::TextError => colors.text.error,
+                Tag::BufferAction => colors.buffer.action,
+                Tag::BufferBackground => colors.buffer.background,
+                Tag::BufferBackgroundTextInput => colors.buffer.background_text_input,
+                Tag::BufferBackgroundTitleBar => colors.buffer.background_title_bar,
+                Tag::BufferBorder => colors.buffer.border,
+                Tag::BufferBorderSelected => colors.buffer.border_selected,
+                Tag::BufferCode => colors.buffer.code,
+                Tag::BufferHighlight => colors.buffer.highlight,
+                Tag::BufferNickname => colors.buffer.nickname,
+                Tag::BufferSelection => colors.buffer.selection,
+                Tag::BufferTimestamp => colors.buffer.timestamp,
+                Tag::BufferTopic => colors.buffer.topic,
+                Tag::BufferUrl => colors.buffer.url,
+                Tag::BufferServerMessagesJoin => colors.buffer.server_messages.join?,
+                Tag::BufferServerMessagesPart => colors.buffer.server_messages.part?,
+                Tag::BufferServerMessagesQuit => colors.buffer.server_messages.quit?,
+                Tag::BufferServerMessagesReplyTopic => colors.buffer.server_messages.reply_topic?,
+                Tag::BufferServerMessagesChangeHost => colors.buffer.server_messages.change_host?,
+                Tag::BufferServerMessagesMonitoredOnline => {
+                    colors.buffer.server_messages.monitored_online?
+                }
+                Tag::BufferServerMessagesMonitoredOffline => {
+                    colors.buffer.server_messages.monitored_offline?
+                }
+                Tag::BufferServerMessagesDefault => colors.buffer.server_messages.default,
+                Tag::ButtonsPrimaryBackground => colors.buttons.primary.background,
+                Tag::ButtonsPrimaryBackgroundHover => colors.buttons.primary.background_hover,
+                Tag::ButtonsPrimaryBackgroundSelected => colors.buttons.primary.background_selected,
+                Tag::ButtonsPrimaryBackgroundSelectedHover => {
+                    colors.buttons.primary.background_selected_hover
+                }
+                Tag::ButtonsSecondaryBackground => colors.buttons.secondary.background,
+                Tag::ButtonsSecondaryBackgroundHover => colors.buttons.secondary.background_hover,
+                Tag::ButtonsSecondaryBackgroundSelected => {
+                    colors.buttons.secondary.background_selected
+                }
+                Tag::ButtonsSecondaryBackgroundSelectedHover => {
+                    colors.buttons.secondary.background_selected_hover
+                }
+            };
 
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-    pub struct Button {
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub b: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub bh: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub bs: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub bsh: Color,
-    }
-
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-    pub struct General {
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub ba: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub bo: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub hr: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub ui: Color,
-    }
-
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-    pub struct Buffer {
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub a: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub ba: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub bati: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub batb: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub bo: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub bos: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub c: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub h: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub n: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub sl: Color,
-        #[serde(default)]
-        pub sm: ServerMessages,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub ti: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub to: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub u: Color,
-    }
-
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-    pub struct ServerMessages {
-        #[serde(default, with = "color_serde_maybe")]
-        pub j: Option<Color>,
-        #[serde(default, with = "color_serde_maybe")]
-        pub p: Option<Color>,
-        #[serde(default, with = "color_serde_maybe")]
-        pub q: Option<Color>,
-        #[serde(default, with = "color_serde_maybe")]
-        pub rt: Option<Color>,
-        #[serde(default, with = "color_serde_maybe")]
-        pub ch: Option<Color>,
-        #[serde(default, with = "color_serde_maybe")]
-        pub mon: Option<Color>,
-        #[serde(default, with = "color_serde_maybe")]
-        pub mof: Option<Color>,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub d: Color,
-    }
-
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
-    pub struct Text {
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub p: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub se: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub t: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub su: Color,
-        #[serde(default = "default_transparent", with = "color_serde")]
-        pub e: Color,
-    }
-
-    mod color_serde {
-        use iced_core::Color;
-        use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Color, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            u32::deserialize(deserializer).map(|int| {
-                let [r, g, b, a] = int.to_be_bytes();
-                Color::from_rgba8(r, g, b, a as f32 / 255.0)
-            })
+            Some(color.into_rgba8())
         }
 
-        pub fn serialize<S>(color: &Color, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            u32::from_be_bytes(color.into_rgba8()).serialize(serializer)
-        }
-    }
-
-    mod color_serde_maybe {
-        use iced_core::Color;
-        use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            Ok(Option::<u32>::deserialize(deserializer)?.map(|int| {
-                let [r, g, b, a] = int.to_be_bytes();
-                Color::from_rgba8(r, g, b, a as f32 / 255.0)
-            }))
-        }
-
-        pub fn serialize<S>(color: &Option<Color>, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            color
-                .map(|color| u32::from_be_bytes(color.into_rgba8()))
-                .serialize(serializer)
+        pub fn update_colors(&self, colors: &mut Colors, color: Color) {
+            match self {
+                Tag::GeneralBackground => colors.general.background = color,
+                Tag::GeneralBorder => colors.general.border = color,
+                Tag::GeneralHorizontalRule => colors.general.horizontal_rule = color,
+                Tag::GeneralUnreadIndicator => colors.general.unread_indicator = color,
+                Tag::TextPrimary => colors.text.primary = color,
+                Tag::TextSecondary => colors.text.secondary = color,
+                Tag::TextTertiary => colors.text.tertiary = color,
+                Tag::TextSuccess => colors.text.success = color,
+                Tag::TextError => colors.text.error = color,
+                Tag::BufferAction => colors.buffer.action = color,
+                Tag::BufferBackground => colors.buffer.background = color,
+                Tag::BufferBackgroundTextInput => colors.buffer.background_text_input = color,
+                Tag::BufferBackgroundTitleBar => colors.buffer.background_title_bar = color,
+                Tag::BufferBorder => colors.buffer.border = color,
+                Tag::BufferBorderSelected => colors.buffer.border_selected = color,
+                Tag::BufferCode => colors.buffer.code = color,
+                Tag::BufferHighlight => colors.buffer.highlight = color,
+                Tag::BufferNickname => colors.buffer.nickname = color,
+                Tag::BufferSelection => colors.buffer.selection = color,
+                Tag::BufferTimestamp => colors.buffer.timestamp = color,
+                Tag::BufferTopic => colors.buffer.topic = color,
+                Tag::BufferUrl => colors.buffer.url = color,
+                Tag::BufferServerMessagesJoin => colors.buffer.server_messages.join = Some(color),
+                Tag::BufferServerMessagesPart => colors.buffer.server_messages.part = Some(color),
+                Tag::BufferServerMessagesQuit => colors.buffer.server_messages.quit = Some(color),
+                Tag::BufferServerMessagesReplyTopic => {
+                    colors.buffer.server_messages.reply_topic = Some(color);
+                }
+                Tag::BufferServerMessagesChangeHost => {
+                    colors.buffer.server_messages.change_host = Some(color);
+                }
+                Tag::BufferServerMessagesMonitoredOnline => {
+                    colors.buffer.server_messages.monitored_online = Some(color);
+                }
+                Tag::BufferServerMessagesMonitoredOffline => {
+                    colors.buffer.server_messages.monitored_offline = Some(color);
+                }
+                Tag::BufferServerMessagesDefault => colors.buffer.server_messages.default = color,
+                Tag::ButtonsPrimaryBackground => colors.buttons.primary.background = color,
+                Tag::ButtonsPrimaryBackgroundHover => {
+                    colors.buttons.primary.background_hover = color
+                }
+                Tag::ButtonsPrimaryBackgroundSelected => {
+                    colors.buttons.primary.background_selected = color
+                }
+                Tag::ButtonsPrimaryBackgroundSelectedHover => {
+                    colors.buttons.primary.background_selected_hover = color;
+                }
+                Tag::ButtonsSecondaryBackground => colors.buttons.secondary.background = color,
+                Tag::ButtonsSecondaryBackgroundHover => {
+                    colors.buttons.secondary.background_hover = color
+                }
+                Tag::ButtonsSecondaryBackgroundSelected => {
+                    colors.buttons.secondary.background_selected = color;
+                }
+                Tag::ButtonsSecondaryBackgroundSelectedHover => {
+                    colors.buttons.secondary.background_selected_hover = color;
+                }
+            }
         }
     }
 }
