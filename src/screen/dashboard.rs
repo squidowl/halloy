@@ -10,7 +10,7 @@ use data::user::Nick;
 use data::{client, environment, history, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
-use iced::{clipboard, Length, Task};
+use iced::{clipboard, Length, Task, Vector};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -306,6 +306,25 @@ impl Dashboard {
                 match event {
                     sidebar::Event::Open(kind) => {
                         return (self.open_buffer(kind, config, main_window), None);
+                    }
+                    sidebar::Event::Popout(buffer) => {
+                        let (window, task) = window::open(window::Settings {
+                            // Just big enough to show all components in combobox
+                            position: main_window
+                                .position
+                                .map(|point| {
+                                    window::Position::Specific(point + Vector::new(20.0, 20.0))
+                                })
+                                .unwrap_or_default(),
+                            exit_on_close_request: false,
+                            ..window::settings()
+                        });
+
+                        let (state, _) =
+                            pane_grid::State::new(Pane::new(Buffer::from(buffer), config));
+                        self.panes.popout.insert(window, state);
+
+                        return (task.then(|_| Task::none()), None);
                     }
                     sidebar::Event::Replace(window, kind, pane) => {
                         if let Some(state) = self.panes.get_mut(main_window.id, window, pane) {

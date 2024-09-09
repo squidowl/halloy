@@ -16,6 +16,7 @@ use crate::{icon, theme, window};
 #[derive(Debug, Clone)]
 pub enum Message {
     Open(Buffer),
+    Popout(Buffer),
     Replace(window::Id, Buffer, pane_grid::Pane),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
@@ -30,6 +31,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     Open(Buffer),
+    Popout(Buffer),
     Replace(window::Id, Buffer, pane_grid::Pane),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
@@ -68,6 +70,7 @@ impl Sidebar {
     pub fn update(&mut self, message: Message) -> Event {
         match message {
             Message::Open(source) => Event::Open(source),
+            Message::Popout(source) => Event::Popout(source),
             Message::Replace(window, source, pane) => Event::Replace(window, source, pane),
             Message::Close(window, pane) => Event::Close(window, pane),
             Message::Swap(from_window, from_pane, to_window, to_pane) => {
@@ -253,6 +256,7 @@ impl Sidebar {
 #[derive(Debug, Clone, Copy)]
 enum Entry {
     NewPane,
+    Popout,
     Replace(window::Id, pane_grid::Pane),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
@@ -266,10 +270,11 @@ impl Entry {
         focus: Option<(window::Id, pane_grid::Pane)>,
     ) -> Vec<Self> {
         match (open, focus) {
-            (None, None) => vec![Entry::NewPane, Entry::Leave],
+            (None, None) => vec![Entry::NewPane, Entry::Popout, Entry::Leave],
             (None, Some(close)) => {
                 vec![
                     Entry::NewPane,
+                    Entry::Popout,
                     Entry::Replace(close.0, close.1),
                     Entry::Leave,
                 ]
@@ -428,6 +433,7 @@ fn buffer_button(
         context_menu(base, entries, move |entry, length| {
             let (content, message) = match entry {
                 Entry::NewPane => ("Open in new pane", Message::Open(buffer.clone())),
+                Entry::Popout => ("Open in new window", Message::Popout(buffer.clone())),
                 Entry::Replace(window, pane) => (
                     "Replace current pane",
                     Message::Replace(window, buffer.clone(), pane),
