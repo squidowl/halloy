@@ -92,10 +92,9 @@ impl ServerMessage {
 
         let is_channel_filtered = |list: &Vec<String>, channel: &str| -> bool {
             let wildcards = ["*", "all"];
-            
-                list.iter()
-                    .any(|item| wildcards.contains(&item.as_str()) || item == channel)
-         
+
+            list.iter()
+                .any(|item| wildcards.contains(&item.as_str()) || item == channel)
         };
 
         let channel_included = is_channel_filtered(&self.include, channel);
