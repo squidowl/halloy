@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
+use log::warn;
 use regex::Regex;
 
-use crate::{config, Server};
+use crate::{config, theme, Server};
 
 #[derive(Debug, Clone)]
 pub enum Url {
@@ -11,6 +12,11 @@ pub enum Url {
         server: Server,
         config: config::Server,
     },
+    Theme {
+        url: String,
+        colors: theme::Colors,
+    },
+    Unknown(String),
 }
 
 impl std::fmt::Display for Url {
@@ -19,10 +25,14 @@ impl std::fmt::Display for Url {
             f,
             "{}",
             match self {
-                Url::ServerConnect { url, .. } => url,
+                Url::ServerConnect { url, .. } | Url::Theme { url, .. } | Url::Unknown(url) => url,
             }
         )
     }
+}
+
+pub fn theme(colors: &theme::Colors) -> String {
+    format!("halloy:///theme?e={}", colors.encode_base64())
 }
 
 impl Url {
@@ -32,25 +42,48 @@ impl Url {
 }
 
 impl FromStr for Url {
-    type Err = Error;
+    type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = s.parse::<url::Url>()?;
+        let url = s.parse::<url::Url>().map_err(|_| ())?;
 
-        match url.scheme().to_lowercase().as_str() {
-            "irc" | "ircs" => {
-                let config = parse_server_config(&url).ok_or(Error::ParseServer)?;
-                let server = generate_server_name(config.server.as_str());
-                let url = url.into();
-
-                Ok(Self::ServerConnect {
-                    url,
-                    server: server.into(),
-                    config,
-                })
-            }
-            _ => Err(Error::Unsupported),
+        if ["irc", "ircs", "halloy"].contains(&url.scheme()) {
+            Ok(parse(url.clone())
+                .inspect_err(|err| warn!("Failed to parse url {url}: {err}"))
+                .unwrap_or(Url::Unknown(url.to_string())))
+        } else {
+            Err(())
         }
+    }
+}
+
+fn parse(url: url::Url) -> Result<Url, Error> {
+    match url.scheme().to_lowercase().as_str() {
+        "irc" | "ircs" => {
+            let config = parse_server_config(&url).ok_or(Error::ParseServer)?;
+            let server = generate_server_name(config.server.as_str());
+            let url = url.into();
+
+            Ok(Url::ServerConnect {
+                url,
+                server: server.into(),
+                config,
+            })
+        }
+        "halloy" if url.path() == "/theme" => {
+            let (_, encoded) = url
+                .query_pairs()
+                .find(|(key, _)| key == "e")
+                .ok_or(Error::MissingQueryPair)?;
+
+            let colors = theme::Colors::decode_base64(&encoded)?;
+
+            Ok(Url::Theme {
+                url: url.into(),
+                colors,
+            })
+        }
+        _ => Err(Error::Unknown),
     }
 }
 
@@ -116,12 +149,16 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
     ))
 }
 
-#[derive(Debug, thiserror::Error, Clone)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
     ParseUrl(#[from] url::ParseError),
     #[error("can't convert url to a valid server")]
     ParseServer,
-    #[error("unsupported route")]
-    Unsupported,
+    #[error("unknown route")]
+    Unknown,
+    #[error("missing query pair")]
+    MissingQueryPair,
+    #[error("failed to parse encoded theme: {0}")]
+    ParseEncodedTheme(#[from] theme::Error),
 }

@@ -1,7 +1,3 @@
-mod command_bar;
-pub mod pane;
-pub mod sidebar;
-
 use chrono::{DateTime, Utc};
 use data::environment::RELEASE_WEBSITE;
 use std::path::PathBuf;
@@ -10,20 +6,27 @@ use std::time::{Duration, Instant};
 use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{client, environment, history, window::Window, Config, Server, User, Version};
+use data::{client, environment, history, Config, Server, User, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
-use iced::{clipboard, padding, window, Length, Task};
+use iced::{clipboard, Length, Task};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
 use self::sidebar::Sidebar;
+use self::theme_editor::ThemeEditor;
 use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
 use crate::widget::{
     anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
 };
-use crate::{event, notification, theme, Theme};
+use crate::window::Window;
+use crate::{event, notification, theme, window, Theme};
+
+mod command_bar;
+pub mod pane;
+pub mod sidebar;
+mod theme_editor;
 
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
@@ -35,6 +38,7 @@ pub struct Dashboard {
     last_changed: Option<Instant>,
     command_bar: Option<CommandBar>,
     file_transfers: file_transfer::Manager,
+    theme_editor: Option<ThemeEditor>,
 }
 
 #[derive(Debug)]
@@ -43,7 +47,6 @@ pub enum Message {
     Sidebar(sidebar::Message),
     SelectedText(Vec<(f32, String)>),
     History(history::manager::Message),
-    Close(window::Id),
     DashboardSaved(Result<(), data::dashboard::Error>),
     CloseHistory,
     Task(command_bar::Message),
@@ -51,11 +54,13 @@ pub enum Message {
     FileTransfer(file_transfer::task::Update),
     SendFileSelected(Server, Nick, Option<PathBuf>),
     CloseContextMenu(bool),
+    ThemeEditor(theme_editor::Message),
 }
 
 #[derive(Debug)]
 pub enum Event {
     ReloadConfiguration,
+    ReloadThemes,
     QuitServer(Server),
 }
 
@@ -71,6 +76,7 @@ impl Dashboard {
             last_changed: None,
             command_bar: None,
             file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
+            theme_editor: None,
         };
 
         let command = dashboard.track();
@@ -97,6 +103,7 @@ impl Dashboard {
         theme: &mut Theme,
         version: &Version,
         config: &Config,
+        main_window: &Window,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Pane(message) => match message {
@@ -321,6 +328,18 @@ impl Dashboard {
                         let _ = open::that_detached(RELEASE_WEBSITE);
                         return (Task::none(), None);
                     }
+                    sidebar::Event::ToggleThemeEditor => {
+                        if let Some(editor) = self.theme_editor.take() {
+                            *theme = theme.selected();
+                            return (window::close(editor.id), None);
+                        } else {
+                            let (editor, task) = ThemeEditor::open(main_window);
+
+                            self.theme_editor = Some(editor);
+
+                            return (task.then(|_| Task::none()), None);
+                        }
+                    }
                 }
             }
             Message::SelectedText(contents) => {
@@ -346,9 +365,6 @@ impl Dashboard {
             }
             Message::History(message) => {
                 self.history.update(message);
-            }
-            Message::Close(window) => {
-                return (window::close(window), None);
             }
             Message::DashboardSaved(Ok(_)) => {
                 log::info!("dashboard saved");
@@ -434,6 +450,17 @@ impl Dashboard {
                                 command_bar::Theme::Switch(new) => {
                                     *theme = Theme::from(new);
                                     (Task::none(), None)
+                                }
+                                command_bar::Theme::OpenEditor => {
+                                    if let Some(editor) = &self.theme_editor {
+                                        (window::gain_focus(editor.id), None)
+                                    } else {
+                                        let (editor, task) = ThemeEditor::open(main_window);
+
+                                        self.theme_editor = Some(editor);
+
+                                        (task.then(|_| Task::none()), None)
+                                    }
                                 }
                             },
                         };
@@ -591,9 +618,46 @@ impl Dashboard {
                     }
                 }
             }
+            Message::ThemeEditor(message) => {
+                let mut editor_event = None;
+                let mut event = None;
+                let mut tasks = vec![];
+
+                if let Some(editor) = self.theme_editor.as_mut() {
+                    let (task, event) = editor.update(message, theme);
+
+                    tasks.push(task.map(Message::ThemeEditor));
+                    editor_event = event;
+                }
+
+                if let Some(editor_event) = editor_event {
+                    match editor_event {
+                        theme_editor::Event::Close => {
+                            if let Some(editor) = self.theme_editor.take() {
+                                tasks.push(window::close(editor.id));
+                            }
+                        }
+                        theme_editor::Event::ReloadThemes => {
+                            event = Some(Event::ReloadThemes);
+                        }
+                    }
+                }
+
+                return (Task::batch(tasks), event);
+            }
         }
 
         (Task::none(), None)
+    }
+
+    pub fn view_window<'a>(&'a self, id: window::Id, theme: &'a Theme) -> Element<'a, Message> {
+        if let Some(editor) = self.theme_editor.as_ref() {
+            if editor.id == id {
+                return editor.view(theme).map(Message::ThemeEditor);
+            }
+        }
+
+        column![].into()
     }
 
     pub fn view<'a>(
@@ -645,13 +709,9 @@ impl Dashboard {
                 config.tooltips,
                 &self.file_transfers,
                 version,
+                self.theme_editor.is_some(),
             )
             .map(|e| e.map(Message::Sidebar));
-
-        // The height margin varies across different operating systems due to design differences.
-        // For instance, on macOS, the menubar is hidden, resulting in a need for additional padding to accommodate the
-        // space occupied by the traffic light buttons.
-        let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
 
         let content = match config.sidebar.position {
             data::config::sidebar::Position::Left | data::config::sidebar::Position::Top => {
@@ -666,13 +726,11 @@ impl Dashboard {
             Column::with_children(content)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(padding::top(height_margin))
                 .into()
         } else {
             Row::with_children(content)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(padding::top(height_margin))
                 .into()
         };
 
@@ -719,7 +777,6 @@ impl Dashboard {
         version: &Version,
         config: &Config,
         theme: &mut Theme,
-        window: &mut Window,
     ) -> Task<Message> {
         use event::Event::*;
 
@@ -755,36 +812,6 @@ impl Dashboard {
                         .map(move |message| Message::Pane(pane::Message::Buffer(pane, message)))
                 })
                 .unwrap_or_else(Task::none),
-            CloseRequested(window) => {
-                let history = self.history.close_all();
-                let last_changed = self.last_changed;
-                let dashboard = data::Dashboard::from(&*self);
-
-                let task = async move {
-                    history.await;
-
-                    if last_changed.is_some() {
-                        match dashboard.save().await {
-                            Ok(_) => {
-                                log::info!("dashboard saved");
-                            }
-                            Err(error) => {
-                                log::warn!("error saving dashboard: {error}");
-                            }
-                        }
-                    }
-                };
-
-                Task::perform(task, move |_| Message::Close(window))
-            }
-            Focused => {
-                window.update(data::window::Event::Focused);
-                Task::none()
-            }
-            Unfocused => {
-                window.update(data::window::Event::Unfocused);
-                Task::none()
-            }
         }
     }
 
@@ -1363,11 +1390,79 @@ impl Dashboard {
             last_changed: None,
             command_bar: None,
             file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
+            theme_editor: None,
         }
     }
 
     pub fn history(&self) -> &history::Manager {
         &self.history
+    }
+
+    pub fn handle_window_event(
+        &mut self,
+        id: window::Id,
+        event: window::Event,
+        theme: &mut Theme,
+    ) -> Task<Message> {
+        if Some(id) == self.theme_editor.as_ref().map(|e| e.id) {
+            match event {
+                window::Event::CloseRequested => {
+                    if let Some(editor) = self.theme_editor.take() {
+                        *theme = theme.selected();
+                        return window::close(editor.id);
+                    }
+                }
+                window::Event::Moved(_)
+                | window::Event::Resized(_)
+                | window::Event::Focused
+                | window::Event::Unfocused
+                | window::Event::Opened { .. } => {}
+            }
+        }
+
+        Task::none()
+    }
+
+    pub fn preview_theme_in_editor(
+        &mut self,
+        colors: theme::Colors,
+        main_window: &Window,
+        theme: &mut Theme,
+    ) -> Task<Message> {
+        *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
+
+        if let Some(editor) = &self.theme_editor {
+            window::gain_focus(editor.id)
+        } else {
+            let (editor, task) = ThemeEditor::open(main_window);
+
+            self.theme_editor = Some(editor);
+
+            task.then(|_| Task::none())
+        }
+    }
+
+    pub fn exit(&mut self) -> Task<()> {
+        let history = self.history.close_all();
+        let last_changed = self.last_changed;
+        let dashboard = data::Dashboard::from(&*self);
+
+        let task = async move {
+            history.await;
+
+            if last_changed.is_some() {
+                match dashboard.save().await {
+                    Ok(_) => {
+                        log::info!("dashboard saved");
+                    }
+                    Err(error) => {
+                        log::warn!("error saving dashboard: {error}");
+                    }
+                }
+            }
+        };
+
+        Task::perform(task, move |_| ())
     }
 }
 

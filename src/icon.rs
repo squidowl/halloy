@@ -56,6 +56,18 @@ pub fn megaphone<'a>() -> Text<'a> {
     to_text('\u{E809}')
 }
 
+pub fn theme_editor<'a>() -> Text<'a> {
+    to_text('\u{E80A}')
+}
+
+pub fn undo<'a>() -> Text<'a> {
+    to_text('\u{E80B}')
+}
+
+pub fn copy<'a>() -> Text<'a> {
+    to_text('\u{F0C5}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .line_height(LineHeight::Relative(1.0))

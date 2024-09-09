@@ -67,6 +67,8 @@ pub struct Buttons {
     pub command_bar: bool,
     #[serde(default = "default_bool_true")]
     pub reload_config: bool,
+    #[serde(default = "default_bool_true")]
+    pub theme_editor: bool,
 }
 
 impl Default for Buttons {
@@ -75,6 +77,7 @@ impl Default for Buttons {
             file_transfer: default_bool_true(),
             command_bar: default_bool_true(),
             reload_config: default_bool_true(),
+            theme_editor: default_bool_true(),
         }
     }
 }

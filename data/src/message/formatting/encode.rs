@@ -70,36 +70,41 @@ fn markdown<'a>(
 ) -> impl FnMut(&'a str) -> IResult<&'a str, Markdown> {
     // EOF is considered WS in common mark spec
     let ws = |i| alt((satisfy(char::is_whitespace), map(eof, |_| ' ')))(i);
-    let punc = |i| satisfy(|c| c.is_ascii_punctuation())(i);
+    let punc = |d| move |i| satisfy(|c| c != d && c.is_ascii_punctuation())(i);
 
     // Previous consumed character
     let prev = |i: &str| source[..source.len() - i.len()].chars().last();
-    // Prev char is whitespace or punctuation
-    let prev_is_ws_or_punc = move |i: &str| {
+    // Prev char is whitespace or punctuation, not matching delimiter char
+    let prev_is_ws_or_punc = move |d, i: &str| {
         // None == Start of input which is considered whitespace
-        prev(i).map_or(true, |c| c.is_whitespace() || c.is_ascii_punctuation())
+        prev(i).map_or(true, |c| {
+            c != d && (c.is_whitespace() || c.is_ascii_punctuation())
+        })
     };
-    // Prev char is punctuation
-    let prev_is_punc = move |i: &str| prev(i).map_or(false, |c| c.is_ascii_punctuation());
+    // Prev char is punctuation, not matching delimiter char
+    let prev_is_punc =
+        move |d, i: &str| prev(i).map_or(false, |c| c != d && c.is_ascii_punctuation());
 
     // A delimiter run is a sequence of one or more characters
-    let delimiter_run = |c, n| count(char(c), n);
+    let delimiter_run = |d, n| count(char(d), n);
 
     // A left-flanking delimiter run is a
-    let left_flanking = move |c, n| {
+    let left_flanking = move |d, n| {
         move |i: &'a str| {
             alt((
                 // delimiter run that is not followed by Unicode whitespace or punctuation
                 map(
-                    pair(delimiter_run(c, n), peek(not(alt((ws, punc))))),
+                    pair(delimiter_run(d, n), peek(not(alt((ws, punc(d)))))),
                     move |_| prev(i),
                 ),
                 // OR delimiter run followed by a Unicode punctuation character and preceded
                 // by Unicode whitespace or a Unicode punctuation character
                 map(
                     tuple((
-                        verify(delimiter_run(c, n), move |_: &Vec<_>| prev_is_ws_or_punc(i)),
-                        peek(punc),
+                        verify(delimiter_run(d, n), move |_: &Vec<_>| {
+                            prev_is_ws_or_punc(d, i)
+                        }),
+                        peek(punc(d)),
                     )),
                     move |_| prev(i),
                 ),
@@ -107,13 +112,13 @@ fn markdown<'a>(
         }
     };
     // A right-flanking delimiter run is a
-    let right_flanking = move |c, n| {
+    let right_flanking = move |d, n| {
         move |i: &'a str| {
             alt((
                 // delimiter run that is not preceded by Unicode whitespace or punctutation
                 map(
-                    verify(delimiter_run(c, n), move |_: &Vec<_>| {
-                        !prev_is_ws_or_punc(i)
+                    verify(delimiter_run(d, n), move |_: &Vec<_>| {
+                        !prev_is_ws_or_punc(d, i)
                     }),
                     move |_| prev(i),
                 ),
@@ -121,8 +126,8 @@ fn markdown<'a>(
                 // followed by Unicode whitespace or a Unicode punctuation character
                 map(
                     pair(
-                        verify(delimiter_run(c, n), move |_: &Vec<_>| prev_is_punc(i)),
-                        peek(alt((ws, punc))),
+                        verify(delimiter_run(d, n), move |_: &Vec<_>| prev_is_punc(d, i)),
+                        peek(alt((ws, punc(d)))),
                     ),
                     move |_| prev(i),
                 ),
@@ -136,74 +141,74 @@ fn markdown<'a>(
     let close_emphasis_relaxed = right_flanking;
 
     // can open emphasis if it is
-    let open_emphasis_strict = |c, n| {
+    let open_emphasis_strict = |d, n| {
         preceded(
             peek(alt((
                 // part of a left-flanking delimiter run and not part of a right-flanking delimiter run
                 map(
-                    pair(peek(left_flanking(c, n)), not(right_flanking(c, n))),
+                    pair(peek(left_flanking(d, n)), not(right_flanking(d, n))),
                     |_| (),
                 ),
                 // OR part of a left-flanking delimiter run and part of a right-flanking delimiter run
                 // preceded by a Unicode punctuation character
                 map(
                     pair(
-                        peek(left_flanking(c, n)),
-                        verify(right_flanking(c, n), |c| {
-                            c.map_or(false, |c| c.is_ascii_punctuation())
+                        peek(left_flanking(d, n)),
+                        verify(right_flanking(d, n), move |c| {
+                            c.map_or(false, |c| c != d && c.is_ascii_punctuation())
                         }),
                     ),
                     |_| (),
                 ),
             ))),
-            left_flanking(c, n),
+            left_flanking(d, n),
         )
     };
     // can close emphasis if it is
-    let close_emphasis_strict = |c, n| {
+    let close_emphasis_strict = |d, n| {
         preceded(
             peek(alt((
                 // part of a right-flanking delimiter run and not part of a left-flanking delimiter run
                 map(
-                    pair(peek(right_flanking(c, n)), not(left_flanking(c, n))),
+                    pair(peek(right_flanking(d, n)), not(left_flanking(d, n))),
                     |_| (),
                 ),
                 // OR part of a right-flanking delimiter run and part of a left-flanking delimiter run
                 // followed by a Unicode punctuation character
                 map(
                     tuple((
-                        peek(right_flanking(c, n)),
-                        left_flanking(c, n),
-                        satisfy(|c| c.is_ascii_punctuation()),
+                        peek(right_flanking(d, n)),
+                        left_flanking(d, n),
+                        satisfy(move |c| c != d && c.is_ascii_punctuation()),
                     )),
                     |_| (),
                 ),
             ))),
-            right_flanking(c, n),
+            right_flanking(d, n),
         )
     };
 
     // open <tokens> close
-    let relaxed_run = |c, n| {
+    let relaxed_run = |d, n| {
         map(
             pair(
-                open_emphasis_relaxed(c, n),
+                open_emphasis_relaxed(d, n),
                 many_till(
                     move |input| token(source, input, markdown_only),
-                    close_emphasis_relaxed(c, n),
+                    close_emphasis_relaxed(d, n),
                 ),
             ),
             |(_, (tokens, _))| tokens,
         )
     };
     // open <tokens> close
-    let strict_run = |c, n| {
+    let strict_run = |d, n| {
         map(
             pair(
-                open_emphasis_strict(c, n),
+                open_emphasis_strict(d, n),
                 many_till(
                     move |input| token(source, input, markdown_only),
-                    close_emphasis_strict(c, n),
+                    close_emphasis_strict(d, n),
                 ),
             ),
             |(_, (tokens, _))| tokens,
@@ -426,6 +431,7 @@ fn internal_format() {
     let _ = dbg!(encode("hello there __friend__!!", false));
     let _ = dbg!(encode("hello there ___friend___!!", false));
     let _ = dbg!(encode("hello there **_fri_end_**!!", false));
+    let _ = dbg!(encode("testing__testing__onetwothree", false));
     let _ = dbg!(encode("some code `let x = 0;`", false));
     let _ = dbg!(encode("spoiler --> ||super secret||", false));
     let _ = dbg!(encode(

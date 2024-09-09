@@ -41,14 +41,14 @@ const URL_PATH_EXC_PUNC: &str = concatcp!(
 
 static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(concatcp!(
-        r#"(?i)((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b"#,
+        r#"(?i)(((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b"#,
         r#"("#,
         URL_PATH,
         r#"*"#,
         URL_PATH_EXC_PUNC,
         r#"|"#,
         URL_PATH_EXC_PUNC,
-        r#"?)"#
+        r#"?)|halloy:\/\/[^ ]*)"#
     ))
     .unwrap()
 });

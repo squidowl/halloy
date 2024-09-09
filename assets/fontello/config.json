@@ -83,6 +83,30 @@
       "css": "megaphone",
       "code": 59401,
       "src": "entypo"
+    },
+    {
+      "uid": "80451d627470ea7f977a263fdb771d7b",
+      "css": "palette",
+      "code": 59402,
+      "src": "entypo"
+    },
+    {
+      "uid": "465bb89b6f204234e5787c326b4ae54c",
+      "css": "ccw",
+      "code": 59403,
+      "src": "entypo"
+    },
+    {
+      "uid": "2626e3a1bbcd90e45849af3b58a1d594",
+      "css": "trash",
+      "code": 59404,
+      "src": "entypo"
+    },
+    {
+      "uid": "c8585e1e5b0467f28b70bce765d5840c",
+      "css": "docs",
+      "code": 61637,
+      "src": "fontawesome"
     }
   ]
 }
