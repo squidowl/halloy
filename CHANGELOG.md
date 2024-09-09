@@ -3,6 +3,8 @@
 Added:
 
 - In-app theme editor with ability to with share it via a halloy:// URL.
+- New configuration options
+  - Ability to include or exclude channels for server messages (join, part, etc.). See [configuration](https://halloy.squidowl.org/configuration/buffer/server_messages/index.html).
 
 Fixed:
 
