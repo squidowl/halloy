@@ -1,6 +1,5 @@
 use data::{file_transfer, history, Config};
 use iced::widget::{button, center, container, pane_grid, row, text};
-use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
 use crate::widget::tooltip;
@@ -23,7 +22,6 @@ pub enum Message {
 
 #[derive(Clone)]
 pub struct Pane {
-    pub id: Uuid,
     pub buffer: Buffer,
     title_bar: TitleBar,
     settings: buffer::Settings,
@@ -39,7 +37,6 @@ impl Pane {
 
     pub fn with_settings(buffer: Buffer, settings: buffer::Settings) -> Self {
         Self {
-            id: Uuid::new_v4(),
             buffer,
             title_bar: TitleBar::default(),
             settings,
