@@ -42,7 +42,7 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub struct ThemeEditor {
-    pub id: window::Id,
+    pub window: window::Id,
     combo_box: combo_box::State<Component>,
     component: Component,
     hex_input: Option<String>,
@@ -52,7 +52,7 @@ pub struct ThemeEditor {
 
 impl ThemeEditor {
     pub fn open(main_window: &Window) -> (Self, Task<window::Id>) {
-        let (id, task) = window::open(window::Settings {
+        let (window, task) = window::open(window::Settings {
             // Just big enough to show all components in combobox
             size: iced::Size::new(470.0, 300.0),
             resizable: false,
@@ -66,7 +66,7 @@ impl ThemeEditor {
 
         (
             Self {
-                id,
+                window,
                 combo_box: combo_box::State::new(components().collect()),
                 // Defaulting to general / background is confusing
                 // since picker is same color as background
