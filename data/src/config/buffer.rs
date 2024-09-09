@@ -84,29 +84,25 @@ impl Default for ServerMessage {
 }
 
 impl ServerMessage {
-    pub fn should_send_message(&self, channel: Option<&str>) -> bool {
+    pub fn should_send_message(&self, channel: &str) -> bool {
         // Server Message is not enabled.
         if !self.enabled {
             return false;
         }
 
-        let is_channel_filtered = |list: &Vec<String>, channel: Option<&str>| -> bool {
+        let is_channel_filtered = |list: &Vec<String>, channel: &str| -> bool {
             let wildcards = ["*", "all"];
-            channel.map_or(false, |channel| {
+            
                 list.iter()
                     .any(|item| wildcards.contains(&item.as_str()) || item == channel)
-            })
+         
         };
 
         let channel_included = is_channel_filtered(&self.include, channel);
         let channel_excluded = is_channel_filtered(&self.exclude, channel);
 
         // If the channel is included, it has precedence over excluded.
-        if channel_included || !channel_excluded {
-            return true;
-        }
-
-        false
+        channel_included || !channel_excluded
     }
 }
 
