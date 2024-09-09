@@ -48,7 +48,7 @@ static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
         URL_PATH_EXC_PUNC,
         r#"|"#,
         URL_PATH_EXC_PUNC,
-        r#"?)|halloy:\/\/.*)"#
+        r#"?)|halloy:\/\/[^ ]*)"#
     ))
     .unwrap()
 });
