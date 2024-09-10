@@ -6,7 +6,7 @@ use irc::proto;
 use irc::proto::Command;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
@@ -22,13 +22,13 @@ use crate::{ctcp, Config, User};
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
 // - https://www.ietf.org/rfc/rfc2396.txt
 
-const URL_PATH_UNRESERVED: &str = r#"a-zA-Z0-9-_.!~*'()"#;
+const URL_PATH_UNRESERVED: &str = r#"\p{Letter}\p{Number}\-_.!~*'()"#;
 
 const URL_PATH_RESERVED: &str = r#";?:@&=+$,"#;
 
 const URL_PATH: &str = concatcp!(r#"["#, URL_PATH_UNRESERVED, URL_PATH_RESERVED, r#"%\/#]"#);
 
-const URL_PATH_UNRESERVED_EXC_PUNC: &str = r#"a-zA-Z0-9-_~*'("#;
+const URL_PATH_UNRESERVED_EXC_PUNC: &str = r#"\p{Letter}\p{Number}\-_~*'("#;
 
 const URL_PATH_RESERVED_EXC_PUNC: &str = r#"@&=+$"#;
 
@@ -40,8 +40,8 @@ const URL_PATH_EXC_PUNC: &str = concatcp!(
 );
 
 static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(concatcp!(
-        r#"(?i)(((https?|ircs?):\/\/|www\.)[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,63}\b"#,
+    RegexBuilder::new(concatcp!(
+        r#"(?i)(((https?|ircs?):\/\/|www\.)[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}\.[\p{Letter}\p{Number}()]{1,63}\b"#,
         r#"("#,
         URL_PATH,
         r#"*"#,
@@ -50,6 +50,8 @@ static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
         URL_PATH_EXC_PUNC,
         r#"?)|halloy:\/\/[^ ]*)"#
     ))
+    .size_limit(15728640) // 1.5x default size_limit
+    .build()
     .unwrap()
 });
 
@@ -1012,6 +1014,20 @@ mod test {
                     Fragment::Text(" and ".into()),
                     Fragment::Url("https://invidious.incogniweb.net/watch?v=H3v9unphfi0".parse().unwrap()),
                     Fragment::Text(").".into()),
+                ],
+            ),
+            (
+                "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/",
+                vec![Fragment::Url(
+                    "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/"
+                    .parse()
+                    .unwrap()
+                )],
+            ),
+            (
+                "http://öbb.at",
+                vec![
+                    Fragment::Url("http://öbb.at".parse().unwrap()),
                 ],
             ),
         ];
