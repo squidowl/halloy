@@ -1581,7 +1581,24 @@ impl Dashboard {
         event: window::Event,
         theme: &mut Theme,
     ) -> Task<Message> {
-        if Some(id) == self.theme_editor.as_ref().map(|e| e.window) {
+        if self.panes.popout.contains_key(&id) {
+            match event {
+                window::Event::CloseRequested => {
+                    self.panes.popout.remove(&id);
+                    return window::close(id);
+                }
+                window::Event::Moved(_)
+                | window::Event::Resized(_)
+                | window::Event::Focused
+                | window::Event::Unfocused
+                | window::Event::Opened { .. } => {}
+            }
+        } else if self
+            .theme_editor
+            .as_ref()
+            .map(|e| e.window == id)
+            .unwrap_or_default()
+        {
             match event {
                 window::Event::CloseRequested => {
                     if let Some(editor) = self.theme_editor.take() {
