@@ -302,44 +302,8 @@ impl Dashboard {
                         }
                     }
                     pane::Message::MaximizePane => self.maximize_pane(),
-                    pane::Message::Popout => {
-                        if let Some((_, pane)) = self.focus.take() {
-                            if let Some((pane, _)) = self.panes.main.close(pane) {
-                                return (self.open_popout_window(main_window, pane), None);
-                            }
-                        }
-                    }
-                    pane::Message::Merge => {
-                        if let Some((window, pane)) = self.focus.take() {
-                            if let Some(pane) = self
-                                .panes
-                                .popout
-                                .remove(&window)
-                                .and_then(|panes| panes.get(pane).cloned())
-                            {
-                                let task = match pane.buffer.data() {
-                                    Some(buffer) => {
-                                        self.open_buffer(buffer, pane.settings, main_window)
-                                    }
-                                    None if matches!(pane.buffer, Buffer::FileTransfers(_)) => {
-                                        self.toggle_file_transfers(config, main_window)
-                                    }
-                                    None => {
-                                        return (
-                                            self.new_pane(
-                                                pane_grid::Axis::Horizontal,
-                                                config,
-                                                main_window,
-                                            ),
-                                            None,
-                                        )
-                                    }
-                                };
-
-                                return (Task::batch(vec![window::close(window), task]), None);
-                            }
-                        }
-                    }
+                    pane::Message::Popout => return (self.popout_pane(main_window), None),
+                    pane::Message::Merge => return (self.merge_pane(config, main_window), None),
                 }
             }
             Message::Sidebar(message) => {
@@ -532,6 +496,12 @@ impl Dashboard {
                                     }
 
                                     (Task::batch(commands), None)
+                                }
+                                command_bar::Buffer::Popout => {
+                                    (self.popout_pane(main_window), None)
+                                }
+                                command_bar::Buffer::Merge => {
+                                    (self.merge_pane(config, main_window), None)
                                 }
                                 command_bar::Buffer::ToggleFileTransfers => {
                                     (self.toggle_file_transfers(config, main_window), None)
@@ -909,10 +879,11 @@ impl Dashboard {
                 command_bar
                     .view(
                         &all_buffers(clients, &self.history),
-                        self.focus.is_some(),
+                        self.focus,
                         self.buffer_resize_action(),
                         version,
                         config,
+                        main_window.id,
                     )
                     .map(Message::Task),
                 anchored_overlay::Anchor::BelowTopCentered,
@@ -1441,6 +1412,39 @@ impl Dashboard {
         Task::none()
     }
 
+    fn popout_pane(&mut self, main_window: &Window) -> Task<Message> {
+        if let Some((_, pane)) = self.focus.take() {
+            if let Some((pane, _)) = self.panes.main.close(pane) {
+                return self.open_popout_window(main_window, pane);
+            }
+        }
+
+        Task::none()
+    }
+
+    fn merge_pane(&mut self, config: &Config, main_window: &Window) -> Task<Message> {
+        if let Some((window, pane)) = self.focus.take() {
+            if let Some(pane) = self
+                .panes
+                .popout
+                .remove(&window)
+                .and_then(|panes| panes.get(pane).cloned())
+            {
+                let task = match pane.buffer.data() {
+                    Some(buffer) => self.open_buffer(buffer, pane.settings, main_window),
+                    None if matches!(pane.buffer, Buffer::FileTransfers(_)) => {
+                        self.toggle_file_transfers(config, main_window)
+                    }
+                    None => self.new_pane(pane_grid::Axis::Horizontal, config, main_window),
+                };
+
+                return Task::batch(vec![window::close(window), task]);
+            }
+        }
+
+        Task::none()
+    }
+
     pub fn track(&mut self) -> Task<Message> {
         let resources = self.panes.resources().collect();
 
@@ -1497,18 +1501,25 @@ impl Dashboard {
                 .map(|(window, pane)| self.focus_pane(main_window, window, pane))
                 .unwrap_or(Task::none())
         } else {
-            self.open_command_bar(buffers, version, config);
+            self.open_command_bar(buffers, version, config, main_window);
             Task::none()
         }
     }
 
-    fn open_command_bar(&mut self, buffers: &[data::Buffer], version: &Version, config: &Config) {
+    fn open_command_bar(
+        &mut self,
+        buffers: &[data::Buffer],
+        version: &Version,
+        config: &Config,
+        main_window: &Window,
+    ) {
         self.command_bar = Some(CommandBar::new(
             buffers,
             version,
             config,
-            self.focus.is_some(),
+            self.focus,
             self.buffer_resize_action(),
+            main_window.id,
         ));
     }
 

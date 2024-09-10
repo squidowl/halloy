@@ -1,9 +1,9 @@
 use data::Config;
-use iced::widget::{column, container, text};
+use iced::widget::{column, container, pane_grid, text};
 use iced::Length;
 
-use crate::theme;
 use crate::widget::{combo_box, double_pass, key_press, Element};
+use crate::{theme, window};
 
 #[derive(Debug, Clone)]
 pub struct CommandBar {
@@ -23,15 +23,17 @@ impl CommandBar {
         buffers: &[data::Buffer],
         version: &data::Version,
         config: &Config,
-        is_focused_buffer: bool,
+        focus: Option<(window::Id, pane_grid::Pane)>,
         resize_buffer: data::buffer::Resize,
+        main_window: window::Id,
     ) -> Self {
         let state = combo_box::State::new(Command::list(
             buffers,
             config,
-            is_focused_buffer,
+            focus,
             resize_buffer,
             version,
+            main_window,
         ));
         state.focus();
 
@@ -53,10 +55,11 @@ impl CommandBar {
     pub fn view<'a>(
         &'a self,
         buffers: &[data::Buffer],
-        focused_buffer: bool,
+        focus: Option<(window::Id, pane_grid::Pane)>,
         resize_buffer: data::buffer::Resize,
         version: &data::Version,
         config: &'a Config,
+        main_window: window::Id,
     ) -> Element<'a, Message> {
         // 1px larger than default
         let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) + 1.0;
@@ -81,7 +84,7 @@ impl CommandBar {
             column(
                 std::iter::once(text("Type a command...").size(font_size))
                     .chain(
-                        Command::list(buffers, config, focused_buffer, resize_buffer, version)
+                        Command::list(buffers, config, focus, resize_buffer, version, main_window)
                             .iter()
                             .map(|command| text(command.to_string()).size(font_size)),
                     )
@@ -123,6 +126,8 @@ pub enum Buffer {
     New,
     Close,
     Replace(data::Buffer),
+    Popout,
+    Merge,
     ToggleFileTransfers,
 }
 
@@ -148,11 +153,12 @@ impl Command {
     pub fn list(
         buffers: &[data::Buffer],
         config: &Config,
-        is_focused_buffer: bool,
+        focus: Option<(window::Id, pane_grid::Pane)>,
         resize_buffer: data::buffer::Resize,
         version: &data::Version,
+        main_window: window::Id,
     ) -> Vec<Self> {
-        let buffers = Buffer::list(buffers, is_focused_buffer, resize_buffer)
+        let buffers = Buffer::list(buffers, focus, resize_buffer, main_window)
             .into_iter()
             .map(Command::Buffer);
 
@@ -190,18 +196,25 @@ impl std::fmt::Display for Command {
 impl Buffer {
     fn list(
         buffers: &[data::Buffer],
-        is_focused_buffer: bool,
+        focus: Option<(window::Id, pane_grid::Pane)>,
         resize_buffer: data::buffer::Resize,
+        main_window: window::Id,
     ) -> Vec<Self> {
         let mut list = vec![Buffer::New, Buffer::ToggleFileTransfers];
 
-        if is_focused_buffer {
+        if let Some((window, _)) = focus {
             list.push(Buffer::Close);
 
             match resize_buffer {
                 data::buffer::Resize::Maximize => list.push(Buffer::Maximize(true)),
                 data::buffer::Resize::Restore => list.push(Buffer::Maximize(false)),
                 data::buffer::Resize::None => {}
+            }
+
+            if window == main_window {
+                list.push(Buffer::Popout);
+            } else {
+                list.push(Buffer::Merge);
             }
 
             list.extend(buffers.iter().cloned().map(Buffer::Replace));
@@ -282,6 +295,8 @@ impl std::fmt::Display for Buffer {
                 }
                 data::Buffer::Query(_, nick) => write!(f, "Change to {}", nick),
             },
+            Buffer::Popout => write!(f, "Pop out buffer"),
+            Buffer::Merge => write!(f, "Merge buffer"),
             Buffer::ToggleFileTransfers => write!(f, "Toggle File Transfers"),
         }
     }
