@@ -65,6 +65,10 @@ pub struct ServerMessage {
     pub smart: Option<i64>,
     #[serde(default)]
     pub username_format: UsernameFormat,
+    #[serde(default)]
+    pub exclude: Vec<String>,
+    #[serde(default)]
+    pub include: Vec<String>,
 }
 
 impl Default for ServerMessage {
@@ -73,7 +77,31 @@ impl Default for ServerMessage {
             enabled: true,
             smart: Default::default(),
             username_format: UsernameFormat::default(),
+            exclude: Default::default(),
+            include: Default::default(),
         }
+    }
+}
+
+impl ServerMessage {
+    pub fn should_send_message(&self, channel: &str) -> bool {
+        // Server Message is not enabled.
+        if !self.enabled {
+            return false;
+        }
+
+        let is_channel_filtered = |list: &Vec<String>, channel: &str| -> bool {
+            let wildcards = ["*", "all"];
+
+            list.iter()
+                .any(|item| wildcards.contains(&item.as_str()) || item == channel)
+        };
+
+        let channel_included = is_channel_filtered(&self.include, channel);
+        let channel_excluded = is_channel_filtered(&self.exclude, channel);
+
+        // If the channel is included, it has precedence over excluded.
+        channel_included || !channel_excluded
     }
 }
 

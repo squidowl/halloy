@@ -500,8 +500,11 @@ impl Data {
             .filter(|message| match message.target.source() {
                 message::Source::Server(Some(source)) => {
                     if let Some(server_message) = buffer_config.server_messages.get(source) {
-                        if !server_message.enabled {
-                            return false;
+                        // Check if target is a channel, and if included/excluded.
+                        if let message::Target::Channel { channel, .. } = &message.target {
+                            if !server_message.should_send_message(channel.as_ref()) {
+                                return false;
+                            }
                         }
 
                         if let Some(seconds) = server_message.smart {
