@@ -741,10 +741,11 @@ impl Dashboard {
         if let Some(state) = self.panes.popout.get(&window) {
             let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
+                    let is_focused = self.focus == Some((window, id));
                     pane.view(
                         id,
                         1,
-                        false,
+                        is_focused,
                         false,
                         clients,
                         &self.file_transfers,
