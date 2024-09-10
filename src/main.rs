@@ -846,6 +846,7 @@ impl Halloy {
 
         container(content)
             .padding(padding::top(height_margin))
+            .style(theme::container::general)
             .into()
     }
 

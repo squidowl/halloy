@@ -228,12 +228,12 @@ impl TitleBar {
 
         // Button to merge popout back in to main window
         if is_popout {
-            let merge_button = button(center(icon::merge_window()))
+            let merge_button = button(center(icon::popout()))
                 .padding(5)
                 .width(22)
                 .height(22)
                 .on_press(Message::Merge)
-                .style(|theme, status| theme::button::secondary(theme, status, false));
+                .style(|theme, status| theme::button::secondary(theme, status, true));
 
             let close_button_with_tooltip = tooltip(
                 merge_button,
@@ -245,7 +245,7 @@ impl TitleBar {
         }
         // Allow pane to be pop'd out if we have >1 pane on main window
         else if panes > 1 {
-            let popout_button = button(center(icon::popout_window()))
+            let popout_button = button(center(icon::popout()))
                 .padding(5)
                 .width(22)
                 .height(22)

@@ -68,12 +68,8 @@ pub fn copy<'a>() -> Text<'a> {
     to_text('\u{F0C5}')
 }
 
-pub fn merge_window<'a>() -> Text<'a> {
-    to_text('\u{F247}')
-}
-
-pub fn popout_window<'a>() -> Text<'a> {
-    to_text('\u{F248}')
+pub fn popout<'a>() -> Text<'a> {
+    to_text('\u{E80E}')
 }
 
 fn to_text<'a>(unicode: char) -> Text<'a> {
