@@ -109,16 +109,10 @@
       "src": "fontawesome"
     },
     {
-      "uid": "7aa8cc552d9d6d19815750fc339cf090",
-      "css": "object-group",
-      "code": 62023,
-      "src": "fontawesome"
-    },
-    {
-      "uid": "d4edf8563d5cb3b5f654808aa4fe438a",
-      "css": "object-ungroup",
-      "code": 62024,
-      "src": "fontawesome"
+      "uid": "ca1c07c0df52dbf2af6813c9e36c2611",
+      "css": "popup",
+      "code": 59406,
+      "src": "typicons"
     }
   ]
 }
