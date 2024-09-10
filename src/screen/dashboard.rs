@@ -93,7 +93,7 @@ impl Dashboard {
         config: &Config,
         main_window: &Window,
     ) -> (Self, Task<Message>) {
-        let mut dashboard = Dashboard::from_data(dashboard, config);
+        let (mut dashboard, task) = Dashboard::from_data(dashboard, config, main_window);
 
         let command = if let Some((pane, _)) = dashboard.panes.main.panes.iter().next() {
             Task::batch(vec![
@@ -104,7 +104,7 @@ impl Dashboard {
             dashboard.track()
         };
 
-        (dashboard, command)
+        (dashboard, Task::batch(vec![task, command]))
     }
 
     pub fn update(
@@ -1583,7 +1583,11 @@ impl Dashboard {
         }
     }
 
-    fn from_data(dashboard: data::Dashboard, config: &Config) -> Self {
+    fn from_data(
+        data: data::Dashboard,
+        config: &Config,
+        main_window: &Window,
+    ) -> (Self, Task<Message>) {
         use pane_grid::Configuration;
 
         fn configuration(pane: data::Pane) -> Configuration<Pane> {
@@ -1611,9 +1615,9 @@ impl Dashboard {
             }
         }
 
-        Self {
+        let mut dashboard = Self {
             panes: Panes {
-                main: pane_grid::State::with_configuration(configuration(dashboard.pane)),
+                main: pane_grid::State::with_configuration(configuration(data.pane)),
                 popout: HashMap::new(),
             },
             focus: None,
@@ -1623,7 +1627,20 @@ impl Dashboard {
             command_bar: None,
             file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
             theme_editor: None,
+        };
+
+        let mut tasks = vec![];
+
+        for pane in data.popout_panes {
+            // Popouts are only a single pane
+            let Configuration::Pane(pane) = configuration(pane) else {
+                continue;
+            };
+
+            tasks.push(dashboard.open_popout_window(main_window, pane));
         }
+
+        (dashboard, Task::batch(tasks))
     }
 
     pub fn history(&self) -> &history::Manager {
@@ -1766,6 +1783,12 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
 
         data::Dashboard {
             pane: from_layout(&dashboard.panes.main, layout),
+            popout_panes: dashboard
+                .panes
+                .popout
+                .values()
+                .map(|state| from_layout(state, state.layout().clone()))
+                .collect(),
         }
     }
 }
