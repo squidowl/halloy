@@ -93,7 +93,6 @@ impl Sidebar {
 
     pub fn view<'a>(
         &'a self,
-        main_window: window::Id,
         now: Instant,
         clients: &data::client::Map,
         history: &'a history::Manager,
@@ -104,6 +103,7 @@ impl Sidebar {
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
         theme_editor_open: bool,
+        main_window: window::Id,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
