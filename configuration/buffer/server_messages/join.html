@@ -218,6 +218,22 @@ username_format = "full"
 <li><strong>values</strong>: <code>"full"</code>, <code>"short"</code></li>
 <li><strong>default</strong>: <code>"full"</code></li>
 </ul>
+<h2 id="exclude"><a class="header" href="#exclude"><code>exclude</code></a></h2>
+<p>Exclude channels from receiving the server messag.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not receive the server message. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<ul>
+<li><strong>type</strong>: array of strings</li>
+<li><strong>values</strong>: array of any strings</li>
+<li><strong>default</strong>: <code>[]</code></li>
+</ul>
+<h2 id="include"><a class="header" href="#include"><code>include</code></a></h2>
+<p>Include channels to receive the server message.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will receive the server message. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
+<ul>
+<li><strong>type</strong>: array of strings</li>
+<li><strong>values</strong>: array of any strings</li>
+<li><strong>default</strong>: <code>[]</code></li>
+</ul>
 
                     </main>
 

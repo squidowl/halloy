@@ -193,9 +193,7 @@
 <p>Server message is sent when a user leaves a channel.</p>
 <p><strong>Example</strong></p>
 <pre><code class="language-toml">[buffer.server_messages.part]
-enabled = true
 smart = 180
-username_format = "full"
 </code></pre>
 <h2 id="enabled"><a class="header" href="#enabled"><code>enabled</code></a></h2>
 <p>Control if internal message type is enabled.</p>
@@ -217,6 +215,22 @@ username_format = "full"
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: <code>"full"</code>, <code>"short"</code></li>
 <li><strong>default</strong>: <code>"full"</code></li>
+</ul>
+<h2 id="exclude"><a class="header" href="#exclude"><code>exclude</code></a></h2>
+<p>Exclude channels from receiving the server messag.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not receive the server message. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<ul>
+<li><strong>type</strong>: array of strings</li>
+<li><strong>values</strong>: array of any strings</li>
+<li><strong>default</strong>: <code>[]</code></li>
+</ul>
+<h2 id="include"><a class="header" href="#include"><code>include</code></a></h2>
+<p>Include channels to receive the server message.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will receive the server message. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
+<ul>
+<li><strong>type</strong>: array of strings</li>
+<li><strong>values</strong>: array of any strings</li>
+<li><strong>default</strong>: <code>[]</code></li>
 </ul>
 
                     </main>
