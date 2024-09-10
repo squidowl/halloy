@@ -9,6 +9,8 @@ use crate::{compression, environment};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dashboard {
     pub pane: Pane,
+    #[serde(default)]
+    pub popout_panes: Vec<Pane>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
