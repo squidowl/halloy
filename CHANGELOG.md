@@ -8,6 +8,10 @@ Fixed:
 
 - Regression where messages sent to ZNC virtual users were routed to the wrong buffer (e.g. `*status` routed to `status`).
 
+Changed:
+
+- Default Ghost sequence changed to `REGAIN`.
+
 # 2024.11 (2024-09-04)
 
 Added:
