@@ -326,6 +326,9 @@ impl Dashboard {
 
                         return (task.then(|_| Task::none()), None);
                     }
+                    sidebar::Event::Focus(window, pane) => {
+                        return (self.focus_pane(main_window, window, pane), None);
+                    }
                     sidebar::Event::Replace(window, kind, pane) => {
                         if let Some(state) = self.panes.get_mut(main_window.id, window, pane) {
                             state.buffer = Buffer::from(kind);

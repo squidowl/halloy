@@ -17,6 +17,7 @@ use crate::{icon, theme, window};
 pub enum Message {
     Open(Buffer),
     Popout(Buffer),
+    Focus(window::Id, pane_grid::Pane),
     Replace(window::Id, Buffer, pane_grid::Pane),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
@@ -32,6 +33,7 @@ pub enum Message {
 pub enum Event {
     Open(Buffer),
     Popout(Buffer),
+    Focus(window::Id, pane_grid::Pane),
     Replace(window::Id, Buffer, pane_grid::Pane),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
@@ -71,6 +73,7 @@ impl Sidebar {
         match message {
             Message::Open(source) => Event::Open(source),
             Message::Popout(source) => Event::Popout(source),
+            Message::Focus(window, pane) => Event::Focus(window, pane),
             Message::Replace(window, source, pane) => Event::Replace(window, source, pane),
             Message::Close(window, pane) => Event::Close(window, pane),
             Message::Swap(from_window, from_pane, to_window, to_pane) => {
@@ -404,24 +407,32 @@ fn buffer_button(
         .style(move |theme, status| {
             theme::button::sidebar_buffer(theme, status, is_focused.is_some(), open.is_some())
         })
-        .on_press({
+        .on_press_maybe({
             match is_focused {
-                Some((window_id, id)) => {
+                Some((window, pane)) => {
                     if let Some(focus_action) = focused_buffer_action {
                         match focus_action {
-                            BufferFocusedAction::ClosePane => Message::Close(window_id, id),
+                            BufferFocusedAction::ClosePane => Some(Message::Close(window, pane)),
                         }
                     } else {
-                        Message::Open(buffer.clone())
+                        None
                     }
                 }
-                None => match buffer_action {
-                    BufferAction::NewPane => Message::Open(buffer.clone()),
-                    BufferAction::ReplacePane => match focus {
-                        Some((window, pane)) => Message::Replace(window, buffer.clone(), pane),
-                        None => Message::Open(buffer.clone()),
-                    },
-                },
+                None => {
+                    if let Some((window, pane)) = open {
+                        Some(Message::Focus(window, pane))
+                    } else {
+                        match buffer_action {
+                            BufferAction::NewPane => Some(Message::Open(buffer.clone())),
+                            BufferAction::ReplacePane => match focus {
+                                Some((window, pane)) => {
+                                    Some(Message::Replace(window, buffer.clone(), pane))
+                                }
+                                None => Some(Message::Open(buffer.clone())),
+                            },
+                        }
+                    }
+                }
             }
         });
 
