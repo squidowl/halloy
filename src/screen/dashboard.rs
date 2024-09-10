@@ -320,11 +320,17 @@ impl Dashboard {
                             ..window::settings()
                         });
 
-                        let (state, _) =
+                        let (state, pane) =
                             pane_grid::State::new(Pane::new(Buffer::from(buffer), config));
                         self.panes.popout.insert(window, state);
 
-                        return (task.then(|_| Task::none()), None);
+                        return (
+                            Task::batch(vec![
+                                task.then(|_| Task::none()),
+                                self.focus_pane(main_window, window, pane),
+                            ]),
+                            None,
+                        );
                     }
                     sidebar::Event::Focus(window, pane) => {
                         return (self.focus_pane(main_window, window, pane), None);
@@ -1280,19 +1286,18 @@ impl Dashboard {
         if self.focus != Some((window, pane)) {
             self.focus = Some((window, pane));
 
-            self.panes
-                .iter(main_window.id)
-                .find_map(|(w, p, state)| {
-                    (w == window && p == pane).then(|| {
-                        state.buffer.focus().map(move |message| {
-                            Message::Pane(window, pane::Message::Buffer(pane, message))
-                        })
+            if let Some(task) = self.panes.iter(main_window.id).find_map(|(w, p, state)| {
+                (w == window && p == pane).then(|| {
+                    state.buffer.focus().map(move |message| {
+                        Message::Pane(window, pane::Message::Buffer(pane, message))
                     })
                 })
-                .unwrap_or(Task::none())
-        } else {
-            Task::none()
+            }) {
+                return Task::batch(vec![task, window::gain_focus(window)]);
+            }
         }
+
+        Task::none()
     }
 
     fn maximize_pane(&mut self) {
