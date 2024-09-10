@@ -17,6 +17,7 @@ pub enum BufferAction {
     #[default]
     NewPane,
     ReplacePane,
+    NewWindow,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]

@@ -430,6 +430,7 @@ fn buffer_button(
                                 }
                                 None => Some(Message::Open(buffer.clone())),
                             },
+                            BufferAction::NewWindow => Some(Message::Popout(buffer.clone())),
                         }
                     }
                 }
