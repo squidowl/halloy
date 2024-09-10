@@ -217,7 +217,11 @@ impl Dashboard {
                                             let buffer =
                                                 data::Buffer::Query(data.server().clone(), nick);
                                             return (
-                                                self.open_buffer(buffer, config, main_window),
+                                                self.open_buffer(
+                                                    buffer,
+                                                    config.buffer.clone().into(),
+                                                    main_window,
+                                                ),
                                                 None,
                                             );
                                         }
@@ -298,6 +302,44 @@ impl Dashboard {
                         }
                     }
                     pane::Message::MaximizePane => self.maximize_pane(),
+                    pane::Message::Popout => {
+                        if let Some((_, pane)) = self.focus.take() {
+                            if let Some((pane, _)) = self.panes.main.close(pane) {
+                                return (self.open_popout_window(main_window, pane), None);
+                            }
+                        }
+                    }
+                    pane::Message::Merge => {
+                        if let Some((window, pane)) = self.focus.take() {
+                            if let Some(pane) = self
+                                .panes
+                                .popout
+                                .remove(&window)
+                                .and_then(|panes| panes.get(pane).cloned())
+                            {
+                                let task = match pane.buffer.data() {
+                                    Some(buffer) => {
+                                        self.open_buffer(buffer, pane.settings, main_window)
+                                    }
+                                    None if matches!(pane.buffer, Buffer::FileTransfers(_)) => {
+                                        self.toggle_file_transfers(config, main_window)
+                                    }
+                                    None => {
+                                        return (
+                                            self.new_pane(
+                                                pane_grid::Axis::Horizontal,
+                                                config,
+                                                main_window,
+                                            ),
+                                            None,
+                                        )
+                                    }
+                                };
+
+                                return (Task::batch(vec![window::close(window), task]), None);
+                            }
+                        }
+                    }
                 }
             }
             Message::Sidebar(message) => {
@@ -305,30 +347,17 @@ impl Dashboard {
 
                 match event {
                     sidebar::Event::Open(kind) => {
-                        return (self.open_buffer(kind, config, main_window), None);
+                        return (
+                            self.open_buffer(kind, config.buffer.clone().into(), main_window),
+                            None,
+                        );
                     }
                     sidebar::Event::Popout(buffer) => {
-                        let (window, task) = window::open(window::Settings {
-                            // Just big enough to show all components in combobox
-                            position: main_window
-                                .position
-                                .map(|point| {
-                                    window::Position::Specific(point + Vector::new(20.0, 20.0))
-                                })
-                                .unwrap_or_default(),
-                            exit_on_close_request: false,
-                            ..window::settings()
-                        });
-
-                        let (state, pane) =
-                            pane_grid::State::new(Pane::new(Buffer::from(buffer), config));
-                        self.panes.popout.insert(window, state);
-
                         return (
-                            Task::batch(vec![
-                                task.then(|_| Task::none()),
-                                self.focus_pane(main_window, window, pane),
-                            ]),
+                            self.open_popout_window(
+                                main_window,
+                                Pane::new(Buffer::from(buffer), config),
+                            ),
                             None,
                         );
                     }
@@ -746,6 +775,7 @@ impl Dashboard {
         clients: &'a client::Map,
         config: &'a Config,
         theme: &'a Theme,
+        main_window: &'a Window,
     ) -> Element<'a, Message> {
         if let Some(state) = self.panes.popout.get(&window) {
             let content = container(
@@ -753,6 +783,7 @@ impl Dashboard {
                     let is_focused = self.focus == Some((window, id));
                     pane.view(
                         id,
+                        window,
                         1,
                         is_focused,
                         false,
@@ -762,6 +793,7 @@ impl Dashboard {
                         &self.side_menu,
                         config,
                         theme,
+                        main_window,
                     )
                 })
                 .spacing(4)
@@ -783,20 +815,21 @@ impl Dashboard {
 
     pub fn view<'a>(
         &'a self,
-        main_window: window::Id,
         now: Instant,
         clients: &'a client::Map,
         version: &'a Version,
         config: &'a Config,
         theme: &'a Theme,
+        main_window: &'a Window,
     ) -> Element<'a, Message> {
         let focus = self.focus;
 
         let pane_grid: Element<_> = PaneGrid::new(&self.panes.main, |id, pane, maximized| {
-            let is_focused = focus == Some((main_window, id));
-            let panes = self.panes.len();
+            let is_focused = focus == Some((main_window.id, id));
+            let panes = self.panes.main.panes.len();
             pane.view(
                 id,
+                main_window.id,
                 panes,
                 is_focused,
                 maximized,
@@ -806,6 +839,7 @@ impl Dashboard {
                 &self.side_menu,
                 config,
                 theme,
+                main_window,
             )
         })
         .on_click(pane::Message::PaneClicked)
@@ -815,7 +849,7 @@ impl Dashboard {
         .into();
 
         let pane_grid =
-            container(pane_grid.map(move |message| Message::Pane(main_window, message)))
+            container(pane_grid.map(move |message| Message::Pane(main_window.id, message)))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .padding(8);
@@ -823,7 +857,6 @@ impl Dashboard {
         let side_menu = self
             .side_menu
             .view(
-                main_window,
                 now,
                 clients,
                 &self.history,
@@ -834,6 +867,7 @@ impl Dashboard {
                 &self.file_transfers,
                 version,
                 self.theme_editor.is_some(),
+                main_window.id,
             )
             .map(|e| e.map(Message::Sidebar));
 
@@ -991,7 +1025,7 @@ impl Dashboard {
     fn open_buffer(
         &mut self,
         kind: data::Buffer,
-        config: &Config,
+        settings: buffer::Settings,
         main_window: &Window,
     ) -> Task<Message> {
         let panes = self.panes.clone();
@@ -1013,7 +1047,7 @@ impl Dashboard {
                         .main
                         .panes
                         .entry(*id)
-                        .and_modify(|p| *p = Pane::new(Buffer::from(kind), config));
+                        .and_modify(|p| *p = Pane::with_settings(Buffer::from(kind), settings));
                     self.last_changed = Some(Instant::now());
 
                     return self.focus_pane(main_window, main_window.id, *id);
@@ -1034,10 +1068,11 @@ impl Dashboard {
             }
         };
 
-        let result =
-            self.panes
-                .main
-                .split(axis, pane_to_split, Pane::new(Buffer::from(kind), config));
+        let result = self.panes.main.split(
+            axis,
+            pane_to_split,
+            Pane::with_settings(Buffer::from(kind), settings),
+        );
         self.last_changed = Some(Instant::now());
 
         if let Some((pane, _)) = result {
@@ -1666,6 +1701,28 @@ impl Dashboard {
         };
 
         Task::perform(task, move |_| ())
+    }
+
+    fn open_popout_window(&mut self, main_window: &Window, pane: Pane) -> Task<Message> {
+        self.last_changed = Some(Instant::now());
+
+        let (window, task) = window::open(window::Settings {
+            // Just big enough to show all components in combobox
+            position: main_window
+                .position
+                .map(|point| window::Position::Specific(point + Vector::new(20.0, 20.0)))
+                .unwrap_or_default(),
+            exit_on_close_request: false,
+            ..window::settings()
+        });
+
+        let (state, pane) = pane_grid::State::new(pane);
+        self.panes.popout.insert(window, state);
+
+        Task::batch(vec![
+            task.then(|_| Task::none()),
+            self.focus_pane(main_window, window, pane),
+        ])
     }
 }
 

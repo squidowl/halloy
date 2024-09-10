@@ -798,12 +798,12 @@ impl Halloy {
             let screen = match &self.screen {
                 Screen::Dashboard(dashboard) => dashboard
                     .view(
-                        self.main_window.id,
                         now,
                         &self.clients,
                         &self.version,
                         &self.config,
                         &self.theme,
+                        &self.main_window,
                     )
                     .map(Message::Dashboard),
                 Screen::Help(help) => help.view().map(Message::Help),
@@ -827,7 +827,13 @@ impl Halloy {
             }
         } else if let Screen::Dashboard(dashboard) = &self.screen {
             dashboard
-                .view_window(id, &self.clients, &self.config, &self.theme)
+                .view_window(
+                    id,
+                    &self.clients,
+                    &self.config,
+                    &self.theme,
+                    &self.main_window,
+                )
                 .map(Message::Dashboard)
         } else {
             column![].into()
