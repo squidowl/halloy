@@ -1039,7 +1039,8 @@ impl Client {
             Command::TOPIC(channel, topic) => {
                 if let Some(channel) = self.chanmap.get_mut(channel) {
                     if let Some(text) = topic {
-                        channel.topic.content = Some(message::parse_fragments(text.clone()));
+                        channel.topic.content =
+                            Some(message::parse_fragments(text.clone(), vec![]));
                     }
 
                     channel.topic.who = message
@@ -1050,7 +1051,8 @@ impl Client {
             }
             Command::Numeric(RPL_TOPIC, args) => {
                 if let Some(channel) = self.chanmap.get_mut(&args[1]) {
-                    channel.topic.content = Some(message::parse_fragments(args.get(2)?.to_owned()));
+                    channel.topic.content =
+                        Some(message::parse_fragments(args.get(2)?.to_owned(), vec![]));
                 }
                 // Exclude topic message from history to prevent spam during dev
                 #[cfg(feature = "dev")]

@@ -95,7 +95,7 @@ impl Input {
                         server_time: Utc::now(),
                         direction: message::Direction::Sent,
                         target,
-                        content: message::parse_fragments(text.clone()),
+                        content: message::parse_fragments(text.clone(), vec![]),
                     })
                     .collect(),
             ),

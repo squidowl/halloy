@@ -98,7 +98,7 @@ pub fn view<'a>(
                         .style(|theme| {
                             theme::selectable_text::nickname(
                                 theme,
-                                user.nick_color(theme.colors(), &config.buffer.nickname.color),
+                                user.nick_color(theme.colors(), config.buffer.nickname.color),
                                 user.is_away(),
                             )
                         });
@@ -123,6 +123,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
+                            config,
                         );
 
                         Some(
@@ -161,6 +162,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             message_style,
+                            config,
                         );
 
                         Some(
@@ -183,6 +185,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::action,
+                            config,
                         );
 
                         Some(
@@ -209,6 +212,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             message_style,
+                            config,
                         );
 
                         Some(
@@ -428,7 +432,7 @@ mod nick_list {
                 .style(|theme| {
                     theme::selectable_text::nickname(
                         theme,
-                        user.nick_color(theme.colors(), &nicklist_config.color),
+                        user.nick_color(theme.colors(), nicklist_config.color),
                         user.is_away(),
                     )
                 })

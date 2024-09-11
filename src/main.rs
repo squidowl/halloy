@@ -472,6 +472,10 @@ impl Halloy {
                                         .cloned()
                                 };
 
+                                let channel_users = |channel: &str| {
+                                    self.clients.get_channel_users(&server, channel).to_vec()
+                                };
+
                                 match event {
                                     data::client::Event::Single(encoded, our_nick) => {
                                         if let Some(message) = data::Message::received(
@@ -479,6 +483,7 @@ impl Halloy {
                                             our_nick,
                                             &self.config,
                                             resolve_user_attributes,
+                                            channel_users,
                                         ) {
                                             dashboard.record_message(&server, message);
                                         }
@@ -489,6 +494,7 @@ impl Halloy {
                                             our_nick,
                                             &self.config,
                                             resolve_user_attributes,
+                                            channel_users,
                                         ) {
                                             dashboard.record_message(
                                                 &server,
@@ -578,6 +584,7 @@ impl Halloy {
                                             our_nick,
                                             &self.config,
                                             resolve_user_attributes,
+                                            channel_users,
                                         ) {
                                             dashboard.record_message(&server, message);
                                         }
