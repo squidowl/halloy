@@ -32,4 +32,12 @@ Read `password` from the file at the given path.[^1]
 - **values**: any string
 - **default**: not set
 
+## `password_command`
+
+Executes the command with `sh` (or equivalent) and reads `password` as the output.
+
+- **type**: string
+- **values**: any string
+- **default**: not set
+
 [^1]: Shell expansions (e.g. `"~/"` → `"/home/user/"`) are not supported in path strings.

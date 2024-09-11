@@ -105,6 +105,14 @@ Read password from the file at the given path.[^1]
 - **values**: any string
 - **default**: not set
 
+## `password_command`
+
+Executes the command with `sh` (or equivalent) and reads `password` as the output.
+
+- **type**: string
+- **values**: any string
+- **default**: not set
+
 ## `channels`
 
 A list of channels to join on connection.
