@@ -62,13 +62,13 @@ pub fn message_content<'a, M: 'a>(
                     data::message::Fragment::Text(s) => span(s),
                     data::message::Fragment::User(user) => {
                         let color_kind = &config.buffer.channel.message.nickname_color;
-                        let colors = theme.colors();
 
-                        let NickColor { seed, color } = user.nick_color(colors, *color_kind);
+                        let NickColor { seed, color } =
+                            user.nick_color(theme.colors(), *color_kind);
 
                         let color = match seed {
                             Some(seed) => randomize_color(color, &seed),
-                            None => color,
+                            None => theme.colors().text.primary,
                         };
 
                         span(user.nickname().to_string()).color(color)
