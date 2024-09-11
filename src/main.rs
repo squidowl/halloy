@@ -472,8 +472,8 @@ impl Halloy {
                                         .cloned()
                                 };
 
-                                let channel_users = |channel: &str| {
-                                    self.clients.get_channel_users(&server, channel).to_vec()
+                                let channel_users = |channel: &str| -> &[User] {
+                                    self.clients.get_channel_users(&server, channel)
                                 };
 
                                 match event {

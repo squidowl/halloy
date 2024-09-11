@@ -167,12 +167,12 @@ impl Message {
             }
     }
 
-    pub fn received(
+    pub fn received<'a>(
         encoded: Encoded,
         our_nick: Nick,
-        config: &Config,
+        config: &'a Config,
         resolve_attributes: impl Fn(&User, &str) -> Option<User>,
-        channel_users: impl Fn(&str) -> Vec<User>,
+        channel_users: impl Fn(&str) -> &'a [User],
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
         let content = content(
@@ -291,7 +291,7 @@ impl<'de> Deserialize<'de> for Message {
             content
         } else if let Some(text) = text {
             // First time upgrading, convert text into content
-            parse_fragments(text, vec![])
+            parse_fragments(text, &[])
         } else {
             // Unreachable
             Content::Plain("".to_string())
@@ -311,7 +311,7 @@ pub fn plain(text: String) -> Content {
     Content::Plain(text)
 }
 
-pub fn parse_fragments(text: String, channel_users: Vec<User>) -> Content {
+pub fn parse_fragments(text: String, channel_users: &[User]) -> Content {
     let mut i = 0;
     let mut fragments = vec![];
 
@@ -341,7 +341,7 @@ pub fn parse_fragments(text: String, channel_users: Vec<User>) -> Content {
                 fragments.push(Fragment::Text(text[i..start].to_string()));
             }
 
-            fragments.push(Fragment::User(user));
+            fragments.push(Fragment::User(user.clone()));
             i = end;
         }
     }
@@ -633,12 +633,12 @@ pub fn server_time(message: &Encoded) -> DateTime<Utc> {
         .unwrap_or_else(Utc::now)
 }
 
-fn content(
+fn content<'a>(
     message: &Encoded,
     our_nick: &Nick,
     config: &Config,
     resolve_attributes: &dyn Fn(&User, &str) -> Option<User>,
-    channel_users: &dyn Fn(&str) -> Vec<User>,
+    channel_users: &dyn Fn(&str) -> &'a [User],
 ) -> Option<Content> {
     use irc::proto::command::Numeric::*;
 
@@ -653,7 +653,7 @@ fn content(
 
             Some(parse_fragments(
                 format!("{user} changed topic to {topic}"),
-                vec![],
+                &[],
             ))
         }
         Command::PART(target, text) => {
@@ -669,7 +669,7 @@ fn content(
 
             Some(parse_fragments(
                 format!("⟵ {user} has left the channel{text}"),
-                vec![],
+                &[],
             ))
         }
         Command::JOIN(target, _) => {
@@ -682,7 +682,7 @@ fn content(
                         "⟶ {} has joined the channel",
                         user.formatted(config.buffer.server_messages.join.username_format)
                     ),
-                    vec![],
+                    &[],
                 )
             })
         }
@@ -705,7 +705,7 @@ fn content(
 
             Some(parse_fragments(
                 format!("⟵ {target} been kicked by {user}{comment}"),
-                vec![],
+                &[],
             ))
         }
         Command::MODE(target, modes, args) if proto::is_channel(target) => {
@@ -730,7 +730,7 @@ fn content(
 
             Some(parse_fragments(
                 format!("{user} sets mode {modes} {args}"),
-                vec![],
+                &[],
             ))
         }
         Command::PRIVMSG(target, text) => {
@@ -744,11 +744,11 @@ fn content(
             let channel_users = channel_users(target);
             Some(parse_fragments(text.clone(), channel_users))
         }
-        Command::NOTICE(_, text) => Some(parse_fragments(text.clone(), vec![])),
+        Command::NOTICE(_, text) => Some(parse_fragments(text.clone(), &[])),
         Command::Numeric(RPL_TOPIC, params) => {
             let topic = params.get(2)?;
 
-            Some(parse_fragments(format!("topic is {topic}"), vec![]))
+            Some(parse_fragments(format!("topic is {topic}"), &[]))
         }
         Command::Numeric(RPL_ENDOFWHOIS, _) => {
             // We skip the end message of a WHOIS.
@@ -773,7 +773,7 @@ fn content(
                 format!(
                     "{nick} signed on at {sign_on_datetime} and has been idle for {idle_readable}"
                 ),
-                vec![],
+                &[],
             ))
         }
         Command::Numeric(RPL_WHOISSERVER, params) => {
@@ -783,7 +783,7 @@ fn content(
 
             Some(parse_fragments(
                 format!("{nick} is connected on {server} ({region})"),
-                vec![],
+                &[],
             ))
         }
         Command::Numeric(RPL_WHOISUSER, params) => {
@@ -793,30 +793,27 @@ fn content(
 
             Some(parse_fragments(
                 format!("{nick} has userhost {userhost} and real name '{real_name}'"),
-                vec![],
+                &[],
             ))
         }
         Command::Numeric(RPL_WHOISCHANNELS, params) => {
             let nick = params.get(1)?;
             let channels = params.get(2)?;
 
-            Some(parse_fragments(format!("{nick} is in {channels}"), vec![]))
+            Some(parse_fragments(format!("{nick} is in {channels}"), &[]))
         }
         Command::Numeric(RPL_WHOISACTUALLY, params) => {
             let nick = params.get(1)?;
             let ip = params.get(2)?;
             let status_text = params.get(3)?;
 
-            Some(parse_fragments(
-                format!("{nick} {status_text} {ip}"),
-                vec![],
-            ))
+            Some(parse_fragments(format!("{nick} {status_text} {ip}"), &[]))
         }
         Command::Numeric(RPL_WHOISSECURE, params) => {
             let nick = params.get(1)?;
             let status_text = params.get(2)?;
 
-            Some(parse_fragments(format!("{nick} {status_text}"), vec![]))
+            Some(parse_fragments(format!("{nick} {status_text}"), &[]))
         }
         Command::Numeric(RPL_WHOISACCOUNT, params) => {
             let nick = params.get(1)?;
@@ -825,7 +822,7 @@ fn content(
 
             Some(parse_fragments(
                 format!("{nick} {status_text} {account}"),
-                vec![],
+                &[],
             ))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
@@ -841,7 +838,7 @@ fn content(
 
             Some(parse_fragments(
                 format!("topic set by {nick} at {datetime}"),
-                vec![],
+                &[],
             ))
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
@@ -852,7 +849,7 @@ fn content(
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(parse_fragments(format!("Channel mode is {mode}"), vec![]))
+            Some(parse_fragments(format!("Channel mode is {mode}"), &[]))
         }
         Command::Numeric(RPL_UMODEIS, params) => {
             let mode = params
@@ -862,7 +859,7 @@ fn content(
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(parse_fragments(format!("User mode is {mode}"), vec![]))
+            Some(parse_fragments(format!("User mode is {mode}"), &[]))
         }
         Command::Numeric(RPL_AWAY, params) => {
             let user = params.get(1)?;
@@ -873,7 +870,7 @@ fn content(
 
             Some(parse_fragments(
                 format!("{user} is away{away_message}"),
-                vec![],
+                &[],
             ))
         }
         Command::Numeric(RPL_MONONLINE, params) => {
@@ -906,7 +903,7 @@ fn content(
                 .skip(1)
                 .collect::<Vec<_>>()
                 .join(" "),
-            vec![],
+            &[],
         )),
         _ => None,
     }
@@ -948,7 +945,7 @@ fn parse_action(nick: NickRef, text: &str) -> Option<Content> {
 
 pub fn action_text(nick: NickRef, action: Option<&str>) -> Content {
     if let Some(action) = action {
-        parse_fragments(format!("{nick} {action}"), vec![])
+        parse_fragments(format!("{nick} {action}"), &[])
     } else {
         plain(format!("{nick}"))
     }
@@ -1086,7 +1083,7 @@ mod test {
         ];
 
         for (text, expected) in tests {
-            let actual = parse_fragments(text.to_string(), vec![]);
+            let actual = parse_fragments(text.to_string(), &[]);
 
             assert_eq!(Content::Fragments(expected), actual);
         }

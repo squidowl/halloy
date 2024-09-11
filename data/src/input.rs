@@ -65,7 +65,7 @@ impl Input {
         self.buffer.server()
     }
 
-    pub fn messages(&self, user: User, channel_users: Vec<User>) -> Option<Vec<Message>> {
+    pub fn messages(&self, user: User, channel_users: &[User]) -> Option<Vec<Message>> {
         let to_target = |target: &str, source| {
             if let Some((prefix, channel)) = proto::parse_channel_from_target(target) {
                 Some(message::Target::Channel {
@@ -95,7 +95,7 @@ impl Input {
                         server_time: Utc::now(),
                         direction: message::Direction::Sent,
                         target,
-                        content: message::parse_fragments(text.clone(), channel_users.clone()),
+                        content: message::parse_fragments(text.clone(), channel_users),
                     })
                     .collect(),
             ),

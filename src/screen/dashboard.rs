@@ -187,15 +187,14 @@ impl Dashboard {
 
                                             if let Some(nick) = clients.nickname(buffer.server()) {
                                                 let mut user = nick.to_owned().into();
-                                                let mut channel_users = vec![];
+                                                let mut channel_users = &[][..];
 
                                                 // Resolve our attributes if sending this message in a channel
                                                 if let data::Buffer::Channel(server, channel) =
                                                     &buffer
                                                 {
-                                                    channel_users = clients
-                                                        .get_channel_users(server, channel)
-                                                        .to_vec();
+                                                    channel_users =
+                                                        clients.get_channel_users(server, channel);
 
                                                     if let Some(user_with_attributes) = clients
                                                         .resolve_user_attributes(
