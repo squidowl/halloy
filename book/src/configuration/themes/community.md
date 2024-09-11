@@ -46,3 +46,13 @@ This is a list of community created themes for Halloy.
 
 <img src="booberry.png">
 
+## One Dark
+ [Open in Halloy](halloy:///theme?e=ACAkKv8Bc3Nz_wJgY2j_A_-MAP8Eu7u7_wWHjpv_BvRHR_8Hicp4_wjHVFD_CdVf3v8KKCw0_wsxN0H_DDE3Qf8NO0BI_w5gY2j_D4eOm_8QQlV7_xGJynj_EkBIWf8Tc3mE_xSHjpv_FWGv7_8dNZLE_x4AAAAAHzU6Rv8gREta_yFES1r_IiAkKv8jNTpG_yRES1r_JURLWv8)
+
+<img src="one-dark.png">
+
+## IntelliJ Light
+ [Open in Halloy](halloy:///theme?e=AP____8Bv7-__wLg4OD_AwCN3v8ECAgI_wVBTUH_Bv8AAP8HsNGr_wjbWGD_CQBtzP8K_____wvw8PD_DPDw8P8N5ubm_w7g4OD_D0FNQf8QzMz__xEAjd7_EqbS__8TgICA_xRBTUH_FQBtzP8dOJ_W_x4AAAAAH9bW1v8g4ODg_yHg4OD_Iv____8j1tbW_yTg4OD_JeDg4P8)
+
+<img src="intellij-light.png">
+
