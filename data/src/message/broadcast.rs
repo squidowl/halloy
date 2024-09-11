@@ -155,7 +155,7 @@ pub fn quit(
             "⟵ {} has quit{comment}",
             user.formatted(config.buffer.server_messages.quit.username_format)
         ),
-        vec![],
+        &[],
     );
 
     expand(
