@@ -163,6 +163,10 @@ impl User {
         }
     }
 
+    pub fn as_str(&self) -> &str {
+        self.nickname.as_ref()
+    }
+
     pub fn is_away(&self) -> bool {
         self.away
     }

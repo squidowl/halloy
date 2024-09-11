@@ -403,7 +403,7 @@ impl Fragment {
     pub fn as_str(&self) -> &str {
         match self {
             Fragment::Text(s) => s,
-            Fragment::User(user) => "",
+            Fragment::User(u) => u.as_str(),
             Fragment::Url(u) => u.as_str(),
             Fragment::Formatted { text, .. } => text,
         }
