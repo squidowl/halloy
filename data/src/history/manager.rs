@@ -166,8 +166,8 @@ impl Manager {
         }
     }
 
-    pub fn record_input(&mut self, input: Input, user: User) {
-        if let Some(messages) = input.messages(user) {
+    pub fn record_input(&mut self, input: Input, user: User, channel_users: Vec<User>) {
+        if let Some(messages) = input.messages(user, channel_users) {
             for message in messages {
                 self.record_message(input.server(), message);
             }
