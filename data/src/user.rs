@@ -145,7 +145,7 @@ impl From<Nick> for User {
 }
 
 impl User {
-    pub fn nick_color(&self, colors: &Colors, kind: &buffer::Color) -> NickColor {
+    pub fn nick_color(&self, colors: &Colors, kind: buffer::Color) -> NickColor {
         let color = colors.buffer.nickname;
         match kind {
             buffer::Color::Solid => NickColor { seed: None, color },
