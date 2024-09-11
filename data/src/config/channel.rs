@@ -9,6 +9,14 @@ pub struct Channel {
     pub nicklist: Nicklist,
     #[serde(default)]
     pub topic: Topic,
+    #[serde(default)]
+    pub message: Message,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Message {
+    #[serde(default)]
+    pub nickname_color: Color,
 }
 
 #[derive(Debug, Clone, Deserialize)]

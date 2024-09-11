@@ -61,7 +61,7 @@ pub fn message_content<'a, M: 'a>(
                 .map(|fragment| match fragment {
                     data::message::Fragment::Text(s) => span(s),
                     data::message::Fragment::User(user) => {
-                        let color_kind = &config.buffer.nickname.color;
+                        let color_kind = &config.buffer.channel.message.nickname_color;
                         let colors = theme.colors();
 
                         let NickColor { seed, color } = user.nick_color(colors, *color_kind);

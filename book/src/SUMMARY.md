@@ -22,6 +22,7 @@
   - [Buffer](configuration/buffer/README.md)
     - [Channel](configuration/buffer/channel/README.md)
       - [Nicklist](configuration/buffer/channel/nicklist.md)
+      - [Message](configuration/buffer/channel/message.md)
       - [Topic](configuration/buffer/channel/topic.md)
     - [Internal Messages](configuration/buffer/internal_messages/README.md)
         - [Success](configuration/buffer/internal_messages/success.md)
