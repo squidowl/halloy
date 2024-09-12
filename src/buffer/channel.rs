@@ -390,12 +390,12 @@ fn topic<'a>(
 
 mod nick_list {
     use data::{config, Buffer, Config, User};
-    use iced::widget::{column, scrollable, text, Scrollable};
+    use iced::widget::{column, scrollable, Scrollable};
     use iced::{alignment, Length};
     use user_context::Message;
 
     use crate::buffer::user_context;
-    use crate::widget::Element;
+    use crate::widget::{selectable_text, Element};
     use crate::{font, theme};
 
     pub fn view<'a>(
@@ -420,15 +420,15 @@ mod nick_list {
         };
 
         let content = column(users.iter().map(|user| {
-            let content = text(user.display(nicklist_config.show_access_levels))
+            let content = selectable_text(user.display(nicklist_config.show_access_levels))
                 .style(|theme| {
-                    theme::text::nickname(
+                    theme::selectable_text::nickname(
                         theme,
                         user.nick_color(theme.colors(), &nicklist_config.color),
                         user.is_away(),
                     )
                 })
-                .align_x(match nicklist_config.alignment {
+                .horizontal_alignment(match nicklist_config.alignment {
                     config::channel::Alignment::Left => alignment::Horizontal::Left,
                     config::channel::Alignment::Right => alignment::Horizontal::Right,
                 })
