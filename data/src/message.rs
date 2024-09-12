@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use const_format::concatcp;
 use irc::proto;
 use irc::proto::Command;
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -312,8 +312,40 @@ pub fn plain(text: String) -> Content {
 }
 
 pub fn parse_fragments(text: String, channel_users: &[User]) -> Content {
+    let fragments = parse_url_fragments(text)
+        .into_iter()
+        .flat_map(|fragment| {
+            if let Fragment::Text(text) = &fragment {
+                if let Some(formatted) = formatting::parse(text) {
+                    return Either::Left(formatted.into_iter().map(Fragment::from));
+                }
+            }
+
+            Either::Right(std::iter::once(fragment))
+        })
+        .flat_map(|fragment| {
+            if let Fragment::Text(text) = &fragment {
+                return Either::Left(parse_user_fragments(text, channel_users).into_iter());
+            }
+
+            Either::Right(std::iter::once(fragment))
+        })
+        .collect::<Vec<_>>();
+
+    if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_)) {
+        let Some(Fragment::Text(text)) = fragments.into_iter().next() else {
+            unreachable!();
+        };
+
+        Content::Plain(text)
+    } else {
+        Content::Fragments(fragments)
+    }
+}
+
+fn parse_url_fragments(text: String) -> Vec<Fragment> {
     let mut i = 0;
-    let mut fragments = vec![];
+    let mut fragments = Vec::with_capacity(1);
 
     for (re_match, url) in URL_REGEX.find_iter(&text).filter_map(|re_match| {
         let url = if re_match.as_str().starts_with("www") {
@@ -331,46 +363,44 @@ pub fn parse_fragments(text: String, channel_users: &[User]) -> Content {
         fragments.push(Fragment::Url(url));
     }
 
-    for user in channel_users {
-        let nickname = user.nickname();
-        if let Some(pos) = text[i..].find(nickname.as_ref()) {
-            let start = i + pos;
-            let end = start + nickname.as_ref().len();
-
-            if i < start {
-                fragments.push(Fragment::Text(text[i..start].to_string()));
-            }
-
-            fragments.push(Fragment::User(user.clone()));
-            i = end;
-        }
-    }
-
-    // No matches
     if i == 0 {
-        if let Some(formatted) = formatting::parse(&text) {
-            return Content::Fragments(formatted.into_iter().map(Fragment::from).collect());
-        } else {
-            return plain(text);
-        }
-    } else if i < text.len() {
+        fragments.push(Fragment::Text(text));
+    } else {
         fragments.push(Fragment::Text(text[i..text.len()].to_string()));
     }
 
-    Content::Fragments(
-        fragments
-            .into_iter()
-            .flat_map(|fragment| {
-                if let Fragment::Text(text) = &fragment {
-                    if let Some(formatted) = formatting::parse(text) {
-                        return formatted.into_iter().map(Fragment::from).collect();
-                    }
-                }
+    fragments
+}
 
-                vec![fragment]
-            })
-            .collect(),
-    )
+fn parse_user_fragments(text: &str, channel_users: &[User]) -> Vec<Fragment> {
+    text.chars()
+        .group_by(|c| !c.is_whitespace() && !c.is_ascii_punctuation())
+        .into_iter()
+        .map(|(is_word, chars)| {
+            let text = chars.collect::<String>();
+
+            if is_word {
+                if let Some(user) = channel_users
+                    .iter()
+                    .find(|user| user.nickname().as_ref() == text)
+                {
+                    return Fragment::User(user.clone());
+                }
+            }
+
+            Fragment::Text(text)
+        })
+        .fold(vec![], |mut acc, fragment| {
+            if let Some(Fragment::Text(text)) = acc.last_mut() {
+                if let Fragment::Text(next) = &fragment {
+                    text.push_str(next);
+                    return acc;
+                }
+            }
+
+            acc.push(fragment);
+            acc
+        })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
