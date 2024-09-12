@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
-use data::Config;
+use data::{config, Config};
 use iced::font;
 
 pub static MONO: Font = Font::new(false, false);
@@ -79,4 +79,30 @@ pub fn load() -> Vec<Cow<'static, [u8]>> {
             .as_slice()
             .into(),
     ]
+}
+
+pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
+    use iced::advanced::graphics::text::Paragraph;
+    use iced::advanced::text::{self, Paragraph as _, Text};
+    use iced::{alignment, Size};
+
+    use crate::theme;
+
+    Paragraph::with_text(Text {
+        content: &" ".repeat(len),
+        bounds: Size::INFINITY,
+        size: config
+            .size
+            .map(f32::from)
+            .unwrap_or(theme::TEXT_SIZE)
+            .into(),
+        line_height: Default::default(),
+        font: MONO.clone().into(),
+        horizontal_alignment: alignment::Horizontal::Right,
+        vertical_alignment: alignment::Vertical::Top,
+        shaping: text::Shaping::Basic,
+    })
+    .min_bounds()
+    .expand(Size::new(1.0, 0.0))
+    .width
 }

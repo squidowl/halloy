@@ -127,20 +127,24 @@ pub fn view<'a>(
 
                         Some(
                             row![]
-                                .push(container(row![].push_maybe(timestamp).push_maybe(prefix).push(nick).push(space)))
-                                .push(container(text).style(move |theme| {
-                                    match our_nick {
-                                        Some(nick)
-                                            if message::reference_user(
-                                                user.nickname(),
-                                                nick,
-                                                message,
-                                            ) =>
-                                        {
-                                            theme::container::highlight(theme)
-                                        }
-                                        _ => Default::default(),
+                                .push(container(
+                                    row![]
+                                        .push_maybe(timestamp)
+                                        .push_maybe(prefix)
+                                        .push(nick)
+                                        .push(space),
+                                ))
+                                .push(container(text).style(move |theme| match our_nick {
+                                    Some(nick)
+                                        if message::reference_user(
+                                            user.nickname(),
+                                            nick,
+                                            message,
+                                        ) =>
+                                    {
+                                        theme::container::highlight(theme)
                                     }
+                                    _ => Default::default(),
                                 }))
                                 .into(),
                         )
@@ -227,8 +231,7 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let nick_list = nick_list::view(users, &buffer, our_user, &config.buffer.channel.nicklist)
-        .map(Message::UserContext);
+    let nick_list = nick_list::view(users, &buffer, our_user, config).map(Message::UserContext);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
@@ -386,57 +389,55 @@ fn topic<'a>(
 }
 
 mod nick_list {
-    use data::{config, Buffer, User};
+    use data::{config, Buffer, Config, User};
     use iced::widget::{column, scrollable, text, Scrollable};
     use iced::{alignment, Length};
     use user_context::Message;
 
     use crate::buffer::user_context;
-    use crate::theme;
-    use crate::widget::{double_pass, Element};
+    use crate::widget::Element;
+    use crate::{font, theme};
 
     pub fn view<'a>(
         users: &'a [User],
         buffer: &Buffer,
         our_user: Option<&'a User>,
-        config: &'a config::channel::Nicklist,
+        config: &'a Config,
     ) -> Element<'a, Message> {
-        let content = |width| {
-            column(users.iter().map(|user| {
-                let content = text(user.display(config.show_access_levels))
-                    .style(|theme| {
-                        theme::text::nickname(
-                            theme,
-                            user.nick_color(theme.colors(), &config.color),
-                            user.is_away(),
-                        )
-                    })
-                    .align_x(match config.alignment {
-                        config::channel::Alignment::Left => alignment::Horizontal::Left,
-                        config::channel::Alignment::Right => alignment::Horizontal::Right,
-                    })
-                    .width(width);
+        let nicklist_config = &config.buffer.channel.nicklist;
 
-                Element::from(user_context::view(
-                    content,
-                    user,
-                    Some(user),
-                    buffer.clone(),
-                    our_user,
-                ))
-            }))
-        };
-
-        let column: Element<Message> = match config.width {
-            Some(width) => content(Length::Fixed(width)).into(),
+        let width = match nicklist_config.width {
+            Some(width) => width,
             None => {
-                let first_pass = content(Length::Shrink);
-                let second_pass = content(Length::Fill);
-                double_pass(first_pass, second_pass)
+                let max_nick_length = users
+                    .iter()
+                    .map(|user| user.nickname().as_ref().chars().count())
+                    .max()
+                    .unwrap_or_default();
+
+                font::width_from_chars(max_nick_length, &config.font)
             }
         };
 
-        Scrollable::new(column)
+        let content = column(users.iter().map(|user| {
+            let content = text(user.display(nicklist_config.show_access_levels))
+                .style(|theme| {
+                    theme::text::nickname(
+                        theme,
+                        user.nick_color(theme.colors(), &nicklist_config.color),
+                        user.is_away(),
+                    )
+                })
+                .align_x(match nicklist_config.alignment {
+                    config::channel::Alignment::Left => alignment::Horizontal::Left,
+                    config::channel::Alignment::Right => alignment::Horizontal::Right,
+                })
+                .width(Length::Fixed(width));
+
+            user_context::view(content, user, Some(user), buffer.clone(), our_user)
+        }));
+
+        Scrollable::new(content)
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new().width(1).scroller_width(1),
             ))
