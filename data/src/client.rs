@@ -1044,7 +1044,7 @@ impl Client {
 
                     channel.topic.who = message
                         .user()
-                        .map(|user| user.username().unwrap().to_string());
+                        .map(|user| user.nickname().to_string());
                     channel.topic.time = Some(server_time(&message));
                 }
             }
