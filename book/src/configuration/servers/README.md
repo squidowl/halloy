@@ -161,7 +161,7 @@ The command(s) that should be sent to NickServ to recover a nickname.
 
 - **type**: array of strings
 - **values**: array of any strings
-- **default**: `["GHOST"]`
+- **default**: `["REGAIN"]`
 
 ## `umodes`
 
