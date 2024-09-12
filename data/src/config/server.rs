@@ -271,7 +271,7 @@ fn default_reconnect_delay() -> u64 {
 }
 
 fn default_ghost_sequence() -> Vec<String> {
-    vec!["GHOST".into()]
+    vec!["REGAIN".into()]
 }
 
 fn default_who_poll_interval() -> Duration {
