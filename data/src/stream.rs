@@ -75,7 +75,9 @@ pub fn run(
 ) -> impl futures::Stream<Item = Update> {
     let (sender, receiver) = mpsc::unbounded();
 
-    let runner = stream::once(_run(server, proxy, sender)).map(|_| unreachable!());
+    // Spawn to unblock backend from iced stream which has backpressure
+    let runner = stream::once(async { tokio::spawn(_run(server, proxy, sender)).await })
+        .map(|_| unreachable!());
 
     stream::select(receiver, runner)
 }
