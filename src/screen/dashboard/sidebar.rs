@@ -9,16 +9,18 @@ use iced::widget::{
 };
 use iced::{padding, Alignment, Length};
 
-use super::pane::Pane;
+use super::Panes;
 use crate::widget::{context_menu, tooltip, Element};
-use crate::{icon, theme};
+use crate::{icon, theme, window};
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Open(Buffer),
-    Replace(Buffer, pane_grid::Pane),
-    Close(pane_grid::Pane),
-    Swap(pane_grid::Pane, pane_grid::Pane),
+    Popout(Buffer),
+    Focus(window::Id, pane_grid::Pane),
+    Replace(window::Id, Buffer, pane_grid::Pane),
+    Close(window::Id, pane_grid::Pane),
+    Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
     Leave(Buffer),
     ToggleFileTransfers,
     ToggleCommandBar,
@@ -30,9 +32,11 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     Open(Buffer),
-    Replace(Buffer, pane_grid::Pane),
-    Close(pane_grid::Pane),
-    Swap(pane_grid::Pane, pane_grid::Pane),
+    Popout(Buffer),
+    Focus(window::Id, pane_grid::Pane),
+    Replace(window::Id, Buffer, pane_grid::Pane),
+    Close(window::Id, pane_grid::Pane),
+    Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
     Leave(Buffer),
     ToggleFileTransfers,
     ToggleCommandBar,
@@ -68,9 +72,13 @@ impl Sidebar {
     pub fn update(&mut self, message: Message) -> Event {
         match message {
             Message::Open(source) => Event::Open(source),
-            Message::Replace(source, pane) => Event::Replace(source, pane),
-            Message::Close(pane) => Event::Close(pane),
-            Message::Swap(from, to) => Event::Swap(from, to),
+            Message::Popout(source) => Event::Popout(source),
+            Message::Focus(window, pane) => Event::Focus(window, pane),
+            Message::Replace(window, source, pane) => Event::Replace(window, source, pane),
+            Message::Close(window, pane) => Event::Close(window, pane),
+            Message::Swap(from_window, from_pane, to_window, to_pane) => {
+                Event::Swap(from_window, from_pane, to_window, to_pane)
+            }
             Message::Leave(buffer) => Event::Leave(buffer),
             Message::ToggleFileTransfers => Event::ToggleFileTransfers,
             Message::ToggleCommandBar => Event::ToggleCommandBar,
@@ -88,19 +96,21 @@ impl Sidebar {
         now: Instant,
         clients: &data::client::Map,
         history: &'a history::Manager,
-        panes: &pane_grid::State<Pane>,
-        focus: Option<pane_grid::Pane>,
+        panes: &'a Panes,
+        focus: Option<(window::Id, pane_grid::Pane)>,
         config: data::config::Sidebar,
         show_tooltips: bool,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
         theme_editor_open: bool,
+        main_window: window::Id,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
         }
 
         let menu_buttons = menu_buttons(
+            main_window,
             now,
             self.timestamp,
             panes,
@@ -117,6 +127,7 @@ impl Sidebar {
             match state {
                 data::client::State::Disconnected => {
                     buffers.push(buffer_button(
+                        main_window,
                         panes,
                         focus,
                         Buffer::Server(server.clone()),
@@ -130,6 +141,7 @@ impl Sidebar {
                 }
                 data::client::State::Ready(connection) => {
                     buffers.push(buffer_button(
+                        main_window,
                         panes,
                         focus,
                         Buffer::Server(server.clone()),
@@ -143,6 +155,7 @@ impl Sidebar {
 
                     for channel in connection.channels() {
                         buffers.push(buffer_button(
+                            main_window,
                             panes,
                             focus,
                             Buffer::Channel(server.clone(), channel.clone()),
@@ -158,6 +171,7 @@ impl Sidebar {
                     let queries = history.get_unique_queries(server);
                     for user in queries {
                         buffers.push(buffer_button(
+                            main_window,
                             panes,
                             focus,
                             Buffer::Query(server.clone(), user.clone()),
@@ -245,39 +259,48 @@ impl Sidebar {
 #[derive(Debug, Clone, Copy)]
 enum Entry {
     NewPane,
-    Replace(pane_grid::Pane),
-    Close(pane_grid::Pane),
-    Swap(pane_grid::Pane, pane_grid::Pane),
+    Popout,
+    Replace(window::Id, pane_grid::Pane),
+    Close(window::Id, pane_grid::Pane),
+    Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
     Leave,
 }
 
 impl Entry {
     fn list(
         num_panes: usize,
-        open: Option<pane_grid::Pane>,
-        focus: Option<pane_grid::Pane>,
+        open: Option<(window::Id, pane_grid::Pane)>,
+        focus: Option<(window::Id, pane_grid::Pane)>,
     ) -> Vec<Self> {
         match (open, focus) {
-            (None, None) => vec![Entry::NewPane, Entry::Leave],
-            (None, Some(focus)) => vec![Entry::NewPane, Entry::Replace(focus), Entry::Leave],
+            (None, None) => vec![Entry::NewPane, Entry::Popout, Entry::Leave],
+            (None, Some(close)) => {
+                vec![
+                    Entry::NewPane,
+                    Entry::Popout,
+                    Entry::Replace(close.0, close.1),
+                    Entry::Leave,
+                ]
+            }
             (Some(open), None) => (num_panes > 1)
-                .then_some(Entry::Close(open))
+                .then_some(Entry::Close(open.0, open.1))
                 .into_iter()
                 .chain(Some(Entry::Leave))
                 .collect(),
             (Some(open), Some(focus)) => (num_panes > 1)
-                .then_some(Entry::Close(open))
+                .then_some(Entry::Close(open.0, open.1))
                 .into_iter()
-                .chain((open != focus).then_some(Entry::Swap(open, focus)))
+                .chain((open != focus).then_some(Entry::Swap(open.0, open.1, focus.0, focus.1)))
                 .chain(Some(Entry::Leave))
                 .collect(),
         }
     }
 }
 
-fn buffer_button<'a>(
-    panes: &pane_grid::State<Pane>,
-    focus: Option<pane_grid::Pane>,
+fn buffer_button(
+    main_window: window::Id,
+    panes: &Panes,
+    focus: Option<(window::Id, pane_grid::Pane)>,
     buffer: Buffer,
     connected: bool,
     buffer_action: BufferAction,
@@ -285,19 +308,17 @@ fn buffer_button<'a>(
     position: sidebar::Position,
     unread_indicator: sidebar::UnreadIndicator,
     has_unread: bool,
-) -> Element<'a, Message> {
+) -> Element<Message> {
     let open = panes
-        .iter()
-        .find_map(|(pane, state)| (state.buffer.data().as_ref() == Some(&buffer)).then_some(*pane));
+        .iter(main_window)
+        .find_map(|(window_id, pane, state)| {
+            (state.buffer.data().as_ref() == Some(&buffer)).then_some((window_id, pane))
+        });
     let is_focused = panes
-        .iter()
-        .find(|(id, _)| Some(**id) == focus)
-        .and_then(|(id, pane)| {
-            if pane.buffer.data().as_ref() == Some(&buffer) {
-                Some(*id)
-            } else {
-                None
-            }
+        .iter(main_window)
+        .find_map(|(window_id, pane, state)| {
+            (Some((window_id, pane)) == focus && state.buffer.data().as_ref() == Some(&buffer))
+                .then_some((window_id, pane))
         });
 
     let show_unread_indicator =
@@ -386,24 +407,33 @@ fn buffer_button<'a>(
         .style(move |theme, status| {
             theme::button::sidebar_buffer(theme, status, is_focused.is_some(), open.is_some())
         })
-        .on_press({
+        .on_press_maybe({
             match is_focused {
-                Some(id) => {
+                Some((window, pane)) => {
                     if let Some(focus_action) = focused_buffer_action {
                         match focus_action {
-                            BufferFocusedAction::ClosePane => Message::Close(id),
+                            BufferFocusedAction::ClosePane => Some(Message::Close(window, pane)),
                         }
                     } else {
-                        Message::Open(buffer.clone())
+                        None
                     }
                 }
-                None => match buffer_action {
-                    BufferAction::NewPane => Message::Open(buffer.clone()),
-                    BufferAction::ReplacePane => match focus {
-                        Some(pane) => Message::Replace(buffer.clone(), pane),
-                        None => Message::Open(buffer.clone()),
-                    },
-                },
+                None => {
+                    if let Some((window, pane)) = open {
+                        Some(Message::Focus(window, pane))
+                    } else {
+                        match buffer_action {
+                            BufferAction::NewPane => Some(Message::Open(buffer.clone())),
+                            BufferAction::ReplacePane => match focus {
+                                Some((window, pane)) => {
+                                    Some(Message::Replace(window, buffer.clone(), pane))
+                                }
+                                None => Some(Message::Open(buffer.clone())),
+                            },
+                            BufferAction::NewWindow => Some(Message::Popout(buffer.clone())),
+                        }
+                    }
+                }
             }
         });
 
@@ -415,12 +445,16 @@ fn buffer_button<'a>(
         context_menu(base, entries, move |entry, length| {
             let (content, message) = match entry {
                 Entry::NewPane => ("Open in new pane", Message::Open(buffer.clone())),
-                Entry::Replace(pane) => (
+                Entry::Popout => ("Open in new window", Message::Popout(buffer.clone())),
+                Entry::Replace(window, pane) => (
                     "Replace current pane",
-                    Message::Replace(buffer.clone(), pane),
+                    Message::Replace(window, buffer.clone(), pane),
                 ),
-                Entry::Close(pane) => ("Close pane", Message::Close(pane)),
-                Entry::Swap(from, to) => ("Swap with current pane", Message::Swap(from, to)),
+                Entry::Close(window, pane) => ("Close pane", Message::Close(window, pane)),
+                Entry::Swap(from_window, from_pane, to_window, to_pane) => (
+                    "Swap with current pane",
+                    Message::Swap(from_window, from_pane, to_window, to_pane),
+                ),
                 Entry::Leave => (
                     match &buffer {
                         Buffer::Server(_) => "Leave server",
@@ -441,9 +475,10 @@ fn buffer_button<'a>(
 }
 
 fn menu_buttons<'a>(
+    main_window: window::Id,
     now: Instant,
     timestamp: Option<Instant>,
-    panes: &pane_grid::State<Pane>,
+    panes: &Panes,
     config: data::config::Sidebar,
     show_tooltips: bool,
     file_transfers: &'a file_transfer::Manager,
@@ -522,8 +557,8 @@ fn menu_buttons<'a>(
 
     if config.buttons.file_transfer {
         let file_transfers_open = panes
-            .iter()
-            .any(|(_, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
+            .iter(main_window)
+            .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
 
         let button = button(center(icon::file_transfer().style(
             if file_transfers.is_empty() {
