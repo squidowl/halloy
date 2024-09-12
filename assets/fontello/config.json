@@ -107,6 +107,12 @@
       "css": "docs",
       "code": 61637,
       "src": "fontawesome"
+    },
+    {
+      "uid": "ca1c07c0df52dbf2af6813c9e36c2611",
+      "css": "popup",
+      "code": 59406,
+      "src": "typicons"
     }
   ]
 }

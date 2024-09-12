@@ -1,9 +1,9 @@
 use data::{file_transfer, history, Config};
 use iced::widget::{button, center, container, pane_grid, row, text};
-use uuid::Uuid;
 
 use crate::buffer::{self, Buffer};
 use crate::widget::tooltip;
+use crate::window::{self, Window};
 use crate::{icon, theme, widget, Theme};
 
 use super::sidebar;
@@ -19,14 +19,15 @@ pub enum Message {
     MaximizePane,
     ToggleShowUserList,
     ToggleShowTopic,
+    Popout,
+    Merge,
 }
 
 #[derive(Clone)]
 pub struct Pane {
-    pub id: Uuid,
     pub buffer: Buffer,
     title_bar: TitleBar,
-    settings: buffer::Settings,
+    pub settings: buffer::Settings,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -39,7 +40,6 @@ impl Pane {
 
     pub fn with_settings(buffer: Buffer, settings: buffer::Settings) -> Self {
         Self {
-            id: Uuid::new_v4(),
             buffer,
             title_bar: TitleBar::default(),
             settings,
@@ -49,6 +49,7 @@ impl Pane {
     pub fn view<'a>(
         &'a self,
         id: pane_grid::Pane,
+        window: window::Id,
         panes: usize,
         is_focused: bool,
         maximized: bool,
@@ -58,7 +59,10 @@ impl Pane {
         sidebar: &'a sidebar::Sidebar,
         config: &'a Config,
         theme: &'a Theme,
+        main_window: &'a Window,
     ) -> widget::Content<'a, Message> {
+        let is_popout = window != main_window.id;
+
         let title_bar_text = match &self.buffer {
             Buffer::Empty => "".to_string(),
             Buffer::Channel(state) => {
@@ -90,6 +94,7 @@ impl Pane {
             clients,
             &self.settings,
             config.tooltips,
+            is_popout,
         );
 
         let content = self
@@ -147,6 +152,7 @@ impl TitleBar {
         clients: &'a data::client::Map,
         settings: &'a buffer::Settings,
         show_tooltips: bool,
+        is_popout: bool,
     ) -> widget::TitleBar<'a, Message> {
         // Pane controls.
         let mut controls = row![].spacing(2);
@@ -220,8 +226,43 @@ impl TitleBar {
             controls = controls.push(maximize_button_with_tooltip);
         }
 
+        // Button to merge popout back in to main window
+        if is_popout {
+            let merge_button = button(center(icon::popout()))
+                .padding(5)
+                .width(22)
+                .height(22)
+                .on_press(Message::Merge)
+                .style(|theme, status| theme::button::secondary(theme, status, true));
+
+            let close_button_with_tooltip = tooltip(
+                merge_button,
+                show_tooltips.then_some("Merge"),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(close_button_with_tooltip);
+        }
+        // Allow pane to be pop'd out if we have >1 pane on main window
+        else if panes > 1 {
+            let popout_button = button(center(icon::popout()))
+                .padding(5)
+                .width(22)
+                .height(22)
+                .on_press(Message::Popout)
+                .style(|theme, status| theme::button::secondary(theme, status, false));
+
+            let close_button_with_tooltip = tooltip(
+                popout_button,
+                show_tooltips.then_some("Pop Out"),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(close_button_with_tooltip);
+        }
+
         // Add delete as long as it's not a single empty buffer
-        if !(panes == 1 && matches!(buffer, Buffer::Empty)) {
+        if !(is_popout || panes == 1 && matches!(buffer, Buffer::Empty)) {
             let close_button = button(center(icon::cancel()))
                 .padding(5)
                 .width(22)

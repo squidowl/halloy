@@ -127,8 +127,10 @@ impl Halloy {
         main_window: window::Id,
         config_load: Result<Config, config::Error>,
     ) -> (Halloy, Task<Message>) {
+        let main_window = Window::new(main_window);
+
         let load_dashboard = |config| match data::Dashboard::load() {
-            Ok(dashboard) => screen::Dashboard::restore(dashboard, config),
+            Ok(dashboard) => screen::Dashboard::restore(dashboard, config, &main_window),
             Err(error) => {
                 log::warn!("failed to load dashboard: {error}");
 
@@ -182,7 +184,7 @@ impl Halloy {
                 servers: config.servers.clone(),
                 config,
                 modal: None,
-                main_window: Window::new(main_window),
+                main_window,
             },
             command,
         )
@@ -689,6 +691,7 @@ impl Halloy {
                                 &self.version,
                                 &self.config,
                                 &mut self.theme,
+                                &self.main_window,
                             )
                             .map(Message::Dashboard);
                     }
@@ -794,7 +797,14 @@ impl Halloy {
 
             let screen = match &self.screen {
                 Screen::Dashboard(dashboard) => dashboard
-                    .view(now, &self.clients, &self.version, &self.config, &self.theme)
+                    .view(
+                        now,
+                        &self.clients,
+                        &self.version,
+                        &self.config,
+                        &self.theme,
+                        &self.main_window,
+                    )
                     .map(Message::Dashboard),
                 Screen::Help(help) => help.view().map(Message::Help),
                 Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
@@ -817,7 +827,13 @@ impl Halloy {
             }
         } else if let Screen::Dashboard(dashboard) = &self.screen {
             dashboard
-                .view_window(id, &self.theme)
+                .view_window(
+                    id,
+                    &self.clients,
+                    &self.config,
+                    &self.theme,
+                    &self.main_window,
+                )
                 .map(Message::Dashboard)
         } else {
             column![].into()
@@ -830,6 +846,7 @@ impl Halloy {
 
         container(content)
             .padding(padding::top(height_margin))
+            .style(theme::container::general)
             .into()
     }
 
