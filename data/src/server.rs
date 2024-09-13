@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
-use std::fs;
+
+use tokio::fs;
 
 use futures::channel::mpsc::Sender;
 use irc::proto;
@@ -72,7 +73,7 @@ impl Map {
         self.0.iter().map(Entry::from)
     }
 
-    pub fn read_password_files(&mut self) -> Result<(), Error> {
+    pub async fn read_password_files(&mut self) -> Result<(), Error> {
         for (_, config) in self.0.iter_mut() {
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some() {
@@ -80,7 +81,7 @@ impl Map {
                         "Only one of password and password_file can be set.".to_string(),
                     ));
                 }
-                let pass = fs::read_to_string(pass_file)?;
+                let pass = fs::read_to_string(pass_file).await?;
                 config.password = Some(pass);
             }
             if let Some(nick_pass_file) = &config.nick_password_file {
@@ -89,7 +90,7 @@ impl Map {
                         "Only one of nick_password and nick_password_file can be set.".to_string(),
                     ));
                 }
-                let nick_pass = fs::read_to_string(nick_pass_file)?;
+                let nick_pass = fs::read_to_string(nick_pass_file).await?;
                 config.nick_password = Some(nick_pass);
             }
             if let Some(sasl) = &mut config.sasl {
@@ -106,7 +107,7 @@ impl Map {
                         password_file: Some(pass_file),
                         ..
                     } => {
-                        let pass = fs::read_to_string(pass_file)?;
+                        let pass = fs::read_to_string(pass_file).await?;
                         *password = Some(pass);
                     }
                     _ => {}

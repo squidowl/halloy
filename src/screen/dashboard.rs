@@ -57,6 +57,11 @@ pub enum Message {
     CloseContextMenu(bool),
     ThemeEditor(theme_editor::Message),
 }
+impl Message {
+    pub fn reload_complete() -> Self {
+        return Self::Sidebar(sidebar::Message::ReloadComplete)
+    }
+}
 
 #[derive(Debug)]
 pub enum Event {
@@ -307,7 +312,9 @@ impl Dashboard {
                 }
             }
             Message::Sidebar(message) => {
-                let event = self.side_menu.update(message);
+                let Some(event) = self.side_menu.update(message) else {
+                    return (Task::none(), None);
+                };
 
                 match event {
                     sidebar::Event::Open(kind) => {
@@ -785,7 +792,6 @@ impl Dashboard {
 
     pub fn view<'a>(
         &'a self,
-        now: Instant,
         clients: &'a client::Map,
         version: &'a Version,
         config: &'a Config,
@@ -827,7 +833,6 @@ impl Dashboard {
         let side_menu = self
             .side_menu
             .view(
-                now,
                 clients,
                 &self.history,
                 &self.panes,

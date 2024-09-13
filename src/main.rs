@@ -33,7 +33,8 @@ use self::theme::Theme;
 use self::widget::Element;
 use self::window::Window;
 
-pub fn main() -> iced::Result {
+#[tokio::main]
+pub async fn main() -> iced::Result {
     let mut args = env::args();
     args.next();
 
@@ -48,10 +49,7 @@ pub fn main() -> iced::Result {
         return Ok(());
     }
 
-    #[cfg(debug_assertions)]
-    let is_debug = true;
-    #[cfg(not(debug_assertions))]
-    let is_debug = false;
+    let is_debug = cfg!(debug_assertions);
 
     // Prepare notifications.
     notification::prepare();
@@ -61,7 +59,7 @@ pub fn main() -> iced::Result {
     log::info!("config dir: {:?}", environment::config_dir());
     log::info!("data dir: {:?}", environment::data_dir());
 
-    let config_load = Config::load();
+    let config_load = Config::load().await;
 
     // DANGER ZONE - font must be set using config
     // before we do any iced related stuff w/ it
@@ -200,6 +198,9 @@ pub enum Screen {
 
 #[derive(Debug)]
 pub enum Message {
+    UpdateConfig(Result<Config, config::Error>),
+    ReloadThemes(Config),
+    ReloadHalloy(Result<Config, config::Error>),
     Dashboard(dashboard::Message),
     Stream(stream::Update),
     Help(help::Message),
@@ -274,6 +275,40 @@ impl Halloy {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::UpdateConfig(config) => {
+                match config {
+                    Ok(updated) => {
+                        let removed_servers = self
+                            .servers
+                            .keys()
+                            .filter(|server| !updated.servers.contains(server))
+                            .cloned()
+                            .collect::<Vec<_>>();
+
+                        self.servers = updated.servers.clone();
+                        self.theme = updated.themes.default.clone().into();
+                        self.config = updated;
+
+                        for server in removed_servers {
+                            self.clients.quit(&server, None);
+                        }
+                    }
+                    Err(error) => {
+                        self.modal = Some(Modal::ReloadConfigurationError(error));
+                    }
+                };
+                Task::none()
+            },
+            Message::ReloadThemes(updated) => {
+                self.config.themes = updated.themes;
+                Task::none()
+            },
+            Message::ReloadHalloy(updated) => {
+                let (halloy, command) =
+                    Halloy::load_from_state(self.main_window.id, updated);
+                *self = halloy;
+                return command;
+            },
             Message::Dashboard(message) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
                     return Task::none();
@@ -291,41 +326,21 @@ impl Halloy {
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
-                if let Some(event) = event {
-                    match event {
-                        dashboard::Event::ReloadConfiguration => match Config::load() {
-                            Ok(updated) => {
-                                let removed_servers = self
-                                    .servers
-                                    .keys()
-                                    .filter(|server| !updated.servers.contains(server))
-                                    .cloned()
-                                    .collect::<Vec<_>>();
-
-                                self.servers = updated.servers.clone();
-                                self.theme = updated.themes.default.clone().into();
-                                self.config = updated;
-
-                                for server in removed_servers {
-                                    self.clients.quit(&server, None);
-                                }
-                            }
-                            Err(error) => {
-                                self.modal = Some(Modal::ReloadConfigurationError(error));
-                            }
-                        },
-                        dashboard::Event::ReloadThemes => {
-                            if let Ok(updated) = Config::load() {
-                                self.config.themes = updated.themes;
-                            }
-                        }
-                        dashboard::Event::QuitServer(server) => {
-                            self.clients.quit(&server, None);
-                        }
-                    }
-                }
+                let event_task = match event {
+                    Some(dashboard::Event::ReloadConfiguration) => Task::future(async  {
+                        Message::UpdateConfig(Config::load().await)
+                    }).chain(Task::done(Message::Dashboard(dashboard::Message::reload_complete()))),
+                    Some(dashboard::Event::ReloadThemes) => Task::future(Config::load())
+                        .and_then(|config| Task::done(Message::ReloadThemes(config))),
+                    Some(dashboard::Event::QuitServer(server)) => {
+                        self.clients.quit(&server, None);
+                        Task::none()
+                    },
+                    None => Task::none(),
+                };
 
                 Task::batch(vec![
+                    event_task,
                     command.map(Message::Dashboard),
                     track.map(Message::Dashboard),
                 ])
@@ -341,57 +356,36 @@ impl Halloy {
                     return Task::none();
                 };
 
-                if let Some(event) = help.update(message) {
-                    match event {
-                        help::Event::RefreshConfiguration => {
-                            let (halloy, command) =
-                                Halloy::load_from_state(self.main_window.id, Config::load());
-                            *self = halloy;
-
-                            return command;
-                        }
-                    }
+                match help.update(message) {
+                    Some(help::Event::RefreshConfiguration) => Task::future(async {
+                        Message::ReloadHalloy(Config::load().await)
+                    }),
+                    None => Task::none()
                 }
-
-                Task::none()
             }
             Message::Welcome(message) => {
                 let Screen::Welcome(welcome) = &mut self.screen else {
                     return Task::none();
                 };
 
-                if let Some(event) = welcome.update(message) {
-                    match event {
-                        welcome::Event::RefreshConfiguration => {
-                            let (halloy, command) =
-                                Halloy::load_from_state(self.main_window.id, Config::load());
-                            *self = halloy;
-
-                            return command;
-                        }
-                    }
+                match welcome.update(message) {
+                    Some(welcome::Event::RefreshConfiguration) => Task::future(async {
+                        Message::ReloadHalloy(Config::load().await)
+                    }),
+                    None => Task::none()
                 }
-
-                Task::none()
             }
             Message::Migration(message) => {
                 let Screen::Migration(migration) = &mut self.screen else {
                     return Task::none();
                 };
 
-                if let Some(event) = migration.update(message) {
-                    match event {
-                        migration::Event::RefreshConfiguration => {
-                            let (halloy, command) =
-                                Halloy::load_from_state(self.main_window.id, Config::load());
-                            *self = halloy;
-
-                            return command;
-                        }
-                    }
+                match migration.update(message) {
+                    Some(migration::Event::RefreshConfiguration) => Task::future(async {
+                        Message::ReloadHalloy(Config::load().await)
+                    }),
+                    None => Task::none(),
                 }
-
-                Task::none()
             }
             Message::Stream(update) => match update {
                 stream::Update::Disconnected {
@@ -793,12 +787,9 @@ impl Halloy {
 
     fn view(&self, id: window::Id) -> Element<Message> {
         let content = if id == self.main_window.id {
-            let now = Instant::now();
-
             let screen = match &self.screen {
                 Screen::Dashboard(dashboard) => dashboard
                     .view(
-                        now,
                         &self.clients,
                         &self.version,
                         &self.config,
