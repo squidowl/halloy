@@ -411,7 +411,11 @@ mod nick_list {
             None => {
                 let max_nick_length = users
                     .iter()
-                    .map(|user| user.nickname().as_ref().chars().count())
+                    .map(|user| {
+                        user.display(nicklist_config.show_access_levels)
+                            .chars()
+                            .count()
+                    })
                     .max()
                     .unwrap_or_default();
 
