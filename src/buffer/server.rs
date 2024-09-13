@@ -46,6 +46,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             move |theme| theme::selectable_text::server(theme, server.as_ref()),
+                            config,
                         );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())
@@ -56,6 +57,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             move |theme| theme::selectable_text::status(theme, *status),
+                            config,
                         );
 
                         Some(container(row![].push_maybe(timestamp).push(message)).into())

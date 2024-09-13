@@ -145,7 +145,7 @@ impl From<Nick> for User {
 }
 
 impl User {
-    pub fn nick_color(&self, colors: &Colors, kind: &buffer::Color) -> NickColor {
+    pub fn nick_color(&self, colors: &Colors, kind: buffer::Color) -> NickColor {
         let color = colors.buffer.nickname;
         match kind {
             buffer::Color::Solid => NickColor { seed: None, color },
@@ -161,6 +161,10 @@ impl User {
             true => format!("{}{}", self.highest_access_level(), self.nickname()),
             false => self.nickname().to_string(),
         }
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.nickname.as_ref()
     }
 
     pub fn is_away(&self) -> bool {
