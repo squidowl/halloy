@@ -6,7 +6,7 @@ pub type Loaded = Notification<Sound>;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Notification<T = String> {
-    #[serde(rename = "enabled", default)]
+    #[serde(default)]
     pub show_toast: bool,
     pub sound: Option<T>,
 }
