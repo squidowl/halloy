@@ -10,6 +10,7 @@ Added:
 Fixed:
 
 - Regression where messages sent to ZNC virtual users were routed to the wrong buffer (e.g. `*status` routed to `status`).
+- Timeouts that could occur while Halloy was running in the background.
 
 Changed:
 
