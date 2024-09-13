@@ -27,7 +27,7 @@ pub fn view<'a>(
                 selectable_text(who).style(|theme| {
                     theme::selectable_text::nickname(
                         theme,
-                        user.nick_color(theme.colors(), &config.buffer.nickname.color),
+                        user.nick_color(theme.colors(), config.buffer.nickname.color),
                         false,
                     )
                 }),
@@ -54,7 +54,8 @@ pub fn view<'a>(
         content,
         theme,
         user_context::Message::Link,
-        theme::selectable_text::topic
+        theme::selectable_text::topic,
+        config,
     )]
     .push_maybe(set_by);
 

@@ -150,10 +150,13 @@ pub fn quit(
         .map(|comment| format!(" ({comment})"))
         .unwrap_or_default();
 
-    let content = parse_fragments(format!(
-        "⟵ {} has quit{comment}",
-        user.formatted(config.buffer.server_messages.quit.username_format)
-    ));
+    let content = parse_fragments(
+        format!(
+            "⟵ {} has quit{comment}",
+            user.formatted(config.buffer.server_messages.quit.username_format)
+        ),
+        &[],
+    );
 
     expand(
         channels,

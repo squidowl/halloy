@@ -1,5 +1,7 @@
 #![allow(dead_code)]
-use data::message;
+use data::theme::randomize_color;
+use data::user::NickColor;
+use data::{message, Config};
 use iced::widget::span;
 use iced::{alignment, border};
 
@@ -49,6 +51,7 @@ pub fn message_content<'a, M: 'a>(
     theme: &'a Theme,
     on_link: impl Fn(String) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
+    config: &Config,
 ) -> Element<'a, M> {
     match content {
         data::message::Content::Plain(text) => selectable_text(text).style(style).into(),
@@ -57,6 +60,19 @@ pub fn message_content<'a, M: 'a>(
                 .iter()
                 .map(|fragment| match fragment {
                     data::message::Fragment::Text(s) => span(s),
+                    data::message::Fragment::User(user) => {
+                        let color_kind = &config.buffer.channel.message.nickname_color;
+
+                        let NickColor { seed, color } =
+                            user.nick_color(theme.colors(), *color_kind);
+
+                        let color = match seed {
+                            Some(seed) => randomize_color(color, &seed),
+                            None => theme.colors().text.primary,
+                        };
+
+                        span(user.nickname().to_string()).color(color)
+                    }
                     data::message::Fragment::Url(s) => span(s.as_str())
                         .color(theme.colors().buffer.url)
                         .link(s.as_str().to_string()),

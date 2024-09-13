@@ -179,9 +179,12 @@ impl State {
 
                     if let Some(nick) = clients.nickname(buffer.server()) {
                         let mut user = nick.to_owned().into();
+                        let mut channel_users = &[][..];
 
                         // Resolve our attributes if sending this message in a channel
                         if let Buffer::Channel(server, channel) = &buffer {
+                            channel_users = clients.get_channel_users(server, channel);
+
                             if let Some(user_with_attributes) =
                                 clients.resolve_user_attributes(server, channel, &user)
                             {
@@ -189,7 +192,7 @@ impl State {
                             }
                         }
 
-                        history.record_input(input, user);
+                        history.record_input(input, user, channel_users);
                     }
 
                     (Task::none(), Some(Event::InputSent))
