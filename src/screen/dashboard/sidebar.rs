@@ -1,5 +1,3 @@
-use std::time::{Duration, Instant};
-
 use data::config::sidebar;
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{file_transfer, history, Buffer, Version};
@@ -27,6 +25,7 @@ pub enum Message {
     ToggleThemeEditor,
     ReloadConfigFile,
     OpenReleaseWebsite,
+    ReloadComplete,
 }
 
 #[derive(Debug, Clone)]
@@ -48,7 +47,7 @@ pub enum Event {
 #[derive(Clone)]
 pub struct Sidebar {
     pub hidden: bool,
-    timestamp: Option<Instant>,
+    reloading_config: bool,
 }
 
 impl Default for Sidebar {
@@ -61,7 +60,7 @@ impl Sidebar {
     pub fn new() -> Self {
         Self {
             hidden: false,
-            timestamp: None,
+            reloading_config: false,
         }
     }
 
@@ -69,31 +68,33 @@ impl Sidebar {
         self.hidden = !self.hidden
     }
 
-    pub fn update(&mut self, message: Message) -> Event {
+    pub fn update(&mut self, message: Message) -> Option<Event> {
         match message {
-            Message::Open(source) => Event::Open(source),
-            Message::Popout(source) => Event::Popout(source),
-            Message::Focus(window, pane) => Event::Focus(window, pane),
-            Message::Replace(window, source, pane) => Event::Replace(window, source, pane),
-            Message::Close(window, pane) => Event::Close(window, pane),
+            Message::Open(source) => Some(Event::Open(source)),
+            Message::Popout(source) => Some(Event::Popout(source)),
+            Message::Focus(window, pane) => Some(Event::Focus(window, pane)),
+            Message::Replace(window, source, pane) => Some(Event::Replace(window, source, pane)),
+            Message::Close(window, pane) => Some(Event::Close(window, pane)),
             Message::Swap(from_window, from_pane, to_window, to_pane) => {
-                Event::Swap(from_window, from_pane, to_window, to_pane)
+                Some(Event::Swap(from_window, from_pane, to_window, to_pane))
             }
-            Message::Leave(buffer) => Event::Leave(buffer),
-            Message::ToggleFileTransfers => Event::ToggleFileTransfers,
-            Message::ToggleCommandBar => Event::ToggleCommandBar,
-            Message::ToggleThemeEditor => Event::ToggleThemeEditor,
+            Message::Leave(buffer) => Some(Event::Leave(buffer)),
+            Message::ToggleFileTransfers => Some(Event::ToggleFileTransfers),
+            Message::ToggleCommandBar => Some(Event::ToggleCommandBar),
+            Message::ToggleThemeEditor => Some(Event::ToggleThemeEditor),
             Message::ReloadConfigFile => {
-                self.timestamp = Some(Instant::now());
-                Event::ReloadConfigFile
+                self.reloading_config = true;
+                Some(Event::ReloadConfigFile)
+            },
+            Message::OpenReleaseWebsite => Some(Event::OpenReleaseWebsite),
+            Message::ReloadComplete => {
+                self.reloading_config = false;
+                None
             }
-            Message::OpenReleaseWebsite => Event::OpenReleaseWebsite,
         }
     }
-
     pub fn view<'a>(
         &'a self,
-        now: Instant,
         clients: &data::client::Map,
         history: &'a history::Manager,
         panes: &'a Panes,
@@ -109,10 +110,8 @@ impl Sidebar {
             return None;
         }
 
-        let menu_buttons = menu_buttons(
+        let menu_buttons = self.menu_buttons(
             main_window,
-            now,
-            self.timestamp,
             panes,
             config,
             show_tooltips,
@@ -476,14 +475,13 @@ fn buffer_button(
 
 fn menu_buttons<'a>(
     main_window: window::Id,
-    now: Instant,
-    timestamp: Option<Instant>,
     panes: &Panes,
     config: data::config::Sidebar,
     show_tooltips: bool,
     file_transfers: &'a file_transfer::Manager,
     version: &'a Version,
     theme_editor_open: bool,
+    reloading_config: bool,
 ) -> Element<'a, Message> {
     let mut menu_buttons = row![]
         .spacing(1)
@@ -515,15 +513,14 @@ fn menu_buttons<'a>(
     }
 
     if config.buttons.reload_config {
-        let icon = timestamp
-            .filter(|&timestamp| now.saturating_duration_since(timestamp) < Duration::new(1, 0))
-            .map_or_else(
-                || icon::refresh().style(theme::text::primary),
-                |_| icon::checkmark().style(theme::text::success),
-            );
+        let icon = if reloading_config {
+            icon::checkmark().style(theme::text::success)
+        } else {
+            icon::refresh().style(theme::text::primary)
+        };
 
         let button = button(center(icon))
-            .on_press(Message::ReloadConfigFile)
+            .on_press_maybe(if reloading_config { None } else { Some(Message::ReloadConfigFile) })
             .padding(5)
             .width(22)
             .height(22)
