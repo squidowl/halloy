@@ -1,4 +1,4 @@
-use data::message::Limit;
+use data::message::{self, Limit};
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
@@ -19,7 +19,7 @@ pub enum Message {
         viewport: scrollable::Viewport,
     },
     UserContext(user_context::Message),
-    Link(String),
+    Link(message::Link),
 }
 
 #[derive(Debug, Clone)]
@@ -227,8 +227,16 @@ impl State {
                     user_context::update(message).map(Event::UserContext),
                 );
             }
-            Message::Link(link) => {
-                let _ = open::that_detached(link);
+            Message::Link(message::Link::Url(url)) => {
+                let _ = open::that_detached(url);
+            }
+            Message::Link(message::Link::User(user)) => {
+                return (
+                    Task::none(),
+                    Some(Event::UserContext(user_context::Event::SingleClick(
+                        user.nickname().to_owned(),
+                    ))),
+                )
             }
         }
 

@@ -49,7 +49,7 @@ pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
 pub fn message_content<'a, M: 'a>(
     content: &'a message::Content,
     theme: &'a Theme,
-    on_link: impl Fn(String) -> M + 'a,
+    on_link: impl Fn(message::Link) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
     config: &Config,
 ) -> Element<'a, M> {
@@ -71,11 +71,13 @@ pub fn message_content<'a, M: 'a>(
                             None => theme.colors().text.primary,
                         };
 
-                        span(user.nickname().to_string()).color(color)
+                        span(user.nickname().to_string())
+                            .color(color)
+                            .link(message::Link::User(user.clone()))
                     }
                     data::message::Fragment::Url(s) => span(s.as_str())
                         .color(theme.colors().buffer.url)
-                        .link(s.as_str().to_string()),
+                        .link(message::Link::Url(s.as_str().to_string())),
                     data::message::Fragment::Formatted { text, formatting } => {
                         let mut span = span(text)
                             .color_maybe(
