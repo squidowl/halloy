@@ -1320,9 +1320,7 @@ impl Client {
                         channel.topic.content = Some(message::parse_fragments(text.clone()));
                     }
 
-                    channel.topic.who = message
-                        .user()
-                        .map(|user| user.nickname().to_string());
+                    channel.topic.who = message.user().map(|user| user.nickname().to_string());
                     channel.topic.time = Some(server_time(&message));
                 }
             }
@@ -1383,7 +1381,7 @@ impl Client {
                                             parameter
                                         );
 
-                                        self.isupport.insert(kind.clone(), parameter);
+                                        self.isupport.insert(kind.clone(), parameter.clone());
 
                                         if kind == isupport::Kind::MSGREFTYPES
                                             && self.supports_chathistory

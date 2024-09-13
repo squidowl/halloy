@@ -2,8 +2,10 @@ use data::message::Limit;
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
-use iced::widget::{button, column, container, horizontal_rule, row, scrollable, text, Scrollable};
-use iced::{alignment, padding, Length, Task};
+use iced::widget::{
+    button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, Scrollable,
+};
+use iced::{padding, Length, Task};
 
 use super::user_context;
 use crate::widget::{Element, MESSAGE_MARKER_TEXT};
@@ -83,7 +85,7 @@ pub fn view<'a>(
 
             let top_row_button = button(text(content).size(font_size))
                 .padding([3, 5])
-                .style(theme::button::primary)
+                .style(|theme, status| theme::button::primary(theme, status, false))
                 .on_press_maybe(message);
 
             Some(

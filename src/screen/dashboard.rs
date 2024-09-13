@@ -153,8 +153,8 @@ impl Dashboard {
                                 config,
                             );
 
-                            if let Some(buffer::Event::UserContext(event)) = event {
-                                match event {
+                            match event {
+                                Some(buffer::Event::UserContext(event)) => match event {
                                     buffer::user_context::Event::ToggleAccessLevel(nick, mode) => {
                                         let Some(buffer) = pane.buffer.data() else {
                                             return (Task::none(), None);
@@ -276,12 +276,13 @@ impl Dashboard {
                                             );
                                         }
                                     }
+                                },
+                                Some(buffer::Event::RequestOlderChatHistory) => {
+                                    if let Some(buffer) = pane.buffer.data() {
+                                        self.request_older_chathistory(clients, &buffer);
+                                    }
                                 }
-                            }
-                            Some(buffer::Event::RequestOlderChatHistory) => {
-                                if let Some(buffer) = pane.buffer.data() {
-                                    self.request_older_chathistory(clients, &buffer);
-                                }
+                                _ => (),
                             }
 
                             return (
@@ -948,18 +949,18 @@ impl Dashboard {
             Copy => selectable_text::selected(Message::SelectedText),
             Home => {
                 if config.buffer.chathistory.infinite_scroll {
-                    if let Some((_, pane)) = self.get_focused() {
-                        if let Some(buffer) = pane.buffer.data() {
+                    if let Some((_, _, state)) = self.get_focused(main_window) {
+                        if let Some(buffer) = state.buffer.data() {
                             self.request_older_chathistory(clients, &buffer);
                         }
                     }
                 }
 
-                self.get_focused_mut()
-                    .map(|(id, pane)| {
-                        pane.buffer
-                            .scroll_to_start()
-                            .map(move |message| Message::Pane(pane::Message::Buffer(id, message)))
+                self.get_focused_mut(main_window)
+                    .map(|(window, pane, state)| {
+                        state.buffer.scroll_to_start().map(move |message| {
+                            Message::Pane(window, pane::Message::Buffer(pane, message))
+                        })
                     })
                     .unwrap_or_else(Task::none)
             }
@@ -1381,9 +1382,11 @@ impl Dashboard {
         );
     }
 
-    fn get_focused(&self) -> Option<(pane_grid::Pane, &Pane)> {
-        let pane = self.focus?;
-        self.panes.get(pane).map(|state| (pane, state))
+    fn get_focused(&self, main_window: &Window) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
+        let (window, pane) = self.focus?;
+        self.panes
+            .get(main_window.id, window, pane)
+            .map(|state| (window, pane, state))
     }
 
     fn get_focused_mut(

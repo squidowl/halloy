@@ -957,11 +957,11 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
     }
 }
 
-pub fn nickname_text(old_nick: &Nick, new_nick: &Nick, ourself: bool) -> String {
+pub fn nickname_text(old_nick: &Nick, new_nick: &Nick, ourself: bool) -> Content {
     if ourself {
-        plain(format!(" ∙ You're now known as {new_nick}"))
+        plain(format!("You're now known as {new_nick}"))
     } else {
-        plain(format!(" ∙ {old_nick} is now known as {new_nick}"))
+        plain(format!("{old_nick} is now known as {new_nick}"))
     }
 }
 

@@ -118,7 +118,7 @@ pub struct InternalMessages {
 impl InternalMessages {
     pub fn get(&self, server: &source::Status) -> Option<&InternalMessage> {
         match server {
-            source::Status::Success | source::Status::Pending => Some(&self.success),
+            source::Status::Success => Some(&self.success),
             source::Status::Error => Some(&self.error),
         }
     }

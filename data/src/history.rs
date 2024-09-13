@@ -682,7 +682,9 @@ fn has_matching_content(message: &Message, other: &Message) -> bool {
                     return true;
                 }
                 message::source::server::Kind::ReplyTopic
-                | message::source::server::Kind::ChangeHost => (),
+                | message::source::server::Kind::ChangeHost
+                | message::source::server::Kind::MonitoredOnline
+                | message::source::server::Kind::MonitoredOffline => (),
             }
         }
 
