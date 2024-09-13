@@ -2,11 +2,8 @@ use data::message::Limit;
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
-use iced::advanced::graphics::text::Paragraph;
-use iced::advanced::text::Paragraph as _;
-use iced::advanced::Text;
 use iced::widget::{column, container, horizontal_rule, row, scrollable, text, Scrollable};
-use iced::{alignment, padding, Length, Size, Task};
+use iced::{padding, Length, Task};
 
 use super::user_context;
 use crate::widget::{Element, MESSAGE_MARKER_TEXT};
@@ -75,12 +72,14 @@ pub fn view<'a>(
         .unwrap_or_else(time::Posix::now);
     let status = state.status;
 
-    let max_nick_width = width_from_chars(
-        max_nick_chars.map(|len| usize::max(len, MESSAGE_MARKER_TEXT.chars().count())),
-        config,
-    );
+    let max_nick_width = max_nick_chars.map(|len| {
+        font::width_from_chars(
+            usize::max(len, MESSAGE_MARKER_TEXT.chars().count()),
+            &config.font,
+        )
+    });
 
-    let max_prefix_width = width_from_chars(max_prefix_chars, config);
+    let max_prefix_width = max_prefix_chars.map(|len| font::width_from_chars(len, &config.font));
 
     let old = old_messages
         .into_iter()
@@ -131,29 +130,6 @@ pub fn view<'a>(
         })
         .id(state.scrollable.clone())
         .into()
-}
-
-fn width_from_chars(chars: Option<usize>, config: &Config) -> Option<f32> {
-    chars.map(|len| {
-        Paragraph::with_text(Text {
-            content: &" ".repeat(len),
-            bounds: Size::INFINITY,
-            size: config
-                .font
-                .size
-                .map(f32::from)
-                .unwrap_or(theme::TEXT_SIZE)
-                .into(),
-            line_height: Default::default(),
-            font: font::MONO.clone().into(),
-            horizontal_alignment: alignment::Horizontal::Right,
-            vertical_alignment: alignment::Vertical::Top,
-            shaping: text::Shaping::Basic,
-        })
-        .min_bounds()
-        .expand(Size::new(1.0, 0.0))
-        .width
-    })
 }
 
 #[derive(Debug, Clone)]
