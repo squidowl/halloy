@@ -1,6 +1,9 @@
 use data::{message, user::NickColor};
 
-use crate::widget::selectable_text::{Catalog, Style, StyleFn};
+use crate::widget::{
+    selectable_rich_text,
+    selectable_text::{Catalog, Style, StyleFn},
+};
 
 use super::{text, Theme};
 
@@ -97,5 +100,14 @@ pub fn status(theme: &Theme, status: message::source::Status) -> Style {
     Style {
         color,
         selection_color: theme.colors().buffer.selection,
+    }
+}
+
+impl selectable_rich_text::Link for message::Link {
+    fn underline(&self) -> bool {
+        match self {
+            data::message::Link::Url(_) => true,
+            data::message::Link::User(_) => false,
+        }
     }
 }
