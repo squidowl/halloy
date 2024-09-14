@@ -34,7 +34,7 @@
                         Name="halloy.exe"
                         Icon="HalloyIcon.exe"
                         Directory="ProgramMenuFolder"
-                        Description="IRC application written in Rust"
+                        Description="IRC client"
                         Advertise="yes"
                         WorkingDirectory="INSTALLFOLDER">
                         <ShortcutProperty Key="System.AppUserModel.ID" Value="org.squidowl.halloy" />
@@ -44,7 +44,7 @@
 
             <Component>
                 <RegistryKey Root="HKLM" Key="SOFTWARE\Halloy" ForceDeleteOnUninstall="yes" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationDescription" Value="Halloy is an open-source IRC client written in Rust, with the Iced GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms." Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationDescription" Value="Halloy - IRC client" Type="string" />
                 <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationIcon" Value="[INSTALLFOLDER]Halloy.exe,0" Type="string" />
                 <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationName" Value="Halloy" Type="string" />
 
