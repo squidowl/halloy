@@ -1011,6 +1011,12 @@ pub fn reference_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bo
     sender != own_nick && text.contains(own_nick.as_ref())
 }
 
+#[derive(Debug, Clone)]
+pub enum Link {
+    Url(String),
+    User(User),
+}
+
 fn fail_as_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     T: Deserialize<'de>,

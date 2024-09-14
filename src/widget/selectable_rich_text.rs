@@ -30,7 +30,7 @@ pub fn selectable_rich_text<'a, Message, Link, Theme, Renderer>(
     spans: impl Into<Cow<'a, [Span<'a, Link, Renderer::Font>]>>,
 ) -> Rich<'a, Message, Link, Theme, Renderer>
 where
-    Link: Clone + 'static,
+    Link: self::Link + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
@@ -41,7 +41,7 @@ where
 #[allow(missing_debug_implementations)]
 pub struct Rich<'a, Message, Link = (), Theme = iced::Theme, Renderer = iced::Renderer>
 where
-    Link: Clone + 'static,
+    Link: self::Link + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
@@ -59,7 +59,7 @@ where
 
 impl<'a, Message, Link, Theme, Renderer> Rich<'a, Message, Link, Theme, Renderer>
 where
-    Link: Clone + 'static,
+    Link: self::Link + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
@@ -181,7 +181,7 @@ where
 
 impl<'a, Message, Link, Theme, Renderer> Default for Rich<'a, Message, Link, Theme, Renderer>
 where
-    Link: Clone + 'static,
+    Link: self::Link + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
@@ -189,6 +189,14 @@ where
         Self::new()
     }
 }
+
+pub trait Link: Clone {
+    fn underline(&self) -> bool {
+        true
+    }
+}
+
+impl Link for () {}
 
 struct State<Link, P: Paragraph> {
     spans: Vec<Span<'static, Link, P::Font>>,
@@ -201,7 +209,7 @@ struct State<Link, P: Paragraph> {
 impl<'a, Message, Link, Theme, Renderer> Widget<Message, Theme, Renderer>
     for Rich<'a, Message, Link, Theme, Renderer>
 where
-    Link: Clone + 'static,
+    Link: self::Link + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
@@ -451,23 +459,17 @@ where
                     let baseline =
                         translation + Vector::new(0.0, size.0 + (line_height.0 - size.0) / 2.0);
 
-                    let snapped = |rect: Rectangle| {
-                        let fract = viewport.y.fract();
-                        let offset = if fract >= 0.5 { -(1.0 - fract) } else { fract };
-                        let adj = (rect.y - offset).round() + offset;
-
-                        Rectangle { y: adj, ..rect }
-                    };
-
-                    if span.underline || is_hovered_link {
+                    if span.underline
+                        || (is_hovered_link && span.link.as_ref().unwrap().underline())
+                    {
                         for bounds in &regions {
                             renderer.fill_quad(
                                 renderer::Quad {
-                                    bounds: snapped(Rectangle::new(
+                                    bounds: Rectangle::new(
                                         bounds.position() + baseline
                                             - Vector::new(0.0, size.0 * 0.08),
                                         Size::new(bounds.width, 1.0),
-                                    )),
+                                    ),
                                     ..Default::default()
                                 },
                                 color,
@@ -479,11 +481,11 @@ where
                         for bounds in &regions {
                             renderer.fill_quad(
                                 renderer::Quad {
-                                    bounds: snapped(Rectangle::new(
+                                    bounds: Rectangle::new(
                                         bounds.position() + baseline
                                             - Vector::new(0.0, size.0 / 2.0),
                                         Size::new(bounds.width, 1.0),
-                                    )),
+                                    ),
                                     ..Default::default()
                                 },
                                 color,
@@ -696,7 +698,7 @@ where
 impl<'a, Message, Link, Theme, Renderer> FromIterator<Span<'a, Link, Renderer::Font>>
     for Rich<'a, Message, Link, Theme, Renderer>
 where
-    Link: Clone + 'static,
+    Link: self::Link + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
@@ -712,7 +714,7 @@ impl<'a, Message, Link, Theme, Renderer> From<Rich<'a, Message, Link, Theme, Ren
     for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
-    Link: Clone + 'static,
+    Link: self::Link + 'static,
     Theme: Catalog + 'a,
     Renderer: text::Renderer + 'a,
 {
