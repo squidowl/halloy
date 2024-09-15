@@ -2,7 +2,7 @@
 background = "#333333"
 horizontal_rule = "#333333"
 unread_indicator = "#2884fc"
-border = "#b5b5b5"
+border = "#505050"
 
 [text]
 primary = "#dfdfdf"
@@ -18,7 +18,7 @@ background_title_bar = "#2e2e2e"
 timestamp = "#959595"
 action = "#959595"
 topic = "#dfdfdf"
-highlight = "#646464"
+highlight = "#454645"
 code = "#7287fd"
 nickname = "#00c8ff"
 url = "#2884fc"
