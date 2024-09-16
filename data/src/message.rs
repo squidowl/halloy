@@ -330,6 +330,13 @@ pub fn parse_fragments(text: String, channel_users: &[User]) -> Content {
 
             Either::Right(std::iter::once(fragment))
         })
+        .flat_map(|fragment| {
+            if let Fragment::Text(text) = &fragment {
+                return Either::Left(parse_channel_fragments(text).into_iter());
+            }
+
+            Either::Right(std::iter::once(fragment))
+        })
         .collect::<Vec<_>>();
 
     if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_)) {
@@ -403,6 +410,37 @@ fn parse_user_fragments(text: &str, channel_users: &[User]) -> Vec<Fragment> {
         })
 }
 
+fn parse_channel_fragments(text: &str) -> Vec<Fragment> {
+    text.chars()
+        .group_by(|c| c.is_whitespace())
+        .into_iter()
+        .map(|(is_whitespace, chars)| {
+            let text = chars.collect::<String>();
+
+            if !is_whitespace
+                // Only parse on `#` since it's most common and
+                // using &!+ leads to more false positives than not
+                && text.starts_with('#')
+                && !text.contains(proto::CHANNEL_BLACKLIST_CHARS)
+            {
+                return Fragment::Channel(text);
+            }
+
+            Fragment::Text(text)
+        })
+        .fold(vec![], |mut acc, fragment| {
+            if let Some(Fragment::Text(text)) = acc.last_mut() {
+                if let Fragment::Text(next) = &fragment {
+                    text.push_str(next);
+                    return acc;
+                }
+            }
+
+            acc.push(fragment);
+            acc
+        })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Content {
     Plain(String),
@@ -421,6 +459,7 @@ impl Content {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Fragment {
     Text(String),
+    Channel(String),
     User(User),
     Url(Url),
     Formatted {
@@ -433,6 +472,7 @@ impl Fragment {
     pub fn as_str(&self) -> &str {
         match self {
             Fragment::Text(s) => s,
+            Fragment::Channel(s) => s,
             Fragment::User(u) => u.as_str(),
             Fragment::Url(u) => u.as_str(),
             Fragment::Formatted { text, .. } => text,
@@ -1013,6 +1053,7 @@ pub fn reference_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bo
 
 #[derive(Debug, Clone)]
 pub enum Link {
+    Channel(String),
     Url(String),
     User(User),
 }

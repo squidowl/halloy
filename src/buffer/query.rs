@@ -16,6 +16,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    OpenChannel(String),
 }
 
 pub fn view<'a>(
@@ -80,14 +81,14 @@ pub fn view<'a>(
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
                             move |link| match link {
-                                message::Link::Url(_) => vec![],
                                 message::Link::User(_) => user_context::Entry::list(buffer, None),
+                                _ => vec![],
                             },
                             move |link, entry, length| match link {
-                                message::Link::Url(_) => row![].into(),
                                 message::Link::User(user) => entry
                                     .view(user, None, length)
                                     .map(scroll_view::Message::UserContext),
+                                _ => row![].into(),
                             },
                             config,
                         );
@@ -242,6 +243,7 @@ impl Query {
 
                 let event = event.map(|event| match event {
                     scroll_view::Event::UserContext(event) => Event::UserContext(event),
+                    scroll_view::Event::OpenChannel(channel) => Event::OpenChannel(channel),
                 });
 
                 (command.map(Message::ScrollView), event)

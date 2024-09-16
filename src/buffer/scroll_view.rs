@@ -25,6 +25,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    OpenChannel(String),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -226,6 +227,9 @@ impl State {
                     Task::none(),
                     user_context::update(message).map(Event::UserContext),
                 );
+            }
+            Message::Link(message::Link::Channel(channel)) => {
+                return (Task::none(), Some(Event::OpenChannel(channel)))
             }
             Message::Link(message::Link::Url(url)) => {
                 let _ = open::that_detached(url);

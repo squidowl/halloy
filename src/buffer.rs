@@ -40,6 +40,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    OpenChannel(String),
 }
 
 impl Buffer {
@@ -71,20 +72,27 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     channel::Event::UserContext(event) => Event::UserContext(event),
+                    channel::Event::OpenChannel(channel) => Event::OpenChannel(channel),
                 });
 
                 (command.map(Message::Channel), event)
             }
             (Buffer::Server(state), Message::Server(message)) => {
-                let command = state.update(message, clients, history, config);
+                let (command, event) = state.update(message, clients, history, config);
 
-                (command.map(Message::Server), None)
+                let event = event.map(|event| match event {
+                    server::Event::UserContext(event) => Event::UserContext(event),
+                    server::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                });
+
+                (command.map(Message::Server), event)
             }
             (Buffer::Query(state), Message::Query(message)) => {
                 let (command, event) = state.update(message, clients, history, config);
 
                 let event = event.map(|event| match event {
                     query::Event::UserContext(event) => Event::UserContext(event),
+                    query::Event::OpenChannel(channel) => Event::OpenChannel(channel),
                 });
 
                 (command.map(Message::Query), event)
