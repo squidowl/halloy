@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use data::environment::RELEASE_WEBSITE;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::slice;
 use std::time::{Duration, Instant};
 
 use data::config;
@@ -153,144 +154,187 @@ impl Dashboard {
                                 config,
                             );
 
-                            if let Some(buffer::Event::UserContext(event)) = event {
-                                match event {
-                                    buffer::user_context::Event::ToggleAccessLevel(nick, mode) => {
-                                        let Some(buffer) = pane.buffer.data() else {
-                                            return (Task::none(), None);
-                                        };
+                            let command = command.map(move |message| {
+                                Message::Pane(window, pane::Message::Buffer(id, message))
+                            });
 
-                                        let Some(target) = buffer.target() else {
-                                            return (Task::none(), None);
-                                        };
+                            let Some(event) = event else {
+                                return (command, None);
+                            };
 
-                                        let command = data::Command::Mode(
-                                            target,
-                                            Some(mode),
-                                            Some(vec![nick.to_string()]),
-                                        );
-                                        let input = data::Input::command(buffer.clone(), command);
+                            match event {
+                                buffer::Event::UserContext(event) => {
+                                    match event {
+                                        buffer::user_context::Event::ToggleAccessLevel(
+                                            nick,
+                                            mode,
+                                        ) => {
+                                            let Some(buffer) = pane.buffer.data() else {
+                                                return (command, None);
+                                            };
 
-                                        if let Some(encoded) = input.encoded() {
-                                            clients.send(input.buffer(), encoded);
-                                        }
-                                    }
-                                    buffer::user_context::Event::SendWhois(nick) => {
-                                        if let Some(buffer) = pane.buffer.data() {
-                                            let command =
-                                                data::Command::Whois(None, nick.to_string());
+                                            let Some(target) = buffer.target() else {
+                                                return (command, None);
+                                            };
 
+                                            let command = data::Command::Mode(
+                                                target,
+                                                Some(mode),
+                                                Some(vec![nick.to_string()]),
+                                            );
                                             let input =
                                                 data::Input::command(buffer.clone(), command);
 
                                             if let Some(encoded) = input.encoded() {
                                                 clients.send(input.buffer(), encoded);
                                             }
+                                        }
+                                        buffer::user_context::Event::SendWhois(nick) => {
+                                            if let Some(buffer) = pane.buffer.data() {
+                                                let command =
+                                                    data::Command::Whois(None, nick.to_string());
 
-                                            if let Some(nick) = clients.nickname(buffer.server()) {
-                                                let mut user = nick.to_owned().into();
-                                                let mut channel_users = &[][..];
+                                                let input =
+                                                    data::Input::command(buffer.clone(), command);
 
-                                                // Resolve our attributes if sending this message in a channel
-                                                if let data::Buffer::Channel(server, channel) =
-                                                    &buffer
-                                                {
-                                                    channel_users =
-                                                        clients.get_channel_users(server, channel);
-
-                                                    if let Some(user_with_attributes) = clients
-                                                        .resolve_user_attributes(
-                                                            server, channel, &user,
-                                                        )
-                                                    {
-                                                        user = user_with_attributes.clone();
-                                                    }
+                                                if let Some(encoded) = input.encoded() {
+                                                    clients.send(input.buffer(), encoded);
                                                 }
 
-                                                if let Some(messages) =
-                                                    input.messages(user, channel_users)
+                                                if let Some(nick) =
+                                                    clients.nickname(buffer.server())
                                                 {
-                                                    for message in messages {
-                                                        self.history.record_message(
-                                                            input.server(),
-                                                            message,
-                                                        );
+                                                    let mut user = nick.to_owned().into();
+                                                    let mut channel_users = &[][..];
+
+                                                    // Resolve our attributes if sending this message in a channel
+                                                    if let data::Buffer::Channel(server, channel) =
+                                                        &buffer
+                                                    {
+                                                        channel_users = clients
+                                                            .get_channel_users(server, channel);
+
+                                                        if let Some(user_with_attributes) = clients
+                                                            .resolve_user_attributes(
+                                                                server, channel, &user,
+                                                            )
+                                                        {
+                                                            user = user_with_attributes.clone();
+                                                        }
+                                                    }
+
+                                                    if let Some(messages) =
+                                                        input.messages(user, channel_users)
+                                                    {
+                                                        for message in messages {
+                                                            self.history.record_message(
+                                                                input.server(),
+                                                                message,
+                                                            );
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
-                                    }
-                                    buffer::user_context::Event::OpenQuery(nick) => {
-                                        if let Some(data) = pane.buffer.data() {
-                                            let buffer =
-                                                data::Buffer::Query(data.server().clone(), nick);
+                                        buffer::user_context::Event::OpenQuery(nick) => {
+                                            if let Some(data) = pane.buffer.data() {
+                                                let buffer = data::Buffer::Query(
+                                                    data.server().clone(),
+                                                    nick,
+                                                );
+                                                return (
+                                                    Task::batch(vec![
+                                                        command,
+                                                        self.open_buffer(
+                                                            buffer,
+                                                            config.buffer.clone().into(),
+                                                            main_window,
+                                                        ),
+                                                    ]),
+                                                    None,
+                                                );
+                                            }
+                                        }
+                                        buffer::user_context::Event::SingleClick(nick) => {
+                                            let Some((_, pane, history)) =
+                                                self.get_focused_with_history_mut(main_window)
+                                            else {
+                                                return (command, None);
+                                            };
+
                                             return (
-                                                self.open_buffer(
-                                                    buffer,
-                                                    config.buffer.clone().into(),
-                                                    main_window,
-                                                ),
+                                                Task::batch(vec![
+                                                    command,
+                                                    pane.buffer
+                                                        .insert_user_to_input(nick, history)
+                                                        .map(move |message| {
+                                                            Message::Pane(
+                                                                window,
+                                                                pane::Message::Buffer(id, message),
+                                                            )
+                                                        }),
+                                                ]),
                                                 None,
                                             );
                                         }
-                                    }
-                                    buffer::user_context::Event::SingleClick(nick) => {
-                                        let Some((_, pane, history)) =
-                                            self.get_focused_with_history_mut(main_window)
-                                        else {
-                                            return (Task::none(), None);
-                                        };
+                                        buffer::user_context::Event::SendFile(nick) => {
+                                            if let Some(buffer) = pane.buffer.data() {
+                                                let server = buffer.server().clone();
+                                                let starting_directory =
+                                                    config.file_transfer.save_directory.clone();
 
+                                                return (
+                                                    Task::batch(vec![
+                                                        command,
+                                                        Task::perform(
+                                                            async move {
+                                                                rfd::AsyncFileDialog::new()
+                                                                    .set_directory(
+                                                                        starting_directory,
+                                                                    )
+                                                                    .pick_file()
+                                                                    .await
+                                                                    .map(|handle| {
+                                                                        handle.path().to_path_buf()
+                                                                    })
+                                                            },
+                                                            move |file| {
+                                                                Message::SendFileSelected(
+                                                                    server.clone(),
+                                                                    nick.clone(),
+                                                                    file,
+                                                                )
+                                                            },
+                                                        ),
+                                                    ]),
+                                                    None,
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                                buffer::Event::OpenChannel(channel) => {
+                                    if let Some(server) =
+                                        pane.buffer.data().map(data::Buffer::server).cloned()
+                                    {
                                         return (
-                                            pane.buffer.insert_user_to_input(nick, history).map(
-                                                move |message| {
-                                                    Message::Pane(
-                                                        window,
-                                                        pane::Message::Buffer(id, message),
-                                                    )
-                                                },
-                                            ),
+                                            Task::batch(vec![
+                                                command,
+                                                self.open_channel(
+                                                    server,
+                                                    channel,
+                                                    clients,
+                                                    main_window,
+                                                    config,
+                                                ),
+                                            ]),
                                             None,
                                         );
-                                    }
-                                    buffer::user_context::Event::SendFile(nick) => {
-                                        if let Some(buffer) = pane.buffer.data() {
-                                            let server = buffer.server().clone();
-                                            let starting_directory =
-                                                config.file_transfer.save_directory.clone();
-
-                                            return (
-                                                Task::perform(
-                                                    async move {
-                                                        rfd::AsyncFileDialog::new()
-                                                            .set_directory(starting_directory)
-                                                            .pick_file()
-                                                            .await
-                                                            .map(|handle| {
-                                                                handle.path().to_path_buf()
-                                                            })
-                                                    },
-                                                    move |file| {
-                                                        Message::SendFileSelected(
-                                                            server.clone(),
-                                                            nick.clone(),
-                                                            file,
-                                                        )
-                                                    },
-                                                ),
-                                                None,
-                                            );
-                                        }
                                     }
                                 }
                             }
 
-                            return (
-                                command.map(move |message| {
-                                    Message::Pane(window, pane::Message::Buffer(id, message))
-                                }),
-                                None,
-                            );
+                            return (command, None);
                         }
                     }
                     pane::Message::ToggleShowUserList => {
@@ -1767,6 +1811,40 @@ impl Dashboard {
             task.then(|_| Task::none()),
             self.focus_pane(main_window, window, pane),
         ])
+    }
+
+    fn open_channel(
+        &mut self,
+        server: Server,
+        channel: String,
+        clients: &mut data::client::Map,
+        main_window: &Window,
+        config: &Config,
+    ) -> Task<Message> {
+        let buffer = data::Buffer::Channel(server.clone(), channel.clone());
+
+        // Need to join channel
+        if !clients
+            .get_channels(&server)
+            .iter()
+            .any(|joined| channel == *joined)
+        {
+            clients.join(&server, slice::from_ref(&channel));
+        }
+
+        // Check if pane is already open
+        let matching_pane = self
+            .panes
+            .iter(main_window.id)
+            .find_map(|(window, pane, state)| {
+                (state.buffer.data() == Some(&buffer)).then_some((window, pane))
+            });
+
+        if let Some((window, pane)) = matching_pane {
+            self.focus_pane(main_window, window, pane)
+        } else {
+            self.open_buffer(buffer, config.buffer.clone().into(), main_window)
+        }
     }
 }
 

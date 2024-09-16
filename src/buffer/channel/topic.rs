@@ -8,6 +8,32 @@ use super::user_context;
 use crate::widget::{double_pass, message_content, selectable_text, Element};
 use crate::{theme, Theme};
 
+#[derive(Debug, Clone)]
+pub enum Event {
+    UserContext(user_context::Event),
+    OpenChannel(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum Message {
+    UserContext(user_context::Message),
+    Link(message::Link),
+}
+
+pub fn update(message: Message) -> Option<Event> {
+    match message {
+        Message::UserContext(message) => user_context::update(message).map(Event::UserContext),
+        Message::Link(message::Link::Channel(channel)) => Some(Event::OpenChannel(channel)),
+        Message::Link(message::Link::Url(url)) => {
+            let _ = open::that_detached(url);
+            None
+        }
+        Message::Link(message::Link::User(user)) => Some(Event::UserContext(
+            user_context::Event::SingleClick(user.nickname().to_owned()),
+        )),
+    }
+}
+
 pub fn view<'a>(
     content: &'a message::Content,
     who: Option<&'a str>,
@@ -18,7 +44,7 @@ pub fn view<'a>(
     our_user: Option<&'a User>,
     config: &'a Config,
     theme: &'a Theme,
-) -> Element<'a, user_context::Message> {
+) -> Element<'a, Message> {
     let set_by = who.and_then(|who| {
         let nick = Nick::from(who.split('!').next()?);
 
@@ -42,18 +68,21 @@ pub fn view<'a>(
                 .into()
         };
 
-        Some(row![
-            selectable_text("set by ").style(theme::selectable_text::topic),
-            user,
-            selectable_text(format!(" at {}", time?.to_rfc2822()))
-                .style(theme::selectable_text::topic),
-        ])
+        Some(
+            Element::new(row![
+                selectable_text("set by ").style(theme::selectable_text::topic),
+                user,
+                selectable_text(format!(" at {}", time?.to_rfc2822()))
+                    .style(theme::selectable_text::topic),
+            ])
+            .map(Message::UserContext),
+        )
     });
 
     let content = column![message_content(
         content,
         theme,
-        user_context::Message::Link,
+        Message::Link,
         theme::selectable_text::topic,
         config,
     )]

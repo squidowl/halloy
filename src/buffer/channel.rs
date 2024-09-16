@@ -16,11 +16,13 @@ pub enum Message {
     ScrollView(scroll_view::Message),
     InputView(input_view::Message),
     UserContext(user_context::Message),
+    Topic(topic::Message),
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
+    OpenChannel(String),
 }
 
 pub fn view<'a>(
@@ -120,16 +122,16 @@ pub fn view<'a>(
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
                             move |link| match link {
-                                message::Link::Url(_) => vec![],
                                 message::Link::User(_) => {
                                     user_context::Entry::list(buffer, our_user)
                                 }
+                                _ => vec![],
                             },
                             move |link, entry, length| match link {
-                                message::Link::Url(_) => row![].into(),
                                 message::Link::User(user) => entry
                                     .view(user, current_user, length)
                                     .map(scroll_view::Message::UserContext),
+                                _ => row![].into(),
                             },
                             config,
                         );
@@ -327,6 +329,7 @@ impl Channel {
 
                 let event = event.map(|event| match event {
                     scroll_view::Event::UserContext(event) => Event::UserContext(event),
+                    scroll_view::Event::OpenChannel(channel) => Event::OpenChannel(channel),
                 });
 
                 (command.map(Message::ScrollView), event)
@@ -352,6 +355,13 @@ impl Channel {
             Message::UserContext(message) => (
                 Task::none(),
                 user_context::update(message).map(Event::UserContext),
+            ),
+            Message::Topic(message) => (
+                Task::none(),
+                topic::update(message).map(|event| match event {
+                    topic::Event::UserContext(event) => Event::UserContext(event),
+                    topic::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                }),
             ),
         }
     }
@@ -392,7 +402,7 @@ fn topic<'a>(
             config,
             theme,
         )
-        .map(Message::UserContext),
+        .map(Message::Topic),
     )
 }
 
