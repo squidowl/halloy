@@ -2,19 +2,20 @@
 //!
 //! Layout from first pass is used as the limits for the second pass
 
-use iced::advanced::{layout, widget};
-use iced::Size;
+use iced::advanced::{self, layout, widget};
+use iced::{Element, Size};
 
-use super::{decorate, Element, Renderer};
-use crate::Theme;
+use super::decorate;
 
 /// Layout from first pass is used as the limits for the second pass
-pub fn double_pass<'a, Message>(
-    first_pass: impl Into<Element<'a, Message>>,
-    second_pass: impl Into<Element<'a, Message>>,
-) -> Element<'a, Message>
+pub fn double_pass<'a, Message, Theme, Renderer>(
+    first_pass: impl Into<Element<'a, Message, Theme, Renderer>>,
+    second_pass: impl Into<Element<'a, Message, Theme, Renderer>>,
+) -> Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
+    Theme: 'a,
+    Renderer: advanced::Renderer + 'a,
 {
     decorate(second_pass)
         .layout(Layout {
@@ -23,11 +24,17 @@ where
         .into()
 }
 
-struct Layout<'a, Message> {
-    first_pass: Element<'a, Message>,
+struct Layout<'a, Message, Theme, Renderer> {
+    first_pass: Element<'a, Message, Theme, Renderer>,
 }
 
-impl<'a, Message> decorate::Layout<'a, Message, Theme, Renderer, ()> for Layout<'a, Message> {
+impl<'a, Message, Theme, Renderer> decorate::Layout<'a, Message, Theme, Renderer, ()>
+    for Layout<'a, Message, Theme, Renderer>
+where
+    Message: 'a,
+    Theme: 'a,
+    Renderer: advanced::Renderer + 'a,
+{
     fn layout(
         &self,
         _state: &mut (),

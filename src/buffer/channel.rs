@@ -32,8 +32,8 @@ pub fn view<'a>(
     theme: &'a Theme,
     is_focused: bool,
 ) -> Element<'a, Message> {
-    let buffer = state.buffer();
-    let input = history.input(&buffer);
+    let buffer = &state.buffer;
+    let input = history.input(buffer);
     let our_nick = clients.nickname(&state.server);
 
     let our_user = our_nick
@@ -88,6 +88,8 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::User(user) => {
+                        let current_user = users.iter().find(|current_user| *current_user == user);
+
                         let mut text = selectable_text(
                             config
                                 .buffer
@@ -109,20 +111,26 @@ pub fn view<'a>(
                                 .horizontal_alignment(alignment::Horizontal::Right);
                         }
 
-                        let nick = user_context::view(
-                            text,
-                            user,
-                            users.iter().find(|current_user| *current_user == user),
-                            state.buffer(),
-                            our_user,
-                        )
-                        .map(scroll_view::Message::UserContext);
+                        let nick = user_context::view(text, user, current_user, buffer, our_user)
+                            .map(scroll_view::Message::UserContext);
 
-                        let text = message_content(
+                        let text = message_content::with_context(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
+                            move |link| match link {
+                                message::Link::Url(_) => vec![],
+                                message::Link::User(_) => {
+                                    user_context::Entry::list(buffer, our_user)
+                                }
+                            },
+                            move |link, entry, length| match link {
+                                message::Link::Url(_) => row![].into(),
+                                message::Link::User(user) => entry
+                                    .view(user, current_user, length)
+                                    .map(scroll_view::Message::UserContext),
+                            },
                             config,
                         );
 
@@ -235,7 +243,7 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let nick_list = nick_list::view(users, &buffer, our_user, config).map(Message::UserContext);
+    let nick_list = nick_list::view(users, buffer, our_user, config).map(Message::UserContext);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
@@ -287,6 +295,7 @@ pub fn view<'a>(
 
 #[derive(Debug, Clone)]
 pub struct Channel {
+    pub buffer: data::Buffer,
     pub server: Server,
     pub channel: String,
 
@@ -297,15 +306,12 @@ pub struct Channel {
 impl Channel {
     pub fn new(server: Server, channel: String) -> Self {
         Self {
+            buffer: data::Buffer::Channel(server.clone(), channel.clone()),
             server,
             channel,
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
         }
-    }
-
-    pub fn buffer(&self) -> data::Buffer {
-        data::Buffer::Channel(self.server.clone(), self.channel.clone())
     }
 
     pub fn update(
@@ -326,11 +332,9 @@ impl Channel {
                 (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
-                let buffer = self.buffer();
-
-                let (command, event) = self
-                    .input_view
-                    .update(message, buffer, clients, history, config);
+                let (command, event) =
+                    self.input_view
+                        .update(message, &self.buffer, clients, history, config);
                 let command = command.map(Message::InputView);
 
                 match event {
@@ -383,7 +387,7 @@ fn topic<'a>(
             topic.time.as_ref(),
             config.buffer.channel.topic.max_lines,
             users,
-            &state.buffer(),
+            &state.buffer,
             our_user,
             config,
             theme,
@@ -404,7 +408,7 @@ mod nick_list {
 
     pub fn view<'a>(
         users: &'a [User],
-        buffer: &Buffer,
+        buffer: &'a Buffer,
         our_user: Option<&'a User>,
         config: &'a Config,
     ) -> Element<'a, Message> {
@@ -442,7 +446,7 @@ mod nick_list {
                 })
                 .width(Length::Fixed(width));
 
-            user_context::view(content, user, Some(user), buffer.clone(), our_user)
+            user_context::view(content, user, Some(user), buffer, our_user)
         }));
 
         Scrollable::new(content)

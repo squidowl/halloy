@@ -117,7 +117,7 @@ impl State {
     pub fn update(
         &mut self,
         message: Message,
-        buffer: Buffer,
+        buffer: &Buffer,
         clients: &mut client::Map,
         history: &mut history::Manager,
         config: &Config,
@@ -139,14 +139,14 @@ impl State {
                 self.completion.process(&input, users, channels, &isupport);
 
                 history.record_draft(Draft {
-                    buffer,
+                    buffer: buffer.clone(),
                     text: input,
                 });
 
                 (Task::none(), None)
             }
             Message::Send => {
-                let input = history.input(&buffer).draft;
+                let input = history.input(buffer).draft;
 
                 // Reset error
                 self.error = None;
@@ -174,7 +174,7 @@ impl State {
                     };
 
                     if let Some(encoded) = input.encoded() {
-                        clients.send(&buffer, encoded);
+                        clients.send(buffer, encoded);
                     }
 
                     if let Some(nick) = clients.nickname(buffer.server()) {
@@ -201,7 +201,7 @@ impl State {
                 }
             }
             Message::Tab(reverse) => {
-                let input = history.input(&buffer).draft;
+                let input = history.input(buffer).draft;
 
                 if let Some(entry) = self.completion.tab(reverse) {
                     let new_input = entry.complete_input(input);
@@ -212,7 +212,7 @@ impl State {
                 }
             }
             Message::Up => {
-                let cache = history.input(&buffer);
+                let cache = history.input(buffer);
 
                 self.completion.reset();
 
@@ -245,7 +245,7 @@ impl State {
                 (Task::none(), None)
             }
             Message::Down => {
-                let cache = history.input(&buffer);
+                let cache = history.input(buffer);
 
                 self.completion.reset();
 
@@ -279,11 +279,14 @@ impl State {
 
     fn on_completion(
         &self,
-        buffer: Buffer,
+        buffer: &Buffer,
         history: &mut history::Manager,
         text: String,
     ) -> (Task<Message>, Option<Event>) {
-        history.record_draft(Draft { buffer, text });
+        history.record_draft(Draft {
+            buffer: buffer.clone(),
+            text,
+        });
 
         (text_input::move_cursor_to_end(self.input_id.clone()), None)
     }

@@ -14,7 +14,7 @@ pub fn view<'a>(
     time: Option<&'a DateTime<Utc>>,
     max_lines: u16,
     users: &'a [User],
-    buffer: &Buffer,
+    buffer: &'a Buffer,
     our_user: Option<&'a User>,
     config: &'a Config,
     theme: &'a Theme,
@@ -33,7 +33,7 @@ pub fn view<'a>(
                 }),
                 user,
                 Some(user),
-                buffer.clone(),
+                buffer,
                 our_user,
             )
         } else {
