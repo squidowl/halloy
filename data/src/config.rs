@@ -18,6 +18,8 @@ pub use self::notification::Notifications;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
+
+use crate::appearance::{self, Appearance};
 use crate::audio::{self, Sound};
 use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
@@ -34,11 +36,11 @@ pub mod server;
 pub mod sidebar;
 
 const CONFIG_TEMPLATE: &str = include_str!("../../config.toml");
-const DEFAULT_THEME_FILE_NAME: &str = "ferra.toml";
+const DEFAULT_THEME_NAME: &str = "ferra";
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
-    pub themes: Themes,
+    pub appearance: Appearance,
     pub servers: ServerMap,
     pub proxy: Option<Proxy>,
     pub font: Font,
@@ -76,21 +78,6 @@ impl From<ScaleFactor> for f64 {
 pub struct Font {
     pub family: Option<String>,
     pub size: Option<u8>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Themes {
-    pub default: Theme,
-    pub all: Vec<Theme>,
-}
-
-impl Default for Themes {
-    fn default() -> Self {
-        Self {
-            default: Theme::default(),
-            all: vec![Theme::default()],
-        }
-    }
 }
 
 impl Config {
@@ -134,10 +121,32 @@ impl Config {
     pub async fn load() -> Result<Self, Error> {
         use tokio::fs;
 
+        #[derive(Deserialize, Debug)]
+        #[serde(untagged)]
+        pub enum ThemeKeys {
+            Static(String),
+            Dynamic { light: String, dark: String },
+        }
+
+        impl Default for ThemeKeys {
+            fn default() -> Self {
+                Self::Static(Default::default())
+            }
+        }
+
+        impl ThemeKeys {
+            pub fn keys(&self) -> (&str, Option<&str>) {
+                match self {
+                    ThemeKeys::Static(manual) => (manual, None),
+                    ThemeKeys::Dynamic { light, dark } => (light, Some(dark)),
+                }
+            }
+        }
+
         #[derive(Deserialize)]
         pub struct Configuration {
             #[serde(default)]
-            pub theme: String,
+            pub theme: ThemeKeys,
             pub servers: ServerMap,
             pub proxy: Option<Proxy>,
             #[serde(default)]
@@ -181,10 +190,12 @@ impl Config {
 
         let loaded_notifications = notifications.load_sounds()?;
 
-        let themes = Self::load_themes(&theme).await.unwrap_or_default();
+        let appearance = Self::load_appearance(theme.keys())
+            .await
+            .unwrap_or_default();
 
         Ok(Config {
-            themes,
+            appearance,
             servers,
             font,
             proxy,
@@ -198,7 +209,7 @@ impl Config {
         })
     }
 
-    async fn load_themes(default_key: &str) -> Result<Themes, Error> {
+    async fn load_appearance(theme_keys: (&str, Option<&str>)) -> Result<Appearance, Error> {
         use tokio::fs;
 
         #[derive(Deserialize)]
@@ -224,7 +235,8 @@ impl Config {
         };
 
         let mut all = vec![];
-        let mut default = Theme::default();
+        let mut first_theme = Theme::default();
+        let mut second_theme = theme_keys.1.map(|_| Theme::default());
         let mut has_halloy_theme = false;
 
         let mut stream = ReadDirStream::new(fs::read_dir(Self::themes_dir()).await?);
@@ -237,14 +249,17 @@ impl Config {
                 continue;
             };
 
-            if file_name.ends_with(".toml") {
+            if let Some(file_name) = file_name.strip_suffix(".toml") {
                 if let Some(theme) = read_entry(entry).await {
-                    if file_name.strip_suffix(".toml").unwrap_or_default() == default_key
-                        || file_name == default_key
-                    {
-                        default = theme.clone();
+                    if file_name == theme_keys.0 {
+                        first_theme = theme.clone();
                     }
-                    if file_name == DEFAULT_THEME_FILE_NAME {
+
+                    if Some(file_name) == theme_keys.1 {
+                        second_theme = Some(theme.clone());
+                    }
+
+                    if file_name == DEFAULT_THEME_NAME {
                         has_halloy_theme = true;
                     }
 
@@ -257,7 +272,10 @@ impl Config {
             all.push(Theme::default());
         }
 
-        Ok(Themes { default, all })
+        Ok(Appearance {
+            selected: appearance::Selected::new(first_theme, second_theme),
+            all,
+        })
     }
 
     pub fn create_initial_config() {

@@ -1,22 +1,34 @@
 # Themes
 
+**Example**
+
 ```toml
-theme = "<string>"
+# Static
+theme = "ferra"
+
+# Dynamic
+theme = { light = "ferra-light", dark = "ferra" }
 ```
 
-| Key         | Description                  | Default  |
-| ----------- | ---------------------------- | -------- |
-| `theme`[^1] | Name of the theme to use[^2] | `""`[^3] |
 
-[^1]: `theme` is a root key, so it must be placed before any section.
-[^2]: Name of theme file inside `themes` folder.
-[^3]: Using [Ferra](https://github.com/casperstorm/ferra/) by default.
+## `theme`
+
+Specify the theme name(s) to use. The theme must correspond to a file located in the `themes` folder, which can be found in the Halloy configuration directory. The default theme in Halloy is [Ferra](https://github.com/casperstorm/ferra/).
+
+When a dynamic theme is used, Halloy will match the appearance of the OS.
+
+- **type**: string or object
+- **values**: `"<string>"`, `{ light = "<string>", dark = "<string>" }`
+- **default**: `"ferra"`
+  
+> 💡  See all community created themes [here](./community.md).
 
 ## Custom themes
 
 To create a custom theme for Halloy, simply place a theme file (with a `.toml` extension) inside the themes folder within the configuration directory.
 
-> 💡  The configuration direction can be found [here](../../configuration/).
+> 💡  Halloy has a built in theme editor which makes theme creation easier
+
 
  Each `"<string>"` is expected to be a valid hex color. If invalid, or if the key is removed, the color will fallback to transparent. A custom theme is structured as follows:
 
