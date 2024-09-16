@@ -633,11 +633,9 @@ impl Dashboard {
                         let open_buffers = open_buffers(self, main_window.id);
 
                         if let Some((window, pane, state)) = self.get_focused_mut(main_window) {
-                            if let Some(buffer) = cycle_next_buffer(
-                                state.buffer.data().as_ref(),
-                                all_buffers,
-                                &open_buffers,
-                            ) {
+                            if let Some(buffer) =
+                                cycle_next_buffer(state.buffer.data(), all_buffers, &open_buffers)
+                            {
                                 state.buffer = Buffer::from(buffer);
                                 self.focus = None;
                                 return (self.focus_pane(main_window, window, pane), None);
@@ -650,7 +648,7 @@ impl Dashboard {
 
                         if let Some((window, pane, state)) = self.get_focused_mut(main_window) {
                             if let Some(buffer) = cycle_previous_buffer(
-                                state.buffer.data().as_ref(),
+                                state.buffer.data(),
                                 all_buffers,
                                 &open_buffers,
                             ) {
@@ -662,7 +660,7 @@ impl Dashboard {
                     }
                     LeaveBuffer => {
                         if let Some((_, _, state)) = self.get_focused_mut(main_window) {
-                            if let Some(buffer) = state.buffer.data() {
+                            if let Some(buffer) = state.buffer.data().cloned() {
                                 return self.leave_buffer(main_window, clients, buffer);
                             }
                         }
@@ -1021,7 +1019,7 @@ impl Dashboard {
 
         // If channel already is open, we focus it.
         for (window, id, pane) in panes.iter(main_window.id) {
-            if pane.buffer.data().as_ref() == Some(&kind) {
+            if pane.buffer.data() == Some(&kind) {
                 self.focus = Some((window, id));
 
                 return self.focus_pane(main_window, window, id);
@@ -1081,7 +1079,7 @@ impl Dashboard {
             .panes
             .iter(main_window.id)
             .find_map(|(window, pane, state)| {
-                (state.buffer.data().as_ref() == Some(&buffer)).then_some((window, pane))
+                (state.buffer.data() == Some(&buffer)).then_some((window, pane))
             });
 
         let mut tasks = vec![];
@@ -1448,7 +1446,7 @@ impl Dashboard {
                 .remove(&window)
                 .and_then(|panes| panes.get(pane).cloned())
             {
-                let task = match pane.buffer.data() {
+                let task = match pane.buffer.data().cloned() {
                     Some(buffer) => self.open_buffer(buffer, pane.settings, main_window),
                     None if matches!(pane.buffer, Buffer::FileTransfers(_)) => {
                         self.toggle_file_transfers(config, main_window)
@@ -1897,6 +1895,7 @@ fn open_buffers(dashboard: &Dashboard, main_window: window::Id) -> Vec<data::Buf
         .panes
         .iter(main_window)
         .filter_map(|(_, _, pane)| pane.buffer.data())
+        .cloned()
         .collect()
 }
 

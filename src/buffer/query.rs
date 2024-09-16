@@ -27,8 +27,8 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let status = clients.status(&state.server);
-    let buffer = state.buffer();
-    let input = history.input(&buffer);
+    let buffer = &state.buffer;
+    let input = history.input(buffer);
 
     let messages = container(
         scroll_view::view(
@@ -71,14 +71,24 @@ pub fn view<'a>(
                                 .horizontal_alignment(alignment::Horizontal::Right);
                         }
 
-                        let nick = user_context::view(text, user, None, state.buffer(), None)
+                        let nick = user_context::view(text, user, None, buffer, None)
                             .map(scroll_view::Message::UserContext);
 
-                        let message = message_content(
+                        let message = message_content::with_context(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
+                            move |link| match link {
+                                message::Link::Url(_) => vec![],
+                                message::Link::User(_) => user_context::Entry::list(buffer, None),
+                            },
+                            move |link, entry, length| match link {
+                                message::Link::Url(_) => row![].into(),
+                                message::Link::User(user) => entry
+                                    .view(user, None, length)
+                                    .map(scroll_view::Message::UserContext),
+                            },
                             config,
                         );
 
@@ -201,6 +211,7 @@ pub fn view<'a>(
 
 #[derive(Debug, Clone)]
 pub struct Query {
+    pub buffer: data::Buffer,
     pub server: Server,
     pub nick: Nick,
     pub scroll_view: scroll_view::State,
@@ -210,15 +221,12 @@ pub struct Query {
 impl Query {
     pub fn new(server: Server, nick: Nick) -> Self {
         Self {
+            buffer: data::Buffer::Query(server.clone(), nick.clone()),
             server,
             nick,
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
         }
-    }
-
-    pub fn buffer(&self) -> data::Buffer {
-        data::Buffer::Query(self.server.clone(), self.nick.clone())
     }
 
     pub fn update(
@@ -239,11 +247,9 @@ impl Query {
                 (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
-                let buffer = self.buffer();
-
-                let (command, event) = self
-                    .input_view
-                    .update(message, buffer, clients, history, config);
+                let (command, event) =
+                    self.input_view
+                        .update(message, &self.buffer, clients, history, config);
                 let command = command.map(Message::InputView);
 
                 match event {

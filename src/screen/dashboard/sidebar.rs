@@ -327,12 +327,12 @@ fn buffer_button(
     let open = panes
         .iter(main_window)
         .find_map(|(window_id, pane, state)| {
-            (state.buffer.data().as_ref() == Some(&buffer)).then_some((window_id, pane))
+            (state.buffer.data() == Some(&buffer)).then_some((window_id, pane))
         });
     let is_focused = panes
         .iter(main_window)
         .find_map(|(window_id, pane, state)| {
-            (Some((window_id, pane)) == focus && state.buffer.data().as_ref() == Some(&buffer))
+            (Some((window_id, pane)) == focus && state.buffer.data() == Some(&buffer))
                 .then_some((window_id, pane))
         });
 
@@ -486,6 +486,7 @@ fn buffer_button(
                 .on_press(message)
                 .into()
         })
+        .into()
     }
 }
 

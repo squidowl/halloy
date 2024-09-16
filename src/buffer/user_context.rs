@@ -7,7 +7,7 @@ use crate::widget::{context_menu, double_pass, Element};
 use crate::{icon, theme};
 
 #[derive(Debug, Clone, Copy)]
-enum Entry {
+pub enum Entry {
     Whois,
     Query,
     ToggleAccessLevelOp,
@@ -18,7 +18,7 @@ enum Entry {
 }
 
 impl Entry {
-    fn list(buffer: &Buffer, our_user: Option<&User>) -> Vec<Self> {
+    pub fn list(buffer: &Buffer, our_user: Option<&User>) -> Vec<Self> {
         match buffer {
             Buffer::Channel(_, _) => {
                 if our_user.is_some_and(|u| u.has_access_level(data::user::AccessLevel::Oper)) {
@@ -42,6 +42,56 @@ impl Entry {
                 }
             }
             Buffer::Server(_) | Buffer::Query(_, _) => vec![Entry::Whois, Entry::SendFile],
+        }
+    }
+
+    pub fn view<'a>(
+        self,
+        user: &User,
+        current_user: Option<&User>,
+        length: Length,
+    ) -> Element<'a, Message> {
+        let nickname = user.nickname().to_owned();
+
+        match self {
+            Entry::Whois => menu_button("Whois", Message::Whois(nickname), length),
+            Entry::Query => menu_button("Message", Message::Query(nickname), length),
+            Entry::ToggleAccessLevelOp => {
+                if user.has_access_level(data::user::AccessLevel::Oper) {
+                    menu_button(
+                        "Take Op (-o)",
+                        Message::ToggleAccessLevel(nickname, "-o".to_owned()),
+                        length,
+                    )
+                } else {
+                    menu_button(
+                        "Give Op (+o)",
+                        Message::ToggleAccessLevel(nickname, "+o".to_owned()),
+                        length,
+                    )
+                }
+            }
+            Entry::ToggleAccessLevelVoice => {
+                if user.has_access_level(data::user::AccessLevel::Voice) {
+                    menu_button(
+                        "Take Voice (-v)",
+                        Message::ToggleAccessLevel(nickname, "-v".to_owned()),
+                        length,
+                    )
+                } else {
+                    menu_button(
+                        "Give Voice (+v)",
+                        Message::ToggleAccessLevel(nickname, "+v".to_owned()),
+                        length,
+                    )
+                }
+            }
+            Entry::SendFile => menu_button("Send File", Message::SendFile(nickname), length),
+            Entry::UserInfo => user_info(current_user, length),
+            Entry::HorizontalRule => match length {
+                Length::Fill => container(horizontal_rule(1)).padding([0, 6]).into(),
+                _ => Space::new(length, 1).into(),
+            },
         }
     }
 }
@@ -86,10 +136,10 @@ pub fn view<'a>(
     content: impl Into<Element<'a, Message>>,
     user: &'a User,
     current_user: Option<&'a User>,
-    buffer: Buffer,
+    buffer: &'a Buffer,
     our_user: Option<&'a User>,
 ) -> Element<'a, Message> {
-    let entries = Entry::list(&buffer, our_user);
+    let entries = Entry::list(buffer, our_user);
 
     let content = button(content)
         .padding(0)
@@ -97,49 +147,9 @@ pub fn view<'a>(
         .on_press(Message::SingleClick(user.nickname().to_owned()));
 
     context_menu(content, entries, move |entry, length| {
-        let nickname = user.nickname().to_owned();
-
-        match entry {
-            Entry::Whois => menu_button("Whois", Message::Whois(nickname), length),
-            Entry::Query => menu_button("Message", Message::Query(nickname), length),
-            Entry::ToggleAccessLevelOp => {
-                if user.has_access_level(data::user::AccessLevel::Oper) {
-                    menu_button(
-                        "Take Op (-o)",
-                        Message::ToggleAccessLevel(nickname, "-o".to_owned()),
-                        length,
-                    )
-                } else {
-                    menu_button(
-                        "Give Op (+o)",
-                        Message::ToggleAccessLevel(nickname, "+o".to_owned()),
-                        length,
-                    )
-                }
-            }
-            Entry::ToggleAccessLevelVoice => {
-                if user.has_access_level(data::user::AccessLevel::Voice) {
-                    menu_button(
-                        "Take Voice (-v)",
-                        Message::ToggleAccessLevel(nickname, "-v".to_owned()),
-                        length,
-                    )
-                } else {
-                    menu_button(
-                        "Give Voice (+v)",
-                        Message::ToggleAccessLevel(nickname, "+v".to_owned()),
-                        length,
-                    )
-                }
-            }
-            Entry::SendFile => menu_button("Send File", Message::SendFile(nickname), length),
-            Entry::UserInfo => user_info(current_user, length),
-            Entry::HorizontalRule => match length {
-                Length::Fill => container(horizontal_rule(1)).padding([0, 6]).into(),
-                _ => Space::new(length, 1).into(),
-            },
-        }
+        entry.view(user, current_user, length)
     })
+    .into()
 }
 
 fn menu_button(content: &str, message: Message, length: Length) -> Element<'_, Message> {
@@ -154,7 +164,7 @@ fn right_justified_padding() -> Padding {
     padding::all(5).right(5.0 + double_pass::horizontal_expansion())
 }
 
-fn user_info(current_user: Option<&User>, length: Length) -> Element<'_, Message> {
+fn user_info<'a>(current_user: Option<&User>, length: Length) -> Element<'a, Message> {
     if let Some(current_user) = current_user {
         if current_user.is_away() {
             row![]
