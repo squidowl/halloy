@@ -96,6 +96,7 @@ impl Input {
                         direction: message::Direction::Sent,
                         target,
                         content: message::parse_fragments(text.clone(), channel_users),
+                        id: None,
                     })
                     .collect(),
             ),
@@ -105,6 +106,7 @@ impl Input {
                 direction: message::Direction::Sent,
                 target: to_target(&target, message::Source::Action)?,
                 content: message::action_text(user.nickname(), Some(&action)),
+                id: None,
             }]),
             _ => None,
         }
