@@ -1,5 +1,5 @@
 use data::user::Nick;
-use data::{message, Buffer, User};
+use data::{Buffer, User};
 use iced::widget::{button, container, horizontal_rule, row, text, Space};
 use iced::{padding, Length, Padding};
 
@@ -103,7 +103,6 @@ pub enum Message {
     SingleClick(Nick),
     ToggleAccessLevel(Nick, String),
     SendFile(Nick),
-    Link(message::Link),
 }
 
 #[derive(Debug, Clone)]
@@ -122,13 +121,6 @@ pub fn update(message: Message) -> Option<Event> {
         Message::SingleClick(nick) => Some(Event::SingleClick(nick)),
         Message::ToggleAccessLevel(nick, mode) => Some(Event::ToggleAccessLevel(nick, mode)),
         Message::SendFile(nick) => Some(Event::SendFile(nick)),
-        Message::Link(message::Link::Url(url)) => {
-            let _ = open::that_detached(url);
-            None
-        }
-        Message::Link(message::Link::User(user)) => {
-            Some(Event::SingleClick(user.nickname().to_owned()))
-        }
     }
 }
 
