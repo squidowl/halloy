@@ -209,7 +209,6 @@ pub enum Screen {
 
 #[derive(Debug)]
 pub enum Message {
-    ConfigReloaded(Result<Config, config::Error>),
     ThemesReloaded(Config),
     ScreenReloaded(Result<Config, config::Error>),
     Dashboard(dashboard::Message),
@@ -286,30 +285,6 @@ impl Halloy {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::ConfigReloaded(config) => {
-                match config {
-                    Ok(updated) => {
-                        let removed_servers = self
-                            .servers
-                            .keys()
-                            .filter(|server| !updated.servers.contains(server))
-                            .cloned()
-                            .collect::<Vec<_>>();
-
-                        self.servers = updated.servers.clone();
-                        self.theme = updated.themes.default.clone().into();
-                        self.config = updated;
-
-                        for server in removed_servers {
-                            self.clients.quit(&server, None);
-                        }
-                    }
-                    Err(error) => {
-                        self.modal = Some(Modal::ReloadConfigurationError(error));
-                    }
-                };
-                Task::none()
-            },
             Message::ThemesReloaded(updated) => {
                 self.config.themes = updated.themes;
                 Task::none()
@@ -338,8 +313,30 @@ impl Halloy {
                 let track = dashboard.track();
 
                 let event_task = match event {
-                    Some(dashboard::Event::ReloadConfiguration) => Task::perform(Config::load(),  Message::ConfigReloaded)
-                        .chain(Task::done(Message::Dashboard(dashboard::Message::reload_complete()))),
+                    Some(dashboard::Event::ConfigReloaded(config)) => {
+                        match config {
+                            Ok(updated) => {
+                                let removed_servers = self
+                                    .servers
+                                    .keys()
+                                    .filter(|server| !updated.servers.contains(server))
+                                    .cloned()
+                                    .collect::<Vec<_>>();
+
+                                self.servers = updated.servers.clone();
+                                self.theme = updated.themes.default.clone().into();
+                                self.config = updated;
+
+                                for server in removed_servers {
+                                    self.clients.quit(&server, None);
+                                }
+                            }
+                            Err(error) => {
+                                self.modal = Some(Modal::ReloadConfigurationError(error));
+                            }
+                        };
+                        Task::none()
+                    },
                     Some(dashboard::Event::ReloadThemes) => Task::future(Config::load())
                         .and_then(|config| Task::done(Message::ThemesReloaded(config))),
                     Some(dashboard::Event::QuitServer(server)) => {
