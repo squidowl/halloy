@@ -56,3 +56,13 @@ This is a list of community created themes for Halloy.
 
 <img src="intellij-light.png">
 
+## Macaw Light
+ [Open in Halloy](halloy:///theme?e=APHx8_8BtbW1_wLLzNf_AwB6__8EAAAA_wVsb4X_Bog57_8HlZWV_wiVlZX_CZWVlf8K_v___wvw8PD_DPDw8P8Nra2t_w6tra3_D3KH_f8Q1eD-_xFQbf__ErXM9f8TlZWV_xQAAAD_FR5m9f8dlZWV_x4AAAAAH-Li4v8g2tra_yHBwcH_Iu3t7f8j3t7e_yTs7Oz_Jenp6f8)
+
+<img src="macaw-light.png">
+
+## Macaw Dark
+ [Open in Halloy](halloy:///theme?e=ADMzM_8BUFBQ_wIzMzP_AyiE_P8E39_f_wXCwsL_Bog57_8HlZWV_wiVlZX_CZWVlf8KHh4e_wsuLi7_DC4uLv8NGhoa_w4aGhr_D3KH_f8QRUZF_xEAyP__End3d_8TlZWV_xTf39__FSiE_P8dlZWV_x4AAAAAH0hISP8gSkpK_yFmZmb_Ijs7O_8jSEhI_yRkZGT_JWZmZv8)
+
+<img src="macaw-dark.png">
+
