@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::string;
 
 use tokio_stream::wrappers::ReadDirStream;
 use tokio_stream::StreamExt;
@@ -176,7 +177,7 @@ impl Config {
             tooltips,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
-        servers.read_password_files().await?;
+        servers.read_passwords().await?;
 
         let loaded_notifications = notifications.load_sounds()?;
 
@@ -309,6 +310,8 @@ pub enum Error {
     Io(String),
     #[error("{0}")]
     Parse(String),
+    #[error("UTF8 parsing error: {0}")]
+    UI(#[from] string::FromUtf8Error),
     #[error(transparent)]
     LoadSounds(#[from] audio::LoadError),
 }
