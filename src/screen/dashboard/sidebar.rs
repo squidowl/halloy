@@ -110,7 +110,7 @@ impl Sidebar {
             return None;
         }
 
-        let menu_buttons = self.menu_buttons(
+        let menu_buttons = menu_buttons(
             main_window,
             panes,
             config,
@@ -118,6 +118,7 @@ impl Sidebar {
             file_transfers,
             version,
             theme_editor_open,
+            self.reloading_config,
         );
 
         let mut buffers = vec![];
