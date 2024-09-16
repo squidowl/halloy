@@ -47,12 +47,12 @@ impl Buffer {
         Self::Empty
     }
 
-    pub fn data(&self) -> Option<data::Buffer> {
+    pub fn data(&self) -> Option<&data::Buffer> {
         match self {
             Buffer::Empty => None,
-            Buffer::Channel(state) => Some(state.buffer()),
-            Buffer::Server(state) => Some(state.buffer()),
-            Buffer::Query(state) => Some(state.buffer()),
+            Buffer::Channel(state) => Some(&state.buffer),
+            Buffer::Server(state) => Some(&state.buffer),
+            Buffer::Query(state) => Some(&state.buffer),
             Buffer::FileTransfers(_) => None,
         }
     }
@@ -177,7 +177,7 @@ impl Buffer {
         nick: Nick,
         history: &mut history::Manager,
     ) -> Task<Message> {
-        if let Some(buffer) = self.data() {
+        if let Some(buffer) = self.data().cloned() {
             match self {
                 Buffer::Empty | Buffer::Server(_) | Buffer::FileTransfers(_) => Task::none(),
                 Buffer::Channel(channel) => channel

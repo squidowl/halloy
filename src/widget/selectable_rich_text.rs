@@ -11,6 +11,7 @@ use iced::alignment;
 use iced::event;
 use iced::mouse;
 use iced::widget;
+use iced::widget::container;
 use iced::widget::text::{LineHeight, Shaping};
 use iced::widget::text_input::Value;
 use iced::Border;
@@ -21,14 +22,16 @@ use iced::Vector;
 use iced::{self, Background, Color, Element, Event, Pixels, Rectangle, Size};
 use itertools::Itertools;
 
+use super::context_menu;
 use super::selectable_text::{selection, Catalog, Interaction, Style, StyleFn};
 
 use std::borrow::Cow;
+use std::sync::Arc;
 
 /// Creates a new [`Rich`] text widget with the provided spans.
-pub fn selectable_rich_text<'a, Message, Link, Theme, Renderer>(
+pub fn selectable_rich_text<'a, Message, Link, Entry, Theme, Renderer>(
     spans: impl Into<Cow<'a, [Span<'a, Link, Renderer::Font>]>>,
-) -> Rich<'a, Message, Link, Theme, Renderer>
+) -> Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
@@ -39,7 +42,7 @@ where
 
 /// A bunch of [`Rich`] text.
 #[allow(missing_debug_implementations)]
-pub struct Rich<'a, Message, Link = (), Theme = iced::Theme, Renderer = iced::Renderer>
+pub struct Rich<'a, Message, Link = (), Entry = (), Theme = iced::Theme, Renderer = iced::Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
@@ -55,9 +58,17 @@ where
     align_y: alignment::Vertical,
     class: Theme::Class<'a>,
     on_link: Option<Box<dyn Fn(Link) -> Message + 'a>>,
+
+    #[allow(clippy::type_complexity)]
+    context_menu: Option<(
+        Box<dyn Fn(&Link) -> Vec<Entry> + 'a>,
+        Arc<dyn Fn(&Link, Entry, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
+    )>,
+    cached_entries: Vec<Entry>,
+    cached_menu: Option<Element<'a, Message, Theme, Renderer>>,
 }
 
-impl<'a, Message, Link, Theme, Renderer> Rich<'a, Message, Link, Theme, Renderer>
+impl<'a, Message, Link, Entry, Theme, Renderer> Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
@@ -76,6 +87,10 @@ where
             align_y: alignment::Vertical::Top,
             class: Theme::default(),
             on_link: None,
+
+            context_menu: None,
+            cached_entries: vec![],
+            cached_menu: None,
         }
     }
 
@@ -172,14 +187,20 @@ where
         self
     }
 
-    /// Adds a new text [`Span`] to the [`Rich`] text.
-    pub fn push(mut self, span: impl Into<Span<'a, Link, Renderer::Font>>) -> Self {
-        self.spans.to_mut().push(span.into());
-        self
+    pub fn context_menu(
+        self,
+        link_entries: impl Fn(&Link) -> Vec<Entry> + 'a,
+        view: impl Fn(&Link, Entry, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
+    ) -> Self {
+        Self {
+            context_menu: Some((Box::new(link_entries), Arc::new(view))),
+            ..self
+        }
     }
 }
 
-impl<'a, Message, Link, Theme, Renderer> Default for Rich<'a, Message, Link, Theme, Renderer>
+impl<'a, Message, Link, Entry, Theme, Renderer> Default
+    for Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
@@ -204,14 +225,20 @@ struct State<Link, P: Paragraph> {
     paragraph: P,
     interaction: Interaction,
     shown_spoiler: Option<(usize, Color, Highlight)>,
+
+    context_menu_link: Option<Link>,
+    context_menu: context_menu::State,
 }
 
-impl<'a, Message, Link, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Rich<'a, Message, Link, Theme, Renderer>
+impl<'a, Message, Link, Entry, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
+    Message: 'a,
     Link: self::Link + 'static,
-    Theme: Catalog,
-    Renderer: text::Renderer,
+    Entry: Copy + 'a,
+    Theme: 'a + container::Catalog + context_menu::Catalog + Catalog,
+    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    Renderer: text::Renderer + 'a,
 {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State<Link, Renderer::Paragraph>>()
@@ -224,6 +251,8 @@ where
             paragraph: Renderer::Paragraph::default(),
             interaction: Interaction::default(),
             shown_spoiler: None,
+            context_menu_link: None,
+            context_menu: context_menu::State::new(),
         })
     }
 
@@ -265,18 +294,26 @@ where
         renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
-        _viewport: &Rectangle,
+        viewport: &Rectangle,
     ) -> event::Status {
         let state = tree
             .state
             .downcast_mut::<State<Link, Renderer::Paragraph>>();
+
+        let bounds = layout.bounds();
+
+        if viewport.intersection(&bounds).is_none()
+            && matches!(state.interaction, Interaction::Idle)
+        {
+            return event::Status::Ignored;
+        }
 
         let mut status = event::Status::Ignored;
 
         match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | iced::Event::Touch(touch::Event::FingerPressed { .. }) => {
-                if let Some(position) = cursor.position_in(layout.bounds()) {
+                if let Some(position) = cursor.position_in(bounds) {
                     if let Some(span) = state.paragraph.hit_span(position) {
                         state.span_pressed = Some(span);
 
@@ -300,7 +337,7 @@ where
                     if let Some(span_pressed) = state.span_pressed {
                         state.span_pressed = None;
 
-                        if let Some(position) = cursor.position_in(layout.bounds()) {
+                        if let Some(position) = cursor.position_in(bounds) {
                             match state.paragraph.hit_span(position) {
                                 Some(span) if span == span_pressed => {
                                     if let Some(link) =
@@ -328,8 +365,6 @@ where
                         raw.end = cursor;
                     }
                 }
-
-                let bounds = layout.bounds();
 
                 let size = self.size.unwrap_or_else(|| renderer.default_size());
                 let font = self.font.unwrap_or_else(|| renderer.default_font());
@@ -388,6 +423,39 @@ where
                         Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_ref()));
                 }
             }
+            iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
+                if let Some(position) = cursor.position_in(bounds) {
+                    if let Some((link_entries, _)) = &self.context_menu {
+                        if let Some((link, entries)) =
+                            state.spans.iter().enumerate().find_map(|(i, span)| {
+                                if span.link.is_some()
+                                    && state
+                                        .paragraph
+                                        .span_bounds(i)
+                                        .into_iter()
+                                        .any(|bounds| bounds.contains(position))
+                                {
+                                    let link = span.link.clone().unwrap();
+                                    let entries = (link_entries)(&link);
+
+                                    if !entries.is_empty() {
+                                        return Some((link, entries));
+                                    }
+                                }
+
+                                None
+                            })
+                        {
+                            state.context_menu.status = context_menu::Status::Open(
+                                // Need absolute position. Infallible since we're within position_in
+                                cursor.position_over(bounds).unwrap(),
+                            );
+                            state.context_menu_link = Some(link);
+                            self.cached_entries = entries;
+                        }
+                    }
+                }
+            }
             _ => {}
         }
 
@@ -414,7 +482,7 @@ where
             .state
             .downcast_ref::<State<Link, Renderer::Paragraph>>();
 
-        let style = theme.style(&self.class);
+        let style = <Theme as Catalog>::style(theme, &self.class);
 
         let hovered_span = cursor
             .position_in(layout.bounds())
@@ -597,7 +665,7 @@ where
     ) {
         let state = tree
             .state
-            .downcast_ref::<State<Link, Renderer::Paragraph>>();
+            .downcast_mut::<State<Link, Renderer::Paragraph>>();
 
         let bounds = layout.bounds();
         let value = Value::new(&self.spans.iter().map(|s| s.text.as_ref()).join(""));
@@ -608,6 +676,49 @@ where
         {
             let content = value.select(selection.start, selection.end).to_string();
             operation.custom(&mut (bounds.y, content), None);
+        }
+
+        // Context menu
+        operation.custom(&mut state.context_menu, None);
+    }
+
+    fn overlay<'b>(
+        &'b mut self,
+        tree: &'b mut Tree,
+        _layout: Layout<'_>,
+        _renderer: &Renderer,
+        translation: Vector,
+    ) -> Option<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>> {
+        let state = tree
+            .state
+            .downcast_mut::<State<Link, Renderer::Paragraph>>();
+
+        // Sync local state w/ context menu change
+        if state.context_menu.status.open().is_none() {
+            state.context_menu_link = None;
+        }
+
+        if let Some((link, (link_entries, view))) = state
+            .context_menu_link
+            .clone()
+            .zip(self.context_menu.as_ref())
+        {
+            let view = view.clone();
+
+            // Rebuild if not cached (view recreated)
+            if self.cached_entries.is_empty() {
+                self.cached_entries = link_entries(&link);
+            }
+
+            context_menu::overlay(
+                &mut state.context_menu,
+                &mut self.cached_menu,
+                &self.cached_entries,
+                &move |entry, length| view(&link, entry, length),
+                translation,
+            )
+        } else {
+            None
         }
     }
 }
@@ -695,8 +806,8 @@ where
     })
 }
 
-impl<'a, Message, Link, Theme, Renderer> FromIterator<Span<'a, Link, Renderer::Font>>
-    for Rich<'a, Message, Link, Theme, Renderer>
+impl<'a, Message, Link, Entry, Theme, Renderer> FromIterator<Span<'a, Link, Renderer::Font>>
+    for Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
@@ -710,16 +821,18 @@ where
     }
 }
 
-impl<'a, Message, Link, Theme, Renderer> From<Rich<'a, Message, Link, Theme, Renderer>>
-    for Element<'a, Message, Theme, Renderer>
+impl<'a, Message, Link, Entry, Theme, Renderer>
+    From<Rich<'a, Message, Link, Entry, Theme, Renderer>> for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
     Link: self::Link + 'static,
-    Theme: Catalog + 'a,
+    Entry: Copy + 'a,
+    Theme: 'a + container::Catalog + context_menu::Catalog + Catalog,
+    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
     Renderer: text::Renderer + 'a,
 {
     fn from(
-        text: Rich<'a, Message, Link, Theme, Renderer>,
+        text: Rich<'a, Message, Link, Entry, Theme, Renderer>,
     ) -> Element<'a, Message, Theme, Renderer> {
         Element::new(text)
     }

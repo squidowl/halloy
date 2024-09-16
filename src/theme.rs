@@ -9,6 +9,7 @@ pub use data::theme::{
 pub mod button;
 pub mod checkbox;
 pub mod container;
+pub mod context_menu;
 pub mod menu;
 pub mod pane_grid;
 pub mod progress_bar;
