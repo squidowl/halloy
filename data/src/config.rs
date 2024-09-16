@@ -1,5 +1,7 @@
-use std::fs;
 use std::path::PathBuf;
+
+use tokio_stream::wrappers::ReadDirStream;
+use tokio_stream::StreamExt;
 
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
@@ -128,7 +130,9 @@ impl Config {
         Self::config_dir().join(environment::CONFIG_FILE_NAME)
     }
 
-    pub fn load() -> Result<Self, Error> {
+    pub async fn load() -> Result<Self, Error> {
+        use tokio::fs;
+
         #[derive(Deserialize)]
         pub struct Configuration {
             #[serde(default)]
@@ -154,7 +158,9 @@ impl Config {
         }
 
         let path = Self::path();
-        let content = fs::read_to_string(path).map_err(|e| Error::Read(e.to_string()))?;
+        let content = fs::read_to_string(path)
+            .await
+            .map_err(|e| Error::Read(e.to_string()))?;
 
         let Configuration {
             theme,
@@ -170,11 +176,11 @@ impl Config {
             tooltips,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
-        servers.read_password_files()?;
+        servers.read_password_files().await?;
 
         let loaded_notifications = notifications.load_sounds()?;
 
-        let themes = Self::load_themes(&theme).unwrap_or_default();
+        let themes = Self::load_themes(&theme).await.unwrap_or_default();
 
         Ok(Config {
             themes,
@@ -191,7 +197,9 @@ impl Config {
         })
     }
 
-    fn load_themes(default_key: &str) -> Result<Themes, Error> {
+    async fn load_themes(default_key: &str) -> Result<Themes, Error> {
+        use tokio::fs;
+
         #[derive(Deserialize)]
         #[serde(untagged)]
         pub enum Data {
@@ -202,8 +210,8 @@ impl Config {
             V2(Colors),
         }
 
-        let read_entry = |entry: fs::DirEntry| {
-            let content = fs::read_to_string(entry.path()).ok()?;
+        let read_entry = |entry: fs::DirEntry| async move {
+            let content = fs::read_to_string(entry.path()).await.ok()?;
 
             let data: Data = toml::from_str(content.as_ref()).ok()?;
             let name = entry.path().file_stem()?.to_string_lossy().to_string();
@@ -218,7 +226,8 @@ impl Config {
         let mut default = Theme::default();
         let mut has_halloy_theme = false;
 
-        for entry in fs::read_dir(Self::themes_dir())? {
+        let mut stream = ReadDirStream::new(fs::read_dir(Self::themes_dir()).await?);
+        while let Some(entry) = stream.next().await {
             let Ok(entry) = entry else {
                 continue;
             };
@@ -228,7 +237,7 @@ impl Config {
             };
 
             if file_name.ends_with(".toml") {
-                if let Some(theme) = read_entry(entry) {
+                if let Some(theme) = read_entry(entry).await {
                     if file_name.strip_suffix(".toml").unwrap_or_default() == default_key
                         || file_name == default_key
                     {
@@ -267,7 +276,7 @@ impl Config {
         // Create configuration path.
         let config_path = Self::config_dir().join("config.toml");
 
-        let _ = fs::write(config_path, config_bytes);
+        let _ = std::fs::write(config_path, config_bytes);
     }
 }
 
