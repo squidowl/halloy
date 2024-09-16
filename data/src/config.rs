@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use tokio::fs;
-use tokio_stream::StreamExt;
 use tokio_stream::wrappers::ReadDirStream;
+use tokio_stream::StreamExt;
 
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
@@ -132,6 +131,8 @@ impl Config {
     }
 
     pub async fn load() -> Result<Self, Error> {
+        use tokio::fs;
+
         #[derive(Deserialize)]
         pub struct Configuration {
             #[serde(default)]
@@ -157,7 +158,9 @@ impl Config {
         }
 
         let path = Self::path();
-        let content = fs::read_to_string(path).await.map_err(|e| Error::Read(e.to_string()))?;
+        let content = fs::read_to_string(path)
+            .await
+            .map_err(|e| Error::Read(e.to_string()))?;
 
         let Configuration {
             theme,
@@ -195,6 +198,8 @@ impl Config {
     }
 
     async fn load_themes(default_key: &str) -> Result<Themes, Error> {
+        use tokio::fs;
+
         #[derive(Deserialize)]
         #[serde(untagged)]
         pub enum Data {
@@ -271,7 +276,7 @@ impl Config {
         // Create configuration path.
         let config_path = Self::config_dir().join("config.toml");
 
-        let _ = fs::write(config_path, config_bytes);
+        let _ = std::fs::write(config_path, config_bytes);
     }
 }
 

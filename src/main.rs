@@ -15,12 +15,9 @@ mod theme;
 mod url;
 mod widget;
 mod window;
-pub mod error;
 
 use std::env;
 use std::time::{Duration, Instant};
-
-use tokio::runtime;
 
 use chrono::Utc;
 use data::config::{self, Config};
@@ -29,15 +26,15 @@ use data::{environment, history, server, version, Url, User};
 use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
+use tokio::runtime;
 
 use self::event::{events, Event};
 use self::modal::Modal;
 use self::theme::Theme;
 use self::widget::Element;
 use self::window::Window;
-use error::Error;
 
-pub fn main() -> Result<(), Error> {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args();
     args.next();
 
@@ -89,18 +86,15 @@ pub fn main() -> Result<(), Error> {
     //
     // let window_load = Window::load().unwrap_or_default();
 
-    if let Err(error) = iced::daemon("Halloy", Halloy::update, Halloy::view)
+    iced::daemon("Halloy", Halloy::update, Halloy::view)
         .theme(Halloy::theme)
         .scale_factor(Halloy::scale_factor)
         .subscription(Halloy::subscription)
         .settings(settings(&config_load))
         .run_with(move || Halloy::new(config_load.clone(), destination.clone()))
-    {
-        log::error!("{}", error.to_string());
-        Err(error)?
-    } else {
-        Ok(())
-    }
+        .inspect_err(|err| log::error!("{}", err))?;
+
+    Ok(())
 }
 
 fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
@@ -209,8 +203,8 @@ pub enum Screen {
 
 #[derive(Debug)]
 pub enum Message {
-    ThemesReloaded(Config),
-    ScreenReloaded(Result<Config, config::Error>),
+    ThemesReloaded(config::Themes),
+    ScreenConfigReloaded(Result<Config, config::Error>),
     Dashboard(dashboard::Message),
     Stream(stream::Update),
     Help(help::Message),
@@ -286,15 +280,14 @@ impl Halloy {
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::ThemesReloaded(updated) => {
-                self.config.themes = updated.themes;
+                self.config.themes = updated;
                 Task::none()
-            },
-            Message::ScreenReloaded(updated) => {
-                let (halloy, command) =
-                    Halloy::load_from_state(self.main_window.id, updated);
+            }
+            Message::ScreenConfigReloaded(updated) => {
+                let (halloy, command) = Halloy::load_from_state(self.main_window.id, updated);
                 *self = halloy;
-                return command;
-            },
+                command
+            }
             Message::Dashboard(message) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
                     return Task::none();
@@ -336,13 +329,14 @@ impl Halloy {
                             }
                         };
                         Task::none()
-                    },
+                    }
                     Some(dashboard::Event::ReloadThemes) => Task::future(Config::load())
-                        .and_then(|config| Task::done(Message::ThemesReloaded(config))),
+                        .and_then(|config| Task::done(config.themes))
+                        .map(Message::ThemesReloaded),
                     Some(dashboard::Event::QuitServer(server)) => {
                         self.clients.quit(&server, None);
                         Task::none()
-                    },
+                    }
                     None => Task::none(),
                 };
 
@@ -364,10 +358,10 @@ impl Halloy {
                 };
 
                 match help.update(message) {
-                    Some(help::Event::RefreshConfiguration) => Task::future(async {
-                        Message::ScreenReloaded(Config::load().await)
-                    }),
-                    None => Task::none()
+                    Some(help::Event::RefreshConfiguration) => {
+                        Task::perform(Config::load(), Message::ScreenConfigReloaded)
+                    }
+                    None => Task::none(),
                 }
             }
             Message::Welcome(message) => {
@@ -376,10 +370,10 @@ impl Halloy {
                 };
 
                 match welcome.update(message) {
-                    Some(welcome::Event::RefreshConfiguration) => Task::future(async {
-                        Message::ScreenReloaded(Config::load().await)
-                    }),
-                    None => Task::none()
+                    Some(welcome::Event::RefreshConfiguration) => {
+                        Task::perform(Config::load(), Message::ScreenConfigReloaded)
+                    }
+                    None => Task::none(),
                 }
             }
             Message::Migration(message) => {
@@ -388,9 +382,9 @@ impl Halloy {
                 };
 
                 match migration.update(message) {
-                    Some(migration::Event::RefreshConfiguration) => Task::future(async {
-                        Message::ScreenReloaded(Config::load().await)
-                    }),
+                    Some(migration::Event::RefreshConfiguration) => {
+                        Task::perform(Config::load(), Message::ScreenConfigReloaded)
+                    }
                     None => Task::none(),
                 }
             }
