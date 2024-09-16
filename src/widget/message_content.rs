@@ -64,6 +64,9 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                     .iter()
                     .map(|fragment| match fragment {
                         data::message::Fragment::Text(s) => span(s),
+                        data::message::Fragment::Channel(s) => span(s.as_str())
+                            .color(theme.colors().buffer.url)
+                            .link(message::Link::Channel(s.as_str().to_string())),
                         data::message::Fragment::User(user) => {
                             let color_kind = &config.buffer.channel.message.nickname_color;
 

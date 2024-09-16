@@ -2,7 +2,7 @@ use data::{history, message, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Length, Task};
 
-use super::{input_view, scroll_view};
+use super::{input_view, scroll_view, user_context};
 use crate::widget::{message_content, selectable_text, Element};
 use crate::{theme, Theme};
 
@@ -10,6 +10,12 @@ use crate::{theme, Theme};
 pub enum Message {
     ScrollView(scroll_view::Message),
     InputView(input_view::Message),
+}
+
+#[derive(Debug, Clone)]
+pub enum Event {
+    UserContext(user_context::Event),
+    OpenChannel(String),
 }
 
 pub fn view<'a>(
@@ -119,11 +125,17 @@ impl Server {
         clients: &mut data::client::Map,
         history: &mut history::Manager,
         config: &Config,
-    ) -> Task<Message> {
+    ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let (command, _) = self.scroll_view.update(message);
-                command.map(Message::ScrollView)
+                let (command, event) = self.scroll_view.update(message);
+
+                let event = event.map(|event| match event {
+                    scroll_view::Event::UserContext(event) => Event::UserContext(event),
+                    scroll_view::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                });
+
+                (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
                 let (command, event) =
@@ -131,13 +143,15 @@ impl Server {
                         .update(message, &self.buffer, clients, history, config);
                 let command = command.map(Message::InputView);
 
-                match event {
+                let task = match event {
                     Some(input_view::Event::InputSent) => Task::batch(vec![
                         command,
                         self.scroll_view.scroll_to_end().map(Message::ScrollView),
                     ]),
                     None => command,
-                }
+                };
+
+                (task, None)
             }
         }
     }
