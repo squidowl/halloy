@@ -8,6 +8,7 @@ use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
 use data::{client, environment, history, Config, Server, User, Version};
+use data::config;
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, Length, Task, Vector};
@@ -56,16 +57,12 @@ pub enum Message {
     SendFileSelected(Server, Nick, Option<PathBuf>),
     CloseContextMenu(bool),
     ThemeEditor(theme_editor::Message),
-}
-impl Message {
-    pub fn reload_complete() -> Self {
-        return Self::Sidebar(sidebar::Message::ReloadComplete)
-    }
+    ConfigReloaded(Result<Config, config::Error>),
 }
 
 #[derive(Debug)]
 pub enum Event {
-    ReloadConfiguration,
+    ConfigReloaded(Result<Config, config::Error>),
     ReloadThemes,
     QuitServer(Server),
 }
@@ -312,41 +309,45 @@ impl Dashboard {
                 }
             }
             Message::Sidebar(message) => {
-                let Some(event) = self.side_menu.update(message) else {
-                    return (Task::none(), None);
+                let (command, event) = self.side_menu.update(message);
+
+                let Some(event) = event else {
+                    return (command.map(Message::Sidebar), None);
                 };
 
-                match event {
+                let (event_task, event) = match event {
                     sidebar::Event::Open(kind) => {
-                        return (
+                        (
                             self.open_buffer(kind, config.buffer.clone().into(), main_window),
                             None,
-                        );
+                        )
                     }
                     sidebar::Event::Popout(buffer) => {
-                        return (
+                        (
                             self.open_popout_window(
                                 main_window,
                                 Pane::new(Buffer::from(buffer), config),
                             ),
                             None,
-                        );
+                        )
                     }
                     sidebar::Event::Focus(window, pane) => {
-                        return (self.focus_pane(main_window, window, pane), None);
+                        (self.focus_pane(main_window, window, pane), None)
                     }
                     sidebar::Event::Replace(window, kind, pane) => {
                         if let Some(state) = self.panes.get_mut(main_window.id, window, pane) {
                             state.buffer = Buffer::from(kind);
                             self.last_changed = Some(Instant::now());
                             self.focus = None;
-                            return (
+                            (
                                 Task::batch(vec![
                                     self.reset_pane(main_window, window, pane),
                                     self.focus_pane(main_window, window, pane),
                                 ]),
                                 None,
-                            );
+                            )
+                        } else {
+                            (Task::none(), None)
                         }
                     }
                     sidebar::Event::Close(window, pane) => {
@@ -354,41 +355,43 @@ impl Dashboard {
                             self.focus = None;
                         }
 
-                        return (self.close_pane(main_window, window, pane), None);
+                        (self.close_pane(main_window, window, pane), None)
                     }
                     sidebar::Event::Swap(from_window, from_pane, to_window, to_pane) => {
                         self.last_changed = Some(Instant::now());
 
                         if from_window == main_window.id && to_window == main_window.id {
                             self.panes.main.swap(from_pane, to_pane);
-
-                            return (self.focus_pane(main_window, from_window, from_pane), None);
-                        } else if let Some((from_state, to_state)) = self
-                            .panes
-                            .get(main_window.id, from_window, from_pane)
-                            .cloned()
-                            .zip(self.panes.get(main_window.id, to_window, to_pane).cloned())
-                        {
-                            if let Some(state) =
-                                self.panes.get_mut(main_window.id, from_window, from_pane)
+                            (self.focus_pane(main_window, from_window, from_pane), None)
+                        } else {
+                            if let Some((from_state, to_state)) = self
+                                .panes
+                                    .get(main_window.id, from_window, from_pane)
+                                    .cloned()
+                                    .zip(self.panes.get(main_window.id, to_window, to_pane).cloned())
                             {
-                                *state = to_state;
+                                if let Some(state) =
+                                    self.panes.get_mut(main_window.id, from_window, from_pane)
+                                {
+                                    *state = to_state;
+                                }
+                                if let Some(state) =
+                                    self.panes.get_mut(main_window.id, to_window, to_pane)
+                                {
+                                    *state = from_state;
+                                }
                             }
-                            if let Some(state) =
-                                self.panes.get_mut(main_window.id, to_window, to_pane)
-                            {
-                                *state = from_state;
-                            }
+                            (Task::none(), None)
                         }
                     }
                     sidebar::Event::Leave(buffer) => {
-                        return self.leave_buffer(main_window, clients, buffer);
+                        self.leave_buffer(main_window, clients, buffer)
                     }
                     sidebar::Event::ToggleFileTransfers => {
-                        return (self.toggle_file_transfers(config, main_window), None);
+                        (self.toggle_file_transfers(config, main_window), None)
                     }
                     sidebar::Event::ToggleCommandBar => {
-                        return (
+                        (
                             self.toggle_command_bar(
                                 &closed_buffers(self, main_window.id, clients),
                                 version,
@@ -397,28 +400,36 @@ impl Dashboard {
                                 main_window,
                             ),
                             None,
-                        );
+                        )
                     }
-                    sidebar::Event::ReloadConfigFile => {
-                        return (Task::none(), Some(Event::ReloadConfiguration));
+                    sidebar::Event::ConfigReloaded(conf) => {
+                        (Task::none(), Some(Event::ConfigReloaded(conf)))
                     }
                     sidebar::Event::OpenReleaseWebsite => {
                         let _ = open::that_detached(RELEASE_WEBSITE);
-                        return (Task::none(), None);
+                        (Task::none(), None)
                     }
                     sidebar::Event::ToggleThemeEditor => {
                         if let Some(editor) = self.theme_editor.take() {
                             *theme = theme.selected();
-                            return (window::close(editor.window), None);
+                            (window::close(editor.window), None)
                         } else {
                             let (editor, task) = ThemeEditor::open(main_window);
 
                             self.theme_editor = Some(editor);
 
-                            return (task.then(|_| Task::none()), None);
+                            (task.then(|_| Task::none()), None)
                         }
                     }
-                }
+                };
+
+                return (
+                    Task::batch(vec![
+                        event_task,
+                        command.map(Message::Sidebar),
+                    ]),
+                    event,
+                );
             }
             Message::SelectedText(contents) => {
                 let mut last_y = None;
@@ -524,7 +535,7 @@ impl Dashboard {
                                     (Task::none(), None)
                                 }
                                 command_bar::Configuration::Reload => {
-                                    (Task::none(), Some(Event::ReloadConfiguration))
+                                    (Task::perform(Config::load(), Message::ConfigReloaded), None)
                                 }
                             },
                             command_bar::Command::UI(command) => match command {
@@ -682,7 +693,9 @@ impl Dashboard {
                             None,
                         );
                     }
-                    ReloadConfiguration => return (Task::none(), Some(Event::ReloadConfiguration)),
+                    ReloadConfiguration => {
+                        return (Task::perform(Config::load(), Message::ConfigReloaded), None);
+                    }
                 }
             }
             Message::FileTransfer(update) => {
@@ -740,6 +753,9 @@ impl Dashboard {
                 }
 
                 return (Task::batch(tasks), event);
+            }
+            Message::ConfigReloaded(config) => {
+                return (Task::none(), Some(Event::ConfigReloaded(config)));
             }
         }
 
