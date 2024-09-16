@@ -1,22 +1,19 @@
 use std::slice;
 
 use iced::advanced::widget::{operation, tree, Operation};
-use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
+use iced::advanced::{self, layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
 use iced::widget::{column, container};
-use iced::{event, mouse, Event, Length, Point, Rectangle, Size, Task, Vector};
+use iced::{event, mouse, Element, Event, Length, Point, Rectangle, Size, Task, Vector};
 
-use super::{double_pass, Element, Renderer};
-use crate::{theme, Theme};
+pub use iced::widget::container::{Style, StyleFn};
 
-pub fn context_menu<'a, T, Message>(
-    base: impl Into<Element<'a, Message>>,
+use super::double_pass;
+
+pub fn context_menu<'a, T, Message, Theme, Renderer>(
+    base: impl Into<Element<'a, Message, Theme, Renderer>>,
     entries: Vec<T>,
-    entry: impl Fn(T, Length) -> Element<'a, Message> + 'a,
-) -> Element<'a, Message>
-where
-    Message: 'a,
-    T: 'a + Copy,
-{
+    entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
+) -> ContextMenu<'a, T, Message, Theme, Renderer> {
     ContextMenu {
         base: base.into(),
         entries,
@@ -24,54 +21,40 @@ where
 
         menu: None,
     }
-    .into()
 }
 
-fn menu<'a, T, Message>(
-    entries: &[T],
-    entry: &(dyn Fn(T, Length) -> Element<'a, Message> + 'a),
-) -> Element<'a, Message>
-where
-    Message: 'a,
-    T: Copy + 'a,
-{
-    let build_menu = |length, view: &(dyn Fn(T, Length) -> Element<'a, Message> + 'a)| {
-        container(column(
-            entries.iter().copied().map(|entry| view(entry, length)),
-        ))
-        .padding(4)
-        .style(theme::container::tooltip)
-    };
-
-    double_pass(
-        build_menu(Length::Shrink, entry),
-        build_menu(Length::Fill, entry),
-    )
-}
-
-struct ContextMenu<'a, T, Message> {
-    base: Element<'a, Message>,
+pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
+    base: Element<'a, Message, Theme, Renderer>,
     entries: Vec<T>,
-    entry: Box<dyn Fn(T, Length) -> Element<'a, Message> + 'a>,
+    entry: Box<dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
 
     // Cached, recreated during `overlay` if menu is open
-    menu: Option<Element<'a, Message>>,
+    menu: Option<Element<'a, Message, Theme, Renderer>>,
 }
 
 #[derive(Debug)]
-struct State {
-    status: Status,
+pub struct State {
+    pub status: Status,
     menu_tree: widget::Tree,
 }
 
+impl State {
+    pub fn new() -> Self {
+        State {
+            status: Status::Closed,
+            menu_tree: widget::Tree::empty(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
-enum Status {
+pub enum Status {
     Closed,
     Open(Point),
 }
 
 impl Status {
-    fn open(self) -> Option<Point> {
+    pub fn open(self) -> Option<Point> {
         match self {
             Status::Closed => None,
             Status::Open(position) => Some(position),
@@ -79,10 +62,14 @@ impl Status {
     }
 }
 
-impl<'a, T, Message> Widget<Message, Theme, Renderer> for ContextMenu<'a, T, Message>
+impl<'a, T, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for ContextMenu<'a, T, Message, Theme, Renderer>
 where
-    Message: 'a,
     T: Copy + 'a,
+    Message: 'a,
+    Theme: 'a + container::Catalog + Catalog,
+    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    Renderer: advanced::Renderer + 'a,
 {
     fn size(&self) -> Size<Length> {
         self.base.as_widget().size()
@@ -211,40 +198,21 @@ where
         renderer: &Renderer,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        let state = tree.state.downcast_mut::<State>();
-
         let base_state = tree.children.first_mut().unwrap();
         let base = self
             .base
             .as_widget_mut()
             .overlay(base_state, layout, renderer, translation);
 
-        // Ensure overlay is created / diff'd
-        match state.status {
-            Status::Open(_) => match &self.menu {
-                Some(menu) => state.menu_tree.diff(menu),
-                None => {
-                    let menu = menu(&self.entries, &self.entry);
-                    state.menu_tree = widget::Tree::new(&menu);
-                    self.menu = Some(menu);
-                }
-            },
-            Status::Closed => {
-                self.menu = None;
-            }
-        }
+        let state = tree.state.downcast_mut::<State>();
 
-        let overlay = state
-            .status
-            .open()
-            .zip(self.menu.as_mut())
-            .map(|(position, menu)| {
-                overlay::Element::new(Box::new(Overlay {
-                    menu,
-                    state,
-                    position: position + translation,
-                }))
-            });
+        let overlay = overlay(
+            state,
+            &mut self.menu,
+            &self.entries,
+            &self.entry,
+            translation,
+        );
 
         if base.is_none() && overlay.is_none() {
             None
@@ -252,6 +220,78 @@ where
             Some(overlay::Group::with_children(base.into_iter().chain(overlay).collect()).overlay())
         }
     }
+}
+
+fn build_menu<'a, T, Message, Theme, Renderer>(
+    entries: &[T],
+    entry: &(dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a),
+) -> Element<'a, Message, Theme, Renderer>
+where
+    T: Copy + 'a,
+    Message: 'a,
+    Theme: 'a + container::Catalog + Catalog,
+    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    Renderer: advanced::Renderer + 'a,
+{
+    let build_menu =
+        |length, view: &(dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a)| {
+            container(column(
+                entries.iter().copied().map(|entry| view(entry, length)),
+            ))
+            .padding(4)
+            .style(|theme| <Theme as Catalog>::style(theme, &<Theme as Catalog>::default()))
+        };
+
+    double_pass(
+        build_menu(Length::Shrink, entry),
+        build_menu(Length::Fill, entry),
+    )
+}
+
+pub fn overlay<'a, 'b, T, Message, Theme, Renderer>(
+    state: &'b mut State,
+    menu: &'b mut Option<Element<'a, Message, Theme, Renderer>>,
+    entries: &[T],
+    entry: &(dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a),
+    translation: Vector,
+) -> Option<overlay::Element<'b, Message, Theme, Renderer>>
+where
+    T: Copy + 'a,
+    Message: 'a,
+    Theme: 'a + container::Catalog + Catalog,
+    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    Renderer: advanced::Renderer + 'a,
+{
+    if entries.is_empty() {
+        return None;
+    }
+
+    // Ensure overlay is created / diff'd
+    match state.status {
+        Status::Open(_) => match menu {
+            Some(menu) => state.menu_tree.diff(&*menu),
+            None => {
+                let _menu = build_menu(entries, entry);
+                state.menu_tree = widget::Tree::new(&_menu);
+                *menu = Some(_menu);
+            }
+        },
+        Status::Closed => {
+            *menu = None;
+        }
+    }
+
+    state
+        .status
+        .open()
+        .zip(menu.as_mut())
+        .map(|(position, menu)| {
+            overlay::Element::new(Box::new(Overlay {
+                menu,
+                state,
+                position: position + translation,
+            }))
+        })
 }
 
 pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
@@ -290,23 +330,31 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
     })
 }
 
-impl<'a, T, Message> From<ContextMenu<'a, T, Message>> for Element<'a, Message>
+impl<'a, T, Message, Theme, Renderer> From<ContextMenu<'a, T, Message, Theme, Renderer>>
+    for Element<'a, Message, Theme, Renderer>
 where
-    Message: 'a,
     T: Copy + 'a,
+    Message: 'a,
+    Theme: 'a + container::Catalog + Catalog,
+    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    Renderer: advanced::Renderer + 'a,
 {
-    fn from(context_menu: ContextMenu<'a, T, Message>) -> Self {
+    fn from(context_menu: ContextMenu<'a, T, Message, Theme, Renderer>) -> Self {
         Element::new(context_menu)
     }
 }
 
-struct Overlay<'a, 'b, Message> {
-    menu: &'b mut Element<'a, Message>,
+struct Overlay<'a, 'b, Message, Theme, Renderer> {
+    menu: &'b mut Element<'a, Message, Theme, Renderer>,
     state: &'b mut State,
     position: Point,
 }
 
-impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a, 'b, Message> {
+impl<'a, 'b, Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
+    for Overlay<'a, 'b, Message, Theme, Renderer>
+where
+    Renderer: advanced::Renderer,
+{
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
         let limits = layout::Limits::new(Size::ZERO, bounds)
             .width(Length::Fill)
@@ -417,4 +465,16 @@ impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a,
     fn is_over(&self, layout: Layout<'_>, _renderer: &Renderer, cursor_position: Point) -> bool {
         layout.bounds().contains(cursor_position)
     }
+}
+
+/// The theme catalog of a [`Catalog`].
+pub trait Catalog {
+    /// The item class of the [`Catalog`].
+    type Class<'a>;
+
+    /// The default class produced by the [`Catalog`].
+    fn default<'a>() -> Self::Class<'a>;
+
+    /// The [`Style`] of a class with the given status.
+    fn style(&self, class: &Self::Class<'_>) -> container::Style;
 }

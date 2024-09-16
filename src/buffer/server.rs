@@ -21,8 +21,8 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let status = clients.status(&state.server);
-    let buffer = state.buffer();
-    let input = history.input(&buffer);
+    let buffer = &state.buffer;
+    let input = history.input(buffer);
 
     let messages = container(
         scroll_view::view(
@@ -97,6 +97,7 @@ pub fn view<'a>(
 
 #[derive(Debug, Clone)]
 pub struct Server {
+    pub buffer: data::Buffer,
     pub server: data::server::Server,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
@@ -105,14 +106,11 @@ pub struct Server {
 impl Server {
     pub fn new(server: data::server::Server) -> Self {
         Self {
+            buffer: data::Buffer::Server(server.clone()),
             server,
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
         }
-    }
-
-    pub fn buffer(&self) -> data::Buffer {
-        data::Buffer::Server(self.server.clone())
     }
 
     pub fn update(
@@ -128,11 +126,9 @@ impl Server {
                 command.map(Message::ScrollView)
             }
             Message::InputView(message) => {
-                let buffer = self.buffer();
-
-                let (command, event) = self
-                    .input_view
-                    .update(message, buffer, clients, history, config);
+                let (command, event) =
+                    self.input_view
+                        .update(message, &self.buffer, clients, history, config);
                 let command = command.map(Message::InputView);
 
                 match event {
