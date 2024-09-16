@@ -78,7 +78,8 @@ impl Map {
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some() || config.password_command.is_some() {
                     return Err(Error::Parse(
-                        "Only one of password, password_file and password_command can be set.".to_string(),
+                        "Only one of password, password_file and password_command can be set."
+                            .to_string(),
                     ));
                 }
                 let pass = fs::read_to_string(pass_file).await?;
@@ -87,22 +88,21 @@ impl Map {
             if let Some(pass_command) = &config.password_command {
                 if config.password.is_some() {
                     return Err(Error::Parse(
-                        "Only one of password, password_file and password_command can be set.".to_string(),
+                        "Only one of password, password_file and password_command can be set."
+                            .to_string(),
                     ));
                 }
                 let output = if cfg!(target_os = "windows") {
                     Command::new("cmd")
                         .args(["/C", pass_command])
                         .output()
-                        .await
-                        .expect("failed to execute process")
+                        .await?
                 } else {
                     Command::new("sh")
                         .arg("-c")
                         .arg(pass_command)
                         .output()
-                        .await
-                        .expect("failed to execute process")
+                        .await?
                 };
                 config.password = Some(String::from_utf8(output.stdout)?);
             }
