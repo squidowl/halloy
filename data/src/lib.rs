@@ -16,6 +16,7 @@ pub use self::user::User;
 pub use self::version::Version;
 pub use self::window::Window;
 
+pub mod appearance;
 pub mod audio;
 pub mod buffer;
 pub mod channel;
