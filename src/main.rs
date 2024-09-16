@@ -15,9 +15,12 @@ mod theme;
 mod url;
 mod widget;
 mod window;
+pub mod error;
 
 use std::env;
 use std::time::{Duration, Instant};
+
+use tokio::runtime;
 
 use chrono::Utc;
 use data::config::{self, Config};
@@ -32,9 +35,9 @@ use self::modal::Modal;
 use self::theme::Theme;
 use self::widget::Element;
 use self::window::Window;
+use error::Error;
 
-#[tokio::main]
-pub async fn main() -> iced::Result {
+pub fn main() -> Result<(), Error> {
     let mut args = env::args();
     args.next();
 
@@ -59,7 +62,15 @@ pub async fn main() -> iced::Result {
     log::info!("config dir: {:?}", environment::config_dir());
     log::info!("data dir: {:?}", environment::data_dir());
 
-    let config_load = Config::load().await;
+    // spin up a single-threaded tokio runtime to run the config loading task to completion
+    // we don't want to wrap our whole program with a runtime since iced starts its own.
+    let config_load = {
+        let rt = runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+
+        rt.block_on(Config::load())
+    };
 
     // DANGER ZONE - font must be set using config
     // before we do any iced related stuff w/ it
@@ -86,7 +97,7 @@ pub async fn main() -> iced::Result {
         .run_with(move || Halloy::new(config_load.clone(), destination.clone()))
     {
         log::error!("{}", error.to_string());
-        Err(error)
+        Err(error)?
     } else {
         Ok(())
     }
@@ -198,9 +209,9 @@ pub enum Screen {
 
 #[derive(Debug)]
 pub enum Message {
-    UpdateConfig(Result<Config, config::Error>),
-    ReloadThemes(Config),
-    ReloadHalloy(Result<Config, config::Error>),
+    ConfigReloaded(Result<Config, config::Error>),
+    ThemesReloaded(Config),
+    ScreenReloaded(Result<Config, config::Error>),
     Dashboard(dashboard::Message),
     Stream(stream::Update),
     Help(help::Message),
@@ -275,7 +286,7 @@ impl Halloy {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::UpdateConfig(config) => {
+            Message::ConfigReloaded(config) => {
                 match config {
                     Ok(updated) => {
                         let removed_servers = self
@@ -299,11 +310,11 @@ impl Halloy {
                 };
                 Task::none()
             },
-            Message::ReloadThemes(updated) => {
+            Message::ThemesReloaded(updated) => {
                 self.config.themes = updated.themes;
                 Task::none()
             },
-            Message::ReloadHalloy(updated) => {
+            Message::ScreenReloaded(updated) => {
                 let (halloy, command) =
                     Halloy::load_from_state(self.main_window.id, updated);
                 *self = halloy;
@@ -327,11 +338,10 @@ impl Halloy {
                 let track = dashboard.track();
 
                 let event_task = match event {
-                    Some(dashboard::Event::ReloadConfiguration) => Task::future(async  {
-                        Message::UpdateConfig(Config::load().await)
-                    }).chain(Task::done(Message::Dashboard(dashboard::Message::reload_complete()))),
+                    Some(dashboard::Event::ReloadConfiguration) => Task::perform(Config::load(),  Message::ConfigReloaded)
+                        .chain(Task::done(Message::Dashboard(dashboard::Message::reload_complete()))),
                     Some(dashboard::Event::ReloadThemes) => Task::future(Config::load())
-                        .and_then(|config| Task::done(Message::ReloadThemes(config))),
+                        .and_then(|config| Task::done(Message::ThemesReloaded(config))),
                     Some(dashboard::Event::QuitServer(server)) => {
                         self.clients.quit(&server, None);
                         Task::none()
@@ -358,7 +368,7 @@ impl Halloy {
 
                 match help.update(message) {
                     Some(help::Event::RefreshConfiguration) => Task::future(async {
-                        Message::ReloadHalloy(Config::load().await)
+                        Message::ScreenReloaded(Config::load().await)
                     }),
                     None => Task::none()
                 }
@@ -370,7 +380,7 @@ impl Halloy {
 
                 match welcome.update(message) {
                     Some(welcome::Event::RefreshConfiguration) => Task::future(async {
-                        Message::ReloadHalloy(Config::load().await)
+                        Message::ScreenReloaded(Config::load().await)
                     }),
                     None => Task::none()
                 }
@@ -382,7 +392,7 @@ impl Halloy {
 
                 match migration.update(message) {
                     Some(migration::Event::RefreshConfiguration) => Task::future(async {
-                        Message::ReloadHalloy(Config::load().await)
+                        Message::ScreenReloaded(Config::load().await)
                     }),
                     None => Task::none(),
                 }
