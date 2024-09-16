@@ -26,6 +26,7 @@ use data::{environment, history, server, version, Url, User};
 use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
+use tokio::runtime;
 
 use self::event::{events, Event};
 use self::modal::Modal;
@@ -33,7 +34,7 @@ use self::theme::Theme;
 use self::widget::Element;
 use self::window::Window;
 
-pub fn main() -> iced::Result {
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args();
     args.next();
 
@@ -48,10 +49,7 @@ pub fn main() -> iced::Result {
         return Ok(());
     }
 
-    #[cfg(debug_assertions)]
-    let is_debug = true;
-    #[cfg(not(debug_assertions))]
-    let is_debug = false;
+    let is_debug = cfg!(debug_assertions);
 
     // Prepare notifications.
     notification::prepare();
@@ -61,7 +59,15 @@ pub fn main() -> iced::Result {
     log::info!("config dir: {:?}", environment::config_dir());
     log::info!("data dir: {:?}", environment::data_dir());
 
-    let config_load = Config::load();
+    // spin up a single-threaded tokio runtime to run the config loading task to completion
+    // we don't want to wrap our whole program with a runtime since iced starts its own.
+    let config_load = {
+        let rt = runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+
+        rt.block_on(Config::load())
+    };
 
     // DANGER ZONE - font must be set using config
     // before we do any iced related stuff w/ it
@@ -80,18 +86,15 @@ pub fn main() -> iced::Result {
     //
     // let window_load = Window::load().unwrap_or_default();
 
-    if let Err(error) = iced::daemon("Halloy", Halloy::update, Halloy::view)
+    iced::daemon("Halloy", Halloy::update, Halloy::view)
         .theme(Halloy::theme)
         .scale_factor(Halloy::scale_factor)
         .subscription(Halloy::subscription)
         .settings(settings(&config_load))
         .run_with(move || Halloy::new(config_load.clone(), destination.clone()))
-    {
-        log::error!("{}", error.to_string());
-        Err(error)
-    } else {
-        Ok(())
-    }
+        .inspect_err(|err| log::error!("{}", err))?;
+
+    Ok(())
 }
 
 fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
@@ -200,6 +203,8 @@ pub enum Screen {
 
 #[derive(Debug)]
 pub enum Message {
+    ThemesReloaded(config::Themes),
+    ScreenConfigReloaded(Result<Config, config::Error>),
     Dashboard(dashboard::Message),
     Stream(stream::Update),
     Help(help::Message),
@@ -274,6 +279,15 @@ impl Halloy {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::ThemesReloaded(updated) => {
+                self.config.themes = updated;
+                Task::none()
+            }
+            Message::ScreenConfigReloaded(updated) => {
+                let (halloy, command) = Halloy::load_from_state(self.main_window.id, updated);
+                *self = halloy;
+                command
+            }
             Message::Dashboard(message) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
                     return Task::none();
@@ -291,9 +305,9 @@ impl Halloy {
                 // Retrack after dashboard state changes
                 let track = dashboard.track();
 
-                if let Some(event) = event {
-                    match event {
-                        dashboard::Event::ReloadConfiguration => match Config::load() {
+                let event_task = match event {
+                    Some(dashboard::Event::ConfigReloaded(config)) => {
+                        match config {
                             Ok(updated) => {
                                 let removed_servers = self
                                     .servers
@@ -313,19 +327,21 @@ impl Halloy {
                             Err(error) => {
                                 self.modal = Some(Modal::ReloadConfigurationError(error));
                             }
-                        },
-                        dashboard::Event::ReloadThemes => {
-                            if let Ok(updated) = Config::load() {
-                                self.config.themes = updated.themes;
-                            }
-                        }
-                        dashboard::Event::QuitServer(server) => {
-                            self.clients.quit(&server, None);
-                        }
+                        };
+                        Task::none()
                     }
-                }
+                    Some(dashboard::Event::ReloadThemes) => Task::future(Config::load())
+                        .and_then(|config| Task::done(config.themes))
+                        .map(Message::ThemesReloaded),
+                    Some(dashboard::Event::QuitServer(server)) => {
+                        self.clients.quit(&server, None);
+                        Task::none()
+                    }
+                    None => Task::none(),
+                };
 
                 Task::batch(vec![
+                    event_task,
                     command.map(Message::Dashboard),
                     track.map(Message::Dashboard),
                 ])
@@ -341,57 +357,36 @@ impl Halloy {
                     return Task::none();
                 };
 
-                if let Some(event) = help.update(message) {
-                    match event {
-                        help::Event::RefreshConfiguration => {
-                            let (halloy, command) =
-                                Halloy::load_from_state(self.main_window.id, Config::load());
-                            *self = halloy;
-
-                            return command;
-                        }
+                match help.update(message) {
+                    Some(help::Event::RefreshConfiguration) => {
+                        Task::perform(Config::load(), Message::ScreenConfigReloaded)
                     }
+                    None => Task::none(),
                 }
-
-                Task::none()
             }
             Message::Welcome(message) => {
                 let Screen::Welcome(welcome) = &mut self.screen else {
                     return Task::none();
                 };
 
-                if let Some(event) = welcome.update(message) {
-                    match event {
-                        welcome::Event::RefreshConfiguration => {
-                            let (halloy, command) =
-                                Halloy::load_from_state(self.main_window.id, Config::load());
-                            *self = halloy;
-
-                            return command;
-                        }
+                match welcome.update(message) {
+                    Some(welcome::Event::RefreshConfiguration) => {
+                        Task::perform(Config::load(), Message::ScreenConfigReloaded)
                     }
+                    None => Task::none(),
                 }
-
-                Task::none()
             }
             Message::Migration(message) => {
                 let Screen::Migration(migration) = &mut self.screen else {
                     return Task::none();
                 };
 
-                if let Some(event) = migration.update(message) {
-                    match event {
-                        migration::Event::RefreshConfiguration => {
-                            let (halloy, command) =
-                                Halloy::load_from_state(self.main_window.id, Config::load());
-                            *self = halloy;
-
-                            return command;
-                        }
+                match migration.update(message) {
+                    Some(migration::Event::RefreshConfiguration) => {
+                        Task::perform(Config::load(), Message::ScreenConfigReloaded)
                     }
+                    None => Task::none(),
                 }
-
-                Task::none()
             }
             Message::Stream(update) => match update {
                 stream::Update::Disconnected {
@@ -800,12 +795,9 @@ impl Halloy {
 
     fn view(&self, id: window::Id) -> Element<Message> {
         let content = if id == self.main_window.id {
-            let now = Instant::now();
-
             let screen = match &self.screen {
                 Screen::Dashboard(dashboard) => dashboard
                     .view(
-                        now,
                         &self.clients,
                         &self.version,
                         &self.config,
