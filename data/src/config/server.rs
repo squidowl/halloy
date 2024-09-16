@@ -33,6 +33,8 @@ pub struct Server {
     pub password: Option<String>,
     /// The file with the password to connect to the server.
     pub password_file: Option<String>,
+    /// The command which outputs a password to connect to the server.
+    pub password_command: Option<String>,
     /// A list of channels to join on connection.
     #[serde(default)]
     pub channels: Vec<String>,
@@ -149,6 +151,7 @@ impl Default for Server {
             port: default_tls_port(),
             password: Default::default(),
             password_file: Default::default(),
+            password_command: Default::default(),
             channels: Default::default(),
             channel_keys: Default::default(),
             ping_time: default_ping_time(),

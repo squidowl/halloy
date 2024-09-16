@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
-
 use tokio::fs;
+use tokio::process::Command;
 
 use futures::channel::mpsc::Sender;
 use irc::proto;
@@ -73,16 +73,38 @@ impl Map {
         self.0.iter().map(Entry::from)
     }
 
-    pub async fn read_password_files(&mut self) -> Result<(), Error> {
+    pub async fn read_passwords(&mut self) -> Result<(), Error> {
         for (_, config) in self.0.iter_mut() {
             if let Some(pass_file) = &config.password_file {
-                if config.password.is_some() {
+                if config.password.is_some() || config.password_command.is_some() {
                     return Err(Error::Parse(
-                        "Only one of password and password_file can be set.".to_string(),
+                        "Only one of password, password_file and password_command can be set."
+                            .to_string(),
                     ));
                 }
                 let pass = fs::read_to_string(pass_file).await?;
                 config.password = Some(pass);
+            }
+            if let Some(pass_command) = &config.password_command {
+                if config.password.is_some() {
+                    return Err(Error::Parse(
+                        "Only one of password, password_file and password_command can be set."
+                            .to_string(),
+                    ));
+                }
+                let output = if cfg!(target_os = "windows") {
+                    Command::new("cmd")
+                        .args(["/C", pass_command])
+                        .output()
+                        .await?
+                } else {
+                    Command::new("sh")
+                        .arg("-c")
+                        .arg(pass_command)
+                        .output()
+                        .await?
+                };
+                config.password = Some(String::from_utf8(output.stdout)?);
             }
             if let Some(nick_pass_file) = &config.nick_password_file {
                 if config.nick_password.is_some() {
