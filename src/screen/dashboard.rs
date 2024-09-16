@@ -4,11 +4,11 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use data::config;
 use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
 use data::{client, environment, history, Config, Server, User, Version};
-use data::config;
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, Length, Task, Vector};
@@ -316,21 +316,17 @@ impl Dashboard {
                 };
 
                 let (event_task, event) = match event {
-                    sidebar::Event::Open(kind) => {
-                        (
-                            self.open_buffer(kind, config.buffer.clone().into(), main_window),
-                            None,
-                        )
-                    }
-                    sidebar::Event::Popout(buffer) => {
-                        (
-                            self.open_popout_window(
-                                main_window,
-                                Pane::new(Buffer::from(buffer), config),
-                            ),
-                            None,
-                        )
-                    }
+                    sidebar::Event::Open(kind) => (
+                        self.open_buffer(kind, config.buffer.clone().into(), main_window),
+                        None,
+                    ),
+                    sidebar::Event::Popout(buffer) => (
+                        self.open_popout_window(
+                            main_window,
+                            Pane::new(Buffer::from(buffer), config),
+                        ),
+                        None,
+                    ),
                     sidebar::Event::Focus(window, pane) => {
                         (self.focus_pane(main_window, window, pane), None)
                     }
@@ -366,9 +362,9 @@ impl Dashboard {
                         } else {
                             if let Some((from_state, to_state)) = self
                                 .panes
-                                    .get(main_window.id, from_window, from_pane)
-                                    .cloned()
-                                    .zip(self.panes.get(main_window.id, to_window, to_pane).cloned())
+                                .get(main_window.id, from_window, from_pane)
+                                .cloned()
+                                .zip(self.panes.get(main_window.id, to_window, to_pane).cloned())
                             {
                                 if let Some(state) =
                                     self.panes.get_mut(main_window.id, from_window, from_pane)
@@ -390,18 +386,16 @@ impl Dashboard {
                     sidebar::Event::ToggleFileTransfers => {
                         (self.toggle_file_transfers(config, main_window), None)
                     }
-                    sidebar::Event::ToggleCommandBar => {
-                        (
-                            self.toggle_command_bar(
-                                &closed_buffers(self, main_window.id, clients),
-                                version,
-                                config,
-                                theme,
-                                main_window,
-                            ),
-                            None,
-                        )
-                    }
+                    sidebar::Event::ToggleCommandBar => (
+                        self.toggle_command_bar(
+                            &closed_buffers(self, main_window.id, clients),
+                            version,
+                            config,
+                            theme,
+                            main_window,
+                        ),
+                        None,
+                    ),
                     sidebar::Event::ConfigReloaded(conf) => {
                         (Task::none(), Some(Event::ConfigReloaded(conf)))
                     }
@@ -424,10 +418,7 @@ impl Dashboard {
                 };
 
                 return (
-                    Task::batch(vec![
-                        event_task,
-                        command.map(Message::Sidebar),
-                    ]),
+                    Task::batch(vec![event_task, command.map(Message::Sidebar)]),
                     event,
                 );
             }

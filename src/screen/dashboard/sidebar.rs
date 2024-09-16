@@ -1,4 +1,3 @@
-use std::time::Duration;
 use data::config::{self, sidebar, Config};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{file_transfer, history, Buffer, Version};
@@ -6,7 +5,8 @@ use iced::widget::{
     button, center, column, container, horizontal_space, pane_grid, row, scrollable, text,
     vertical_rule, vertical_space, Column, Row, Scrollable,
 };
-use iced::{Task, padding, Alignment, Length};
+use iced::{padding, Alignment, Length, Task};
+use std::time::Duration;
 
 use tokio::time;
 
@@ -14,7 +14,7 @@ use super::Panes;
 use crate::widget::{context_menu, tooltip, Element};
 use crate::{icon, theme, window};
 
-const CONFIG_RELOAD_DELAY : Duration = Duration::from_secs(1);
+const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -75,33 +75,38 @@ impl Sidebar {
     }
 
     pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
-        let pure_event = match message {
-            Message::Open(source) => Event::Open(source),
-            Message::Popout(source) => Event::Popout(source),
-            Message::Focus(window, pane) => Event::Focus(window, pane),
-            Message::Replace(window, source, pane) => Event::Replace(window, source, pane),
-            Message::Close(window, pane) => Event::Close(window, pane),
-            Message::Swap(from_window, from_pane, to_window, to_pane) => {
-                Event::Swap(from_window, from_pane, to_window, to_pane)
-            },
-            Message::Leave(buffer) => Event::Leave(buffer),
-            Message::ToggleFileTransfers => Event::ToggleFileTransfers,
-            Message::ToggleCommandBar => Event::ToggleCommandBar,
-            Message::ToggleThemeEditor => Event::ToggleThemeEditor,
+        match message {
+            Message::Open(source) => (Task::none(), Some(Event::Open(source))),
+            Message::Popout(source) => (Task::none(), Some(Event::Popout(source))),
+            Message::Focus(window, pane) => (Task::none(), Some(Event::Focus(window, pane))),
+            Message::Replace(window, source, pane) => {
+                (Task::none(), Some(Event::Replace(window, source, pane)))
+            }
+            Message::Close(window, pane) => (Task::none(), Some(Event::Close(window, pane))),
+            Message::Swap(from_window, from_pane, to_window, to_pane) => (
+                Task::none(),
+                Some(Event::Swap(from_window, from_pane, to_window, to_pane)),
+            ),
+            Message::Leave(buffer) => (Task::none(), Some(Event::Leave(buffer))),
+            Message::ToggleFileTransfers => (Task::none(), Some(Event::ToggleFileTransfers)),
+            Message::ToggleCommandBar => (Task::none(), Some(Event::ToggleCommandBar)),
+            Message::ToggleThemeEditor => (Task::none(), Some(Event::ToggleThemeEditor)),
             Message::ReloadingConfigFile => {
                 self.reloading_config = true;
-                return (Task::perform(Config::load(),  Message::ConfigReloaded), None);
-            },
-            Message::ConfigReloaded(config) => {
-                return (Task::perform(time::sleep(CONFIG_RELOAD_DELAY), |_| Message::ReloadComplete), Some(Event::ConfigReloaded(config)));
+                (Task::perform(Config::load(), Message::ConfigReloaded), None)
             }
-            Message::OpenReleaseWebsite => Event::OpenReleaseWebsite,
+            Message::ConfigReloaded(config) => (
+                Task::perform(time::sleep(CONFIG_RELOAD_DELAY), |_| {
+                    Message::ReloadComplete
+                }),
+                Some(Event::ConfigReloaded(config)),
+            ),
+            Message::OpenReleaseWebsite => (Task::none(), Some(Event::OpenReleaseWebsite)),
             Message::ReloadComplete => {
                 self.reloading_config = false;
-                return (Task::none(), None);
-            },
-        };
-        return (Task::none(), Some(pure_event));
+                (Task::none(), None)
+            }
+        }
     }
     pub fn view<'a>(
         &'a self,
@@ -531,7 +536,11 @@ fn menu_buttons<'a>(
         };
 
         let button = button(center(icon))
-            .on_press_maybe(if reloading_config { None } else { Some(Message::ReloadingConfigFile) })
+            .on_press_maybe(if reloading_config {
+                None
+            } else {
+                Some(Message::ReloadingConfigFile)
+            })
             .padding(5)
             .width(22)
             .height(22)
