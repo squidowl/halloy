@@ -6,7 +6,7 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
-use crate::history::{self, metadata::Metadata, History};
+use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::user::Nick;
 use crate::{config, input};
@@ -20,17 +20,26 @@ pub struct Resource {
 
 #[derive(Debug)]
 pub enum Message {
-    Loaded(
+    LoadFull(
         server::Server,
         history::Kind,
-        Result<(Vec<crate::Message>, history::Metadata), history::Error>,
+        Result<history::Loaded, history::Error>,
     ),
-    Closed(server::Server, history::Kind, Result<(), history::Error>),
+    UpdatePartial(
+        server::Server,
+        history::Kind,
+        Result<history::Loaded, history::Error>,
+    ),
+    Closed(
+        server::Server,
+        history::Kind,
+        Result<Option<history::ReadMarker>, history::Error>,
+    ),
     Flushed(server::Server, history::Kind, Result<(), history::Error>),
 }
 
 pub enum Event {
-    LoadHistoryMetadata(server::Server, history::Kind),
+    Closed(server::Server, history::Kind, Option<history::ReadMarker>),
 }
 
 #[derive(Debug, Default)]
@@ -47,7 +56,7 @@ impl Manager {
         let added = added.into_iter().map(|resource| {
             async move {
                 history::load(resource.server.clone(), resource.kind.clone())
-                    .map(move |result| Message::Loaded(resource.server, resource.kind, result))
+                    .map(move |result| Message::LoadFull(resource.server, resource.kind, result))
                     .await
             }
             .boxed()
@@ -69,20 +78,21 @@ impl Manager {
         tasks
     }
 
-    pub fn update(&mut self, message: Message) {
+    pub fn update(&mut self, message: Message) -> Option<Event> {
         match message {
-            Message::Loaded(server, kind, Ok((messages, metadata))) => {
+            Message::LoadFull(server, kind, Ok(loaded)) => {
                 log::debug!(
                     "loaded history for {kind} on {server}: {} messages",
-                    messages.len()
+                    loaded.messages.len()
                 );
-                self.data.loaded(server, kind, messages, metadata);
+                self.data.load_full(server, kind, loaded);
             }
-            Message::Loaded(server, kind, Err(error)) => {
+            Message::LoadFull(server, kind, Err(error)) => {
                 log::warn!("failed to load history for {kind} on {server}: {error}");
             }
-            Message::Closed(server, kind, Ok(_)) => {
+            Message::Closed(server, kind, Ok(read_marker)) => {
                 log::debug!("closed history for {kind} on {server}",);
+                return Some(Event::Closed(server, kind, read_marker));
             }
             Message::Closed(server, kind, Err(error)) => {
                 log::warn!("failed to close history for {kind} on {server}: {error}")
@@ -93,7 +103,16 @@ impl Manager {
             Message::Flushed(server, kind, Err(error)) => {
                 log::warn!("failed to flush history for {kind} on {server}: {error}")
             }
+            Message::UpdatePartial(server, kind, Ok(loaded)) => {
+                log::debug!("loaded history metadata for {kind} on {server}");
+                self.data.update_partial(server, kind, loaded);
+            }
+            Message::UpdatePartial(server, kind, Err(error)) => {
+                log::warn!("failed to load history metadata for {kind} on {server}: {error}");
+            }
         }
+
+        None
     }
 
     pub fn tick(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
@@ -169,74 +188,50 @@ impl Manager {
         }
     }
 
-    pub fn record_input(&mut self, input: Input, user: User, channel_users: &[User]) {
+    pub fn record_input(
+        &mut self,
+        input: Input,
+        user: User,
+        channel_users: &[User],
+    ) -> Vec<impl Future<Output = Message>> {
+        let mut tasks = vec![];
+
         if let Some(messages) = input.messages(user, channel_users) {
             for message in messages {
-                self.record_message(input.server(), message);
+                tasks.extend(self.record_message(input.server(), message));
             }
         }
 
         if let Some(text) = input.raw() {
             self.data.input.record(input.buffer(), text.to_string());
         }
+
+        tasks
     }
 
     pub fn record_draft(&mut self, draft: input::Draft) {
         self.data.input.store_draft(draft);
     }
 
-    pub fn record_message(&mut self, server: &Server, message: crate::Message) {
+    pub fn record_message(
+        &mut self,
+        server: &Server,
+        message: crate::Message,
+    ) -> Option<impl Future<Output = Message>> {
         self.data.add_message(
             server.clone(),
             history::Kind::from(message.target.clone()),
             message,
-        );
-    }
-
-    pub fn get_read_marker(&self, server: &Server, kind: &history::Kind) -> Option<DateTime<Utc>> {
-        self.data.get_read_marker(server, kind)
+        )
     }
 
     pub fn update_read_marker(
         &mut self,
-        server: &Server,
-        kind: &history::Kind,
-        read_marker: Option<DateTime<Utc>>,
-    ) -> bool {
+        server: Server,
+        kind: history::Kind,
+        read_marker: history::ReadMarker,
+    ) -> Option<impl Future<Output = Message>> {
         self.data.update_read_marker(server, kind, read_marker)
-    }
-
-    pub fn inc_unread_count(&mut self, server: &Server, kind: &history::Kind, increment: usize) {
-        if let Some(ref mut history) = self
-            .data
-            .map
-            .get_mut(server)
-            .and_then(|map| map.get_mut(kind))
-        {
-            history.inc_unread_count(increment);
-        }
-    }
-
-    pub fn stored_messages_may_be_unread(
-        &self,
-        server: &Server,
-        kind: &history::Kind,
-        read_marker: Option<DateTime<Utc>>,
-    ) -> bool {
-        if let Some(ref mut history) = self.data.map.get(server).and_then(|map| map.get(kind)) {
-            match history {
-                History::Partial { messages, .. } => {
-                    if let Some(message) = messages.iter().next() {
-                        if !history::after_read_marker(message, &read_marker) {
-                            return false;
-                        }
-                    }
-                }
-                History::Full { .. } => return false,
-            }
-        }
-
-        true
     }
 
     pub fn get_channel_messages(
@@ -301,15 +296,7 @@ impl Manager {
             .map
             .get(server)
             .and_then(|map| map.get(kind))
-            .map(|history| {
-                matches!(
-                    history,
-                    History::Partial {
-                        unread_message_count,
-                        ..
-                    } if *unread_message_count > 0
-                )
-            })
+            .map(|history| history.has_unread())
             .unwrap_or_default()
     }
 
@@ -472,14 +459,13 @@ struct Data {
 }
 
 impl Data {
-    fn loaded(
-        &mut self,
-        server: server::Server,
-        kind: history::Kind,
-        mut messages: Vec<crate::Message>,
-        metadata: Metadata,
-    ) {
+    fn load_full(&mut self, server: server::Server, kind: history::Kind, data: history::Loaded) {
         use std::collections::hash_map;
+
+        let history::Loaded {
+            mut messages,
+            metadata,
+        } = data;
 
         match self
             .map
@@ -490,21 +476,21 @@ impl Data {
             hash_map::Entry::Occupied(mut entry) => match entry.get_mut() {
                 History::Partial {
                     messages: new_messages,
-                    last_received_at,
+                    last_updated_at,
                     metadata: partial_metadata,
                     ..
                 } => {
                     // In-memory metadata will always be more up-to-date than disk
                     // since we might not have flushed this yet
-                    let metadata = partial_metadata.clone();
+                    let metadata = *partial_metadata;
 
-                    let last_received_at = *last_received_at;
+                    let last_updated_at = *last_updated_at;
                     messages.extend(std::mem::take(new_messages));
                     entry.insert(History::Full {
                         server,
                         kind,
                         messages,
-                        last_received_at,
+                        last_updated_at,
                         metadata,
                     });
                 }
@@ -513,7 +499,7 @@ impl Data {
                         server,
                         kind,
                         messages,
-                        last_received_at: None,
+                        last_updated_at: None,
                         metadata,
                     });
                 }
@@ -523,10 +509,21 @@ impl Data {
                     server,
                     kind,
                     messages,
-                    last_received_at: None,
+                    last_updated_at: None,
                     metadata,
                 });
             }
+        }
+    }
+
+    fn update_partial(
+        &mut self,
+        server: server::Server,
+        kind: history::Kind,
+        data: history::Loaded,
+    ) {
+        if let Some(history) = self.map.get_mut(&server).and_then(|map| map.get_mut(&kind)) {
+            history.update_partial(data);
         }
     }
 
@@ -657,7 +654,7 @@ impl Data {
             limited
                 .iter()
                 .rev()
-                .position(|message| message.server_time <= read_marker)
+                .position(|message| message.server_time <= read_marker.date_time())
                 .map_or(limited.len(), |position| limited.len() - position)
         });
 
@@ -677,7 +674,7 @@ impl Data {
         server: server::Server,
         kind: history::Kind,
         message: crate::Message,
-    ) -> Option<Event> {
+    ) -> Option<impl Future<Output = Message>> {
         use std::collections::hash_map;
 
         match self
@@ -693,45 +690,62 @@ impl Data {
             }
             hash_map::Entry::Vacant(entry) => {
                 entry
-                    .insert(History::partial(
-                        server.clone(),
-                        kind.clone(),
-                        Metadata::default(),
-                    ))
+                    .insert(History::partial(server.clone(), kind.clone()))
                     .add_message(message);
 
-                Some(Event::LoadHistoryMetadata(server.clone(), kind.clone()))
+                Some(
+                    async move {
+                        let loaded = history::load(server.clone(), kind.clone()).await;
+
+                        Message::UpdatePartial(server, kind, loaded)
+                    }
+                    .boxed(),
+                )
             }
         }
     }
 
-    fn get_read_marker(
-        &self,
-        server: &server::Server,
-        kind: &history::Kind,
-    ) -> Option<DateTime<Utc>> {
-        self.map.get(server)?.get(kind)?.get_read_marker()
-    }
-
     fn update_read_marker(
         &mut self,
-        server: &server::Server,
-        kind: &history::Kind,
-        read_marker: Option<DateTime<Utc>>,
-    ) -> bool {
-        self.map
+        server: server::Server,
+        kind: history::Kind,
+        read_marker: history::ReadMarker,
+    ) -> Option<impl Future<Output = Message>> {
+        use std::collections::hash_map;
+
+        match self
+            .map
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| History::partial(server.clone(), kind.clone(), Metadata::default()))
-            .update_read_marker(read_marker)
+        {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().update_read_marker(read_marker);
+
+                None
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry
+                    .insert(History::partial(server.clone(), kind.clone()))
+                    .update_read_marker(read_marker);
+
+                Some(
+                    async move {
+                        let loaded = history::load(server.clone(), kind.clone()).await;
+
+                        Message::UpdatePartial(server, kind, loaded)
+                    }
+                    .boxed(),
+                )
+            }
+        }
     }
 
     fn untrack(
         &mut self,
         server: &server::Server,
         kind: &history::Kind,
-    ) -> Option<impl Future<Output = Result<(), history::Error>>> {
+    ) -> Option<impl Future<Output = Result<Option<history::ReadMarker>, history::Error>>> {
         self.map
             .get_mut(server)
             .and_then(|map| map.get_mut(kind).and_then(History::make_partial))

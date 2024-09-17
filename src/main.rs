@@ -19,9 +19,9 @@ mod window;
 use std::env;
 use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use data::config::{self, Config};
-use data::history::{self, metadata::read_marker_to_string};
+use data::history;
 use data::version::Version;
 use data::{environment, server, version, Url, User};
 use iced::widget::{column, container};
@@ -218,7 +218,6 @@ pub enum Message {
     RouteReceived(String),
     Window(window::Id, window::Event),
     WindowSettingsSaved(Result<(), window::Error>),
-    UpdateReadMarker(server::Server, history::Kind, Option<DateTime<Utc>>),
 }
 
 impl Halloy {
@@ -646,58 +645,18 @@ impl Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
-                                    data::client::Event::LoadHistoryMetadata(target) => {
-                                        let server = server.clone();
-                                        let kind = history::Kind::from(target);
-
-                                        commands.push(Task::perform(
-                                            history::metadata::load(server.clone(), kind.clone()),
-                                            move |metadata| {
-                                                let metadata = metadata.unwrap_or_default();
-
-                                                Message::UpdateReadMarker(
-                                                    server.clone(),
-                                                    kind.clone(),
-                                                    metadata.read_marker,
-                                                )
-                                            },
-                                        ));
-                                    }
                                     data::client::Event::UpdateReadMarker(target, read_marker) => {
-                                        let server = server.clone();
                                         let kind = history::Kind::from(target);
 
-                                        if dashboard.update_read_marker(&server, &kind, read_marker)
-                                        {
-                                            log::debug!(
-                                                "[{server}] updated read-marker for {kind} to {}",
-                                                read_marker_to_string(&read_marker),
-                                            );
-
-                                            if dashboard.stored_messages_may_be_unread(
-                                                &server,
-                                                &kind,
-                                                read_marker,
-                                            ) {
-                                                commands.push(Task::perform(
-                                                    history::num_stored_unread_messages(
-                                                        server.clone(),
-                                                        kind.clone(),
-                                                        read_marker,
-                                                    ),
-                                                    move |num_stored_unread_messages| {
-                                                        Message::Dashboard(
-                                                            dashboard::Message::IncrementUnread(
-                                                                server.clone(),
-                                                                kind.clone(),
-                                                                read_marker,
-                                                                num_stored_unread_messages,
-                                                            ),
-                                                        )
-                                                    },
-                                                ));
-                                            }
-                                        }
+                                        commands.push(
+                                            dashboard
+                                                .update_read_marker(
+                                                    server.clone(),
+                                                    kind,
+                                                    read_marker,
+                                                )
+                                                .map(Message::Dashboard),
+                                        );
                                     }
                                 }
                             }
@@ -841,49 +800,6 @@ impl Halloy {
             Message::WindowSettingsSaved(result) => {
                 if let Err(err) = result {
                     log::error!("window settings failed to save: {:?}", err)
-                }
-
-                Task::none()
-            }
-            Message::UpdateReadMarker(server, kind, read_marker) => {
-                if let Screen::Dashboard(dashboard) = &mut self.screen {
-                    if dashboard.update_read_marker(&server, &kind, read_marker) {
-                        log::debug!(
-                            "[{server}] updated read-marker for {kind} to {}",
-                            read_marker_to_string(&read_marker),
-                        );
-
-                        if let Some(read_marker) = read_marker {
-                            match kind.clone() {
-                                history::Kind::Server => (),
-                                history::Kind::Channel(channel) => {
-                                    self.clients.send_markread(&server, &channel, read_marker)
-                                }
-                                history::Kind::Query(nick) => {
-                                    self.clients
-                                        .send_markread(&server, nick.as_ref(), read_marker)
-                                }
-                            }
-                        }
-
-                        if dashboard.stored_messages_may_be_unread(&server, &kind, read_marker) {
-                            return Task::perform(
-                                history::num_stored_unread_messages(
-                                    server.clone(),
-                                    kind.clone(),
-                                    read_marker,
-                                ),
-                                move |num_stored_unread_messages| {
-                                    Message::Dashboard(dashboard::Message::IncrementUnread(
-                                        server.clone(),
-                                        kind.clone(),
-                                        read_marker,
-                                        num_stored_unread_messages,
-                                    ))
-                                },
-                            );
-                        }
-                    }
                 }
 
                 Task::none()
