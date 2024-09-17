@@ -2,7 +2,7 @@ use iced::advanced::renderer::Quad;
 use iced::advanced::text::{paragraph, Paragraph};
 use iced::advanced::widget::{operation, tree, Operation, Tree};
 use iced::advanced::{layout, mouse, renderer, text, widget, Layout, Widget};
-use iced::widget::text::{Fragment, IntoFragment};
+use iced::widget::text::{Fragment, IntoFragment, Wrapping};
 use iced::widget::text_input::Value;
 use iced::{
     alignment, event, touch, Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow,
@@ -38,6 +38,7 @@ where
     vertical_alignment: alignment::Vertical,
     font: Option<Renderer::Font>,
     shaping: Shaping,
+    wrapping: Wrapping,
     class: Theme::Class<'a>,
 }
 
@@ -60,6 +61,7 @@ where
             shaping: Shaping::Basic,
             #[cfg(not(debug_assertions))]
             shaping: Shaping::Advanced,
+            wrapping: Default::default(),
             class: Theme::default(),
         }
     }
@@ -164,6 +166,7 @@ where
                 horizontal_alignment: self.horizontal_alignment,
                 vertical_alignment: self.vertical_alignment,
                 shaping: self.shaping,
+                wrapping: self.wrapping,
             });
 
             state.paragraph.min_bounds()
