@@ -6,7 +6,7 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
-use crate::history::{self, History};
+use crate::history::{self, metadata::Metadata, History};
 use crate::message::{self, Limit};
 use crate::user::Nick;
 use crate::{config, input};
@@ -30,7 +30,7 @@ pub enum Message {
 }
 
 pub enum Event {
-    LoadReadMarker(server::Server, history::Kind),
+    LoadHistoryMetadata(server::Server, history::Kind),
 }
 
 #[derive(Debug, Default)]
@@ -490,18 +490,18 @@ impl Data {
                 History::Partial {
                     messages: new_messages,
                     last_received_at,
-                    read_marker,
+                    metadata,
                     ..
                 } => {
+                    let metadata = metadata.clone();
                     let last_received_at = *last_received_at;
-                    let read_marker = *read_marker;
                     messages.extend(std::mem::take(new_messages));
                     entry.insert(History::Full {
                         server,
                         kind,
                         messages,
                         last_received_at,
-                        read_marker,
+                        metadata,
                     });
                 }
                 _ => {
@@ -510,7 +510,7 @@ impl Data {
                         kind,
                         messages,
                         last_received_at: None,
-                        read_marker: None,
+                        metadata: Metadata::default(),
                     });
                 }
             },
@@ -520,7 +520,7 @@ impl Data {
                     kind,
                     messages,
                     last_received_at: None,
-                    read_marker: None,
+                    metadata: Metadata::default(),
                 });
             }
         }
@@ -534,9 +534,7 @@ impl Data {
         buffer_config: &config::Buffer,
     ) -> Option<history::View> {
         let History::Full {
-            messages,
-            read_marker,
-            ..
+            messages, metadata, ..
         } = self.map.get(server)?.get(kind)?
         else {
             return None;
@@ -651,7 +649,7 @@ impl Data {
 
         let limited = with_limit(limit, filtered.into_iter());
 
-        let split_at = read_marker.map_or(0, |read_marker| {
+        let split_at = metadata.read_marker.map_or(0, |read_marker| {
             limited
                 .iter()
                 .rev()
@@ -691,10 +689,14 @@ impl Data {
             }
             hash_map::Entry::Vacant(entry) => {
                 entry
-                    .insert(History::partial(server.clone(), kind.clone(), None))
+                    .insert(History::partial(
+                        server.clone(),
+                        kind.clone(),
+                        Metadata::default(),
+                    ))
                     .add_message(message);
 
-                Some(Event::LoadReadMarker(server.clone(), kind.clone()))
+                Some(Event::LoadHistoryMetadata(server.clone(), kind.clone()))
             }
         }
     }
@@ -717,7 +719,7 @@ impl Data {
             .entry(server.clone())
             .or_default()
             .entry(kind.clone())
-            .or_insert_with(|| History::partial(server.clone(), kind.clone(), None))
+            .or_insert_with(|| History::partial(server.clone(), kind.clone(), Metadata::default()))
             .update_read_marker(read_marker)
     }
 

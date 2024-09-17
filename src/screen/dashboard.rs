@@ -499,16 +499,16 @@ impl Dashboard {
                 if let history::manager::Message::Closed(ref server, ref kind, Ok(_)) = message {
                     match kind {
                         history::Kind::Server => (),
-                        history::Kind::Channel(channel) => clients.send_markread(
-                            server,
-                            channel,
-                            self.get_read_marker(server, kind),
-                        ),
-                        history::Kind::Query(nick) => clients.send_markread(
-                            server,
-                            nick.as_ref(),
-                            self.get_read_marker(server, kind),
-                        ),
+                        history::Kind::Channel(channel) => {
+                            if let Some(read_marker) = self.get_read_marker(server, kind) {
+                                clients.send_markread(server, channel, read_marker)
+                            }
+                        }
+                        history::Kind::Query(nick) => {
+                            if let Some(read_marker) = self.get_read_marker(server, kind) {
+                                clients.send_markread(server, nick.as_ref(), read_marker)
+                            }
+                        }
                     }
                 }
 

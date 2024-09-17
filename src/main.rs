@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
 use data::config::{self, Config};
-use data::history::{self, read_marker_to_string};
+use data::history::{self, metadata::read_marker_to_string};
 use data::version::Version;
 use data::{environment, server, version, Url, User};
 use iced::widget::{column, container};
@@ -646,17 +646,19 @@ impl Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
-                                    data::client::Event::LoadReadMarker(target) => {
+                                    data::client::Event::LoadHistoryMetadata(target) => {
                                         let server = server.clone();
                                         let kind = history::Kind::from(target);
 
                                         commands.push(Task::perform(
-                                            history::load_read_marker(server.clone(), kind.clone()),
-                                            move |read_marker| {
+                                            history::metadata::load(server.clone(), kind.clone()),
+                                            move |metadata| {
+                                                let metadata = metadata.unwrap_or_default();
+
                                                 Message::UpdateReadMarker(
                                                     server.clone(),
                                                     kind.clone(),
-                                                    read_marker.ok().flatten(),
+                                                    metadata.read_marker,
                                                 )
                                             },
                                         ));
@@ -851,14 +853,16 @@ impl Halloy {
                             read_marker_to_string(&read_marker),
                         );
 
-                        match kind.clone() {
-                            history::Kind::Server => (),
-                            history::Kind::Channel(channel) => {
-                                self.clients.send_markread(&server, &channel, read_marker)
-                            }
-                            history::Kind::Query(nick) => {
-                                self.clients
-                                    .send_markread(&server, nick.as_ref(), read_marker)
+                        if let Some(read_marker) = read_marker {
+                            match kind.clone() {
+                                history::Kind::Server => (),
+                                history::Kind::Channel(channel) => {
+                                    self.clients.send_markread(&server, &channel, read_marker)
+                                }
+                                history::Kind::Query(nick) => {
+                                    self.clients
+                                        .send_markread(&server, nick.as_ref(), read_marker)
+                                }
                             }
                         }
 
