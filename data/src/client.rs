@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, Instant};
 
-use crate::history::read_marker_to_string;
+use crate::history::metadata::read_marker_to_string;
 use crate::message::server_time;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -80,7 +80,7 @@ pub enum Event {
     Broadcast(Broadcast),
     Notification(message::Encoded, Nick, Notification),
     FileTransferRequest(file_transfer::ReceiveRequest),
-    LoadReadMarker(String),
+    LoadHistoryMetadata(String),
     UpdateReadMarker(String, Option<DateTime<Utc>>),
 }
 
@@ -1256,15 +1256,13 @@ impl Client {
         Some(vec![Event::Single(message, self.nickname().to_owned())])
     }
 
-    pub fn send_markread(&mut self, target: &str, read_marker: Option<DateTime<Utc>>) {
+    pub fn send_markread(&mut self, target: &str, read_marker: DateTime<Utc>) {
         if self.supports_read_marker {
-            if let Some(read_marker) = read_marker {
-                let _ = self.handle.try_send(command!(
-                    "MARKREAD",
-                    target.to_string(),
-                    format!("timestamp={}", read_marker_to_string(&Some(read_marker))),
-                ));
-            }
+            let _ = self.handle.try_send(command!(
+                "MARKREAD",
+                target.to_string(),
+                format!("timestamp={}", read_marker_to_string(&Some(read_marker))),
+            ));
         }
     }
 
@@ -1467,12 +1465,7 @@ impl Map {
         }
     }
 
-    pub fn send_markread(
-        &mut self,
-        server: &Server,
-        target: &str,
-        read_marker: Option<DateTime<Utc>>,
-    ) {
+    pub fn send_markread(&mut self, server: &Server, target: &str, read_marker: DateTime<Utc>) {
         if let Some(client) = self.client_mut(server) {
             client.send_markread(target, read_marker);
         }
