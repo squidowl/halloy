@@ -2046,7 +2046,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=9628dc20d5dab128b9fff2c4b73cc66b0071e149#9628dc20d5dab128b9fff2c4b73cc66b0071e149"
+source = "git+https://github.com/iced-rs/iced?rev=8fb939b5a920e0cd836dbdd24c948f8f2512fc7e#8fb939b5a920e0cd836dbdd24c948f8f2512fc7e"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -2060,7 +2060,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=9628dc20d5dab128b9fff2c4b73cc66b0071e149#9628dc20d5dab128b9fff2c4b73cc66b0071e149"
+source = "git+https://github.com/iced-rs/iced?rev=8fb939b5a920e0cd836dbdd24c948f8f2512fc7e#8fb939b5a920e0cd836dbdd24c948f8f2512fc7e"
 dependencies = [
  "bitflags 2.6.0",
  "bytes",
@@ -2079,7 +2079,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=9628dc20d5dab128b9fff2c4b73cc66b0071e149#9628dc20d5dab128b9fff2c4b73cc66b0071e149"
+source = "git+https://github.com/iced-rs/iced?rev=8fb939b5a920e0cd836dbdd24c948f8f2512fc7e#8fb939b5a920e0cd836dbdd24c948f8f2512fc7e"
 dependencies = [
  "futures",
  "iced_core",
@@ -2093,7 +2093,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=9628dc20d5dab128b9fff2c4b73cc66b0071e149#9628dc20d5dab128b9fff2c4b73cc66b0071e149"
+source = "git+https://github.com/iced-rs/iced?rev=8fb939b5a920e0cd836dbdd24c948f8f2512fc7e#8fb939b5a920e0cd836dbdd24c948f8f2512fc7e"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
@@ -2114,7 +2114,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=9628dc20d5dab128b9fff2c4b73cc66b0071e149#9628dc20d5dab128b9fff2c4b73cc66b0071e149"
+source = "git+https://github.com/iced-rs/iced?rev=8fb939b5a920e0cd836dbdd24c948f8f2512fc7e#8fb939b5a920e0cd836dbdd24c948f8f2512fc7e"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -2126,7 +2126,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=9628dc20d5dab128b9fff2c4b73cc66b0071e149#9628dc20d5dab128b9fff2c4b73cc66b0071e149"
+source = "git+https://github.com/iced-rs/iced?rev=8fb939b5a920e0cd836dbdd24c948f8f2512fc7e#8fb939b5a920e0cd836dbdd24c948f8f2512fc7e"
 dependencies = [
  "bytes",
  "iced_core",
@@ -2138,7 +2138,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=9628dc20d5dab128b9fff2c4b73cc66b0071e149#9628dc20d5dab128b9fff2c4b73cc66b0071e149"
+source = "git+https://github.com/iced-rs/iced?rev=8fb939b5a920e0cd836dbdd24c948f8f2512fc7e#8fb939b5a920e0cd836dbdd24c948f8f2512fc7e"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -2153,7 +2153,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=9628dc20d5dab128b9fff2c4b73cc66b0071e149#9628dc20d5dab128b9fff2c4b73cc66b0071e149"
+source = "git+https://github.com/iced-rs/iced?rev=8fb939b5a920e0cd836dbdd24c948f8f2512fc7e#8fb939b5a920e0cd836dbdd24c948f8f2512fc7e"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
@@ -2172,7 +2172,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=9628dc20d5dab128b9fff2c4b73cc66b0071e149#9628dc20d5dab128b9fff2c4b73cc66b0071e149"
+source = "git+https://github.com/iced-rs/iced?rev=8fb939b5a920e0cd836dbdd24c948f8f2512fc7e#8fb939b5a920e0cd836dbdd24c948f8f2512fc7e"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -2187,7 +2187,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.13.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=9628dc20d5dab128b9fff2c4b73cc66b0071e149#9628dc20d5dab128b9fff2c4b73cc66b0071e149"
+source = "git+https://github.com/iced-rs/iced?rev=8fb939b5a920e0cd836dbdd24c948f8f2512fc7e#8fb939b5a920e0cd836dbdd24c948f8f2512fc7e"
 dependencies = [
  "iced_futures",
  "iced_graphics",
