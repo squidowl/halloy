@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, Instant};
 
-use crate::history::metadata::read_marker_to_string;
+use crate::history::ReadMarker;
 use crate::message::server_time;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -80,8 +80,7 @@ pub enum Event {
     Broadcast(Broadcast),
     Notification(message::Encoded, Nick, Notification),
     FileTransferRequest(file_transfer::ReceiveRequest),
-    LoadHistoryMetadata(String),
-    UpdateReadMarker(String, Option<DateTime<Utc>>),
+    UpdateReadMarker(String, ReadMarker),
 }
 
 pub struct Client {
@@ -1243,12 +1242,12 @@ impl Client {
                 return None;
             }
             Command::MARKREAD(target, Some(timestamp)) => {
-                let timestamp = timestamp.strip_prefix("timestamp=").and_then(|timestamp| {
-                    DateTime::parse_from_rfc3339(timestamp)
-                        .ok()
-                        .map(|dt| dt.with_timezone(&Utc))
-                });
-                return Some(vec![Event::UpdateReadMarker(target.clone(), timestamp)]);
+                if let Some(read_marker) = timestamp
+                    .strip_prefix("timestamp=")
+                    .and_then(|timestamp| timestamp.parse::<ReadMarker>().ok())
+                {
+                    return Some(vec![Event::UpdateReadMarker(target.clone(), read_marker)]);
+                }
             }
             _ => {}
         }
@@ -1256,12 +1255,12 @@ impl Client {
         Some(vec![Event::Single(message, self.nickname().to_owned())])
     }
 
-    pub fn send_markread(&mut self, target: &str, read_marker: DateTime<Utc>) {
+    pub fn send_markread(&mut self, target: &str, read_marker: ReadMarker) {
         if self.supports_read_marker {
             let _ = self.handle.try_send(command!(
                 "MARKREAD",
                 target.to_string(),
-                format!("timestamp={}", read_marker_to_string(&Some(read_marker))),
+                format!("timestamp={read_marker}"),
             ));
         }
     }
@@ -1465,7 +1464,7 @@ impl Map {
         }
     }
 
-    pub fn send_markread(&mut self, server: &Server, target: &str, read_marker: DateTime<Utc>) {
+    pub fn send_markread(&mut self, server: &Server, target: &str, read_marker: ReadMarker) {
         if let Some(client) = self.client_mut(server) {
             client.send_markread(target, read_marker);
         }

@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use data::environment::RELEASE_WEBSITE;
+use data::history::ReadMarker;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::slice;
@@ -59,8 +60,6 @@ pub enum Message {
     CloseContextMenu(bool),
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
-    IncrementUnread(Server, history::Kind, Option<DateTime<Utc>>, usize),
-    UpdateReadMarker(Server, history::Kind, Option<DateTime<Utc>>),
 }
 
 #[derive(Debug)]
@@ -156,12 +155,12 @@ impl Dashboard {
                                 config,
                             );
 
-                            let command = command.map(move |message| {
+                            let task = command.map(move |message| {
                                 Message::Pane(window, pane::Message::Buffer(id, message))
                             });
 
                             let Some(event) = event else {
-                                return (command, None);
+                                return (task, None);
                             };
 
                             match event {
@@ -172,11 +171,11 @@ impl Dashboard {
                                             mode,
                                         ) => {
                                             let Some(buffer) = pane.buffer.data() else {
-                                                return (command, None);
+                                                return (task, None);
                                             };
 
                                             let Some(target) = buffer.target() else {
-                                                return (command, None);
+                                                return (task, None);
                                             };
 
                                             let command = data::Command::Mode(
@@ -228,12 +227,23 @@ impl Dashboard {
                                                     if let Some(messages) =
                                                         input.messages(user, channel_users)
                                                     {
+                                                        let mut tasks = vec![task];
+
                                                         for message in messages {
-                                                            self.history.record_message(
-                                                                input.server(),
-                                                                message,
-                                                            );
+                                                            if let Some(task) =
+                                                                self.history.record_message(
+                                                                    input.server(),
+                                                                    message,
+                                                                )
+                                                            {
+                                                                tasks.push(Task::perform(
+                                                                    task,
+                                                                    Message::History,
+                                                                ));
+                                                            }
                                                         }
+
+                                                        return (Task::batch(tasks), None);
                                                     }
                                                 }
                                             }
@@ -246,7 +256,7 @@ impl Dashboard {
                                                 );
                                                 return (
                                                     Task::batch(vec![
-                                                        command,
+                                                        task,
                                                         self.open_buffer(
                                                             buffer,
                                                             config.buffer.clone().into(),
@@ -261,12 +271,12 @@ impl Dashboard {
                                             let Some((_, pane, history)) =
                                                 self.get_focused_with_history_mut(main_window)
                                             else {
-                                                return (command, None);
+                                                return (task, None);
                                             };
 
                                             return (
                                                 Task::batch(vec![
-                                                    command,
+                                                    task,
                                                     pane.buffer
                                                         .insert_user_to_input(nick, history)
                                                         .map(move |message| {
@@ -287,7 +297,7 @@ impl Dashboard {
 
                                                 return (
                                                     Task::batch(vec![
-                                                        command,
+                                                        task,
                                                         Task::perform(
                                                             async move {
                                                                 rfd::AsyncFileDialog::new()
@@ -321,7 +331,7 @@ impl Dashboard {
                                     {
                                         return (
                                             Task::batch(vec![
-                                                command,
+                                                task,
                                                 self.open_channel(
                                                     server,
                                                     channel,
@@ -336,7 +346,7 @@ impl Dashboard {
                                 }
                             }
 
-                            return (command, None);
+                            return (task, None);
                         }
                     }
                     pane::Message::ToggleShowUserList => {
@@ -496,23 +506,15 @@ impl Dashboard {
                 }
             }
             Message::History(message) => {
-                if let history::manager::Message::Closed(ref server, ref kind, Ok(_)) = message {
-                    match kind {
-                        history::Kind::Server => (),
-                        history::Kind::Channel(channel) => {
-                            if let Some(read_marker) = self.get_read_marker(server, kind) {
-                                clients.send_markread(server, channel, read_marker)
-                            }
-                        }
-                        history::Kind::Query(nick) => {
-                            if let Some(read_marker) = self.get_read_marker(server, kind) {
-                                clients.send_markread(server, nick.as_ref(), read_marker)
+                if let Some(event) = self.history.update(message) {
+                    match event {
+                        history::manager::Event::Closed(server, kind, read_marker) => {
+                            if let Some((target, read_marker)) = kind.target().zip(read_marker) {
+                                clients.send_markread(&server, target, read_marker);
                             }
                         }
                     }
                 }
-
-                self.history.update(message);
             }
             Message::DashboardSaved(Ok(_)) => {
                 log::info!("dashboard saved");
@@ -813,14 +815,6 @@ impl Dashboard {
             }
             Message::ConfigReloaded(config) => {
                 return (Task::none(), Some(Event::ConfigReloaded(config)));
-            }
-            Message::IncrementUnread(server, kind, read_marker, increment) => {
-                if self.get_read_marker(&server, &kind) == read_marker {
-                    self.inc_unread_count(&server, &kind, increment);
-                }
-            }
-            Message::UpdateReadMarker(server, kind, read_marker) => {
-                self.update_read_marker(&server, &kind, read_marker);
             }
         }
 
@@ -1349,31 +1343,17 @@ impl Dashboard {
         );
     }
 
-    pub fn get_read_marker(&self, server: &Server, kind: &history::Kind) -> Option<DateTime<Utc>> {
-        self.history.get_read_marker(server, kind)
-    }
-
     pub fn update_read_marker(
         &mut self,
-        server: &Server,
-        kind: &history::Kind,
-        read_marker: Option<DateTime<Utc>>,
-    ) -> bool {
-        self.history.update_read_marker(server, kind, read_marker)
-    }
-
-    pub fn inc_unread_count(&mut self, server: &Server, kind: &history::Kind, increment: usize) {
-        self.history.inc_unread_count(server, kind, increment);
-    }
-
-    pub fn stored_messages_may_be_unread(
-        &self,
-        server: &Server,
-        kind: &history::Kind,
-        read_marker: Option<DateTime<Utc>>,
-    ) -> bool {
-        self.history
-            .stored_messages_may_be_unread(server, kind, read_marker)
+        server: Server,
+        kind: history::Kind,
+        read_marker: ReadMarker,
+    ) -> Task<Message> {
+        if let Some(task) = self.history.update_read_marker(server, kind, read_marker) {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
     }
 
     fn get_focused_mut(
