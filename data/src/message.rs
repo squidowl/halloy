@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::iter;
 
 use chrono::{DateTime, Utc};
 use const_format::concatcp;
@@ -329,7 +330,7 @@ pub fn parse_fragments(text: String, channel_users: &[User]) -> Content {
                 }
             }
 
-            Either::Right(std::iter::once(fragment))
+            Either::Right(iter::once(fragment))
         })
         .flat_map(|fragment| {
             if let Fragment::Text(text) = &fragment {
@@ -338,7 +339,7 @@ pub fn parse_fragments(text: String, channel_users: &[User]) -> Content {
                 );
             }
 
-            Either::Right(std::iter::once(fragment))
+            Either::Right(iter::once(fragment))
         })
         .collect::<Vec<_>>();
 
@@ -386,25 +387,48 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
     text.chars()
         .group_by(|c| c.is_whitespace())
         .into_iter()
-        .map(|(is_whitespace, chars)| {
+        .flat_map(|(is_whitespace, chars)| {
             let text = chars.collect::<String>();
             let trimmed = text.trim_matches(|c: char| c.is_ascii_punctuation());
             let lower = text.to_ascii_lowercase();
             let lower_trimmed = trimmed.to_ascii_lowercase();
 
             if !is_whitespace {
-                if let Some(user) = channel_users.iter().find(|user| {
+                if let Some((is_trimmed, user)) = channel_users.iter().find_map(|user| {
                     let nickname = user.nickname();
                     let nick = nickname.as_ref();
+                    // TODO: Consider server case-mapping settings vs just ascii lowercase
                     let nick_lower = nick.to_ascii_lowercase();
 
-                    // TODO: Consider server case-mapping settings vs just ascii lowercase
-                    nick == text
-                        || nick == trimmed
-                        || nick_lower == lower
-                        || nick_lower == lower_trimmed
+                    if nick == text || nick_lower == lower {
+                        Some((false, user.clone()))
+                    } else if nick == trimmed || nick_lower == lower_trimmed {
+                        Some((true, user.clone()))
+                    } else {
+                        None
+                    }
                 }) {
-                    return Fragment::User(user.clone(), text);
+                    if is_trimmed {
+                        let prefix_end = text.find(|c: char| !c.is_ascii_punctuation());
+                        let suffix_start = text
+                            .rfind(|c: char| !c.is_ascii_punctuation())
+                            .map(|i| i + 1)
+                            .filter(|i| *i < text.len());
+                        let middle = prefix_end.unwrap_or(0)..suffix_start.unwrap_or(text.len());
+
+                        return Either::Right(
+                            prefix_end
+                                .map(|i| Fragment::Text(text[0..i].to_string()))
+                                .into_iter()
+                                .chain(Some(Fragment::User(user, text[middle].to_string())))
+                                .chain(
+                                    suffix_start
+                                        .map(|i| Fragment::Text(text[i..text.len()].to_string())),
+                                ),
+                        );
+                    } else {
+                        return Either::Left(iter::once(Fragment::User(user.clone(), text)));
+                    }
                 }
                 // Only parse on `#` since it's most common and
                 // using &!+ leads to more false positives than not
@@ -413,11 +437,11 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
                     .map_or(false, |rest| !rest.is_empty())
                     && !text.contains(proto::CHANNEL_BLACKLIST_CHARS)
                 {
-                    return Fragment::Channel(text);
+                    return Either::Left(iter::once(Fragment::Channel(text)));
                 }
             }
 
-            Fragment::Text(text)
+            Either::Left(iter::once(Fragment::Text(text)))
         })
         .fold(vec![], |mut acc, fragment| {
             if let Some(Fragment::Text(text)) = acc.last_mut() {
