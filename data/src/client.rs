@@ -379,9 +379,10 @@ impl Client {
                     if !requested.is_empty() {
                         // Request
                         self.registration_step = RegistrationStep::Req;
-                        let _ = self
-                            .handle
-                            .try_send(command!("CAP", "REQ", requested.join(" ")));
+
+                        for message in group_capability_requests(&requested) {
+                            let _ = self.handle.try_send(message);
+                        }
                     } else {
                         // If none requested, end negotiation
                         self.registration_step = RegistrationStep::End;
@@ -495,10 +496,9 @@ impl Client {
                 }
 
                 if !requested.is_empty() {
-                    // Request
-                    let _ = self
-                        .handle
-                        .try_send(command!("CAP", "REQ", requested.join(" ")));
+                    for message in group_capability_requests(&requested) {
+                        let _ = self.handle.try_send(message);
+                    }
                 }
 
                 self.listed_caps.extend(new_caps);
@@ -1701,6 +1701,26 @@ pub enum WhoStatus {
     Done(Instant),
 }
 
+fn group_capability_requests<'a>(
+    capabilities: &'a [&'a str],
+) -> impl Iterator<Item = proto::Message> + 'a {
+    const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"CAP REQ :\r\n".len();
+
+    capabilities
+        .iter()
+        .scan(0, |count, capability| {
+            // Capability + a space
+            *count += capability.len() + 1;
+
+            let chunk = *count / MAX_LEN;
+
+            Some((chunk, capability))
+        })
+        .into_group_map()
+        .into_values()
+        .map(|capabilities| command!("CAP", "REQ", capabilities.into_iter().join(" ")))
+}
+
 /// Group channels together into as few JOIN messages as possible
 fn group_joins<'a>(
     channels: &'a [String],
@@ -1773,5 +1793,5 @@ fn group_monitors(
     })
     .into_group_map()
     .into_values()
-    .map(|targets| command!("MONITOR", "+", targets.into_iter().join(","),))
+    .map(|targets| command!("MONITOR", "+", targets.into_iter().join(",")))
 }
