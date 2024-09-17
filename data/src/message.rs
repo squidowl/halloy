@@ -428,7 +428,7 @@ fn parse_channel_fragments(text: &str) -> Vec<Fragment> {
             if !is_whitespace
                 // Only parse on `#` since it's most common and
                 // using &!+ leads to more false positives than not
-                && text.starts_with('#')
+                && text.strip_prefix('#').map_or(false, |rest| !rest.is_empty())
                 && !text.contains(proto::CHANNEL_BLACKLIST_CHARS)
             {
                 return Fragment::Channel(text);
