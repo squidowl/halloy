@@ -25,7 +25,6 @@ pub mod context_menu;
 pub mod decorate;
 pub mod double_click;
 pub mod double_pass;
-pub mod hover;
 pub mod key_press;
 pub mod message_content;
 pub mod modal;
