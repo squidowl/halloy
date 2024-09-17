@@ -67,7 +67,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                         data::message::Fragment::Channel(s) => span(s.as_str())
                             .color(theme.colors().buffer.url)
                             .link(message::Link::Channel(s.as_str().to_string())),
-                        data::message::Fragment::User(user) => {
+                        data::message::Fragment::User(user, text) => {
                             let color_kind = &config.buffer.channel.message.nickname_color;
 
                             let NickColor { seed, color } =
@@ -78,7 +78,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 None => theme.colors().text.primary,
                             };
 
-                            span(user.nickname().to_string())
+                            span(text)
                                 .color(color)
                                 .link(message::Link::User(user.clone()))
                         }
