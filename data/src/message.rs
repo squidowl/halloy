@@ -333,14 +333,9 @@ pub fn parse_fragments(text: String, channel_users: &[User]) -> Content {
         })
         .flat_map(|fragment| {
             if let Fragment::Text(text) = &fragment {
-                return Either::Left(parse_user_fragments(text, channel_users).into_iter());
-            }
-
-            Either::Right(std::iter::once(fragment))
-        })
-        .flat_map(|fragment| {
-            if let Fragment::Text(text) = &fragment {
-                return Either::Left(parse_channel_fragments(text).into_iter());
+                return Either::Left(
+                    parse_user_and_channel_fragments(text, channel_users).into_iter(),
+                );
             }
 
             Either::Right(std::iter::once(fragment))
@@ -387,50 +382,39 @@ fn parse_url_fragments(text: String) -> Vec<Fragment> {
     fragments
 }
 
-fn parse_user_fragments(text: &str, channel_users: &[User]) -> Vec<Fragment> {
-    text.chars()
-        .group_by(|c| !c.is_whitespace() && !c.is_ascii_punctuation())
-        .into_iter()
-        .map(|(is_word, chars)| {
-            let text = chars.collect::<String>();
-
-            if is_word {
-                if let Some(user) = channel_users.iter().find(|user| {
-                    user.nickname().as_ref().to_ascii_lowercase() == text.to_ascii_lowercase()
-                }) {
-                    return Fragment::User(user.clone(), text);
-                }
-            }
-
-            Fragment::Text(text)
-        })
-        .fold(vec![], |mut acc, fragment| {
-            if let Some(Fragment::Text(text)) = acc.last_mut() {
-                if let Fragment::Text(next) = &fragment {
-                    text.push_str(next);
-                    return acc;
-                }
-            }
-
-            acc.push(fragment);
-            acc
-        })
-}
-
-fn parse_channel_fragments(text: &str) -> Vec<Fragment> {
+fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<Fragment> {
     text.chars()
         .group_by(|c| c.is_whitespace())
         .into_iter()
         .map(|(is_whitespace, chars)| {
             let text = chars.collect::<String>();
+            let trimmed = text.trim_matches(|c: char| c.is_ascii_punctuation());
+            let lower = text.to_ascii_lowercase();
+            let lower_trimmed = trimmed.to_ascii_lowercase();
 
-            if !is_whitespace
+            if !is_whitespace {
+                if let Some(user) = channel_users.iter().find(|user| {
+                    let nickname = user.nickname();
+                    let nick = nickname.as_ref();
+                    let nick_lower = nick.to_ascii_lowercase();
+
+                    // TODO: Consider server case-mapping settings vs just ascii lowercase
+                    nick == text
+                        || nick == trimmed
+                        || nick_lower == lower
+                        || nick_lower == lower_trimmed
+                }) {
+                    return Fragment::User(user.clone(), text);
+                }
                 // Only parse on `#` since it's most common and
                 // using &!+ leads to more false positives than not
-                && text.strip_prefix('#').map_or(false, |rest| !rest.is_empty())
-                && !text.contains(proto::CHANNEL_BLACKLIST_CHARS)
-            {
-                return Fragment::Channel(text);
+                else if text
+                    .strip_prefix('#')
+                    .map_or(false, |rest| !rest.is_empty())
+                    && !text.contains(proto::CHANNEL_BLACKLIST_CHARS)
+                {
+                    return Fragment::Channel(text);
+                }
             }
 
             Fragment::Text(text)
