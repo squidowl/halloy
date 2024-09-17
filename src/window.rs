@@ -61,6 +61,7 @@ pub fn settings() -> Settings {
     Settings {
         platform_specific: window::settings::PlatformSpecific {
             application_id: environment::APPLICATION_ID.to_string(),
+            override_redirect: false,
         },
         ..Default::default()
     }

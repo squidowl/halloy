@@ -101,6 +101,7 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
         horizontal_alignment: alignment::Horizontal::Right,
         vertical_alignment: alignment::Vertical::Top,
         shaping: text::Shaping::Basic,
+        wrapping: Default::default(),
     })
     .min_bounds()
     .expand(Size::new(1.0, 0.0))

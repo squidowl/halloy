@@ -378,6 +378,7 @@ where
                     horizontal_alignment: self.align_x,
                     vertical_alignment: self.align_y,
                     shaping: Shaping::Advanced,
+                    wrapping: Default::default(),
                 };
 
                 // Check spoiler
@@ -755,6 +756,7 @@ where
             horizontal_alignment,
             vertical_alignment,
             shaping: Shaping::Advanced,
+            wrapping: Default::default(),
         };
 
         if state.spans != spans {
@@ -780,6 +782,7 @@ where
                 horizontal_alignment,
                 vertical_alignment,
                 shaping: Shaping::Advanced,
+                wrapping: Default::default(),
             }) {
                 text::Difference::None => {}
                 text::Difference::Bounds => {
