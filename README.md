@@ -34,6 +34,7 @@ Halloy is also available from [Flathub](https://flathub.org/apps/org.squidowl.ha
     * [labeled-response](https://ircv3.net/specs/extensions/labeled-response)
     * [message-tags](https://ircv3.net/specs/extensions/message-tags)
     * [Monitor](https://ircv3.net/specs/extensions/monitor)
+    * [msgid](https://ircv3.net/specs/extensions/message-ids)
     * [multi-prefix](https://ircv3.net/specs/extensions/multi-prefix)
     * [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)
     * [server-time](https://ircv3.net/specs/extensions/server-time)
