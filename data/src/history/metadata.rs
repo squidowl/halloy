@@ -22,11 +22,7 @@ pub async fn load(server: server::Server, kind: Kind) -> Result<Metadata, Error>
     }
 }
 
-pub async fn overwrite(
-    server: &server::Server,
-    kind: &Kind,
-    metadata: &Metadata,
-) -> Result<(), Error> {
+pub async fn save(server: &server::Server, kind: &Kind, metadata: &Metadata) -> Result<(), Error> {
     let bytes = serde_json::to_vec(metadata)?;
 
     let path = path(server, kind).await?;

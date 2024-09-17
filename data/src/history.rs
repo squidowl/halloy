@@ -68,10 +68,13 @@ impl From<&str> for Kind {
     }
 }
 
-pub async fn load_messages(server: &server::Server, kind: &Kind) -> Result<Vec<Message>, Error> {
-    let path = path(server, kind).await?;
+pub async fn load(server: server::Server, kind: Kind) -> Result<(Vec<Message>, Metadata), Error> {
+    let path = path(&server, &kind).await?;
 
-    Ok(read_all(&path).await.unwrap_or_default())
+    let messages = read_all(&path).await.unwrap_or_default();
+    let metadata = metadata::load(server, kind).await.unwrap_or_default();
+
+    Ok((messages, metadata))
 }
 
 pub async fn overwrite(
@@ -81,7 +84,7 @@ pub async fn overwrite(
     metadata: &Metadata,
 ) -> Result<(), Error> {
     if messages.is_empty() {
-        return metadata::overwrite(server, kind, metadata).await;
+        return metadata::save(server, kind, metadata).await;
     }
 
     let latest = &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
@@ -91,7 +94,7 @@ pub async fn overwrite(
 
     fs::write(path, &compressed).await?;
 
-    metadata::overwrite(server, kind, metadata).await?;
+    metadata::save(server, kind, metadata).await?;
 
     Ok(())
 }
@@ -103,10 +106,10 @@ pub async fn append(
     metadata: &Metadata,
 ) -> Result<(), Error> {
     if messages.is_empty() {
-        return metadata::overwrite(server, kind, metadata).await;
+        return metadata::save(server, kind, metadata).await;
     }
 
-    let mut all_messages = load_messages(server, kind).await?;
+    let (mut all_messages, _) = load(server.clone(), kind.clone()).await?;
     all_messages.extend(messages);
 
     overwrite(server, kind, &all_messages, metadata).await
@@ -381,9 +384,9 @@ pub async fn num_stored_unread_messages(
     kind: Kind,
     read_marker: Option<DateTime<Utc>>,
 ) -> usize {
-    let messages = load_messages(&server, &kind).await;
+    let result = load(server, kind).await;
 
-    if let Ok(messages) = messages {
+    if let Ok((messages, _)) = result {
         messages
             .into_iter()
             .rev()
