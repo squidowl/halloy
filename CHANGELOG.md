@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2024.12 (2024-09-17)
+
 Added:
 
 - Multi-window support: Pop out panes into separate windows.
