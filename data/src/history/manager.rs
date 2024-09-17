@@ -23,7 +23,7 @@ pub enum Message {
     Loaded(
         server::Server,
         history::Kind,
-        Result<Vec<crate::Message>, history::Error>,
+        Result<(Vec<crate::Message>, history::Metadata), history::Error>,
     ),
     Closed(server::Server, history::Kind, Result<(), history::Error>),
     Flushed(server::Server, history::Kind, Result<(), history::Error>),
@@ -46,7 +46,7 @@ impl Manager {
 
         let added = added.into_iter().map(|resource| {
             async move {
-                history::load_messages(&resource.server.clone(), &resource.kind.clone())
+                history::load(resource.server.clone(), resource.kind.clone())
                     .map(move |result| Message::Loaded(resource.server, resource.kind, result))
                     .await
             }
@@ -71,12 +71,12 @@ impl Manager {
 
     pub fn update(&mut self, message: Message) {
         match message {
-            Message::Loaded(server, kind, Ok(messages)) => {
+            Message::Loaded(server, kind, Ok((messages, metadata))) => {
                 log::debug!(
                     "loaded history for {kind} on {server}: {} messages",
                     messages.len()
                 );
-                self.data.loaded(server, kind, messages);
+                self.data.loaded(server, kind, messages, metadata);
             }
             Message::Loaded(server, kind, Err(error)) => {
                 log::warn!("failed to load history for {kind} on {server}: {error}");
@@ -477,6 +477,7 @@ impl Data {
         server: server::Server,
         kind: history::Kind,
         mut messages: Vec<crate::Message>,
+        metadata: Metadata,
     ) {
         use std::collections::hash_map;
 
@@ -490,10 +491,13 @@ impl Data {
                 History::Partial {
                     messages: new_messages,
                     last_received_at,
-                    metadata,
+                    metadata: partial_metadata,
                     ..
                 } => {
-                    let metadata = metadata.clone();
+                    // In-memory metadata will always be more up-to-date than disk
+                    // since we might not have flushed this yet
+                    let metadata = partial_metadata.clone();
+
                     let last_received_at = *last_received_at;
                     messages.extend(std::mem::take(new_messages));
                     entry.insert(History::Full {
@@ -510,7 +514,7 @@ impl Data {
                         kind,
                         messages,
                         last_received_at: None,
-                        metadata: Metadata::default(),
+                        metadata,
                     });
                 }
             },
@@ -520,7 +524,7 @@ impl Data {
                     kind,
                     messages,
                     last_received_at: None,
-                    metadata: Metadata::default(),
+                    metadata,
                 });
             }
         }
