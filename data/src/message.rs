@@ -395,11 +395,10 @@ fn parse_user_fragments(text: &str, channel_users: &[User]) -> Vec<Fragment> {
             let text = chars.collect::<String>();
 
             if is_word {
-                if let Some(user) = channel_users
-                    .iter()
-                    .find(|user| user.nickname().as_ref() == text)
-                {
-                    return Fragment::User(user.clone());
+                if let Some(user) = channel_users.iter().find(|user| {
+                    user.nickname().as_ref().to_ascii_lowercase() == text.to_ascii_lowercase()
+                }) {
+                    return Fragment::User(user.clone(), text);
                 }
             }
 
@@ -468,7 +467,7 @@ impl Content {
 pub enum Fragment {
     Text(String),
     Channel(String),
-    User(User),
+    User(User, String),
     Url(Url),
     Formatted {
         text: String,
@@ -480,8 +479,8 @@ impl Fragment {
     pub fn as_str(&self) -> &str {
         match self {
             Fragment::Text(s) => s,
-            Fragment::Channel(s) => s,
-            Fragment::User(u) => u.as_str(),
+            Fragment::Channel(c) => c,
+            Fragment::User(_, t) => t,
             Fragment::Url(u) => u.as_str(),
             Fragment::Formatted { text, .. } => text,
         }
