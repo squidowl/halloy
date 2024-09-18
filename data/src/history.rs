@@ -164,6 +164,13 @@ async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
     Ok(dir.join(format!("{hashed_name}.json.gz")))
 }
 
+fn last_in_messages(messages: &[Message]) -> Option<DateTime<Utc>> {
+    messages
+        .iter()
+        .rev()
+        .find_map(|message| message.triggers_unread().then_some(message.server_time))
+}
+
 #[derive(Debug)]
 pub enum History {
     Partial {
@@ -203,11 +210,7 @@ impl History {
         } = self
         {
             *metadata = metadata.merge(loaded.metadata);
-            *last_on_disk = loaded
-                .messages
-                .iter()
-                .rev()
-                .find_map(|message| message.triggers_unread().then_some(message.server_time));
+            *last_on_disk = last_in_messages(&loaded.messages).or(*last_on_disk);
         }
     }
 
@@ -271,9 +274,7 @@ impl History {
 
                         *last_updated_at = None;
 
-                        *last_on_disk = messages.iter().rev().find_map(|message| {
-                            message.triggers_unread().then_some(message.server_time)
-                        });
+                        *last_on_disk = last_in_messages(&messages).or(*last_on_disk);
 
                         return Some(
                             async move { append(&server, &kind, messages, &metadata).await }
@@ -341,9 +342,7 @@ impl History {
                     messages: vec![],
                     last_updated_at: None,
                     metadata,
-                    last_on_disk: messages.iter().rev().find_map(|message| {
-                        message.triggers_unread().then_some(message.server_time)
-                    }),
+                    last_on_disk: last_in_messages(&messages),
                 };
 
                 Some(async move {
