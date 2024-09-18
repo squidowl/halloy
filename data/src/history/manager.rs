@@ -104,7 +104,7 @@ impl Manager {
                 log::warn!("failed to flush history for {kind} on {server}: {error}")
             }
             Message::UpdatePartial(server, kind, Ok(loaded)) => {
-                log::debug!("loaded history metadata for {kind} on {server}");
+                log::debug!("updating partial history for {kind} on {server}");
                 self.data.update_partial(server, kind, loaded);
             }
             Message::UpdatePartial(server, kind, Err(error)) => {
@@ -123,46 +123,26 @@ impl Manager {
         &mut self,
         server: Server,
         kind: history::Kind,
-    ) -> Option<impl Future<Output = ()>> {
+    ) -> Option<impl Future<Output = (Server, history::Kind, Option<history::ReadMarker>)>> {
         let history = self.data.map.get_mut(&server)?.remove(&kind)?;
 
         Some(async move {
             match history.close().await {
-                Ok(_) => {
+                Ok(marker) => {
                     log::debug!("closed history for {kind} on {server}",);
+                    (server, kind, marker)
                 }
                 Err(error) => {
                     log::warn!("failed to close history for {kind} on {server}: {error}");
+                    (server, kind, None)
                 }
             }
         })
     }
 
-    pub fn close_server(&mut self, server: Server) -> Option<impl Future<Output = ()>> {
-        let map = self.data.map.remove(&server)?;
-
-        Some(async move {
-            let tasks = map.into_iter().map(move |(kind, state)| {
-                let server = server.clone();
-                state.close().map(move |result| (server, kind, result))
-            });
-
-            let results = future::join_all(tasks).await;
-
-            for (server, kind, result) in results {
-                match result {
-                    Ok(_) => {
-                        log::debug!("closed history for {kind} on {server}",);
-                    }
-                    Err(error) => {
-                        log::warn!("failed to close history for {kind} on {server}: {error}");
-                    }
-                }
-            }
-        })
-    }
-
-    pub fn close_all(&mut self) -> impl Future<Output = ()> {
+    pub fn close_all(
+        &mut self,
+    ) -> impl Future<Output = Vec<(Server, history::Kind, Option<history::ReadMarker>)>> {
         let map = std::mem::take(&mut self.data).map;
 
         async move {
@@ -175,16 +155,22 @@ impl Manager {
 
             let results = future::join_all(tasks).await;
 
+            let mut output = vec![];
+
             for (server, kind, result) in results {
                 match result {
-                    Ok(_) => {
+                    Ok(marker) => {
                         log::debug!("closed history for {kind} on {server}",);
+                        output.push((server, kind, marker));
                     }
                     Err(error) => {
                         log::warn!("failed to close history for {kind} on {server}: {error}");
+                        output.push((server, kind, None));
                     }
                 }
             }
+
+            output
         }
     }
 

@@ -1557,6 +1557,10 @@ impl Map {
             }
         })
     }
+
+    pub fn take(&mut self) -> Self {
+        Self(std::mem::take(&mut self.0))
+    }
 }
 
 #[derive(Debug, Clone)]
