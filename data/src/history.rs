@@ -371,8 +371,6 @@ impl History {
                 metadata,
                 ..
             } => {
-                let metadata = metadata.updated(&messages);
-
                 append(&server, &kind, messages, &metadata).await?;
 
                 Ok(metadata.read_marker)
