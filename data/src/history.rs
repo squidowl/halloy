@@ -362,14 +362,20 @@ impl History {
                 messages,
                 metadata,
                 ..
-            } => append(&server, &kind, messages, &metadata).await,
+            } => {
+                let metadata = metadata.updated(&messages);
+                append(&server, &kind, messages, &metadata).await
+            }
             History::Full {
                 server,
                 kind,
                 messages,
                 metadata,
                 ..
-            } => overwrite(&server, &kind, &messages, &metadata).await,
+            } => {
+                let metadata = metadata.updated(&messages);
+                overwrite(&server, &kind, &messages, &metadata).await
+            }
         }
     }
 
