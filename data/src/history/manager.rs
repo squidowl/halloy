@@ -480,9 +480,7 @@ impl Data {
                     metadata: partial_metadata,
                     ..
                 } => {
-                    // In-memory metadata will always be more up-to-date than disk
-                    // since we might not have flushed this yet
-                    let metadata = *partial_metadata;
+                    let metadata = partial_metadata.merge(metadata);
 
                     let last_updated_at = *last_updated_at;
                     messages.extend(std::mem::take(new_messages));
