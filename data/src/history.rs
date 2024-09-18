@@ -221,10 +221,9 @@ impl History {
             } => {
                 // Read marker is prior to last message on disk
                 // or prior to unflushed messages in memory
-                metadata.read_marker.is_none()
-                    || last_on_disk
-                        .zip(metadata.read_marker)
-                        .map_or(false, |(a, b)| a > b.date_time())
+                last_on_disk
+                    .zip(metadata.read_marker)
+                    .map_or(false, |(a, b)| a > b.date_time())
                     || metadata.unread_count(messages) > 0
             }
             History::Full { .. } => false,
