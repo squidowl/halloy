@@ -203,7 +203,11 @@ impl History {
         } = self
         {
             *metadata = metadata.merge(loaded.metadata);
-            *last_on_disk = loaded.messages.last().map(|message| message.server_time);
+            *last_on_disk = loaded
+                .messages
+                .iter()
+                .rev()
+                .find_map(|message| message.triggers_unread().then_some(message.server_time));
         }
     }
 
@@ -268,7 +272,9 @@ impl History {
 
                         *last_updated_at = None;
 
-                        *last_on_disk = messages.last().map(|message| message.server_time);
+                        *last_on_disk = messages.iter().rev().find_map(|message| {
+                            message.triggers_unread().then_some(message.server_time)
+                        });
 
                         return Some(
                             async move { append(&server, &kind, messages, &metadata).await }
@@ -336,7 +342,9 @@ impl History {
                     messages: vec![],
                     last_updated_at: None,
                     metadata,
-                    last_on_disk: messages.last().map(|message| message.server_time),
+                    last_on_disk: messages.iter().rev().find_map(|message| {
+                        message.triggers_unread().then_some(message.server_time)
+                    }),
                 };
 
                 Some(async move {
