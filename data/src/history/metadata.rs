@@ -17,20 +17,12 @@ pub struct Metadata {
 impl Metadata {
     pub fn merge(self, other: Self) -> Self {
         Self {
-            read_marker: self
-                .read_marker
-                .zip(other.read_marker)
-                .map(|(a, b)| a.max(b))
-                .or(self.read_marker)
-                .or(other.read_marker),
+            read_marker: self.read_marker.max(other.read_marker),
         }
     }
 
     pub fn update_read_marker(&mut self, read_marker: ReadMarker) {
-        self.read_marker = Some(
-            self.read_marker
-                .map_or(read_marker, |marker| marker.max(read_marker)),
-        );
+        self.read_marker = self.read_marker.max(Some(read_marker));
     }
 
     pub fn updated(self, messages: &[Message]) -> Self {
