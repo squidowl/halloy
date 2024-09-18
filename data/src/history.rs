@@ -379,13 +379,6 @@ impl History {
         }
     }
 
-    pub fn get_read_marker(&self) -> Option<ReadMarker> {
-        match self {
-            History::Partial { metadata, .. } => metadata.read_marker,
-            History::Full { metadata, .. } => metadata.read_marker,
-        }
-    }
-
     pub fn update_read_marker(&mut self, read_marker: ReadMarker) {
         let metadata = match self {
             History::Partial { metadata, .. } => metadata,
