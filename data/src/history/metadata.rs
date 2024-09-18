@@ -38,24 +38,6 @@ impl Metadata {
             read_marker: ReadMarker::latest(messages).or(self.read_marker),
         }
     }
-
-    pub fn unread_count(&self, messages: &[Message]) -> usize {
-        messages
-            .iter()
-            .filter(|message| self.triggers_unread(message))
-            .count()
-    }
-
-    pub fn triggers_unread(&self, message: &Message) -> bool {
-        message.triggers_unread() && self.after_read_marker(message)
-    }
-
-    pub fn after_read_marker(&self, message: &Message) -> bool {
-        self.read_marker.is_none()
-            || self
-                .read_marker
-                .is_some_and(|read_marker| message.server_time > read_marker.0)
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Deserialize, Serialize)]
