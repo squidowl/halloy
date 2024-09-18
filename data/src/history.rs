@@ -164,7 +164,7 @@ async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
     Ok(dir.join(format!("{hashed_name}.json.gz")))
 }
 
-fn last_in_messages(messages: &[Message]) -> Option<DateTime<Utc>> {
+fn last_triggers_unread(messages: &[Message]) -> Option<DateTime<Utc>> {
     messages
         .iter()
         .rev()
@@ -179,7 +179,7 @@ pub enum History {
         messages: Vec<Message>,
         last_updated_at: Option<Instant>,
         metadata: Metadata,
-        last_on_disk: Option<DateTime<Utc>>,
+        max_triggers_unread: Option<DateTime<Utc>>,
     },
     Full {
         server: server::Server,
@@ -198,38 +198,32 @@ impl History {
             messages: vec![],
             last_updated_at: None,
             metadata: Metadata::default(),
-            last_on_disk: None,
+            max_triggers_unread: None,
         }
     }
 
     pub fn update_partial(&mut self, loaded: Loaded) {
         if let Self::Partial {
             metadata,
-            last_on_disk,
+            max_triggers_unread,
             ..
         } = self
         {
             *metadata = metadata.merge(loaded.metadata);
-            *last_on_disk = last_in_messages(&loaded.messages).or(*last_on_disk);
+            *max_triggers_unread = last_triggers_unread(&loaded.messages).max(*max_triggers_unread);
         }
     }
 
     fn has_unread(&self) -> bool {
         match self {
             History::Partial {
-                messages,
                 metadata,
-                last_on_disk,
+                max_triggers_unread,
                 ..
             } => {
-                // Read marker is prior to last message on disk
-                // or prior to unflushed messages in memory
+                // Read marker is prior to last known message which triggers unread
                 if let Some(read_marker) = metadata.read_marker {
-                    last_on_disk.is_some_and(|last| read_marker.date_time() < last)
-                        || messages.iter().any(|message| {
-                            read_marker.date_time() < message.server_time
-                                && message.triggers_unread()
-                        })
+                    max_triggers_unread.is_some_and(|max| read_marker.date_time() < max)
                 }
                 // Default state == unread
                 else {
@@ -241,6 +235,16 @@ impl History {
     }
 
     fn add_message(&mut self, message: Message) {
+        if message.triggers_unread() {
+            if let History::Partial {
+                max_triggers_unread,
+                ..
+            } = self
+            {
+                *max_triggers_unread = (*max_triggers_unread).max(Some(message.server_time));
+            }
+        }
+
         match self {
             History::Partial {
                 messages,
@@ -267,7 +271,6 @@ impl History {
                 messages,
                 metadata,
                 last_updated_at,
-                last_on_disk,
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at {
@@ -280,8 +283,6 @@ impl History {
                         let messages = std::mem::take(messages);
 
                         *last_updated_at = None;
-
-                        *last_on_disk = last_in_messages(&messages).or(*last_on_disk);
 
                         return Some(
                             async move { append(&server, &kind, messages, &metadata).await }
@@ -349,7 +350,7 @@ impl History {
                     messages: vec![],
                     last_updated_at: None,
                     metadata,
-                    last_on_disk: last_in_messages(&messages),
+                    max_triggers_unread: last_triggers_unread(&messages),
                 };
 
                 Some(async move {
