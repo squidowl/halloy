@@ -225,9 +225,9 @@ impl History {
                 if let Some(read_marker) = metadata.read_marker {
                     max_triggers_unread.is_some_and(|max| read_marker.date_time() < max)
                 }
-                // Default state == unread
+                // Default state == unread if theres messages that trigger indicator
                 else {
-                    true
+                    max_triggers_unread.is_some()
                 }
             }
             History::Full { .. } => false,
