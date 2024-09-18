@@ -362,7 +362,7 @@ impl History {
         }
     }
 
-    async fn close(self) -> Result<(), Error> {
+    async fn close(self) -> Result<Option<ReadMarker>, Error> {
         match self {
             History::Partial {
                 server,
@@ -372,7 +372,10 @@ impl History {
                 ..
             } => {
                 let metadata = metadata.updated(&messages);
-                append(&server, &kind, messages, &metadata).await
+
+                append(&server, &kind, messages, &metadata).await?;
+
+                Ok(metadata.read_marker)
             }
             History::Full {
                 server,
@@ -382,7 +385,10 @@ impl History {
                 ..
             } => {
                 let metadata = metadata.updated(&messages);
-                overwrite(&server, &kind, &messages, &metadata).await
+
+                overwrite(&server, &kind, &messages, &metadata).await?;
+
+                Ok(metadata.read_marker)
             }
         }
     }

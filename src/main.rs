@@ -778,7 +778,7 @@ impl Halloy {
                         }
                         window::Event::CloseRequested => {
                             if let Screen::Dashboard(dashboard) = &mut self.screen {
-                                return dashboard.exit().then(|_| iced::exit());
+                                return dashboard.exit(self.clients.take()).then(|_| iced::exit());
                             } else {
                                 return iced::exit();
                             }
