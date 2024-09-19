@@ -31,7 +31,7 @@
                 <File Id="Application" DiskId="1" Source="target/release/halloy.exe" KeyPath="yes">
                     <Shortcut
                         Id="ApplicationStartMenuShortcutInFile"
-                        Name="halloy.exe"
+                        Name="Halloy"
                         Icon="HalloyIcon.exe"
                         Directory="ProgramMenuFolder"
                         Description="IRC client"
