@@ -2,7 +2,7 @@ use data::config::{self, sidebar, Config};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{file_transfer, history, Buffer, Version};
 use iced::widget::{
-    button, center, column, container, horizontal_space, pane_grid, row, scrollable, text,
+    self, button, center, column, container, horizontal_space, pane_grid, row, scrollable, text,
     vertical_rule, vertical_space, Column, Row, Scrollable,
 };
 use iced::{padding, Alignment, Length, Task};
@@ -108,6 +108,127 @@ impl Sidebar {
             }
         }
     }
+
+    fn menu_buttons<'a>(
+        &self,
+        main_window: window::Id,
+        panes: &Panes,
+        config: data::config::Sidebar,
+        show_tooltips: bool,
+        file_transfers: &'a file_transfer::Manager,
+        version: &'a Version,
+        theme_editor_open: bool,
+    ) -> Element<'a, Message> {
+        let mut menu_buttons = row![]
+            .spacing(1)
+            .width(Length::Shrink)
+            .align_y(Alignment::End);
+
+        let tooltip_position = match config.position {
+            sidebar::Position::Top => tooltip::Position::Bottom,
+            sidebar::Position::Bottom | sidebar::Position::Left | sidebar::Position::Right => {
+                tooltip::Position::Top
+            }
+        };
+
+        let new_button = |icon: widget::Text<'a, theme::Theme>,
+                          style: fn(&theme::Theme) -> text::Style,
+                          on_press: Option<Message>,
+                          enabled: bool,
+                          tooltip_text: &'a str|
+         -> Element<'a, Message> {
+            let button = button(center(icon.style(style)))
+                .on_press_maybe(on_press)
+                .padding(5)
+                .width(22)
+                .height(22)
+                .style(move |theme, status| theme::button::primary(theme, status, enabled));
+            tooltip(
+                button,
+                show_tooltips.then_some(tooltip_text),
+                tooltip_position,
+            )
+        };
+
+        if version.is_old() {
+            menu_buttons = menu_buttons.push(new_button(
+                icon::megaphone(),
+                theme::text::tertiary,
+                Some(Message::OpenReleaseWebsite),
+                false,
+                "New Halloy version is available!",
+            ));
+        }
+
+        if config.buttons.reload_config {
+            menu_buttons = menu_buttons.push(if self.reloading_config {
+                new_button(
+                    icon::checkmark(),
+                    theme::text::success,
+                    None,
+                    self.reloading_config,
+                    "Reload config file",
+                )
+            } else {
+                new_button(
+                    icon::refresh(),
+                    theme::text::primary,
+                    Some(Message::ReloadingConfigFile),
+                    self.reloading_config,
+                    "Reload config file",
+                )
+            });
+        }
+
+        if config.buttons.command_bar {
+            menu_buttons = menu_buttons.push(new_button(
+                icon::search(),
+                theme::text::primary,
+                Some(Message::ToggleCommandBar),
+                false,
+                "Command Bar",
+            ));
+        }
+
+        if config.buttons.file_transfer {
+            let file_transfers_open = panes
+                .iter(main_window)
+                .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
+            menu_buttons = menu_buttons.push(new_button(
+                icon::file_transfer(),
+                if file_transfers.is_empty() {
+                    theme::text::primary
+                } else {
+                    theme::text::action
+                },
+                Some(Message::ToggleFileTransfers),
+                file_transfers_open,
+                "File Transfers",
+            ));
+        }
+
+        if config.buttons.theme_editor {
+            menu_buttons = menu_buttons.push(new_button(
+                icon::theme_editor(),
+                theme::text::primary,
+                Some(Message::ToggleThemeEditor),
+                theme_editor_open,
+                "Theme Editor",
+            ));
+        }
+
+        let width = if config.position.is_horizontal() {
+            Length::Shrink
+        } else {
+            Length::Fill
+        };
+
+        container(menu_buttons)
+            .width(width)
+            .align_x(Alignment::Center)
+            .into()
+    }
+
     pub fn view<'a>(
         &'a self,
         clients: &data::client::Map,
@@ -125,7 +246,7 @@ impl Sidebar {
             return None;
         }
 
-        let menu_buttons = menu_buttons(
+        let menu_buttons = self.menu_buttons(
             main_window,
             panes,
             config,
@@ -133,7 +254,6 @@ impl Sidebar {
             file_transfers,
             version,
             theme_editor_open,
-            self.reloading_config,
         );
 
         let mut buffers = vec![];
@@ -488,143 +608,4 @@ fn buffer_button(
         })
         .into()
     }
-}
-
-fn menu_buttons<'a>(
-    main_window: window::Id,
-    panes: &Panes,
-    config: data::config::Sidebar,
-    show_tooltips: bool,
-    file_transfers: &'a file_transfer::Manager,
-    version: &'a Version,
-    theme_editor_open: bool,
-    reloading_config: bool,
-) -> Element<'a, Message> {
-    let mut menu_buttons = row![]
-        .spacing(1)
-        .width(Length::Shrink)
-        .align_y(Alignment::End);
-
-    let tooltip_position = match config.position {
-        sidebar::Position::Top => tooltip::Position::Bottom,
-        sidebar::Position::Bottom | sidebar::Position::Left | sidebar::Position::Right => {
-            tooltip::Position::Top
-        }
-    };
-
-    if version.is_old() {
-        let button = button(center(icon::megaphone().style(theme::text::tertiary)))
-            .on_press(Message::OpenReleaseWebsite)
-            .padding(5)
-            .width(22)
-            .height(22)
-            .style(|theme, status| theme::button::primary(theme, status, false));
-
-        let button_with_tooltip = tooltip(
-            button,
-            show_tooltips.then_some("New Halloy version is available!"),
-            tooltip_position,
-        );
-
-        menu_buttons = menu_buttons.push(button_with_tooltip);
-    }
-
-    if config.buttons.reload_config {
-        let icon = if reloading_config {
-            icon::checkmark().style(theme::text::success)
-        } else {
-            icon::refresh().style(theme::text::primary)
-        };
-
-        let button = button(center(icon))
-            .on_press_maybe(if reloading_config {
-                None
-            } else {
-                Some(Message::ReloadingConfigFile)
-            })
-            .padding(5)
-            .width(22)
-            .height(22)
-            .style(|theme, status| theme::button::primary(theme, status, false));
-
-        let button_with_tooltip = tooltip(
-            button,
-            show_tooltips.then_some("Reload config file"),
-            tooltip_position,
-        );
-
-        menu_buttons = menu_buttons.push(button_with_tooltip);
-    }
-
-    if config.buttons.command_bar {
-        let button = button(center(icon::search()))
-            .on_press(Message::ToggleCommandBar)
-            .padding(5)
-            .width(22)
-            .height(22)
-            .style(|theme, status| theme::button::primary(theme, status, false));
-
-        let button_with_tooltip = tooltip(
-            button,
-            show_tooltips.then_some("Command Bar"),
-            tooltip_position,
-        );
-
-        menu_buttons = menu_buttons.push(button_with_tooltip);
-    }
-
-    if config.buttons.file_transfer {
-        let file_transfers_open = panes
-            .iter(main_window)
-            .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
-
-        let button = button(center(icon::file_transfer().style(
-            if file_transfers.is_empty() {
-                theme::text::primary
-            } else {
-                theme::text::action
-            },
-        )))
-        .on_press(Message::ToggleFileTransfers)
-        .padding(5)
-        .width(22)
-        .height(22)
-        .style(move |theme, status| theme::button::primary(theme, status, file_transfers_open));
-
-        let button_with_tooltip = tooltip(
-            button,
-            show_tooltips.then_some("File Transfers"),
-            tooltip_position,
-        );
-
-        menu_buttons = menu_buttons.push(button_with_tooltip);
-    }
-
-    if config.buttons.theme_editor {
-        let button = button(center(icon::theme_editor().style(theme::text::primary)))
-            .on_press(Message::ToggleThemeEditor)
-            .padding(5)
-            .width(22)
-            .height(22)
-            .style(move |theme, status| theme::button::primary(theme, status, theme_editor_open));
-
-        let button_with_tooltip = tooltip(
-            button,
-            show_tooltips.then_some("Theme Editor"),
-            tooltip_position,
-        );
-
-        menu_buttons = menu_buttons.push(button_with_tooltip);
-    }
-
-    let width = if config.position.is_horizontal() {
-        Length::Shrink
-    } else {
-        Length::Fill
-    };
-
-    container(menu_buttons)
-        .width(width)
-        .align_x(Alignment::Center)
-        .into()
 }
