@@ -15,6 +15,8 @@ pub struct Server {
     pub nick_password: Option<String>,
     /// The client's NICKSERV password file.
     pub nick_password_file: Option<String>,
+    /// The client's NICKSERV password command.
+    pub nick_password_command: Option<String>,
     /// The server's NICKSERV IDENTIFY syntax.
     pub nick_identify_syntax: Option<IdentifySyntax>,
     /// Alternative nicknames for the client, if the default is taken.
@@ -143,6 +145,7 @@ impl Default for Server {
             nickname: Default::default(),
             nick_password: Default::default(),
             nick_password_file: Default::default(),
+            nick_password_command: Default::default(),
             nick_identify_syntax: Default::default(),
             alt_nicks: Default::default(),
             username: Default::default(),
@@ -189,6 +192,8 @@ pub enum Sasl {
         password: Option<String>,
         /// Account password file
         password_file: Option<String>,
+        /// Account password command
+        password_command: Option<String>,
     },
     External {
         /// The path to PEM encoded X509 user certificate for external auth

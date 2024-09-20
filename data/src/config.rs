@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use std::string;
+use std::{string, str};
 
 use tokio_stream::wrappers::ReadDirStream;
 use tokio_stream::StreamExt;
@@ -306,14 +306,28 @@ fn default_tooltip() -> bool {
 pub enum Error {
     #[error("config could not be read: {0}")]
     Read(String),
+    #[error("command could not be run: {0}")]
+    Execute(String),
     #[error("{0}")]
     Io(String),
     #[error("{0}")]
     Parse(String),
     #[error("UTF8 parsing error: {0}")]
-    UI(#[from] string::FromUtf8Error),
+    StrUtf8Error(#[from] str::Utf8Error),
+    #[error("UTF8 parsing error: {0}")]
+    StringUtf8Error(#[from] string::FromUtf8Error),
     #[error(transparent)]
     LoadSounds(#[from] audio::LoadError),
+}
+
+impl Error {
+    pub fn is_expected(&self) -> bool {
+        match self {
+            // If a user doesn't have a config when we start up, then we end up with a read error
+            Error::Read(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl From<std::io::Error> for Error {
