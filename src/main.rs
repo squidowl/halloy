@@ -151,29 +151,28 @@ impl Halloy {
                     command.map(Message::Dashboard),
                 )
             }
-            Err(error) => match &error {
-                config::Error::Parse(_) | config::Error::LoadSounds(_) => (
-                    Screen::Help(screen::Help::new(error)),
-                    Config::default(),
-                    Task::none(),
-                ),
-                _ => {
+            Err(error) => {
+                if config::has_yaml_config() {
                     // If we have a YAML file, but end up in this arm
                     // it means the user tried to load Halloy with a YAML configuration, but it expected TOML.
-                    if config::has_yaml_config() {
-                        (
-                            Screen::Migration(screen::Migration::new()),
-                            Config::default(),
-                            Task::none(),
-                        )
-                    } else {
-                        // Otherwise, show regular welcome screen for new users.
-                        (
-                            Screen::Welcome(screen::Welcome::new()),
-                            Config::default(),
-                            Task::none(),
-                        )
-                    }
+                    (
+                        Screen::Migration(screen::Migration::new()),
+                        Config::default(),
+                        Task::none(),
+                    )
+                } else if error.is_expected() {
+                    // Show regular welcome screen for new users.
+                    (
+                        Screen::Welcome(screen::Welcome::new()),
+                        Config::default(),
+                        Task::none(),
+                    )
+                } else {
+                    (
+                        Screen::Help(screen::Help::new(error)),
+                        Config::default(),
+                        Task::none(),
+                    )
                 }
             },
         };

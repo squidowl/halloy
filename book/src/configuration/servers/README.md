@@ -40,6 +40,14 @@ Read nick_password from the file at the given path.[^1]
 - **values**: any string
 - **default**: not set
 
+## `nick_password_command`
+
+Executes the command with `sh` (or equivalent) and reads `nickname_password` as the output.
+
+- **type**: string
+- **values**: any string
+- **default**: not set
+
 ## `nick_identify_syntax`
 
 The server's NICKSERV IDENTIFY syntax.
