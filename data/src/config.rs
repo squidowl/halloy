@@ -259,7 +259,7 @@ impl Config {
                         second_theme = Some(theme.clone());
                     }
 
-                    if file_name == DEFAULT_THEME_NAME {
+                    if file_name.to_lowercase() == DEFAULT_THEME_NAME {
                         has_halloy_theme = true;
                     }
 
