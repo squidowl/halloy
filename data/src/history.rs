@@ -121,10 +121,6 @@ pub async fn append(
     messages: Vec<Message>,
     read_marker: Option<ReadMarker>,
 ) -> Result<(), Error> {
-    if messages.is_empty() {
-        return metadata::save(server, kind, &messages, read_marker).await;
-    }
-
     let loaded = load(server.clone(), kind.clone()).await?;
 
     let mut all_messages = loaded.messages;
