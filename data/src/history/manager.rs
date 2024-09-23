@@ -28,7 +28,7 @@ pub enum Message {
     UpdatePartial(
         server::Server,
         history::Kind,
-        Result<history::Loaded, history::Error>,
+        Result<history::Metadata, history::Error>,
     ),
     Closed(
         server::Server,
@@ -104,7 +104,7 @@ impl Manager {
                 log::warn!("failed to flush history for {kind} on {server}: {error}")
             }
             Message::UpdatePartial(server, kind, Ok(loaded)) => {
-                log::debug!("updating partial history for {kind} on {server}");
+                log::debug!("updating metadata for {kind} on {server}");
                 self.data.update_partial(server, kind, loaded);
             }
             Message::UpdatePartial(server, kind, Err(error)) => {
@@ -472,10 +472,10 @@ impl Data {
                 History::Partial {
                     messages: new_messages,
                     last_updated_at,
-                    metadata: partial_metadata,
+                    read_marker: partial_read_marker,
                     ..
                 } => {
-                    let metadata = partial_metadata.merge(metadata);
+                    let read_marker = (*partial_read_marker).max(metadata.read_marker);
 
                     let last_updated_at = *last_updated_at;
                     messages.extend(std::mem::take(new_messages));
@@ -484,7 +484,7 @@ impl Data {
                         kind,
                         messages,
                         last_updated_at,
-                        metadata,
+                        read_marker,
                     });
                 }
                 _ => {
@@ -493,7 +493,7 @@ impl Data {
                         kind,
                         messages,
                         last_updated_at: None,
-                        metadata,
+                        read_marker: metadata.read_marker,
                     });
                 }
             },
@@ -503,7 +503,7 @@ impl Data {
                     kind,
                     messages,
                     last_updated_at: None,
-                    metadata,
+                    read_marker: metadata.read_marker,
                 });
             }
         }
@@ -513,7 +513,7 @@ impl Data {
         &mut self,
         server: server::Server,
         kind: history::Kind,
-        data: history::Loaded,
+        data: history::Metadata,
     ) {
         if let Some(history) = self.map.get_mut(&server).and_then(|map| map.get_mut(&kind)) {
             history.update_partial(data);
@@ -528,7 +528,9 @@ impl Data {
         buffer_config: &config::Buffer,
     ) -> Option<history::View> {
         let History::Full {
-            messages, metadata, ..
+            messages,
+            read_marker,
+            ..
         } = self.map.get(server)?.get(kind)?
         else {
             return None;
@@ -643,7 +645,7 @@ impl Data {
 
         let limited = with_limit(limit, filtered.into_iter());
 
-        let split_at = metadata.read_marker.map_or(0, |read_marker| {
+        let split_at = read_marker.map_or(0, |read_marker| {
             limited
                 .iter()
                 .rev()
@@ -688,7 +690,7 @@ impl Data {
 
                 Some(
                     async move {
-                        let loaded = history::load(server.clone(), kind.clone()).await;
+                        let loaded = history::metadata::load(server.clone(), kind.clone()).await;
 
                         Message::UpdatePartial(server, kind, loaded)
                     }
@@ -724,7 +726,7 @@ impl Data {
 
                 Some(
                     async move {
-                        let loaded = history::load(server.clone(), kind.clone()).await;
+                        let loaded = history::metadata::load(server.clone(), kind.clone()).await;
 
                         Message::UpdatePartial(server, kind, loaded)
                     }
@@ -755,7 +757,7 @@ impl Data {
 
                 Some(
                     async move {
-                        let loaded = history::load(server.clone(), kind.clone()).await;
+                        let loaded = history::metadata::load(server.clone(), kind.clone()).await;
 
                         Message::UpdatePartial(server, kind, loaded)
                     }
