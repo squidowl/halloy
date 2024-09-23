@@ -81,6 +81,7 @@ pub enum Event {
     Notification(message::Encoded, Nick, Notification),
     FileTransferRequest(file_transfer::ReceiveRequest),
     UpdateReadMarker(String, ReadMarker),
+    JoinedChannel(String),
 }
 
 pub struct Client {
@@ -872,6 +873,11 @@ impl Client {
 
                     channel.users.insert(user);
                 }
+
+                return Some(vec![
+                    Event::JoinedChannel(channel.clone()),
+                    Event::Single(message, self.nickname().to_owned()),
+                ]);
             }
             Command::KICK(channel, victim, _) => {
                 if victim == self.nickname().as_ref() {
