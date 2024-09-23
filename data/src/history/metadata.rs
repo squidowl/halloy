@@ -7,29 +7,12 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::history::{dir_path, Error, Kind};
-use crate::{message, server, Message};
+use crate::{server, Message};
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 pub struct Metadata {
     pub read_marker: Option<ReadMarker>,
-}
-
-impl Metadata {
-    pub fn merge(self, other: Self) -> Self {
-        Self {
-            read_marker: self.read_marker.max(other.read_marker),
-        }
-    }
-
-    pub fn update_read_marker(&mut self, read_marker: ReadMarker) {
-        self.read_marker = self.read_marker.max(Some(read_marker));
-    }
-
-    pub fn updated(self, messages: &[Message]) -> Self {
-        Self {
-            read_marker: ReadMarker::latest(messages).or(self.read_marker),
-        }
-    }
+    pub last_triggers_unread: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Deserialize, Serialize)]
@@ -37,15 +20,10 @@ pub struct ReadMarker(DateTime<Utc>);
 
 impl ReadMarker {
     pub fn latest(messages: &[Message]) -> Option<Self> {
-        messages
-            .iter()
-            .rev()
-            .find(|message| !matches!(message.target.source(), message::Source::Internal(_)))
-            .map(|message| message.server_time)
-            .map(Self)
+        find_latest_triggers(messages).map(Self)
     }
 
-    pub fn date_time(&self) -> DateTime<Utc> {
+    pub fn date_time(self) -> DateTime<Utc> {
         self.0
     }
 }
@@ -66,6 +44,14 @@ impl fmt::Display for ReadMarker {
     }
 }
 
+pub fn find_latest_triggers(messages: &[Message]) -> Option<DateTime<Utc>> {
+    messages
+        .iter()
+        .rev()
+        .find(|message| message.triggers_unread())
+        .map(|message| message.server_time)
+}
+
 pub async fn load(server: server::Server, kind: Kind) -> Result<Metadata, Error> {
     let path = path(&server, &kind).await?;
 
@@ -76,8 +62,16 @@ pub async fn load(server: server::Server, kind: Kind) -> Result<Metadata, Error>
     }
 }
 
-pub async fn save(server: &server::Server, kind: &Kind, metadata: &Metadata) -> Result<(), Error> {
-    let bytes = serde_json::to_vec(metadata)?;
+pub async fn save(
+    server: &server::Server,
+    kind: &Kind,
+    messages: &[Message],
+    read_marker: Option<ReadMarker>,
+) -> Result<(), Error> {
+    let bytes = serde_json::to_vec(&Metadata {
+        read_marker,
+        last_triggers_unread: find_latest_triggers(messages),
+    })?;
 
     let path = path(server, kind).await?;
 
