@@ -1247,6 +1247,14 @@ impl Dashboard {
         }
     }
 
+    pub fn channel_joined(&mut self, server: Server, channel: String) -> Task<Message> {
+        if let Some(task) = self.history.channel_joined(server, channel) {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
+    }
+
     fn get_focused_mut(
         &mut self,
         main_window: &Window,

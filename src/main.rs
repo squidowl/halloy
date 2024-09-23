@@ -707,6 +707,13 @@ impl Halloy {
                                                 .map(Message::Dashboard),
                                         );
                                     }
+                                    data::client::Event::JoinedChannel(channel) => {
+                                        commands.push(
+                                            dashboard
+                                                .channel_joined(server.clone(), channel)
+                                                .map(Message::Dashboard),
+                                        );
+                                    }
                                 }
                             }
 

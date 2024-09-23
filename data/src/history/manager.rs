@@ -220,6 +220,14 @@ impl Manager {
         self.data.update_read_marker(server, kind, read_marker)
     }
 
+    pub fn channel_joined(
+        &mut self,
+        server: Server,
+        channel: String,
+    ) -> Option<impl Future<Output = Message>> {
+        self.data.channel_joined(server, channel)
+    }
+
     pub fn get_channel_messages(
         &self,
         server: &Server,
@@ -713,6 +721,37 @@ impl Data {
                 entry
                     .insert(History::partial(server.clone(), kind.clone()))
                     .update_read_marker(read_marker);
+
+                Some(
+                    async move {
+                        let loaded = history::load(server.clone(), kind.clone()).await;
+
+                        Message::UpdatePartial(server, kind, loaded)
+                    }
+                    .boxed(),
+                )
+            }
+        }
+    }
+
+    fn channel_joined(
+        &mut self,
+        server: server::Server,
+        channel: String,
+    ) -> Option<impl Future<Output = Message>> {
+        use std::collections::hash_map;
+
+        let kind = history::Kind::Channel(channel);
+
+        match self
+            .map
+            .entry(server.clone())
+            .or_default()
+            .entry(kind.clone())
+        {
+            hash_map::Entry::Occupied(_) => None,
+            hash_map::Entry::Vacant(entry) => {
+                entry.insert(History::partial(server.clone(), kind.clone()));
 
                 Some(
                     async move {
