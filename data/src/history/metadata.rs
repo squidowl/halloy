@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::history::{dir_path, Error, Kind};
-use crate::{server, Message};
+use crate::{message, server, Message};
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 pub struct Metadata {
@@ -20,7 +20,12 @@ pub struct ReadMarker(DateTime<Utc>);
 
 impl ReadMarker {
     pub fn latest(messages: &[Message]) -> Option<Self> {
-        latest_triggers_unread(messages).map(Self)
+        messages
+            .iter()
+            .rev()
+            .find(|message| !matches!(message.target.source(), message::Source::Internal(_)))
+            .map(|message| message.server_time)
+            .map(Self)
     }
 
     pub fn date_time(self) -> DateTime<Utc> {
