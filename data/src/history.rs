@@ -367,7 +367,7 @@ impl History {
             } => {
                 append(&server, &kind, messages, read_marker).await?;
 
-                Ok(read_marker)
+                Ok(None)
             }
             History::Full {
                 server,
