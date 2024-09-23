@@ -160,7 +160,7 @@ impl Halloy {
                         Config::default(),
                         Task::none(),
                     )
-                } else if error.is_expected() {
+                } else if error.is_expected_on_first_load() {
                     // Show regular welcome screen for new users.
                     (
                         Screen::Welcome(screen::Welcome::new()),

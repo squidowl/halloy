@@ -161,7 +161,7 @@ impl Config {
         let path = Self::path();
         let content = fs::read_to_string(path)
             .await
-            .map_err(|e| Error::Read(e.to_string()))?;
+            .map_err(|e| Error::LoadConfigFile(e.to_string()))?;
 
         let Configuration {
             theme,
@@ -305,9 +305,9 @@ fn default_tooltip() -> bool {
 #[derive(Debug, Error, Clone)]
 pub enum Error {
     #[error("config could not be read: {0}")]
-    Read(String),
+    LoadConfigFile(String),
     #[error("command could not be run: {0}")]
-    Execute(String),
+    ExecutePasswordCommand(String),
     #[error("{0}")]
     Io(String),
     #[error("{0}")]
@@ -321,10 +321,10 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn is_expected(&self) -> bool {
+    pub fn is_expected_on_first_load(&self) -> bool {
         match self {
             // If a user doesn't have a config when we start up, then we end up with a read error
-            Error::Read(_) => true,
+            Error::LoadConfigFile(_) => true,
             _ => false,
         }
     }
