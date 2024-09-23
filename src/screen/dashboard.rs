@@ -1701,12 +1701,15 @@ impl Dashboard {
         let last_changed = self.last_changed;
         let dashboard = data::Dashboard::from(&*self);
 
-        let task = async move {
+        Task::future(async move {
             for (server, kind, marker) in history.await {
                 if let Some((target, marker)) = kind.target().zip(marker) {
                     clients.send_markread(&server, target, marker);
                 }
             }
+
+            // Give markread messages a chance to send
+            tokio::time::sleep(Duration::from_millis(500)).await;
 
             if last_changed.is_some() {
                 match dashboard.save().await {
@@ -1718,9 +1721,7 @@ impl Dashboard {
                     }
                 }
             }
-        };
-
-        Task::perform(task, move |_| ())
+        })
     }
 
     fn open_popout_window(&mut self, main_window: &Window, pane: Pane) -> Task<Message> {
