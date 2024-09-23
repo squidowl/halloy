@@ -1,4 +1,4 @@
-use data::theme::randomize_color;
+use data::appearance::theme::randomize_color;
 use data::user::NickColor;
 use data::{message, Config};
 use iced::widget::span;

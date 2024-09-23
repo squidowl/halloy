@@ -1,4 +1,6 @@
-use crate::Theme;
+pub use theme::Theme;
+
+pub mod theme;
 
 #[derive(Debug, Clone)]
 pub struct Appearance {
