@@ -6,7 +6,7 @@ use irc::proto;
 use itertools::sorted;
 use serde::{Deserialize, Serialize};
 
-use crate::{buffer, config::buffer::UsernameFormat, mode, theme::Colors};
+use crate::{appearance::theme::Colors, buffer, config::buffer::UsernameFormat, mode};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(into = "String")]

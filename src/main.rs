@@ -12,7 +12,6 @@ mod modal;
 mod notification;
 mod screen;
 mod stream;
-mod theme;
 mod url;
 mod widget;
 mod window;
@@ -21,6 +20,7 @@ use std::collections::HashSet;
 use std::env;
 use std::time::{Duration, Instant};
 
+use appearance::{theme, Theme};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::history::manager::Broadcast;
@@ -34,7 +34,6 @@ use tokio::runtime;
 
 use self::event::{events, Event};
 use self::modal::Modal;
-use self::theme::Theme;
 use self::widget::Element;
 use self::window::Window;
 

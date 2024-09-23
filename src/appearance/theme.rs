@@ -2,7 +2,7 @@ use iced::application;
 
 use crate::widget::combo_box;
 
-pub use data::theme::{
+pub use data::appearance::theme::{
     color_to_hex, hex_to_color, Buffer, Button, Buttons, Colors, General, ServerMessages, Text,
 };
 

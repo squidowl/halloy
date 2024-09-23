@@ -23,7 +23,7 @@ use crate::appearance::{self, Appearance};
 use crate::audio::{self, Sound};
 use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
-use crate::theme::Colors;
+use crate::appearance::theme::Colors;
 use crate::{environment, Theme};
 
 pub mod buffer;

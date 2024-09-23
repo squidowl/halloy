@@ -1,8 +1,12 @@
-use data::{appearance, Theme};
+use data::appearance;
 use futures::{stream::BoxStream, StreamExt};
 use iced::advanced::subscription::Hasher;
 use iced::futures;
 use iced::{advanced::graphics::futures::subscription, Subscription};
+
+pub use theme::Theme;
+
+pub mod theme;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Mode {
@@ -65,7 +69,7 @@ pub fn detect() -> Option<Mode> {
     Mode::try_from(dark_light::detect()).ok()
 }
 
-pub fn theme(selected: &data::appearance::Selected) -> Theme {
+pub fn theme(selected: &data::appearance::Selected) -> data::appearance::Theme {
     match &selected {
         appearance::Selected::Static(theme) => theme.clone(),
         appearance::Selected::Dynamic { light, dark } => match detect() {
@@ -77,7 +81,7 @@ pub fn theme(selected: &data::appearance::Selected) -> Theme {
                 log::warn!(
                     "[theme] couldn't determine the OS appearance, using the default theme."
                 );
-                Theme::default()
+                Default::default()
             }
         },
     }

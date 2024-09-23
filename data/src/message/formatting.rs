@@ -4,8 +4,9 @@ use iced_core::color;
 use itertools::PeekingNext;
 use serde::{Deserialize, Serialize};
 
+use crate::appearance::theme;
+
 pub use self::encode::encode;
-use crate::theme;
 
 pub mod encode;
 
