@@ -336,7 +336,7 @@ impl History {
                 let messages = std::mem::take(messages);
 
                 let read_marker = ReadMarker::latest(&messages).max(*read_marker);
-                let max_triggers_unread = metadata::find_latest_triggers(&messages);
+                let max_triggers_unread = metadata::latest_triggers_unread(&messages);
 
                 *self = Self::Partial {
                     server: server.clone(),

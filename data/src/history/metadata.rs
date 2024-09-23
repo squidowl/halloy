@@ -20,7 +20,7 @@ pub struct ReadMarker(DateTime<Utc>);
 
 impl ReadMarker {
     pub fn latest(messages: &[Message]) -> Option<Self> {
-        find_latest_triggers(messages).map(Self)
+        latest_triggers_unread(messages).map(Self)
     }
 
     pub fn date_time(self) -> DateTime<Utc> {
@@ -44,7 +44,7 @@ impl fmt::Display for ReadMarker {
     }
 }
 
-pub fn find_latest_triggers(messages: &[Message]) -> Option<DateTime<Utc>> {
+pub fn latest_triggers_unread(messages: &[Message]) -> Option<DateTime<Utc>> {
     messages
         .iter()
         .rev()
@@ -70,7 +70,7 @@ pub async fn save(
 ) -> Result<(), Error> {
     let bytes = serde_json::to_vec(&Metadata {
         read_marker,
-        last_triggers_unread: find_latest_triggers(messages),
+        last_triggers_unread: latest_triggers_unread(messages),
     })?;
 
     let path = path(server, kind).await?;
