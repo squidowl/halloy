@@ -10,7 +10,7 @@ use data::config;
 use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{client, environment, history, Config, Server, User, Version};
+use data::{client, environment, history, Config, Server, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, Length, Task, Vector};
@@ -343,6 +343,12 @@ impl Dashboard {
                                             None,
                                         );
                                     }
+                                }
+                                buffer::Event::History(history_task) => {
+                                    return (
+                                        Task::batch(vec![task, history_task.map(Message::History)]),
+                                        None,
+                                    )
                                 }
                             }
 
@@ -1205,154 +1211,27 @@ impl Dashboard {
         }
     }
 
-    pub fn record_message(&mut self, server: &Server, message: data::Message) {
-        self.history.record_message(server, message);
+    pub fn record_message(&mut self, server: &Server, message: data::Message) -> Task<Message> {
+        if let Some(task) = self.history.record_message(server, message) {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
     }
 
-    pub fn broadcast_quit(
-        &mut self,
-        server: &Server,
-        user: User,
-        comment: Option<String>,
-        user_channels: Vec<String>,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history.broadcast(
-            server,
-            Broadcast::Quit {
-                user,
-                comment,
-                user_channels,
-            },
-            config,
-            sent_time,
-        );
-    }
-
-    pub fn broadcast_nickname(
-        &mut self,
-        server: &Server,
-        old_nick: Nick,
-        new_nick: Nick,
-        ourself: bool,
-        user_channels: Vec<String>,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history.broadcast(
-            server,
-            Broadcast::Nickname {
-                new_nick,
-                old_nick,
-                ourself,
-                user_channels,
-            },
-            config,
-            sent_time,
-        );
-    }
-
-    pub fn broadcast_invite(
-        &mut self,
-        server: &Server,
-        inviter: Nick,
-        channel: String,
-        user_channels: Vec<String>,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history.broadcast(
-            server,
-            Broadcast::Invite {
-                inviter,
-                channel,
-                user_channels,
-            },
-            config,
-            sent_time,
-        );
-    }
-
-    pub fn broadcast_change_host(
-        &mut self,
-        server: &Server,
-        old_user: User,
-        new_username: String,
-        new_hostname: String,
-        ourself: bool,
-        user_channels: Vec<String>,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history.broadcast(
-            server,
-            Broadcast::ChangeHost {
-                old_user,
-                new_username,
-                new_hostname,
-                ourself,
-                user_channels,
-            },
-            config,
-            sent_time,
-        );
-    }
-
-    pub fn broadcast_connecting(
+    pub fn broadcast(
         &mut self,
         server: &Server,
         config: &Config,
         sent_time: DateTime<Utc>,
-    ) {
-        self.history
-            .broadcast(server, Broadcast::Connecting, config, sent_time);
-    }
-
-    pub fn broadcast_connected(
-        &mut self,
-        server: &Server,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history
-            .broadcast(server, Broadcast::Connected, config, sent_time);
-    }
-
-    pub fn broadcast_disconnected(
-        &mut self,
-        server: &Server,
-        error: Option<String>,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history
-            .broadcast(server, Broadcast::Disconnected { error }, config, sent_time);
-    }
-
-    pub fn broadcast_reconnected(
-        &mut self,
-        server: &Server,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history
-            .broadcast(server, Broadcast::Reconnected, config, sent_time);
-    }
-
-    pub fn broadcast_connection_failed(
-        &mut self,
-        server: &Server,
-        error: String,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history.broadcast(
-            server,
-            Broadcast::ConnectionFailed { error },
-            config,
-            sent_time,
-        );
+        broadcast: Broadcast,
+    ) -> Task<Message> {
+        Task::batch(
+            self.history
+                .broadcast(server, broadcast, config, sent_time)
+                .into_iter()
+                .map(|task| Task::perform(task, Message::History)),
+        )
     }
 
     pub fn update_read_marker(
@@ -1660,32 +1539,36 @@ impl Dashboard {
         server: &Server,
         event: file_transfer::manager::Event,
     ) -> Task<Message> {
+        let mut tasks = vec![];
+
         match event {
             file_transfer::manager::Event::NewTransfer(transfer, task) => {
                 match transfer.direction {
                     file_transfer::Direction::Received => {
-                        self.record_message(
+                        tasks.push(self.record_message(
                             server,
                             data::Message::file_transfer_request_received(
                                 &transfer.remote_user,
                                 &transfer.filename,
                             ),
-                        );
+                        ));
                     }
                     file_transfer::Direction::Sent => {
-                        self.record_message(
+                        tasks.push(self.record_message(
                             server,
                             data::Message::file_transfer_request_sent(
                                 &transfer.remote_user,
                                 &transfer.filename,
                             ),
-                        );
+                        ));
                     }
                 }
 
-                Task::run(task, Message::FileTransfer)
+                tasks.push(Task::run(task, Message::FileTransfer));
             }
         }
+
+        Task::batch(tasks)
     }
 
     fn from_data(

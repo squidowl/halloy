@@ -19,10 +19,10 @@ pub enum Message {
     Topic(topic::Message),
 }
 
-#[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
     OpenChannel(String),
+    History(Task<history::manager::Message>),
 }
 
 pub fn view<'a>(
@@ -341,13 +341,13 @@ impl Channel {
                 let command = command.map(Message::InputView);
 
                 match event {
-                    Some(input_view::Event::InputSent) => {
+                    Some(input_view::Event::InputSent { history_task }) => {
                         let command = Task::batch(vec![
                             command,
                             self.scroll_view.scroll_to_end().map(Message::ScrollView),
                         ]);
 
-                        (command, None)
+                        (command, Some(Event::History(history_task)))
                     }
                     None => (command, None),
                 }

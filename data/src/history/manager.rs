@@ -292,7 +292,7 @@ impl Manager {
         broadcast: Broadcast,
         config: &Config,
         sent_time: DateTime<Utc>,
-    ) {
+    ) -> Vec<impl Future<Output = Message>> {
         let map = self.data.map.entry(server.clone()).or_default();
 
         let channels = map
@@ -410,9 +410,10 @@ impl Manager {
             }
         };
 
-        messages.into_iter().for_each(|message| {
-            self.record_message(server, message);
-        });
+        messages
+            .into_iter()
+            .filter_map(|message| self.record_message(server, message))
+            .collect()
     }
 
     pub fn input<'a>(&'a self, buffer: &Buffer) -> input::Cache<'a> {
