@@ -11,7 +11,9 @@ use crate::widget::{anchored_overlay, key_press, Element};
 mod completion;
 
 pub enum Event {
-    InputSent,
+    InputSent {
+        history_task: Task<history::manager::Message>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +179,8 @@ impl State {
                         clients.send(buffer, encoded);
                     }
 
+                    let mut history_task = Task::none();
+
                     if let Some(nick) = clients.nickname(buffer.server()) {
                         let mut user = nick.to_owned().into();
                         let mut channel_users = &[][..];
@@ -192,10 +196,15 @@ impl State {
                             }
                         }
 
-                        history.record_input(input, user, channel_users);
+                        history_task = Task::batch(
+                            history
+                                .record_input(input, user, channel_users)
+                                .into_iter()
+                                .map(Task::future),
+                        );
                     }
 
-                    (Task::none(), Some(Event::InputSent))
+                    (Task::none(), Some(Event::InputSent { history_task }))
                 } else {
                     (Task::none(), None)
                 }

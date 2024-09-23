@@ -37,10 +37,10 @@ pub enum Message {
     FileTransfers(file_transfers::Message),
 }
 
-#[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
     OpenChannel(String),
+    History(Task<history::manager::Message>),
 }
 
 impl Buffer {
@@ -73,6 +73,7 @@ impl Buffer {
                 let event = event.map(|event| match event {
                     channel::Event::UserContext(event) => Event::UserContext(event),
                     channel::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    channel::Event::History(task) => Event::History(task),
                 });
 
                 (command.map(Message::Channel), event)
@@ -83,6 +84,7 @@ impl Buffer {
                 let event = event.map(|event| match event {
                     server::Event::UserContext(event) => Event::UserContext(event),
                     server::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    server::Event::History(task) => Event::History(task),
                 });
 
                 (command.map(Message::Server), event)
@@ -93,6 +95,7 @@ impl Buffer {
                 let event = event.map(|event| match event {
                     query::Event::UserContext(event) => Event::UserContext(event),
                     query::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    query::Event::History(task) => Event::History(task),
                 });
 
                 (command.map(Message::Query), event)
