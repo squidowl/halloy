@@ -862,6 +862,8 @@ impl Client {
                         }
                         log::debug!("[{}] {channel} - WHO requested", self.server);
                     }
+
+                    return Some(vec![Event::JoinedChannel(channel.clone())]);
                 } else if let Some(channel) = self.chanmap.get_mut(channel) {
                     let user = if self.supports_extended_join {
                         accountname.as_ref().map_or(user.clone(), |accountname| {
@@ -873,11 +875,6 @@ impl Client {
 
                     channel.users.insert(user);
                 }
-
-                return Some(vec![
-                    Event::JoinedChannel(channel.clone()),
-                    Event::Single(message, self.nickname().to_owned()),
-                ]);
             }
             Command::KICK(channel, victim, _) => {
                 if victim == self.nickname().as_ref() {
