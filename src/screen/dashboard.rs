@@ -52,7 +52,6 @@ pub enum Message {
     SelectedText(Vec<(f32, String)>),
     History(history::manager::Message),
     DashboardSaved(Result<(), data::dashboard::Error>),
-    CloseHistory(Server, history::Kind, Option<history::ReadMarker>),
     Task(command_bar::Message),
     Shortcut(shortcut::Command),
     FileTransfer(file_transfer::task::Update),
@@ -67,6 +66,7 @@ pub enum Event {
     ConfigReloaded(Result<Config, config::Error>),
     ReloadThemes,
     QuitServer(Server),
+    Exit,
 }
 
 impl Dashboard {
@@ -519,6 +519,16 @@ impl Dashboard {
                                 clients.send_markread(&server, target, read_marker);
                             }
                         }
+                        history::manager::Event::Exited(results) => {
+                            for (server, kind, read_marker) in results {
+                                if let Some((target, read_marker)) = kind.target().zip(read_marker)
+                                {
+                                    clients.send_markread(&server, target, read_marker);
+                                }
+                            }
+
+                            return (Task::none(), Some(Event::Exit));
+                        }
                     }
                 }
             }
@@ -527,11 +537,6 @@ impl Dashboard {
             }
             Message::DashboardSaved(Err(error)) => {
                 log::warn!("error saving dashboard: {error}");
-            }
-            Message::CloseHistory(server, kind, marker) => {
-                if let Some((target, marker)) = kind.target().zip(marker) {
-                    clients.send_markread(&server, target, marker);
-                }
             }
             Message::Task(message) => {
                 let Some(command_bar) = &mut self.command_bar else {
@@ -1183,11 +1188,7 @@ impl Dashboard {
                 tasks.push(
                     self.history
                         .close(server, history::Kind::Channel(channel))
-                        .map(|task| {
-                            Task::perform(task, |(server, kind, marker)| {
-                                Message::CloseHistory(server, kind, marker)
-                            })
-                        })
+                        .map(|task| Task::perform(task, Message::History))
                         .unwrap_or_else(Task::none),
                 );
 
@@ -1197,11 +1198,7 @@ impl Dashboard {
                 tasks.push(
                     self.history
                         .close(server, history::Kind::Query(nick))
-                        .map(|task| {
-                            Task::perform(task, |(server, kind, marker)| {
-                                Message::CloseHistory(server, kind, marker)
-                            })
-                        })
+                        .map(|task| Task::perform(task, Message::History))
                         .unwrap_or_else(Task::none),
                 );
 
@@ -1237,7 +1234,7 @@ impl Dashboard {
     pub fn update_read_marker(
         &mut self,
         server: Server,
-        kind: history::Kind,
+        kind: impl Into<history::Kind> + 'static,
         read_marker: ReadMarker,
     ) -> Task<Message> {
         if let Some(task) = self.history.update_read_marker(server, kind, read_marker) {
@@ -1704,32 +1701,28 @@ impl Dashboard {
         }
     }
 
-    pub fn exit(&mut self, mut clients: client::Map) -> Task<()> {
-        let history = self.history.close_all();
-        let last_changed = self.last_changed;
+    pub fn exit(&mut self) -> Task<Message> {
+        let history = self.history.exit();
+        let last_changed = self.last_changed.take();
         let dashboard = data::Dashboard::from(&*self);
 
-        Task::future(async move {
-            for (server, kind, marker) in history.await {
-                if let Some((target, marker)) = kind.target().zip(marker) {
-                    clients.send_markread(&server, target, marker);
-                }
-            }
-
-            // Give markread messages a chance to send
-            tokio::time::sleep(Duration::from_millis(500)).await;
-
-            if last_changed.is_some() {
-                match dashboard.save().await {
-                    Ok(_) => {
-                        log::info!("dashboard saved");
-                    }
-                    Err(error) => {
-                        log::warn!("error saving dashboard: {error}");
+        Task::perform(
+            async move {
+                if last_changed.is_some() {
+                    match dashboard.save().await {
+                        Ok(_) => {
+                            log::info!("dashboard saved");
+                        }
+                        Err(error) => {
+                            log::warn!("error saving dashboard: {error}");
+                        }
                     }
                 }
-            }
-        })
+
+                history.await
+            },
+            Message::History,
+        )
     }
 
     fn open_popout_window(&mut self, main_window: &Window, pane: Pane) -> Task<Message> {

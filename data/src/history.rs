@@ -9,10 +9,11 @@ use irc::proto;
 use tokio::fs;
 use tokio::time::Instant;
 
-pub use self::manager::{Manager, Resource};
-pub use self::metadata::{Metadata, ReadMarker};
 use crate::user::Nick;
 use crate::{compression, environment, message, server, Message};
+
+pub use self::manager::{Manager, Resource};
+pub use self::metadata::{Metadata, ReadMarker};
 
 pub mod manager;
 pub mod metadata;

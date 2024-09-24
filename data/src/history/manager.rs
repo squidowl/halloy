@@ -42,10 +42,18 @@ pub enum Message {
         Result<Option<history::ReadMarker>, history::Error>,
     ),
     Flushed(server::Server, history::Kind, Result<(), history::Error>),
+    Exited(
+        Vec<(
+            Server,
+            history::Kind,
+            Result<Option<history::ReadMarker>, history::Error>,
+        )>,
+    ),
 }
 
 pub enum Event {
     Closed(server::Server, history::Kind, Option<history::ReadMarker>),
+    Exited(Vec<(Server, history::Kind, Option<history::ReadMarker>)>),
 }
 
 #[derive(Debug, Default)]
@@ -109,12 +117,12 @@ impl Manager {
             Message::Flushed(server, kind, Err(error)) => {
                 log::warn!("failed to flush history for {kind} on {server}: {error}")
             }
-            Message::UpdatePartial(server, kind, Ok(loaded)) => {
-                log::debug!("updating metadata for {kind} on {server}");
-                self.data.update_partial(server, kind, loaded);
+            Message::UpdatePartial(server, kind, Ok(metadata)) => {
+                log::debug!("loaded metadata for {kind} on {server}");
+                self.data.update_partial(server, kind, metadata);
             }
             Message::UpdatePartial(server, kind, Err(error)) => {
-                log::warn!("failed to load history metadata for {kind} on {server}: {error}");
+                log::warn!("failed to load metadata for {kind} on {server}: {error}");
             }
             Message::UpdateReadMarker(server, kind, read_marker, Ok(_)) => {
                 log::debug!("updated read marker for {kind} on {server} to {read_marker}");
@@ -123,6 +131,24 @@ impl Manager {
                 log::warn!(
                     "failed to update read marker for {kind} on {server} to {read_marker}: {error}"
                 );
+            }
+            Message::Exited(results) => {
+                let mut output = vec![];
+
+                for (server, kind, result) in results {
+                    match result {
+                        Ok(marker) => {
+                            log::debug!("closed history for {kind} on {server}",);
+                            output.push((server, kind, marker));
+                        }
+                        Err(error) => {
+                            log::warn!("failed to close history for {kind} on {server}: {error}");
+                            output.push((server, kind, None));
+                        }
+                    }
+                }
+
+                return Some(Event::Exited(output));
             }
         }
 
@@ -137,26 +163,17 @@ impl Manager {
         &mut self,
         server: Server,
         kind: history::Kind,
-    ) -> Option<impl Future<Output = (Server, history::Kind, Option<history::ReadMarker>)>> {
+    ) -> Option<impl Future<Output = Message>> {
         let history = self.data.map.get_mut(&server)?.remove(&kind)?;
 
-        Some(async move {
-            match history.close().await {
-                Ok(marker) => {
-                    log::debug!("closed history for {kind} on {server}",);
-                    (server, kind, marker)
-                }
-                Err(error) => {
-                    log::warn!("failed to close history for {kind} on {server}: {error}");
-                    (server, kind, None)
-                }
-            }
-        })
+        Some(
+            history
+                .close()
+                .map(|result| Message::Closed(server, kind, result)),
+        )
     }
 
-    pub fn close_all(
-        &mut self,
-    ) -> impl Future<Output = Vec<(Server, history::Kind, Option<history::ReadMarker>)>> {
+    pub fn exit(&mut self) -> impl Future<Output = Message> {
         let map = std::mem::take(&mut self.data).map;
 
         async move {
@@ -167,24 +184,7 @@ impl Manager {
                 })
             });
 
-            let results = future::join_all(tasks).await;
-
-            let mut output = vec![];
-
-            for (server, kind, result) in results {
-                match result {
-                    Ok(marker) => {
-                        log::debug!("closed history for {kind} on {server}",);
-                        output.push((server, kind, marker));
-                    }
-                    Err(error) => {
-                        log::warn!("failed to close history for {kind} on {server}: {error}");
-                        output.push((server, kind, None));
-                    }
-                }
-            }
-
-            output
+            Message::Exited(future::join_all(tasks).await)
         }
     }
 
@@ -228,7 +228,7 @@ impl Manager {
     pub fn update_read_marker(
         &mut self,
         server: Server,
-        kind: history::Kind,
+        kind: impl Into<history::Kind>,
         read_marker: history::ReadMarker,
     ) -> Option<impl Future<Output = Message>> {
         self.data.update_read_marker(server, kind, read_marker)
@@ -717,10 +717,12 @@ impl Data {
     fn update_read_marker(
         &mut self,
         server: server::Server,
-        kind: history::Kind,
+        kind: impl Into<history::Kind>,
         read_marker: history::ReadMarker,
     ) -> Option<impl Future<Output = Message>> {
         use std::collections::hash_map;
+
+        let kind = kind.into();
 
         match self
             .map
