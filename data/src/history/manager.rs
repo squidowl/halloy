@@ -30,6 +30,12 @@ pub enum Message {
         history::Kind,
         Result<history::Metadata, history::Error>,
     ),
+    UpdateReadMarker(
+        server::Server,
+        history::Kind,
+        history::ReadMarker,
+        Result<(), history::Error>,
+    ),
     Closed(
         server::Server,
         history::Kind,
@@ -109,6 +115,14 @@ impl Manager {
             }
             Message::UpdatePartial(server, kind, Err(error)) => {
                 log::warn!("failed to load history metadata for {kind} on {server}: {error}");
+            }
+            Message::UpdateReadMarker(server, kind, read_marker, Ok(_)) => {
+                log::debug!("updated read marker for {kind} on {server} to {read_marker}");
+            }
+            Message::UpdateReadMarker(server, kind, read_marker, Err(error)) => {
+                log::warn!(
+                    "failed to update read marker for {kind} on {server} to {read_marker}: {error}"
+                );
             }
         }
 
@@ -719,20 +733,14 @@ impl Data {
 
                 None
             }
-            hash_map::Entry::Vacant(entry) => {
-                entry
-                    .insert(History::partial(server.clone(), kind.clone()))
-                    .update_read_marker(read_marker);
+            hash_map::Entry::Vacant(_) => Some(
+                async move {
+                    let updated = history::metadata::update(&server, &kind, &read_marker).await;
 
-                Some(
-                    async move {
-                        let loaded = history::metadata::load(server.clone(), kind.clone()).await;
-
-                        Message::UpdatePartial(server, kind, loaded)
-                    }
-                    .boxed(),
-                )
-            }
+                    Message::UpdateReadMarker(server, kind, read_marker, updated)
+                }
+                .boxed(),
+            ),
         }
     }
 
