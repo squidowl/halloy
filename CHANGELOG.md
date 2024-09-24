@@ -1,6 +1,6 @@
 # Unreleased
 - New configuration options
-  - Ability to define a shell command for loading a NICKSERV password. See [configuration](https://halloy.squidowl.org/configuration/servers/index.html#password_command)
+  - Ability to define a shell command for loading a NICKSERV password. See [configuration](https://halloy.squidowl.org/configuration/servers/index.html#nick_password_command)
   - Ability to define a shell command for loading a SASL password. See [configuration](https://halloy.squidowl.org/configuration/servers/sasl/plain.html)
 
 Fixed:
