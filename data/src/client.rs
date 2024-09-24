@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, Instant};
 
+use crate::history::ReadMarker;
 use crate::message::server_time;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -79,6 +80,8 @@ pub enum Event {
     Broadcast(Broadcast),
     Notification(message::Encoded, Nick, Notification),
     FileTransferRequest(file_transfer::ReceiveRequest),
+    UpdateReadMarker(String, ReadMarker),
+    JoinedChannel(String),
 }
 
 pub struct Client {
@@ -99,6 +102,7 @@ pub struct Client {
     supports_away_notify: bool,
     supports_account_notify: bool,
     supports_extended_join: bool,
+    supports_read_marker: bool,
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<String>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
@@ -151,6 +155,7 @@ impl Client {
             supports_away_notify: false,
             supports_account_notify: false,
             supports_extended_join: false,
+            supports_read_marker: false,
             highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
             isupport: HashMap::new(),
@@ -367,13 +372,17 @@ impl Client {
                     if contains("multi-prefix") {
                         requested.push("multi-prefix");
                     }
+                    if contains("draft/read-marker") {
+                        requested.push("draft/read-marker");
+                    }
 
                     if !requested.is_empty() {
                         // Request
                         self.registration_step = RegistrationStep::Req;
-                        let _ = self
-                            .handle
-                            .try_send(command!("CAP", "REQ", requested.join(" ")));
+
+                        for message in group_capability_requests(&requested) {
+                            let _ = self.handle.try_send(message);
+                        }
                     } else {
                         // If none requested, end negotiation
                         self.registration_step = RegistrationStep::End;
@@ -398,6 +407,9 @@ impl Client {
                 }
                 if caps.contains(&"extended-join") {
                     self.supports_extended_join = true;
+                }
+                if caps.contains(&"draft/read-marker") {
+                    self.supports_read_marker = true;
                 }
 
                 let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
@@ -479,12 +491,14 @@ impl Client {
                 if newly_contains("multi-prefix") {
                     requested.push("multi-prefix");
                 }
+                if newly_contains("draft/read-marker") {
+                    requested.push("draft/read-marker");
+                }
 
                 if !requested.is_empty() {
-                    // Request
-                    let _ = self
-                        .handle
-                        .try_send(command!("CAP", "REQ", requested.join(" ")));
+                    for message in group_capability_requests(&requested) {
+                        let _ = self.handle.try_send(message);
+                    }
                 }
 
                 self.listed_caps.extend(new_caps);
@@ -505,6 +519,9 @@ impl Client {
                 }
                 if del_caps.contains(&"extended-join") {
                     self.supports_extended_join = false;
+                }
+                if del_caps.contains(&"draft/read-marker") {
+                    self.supports_read_marker = false;
                 }
 
                 self.listed_caps
@@ -845,6 +862,8 @@ impl Client {
                         }
                         log::debug!("[{}] {channel} - WHO requested", self.server);
                     }
+
+                    return Some(vec![Event::JoinedChannel(channel.clone())]);
                 } else if let Some(channel) = self.chanmap.get_mut(channel) {
                     let user = if self.supports_extended_join {
                         accountname.as_ref().map_or(user.clone(), |accountname| {
@@ -1225,10 +1244,28 @@ impl Client {
             Command::Numeric(RPL_ENDOFMONLIST, _) => {
                 return None;
             }
+            Command::MARKREAD(target, Some(timestamp)) => {
+                if let Some(read_marker) = timestamp
+                    .strip_prefix("timestamp=")
+                    .and_then(|timestamp| timestamp.parse::<ReadMarker>().ok())
+                {
+                    return Some(vec![Event::UpdateReadMarker(target.clone(), read_marker)]);
+                }
+            }
             _ => {}
         }
 
         Some(vec![Event::Single(message, self.nickname().to_owned())])
+    }
+
+    pub fn send_markread(&mut self, target: &str, read_marker: ReadMarker) {
+        if self.supports_read_marker {
+            let _ = self.handle.try_send(command!(
+                "MARKREAD",
+                target.to_string(),
+                format!("timestamp={read_marker}"),
+            ));
+        }
     }
 
     fn sync(&mut self) {
@@ -1430,6 +1467,12 @@ impl Map {
         }
     }
 
+    pub fn send_markread(&mut self, server: &Server, target: &str, read_marker: ReadMarker) {
+        if let Some(client) = self.client_mut(server) {
+            client.send_markread(target, read_marker);
+        }
+    }
+
     pub fn join(&mut self, server: &Server, channels: &[String]) {
         if let Some(client) = self.client_mut(server) {
             client.join(channels);
@@ -1440,6 +1483,20 @@ impl Map {
         if let Some(client) = self.client_mut(server) {
             client.quit(reason);
         }
+    }
+
+    pub fn exit(&mut self) -> HashSet<Server> {
+        self.0
+            .iter_mut()
+            .filter_map(|(server, state)| {
+                if let State::Ready(client) = state {
+                    client.quit(None);
+                    Some(server.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     pub fn resolve_user_attributes<'a>(
@@ -1660,6 +1717,26 @@ pub enum WhoStatus {
     Done(Instant),
 }
 
+fn group_capability_requests<'a>(
+    capabilities: &'a [&'a str],
+) -> impl Iterator<Item = proto::Message> + 'a {
+    const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"CAP REQ :\r\n".len();
+
+    capabilities
+        .iter()
+        .scan(0, |count, capability| {
+            // Capability + a space
+            *count += capability.len() + 1;
+
+            let chunk = *count / MAX_LEN;
+
+            Some((chunk, capability))
+        })
+        .into_group_map()
+        .into_values()
+        .map(|capabilities| command!("CAP", "REQ", capabilities.into_iter().join(" ")))
+}
+
 /// Group channels together into as few JOIN messages as possible
 fn group_joins<'a>(
     channels: &'a [String],
@@ -1732,5 +1809,5 @@ fn group_monitors(
     })
     .into_group_map()
     .into_values()
-    .map(|targets| command!("MONITOR", "+", targets.into_iter().join(","),))
+    .map(|targets| command!("MONITOR", "+", targets.into_iter().join(",")))
 }

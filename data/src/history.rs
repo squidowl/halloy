@@ -2,17 +2,21 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::{fmt, io};
 
+use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 use futures::{Future, FutureExt};
+use irc::proto;
 use tokio::fs;
 use tokio::time::Instant;
 
-pub use self::manager::{Manager, Resource};
-use crate::time::Posix;
 use crate::user::Nick;
 use crate::{compression, environment, message, server, Message};
 
+pub use self::manager::{Manager, Resource};
+pub use self::metadata::{Metadata, ReadMarker};
+
 pub mod manager;
+pub mod metadata;
 
 // TODO: Make this configurable?
 /// Max # messages to persist
@@ -27,6 +31,16 @@ pub enum Kind {
     Server,
     Channel(String),
     Query(Nick),
+}
+
+impl Kind {
+    pub fn target(&self) -> Option<&str> {
+        match self {
+            Kind::Server => None,
+            Kind::Channel(channel) => Some(channel),
+            Kind::Query(nick) => Some(nick.as_ref()),
+        }
+    }
 }
 
 impl fmt::Display for Kind {
@@ -49,19 +63,45 @@ impl From<message::Target> for Kind {
     }
 }
 
-pub async fn load(server: &server::Server, kind: &Kind) -> Result<Vec<Message>, Error> {
-    let path = path(server, kind).await?;
+impl From<String> for Kind {
+    fn from(target: String) -> Self {
+        Kind::from(target.as_ref())
+    }
+}
 
-    Ok(read_all(&path).await.unwrap_or_default())
+impl From<&str> for Kind {
+    fn from(target: &str) -> Self {
+        if proto::is_channel(target) {
+            Kind::Channel(target.to_string())
+        } else {
+            Kind::Query(target.to_string().into())
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Loaded {
+    pub messages: Vec<Message>,
+    pub metadata: Metadata,
+}
+
+pub async fn load(server: server::Server, kind: Kind) -> Result<Loaded, Error> {
+    let path = path(&server, &kind).await?;
+
+    let messages = read_all(&path).await.unwrap_or_default();
+    let metadata = metadata::load(server, kind).await.unwrap_or_default();
+
+    Ok(Loaded { messages, metadata })
 }
 
 pub async fn overwrite(
     server: &server::Server,
     kind: &Kind,
     messages: &[Message],
+    read_marker: Option<ReadMarker>,
 ) -> Result<(), Error> {
     if messages.is_empty() {
-        return Ok(());
+        return metadata::save(server, kind, messages, read_marker).await;
     }
 
     let latest = &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
@@ -71,6 +111,8 @@ pub async fn overwrite(
 
     fs::write(path, &compressed).await?;
 
+    metadata::save(server, kind, latest, read_marker).await?;
+
     Ok(())
 }
 
@@ -78,15 +120,14 @@ pub async fn append(
     server: &server::Server,
     kind: &Kind,
     messages: Vec<Message>,
+    read_marker: Option<ReadMarker>,
 ) -> Result<(), Error> {
-    if messages.is_empty() {
-        return Ok(());
-    }
+    let loaded = load(server.clone(), kind.clone()).await?;
 
-    let mut all_messages = load(server, kind).await?;
+    let mut all_messages = loaded.messages;
     all_messages.extend(messages);
 
-    overwrite(server, kind, &all_messages).await
+    overwrite(server, kind, &all_messages, read_marker).await
 }
 
 async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
@@ -94,24 +135,30 @@ async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
     Ok(compression::decompress(&bytes)?)
 }
 
-async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
+pub async fn dir_path() -> Result<PathBuf, Error> {
     let data_dir = environment::data_dir();
 
-    // TODO: Is this stable enough? What if user's nickname changes
+    let history_dir = data_dir.join("history");
+
+    if !history_dir.exists() {
+        fs::create_dir_all(&history_dir).await?;
+    }
+
+    Ok(history_dir)
+}
+
+async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
+    let dir = dir_path().await?;
+
     let name = match kind {
         Kind::Server => format!("{server}"),
         Kind::Channel(channel) => format!("{server}channel{channel}"),
         Kind::Query(nick) => format!("{server}nickname{}", nick),
     };
+
     let hashed_name = seahash::hash(name.as_bytes());
 
-    let parent = data_dir.join("history");
-
-    if !parent.exists() {
-        fs::create_dir_all(&parent).await?;
-    }
-
-    Ok(parent.join(format!("{hashed_name}.json.gz")))
+    Ok(dir.join(format!("{hashed_name}.json.gz")))
 }
 
 #[derive(Debug)]
@@ -120,53 +167,88 @@ pub enum History {
         server: server::Server,
         kind: Kind,
         messages: Vec<Message>,
-        last_received_at: Option<Instant>,
-        unread_message_count: usize,
-        opened_at: Posix,
+        last_updated_at: Option<Instant>,
+        max_triggers_unread: Option<DateTime<Utc>>,
+        read_marker: Option<ReadMarker>,
     },
     Full {
         server: server::Server,
         kind: Kind,
         messages: Vec<Message>,
-        last_received_at: Option<Instant>,
-        opened_at: Posix,
+        last_updated_at: Option<Instant>,
+        read_marker: Option<ReadMarker>,
     },
 }
 
 impl History {
-    fn partial(server: server::Server, kind: Kind, opened_at: Posix) -> Self {
+    fn partial(server: server::Server, kind: Kind) -> Self {
         Self::Partial {
             server,
             kind,
             messages: vec![],
-            last_received_at: None,
-            unread_message_count: 0,
-            opened_at,
+            last_updated_at: None,
+            max_triggers_unread: None,
+            read_marker: None,
+        }
+    }
+
+    pub fn update_partial(&mut self, metadata: Metadata) {
+        if let Self::Partial {
+            max_triggers_unread,
+            read_marker,
+            ..
+        } = self
+        {
+            *read_marker = (*read_marker).max(metadata.read_marker);
+            *max_triggers_unread = (*max_triggers_unread).max(metadata.last_triggers_unread);
+        }
+    }
+
+    fn has_unread(&self) -> bool {
+        match self {
+            History::Partial {
+                max_triggers_unread,
+                read_marker,
+                ..
+            } => {
+                // Read marker is prior to last known message which triggers unread
+                if let Some(read_marker) = read_marker {
+                    max_triggers_unread.is_some_and(|max| read_marker.date_time() < max)
+                }
+                // Default state == unread if theres messages that trigger indicator
+                else {
+                    max_triggers_unread.is_some()
+                }
+            }
+            History::Full { .. } => false,
         }
     }
 
     fn add_message(&mut self, message: Message) {
+        if message.triggers_unread() {
+            if let History::Partial {
+                max_triggers_unread,
+                ..
+            } = self
+            {
+                *max_triggers_unread = (*max_triggers_unread).max(Some(message.server_time));
+            }
+        }
+
         match self {
             History::Partial {
                 messages,
-                last_received_at,
-                unread_message_count,
+                last_updated_at,
+                ..
+            }
+            | History::Full {
+                messages,
+                last_updated_at,
                 ..
             } => {
-                if message.triggers_unread() {
-                    *unread_message_count += 1;
-                }
+                *last_updated_at = Some(Instant::now());
 
                 messages.push(message);
-                *last_received_at = Some(Instant::now());
-            }
-            History::Full {
-                messages,
-                last_received_at,
-                ..
-            } => {
-                messages.push(message);
-                *last_received_at = Some(Instant::now());
             }
         }
     }
@@ -177,19 +259,25 @@ impl History {
                 server,
                 kind,
                 messages,
-                last_received_at,
+                last_updated_at,
+                read_marker,
                 ..
             } => {
-                if let Some(last_received) = *last_received_at {
+                if let Some(last_received) = *last_updated_at {
                     let since = now.duration_since(last_received);
 
-                    if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
+                    if since >= FLUSH_AFTER_LAST_RECEIVED {
                         let server = server.clone();
                         let kind = kind.clone();
                         let messages = std::mem::take(messages);
-                        *last_received_at = None;
+                        let read_marker = *read_marker;
 
-                        return Some(async move { append(&server, &kind, messages).await }.boxed());
+                        *last_updated_at = None;
+
+                        return Some(
+                            async move { append(&server, &kind, messages, read_marker).await }
+                                .boxed(),
+                        );
                     }
                 }
 
@@ -199,16 +287,18 @@ impl History {
                 server,
                 kind,
                 messages,
-                last_received_at,
+                last_updated_at,
+                read_marker,
                 ..
             } => {
-                if let Some(last_received) = *last_received_at {
+                if let Some(last_received) = *last_updated_at {
                     let since = now.duration_since(last_received);
 
                     if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
                         let server = server.clone();
                         let kind = kind.clone();
-                        *last_received_at = None;
+                        let read_marker = *read_marker;
+                        *last_updated_at = None;
 
                         if messages.len() > MAX_MESSAGES {
                             messages.drain(0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT));
@@ -217,7 +307,8 @@ impl History {
                         let messages = messages.clone();
 
                         return Some(
-                            async move { overwrite(&server, &kind, &messages).await }.boxed(),
+                            async move { overwrite(&server, &kind, &messages, read_marker).await }
+                                .boxed(),
                         );
                     }
                 }
@@ -227,41 +318,77 @@ impl History {
         }
     }
 
-    fn make_partial(&mut self) -> Option<impl Future<Output = Result<(), Error>>> {
+    fn make_partial(&mut self) -> Option<impl Future<Output = Result<Option<ReadMarker>, Error>>> {
         match self {
             History::Partial { .. } => None,
             History::Full {
                 server,
                 kind,
                 messages,
+                read_marker,
                 ..
             } => {
                 let server = server.clone();
                 let kind = kind.clone();
                 let messages = std::mem::take(messages);
 
-                *self = Self::partial(server.clone(), kind.clone(), Posix::now());
+                let read_marker = ReadMarker::latest(&messages).max(*read_marker);
+                let max_triggers_unread = metadata::latest_triggers_unread(&messages);
 
-                Some(async move { overwrite(&server, &kind, &messages).await })
+                *self = Self::Partial {
+                    server: server.clone(),
+                    kind: kind.clone(),
+                    messages: vec![],
+                    last_updated_at: None,
+                    read_marker,
+                    max_triggers_unread,
+                };
+
+                Some(async move {
+                    overwrite(&server, &kind, &messages, read_marker)
+                        .await
+                        .map(|_| read_marker)
+                })
             }
         }
     }
 
-    async fn close(self) -> Result<(), Error> {
+    async fn close(self) -> Result<Option<ReadMarker>, Error> {
         match self {
             History::Partial {
                 server,
                 kind,
                 messages,
+                read_marker,
                 ..
-            } => append(&server, &kind, messages).await,
+            } => {
+                append(&server, &kind, messages, read_marker).await?;
+
+                Ok(None)
+            }
             History::Full {
                 server,
                 kind,
                 messages,
+                read_marker,
                 ..
-            } => overwrite(&server, &kind, &messages).await,
+            } => {
+                let read_marker = ReadMarker::latest(&messages).max(read_marker);
+
+                overwrite(&server, &kind, &messages, read_marker).await?;
+
+                Ok(read_marker)
+            }
         }
+    }
+
+    pub fn update_read_marker(&mut self, read_marker: ReadMarker) {
+        let stored = match self {
+            History::Partial { read_marker, .. } => read_marker,
+            History::Full { read_marker, .. } => read_marker,
+        };
+
+        *stored = (*stored).max(Some(read_marker));
     }
 }
 
@@ -280,4 +407,6 @@ pub enum Error {
     Compression(#[from] compression::Error),
     #[error(transparent)]
     Io(#[from] io::Error),
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
 }

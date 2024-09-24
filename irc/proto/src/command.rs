@@ -107,6 +107,8 @@ pub enum Command {
     CPRIVMSG(String, String, String),
     /// <channel> [<message>]
     KNOCK(String, Option<String>),
+    /// <target> [<timestamp>]
+    MARKREAD(String, Option<String>),
     /// <subcommand> [<targets>]
     MONITOR(String, Option<String>),
     /// <msgtarget>
@@ -205,6 +207,7 @@ impl Command {
             "CNOTICE" if len > 2 => CNOTICE(req!(), req!(), req!()),
             "CPRIVMSG" if len > 2 => CPRIVMSG(req!(), req!(), req!()),
             "KNOCK" if len > 0 => KNOCK(req!(), opt!()),
+            "MARKREAD" if len > 0 => MARKREAD(req!(), opt!()),
             "MONITOR" if len > 0 => MONITOR(req!(), opt!()),
             "TAGMSG" if len > 0 => TAGMSG(req!()),
             "USERIP" if len > 0 => USERIP(req!()),
@@ -265,6 +268,7 @@ impl Command {
             Command::CNOTICE(a, b, c) => vec![a, b, c],
             Command::CPRIVMSG(a, b, c) => vec![a, b, c],
             Command::KNOCK(a, b) => std::iter::once(a).chain(b).collect(),
+            Command::MARKREAD(a, b) => std::iter::once(a).chain(b).collect(),
             Command::MONITOR(a, b) => std::iter::once(a).chain(b).collect(),
             Command::TAGMSG(a) => vec![a],
             Command::USERIP(a) => vec![a],
@@ -324,6 +328,7 @@ impl Command {
             CNOTICE(_, _, _) => "CNOTICE".to_string(),
             CPRIVMSG(_, _, _) => "CPRIVMSG".to_string(),
             KNOCK(_, _) => "KNOCK".to_string(),
+            MARKREAD(_, _) => "MARKREAD".to_string(),
             MONITOR(_, _) => "MONITOR".to_string(),
             TAGMSG(_) => "TAGMSG".to_string(),
             USERIP(_) => "USERIP".to_string(),
