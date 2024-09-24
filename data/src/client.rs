@@ -1485,6 +1485,20 @@ impl Map {
         }
     }
 
+    pub fn exit(&mut self) -> HashSet<Server> {
+        self.0
+            .iter_mut()
+            .filter_map(|(server, state)| {
+                if let State::Ready(client) = state {
+                    client.quit(None);
+                    Some(server.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     pub fn resolve_user_attributes<'a>(
         &'a self,
         server: &Server,
@@ -1559,10 +1573,6 @@ impl Map {
                 client.tick(now);
             }
         })
-    }
-
-    pub fn take(&mut self) -> Self {
-        Self(std::mem::take(&mut self.0))
     }
 }
 
