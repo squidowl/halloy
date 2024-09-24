@@ -1,6 +1,7 @@
 #![allow(clippy::large_enum_variant, clippy::too_many_arguments)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod appearance;
 mod audio;
 mod buffer;
 mod event;
@@ -11,7 +12,6 @@ mod modal;
 mod notification;
 mod screen;
 mod stream;
-mod theme;
 mod url;
 mod widget;
 mod window;
@@ -20,6 +20,7 @@ use std::collections::HashSet;
 use std::env;
 use std::time::{Duration, Instant};
 
+use appearance::{theme, Theme};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::history::manager::Broadcast;
@@ -33,7 +34,6 @@ use tokio::runtime;
 
 use self::event::{events, Event};
 use self::modal::Modal;
-use self::theme::Theme;
 use self::widget::Element;
 use self::window::Window;
 
@@ -185,7 +185,7 @@ impl Halloy {
             Halloy {
                 version: Version::new(),
                 screen,
-                theme: config.themes.default.clone().into(),
+                theme: appearance::theme(&config.appearance.selected).into(),
                 clients: Default::default(),
                 servers: config.servers.clone(),
                 config,
@@ -207,7 +207,7 @@ pub enum Screen {
 
 #[derive(Debug)]
 pub enum Message {
-    ThemesReloaded(config::Themes),
+    AppearanceReloaded(data::appearance::Appearance),
     ScreenConfigReloaded(Result<Config, config::Error>),
     Dashboard(dashboard::Message),
     Stream(stream::Update),
@@ -219,6 +219,7 @@ pub enum Message {
     Version(Option<String>),
     Modal(modal::Message),
     RouteReceived(String),
+    AppearanceChange(appearance::Mode),
     Window(window::Id, window::Event),
     WindowSettingsSaved(Result<(), window::Error>),
 }
@@ -283,8 +284,8 @@ impl Halloy {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::ThemesReloaded(updated) => {
-                self.config.themes = updated;
+            Message::AppearanceReloaded(appearance) => {
+                self.config.appearance = appearance;
                 Task::none()
             }
             Message::ScreenConfigReloaded(updated) => {
@@ -321,7 +322,7 @@ impl Halloy {
                                     .collect::<Vec<_>>();
 
                                 self.servers = updated.servers.clone();
-                                self.theme = updated.themes.default.clone().into();
+                                self.theme = appearance::theme(&updated.appearance.selected).into();
                                 self.config = updated;
 
                                 for server in removed_servers {
@@ -335,8 +336,8 @@ impl Halloy {
                         Task::none()
                     }
                     Some(dashboard::Event::ReloadThemes) => Task::future(Config::load())
-                        .and_then(|config| Task::done(config.themes))
-                        .map(Message::ThemesReloaded),
+                        .and_then(|config| Task::done(config.appearance))
+                        .map(Message::AppearanceReloaded),
                     Some(dashboard::Event::QuitServer(server)) => {
                         self.clients.quit(&server, None);
                         Task::none()
@@ -882,6 +883,18 @@ impl Halloy {
 
                 Task::none()
             }
+            Message::AppearanceChange(mode) => {
+                if let data::appearance::Selected::Dynamic { light, dark } =
+                    &self.config.appearance.selected
+                {
+                    self.theme = match mode {
+                        appearance::Mode::Dark => dark.clone().into(),
+                        appearance::Mode::Light => light.clone().into(),
+                    }
+                }
+
+                Task::none()
+            }
         }
     }
 
@@ -964,6 +977,7 @@ impl Halloy {
             url::listen().map(Message::RouteReceived),
             events().map(|(window, event)| Message::Event(window, event)),
             window::events().map(|(window, event)| Message::Window(window, event)),
+            appearance::subscription().map(Message::AppearanceChange),
             tick,
             streams,
         ])

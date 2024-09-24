@@ -250,7 +250,7 @@ impl Theme {
     fn list(config: &Config) -> Vec<Self> {
         Some(Self::OpenEditor)
             .into_iter()
-            .chain(config.themes.all.iter().cloned().map(Self::Switch))
+            .chain(config.appearance.all.iter().cloned().map(Self::Switch))
             .collect()
     }
 }

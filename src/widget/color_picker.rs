@@ -299,7 +299,7 @@ fn picker<'a, Message: 'a>(
     height: impl Into<Length>,
     handle_radius: f32,
 ) -> Element<'a, Message> {
-    let color = data::theme::to_hsva(color);
+    let color = data::appearance::theme::to_hsva(color);
 
     decorate(Space::new(width, height))
         .state::<Option<Rectangle>>()
@@ -329,7 +329,7 @@ fn picker<'a, Message: 'a>(
                                 picker.handle_from_cursor(position, bounds, handle_radius);
                             let color = picker.color_at_handle(color, new_handle, bounds);
 
-                            shell.publish((on_color)(data::theme::from_hsva(color)));
+                            shell.publish((on_color)(data::appearance::theme::from_hsva(color)));
 
                             *state = Some(new_handle);
                         }
@@ -341,7 +341,7 @@ fn picker<'a, Message: 'a>(
                         if let Some(last_handle) = state.take() {
                             let color = picker.color_at_handle(color, last_handle, bounds);
 
-                            shell.publish((on_color)(data::theme::from_hsva(color)));
+                            shell.publish((on_color)(data::appearance::theme::from_hsva(color)));
                         }
                     }
                     iced::Event::Mouse(mouse::Event::CursorMoved { position })
@@ -367,7 +367,7 @@ fn picker<'a, Message: 'a>(
 
                             let color = picker.color_at_handle(color, *last_handle, bounds);
 
-                            shell.publish((on_color)(data::theme::from_hsva(color)));
+                            shell.publish((on_color)(data::appearance::theme::from_hsva(color)));
                         }
                     }
                     _ => {}
@@ -447,7 +447,7 @@ fn picker<'a, Message: 'a>(
                             border: Default::default(),
                             shadow: Default::default(),
                         },
-                        data::theme::from_hsva(color),
+                        data::appearance::theme::from_hsva(color),
                     );
                 });
 
