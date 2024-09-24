@@ -19,11 +19,11 @@ pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
 
+use crate::appearance::theme::Colors;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self, Sound};
 use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
-use crate::appearance::theme::Colors;
 use crate::{environment, Theme};
 
 pub mod buffer;
@@ -272,10 +272,13 @@ impl Config {
             all.push(Theme::default());
         }
 
-        Ok(Appearance {
-            selected: appearance::Selected::new(first_theme, second_theme),
-            all,
-        })
+        let selected = if let Some(second_theme) = second_theme {
+            appearance::Selected::dynamic(first_theme, second_theme)
+        } else {
+            appearance::Selected::specific(first_theme)
+        };
+
+        Ok(Appearance { selected, all })
     }
 
     pub fn create_initial_config() {

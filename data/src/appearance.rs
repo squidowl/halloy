@@ -30,13 +30,11 @@ impl Default for Selected {
 }
 
 impl Selected {
-    pub fn new(first: Theme, second: Option<Theme>) -> Selected {
-        match second {
-            Some(second) => Selected::Dynamic {
-                light: first,
-                dark: second,
-            },
-            None => Selected::Static(first),
-        }
+    pub fn dynamic(light: Theme, dark: Theme) -> Selected {
+        Selected::Dynamic { light, dark }
+    }
+
+    pub fn specific(theme: Theme) -> Selected {
+        Selected::Static(theme)
     }
 }
