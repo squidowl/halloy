@@ -85,6 +85,32 @@ pub async fn save(
     Ok(())
 }
 
+pub async fn update(
+    server: &server::Server,
+    kind: &Kind,
+    read_marker: &ReadMarker,
+) -> Result<(), Error> {
+    let metadata = load(server.clone(), kind.clone()).await?;
+
+    if metadata
+        .read_marker
+        .is_some_and(|metadata_read_marker| metadata_read_marker >= *read_marker)
+    {
+        return Ok(());
+    }
+
+    let bytes = serde_json::to_vec(&Metadata {
+        read_marker: Some(*read_marker),
+        last_triggers_unread: metadata.last_triggers_unread,
+    })?;
+
+    let path = path(server, kind).await?;
+
+    fs::write(path, &bytes).await?;
+
+    Ok(())
+}
+
 async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
     let dir = dir_path().await?;
 
