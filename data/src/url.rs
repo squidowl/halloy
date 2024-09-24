@@ -3,7 +3,7 @@ use std::str::FromStr;
 use log::warn;
 use regex::Regex;
 
-use crate::{config, theme, Server};
+use crate::{appearance::theme, config, Server};
 
 #[derive(Debug, Clone)]
 pub enum Url {

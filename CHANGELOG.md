@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Dynamically select dark or light theme based on OS appearance. See [configuartion](https://halloy.squidowl.org/configuration/themes/index.html).
+
 # 2024.12 (2024-09-17)
 
 Added:

@@ -11,7 +11,7 @@ use thiserror::Error;
 use tokio::fs;
 
 const DEFAULT_THEME_NAME: &str = "Ferra";
-const DEFAULT_THEME_CONTENT: &str = include_str!("../../assets/themes/ferra.toml");
+const DEFAULT_THEME_CONTENT: &str = include_str!("../../../assets/themes/ferra.toml");
 
 #[derive(Debug, Clone)]
 pub struct Theme {

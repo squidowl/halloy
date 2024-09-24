@@ -1,5 +1,5 @@
 use data::{
-    theme::{alpha_color, randomize_color},
+    appearance::theme::{alpha_color, randomize_color},
     user::NickColor,
 };
 use iced::{
