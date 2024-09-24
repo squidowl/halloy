@@ -16,13 +16,16 @@ mod url;
 mod widget;
 mod window;
 
+use std::collections::HashSet;
 use std::env;
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use data::config::{self, Config};
+use data::history::manager::Broadcast;
 use data::version::Version;
-use data::{environment, history, server, version, Url, User};
+use data::{environment, server, version, Url, User};
+use data::{history, Server};
 use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
@@ -199,6 +202,7 @@ pub enum Screen {
     Help(screen::Help),
     Welcome(screen::Welcome),
     Migration(screen::Migration),
+    Exit { pending_exit: HashSet<Server> },
 }
 
 #[derive(Debug)]
@@ -337,6 +341,16 @@ impl Halloy {
                         self.clients.quit(&server, None);
                         Task::none()
                     }
+                    Some(dashboard::Event::Exit) => {
+                        let pending_exit = self.clients.exit();
+
+                        if pending_exit.is_empty() {
+                            iced::exit()
+                        } else {
+                            self.screen = Screen::Exit { pending_exit };
+                            Task::none()
+                        }
+                    }
                     None => Task::none(),
                 };
 
@@ -403,14 +417,21 @@ impl Halloy {
 
                     if is_initial {
                         // Intial is sent when first trying to connect
-                        dashboard.broadcast_connecting(&server, &self.config, sent_time);
+                        dashboard
+                            .broadcast(&server, &self.config, sent_time, Broadcast::Connecting)
+                            .map(Message::Dashboard)
                     } else {
                         notification::disconnected(&self.config.notifications, &server);
 
-                        dashboard.broadcast_disconnected(&server, error, &self.config, sent_time);
+                        dashboard
+                            .broadcast(
+                                &server,
+                                &self.config,
+                                sent_time,
+                                Broadcast::Disconnected { error },
+                            )
+                            .map(Message::Dashboard)
                     }
-
-                    Task::none()
                 }
                 stream::Update::Connected {
                     server,
@@ -427,14 +448,16 @@ impl Halloy {
                     if is_initial {
                         notification::connected(&self.config.notifications, &server);
 
-                        dashboard.broadcast_connected(&server, &self.config, sent_time);
+                        dashboard
+                            .broadcast(&server, &self.config, sent_time, Broadcast::Connected)
+                            .map(Message::Dashboard)
                     } else {
                         notification::reconnected(&self.config.notifications, &server);
 
-                        dashboard.broadcast_reconnected(&server, &self.config, sent_time);
+                        dashboard
+                            .broadcast(&server, &self.config, sent_time, Broadcast::Reconnected)
+                            .map(Message::Dashboard)
                     }
-
-                    Task::none()
                 }
                 stream::Update::ConnectionFailed {
                     server,
@@ -445,9 +468,14 @@ impl Halloy {
                         return Task::none();
                     };
 
-                    dashboard.broadcast_connection_failed(&server, error, &self.config, sent_time);
-
-                    Task::none()
+                    dashboard
+                        .broadcast(
+                            &server,
+                            &self.config,
+                            sent_time,
+                            Broadcast::ConnectionFailed { error },
+                        )
+                        .map(Message::Dashboard)
                 }
                 stream::Update::MessagesReceived(server, messages) => {
                     let Screen::Dashboard(dashboard) = &mut self.screen else {
@@ -480,7 +508,11 @@ impl Halloy {
                                             resolve_user_attributes,
                                             channel_users,
                                         ) {
-                                            dashboard.record_message(&server, message);
+                                            commands.push(
+                                                dashboard
+                                                    .record_message(&server, message)
+                                                    .map(Message::Dashboard),
+                                            );
                                         }
                                     }
                                     data::client::Event::WithTarget(encoded, our_nick, target) => {
@@ -491,9 +523,13 @@ impl Halloy {
                                             resolve_user_attributes,
                                             channel_users,
                                         ) {
-                                            dashboard.record_message(
-                                                &server,
-                                                message.with_target(target),
+                                            commands.push(
+                                                dashboard
+                                                    .record_message(
+                                                        &server,
+                                                        message.with_target(target),
+                                                    )
+                                                    .map(Message::Dashboard),
                                             );
                                         }
                                     }
@@ -503,16 +539,20 @@ impl Halloy {
                                             comment,
                                             channels,
                                             sent_time,
-                                        } => {
-                                            dashboard.broadcast_quit(
-                                                &server,
-                                                user,
-                                                comment,
-                                                channels,
-                                                &self.config,
-                                                sent_time,
-                                            );
-                                        }
+                                        } => commands.push(
+                                            dashboard
+                                                .broadcast(
+                                                    &server,
+                                                    &self.config,
+                                                    sent_time,
+                                                    Broadcast::Quit {
+                                                        user,
+                                                        comment,
+                                                        user_channels: channels,
+                                                    },
+                                                )
+                                                .map(Message::Dashboard),
+                                        ),
                                         data::client::Broadcast::Nickname {
                                             old_user,
                                             new_nick,
@@ -522,14 +562,20 @@ impl Halloy {
                                         } => {
                                             let old_nick = old_user.nickname();
 
-                                            dashboard.broadcast_nickname(
-                                                &server,
-                                                old_nick.to_owned(),
-                                                new_nick,
-                                                ourself,
-                                                channels,
-                                                &self.config,
-                                                sent_time,
+                                            commands.push(
+                                                dashboard
+                                                    .broadcast(
+                                                        &server,
+                                                        &self.config,
+                                                        sent_time,
+                                                        Broadcast::Nickname {
+                                                            old_nick: old_nick.to_owned(),
+                                                            new_nick,
+                                                            ourself,
+                                                            user_channels: channels,
+                                                        },
+                                                    )
+                                                    .map(Message::Dashboard),
                                             );
                                         }
                                         data::client::Broadcast::Invite {
@@ -540,13 +586,19 @@ impl Halloy {
                                         } => {
                                             let inviter = inviter.nickname();
 
-                                            dashboard.broadcast_invite(
-                                                &server,
-                                                inviter.to_owned(),
-                                                channel,
-                                                user_channels,
-                                                &self.config,
-                                                sent_time,
+                                            commands.push(
+                                                dashboard
+                                                    .broadcast(
+                                                        &server,
+                                                        &self.config,
+                                                        sent_time,
+                                                        Broadcast::Invite {
+                                                            inviter: inviter.to_owned(),
+                                                            channel,
+                                                            user_channels,
+                                                        },
+                                                    )
+                                                    .map(Message::Dashboard),
                                             );
                                         }
                                         data::client::Broadcast::ChangeHost {
@@ -557,15 +609,21 @@ impl Halloy {
                                             channels,
                                             sent_time,
                                         } => {
-                                            dashboard.broadcast_change_host(
-                                                &server,
-                                                old_user,
-                                                new_username,
-                                                new_hostname,
-                                                ourself,
-                                                channels,
-                                                &self.config,
-                                                sent_time,
+                                            commands.push(
+                                                dashboard
+                                                    .broadcast(
+                                                        &server,
+                                                        &self.config,
+                                                        sent_time,
+                                                        Broadcast::ChangeHost {
+                                                            old_user,
+                                                            new_username,
+                                                            new_hostname,
+                                                            ourself,
+                                                            user_channels: channels,
+                                                        },
+                                                    )
+                                                    .map(Message::Dashboard),
                                             );
                                         }
                                     },
@@ -581,7 +639,11 @@ impl Halloy {
                                             resolve_user_attributes,
                                             channel_users,
                                         ) {
-                                            dashboard.record_message(&server, message);
+                                            commands.push(
+                                                dashboard
+                                                    .record_message(&server, message)
+                                                    .map(Message::Dashboard),
+                                            );
                                         }
 
                                         match notification {
@@ -644,6 +706,24 @@ impl Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
+                                    data::client::Event::UpdateReadMarker(target, read_marker) => {
+                                        commands.push(
+                                            dashboard
+                                                .update_read_marker(
+                                                    server.clone(),
+                                                    target,
+                                                    read_marker,
+                                                )
+                                                .map(Message::Dashboard),
+                                        );
+                                    }
+                                    data::client::Event::JoinedChannel(channel) => {
+                                        commands.push(
+                                            dashboard
+                                                .channel_joined(server.clone(), channel)
+                                                .map(Message::Dashboard),
+                                        );
+                                    }
                                 }
                             }
 
@@ -657,30 +737,42 @@ impl Halloy {
 
                     Task::batch(commands)
                 }
-                stream::Update::Quit(server, reason) => {
-                    let Screen::Dashboard(dashboard) = &mut self.screen else {
-                        return Task::none();
-                    };
+                stream::Update::Quit(server, reason) => match &mut self.screen {
+                    Screen::Dashboard(dashboard) => {
+                        self.servers.remove(&server);
 
-                    self.servers.remove(&server);
+                        if let Some(client) = self.clients.remove(&server) {
+                            let user = client.nickname().to_owned().into();
 
-                    if let Some(client) = self.clients.remove(&server) {
-                        let user = client.nickname().to_owned().into();
+                            let channels = client.channels().to_vec();
 
-                        let channels = client.channels().to_vec();
-
-                        dashboard.broadcast_quit(
-                            &server,
-                            user,
-                            reason,
-                            channels,
-                            &self.config,
-                            Utc::now(),
-                        );
+                            dashboard
+                                .broadcast(
+                                    &server,
+                                    &self.config,
+                                    Utc::now(),
+                                    Broadcast::Quit {
+                                        user,
+                                        comment: reason,
+                                        user_channels: channels,
+                                    },
+                                )
+                                .map(Message::Dashboard)
+                        } else {
+                            Task::none()
+                        }
                     }
+                    Screen::Exit { pending_exit } => {
+                        pending_exit.remove(&server);
 
-                    Task::none()
-                }
+                        if pending_exit.is_empty() {
+                            iced::exit()
+                        } else {
+                            Task::none()
+                        }
+                    }
+                    _ => Task::none(),
+                },
             },
             Message::Event(window, event) => {
                 // Events only enabled for main window
@@ -764,7 +856,7 @@ impl Halloy {
                         }
                         window::Event::CloseRequested => {
                             if let Screen::Dashboard(dashboard) = &mut self.screen {
-                                return dashboard.exit().then(|_| iced::exit());
+                                return dashboard.exit().map(Message::Dashboard);
                             } else {
                                 return iced::exit();
                             }
@@ -808,6 +900,7 @@ impl Halloy {
                 Screen::Help(help) => help.view().map(Message::Help),
                 Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
                 Screen::Migration(migration) => migration.view().map(Message::Migration),
+                Screen::Exit { .. } => column![].into(),
             };
 
             let content = container(screen)

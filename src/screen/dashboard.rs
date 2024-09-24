@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use data::environment::RELEASE_WEBSITE;
+use data::history::ReadMarker;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::slice;
@@ -9,7 +10,7 @@ use data::config;
 use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::user::Nick;
-use data::{client, environment, history, Config, Server, User, Version};
+use data::{client, environment, history, Config, Server, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, Length, Task, Vector};
@@ -51,7 +52,6 @@ pub enum Message {
     SelectedText(Vec<(f32, String)>),
     History(history::manager::Message),
     DashboardSaved(Result<(), data::dashboard::Error>),
-    CloseHistory,
     Task(command_bar::Message),
     Shortcut(shortcut::Command),
     FileTransfer(file_transfer::task::Update),
@@ -66,6 +66,7 @@ pub enum Event {
     ConfigReloaded(Result<Config, config::Error>),
     ReloadThemes,
     QuitServer(Server),
+    Exit,
 }
 
 impl Dashboard {
@@ -154,12 +155,12 @@ impl Dashboard {
                                 config,
                             );
 
-                            let command = command.map(move |message| {
+                            let task = command.map(move |message| {
                                 Message::Pane(window, pane::Message::Buffer(id, message))
                             });
 
                             let Some(event) = event else {
-                                return (command, None);
+                                return (task, None);
                             };
 
                             match event {
@@ -170,11 +171,11 @@ impl Dashboard {
                                             mode,
                                         ) => {
                                             let Some(buffer) = pane.buffer.data() else {
-                                                return (command, None);
+                                                return (task, None);
                                             };
 
                                             let Some(target) = buffer.target() else {
-                                                return (command, None);
+                                                return (task, None);
                                             };
 
                                             let command = data::Command::Mode(
@@ -226,12 +227,23 @@ impl Dashboard {
                                                     if let Some(messages) =
                                                         input.messages(user, channel_users)
                                                     {
+                                                        let mut tasks = vec![task];
+
                                                         for message in messages {
-                                                            self.history.record_message(
-                                                                input.server(),
-                                                                message,
-                                                            );
+                                                            if let Some(task) =
+                                                                self.history.record_message(
+                                                                    input.server(),
+                                                                    message,
+                                                                )
+                                                            {
+                                                                tasks.push(Task::perform(
+                                                                    task,
+                                                                    Message::History,
+                                                                ));
+                                                            }
                                                         }
+
+                                                        return (Task::batch(tasks), None);
                                                     }
                                                 }
                                             }
@@ -244,7 +256,7 @@ impl Dashboard {
                                                 );
                                                 return (
                                                     Task::batch(vec![
-                                                        command,
+                                                        task,
                                                         self.open_buffer(
                                                             buffer,
                                                             config.buffer.clone().into(),
@@ -259,12 +271,12 @@ impl Dashboard {
                                             let Some((_, pane, history)) =
                                                 self.get_focused_with_history_mut(main_window)
                                             else {
-                                                return (command, None);
+                                                return (task, None);
                                             };
 
                                             return (
                                                 Task::batch(vec![
-                                                    command,
+                                                    task,
                                                     pane.buffer
                                                         .insert_user_to_input(nick, history)
                                                         .map(move |message| {
@@ -285,7 +297,7 @@ impl Dashboard {
 
                                                 return (
                                                     Task::batch(vec![
-                                                        command,
+                                                        task,
                                                         Task::perform(
                                                             async move {
                                                                 rfd::AsyncFileDialog::new()
@@ -319,7 +331,7 @@ impl Dashboard {
                                     {
                                         return (
                                             Task::batch(vec![
-                                                command,
+                                                task,
                                                 self.open_channel(
                                                     server,
                                                     channel,
@@ -332,9 +344,15 @@ impl Dashboard {
                                         );
                                     }
                                 }
+                                buffer::Event::History(history_task) => {
+                                    return (
+                                        Task::batch(vec![task, history_task.map(Message::History)]),
+                                        None,
+                                    )
+                                }
                             }
 
-                            return (command, None);
+                            return (task, None);
                         }
                     }
                     pane::Message::ToggleShowUserList => {
@@ -494,7 +512,25 @@ impl Dashboard {
                 }
             }
             Message::History(message) => {
-                self.history.update(message);
+                if let Some(event) = self.history.update(message) {
+                    match event {
+                        history::manager::Event::Closed(server, kind, read_marker) => {
+                            if let Some((target, read_marker)) = kind.target().zip(read_marker) {
+                                clients.send_markread(&server, target, read_marker);
+                            }
+                        }
+                        history::manager::Event::Exited(results) => {
+                            for (server, kind, read_marker) in results {
+                                if let Some((target, read_marker)) = kind.target().zip(read_marker)
+                                {
+                                    clients.send_markread(&server, target, read_marker);
+                                }
+                            }
+
+                            return (Task::none(), Some(Event::Exit));
+                        }
+                    }
+                }
             }
             Message::DashboardSaved(Ok(_)) => {
                 log::info!("dashboard saved");
@@ -502,7 +538,6 @@ impl Dashboard {
             Message::DashboardSaved(Err(error)) => {
                 log::warn!("error saving dashboard: {error}");
             }
-            Message::CloseHistory => {}
             Message::Task(message) => {
                 let Some(command_bar) = &mut self.command_bar else {
                     return (Task::none(), None);
@@ -1153,7 +1188,7 @@ impl Dashboard {
                 tasks.push(
                     self.history
                         .close(server, history::Kind::Channel(channel))
-                        .map(|task| Task::perform(task, |_| Message::CloseHistory))
+                        .map(|task| Task::perform(task, Message::History))
                         .unwrap_or_else(Task::none),
                 );
 
@@ -1163,7 +1198,7 @@ impl Dashboard {
                 tasks.push(
                     self.history
                         .close(server, history::Kind::Query(nick))
-                        .map(|task| Task::perform(task, |_| Message::CloseHistory))
+                        .map(|task| Task::perform(task, Message::History))
                         .unwrap_or_else(Task::none),
                 );
 
@@ -1173,154 +1208,48 @@ impl Dashboard {
         }
     }
 
-    pub fn record_message(&mut self, server: &Server, message: data::Message) {
-        self.history.record_message(server, message);
+    pub fn record_message(&mut self, server: &Server, message: data::Message) -> Task<Message> {
+        if let Some(task) = self.history.record_message(server, message) {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
     }
 
-    pub fn broadcast_quit(
-        &mut self,
-        server: &Server,
-        user: User,
-        comment: Option<String>,
-        user_channels: Vec<String>,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history.broadcast(
-            server,
-            Broadcast::Quit {
-                user,
-                comment,
-                user_channels,
-            },
-            config,
-            sent_time,
-        );
-    }
-
-    pub fn broadcast_nickname(
-        &mut self,
-        server: &Server,
-        old_nick: Nick,
-        new_nick: Nick,
-        ourself: bool,
-        user_channels: Vec<String>,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history.broadcast(
-            server,
-            Broadcast::Nickname {
-                new_nick,
-                old_nick,
-                ourself,
-                user_channels,
-            },
-            config,
-            sent_time,
-        );
-    }
-
-    pub fn broadcast_invite(
-        &mut self,
-        server: &Server,
-        inviter: Nick,
-        channel: String,
-        user_channels: Vec<String>,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history.broadcast(
-            server,
-            Broadcast::Invite {
-                inviter,
-                channel,
-                user_channels,
-            },
-            config,
-            sent_time,
-        );
-    }
-
-    pub fn broadcast_change_host(
-        &mut self,
-        server: &Server,
-        old_user: User,
-        new_username: String,
-        new_hostname: String,
-        ourself: bool,
-        user_channels: Vec<String>,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history.broadcast(
-            server,
-            Broadcast::ChangeHost {
-                old_user,
-                new_username,
-                new_hostname,
-                ourself,
-                user_channels,
-            },
-            config,
-            sent_time,
-        );
-    }
-
-    pub fn broadcast_connecting(
+    pub fn broadcast(
         &mut self,
         server: &Server,
         config: &Config,
         sent_time: DateTime<Utc>,
-    ) {
-        self.history
-            .broadcast(server, Broadcast::Connecting, config, sent_time);
+        broadcast: Broadcast,
+    ) -> Task<Message> {
+        Task::batch(
+            self.history
+                .broadcast(server, broadcast, config, sent_time)
+                .into_iter()
+                .map(|task| Task::perform(task, Message::History)),
+        )
     }
 
-    pub fn broadcast_connected(
+    pub fn update_read_marker(
         &mut self,
-        server: &Server,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history
-            .broadcast(server, Broadcast::Connected, config, sent_time);
+        server: Server,
+        kind: impl Into<history::Kind> + 'static,
+        read_marker: ReadMarker,
+    ) -> Task<Message> {
+        if let Some(task) = self.history.update_read_marker(server, kind, read_marker) {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
     }
 
-    pub fn broadcast_disconnected(
-        &mut self,
-        server: &Server,
-        error: Option<String>,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history
-            .broadcast(server, Broadcast::Disconnected { error }, config, sent_time);
-    }
-
-    pub fn broadcast_reconnected(
-        &mut self,
-        server: &Server,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history
-            .broadcast(server, Broadcast::Reconnected, config, sent_time);
-    }
-
-    pub fn broadcast_connection_failed(
-        &mut self,
-        server: &Server,
-        error: String,
-        config: &Config,
-        sent_time: DateTime<Utc>,
-    ) {
-        self.history.broadcast(
-            server,
-            Broadcast::ConnectionFailed { error },
-            config,
-            sent_time,
-        );
+    pub fn channel_joined(&mut self, server: Server, channel: String) -> Task<Message> {
+        if let Some(task) = self.history.channel_joined(server, channel) {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
     }
 
     fn get_focused_mut(
@@ -1615,32 +1544,36 @@ impl Dashboard {
         server: &Server,
         event: file_transfer::manager::Event,
     ) -> Task<Message> {
+        let mut tasks = vec![];
+
         match event {
             file_transfer::manager::Event::NewTransfer(transfer, task) => {
                 match transfer.direction {
                     file_transfer::Direction::Received => {
-                        self.record_message(
+                        tasks.push(self.record_message(
                             server,
                             data::Message::file_transfer_request_received(
                                 &transfer.remote_user,
                                 &transfer.filename,
                             ),
-                        );
+                        ));
                     }
                     file_transfer::Direction::Sent => {
-                        self.record_message(
+                        tasks.push(self.record_message(
                             server,
                             data::Message::file_transfer_request_sent(
                                 &transfer.remote_user,
                                 &transfer.filename,
                             ),
-                        );
+                        ));
                     }
                 }
 
-                Task::run(task, Message::FileTransfer)
+                tasks.push(Task::run(task, Message::FileTransfer));
             }
         }
+
+        Task::batch(tasks)
     }
 
     fn from_data(
@@ -1768,27 +1701,28 @@ impl Dashboard {
         }
     }
 
-    pub fn exit(&mut self) -> Task<()> {
-        let history = self.history.close_all();
-        let last_changed = self.last_changed;
+    pub fn exit(&mut self) -> Task<Message> {
+        let history = self.history.exit();
+        let last_changed = self.last_changed.take();
         let dashboard = data::Dashboard::from(&*self);
 
-        let task = async move {
-            history.await;
-
-            if last_changed.is_some() {
-                match dashboard.save().await {
-                    Ok(_) => {
-                        log::info!("dashboard saved");
-                    }
-                    Err(error) => {
-                        log::warn!("error saving dashboard: {error}");
+        Task::perform(
+            async move {
+                if last_changed.is_some() {
+                    match dashboard.save().await {
+                        Ok(_) => {
+                            log::info!("dashboard saved");
+                        }
+                        Err(error) => {
+                            log::warn!("error saving dashboard: {error}");
+                        }
                     }
                 }
-            }
-        };
 
-        Task::perform(task, move |_| ())
+                history.await
+            },
+            Message::History,
+        )
     }
 
     fn open_popout_window(&mut self, main_window: &Window, pane: Pane) -> Task<Message> {
