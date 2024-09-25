@@ -1061,11 +1061,16 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
 }
 
 pub fn reference_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {
+    let contains_nick = |text: &str, nick: &str| {
+        text.split(|c: char| !c.is_alphanumeric())
+            .any(|word| word == nick)
+    };
+
     let has_nick = match &message.content {
-        Content::Plain(text) => text.contains(own_nick.as_ref()),
+        Content::Plain(text) => contains_nick(text, own_nick.as_ref()),
         Content::Fragments(fragments) => fragments
             .iter()
-            .any(|f| f.as_str().contains(own_nick.as_ref())),
+            .any(|f| contains_nick(f.as_str(), own_nick.as_ref())),
     };
 
     sender != own_nick && has_nick
