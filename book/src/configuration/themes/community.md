@@ -64,5 +64,10 @@ This is a list of community created themes for Halloy.
 ## Macaw Dark
  [Open in Halloy](halloy:///theme?e=ADMzM_8BUFBQ_wIzMzP_AyiE_P8E39_f_wXCwsL_Bog57_8HlZWV_wiVlZX_CZWVlf8KHh4e_wsuLi7_DC4uLv8NGhoa_w4aGhr_D3KH_f8QRUZF_xEAyP__End3d_8TlZWV_xTf39__FSiE_P8dlZWV_x4AAAAAH0hISP8gSkpK_yFmZmb_Ijs7O_8jSEhI_yRkZGT_JWZmZv8)
 
+## Zenburn
+[Open in Halloy](halloy:///theme?e=ADg4OP8BrtYA_wJGRkb_A16urv8E3NzM_wWVlYr_BvDfr_8HX4cA_wjXXwD_Cf-4bP8KPz8__wsxMTH_DDExMf8NAAAAAA6u1gD_D_95xv8QPU9P_xH5nZj_EmFcT_8TYWFc_xTAwb__FYvp_f8dXq6u_x44ODj_Hy4uLv8gODg4_yEuLi7_Ij8_P_8jODg4_yQ4ODj_JTg4OP8)
+
+<img src="zenburn.png">
+
 <img src="macaw-dark.png">
 
