@@ -12,9 +12,6 @@ use crate::config::server::Sasl;
 use crate::config::Error;
 
 pub type Handle = Sender<proto::Message>;
-const DUP_PASS_MSG: &str = "Only one of password, password_file and password_command can be set.";
-const DUP_NICK_PASS_MSG: &str = "Only one of nick_password, nick_password_file and nick_password_command can be set.";
-const DUP_SASL_PASS_MSG: &str = "Exactly one of sasl.plain.password, sasl.plain.password_file or sasl.plain.password_command must be set.";
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Server(String);
@@ -103,27 +100,27 @@ impl Map {
         for (_, config) in self.0.iter_mut() {
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some() || config.password_command.is_some() {
-                    return Err(Error::Parse(DUP_PASS_MSG.to_string()));
+                    return Err(Error::DuplicatePassword);
                 }
                 let pass = fs::read_to_string(pass_file).await?;
                 config.password = Some(pass);
             }
             if let Some(pass_command) = &config.password_command {
                 if config.password.is_some() {
-                    return Err(Error::Parse(DUP_PASS_MSG.to_string()));
+                    return Err(Error::DuplicatePassword);
                 }
                 config.password = Some(read_from_command(pass_command).await?);
             }
             if let Some(nick_pass_file) = &config.nick_password_file {
                 if config.nick_password.is_some() || config.nick_password_command.is_some() {
-                    return Err(Error::Parse(DUP_NICK_PASS_MSG.to_string()));
+                    return Err(Error::DuplicateNickPassword);
                 }
                 let nick_pass = fs::read_to_string(nick_pass_file).await?;
                 config.nick_password = Some(nick_pass);
             }
             if let Some(nick_pass_command) = &config.nick_password_command {
                 if config.password.is_some() {
-                    return Err(Error::Parse(DUP_NICK_PASS_MSG.to_string()));
+                    return Err(Error::DuplicateNickPassword);
                 }
                 config.password = Some(read_from_command(nick_pass_command).await?);
             }
@@ -154,7 +151,7 @@ impl Map {
                         *password = Some(pass);
                     }
                     Sasl::Plain { .. } => {
-                        return Err(Error::Parse(DUP_SASL_PASS_MSG.to_string()));
+                        return Err(Error::DuplicateSaslPassword);
                     }
                     Sasl::External { .. } => {
                         // no passwords to read
