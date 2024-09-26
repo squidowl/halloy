@@ -159,6 +159,9 @@ impl Config {
         }
 
         let path = Self::path();
+        if !path.try_exists()? {
+            return Err(Error::ConfigMissing { has_yaml_config: has_yaml_config()? });
+        }
         let content = fs::read_to_string(path)
             .await
             .map_err(|e| Error::LoadConfigFile(e.to_string()))?;
@@ -294,8 +297,8 @@ pub fn random_nickname_with_seed<R: Rng>(rng: &mut R) -> String {
 }
 
 /// Has YAML configuration file.
-pub fn has_yaml_config() -> bool {
-    config_dir().join("config.yaml").exists()
+fn has_yaml_config() -> Result<bool, Error> {
+    Ok(config_dir().join("config.yaml").try_exists()?)
 }
 
 fn default_tooltip() -> bool {
@@ -318,16 +321,14 @@ pub enum Error {
     StringUtf8Error(#[from] string::FromUtf8Error),
     #[error(transparent)]
     LoadSounds(#[from] audio::LoadError),
-}
-
-impl Error {
-    pub fn is_expected_on_first_load(&self) -> bool {
-        match self {
-            // If a user doesn't have a config when we start up, then we end up with a read error
-            Error::LoadConfigFile(_) => true,
-            _ => false,
-        }
-    }
+    #[error("Only one of password, password_file and password_command can be set.")]
+    DuplicatePassword,
+    #[error("Only one of nick_password, nick_password_file and nick_password_command can be set.")]
+    DuplicateNickPassword,
+    #[error("Exactly one of sasl.plain.password, sasl.plain.password_file or sasl.plain.password_command must be set.")]
+    DuplicateSaslPassword,
+    #[error("Config does not exist")]
+    ConfigMissing { has_yaml_config: bool },
 }
 
 impl From<std::io::Error> for Error {
