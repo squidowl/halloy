@@ -79,6 +79,7 @@ pub struct Server {
     #[serde(default)]
     pub on_connect: Vec<String>,
     /// Enable WHO polling. Defaults to `true`.
+    #[serde(default = "default_who_poll_enabled")]
     pub who_poll_enabled: bool,
     /// WHO poll interval for servers without away-notify.
     #[serde(
