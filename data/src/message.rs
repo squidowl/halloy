@@ -383,30 +383,37 @@ fn parse_url_fragments(text: String) -> Vec<Fragment> {
     fragments
 }
 
+/// Checks if a given `text` contains or matches a user's nickname.
+fn text_references_nickname(text: &str, nickname: NickRef) -> Option<bool> {
+    // TODO: Consider server case-mapping settings vs just ascii lowercase
+    let nick = nickname.as_ref();
+    let nick_lower = nick.to_ascii_lowercase();
+    let lower = text.to_ascii_lowercase();
+    let trimmed = text.trim_matches(|c: char| c.is_ascii_punctuation());
+    let lower_trimmed = trimmed.to_ascii_lowercase();
+
+    if nick == text || nick_lower == lower {
+        // Contains the user's nickname without trimming.
+        Some(false)
+    } else if nick == trimmed || nick_lower == lower_trimmed {
+        // Contains the user's nickname with trimming.
+        Some(true)
+    } else {
+        // Doesn't contain the user's nickname.
+        None
+    }
+}
+
 fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<Fragment> {
     text.chars()
         .group_by(|c| c.is_whitespace())
         .into_iter()
         .flat_map(|(is_whitespace, chars)| {
             let text = chars.collect::<String>();
-            let trimmed = text.trim_matches(|c: char| c.is_ascii_punctuation());
-            let lower = text.to_ascii_lowercase();
-            let lower_trimmed = trimmed.to_ascii_lowercase();
-
             if !is_whitespace {
                 if let Some((is_trimmed, user)) = channel_users.iter().find_map(|user| {
-                    let nickname = user.nickname();
-                    let nick = nickname.as_ref();
-                    // TODO: Consider server case-mapping settings vs just ascii lowercase
-                    let nick_lower = nick.to_ascii_lowercase();
-
-                    if nick == text || nick_lower == lower {
-                        Some((false, user.clone()))
-                    } else if nick == trimmed || nick_lower == lower_trimmed {
-                        Some((true, user.clone()))
-                    } else {
-                        None
-                    }
+                    text_references_nickname(text.as_str(), user.nickname())
+                        .map(|is_trimmed| (is_trimmed, user.clone()))
                 }) {
                     if is_trimmed {
                         let prefix_end = text.find(|c: char| !c.is_ascii_punctuation());
@@ -1060,19 +1067,17 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
     }
 }
 
-pub fn reference_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {
-    let has_nick = match &message.content {
-        Content::Plain(text) => text.contains(own_nick.as_ref()),
+pub fn references_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {
+    match &message.content {
+        Content::Plain(text) => references_user_text(sender, own_nick, text),
         Content::Fragments(fragments) => fragments
             .iter()
-            .any(|f| f.as_str().contains(own_nick.as_ref())),
-    };
-
-    sender != own_nick && has_nick
+            .any(|f| references_user_text(sender, own_nick, f.as_str())),
+    }
 }
 
-pub fn reference_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
-    sender != own_nick && text.contains(own_nick.as_ref())
+pub fn references_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
+    sender != own_nick && text_references_nickname(text, own_nick).is_some()
 }
 
 #[derive(Debug, Clone)]
