@@ -384,7 +384,7 @@ fn parse_url_fragments(text: String) -> Vec<Fragment> {
 }
 
 /// Checks if a given `text` contains or matches a user's nickname.
-fn text_reference_nickname(text: &str, nickname: NickRef) -> Option<bool> {
+fn text_references_nickname(text: &str, nickname: NickRef) -> Option<bool> {
     // TODO: Consider server case-mapping settings vs just ascii lowercase
     let nick = nickname.as_ref();
     let nick_lower = nick.to_ascii_lowercase();
@@ -412,7 +412,7 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
             let text = chars.collect::<String>();
             if !is_whitespace {
                 if let Some((is_trimmed, user)) = channel_users.iter().find_map(|user| {
-                    text_reference_nickname(text.as_str(), user.nickname())
+                    text_references_nickname(text.as_str(), user.nickname())
                         .map(|is_trimmed| (is_trimmed, user.clone()))
                 }) {
                     if is_trimmed {
@@ -1067,17 +1067,17 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
     }
 }
 
-pub fn reference_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {
+pub fn references_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {
     match &message.content {
-        Content::Plain(text) => reference_user_text(sender, own_nick, text),
+        Content::Plain(text) => references_user_text(sender, own_nick, text),
         Content::Fragments(fragments) => fragments
             .iter()
-            .any(|f| reference_user_text(sender, own_nick, f.as_str())),
+            .any(|f| references_user_text(sender, own_nick, f.as_str())),
     }
 }
 
-pub fn reference_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
-    sender != own_nick && text_reference_nickname(text, own_nick).is_some()
+pub fn references_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
+    sender != own_nick && text_references_nickname(text, own_nick).is_some()
 }
 
 #[derive(Debug, Clone)]
