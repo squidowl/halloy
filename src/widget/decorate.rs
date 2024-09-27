@@ -11,12 +11,26 @@ pub fn decorate<'a, Message, Theme, Renderer>(
     Decorate::new(element)
 }
 
-pub struct Decorate<'a, Message, Theme, Renderer, OnEvent = (), Layout = (), Draw = (), State = ()>
-{
+pub struct Decorate<
+    'a,
+    Message,
+    Theme,
+    Renderer,
+    Layout = (),
+    OnEvent = (),
+    Draw = (),
+    MouseInteraction = (),
+    Operate = (),
+    Overlay = (),
+    State = (),
+> {
     inner: Element<'a, Message, Theme, Renderer>,
-    on_event: OnEvent,
     layout: Layout,
+    on_event: OnEvent,
     draw: Draw,
+    mouse_interaction: MouseInteraction,
+    operate: Operate,
+    overlay: Overlay,
     state: PhantomData<State>,
 }
 
@@ -27,61 +41,263 @@ impl<'a, Message, Theme, Renderer> Decorate<'a, Message, Theme, Renderer> {
             on_event: (),
             layout: (),
             draw: (),
+            mouse_interaction: (),
+            operate: (),
+            overlay: (),
             state: PhantomData,
         }
     }
 }
 
-impl<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>
-    Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>
+impl<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        OnEvent,
+        Draw,
+        MouseInteraction,
+        Operate,
+        Overlay,
+        State,
+    >
+    Decorate<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        OnEvent,
+        Draw,
+        MouseInteraction,
+        Operate,
+        Overlay,
+        State,
+    >
 {
-    pub fn on_event<T>(
-        self,
-        on_event: T,
-    ) -> Decorate<'a, Message, Theme, Renderer, T, Layout, Draw, State> {
-        Decorate {
-            inner: self.inner,
-            layout: self.layout,
-            draw: self.draw,
-            state: self.state,
-            on_event,
-        }
-    }
-
-    pub fn layout<T>(
+    pub fn layout<T, U>(
         self,
         layout: T,
-    ) -> Decorate<'a, Message, Theme, Renderer, OnEvent, T, Draw, State> {
+    ) -> Decorate<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        T,
+        OnEvent,
+        Draw,
+        MouseInteraction,
+        Operate,
+        Overlay,
+        U,
+    >
+    where
+        T: self::Layout<'a, Message, Theme, Renderer, U>,
+    {
         Decorate {
             inner: self.inner,
             on_event: self.on_event,
             draw: self.draw,
-            state: self.state,
+            mouse_interaction: self.mouse_interaction,
+            operate: self.operate,
+            overlay: self.overlay,
             layout,
-        }
-    }
-
-    pub fn draw<T>(
-        self,
-        draw: T,
-    ) -> Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, T, State> {
-        Decorate {
-            inner: self.inner,
-            on_event: self.on_event,
-            layout: self.layout,
-            state: self.state,
-            draw,
-        }
-    }
-
-    pub fn state<T>(self) -> Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, T> {
-        Decorate {
-            inner: self.inner,
-            on_event: self.on_event,
-            layout: self.layout,
-            draw: self.draw,
             state: PhantomData,
         }
+    }
+
+    pub fn on_event<T, U>(
+        self,
+        on_event: T,
+    ) -> Decorate<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        T,
+        Draw,
+        MouseInteraction,
+        Operate,
+        Overlay,
+        U,
+    >
+    where
+        T: self::OnEvent<'a, Message, Theme, Renderer, U>,
+    {
+        Decorate {
+            inner: self.inner,
+            layout: self.layout,
+            draw: self.draw,
+            mouse_interaction: self.mouse_interaction,
+            operate: self.operate,
+            overlay: self.overlay,
+            on_event,
+            state: PhantomData,
+        }
+    }
+
+    pub fn draw<T, U>(
+        self,
+        draw: T,
+    ) -> Decorate<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        OnEvent,
+        T,
+        MouseInteraction,
+        Operate,
+        Overlay,
+        U,
+    >
+    where
+        T: self::Draw<'a, Message, Theme, Renderer, U>,
+    {
+        Decorate {
+            inner: self.inner,
+            on_event: self.on_event,
+            layout: self.layout,
+            mouse_interaction: self.mouse_interaction,
+            operate: self.operate,
+            overlay: self.overlay,
+            draw,
+            state: PhantomData,
+        }
+    }
+
+    pub fn mouse_interaction<T, U>(
+        self,
+        mouse_interaction: T,
+    ) -> Decorate<'a, Message, Theme, Renderer, Layout, OnEvent, Draw, T, Operate, Overlay, U>
+    where
+        T: self::MouseInteraction<'a, Message, Theme, Renderer, U>,
+    {
+        Decorate {
+            inner: self.inner,
+            layout: self.layout,
+            on_event: self.on_event,
+            draw: self.draw,
+            operate: self.operate,
+            overlay: self.overlay,
+            mouse_interaction,
+            state: PhantomData,
+        }
+    }
+
+    pub fn operate<T, U>(
+        self,
+        operate: T,
+    ) -> Decorate<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        OnEvent,
+        Draw,
+        MouseInteraction,
+        T,
+        Overlay,
+        U,
+    >
+    where
+        T: self::Operate<'a, Message, Theme, Renderer, U>,
+    {
+        Decorate {
+            inner: self.inner,
+            layout: self.layout,
+            on_event: self.on_event,
+            draw: self.draw,
+            mouse_interaction: self.mouse_interaction,
+            overlay: self.overlay,
+            operate,
+            state: PhantomData,
+        }
+    }
+
+    pub fn overlay<T, U>(
+        self,
+        overlay: T,
+    ) -> Decorate<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        OnEvent,
+        Draw,
+        MouseInteraction,
+        Operate,
+        T,
+        U,
+    >
+    where
+        T: self::Operate<'a, Message, Theme, Renderer, U>,
+    {
+        Decorate {
+            inner: self.inner,
+            layout: self.layout,
+            on_event: self.on_event,
+            draw: self.draw,
+            mouse_interaction: self.mouse_interaction,
+            operate: self.operate,
+            overlay,
+            state: PhantomData,
+        }
+    }
+}
+
+pub trait Layout<'a, Message, Theme, Renderer, State> {
+    fn layout(
+        &self,
+        state: &mut State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &mut iced::advanced::widget::Tree,
+        renderer: &Renderer,
+        limits: &iced::advanced::layout::Limits,
+    ) -> layout::Node;
+}
+
+impl<'a, Message, Theme, Renderer, State> Layout<'a, Message, Theme, Renderer, State> for ()
+where
+    Renderer: advanced::Renderer + 'a,
+{
+    fn layout(
+        &self,
+        _state: &mut State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &mut iced::advanced::widget::Tree,
+        renderer: &Renderer,
+        limits: &iced::advanced::layout::Limits,
+    ) -> layout::Node {
+        inner.as_widget().layout(tree, renderer, limits)
+    }
+}
+
+impl<'a, T, Message, Theme, Renderer, State> Layout<'a, Message, Theme, Renderer, State> for T
+where
+    T: Fn(
+            &mut State,
+            &Element<'a, Message, Theme, Renderer>,
+            &mut iced::advanced::widget::Tree,
+            &Renderer,
+            &iced::advanced::layout::Limits,
+        ) -> layout::Node
+        + 'a,
+{
+    fn layout(
+        &self,
+        state: &mut State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &mut iced::advanced::widget::Tree,
+        renderer: &Renderer,
+        limits: &iced::advanced::layout::Limits,
+    ) -> layout::Node {
+        self(state, inner, tree, renderer, limits)
     }
 }
 
@@ -159,56 +375,6 @@ where
     }
 }
 
-pub trait Layout<'a, Message, Theme, Renderer, State> {
-    fn layout(
-        &self,
-        state: &mut State,
-        inner: &Element<'a, Message, Theme, Renderer>,
-        tree: &mut iced::advanced::widget::Tree,
-        renderer: &Renderer,
-        limits: &iced::advanced::layout::Limits,
-    ) -> layout::Node;
-}
-
-impl<'a, Message, Theme, Renderer, State> Layout<'a, Message, Theme, Renderer, State> for ()
-where
-    Renderer: advanced::Renderer + 'a,
-{
-    fn layout(
-        &self,
-        _state: &mut State,
-        inner: &Element<'a, Message, Theme, Renderer>,
-        tree: &mut iced::advanced::widget::Tree,
-        renderer: &Renderer,
-        limits: &iced::advanced::layout::Limits,
-    ) -> layout::Node {
-        inner.as_widget().layout(tree, renderer, limits)
-    }
-}
-
-impl<'a, T, Message, Theme, Renderer, State> Layout<'a, Message, Theme, Renderer, State> for T
-where
-    T: Fn(
-            &mut State,
-            &Element<'a, Message, Theme, Renderer>,
-            &mut iced::advanced::widget::Tree,
-            &Renderer,
-            &iced::advanced::layout::Limits,
-        ) -> layout::Node
-        + 'a,
-{
-    fn layout(
-        &self,
-        state: &mut State,
-        inner: &Element<'a, Message, Theme, Renderer>,
-        tree: &mut iced::advanced::widget::Tree,
-        renderer: &Renderer,
-        limits: &iced::advanced::layout::Limits,
-    ) -> layout::Node {
-        self(state, inner, tree, renderer, limits)
-    }
-}
-
 pub trait Draw<'a, Message, Theme, Renderer, State> {
     fn draw(
         &self,
@@ -278,55 +444,215 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State> Widget<Message, Theme, Renderer>
-    for Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>
+pub trait MouseInteraction<'a, Message, Theme, Renderer, State> {
+    fn mouse_interaction(
+        &self,
+        state: &State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &advanced::widget::Tree,
+        layout: advanced::Layout<'_>,
+        cursor: advanced::mouse::Cursor,
+        viewport: &iced::Rectangle,
+        renderer: &Renderer,
+    ) -> advanced::mouse::Interaction;
+}
+
+impl<'a, Message, Theme, Renderer, State> MouseInteraction<'a, Message, Theme, Renderer, State>
+    for ()
+where
+    Renderer: advanced::Renderer + 'a,
+{
+    fn mouse_interaction(
+        &self,
+        _state: &State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &advanced::widget::Tree,
+        layout: advanced::Layout<'_>,
+        cursor: advanced::mouse::Cursor,
+        viewport: &iced::Rectangle,
+        renderer: &Renderer,
+    ) -> advanced::mouse::Interaction {
+        inner
+            .as_widget()
+            .mouse_interaction(tree, layout, cursor, viewport, renderer)
+    }
+}
+
+impl<'a, T, Message, Theme, Renderer, State> MouseInteraction<'a, Message, Theme, Renderer, State>
+    for T
+where
+    T: Fn(
+            &State,
+            &Element<'a, Message, Theme, Renderer>,
+            &advanced::widget::Tree,
+            advanced::Layout<'_>,
+            advanced::mouse::Cursor,
+            &iced::Rectangle,
+            &Renderer,
+        ) -> advanced::mouse::Interaction
+        + 'a,
+{
+    fn mouse_interaction(
+        &self,
+        state: &State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &advanced::widget::Tree,
+        layout: advanced::Layout<'_>,
+        cursor: advanced::mouse::Cursor,
+        viewport: &iced::Rectangle,
+        renderer: &Renderer,
+    ) -> advanced::mouse::Interaction {
+        self(state, inner, tree, layout, cursor, viewport, renderer)
+    }
+}
+
+pub trait Operate<'a, Message, Theme, Renderer, State> {
+    fn operate(
+        &self,
+        state: &mut State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &mut advanced::widget::Tree,
+        layout: advanced::Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn advanced::widget::Operation<()>,
+    );
+}
+
+impl<'a, Message, Theme, Renderer, State> Operate<'a, Message, Theme, Renderer, State> for ()
+where
+    Renderer: advanced::Renderer + 'a,
+{
+    fn operate(
+        &self,
+        _state: &mut State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &mut advanced::widget::Tree,
+        layout: advanced::Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn advanced::widget::Operation<()>,
+    ) {
+        inner.as_widget().operate(tree, layout, renderer, operation);
+    }
+}
+
+impl<'a, T, Message, Theme, Renderer, State> Operate<'a, Message, Theme, Renderer, State> for T
+where
+    T: Fn(
+            &mut State,
+            &Element<'a, Message, Theme, Renderer>,
+            &mut advanced::widget::Tree,
+            advanced::Layout<'_>,
+            &Renderer,
+            &mut dyn advanced::widget::Operation<()>,
+        ) + 'a,
+{
+    fn operate(
+        &self,
+        state: &mut State,
+        inner: &Element<'a, Message, Theme, Renderer>,
+        tree: &mut advanced::widget::Tree,
+        layout: advanced::Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn advanced::widget::Operation<()>,
+    ) {
+        self(state, inner, tree, layout, renderer, operation)
+    }
+}
+
+pub trait Overlay<'a, Message, Theme, Renderer, State> {
+    fn overlay<'b>(
+        &'b mut self,
+        state: &'b mut State,
+        inner: &'b mut Element<'a, Message, Theme, Renderer>,
+        tree: &'b mut advanced::widget::Tree,
+        layout: advanced::Layout<'_>,
+        renderer: &Renderer,
+        translation: iced::Vector,
+    ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>>;
+}
+
+impl<'a, Message, Theme, Renderer, State> Overlay<'a, Message, Theme, Renderer, State> for ()
+where
+    Renderer: advanced::Renderer + 'a,
+{
+    fn overlay<'b>(
+        &'b mut self,
+        _state: &'b mut State,
+        inner: &'b mut Element<'a, Message, Theme, Renderer>,
+        tree: &'b mut advanced::widget::Tree,
+        layout: advanced::Layout<'_>,
+        renderer: &Renderer,
+        translation: iced::Vector,
+    ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
+        inner
+            .as_widget_mut()
+            .overlay(tree, layout, renderer, translation)
+    }
+}
+
+impl<'a, T, Message, Theme, Renderer, State> Overlay<'a, Message, Theme, Renderer, State> for T
+where
+    T: for<'b> Fn(
+            &'b mut State,
+            &'b mut Element<'a, Message, Theme, Renderer>,
+            &'b mut advanced::widget::Tree,
+            advanced::Layout<'_>,
+            &Renderer,
+            iced::Vector,
+        ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>>
+        + 'a,
+{
+    fn overlay<'b>(
+        &'b mut self,
+        state: &'b mut State,
+        inner: &'b mut Element<'a, Message, Theme, Renderer>,
+        tree: &'b mut advanced::widget::Tree,
+        layout: advanced::Layout<'_>,
+        renderer: &Renderer,
+        translation: iced::Vector,
+    ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
+        self(state, inner, tree, layout, renderer, translation)
+    }
+}
+
+impl<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        OnEvent,
+        Draw,
+        MouseInteraction,
+        Operate,
+        Overlay,
+        State,
+    > Widget<Message, Theme, Renderer>
+    for Decorate<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        OnEvent,
+        Draw,
+        MouseInteraction,
+        Operate,
+        Overlay,
+        State,
+    >
 where
     Renderer: advanced::Renderer,
-    OnEvent: self::OnEvent<'a, Message, Theme, Renderer, State>,
     Layout: self::Layout<'a, Message, Theme, Renderer, State>,
+    OnEvent: self::OnEvent<'a, Message, Theme, Renderer, State>,
     Draw: self::Draw<'a, Message, Theme, Renderer, State>,
+    MouseInteraction: self::MouseInteraction<'a, Message, Theme, Renderer, State> + 'a,
+    Operate: self::Operate<'a, Message, Theme, Renderer, State> + 'a,
+    Overlay: self::Overlay<'a, Message, Theme, Renderer, State> + 'a,
     State: Default + 'static,
 {
     fn size(&self) -> iced::Size<iced::Length> {
         self.inner.as_widget().size()
-    }
-
-    fn layout(
-        &self,
-        tree: &mut iced::advanced::widget::Tree,
-        renderer: &Renderer,
-        limits: &iced::advanced::layout::Limits,
-    ) -> iced::advanced::layout::Node {
-        self.layout.layout(
-            tree.state.downcast_mut(),
-            &self.inner,
-            &mut tree.children[0],
-            renderer,
-            limits,
-        )
-    }
-
-    fn draw(
-        &self,
-        tree: &iced::advanced::widget::Tree,
-        renderer: &mut Renderer,
-        theme: &Theme,
-        style: &iced::advanced::renderer::Style,
-        layout: iced::advanced::Layout<'_>,
-        cursor: iced::advanced::mouse::Cursor,
-        viewport: &iced::Rectangle,
-    ) {
-        self.draw.draw(
-            tree.state.downcast_ref(),
-            &self.inner,
-            &tree.children[0],
-            renderer,
-            theme,
-            style,
-            layout,
-            cursor,
-            viewport,
-        )
     }
 
     fn size_hint(&self) -> iced::Size<iced::Length> {
@@ -350,16 +676,19 @@ where
         tree.diff_children(slice::from_ref(&self.inner));
     }
 
-    fn operate(
+    fn layout(
         &self,
-        state: &mut advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        tree: &mut iced::advanced::widget::Tree,
         renderer: &Renderer,
-        operation: &mut dyn advanced::widget::Operation<()>,
-    ) {
-        self.inner
-            .as_widget()
-            .operate(&mut state.children[0], layout, renderer, operation)
+        limits: &iced::advanced::layout::Limits,
+    ) -> iced::advanced::layout::Node {
+        self.layout.layout(
+            tree.state.downcast_mut(),
+            &self.inner,
+            &mut tree.children[0],
+            renderer,
+            limits,
+        )
     }
 
     fn on_event(
@@ -387,16 +716,41 @@ where
         )
     }
 
+    fn draw(
+        &self,
+        tree: &iced::advanced::widget::Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &iced::advanced::renderer::Style,
+        layout: iced::advanced::Layout<'_>,
+        cursor: iced::advanced::mouse::Cursor,
+        viewport: &iced::Rectangle,
+    ) {
+        self.draw.draw(
+            tree.state.downcast_ref(),
+            &self.inner,
+            &tree.children[0],
+            renderer,
+            theme,
+            style,
+            layout,
+            cursor,
+            viewport,
+        )
+    }
+
     fn mouse_interaction(
         &self,
-        state: &advanced::widget::Tree,
+        tree: &advanced::widget::Tree,
         layout: advanced::Layout<'_>,
         cursor: advanced::mouse::Cursor,
         viewport: &iced::Rectangle,
         renderer: &Renderer,
     ) -> advanced::mouse::Interaction {
-        self.inner.as_widget().mouse_interaction(
-            &state.children[0],
+        self.mouse_interaction.mouse_interaction(
+            tree.state.downcast_ref(),
+            &self.inner,
+            &tree.children[0],
             layout,
             cursor,
             viewport,
@@ -404,32 +758,96 @@ where
         )
     }
 
+    fn operate(
+        &self,
+        tree: &mut advanced::widget::Tree,
+        layout: advanced::Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn advanced::widget::Operation<()>,
+    ) {
+        self.operate.operate(
+            tree.state.downcast_mut(),
+            &self.inner,
+            &mut tree.children[0],
+            layout,
+            renderer,
+            operation,
+        )
+    }
+
     fn overlay<'b>(
         &'b mut self,
-        state: &'b mut advanced::widget::Tree,
+        tree: &'b mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
         renderer: &Renderer,
         translation: iced::Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
-        self.inner
-            .as_widget_mut()
-            .overlay(&mut state.children[0], layout, renderer, translation)
+        self.overlay.overlay(
+            tree.state.downcast_mut(),
+            &mut self.inner,
+            &mut tree.children[0],
+            layout,
+            renderer,
+            translation,
+        )
     }
 }
 
-impl<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>
-    From<Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>>
-    for Element<'a, Message, Theme, Renderer>
+impl<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        OnEvent,
+        Draw,
+        MouseInteraction,
+        Operate,
+        Overlay,
+        State,
+    >
+    From<
+        Decorate<
+            'a,
+            Message,
+            Theme,
+            Renderer,
+            Layout,
+            OnEvent,
+            Draw,
+            MouseInteraction,
+            Operate,
+            Overlay,
+            State,
+        >,
+    > for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
     Theme: 'a,
     Renderer: advanced::Renderer + 'a,
-    OnEvent: self::OnEvent<'a, Message, Theme, Renderer, State> + 'a,
     Layout: self::Layout<'a, Message, Theme, Renderer, State> + 'a,
+    OnEvent: self::OnEvent<'a, Message, Theme, Renderer, State> + 'a,
     Draw: self::Draw<'a, Message, Theme, Renderer, State> + 'a,
+    MouseInteraction: self::MouseInteraction<'a, Message, Theme, Renderer, State> + 'a,
+    Operate: self::Operate<'a, Message, Theme, Renderer, State> + 'a,
+    Overlay: self::Overlay<'a, Message, Theme, Renderer, State> + 'a,
     State: Default + 'static,
 {
-    fn from(wrap: Decorate<'a, Message, Theme, Renderer, OnEvent, Layout, Draw, State>) -> Self {
+    fn from(
+        wrap: Decorate<
+            'a,
+            Message,
+            Theme,
+            Renderer,
+            Layout,
+            OnEvent,
+            Draw,
+            MouseInteraction,
+            Operate,
+            Overlay,
+            State,
+        >,
+    ) -> Self {
         Element::new(wrap)
     }
 }
