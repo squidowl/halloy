@@ -1165,14 +1165,16 @@ dependencies = [
 [[package]]
 name = "dark-light"
 version = "1.1.1"
-source = "git+https://github.com/frewsxcv/rust-dark-light?rev=77ae4349f11a556cef9c683803a832f171253479#77ae4349f11a556cef9c683803a832f171253479"
+source = "git+https://github.com/casperstorm/rust-dark-light?rev=10176d160bc3922ed0511ab0e3949b4b6eaf4d50#10176d160bc3922ed0511ab0e3949b4b6eaf4d50"
 dependencies = [
  "anyhow",
  "ashpd 0.7.0",
  "dconf_rs",
  "detect-desktop-environment 1.1.0",
  "futures",
- "objc",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "rust-ini 0.20.0",
  "web-sys",
  "winreg 0.52.0",
@@ -2055,7 +2057,7 @@ version = "0.1.0"
 dependencies = [
  "bytesize",
  "chrono",
- "dark-light 1.1.1 (git+https://github.com/frewsxcv/rust-dark-light?rev=77ae4349f11a556cef9c683803a832f171253479)",
+ "dark-light 1.1.1 (git+https://github.com/casperstorm/rust-dark-light?rev=10176d160bc3922ed0511ab0e3949b4b6eaf4d50)",
  "data",
  "embed-resource",
  "fern",
