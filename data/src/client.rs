@@ -1341,7 +1341,9 @@ impl Client {
             }
 
             let request = match state.last_who {
-                Some(WhoStatus::Done(last)) if !self.supports_away_notify => {
+                Some(WhoStatus::Done(last))
+                    if !self.supports_away_notify && self.config.who_poll_enabled =>
+                {
                     (now.duration_since(last) >= self.config.who_poll_interval)
                         .then_some(Request::Poll)
                 }
