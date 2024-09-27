@@ -17,7 +17,6 @@ where
     Message: Clone + 'a,
 {
     decorate(content)
-        .state::<Internal>()
         .on_event(
             move |state: &mut Internal,
                   inner: &mut Element<'a, Message>,
