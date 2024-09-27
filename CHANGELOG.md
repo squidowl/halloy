@@ -14,6 +14,7 @@ Added:
 Fixed:
 
 - Inverted scrolling direction.
+- Only highlight if user nick isn't part of another word.
 
 # 2024.12 (2024-09-17)
 

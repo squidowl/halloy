@@ -147,7 +147,7 @@ pub fn view<'a>(
                                 ))
                                 .push(container(text).style(move |theme| match our_nick {
                                     Some(nick)
-                                        if message::reference_user(
+                                        if message::references_user(
                                             user.nickname(),
                                             nick,
                                             message,
