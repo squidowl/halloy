@@ -154,31 +154,28 @@ impl Halloy {
                     command.map(Message::Dashboard),
                 )
             }
-            Err(error) => match &error {
-                config::Error::Parse(_) | config::Error::LoadSounds(_) => (
-                    Screen::Help(screen::Help::new(error)),
-                    Config::default(),
-                    Task::none(),
-                ),
-                _ => {
-                    // If we have a YAML file, but end up in this arm
-                    // it means the user tried to load Halloy with a YAML configuration, but it expected TOML.
-                    if config::has_yaml_config() {
-                        (
-                            Screen::Migration(screen::Migration::new()),
-                            Config::default(),
-                            Task::none(),
-                        )
-                    } else {
-                        // Otherwise, show regular welcome screen for new users.
-                        (
-                            Screen::Welcome(screen::Welcome::new()),
-                            Config::default(),
-                            Task::none(),
-                        )
-                    }
-                }
-            },
+            // If we have a YAML file, but end up in this arm
+            // it means the user tried to load Halloy with a YAML configuration, but it expected TOML.
+            Err(config::Error::ConfigMissing {
+                has_yaml_config: true,
+            }) => (
+                Screen::Migration(screen::Migration::new()),
+                Config::default(),
+                Task::none(),
+            ),
+            // Show regular welcome screen for new users.
+            Err(config::Error::ConfigMissing {
+                has_yaml_config: false,
+            }) => (
+                Screen::Welcome(screen::Welcome::new()),
+                Config::default(),
+                Task::none(),
+            ),
+            Err(error) => (
+                Screen::Help(screen::Help::new(error)),
+                Config::default(),
+                Task::none(),
+            ),
         };
 
         (

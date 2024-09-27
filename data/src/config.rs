@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use std::string;
+use std::{string, str};
 
 use tokio_stream::wrappers::ReadDirStream;
 use tokio_stream::StreamExt;
@@ -168,9 +168,12 @@ impl Config {
         }
 
         let path = Self::path();
+        if !path.try_exists()? {
+            return Err(Error::ConfigMissing { has_yaml_config: has_yaml_config()? });
+        }
         let content = fs::read_to_string(path)
             .await
-            .map_err(|e| Error::Read(e.to_string()))?;
+            .map_err(|e| Error::LoadConfigFile(e.to_string()))?;
 
         let Configuration {
             theme,
@@ -315,8 +318,8 @@ pub fn random_nickname_with_seed<R: Rng>(rng: &mut R) -> String {
 }
 
 /// Has YAML configuration file.
-pub fn has_yaml_config() -> bool {
-    config_dir().join("config.yaml").exists()
+fn has_yaml_config() -> Result<bool, Error> {
+    Ok(config_dir().join("config.yaml").try_exists()?)
 }
 
 fn default_tooltip() -> bool {
@@ -326,15 +329,27 @@ fn default_tooltip() -> bool {
 #[derive(Debug, Error, Clone)]
 pub enum Error {
     #[error("config could not be read: {0}")]
-    Read(String),
+    LoadConfigFile(String),
+    #[error("command could not be run: {0}")]
+    ExecutePasswordCommand(String),
     #[error("{0}")]
     Io(String),
     #[error("{0}")]
     Parse(String),
     #[error("UTF8 parsing error: {0}")]
-    UI(#[from] string::FromUtf8Error),
+    StrUtf8Error(#[from] str::Utf8Error),
+    #[error("UTF8 parsing error: {0}")]
+    StringUtf8Error(#[from] string::FromUtf8Error),
     #[error(transparent)]
     LoadSounds(#[from] audio::LoadError),
+    #[error("Only one of password, password_file and password_command can be set.")]
+    DuplicatePassword,
+    #[error("Only one of nick_password, nick_password_file and nick_password_command can be set.")]
+    DuplicateNickPassword,
+    #[error("Exactly one of sasl.plain.password, sasl.plain.password_file or sasl.plain.password_command must be set.")]
+    DuplicateSaslPassword,
+    #[error("Config does not exist")]
+    ConfigMissing { has_yaml_config: bool },
 }
 
 impl From<std::io::Error> for Error {
