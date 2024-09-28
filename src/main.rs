@@ -31,6 +31,7 @@ use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
 use tokio::runtime;
+use tokio_stream::wrappers::ReceiverStream;
 
 use self::event::{events, Event};
 use self::modal::Modal;
@@ -57,7 +58,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Prepare notifications.
     notification::prepare();
 
-    logger::setup(is_debug).expect("setup logging");
+    let log_stream = logger::setup(is_debug).expect("setup logging");
     log::info!("halloy {} has started", environment::formatted_version());
     log::info!("config dir: {:?}", environment::config_dir());
     log::info!("data dir: {:?}", environment::data_dir());
@@ -94,7 +95,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .scale_factor(Halloy::scale_factor)
         .subscription(Halloy::subscription)
         .settings(settings(&config_load))
-        .run_with(move || Halloy::new(config_load.clone(), destination.clone()))
+        .run_with(move || Halloy::new(config_load, destination, log_stream))
         .inspect_err(|err| log::error!("{}", err))?;
 
     Ok(())
@@ -126,6 +127,7 @@ struct Halloy {
     servers: server::Map,
     modal: Option<Modal>,
     main_window: Window,
+    logs: Vec<logger::Record>,
 }
 
 impl Halloy {
@@ -188,6 +190,7 @@ impl Halloy {
                 config,
                 modal: None,
                 main_window,
+                logs: vec![],
             },
             command,
         )
@@ -219,12 +222,14 @@ pub enum Message {
     AppearanceChange(appearance::Mode),
     Window(window::Id, window::Event),
     WindowSettingsSaved(Result<(), window::Error>),
+    Logging(Vec<logger::Record>),
 }
 
 impl Halloy {
     fn new(
         config_load: Result<Config, config::Error>,
         url_received: Option<data::Url>,
+        log_stream: ReceiverStream<Vec<logger::Record>>,
     ) -> (Halloy, Task<Message>) {
         let (main_window, open_main_window) = window::open(window::Settings {
             size: window::default_size(),
@@ -242,6 +247,7 @@ impl Halloy {
             open_main_window.then(|_| Task::none()),
             command,
             latest_remote_version,
+            Task::stream(log_stream).map(Message::Logging),
         ];
 
         if let Some(url) = url_received {
@@ -889,6 +895,11 @@ impl Halloy {
                         appearance::Mode::Light => light.clone().into(),
                     }
                 }
+
+                Task::none()
+            }
+            Message::Logging(messages) => {
+                self.logs.extend(messages);
 
                 Task::none()
             }
