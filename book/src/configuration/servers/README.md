@@ -220,6 +220,14 @@ Example. `["/msg NickServ IDENTIFY foo bar"]`.
 - **type**: array of string
 - **values**: array of any strings
 - **default**: not set
+  
+## `who_poll_enabled`
+
+Whether or not to WHO polling is enabled.
+
+- **type**: boolean
+- **values**: `true`, `false`
+- **default**: `true`
 
 ## `who_poll_interval`
 
