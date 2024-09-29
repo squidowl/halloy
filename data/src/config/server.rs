@@ -78,6 +78,9 @@ pub struct Server {
     /// Commands which are executed once connected.
     #[serde(default)]
     pub on_connect: Vec<String>,
+    /// Enable WHO polling. Defaults to `true`.
+    #[serde(default = "default_who_poll_enabled")]
+    pub who_poll_enabled: bool,
     /// WHO poll interval for servers without away-notify.
     #[serde(
         default = "default_who_poll_interval",
@@ -168,6 +171,7 @@ impl Default for Server {
             root_cert_path: Default::default(),
             sasl: Default::default(),
             on_connect: Default::default(),
+            who_poll_enabled: default_who_poll_enabled(),
             who_poll_interval: default_who_poll_interval(),
             who_retry_interval: default_who_retry_interval(),
             monitor: Default::default(),
@@ -280,6 +284,10 @@ fn default_reconnect_delay() -> u64 {
 
 fn default_ghost_sequence() -> Vec<String> {
     vec!["REGAIN".into()]
+}
+
+fn default_who_poll_enabled() -> bool {
+    true
 }
 
 fn default_who_poll_interval() -> Duration {

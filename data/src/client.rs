@@ -836,31 +836,33 @@ impl Client {
                 if user.nickname() == self.nickname() {
                     self.chanmap.insert(channel.clone(), Channel::default());
 
-                    if let Some(state) = self.chanmap.get_mut(channel) {
-                        // Sends WHO to get away state on users.
-                        if self.isupport.contains_key(&isupport::Kind::WHOX) {
-                            let fields = if self.supports_account_notify {
-                                "tcnfa"
+                    // Sends WHO to get away state on users if WHO poll is enabled.
+                    if self.config.who_poll_enabled {
+                        if let Some(state) = self.chanmap.get_mut(channel) {
+                            if self.isupport.contains_key(&isupport::Kind::WHOX) {
+                                let fields = if self.supports_account_notify {
+                                    "tcnfa"
+                                } else {
+                                    "tcnf"
+                                };
+
+                                let _ = self.handle.try_send(command!(
+                                    "WHO",
+                                    channel,
+                                    fields,
+                                    isupport::WHO_POLL_TOKEN.to_owned()
+                                ));
+
+                                state.last_who = Some(WhoStatus::Requested(
+                                    Instant::now(),
+                                    Some(isupport::WHO_POLL_TOKEN),
+                                ));
                             } else {
-                                "tcnf"
-                            };
-
-                            let _ = self.handle.try_send(command!(
-                                "WHO",
-                                channel,
-                                fields,
-                                isupport::WHO_POLL_TOKEN.to_owned()
-                            ));
-
-                            state.last_who = Some(WhoStatus::Requested(
-                                Instant::now(),
-                                Some(isupport::WHO_POLL_TOKEN),
-                            ));
-                        } else {
-                            let _ = self.handle.try_send(command!("WHO", channel));
-                            state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
+                                let _ = self.handle.try_send(command!("WHO", channel));
+                                state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
+                            }
+                            log::debug!("[{}] {channel} - WHO requested", self.server);
                         }
-                        log::debug!("[{}] {channel} - WHO requested", self.server);
                     }
 
                     return Some(vec![Event::JoinedChannel(channel.clone())]);
@@ -1341,7 +1343,9 @@ impl Client {
             }
 
             let request = match state.last_who {
-                Some(WhoStatus::Done(last)) if !self.supports_away_notify => {
+                Some(WhoStatus::Done(last))
+                    if !self.supports_away_notify && self.config.who_poll_enabled =>
+                {
                     (now.duration_since(last) >= self.config.who_poll_interval)
                         .then_some(Request::Poll)
                 }
