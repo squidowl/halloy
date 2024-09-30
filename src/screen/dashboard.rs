@@ -600,6 +600,9 @@ impl Dashboard {
                                 command_bar::Buffer::ToggleFileTransfers => {
                                     (self.toggle_file_transfers(config, main_window), None)
                                 }
+                                command_bar::Buffer::ToggleLogs => {
+                                    (self.toggle_logs(config, main_window), None)
+                                },
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::OpenDirectory => {
