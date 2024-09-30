@@ -158,7 +158,7 @@ async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
         Kind::Server => format!("{server}"),
         Kind::Channel(channel) => format!("{server}channel{channel}"),
         Kind::Query(nick) => format!("{server}nickname{}", nick),
-        Kind::Logs => "log".to_string(),
+        Kind::Logs => "logs".to_string(),
     };
 
     let hashed_name = seahash::hash(name.as_bytes());
