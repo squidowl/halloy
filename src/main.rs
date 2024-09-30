@@ -17,8 +17,8 @@ mod widget;
 mod window;
 
 use std::collections::HashSet;
-use std::env;
 use std::time::{Duration, Instant};
+use std::{env, mem};
 
 use appearance::{theme, Theme};
 use chrono::Utc;
@@ -127,7 +127,7 @@ struct Halloy {
     servers: server::Map,
     modal: Option<Modal>,
     main_window: Window,
-    logs: Vec<logger::Record>,
+    pending_logs: Vec<data::log::Record>,
 }
 
 impl Halloy {
@@ -190,7 +190,7 @@ impl Halloy {
                 config,
                 modal: None,
                 main_window,
-                logs: vec![],
+                pending_logs: vec![],
             },
             command,
         )
@@ -898,10 +898,27 @@ impl Halloy {
 
                 Task::none()
             }
-            Message::Logging(messages) => {
-                self.logs.extend(messages);
+            Message::Logging(mut records) => {
+                let Screen::Dashboard(dashboard) = &mut self.screen else {
+                    self.pending_logs.extend(records);
 
-                Task::none()
+                    return Task::none();
+                };
+
+                // We've moved from non-dashboard screen to dashboard, prepend records
+                if !self.pending_logs.is_empty() {
+                    records = mem::take(&mut self.pending_logs)
+                        .into_iter()
+                        .chain(records)
+                        .collect();
+                }
+
+                Task::batch(
+                    records
+                        .into_iter()
+                        .map(|record| dashboard.record_log(record)),
+                )
+                .map(Message::Dashboard)
             }
         }
     }

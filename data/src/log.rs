@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::{fs, io};
 
-pub use log::*;
+use chrono::{DateTime, Utc};
+
+use serde::{Deserialize, Serialize};
 
 use crate::environment;
 
@@ -24,6 +26,37 @@ fn path() -> Result<PathBuf, Error> {
     }
 
     Ok(parent.join("halloy.log"))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Record {
+    pub timestamp: DateTime<Utc>,
+    pub level: Level,
+    pub message: String,
+}
+
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize, strum::Display,
+)]
+#[strum(serialize_all = "UPPERCASE")]
+pub enum Level {
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl From<log::Level> for Level {
+    fn from(level: log::Level) -> Self {
+        match level {
+            log::Level::Error => Level::Error,
+            log::Level::Warn => Level::Warn,
+            log::Level::Info => Level::Info,
+            log::Level::Debug => Level::Debug,
+            log::Level::Trace => Level::Trace,
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

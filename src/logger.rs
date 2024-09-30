@@ -5,13 +5,14 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ::log::Log;
-use chrono::{DateTime, Utc};
-use data::log;
+use chrono::Utc;
+use log::Log;
 use tokio::sync::mpsc as tokio_mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
-pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, log::Error> {
+pub use data::log::{Error, Record};
+
+pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, Error> {
     let level_filter = env::var("RUST_LOG")
         .ok()
         .as_deref()
@@ -32,7 +33,7 @@ pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, log::Error> 
     if is_debug {
         io_sink = io_sink.chain(std::io::stdout());
     } else {
-        let log_file = log::file()?;
+        let log_file = data::log::file()?;
 
         io_sink = io_sink.chain(log_file);
     }
@@ -68,7 +69,7 @@ fn channel_logger() -> (Box<dyn Log>, ReceiverStream<Vec<Record>>) {
         fn log(&self, record: &::log::Record) {
             let _ = self.sender.send(Record {
                 timestamp: Utc::now(),
-                level: record.level(),
+                level: record.level().into(),
                 message: format!("{}", record.args()),
             });
         }
@@ -103,11 +104,4 @@ fn channel_logger() -> (Box<dyn Log>, ReceiverStream<Vec<Record>>) {
         Box::new(Sink { sender: log_sender }),
         ReceiverStream::new(async_receiver),
     )
-}
-
-#[derive(Debug)]
-pub struct Record {
-    pub timestamp: DateTime<Utc>,
-    pub level: log::Level,
-    pub message: String,
 }
