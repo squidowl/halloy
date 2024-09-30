@@ -113,6 +113,12 @@
       "css": "popup",
       "code": 59406,
       "src": "typicons"
+    },
+    {
+      "uid": "8ea66d97faf9816abd34f48f3f26d216",
+      "css": "bucket",
+      "code": 59408,
+      "src": "entypo"
     }
   ]
 }

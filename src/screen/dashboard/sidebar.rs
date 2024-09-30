@@ -225,8 +225,7 @@ impl Sidebar {
                 .iter(main_window)
                 .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::Logs(_)));
             menu_buttons = menu_buttons.push(new_button(
-                // TODO: Update
-                icon::copy(),
+                icon::logs(),
                 theme::text::primary,
                 Some(Message::ToggleLogs),
                 logs_open,
