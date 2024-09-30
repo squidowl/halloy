@@ -3,8 +3,8 @@ use data::environment::RELEASE_WEBSITE;
 use data::history::ReadMarker;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::slice;
 use std::time::{Duration, Instant};
+use std::{convert, slice};
 
 use data::config;
 use data::file_transfer;
@@ -55,7 +55,7 @@ pub enum Message {
     Shortcut(shortcut::Command),
     FileTransfer(file_transfer::task::Update),
     SendFileSelected(Server, Nick, Option<PathBuf>),
-    CloseContextMenu(bool),
+    CloseContextMenu(window::Id, bool),
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
 }
@@ -792,9 +792,9 @@ impl Dashboard {
                     }
                 }
             }
-            Message::CloseContextMenu(any_closed) => {
+            Message::CloseContextMenu(window, any_closed) => {
                 if !any_closed {
-                    if self.is_pane_maximized() {
+                    if self.is_pane_maximized() && window == main_window.id {
                         self.panes.main.restore();
                     } else {
                         self.focus = None;
@@ -996,6 +996,7 @@ impl Dashboard {
 
     pub fn handle_event(
         &mut self,
+        window: window::Id,
         event: event::Event,
         clients: &data::client::Map,
         version: &Version,
@@ -1009,11 +1010,11 @@ impl Dashboard {
             Escape => {
                 // Order of operations
                 //
-                // - Close command bar
+                // - Close command bar (if main window)
                 // - Close context menu
-                // - Restore maximized pane
+                // - Restore maximized pane (if main window)
                 // - Unfocus
-                if self.command_bar.is_some() {
+                if self.command_bar.is_some() && window == main_window.id {
                     self.toggle_command_bar(
                         &closed_buffers(self, main_window.id, clients),
                         version,
@@ -1022,7 +1023,8 @@ impl Dashboard {
                         main_window,
                     )
                 } else {
-                    context_menu::close(Message::CloseContextMenu)
+                    context_menu::close(convert::identity)
+                        .map(move |any_closed| Message::CloseContextMenu(window, any_closed))
                 }
             }
             Copy => selectable_text::selected(Message::SelectedText),

@@ -779,20 +779,18 @@ impl Halloy {
                 },
             },
             Message::Event(window, event) => {
-                // Events only enabled for main window
-                if window == self.main_window.id {
-                    if let Screen::Dashboard(dashboard) = &mut self.screen {
-                        return dashboard
-                            .handle_event(
-                                event,
-                                &self.clients,
-                                &self.version,
-                                &self.config,
-                                &mut self.theme,
-                                &self.main_window,
-                            )
-                            .map(Message::Dashboard);
-                    }
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    return dashboard
+                        .handle_event(
+                            window,
+                            event,
+                            &self.clients,
+                            &self.version,
+                            &self.config,
+                            &mut self.theme,
+                            &self.main_window,
+                        )
+                        .map(Message::Dashboard);
                 }
 
                 Task::none()
