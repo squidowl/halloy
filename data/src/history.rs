@@ -395,6 +395,14 @@ impl History {
 
         *stored = (*stored).max(Some(read_marker));
     }
+
+    pub fn read_marker(&self) -> Option<ReadMarker> {
+        match self {
+            History::Partial { read_marker, .. } | History::Full { read_marker, .. } => {
+                *read_marker
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
