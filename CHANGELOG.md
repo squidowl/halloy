@@ -1,20 +1,18 @@
 # Unreleased
+
+Added:
+
+- Dynamically select dark or light theme based on OS appearance. See [configuartion](https://halloy.squidowl.org/configuration/themes/index.html).
+- Toggle channel topic with hotkey (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>t</kbd> (macOS: <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd>))
 - New configuration options
   - Ability to define a shell command for loading a NICKSERV password. See [configuration](https://halloy.squidowl.org/configuration/servers/index.html#nick_password_command)
   - Ability to define a shell command for loading a SASL password. See [configuration](https://halloy.squidowl.org/configuration/servers/sasl/plain.html)
 
 Fixed:
 
-- Errors from password commands are now caught and displayed to the user.
-
-Added:
-
-- Dynamically select dark or light theme based on OS appearance. See [configuartion](https://halloy.squidowl.org/configuration/themes/index.html).
-
-Fixed:
-
 - Inverted scrolling direction.
 - Only highlight if user nick isn't part of another word.
+- Errors from password commands are now caught and displayed to the user.
 
 # 2024.12 (2024-09-17)
 
