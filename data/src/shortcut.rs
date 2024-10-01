@@ -34,6 +34,7 @@ pub enum Command {
     CyclePreviousBuffer,
     LeaveBuffer,
     ToggleNicklist,
+    ToggleTopic,
     ToggleSidebar,
     CommandBar,
     ReloadConfiguration,
@@ -114,6 +115,7 @@ impl KeyBind {
     default!(leave_buffer, "w", COMMAND | SHIFT);
     default!(toggle_nick_list, "m", COMMAND | ALT);
     default!(toggle_sidebar, "b", COMMAND | ALT);
+    default!(toggle_topic, "t", COMMAND | ALT);
     default!(command_bar, "k", COMMAND);
     default!(reload_configuration, "r", COMMAND);
 
