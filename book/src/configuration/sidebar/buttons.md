@@ -10,6 +10,7 @@ file_transfer = false
 command_bar = true
 reload_config = true
 theme_editor = false
+logs = true
 ```
 
 ## `file_transfer`
@@ -39,6 +40,14 @@ Reload config button in sidebar which reloads the configuration file.
 ## `theme_editor`
 
 Theme editor button in sidebar which opens the theme editor window.
+
+- **type**: boolean
+- **values**: `true`, `false`
+- **default**: `true`
+
+## `logs`
+
+Logs button in sidebar which opens logs buffer.
 
 - **type**: boolean
 - **values**: `true`, `false`
