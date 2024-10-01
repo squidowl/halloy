@@ -26,6 +26,7 @@ pub enum Message {
     Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
     Leave(Buffer),
     ToggleFileTransfers,
+    ToggleLogs,
     ToggleCommandBar,
     ToggleThemeEditor,
     ReloadingConfigFile,
@@ -44,6 +45,7 @@ pub enum Event {
     Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
     Leave(Buffer),
     ToggleFileTransfers,
+    ToggleLogs,
     ToggleCommandBar,
     ToggleThemeEditor,
     OpenReleaseWebsite,
@@ -89,6 +91,7 @@ impl Sidebar {
             ),
             Message::Leave(buffer) => (Task::none(), Some(Event::Leave(buffer))),
             Message::ToggleFileTransfers => (Task::none(), Some(Event::ToggleFileTransfers)),
+            Message::ToggleLogs => (Task::none(), Some(Event::ToggleLogs)),
             Message::ToggleCommandBar => (Task::none(), Some(Event::ToggleCommandBar)),
             Message::ToggleThemeEditor => (Task::none(), Some(Event::ToggleThemeEditor)),
             Message::ReloadingConfigFile => {
@@ -214,6 +217,19 @@ impl Sidebar {
                 Some(Message::ToggleThemeEditor),
                 theme_editor_open,
                 "Theme Editor",
+            ));
+        }
+
+        if config.buttons.logs {
+            let logs_open = panes
+                .iter(main_window)
+                .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::Logs(_)));
+            menu_buttons = menu_buttons.push(new_button(
+                icon::logs(),
+                theme::text::primary,
+                Some(Message::ToggleLogs),
+                logs_open,
+                "Logs",
             ));
         }
 

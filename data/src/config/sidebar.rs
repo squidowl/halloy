@@ -69,6 +69,8 @@ pub struct Buttons {
     pub reload_config: bool,
     #[serde(default = "default_bool_true")]
     pub theme_editor: bool,
+    #[serde(default = "default_bool_true")]
+    pub logs: bool,
 }
 
 impl Default for Buttons {
@@ -78,6 +80,7 @@ impl Default for Buttons {
             command_bar: default_bool_true(),
             reload_config: default_bool_true(),
             theme_editor: default_bool_true(),
+            logs: default_bool_true(),
         }
     }
 }

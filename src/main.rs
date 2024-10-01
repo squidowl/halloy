@@ -17,8 +17,8 @@ mod widget;
 mod window;
 
 use std::collections::HashSet;
-use std::env;
 use std::time::{Duration, Instant};
+use std::{env, mem};
 
 use appearance::{theme, Theme};
 use chrono::Utc;
@@ -31,6 +31,7 @@ use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
 use tokio::runtime;
+use tokio_stream::wrappers::ReceiverStream;
 
 use self::event::{events, Event};
 use self::modal::Modal;
@@ -57,7 +58,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Prepare notifications.
     notification::prepare();
 
-    logger::setup(is_debug).expect("setup logging");
+    let log_stream = logger::setup(is_debug).expect("setup logging");
     log::info!("halloy {} has started", environment::formatted_version());
     log::info!("config dir: {:?}", environment::config_dir());
     log::info!("data dir: {:?}", environment::data_dir());
@@ -94,7 +95,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .scale_factor(Halloy::scale_factor)
         .subscription(Halloy::subscription)
         .settings(settings(&config_load))
-        .run_with(move || Halloy::new(config_load.clone(), destination.clone()))
+        .run_with(move || Halloy::new(config_load, destination, log_stream))
         .inspect_err(|err| log::error!("{}", err))?;
 
     Ok(())
@@ -126,6 +127,7 @@ struct Halloy {
     servers: server::Map,
     modal: Option<Modal>,
     main_window: Window,
+    pending_logs: Vec<data::log::Record>,
 }
 
 impl Halloy {
@@ -188,6 +190,7 @@ impl Halloy {
                 config,
                 modal: None,
                 main_window,
+                pending_logs: vec![],
             },
             command,
         )
@@ -219,12 +222,14 @@ pub enum Message {
     AppearanceChange(appearance::Mode),
     Window(window::Id, window::Event),
     WindowSettingsSaved(Result<(), window::Error>),
+    Logging(Vec<logger::Record>),
 }
 
 impl Halloy {
     fn new(
         config_load: Result<Config, config::Error>,
         url_received: Option<data::Url>,
+        log_stream: ReceiverStream<Vec<logger::Record>>,
     ) -> (Halloy, Task<Message>) {
         let (main_window, open_main_window) = window::open(window::Settings {
             size: window::default_size(),
@@ -242,6 +247,7 @@ impl Halloy {
             open_main_window.then(|_| Task::none()),
             command,
             latest_remote_version,
+            Task::stream(log_stream).map(Message::Logging),
         ];
 
         if let Some(url) = url_received {
@@ -773,20 +779,18 @@ impl Halloy {
                 },
             },
             Message::Event(window, event) => {
-                // Events only enabled for main window
-                if window == self.main_window.id {
-                    if let Screen::Dashboard(dashboard) = &mut self.screen {
-                        return dashboard
-                            .handle_event(
-                                event,
-                                &self.clients,
-                                &self.version,
-                                &self.config,
-                                &mut self.theme,
-                                &self.main_window,
-                            )
-                            .map(Message::Dashboard);
-                    }
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    return dashboard
+                        .handle_event(
+                            window,
+                            event,
+                            &self.clients,
+                            &self.version,
+                            &self.config,
+                            &mut self.theme,
+                            &self.main_window,
+                        )
+                        .map(Message::Dashboard);
                 }
 
                 Task::none()
@@ -891,6 +895,28 @@ impl Halloy {
                 }
 
                 Task::none()
+            }
+            Message::Logging(mut records) => {
+                let Screen::Dashboard(dashboard) = &mut self.screen else {
+                    self.pending_logs.extend(records);
+
+                    return Task::none();
+                };
+
+                // We've moved from non-dashboard screen to dashboard, prepend records
+                if !self.pending_logs.is_empty() {
+                    records = mem::take(&mut self.pending_logs)
+                        .into_iter()
+                        .chain(records)
+                        .collect();
+                }
+
+                Task::batch(
+                    records
+                        .into_iter()
+                        .map(|record| dashboard.record_log(record)),
+                )
+                .map(Message::Dashboard)
             }
         }
     }

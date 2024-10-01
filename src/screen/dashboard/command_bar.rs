@@ -129,6 +129,7 @@ pub enum Buffer {
     Popout,
     Merge,
     ToggleFileTransfers,
+    ToggleLogs,
 }
 
 #[derive(Debug, Clone)]
@@ -200,7 +201,7 @@ impl Buffer {
         resize_buffer: data::buffer::Resize,
         main_window: window::Id,
     ) -> Vec<Self> {
-        let mut list = vec![Buffer::New, Buffer::ToggleFileTransfers];
+        let mut list = vec![Buffer::New, Buffer::ToggleFileTransfers, Buffer::ToggleLogs];
 
         if let Some((window, _)) = focus {
             list.push(Buffer::Close);
@@ -298,6 +299,7 @@ impl std::fmt::Display for Buffer {
             Buffer::Popout => write!(f, "Pop out buffer"),
             Buffer::Merge => write!(f, "Merge buffer"),
             Buffer::ToggleFileTransfers => write!(f, "Toggle File Transfers"),
+            Buffer::ToggleLogs => write!(f, "Toggle Logs"),
         }
     }
 }

@@ -16,6 +16,7 @@ pub enum Pane {
     },
     Empty,
     FileTransfers,
+    Logs,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
