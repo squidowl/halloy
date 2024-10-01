@@ -26,6 +26,8 @@ pub struct Keyboard {
     pub leave_buffer: KeyBind,
     #[serde(default = "KeyBind::toggle_nick_list")]
     pub toggle_nick_list: KeyBind,
+    #[serde(default = "KeyBind::toggle_topic")]
+    pub toggle_topic: KeyBind,
     #[serde(default = "KeyBind::toggle_sidebar")]
     pub toggle_sidebar: KeyBind,
     #[serde(default = "KeyBind::command_bar")]
@@ -49,6 +51,7 @@ impl Default for Keyboard {
             leave_buffer: KeyBind::leave_buffer(),
             toggle_nick_list: KeyBind::toggle_nick_list(),
             toggle_sidebar: KeyBind::toggle_sidebar(),
+            toggle_topic: KeyBind::toggle_topic(),
             command_bar: KeyBind::command_bar(),
             reload_configuration: KeyBind::reload_configuration(),
         }
@@ -71,6 +74,7 @@ impl Keyboard {
             shortcut(self.cycle_previous_buffer.clone(), CyclePreviousBuffer),
             shortcut(self.leave_buffer.clone(), LeaveBuffer),
             shortcut(self.toggle_nick_list.clone(), ToggleNicklist),
+            shortcut(self.toggle_topic.clone(), ToggleTopic),
             shortcut(self.toggle_sidebar.clone(), ToggleSidebar),
             shortcut(self.command_bar.clone(), CommandBar),
             shortcut(self.reload_configuration.clone(), ReloadConfiguration),
