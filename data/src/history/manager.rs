@@ -12,9 +12,6 @@ use crate::user::Nick;
 use crate::{config, input};
 use crate::{server, Buffer, Config, Input, Server, User};
 
-// Hack since log messages are app wide and not scoped to any server
-const LOG_SERVER_NAME: &str = "<halloy-logs>";
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
     pub server: server::Server,
@@ -24,7 +21,7 @@ pub struct Resource {
 impl Resource {
     pub fn logs() -> Self {
         Self {
-            server: Server::from(LOG_SERVER_NAME),
+            server: server::LOGS.clone(),
             kind: history::Kind::Logs,
         }
     }
@@ -64,6 +61,7 @@ pub enum Message {
 }
 
 pub enum Event {
+    Loaded(server::Server, history::Kind),
     Closed(server::Server, history::Kind, Option<history::ReadMarker>),
     Exited(Vec<(Server, history::Kind, Option<history::ReadMarker>)>),
 }
@@ -111,7 +109,8 @@ impl Manager {
                     "loaded history for {kind} on {server}: {} messages",
                     loaded.messages.len()
                 );
-                self.data.load_full(server, kind, loaded);
+                self.data.load_full(server.clone(), kind.clone(), loaded);
+                return Some(Event::Loaded(server, kind));
             }
             Message::LoadFull(server, kind, Err(error)) => {
                 log::warn!("failed to load history for {kind} on {server}: {error}");
@@ -245,7 +244,7 @@ impl Manager {
         record: crate::log::Record,
     ) -> Option<impl Future<Output = Message>> {
         self.data.add_message(
-            Server::from(LOG_SERVER_NAME),
+            server::LOGS.clone(),
             history::Kind::Logs,
             crate::Message::log(record),
         )
@@ -268,57 +267,14 @@ impl Manager {
         self.data.channel_joined(server, channel)
     }
 
-    pub fn get_channel_messages(
+    pub fn get_messages(
         &self,
         server: &Server,
-        channel: &str,
+        kind: &history::Kind,
         limit: Option<Limit>,
         buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(
-            server,
-            &history::Kind::Channel(channel.to_string()),
-            limit,
-            buffer_config,
-        )
-    }
-
-    pub fn get_server_messages(
-        &self,
-        server: &Server,
-        limit: Option<Limit>,
-        buffer_config: &config::Buffer,
-    ) -> Option<history::View<'_>> {
-        self.data
-            .history_view(server, &history::Kind::Server, limit, buffer_config)
-    }
-
-    pub fn get_query_messages(
-        &self,
-        server: &Server,
-        nick: &Nick,
-        limit: Option<Limit>,
-        buffer_config: &config::Buffer,
-    ) -> Option<history::View<'_>> {
-        self.data.history_view(
-            server,
-            &history::Kind::Query(nick.clone()),
-            limit,
-            buffer_config,
-        )
-    }
-
-    pub fn get_log_messages(
-        &self,
-        limit: Option<Limit>,
-        buffer_config: &config::Buffer,
-    ) -> Option<history::View<'_>> {
-        self.data.history_view(
-            &Server::from(LOG_SERVER_NAME),
-            &history::Kind::Logs,
-            limit,
-            buffer_config,
-        )
+        self.data.history_view(server, kind, limit, buffer_config)
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {

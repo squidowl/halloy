@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use chrono::Utc;
 use irc::proto;
 use irc::proto::format;
 
 use crate::buffer::AutoFormat;
 use crate::message::formatting;
-use crate::time::Posix;
 use crate::{command, message, Buffer, Command, Message, Server, User};
 
 const INPUT_HISTORY_LENGTH: usize = 100;
@@ -90,24 +88,18 @@ impl Input {
                 targets
                     .split(',')
                     .filter_map(|target| to_target(target, message::Source::User(user.clone())))
-                    .map(|target| Message {
-                        received_at: Posix::now(),
-                        server_time: Utc::now(),
-                        direction: message::Direction::Sent,
-                        target,
-                        content: message::parse_fragments(text.clone(), channel_users),
-                        id: None,
+                    .map(|target| {
+                        Message::sent(
+                            target,
+                            message::parse_fragments(text.clone(), channel_users),
+                        )
                     })
                     .collect(),
             ),
-            Command::Me(target, action) => Some(vec![Message {
-                received_at: Posix::now(),
-                server_time: Utc::now(),
-                direction: message::Direction::Sent,
-                target: to_target(&target, message::Source::Action)?,
-                content: message::action_text(user.nickname(), Some(&action)),
-                id: None,
-            }]),
+            Command::Me(target, action) => Some(vec![Message::sent(
+                to_target(&target, message::Source::Action)?,
+                message::action_text(user.nickname(), Some(&action)),
+            )]),
             _ => None,
         }
     }

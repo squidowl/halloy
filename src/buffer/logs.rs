@@ -26,7 +26,7 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Log,
+            scroll_view::Kind::Logs,
             history,
             config,
             move |message, _, _| match message.target.source() {

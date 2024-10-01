@@ -509,6 +509,28 @@ impl Dashboard {
             Message::History(message) => {
                 if let Some(event) = self.history.update(message) {
                     match event {
+                        history::manager::Event::Loaded(server, kind) => {
+                            if let Some((window, pane, state)) =
+                                self.panes.iter_mut(main_window.id).find(|(_, _, state)| {
+                                    state.buffer.server() == Some(&server)
+                                        && state.buffer.data().map_or(true, |data| {
+                                            data.target().as_deref() == kind.target()
+                                        })
+                                })
+                            {
+                                return (
+                                    state.buffer.scroll_to_backlog(&self.history, config).map(
+                                        move |message| {
+                                            Message::Pane(
+                                                window,
+                                                pane::Message::Buffer(pane, message),
+                                            )
+                                        },
+                                    ),
+                                    None,
+                                );
+                            }
+                        }
                         history::manager::Event::Closed(server, kind, read_marker) => {
                             if let Some((target, read_marker)) = kind.target().zip(read_marker) {
                                 clients.send_markread(&server, target, read_marker);
@@ -1504,6 +1526,9 @@ impl Dashboard {
                     None if matches!(pane.buffer, Buffer::FileTransfers(_)) => {
                         self.toggle_file_transfers(config, main_window)
                     }
+                    None if matches!(pane.buffer, Buffer::Logs(_)) => {
+                        self.toggle_logs(config, main_window)
+                    }
                     None => self.new_pane(pane_grid::Axis::Horizontal, config, main_window),
                 };
 
@@ -1953,6 +1978,20 @@ impl Panes {
             .map(move |(pane, state)| (main_window, *pane, state))
             .chain(self.popout.iter().flat_map(|(window_id, panes)| {
                 panes.iter().map(|(pane, state)| (*window_id, *pane, state))
+            }))
+    }
+
+    fn iter_mut(
+        &mut self,
+        main_window: window::Id,
+    ) -> impl Iterator<Item = (window::Id, pane_grid::Pane, &mut Pane)> {
+        self.main
+            .iter_mut()
+            .map(move |(pane, state)| (main_window, *pane, state))
+            .chain(self.popout.iter_mut().flat_map(|(window_id, panes)| {
+                panes
+                    .iter_mut()
+                    .map(|(pane, state)| (*window_id, *pane, state))
             }))
     }
 
