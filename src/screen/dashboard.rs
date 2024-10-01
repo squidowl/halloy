@@ -3,8 +3,8 @@ use data::environment::RELEASE_WEBSITE;
 use data::history::ReadMarker;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::slice;
 use std::time::{Duration, Instant};
+use std::{convert, slice};
 
 use data::config;
 use data::file_transfer;
@@ -19,7 +19,6 @@ use self::command_bar::CommandBar;
 use self::pane::Pane;
 use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
-use crate::buffer::file_transfers::FileTransfers;
 use crate::buffer::{self, Buffer};
 use crate::widget::{
     anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
@@ -56,7 +55,7 @@ pub enum Message {
     Shortcut(shortcut::Command),
     FileTransfer(file_transfer::task::Update),
     SendFileSelected(Server, Nick, Option<PathBuf>),
-    CloseContextMenu(bool),
+    CloseContextMenu(window::Id, bool),
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
 }
@@ -454,6 +453,7 @@ impl Dashboard {
                     sidebar::Event::ToggleFileTransfers => {
                         (self.toggle_file_transfers(config, main_window), None)
                     }
+                    sidebar::Event::ToggleLogs => (self.toggle_logs(config, main_window), None),
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
                             &closed_buffers(self, main_window.id, clients),
@@ -600,6 +600,9 @@ impl Dashboard {
                                 command_bar::Buffer::ToggleFileTransfers => {
                                     (self.toggle_file_transfers(config, main_window), None)
                                 }
+                                command_bar::Buffer::ToggleLogs => {
+                                    (self.toggle_logs(config, main_window), None)
+                                },
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::OpenDirectory => {
@@ -799,9 +802,9 @@ impl Dashboard {
                     }
                 }
             }
-            Message::CloseContextMenu(any_closed) => {
+            Message::CloseContextMenu(window, any_closed) => {
                 if !any_closed {
-                    if self.is_pane_maximized() {
+                    if self.is_pane_maximized() && window == main_window.id {
                         self.panes.main.restore();
                     } else {
                         self.focus = None;
@@ -1003,6 +1006,7 @@ impl Dashboard {
 
     pub fn handle_event(
         &mut self,
+        window: window::Id,
         event: event::Event,
         clients: &data::client::Map,
         version: &Version,
@@ -1016,11 +1020,11 @@ impl Dashboard {
             Escape => {
                 // Order of operations
                 //
-                // - Close command bar
+                // - Close command bar (if main window)
                 // - Close context menu
-                // - Restore maximized pane
+                // - Restore maximized pane (if main window)
                 // - Unfocus
-                if self.command_bar.is_some() {
+                if self.command_bar.is_some() && window == main_window.id {
                     self.toggle_command_bar(
                         &closed_buffers(self, main_window.id, clients),
                         version,
@@ -1029,7 +1033,8 @@ impl Dashboard {
                         main_window,
                     )
                 } else {
-                    context_menu::close(Message::CloseContextMenu)
+                    context_menu::close(convert::identity)
+                        .map(move |any_closed| Message::CloseContextMenu(window, any_closed))
                 }
             }
             Copy => selectable_text::selected(Message::SelectedText),
@@ -1068,7 +1073,7 @@ impl Dashboard {
             for (id, pane) in panes.main.iter() {
                 if let Buffer::Empty = &pane.buffer {
                     self.panes.main.panes.entry(*id).and_modify(|p| {
-                        *p = Pane::new(Buffer::FileTransfers(FileTransfers::new()), config)
+                        *p = Pane::new(Buffer::FileTransfers(buffer::FileTransfers::new()), config)
                     });
                     self.last_changed = Some(Instant::now());
 
@@ -1082,7 +1087,51 @@ impl Dashboard {
 
         if let Some((window, pane)) = self.focus.take() {
             if let Some(state) = self.panes.get_mut(main_window.id, window, pane) {
-                state.buffer = Buffer::FileTransfers(FileTransfers::new());
+                state.buffer = Buffer::FileTransfers(buffer::FileTransfers::new());
+                self.last_changed = Some(Instant::now());
+
+                commands.extend(vec![
+                    self.reset_pane(main_window, window, pane),
+                    self.focus_pane(main_window, window, pane),
+                ]);
+            }
+        }
+
+        Task::batch(commands)
+    }
+
+    fn toggle_logs(&mut self, config: &Config, main_window: &Window) -> Task<Message> {
+        let panes = self.panes.clone();
+
+        // If logs already is open, we close it.
+        for (window, id, pane) in panes.iter(main_window.id) {
+            if matches!(pane.buffer, Buffer::Logs(_)) {
+                return self.close_pane(main_window, window, id);
+            }
+        }
+
+        // If we only have one pane, and its empty, we replace it.
+        if self.panes.len() == 1 {
+            for (id, pane) in panes.main.iter() {
+                if let Buffer::Empty = &pane.buffer {
+                    self.panes
+                        .main
+                        .panes
+                        .entry(*id)
+                        .and_modify(|p| *p = Pane::new(Buffer::Logs(buffer::Logs::new()), config));
+                    self.last_changed = Some(Instant::now());
+
+                    return self.focus_pane(main_window, main_window.id, *id);
+                }
+            }
+        }
+
+        let mut commands = vec![];
+        let _ = self.new_pane(pane_grid::Axis::Vertical, config, main_window);
+
+        if let Some((window, pane)) = self.focus.take() {
+            if let Some(state) = self.panes.get_mut(main_window.id, window, pane) {
+                state.buffer = Buffer::Logs(buffer::Logs::new());
                 self.last_changed = Some(Instant::now());
 
                 commands.extend(vec![
@@ -1217,6 +1266,14 @@ impl Dashboard {
 
     pub fn record_message(&mut self, server: &Server, message: data::Message) -> Task<Message> {
         if let Some(task) = self.history.record_message(server, message) {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
+    }
+
+    pub fn record_log(&mut self, record: data::log::Record) -> Task<Message> {
+        if let Some(task) = self.history.record_log(record) {
             Task::perform(task, Message::History)
         } else {
             Task::none()
@@ -1609,7 +1666,11 @@ impl Dashboard {
                     buffer::Settings::default(),
                 )),
                 data::Pane::FileTransfers => Configuration::Pane(Pane::with_settings(
-                    Buffer::FileTransfers(FileTransfers::new()),
+                    Buffer::FileTransfers(buffer::FileTransfers::new()),
+                    buffer::Settings::default(),
+                )),
+                data::Pane::Logs => Configuration::Pane(Pane::with_settings(
+                    Buffer::Logs(buffer::Logs::new()),
                     buffer::Settings::default(),
                 )),
             }

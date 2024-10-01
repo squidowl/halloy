@@ -33,6 +33,7 @@ pub enum Kind<'a> {
     Server(&'a Server),
     Channel(&'a Server, &'a str),
     Query(&'a Server, &'a Nick),
+    Log,
 }
 
 pub fn view<'a>(
@@ -58,6 +59,7 @@ pub fn view<'a>(
         Kind::Query(server, user) => {
             history.get_query_messages(server, user, Some(state.limit), &config.buffer)
         }
+        Kind::Log => history.get_log_messages(Some(state.limit), &config.buffer),
     })
     else {
         return column![].into();

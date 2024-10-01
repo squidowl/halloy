@@ -3,10 +3,11 @@ use data::user::Nick;
 use data::{buffer, file_transfer, history, Config};
 use iced::Task;
 
-use self::channel::Channel;
-use self::file_transfers::FileTransfers;
-use self::query::Query;
-use self::server::Server;
+pub use self::channel::Channel;
+pub use self::file_transfers::FileTransfers;
+pub use self::logs::Logs;
+pub use self::query::Query;
+pub use self::server::Server;
 use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
 use crate::Theme;
@@ -15,6 +16,7 @@ pub mod channel;
 pub mod empty;
 pub mod file_transfers;
 mod input_view;
+pub mod logs;
 pub mod query;
 mod scroll_view;
 pub mod server;
@@ -27,6 +29,7 @@ pub enum Buffer {
     Server(Server),
     Query(Query),
     FileTransfers(FileTransfers),
+    Logs(Logs),
 }
 
 #[derive(Debug, Clone)]
@@ -35,6 +38,7 @@ pub enum Message {
     Server(server::Message),
     Query(query::Message),
     FileTransfers(file_transfers::Message),
+    Log(logs::Message),
 }
 
 pub enum Event {
@@ -55,6 +59,7 @@ impl Buffer {
             Buffer::Server(state) => Some(&state.buffer),
             Buffer::Query(state) => Some(&state.buffer),
             Buffer::FileTransfers(_) => None,
+            Buffer::Logs(_) => None,
         }
     }
 
@@ -142,6 +147,7 @@ impl Buffer {
             Buffer::FileTransfers(state) => {
                 file_transfers::view(state, file_transfers).map(Message::FileTransfers)
             }
+            Buffer::Logs(state) => logs::view(state, history, config, theme).map(Message::Log),
         }
     }
 
@@ -167,7 +173,7 @@ impl Buffer {
 
     pub fn focus(&self) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Empty | Buffer::FileTransfers(_) | Buffer::Logs(_) => Task::none(),
             Buffer::Channel(channel) => channel.focus().map(Message::Channel),
             Buffer::Server(server) => server.focus().map(Message::Server),
             Buffer::Query(query) => query.focus().map(Message::Query),
@@ -176,7 +182,7 @@ impl Buffer {
 
     pub fn reset(&mut self) {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => {}
+            Buffer::Empty | Buffer::FileTransfers(_) | Buffer::Logs(_) => {}
             Buffer::Channel(channel) => channel.reset(),
             Buffer::Server(server) => server.reset(),
             Buffer::Query(query) => query.reset(),
@@ -190,7 +196,9 @@ impl Buffer {
     ) -> Task<Message> {
         if let Some(buffer) = self.data().cloned() {
             match self {
-                Buffer::Empty | Buffer::Server(_) | Buffer::FileTransfers(_) => Task::none(),
+                Buffer::Empty | Buffer::Server(_) | Buffer::FileTransfers(_) | Buffer::Logs(_) => {
+                    Task::none()
+                }
                 Buffer::Channel(channel) => channel
                     .input_view
                     .insert_user(nick, buffer, history)
@@ -220,6 +228,10 @@ impl Buffer {
                 .scroll_view
                 .scroll_to_start()
                 .map(|message| Message::Query(query::Message::ScrollView(message))),
+            Buffer::Logs(log) => log
+                .scroll_view
+                .scroll_to_start()
+                .map(|message| Message::Log(logs::Message::ScrollView(message))),
         }
     }
 
@@ -238,6 +250,10 @@ impl Buffer {
                 .scroll_view
                 .scroll_to_end()
                 .map(|message| Message::Query(query::Message::ScrollView(message))),
+            Buffer::Logs(log) => log
+                .scroll_view
+                .scroll_to_end()
+                .map(|message| Message::Log(logs::Message::ScrollView(message))),
         }
     }
 }

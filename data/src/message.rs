@@ -116,6 +116,7 @@ pub enum Target {
         nick: Nick,
         source: Source,
     },
+    Logs,
 }
 
 impl Target {
@@ -124,6 +125,7 @@ impl Target {
             Target::Server { .. } => None,
             Target::Channel { prefix, .. } => prefix.as_ref(),
             Target::Query { .. } => None,
+            Target::Logs => None,
         }
     }
 
@@ -132,6 +134,7 @@ impl Target {
             Target::Server { source } => source,
             Target::Channel { source, .. } => source,
             Target::Query { source, .. } => source,
+            Target::Logs => &Source::Internal(source::Internal::Logs),
         }
     }
 }
@@ -233,6 +236,18 @@ impl Message {
         match &self.content {
             Content::Plain(s) => Some(s),
             Content::Fragments(_) => None,
+            Content::Log(_) => None,
+        }
+    }
+
+    pub fn log(record: crate::log::Record) -> Self {
+        Self {
+            received_at: Posix::now(),
+            server_time: record.timestamp,
+            direction: Direction::Received,
+            target: Target::Logs,
+            content: Content::Log(record),
+            id: None,
         }
     }
 }
@@ -467,6 +482,7 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
 pub enum Content {
     Plain(String),
     Fragments(Vec<Fragment>),
+    Log(crate::log::Record),
 }
 
 impl Content {
@@ -474,6 +490,7 @@ impl Content {
         match self {
             Content::Plain(s) => s.into(),
             Content::Fragments(fragments) => fragments.iter().map(Fragment::as_str).join("").into(),
+            Content::Log(record) => (&record.message).into(),
         }
     }
 }
@@ -1073,6 +1090,7 @@ pub fn references_user(sender: NickRef, own_nick: NickRef, message: &Message) ->
         Content::Fragments(fragments) => fragments
             .iter()
             .any(|f| references_user_text(sender, own_nick, f.as_str())),
+        Content::Log(_) => false,
     }
 }
 

@@ -12,10 +12,22 @@ use crate::user::Nick;
 use crate::{config, input};
 use crate::{server, Buffer, Config, Input, Server, User};
 
+// Hack since log messages are app wide and not scoped to any server
+const LOG_SERVER_NAME: &str = "<halloy-logs>";
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
     pub server: server::Server,
     pub kind: history::Kind,
+}
+
+impl Resource {
+    pub fn logs() -> Self {
+        Self {
+            server: Server::from(LOG_SERVER_NAME),
+            kind: history::Kind::Logs,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -112,7 +124,10 @@ impl Manager {
                 log::warn!("failed to close history for {kind} on {server}: {error}")
             }
             Message::Flushed(server, kind, Ok(_)) => {
-                log::debug!("flushed history for {kind} on {server}",);
+                // Will cause flush loop if we emit a log every time we flush logs
+                if !matches!(kind, history::Kind::Logs) {
+                    log::debug!("flushed history for {kind} on {server}",);
+                }
             }
             Message::Flushed(server, kind, Err(error)) => {
                 log::warn!("failed to flush history for {kind} on {server}: {error}")
@@ -225,6 +240,17 @@ impl Manager {
         )
     }
 
+    pub fn record_log(
+        &mut self,
+        record: crate::log::Record,
+    ) -> Option<impl Future<Output = Message>> {
+        self.data.add_message(
+            Server::from(LOG_SERVER_NAME),
+            history::Kind::Logs,
+            crate::Message::log(record),
+        )
+    }
+
     pub fn update_read_marker(
         &mut self,
         server: Server,
@@ -277,6 +303,19 @@ impl Manager {
         self.data.history_view(
             server,
             &history::Kind::Query(nick.clone()),
+            limit,
+            buffer_config,
+        )
+    }
+
+    pub fn get_log_messages(
+        &self,
+        limit: Option<Limit>,
+        buffer_config: &config::Buffer,
+    ) -> Option<history::View<'_>> {
+        self.data.history_view(
+            &Server::from(LOG_SERVER_NAME),
+            &history::Kind::Logs,
             limit,
             buffer_config,
         )

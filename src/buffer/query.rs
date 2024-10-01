@@ -178,6 +178,7 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
+                    message::Source::Internal(message::source::Internal::Logs) => None,
                 }
             },
         )
