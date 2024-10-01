@@ -752,6 +752,13 @@ impl Dashboard {
                             });
                         }
                     }
+                    ToggleTopic => {
+                        if let Some((_, _, pane)) = self.get_focused_mut(main_window) {
+                            pane.update_settings(|settings| {
+                                settings.channel.topic.enabled = !settings.channel.topic.enabled
+                            });
+                        }
+                    }
                     ToggleSidebar => {
                         self.side_menu.toggle_visibility();
                     }
