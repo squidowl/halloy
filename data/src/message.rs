@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 
 use chrono::{DateTime, Utc};
@@ -153,6 +154,7 @@ pub struct Message {
     pub target: Target,
     pub content: Content,
     pub id: Option<String>,
+    pub hash: Hash,
 }
 
 impl Message {
@@ -168,6 +170,7 @@ impl Message {
                             | source::server::Kind::MonitoredOffline
                     )
                 }
+                Source::Internal(source::Internal::Logs) => true,
                 _ => false,
             }
     }
@@ -189,42 +192,70 @@ impl Message {
             &channel_users,
         )?;
         let target = target(encoded, &our_nick, &resolve_attributes)?;
+        let received_at = Posix::now();
+        let hash = Hash::new(&received_at, &content);
 
         Some(Message {
-            received_at: Posix::now(),
+            received_at,
             server_time,
             direction: Direction::Received,
             target,
             content,
             id,
+            hash,
         })
     }
 
-    pub fn file_transfer_request_received(from: &Nick, filename: &str) -> Message {
+    pub fn sent(target: Target, content: Content) -> Self {
+        let received_at = Posix::now();
+        let hash = Hash::new(&received_at, &content);
+
         Message {
-            received_at: Posix::now(),
+            received_at,
+            server_time: Utc::now(),
+            direction: Direction::Sent,
+            target,
+            content,
+            id: None,
+            hash,
+        }
+    }
+
+    pub fn file_transfer_request_received(from: &Nick, filename: &str) -> Message {
+        let received_at = Posix::now();
+        let content = plain(format!("{from} wants to send you \"{filename}\""));
+        let hash = Hash::new(&received_at, &content);
+
+        Message {
+            received_at,
             server_time: Utc::now(),
             direction: Direction::Received,
             target: Target::Query {
                 nick: from.clone(),
                 source: Source::Action,
             },
-            content: plain(format!("{from} wants to send you \"{filename}\"")),
+            content,
             id: None,
+            hash,
         }
     }
 
     pub fn file_transfer_request_sent(to: &Nick, filename: &str) -> Message {
+        let received_at = Posix::now();
+        let content = plain(format!("offering to send {to} \"{filename}\""));
+        let hash = Hash::new(&received_at, &content);
+
         Message {
-            received_at: Posix::now(),
+            received_at,
             server_time: Utc::now(),
             direction: Direction::Sent,
             target: Target::Query {
                 nick: to.clone(),
                 source: Source::Action,
             },
-            content: plain(format!("offering to send {to} \"{filename}\"")),
+            content,
             id: None,
+            hash,
         }
     }
 
@@ -241,13 +272,19 @@ impl Message {
     }
 
     pub fn log(record: crate::log::Record) -> Self {
+        let received_at = Posix::now();
+        let server_time = record.timestamp;
+        let content = Content::Log(record);
+        let hash = Hash::new(&received_at, &content);
+
         Self {
-            received_at: Posix::now(),
-            server_time: record.timestamp,
+            received_at,
+            server_time,
             direction: Direction::Received,
             target: Target::Logs,
-            content: Content::Log(record),
+            content,
             id: None,
+            hash,
         }
     }
 }
@@ -320,6 +357,8 @@ impl<'de> Deserialize<'de> for Message {
             Content::Plain("".to_string())
         };
 
+        let hash = Hash::new(&received_at, &content);
+
         Ok(Message {
             received_at,
             server_time,
@@ -327,7 +366,20 @@ impl<'de> Deserialize<'de> for Message {
             target,
             content,
             id,
+            hash,
         })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Hash(u64);
+
+impl Hash {
+    pub fn new(received_at: &time::Posix, content: &Content) -> Self {
+        let mut hasher = DefaultHasher::new();
+        received_at.hash(&mut hasher);
+        content.hash(&mut hasher);
+        Self(hasher.finish())
     }
 }
 
@@ -478,7 +530,7 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
         })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Content {
     Plain(String),
     Fragments(Vec<Fragment>),
@@ -495,7 +547,7 @@ impl Content {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Fragment {
     Text(String),
     Channel(String),
@@ -1036,7 +1088,7 @@ pub enum Limit {
 
 impl Limit {
     pub const DEFAULT_STEP: usize = 50;
-    const DEFAULT_COUNT: usize = 500;
+    pub const DEFAULT_COUNT: usize = 500;
 
     pub fn top() -> Self {
         Self::Top(Self::DEFAULT_COUNT)

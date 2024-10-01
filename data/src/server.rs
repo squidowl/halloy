@@ -1,3 +1,4 @@
+use once_cell::sync::Lazy;
 use std::collections::BTreeMap;
 use std::{fmt, str};
 use tokio::fs;
@@ -10,6 +11,9 @@ use serde::{Deserialize, Serialize};
 use crate::config;
 use crate::config::server::Sasl;
 use crate::config::Error;
+
+// Hack since log messages are app wide and not scoped to any server
+pub static LOGS: Lazy<Server> = Lazy::new(|| Server("<halloy-logs>".to_string()));
 
 pub type Handle = Sender<proto::Message>;
 
@@ -71,7 +75,9 @@ async fn read_from_command(pass_command: &str) -> Result<String, Error> {
         // trailing newline
         Ok(str::from_utf8(&output.stdout)?.trim_end().to_string())
     } else {
-        Err(Error::ExecutePasswordCommand(String::from_utf8(output.stderr)?))
+        Err(Error::ExecutePasswordCommand(String::from_utf8(
+            output.stderr,
+        )?))
     }
 }
 
@@ -131,7 +137,7 @@ impl Map {
                         password_file: None,
                         password_command: None,
                         ..
-                    } => {},
+                    } => {}
                     Sasl::Plain {
                         password: password @ None,
                         password_file: Some(pass_file),

@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::history::{dir_path, Error, Kind};
-use crate::{message, server, Message};
+use crate::message::source;
+use crate::{server, Message};
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 pub struct Metadata {
@@ -23,7 +24,14 @@ impl ReadMarker {
         messages
             .iter()
             .rev()
-            .find(|message| !matches!(message.target.source(), message::Source::Internal(_)))
+            .find(|message| match message.target.source() {
+                source::Source::Internal(source) => match source {
+                    source::Internal::Status(_) => false,
+                    // Logs are in their own buffer and this gives us backlog support there
+                    source::Internal::Logs => true,
+                },
+                _ => true,
+            })
             .map(|message| message.server_time)
             .map(Self)
     }
