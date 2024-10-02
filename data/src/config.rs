@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use std::{string, str};
+use std::{str, string};
 
 use tokio_stream::wrappers::ReadDirStream;
 use tokio_stream::StreamExt;
@@ -29,7 +29,7 @@ use crate::{environment, Theme};
 pub mod buffer;
 pub mod channel;
 pub mod file_transfer;
-mod keys;
+pub mod keys;
 pub mod notification;
 pub mod proxy;
 pub mod server;
@@ -169,7 +169,9 @@ impl Config {
 
         let path = Self::path();
         if !path.try_exists()? {
-            return Err(Error::ConfigMissing { has_yaml_config: has_yaml_config()? });
+            return Err(Error::ConfigMissing {
+                has_yaml_config: has_yaml_config()?,
+            });
         }
         let content = fs::read_to_string(path)
             .await

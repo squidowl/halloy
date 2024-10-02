@@ -1,6 +1,6 @@
 use std::hash::Hash;
-use std::ops;
 use std::str::FromStr;
+use std::{fmt, ops};
 
 use iced_core::keyboard::{self, key};
 use serde::Deserialize;
@@ -75,6 +75,12 @@ macro_rules! default {
 pub struct KeyBind {
     key_code: KeyCode,
     modifiers: Modifiers,
+}
+
+impl fmt::Display for KeyBind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.modifiers, self.key_code)
+    }
 }
 
 impl PartialEq for KeyBind {
@@ -198,6 +204,114 @@ impl ops::BitOr for Modifiers {
 
     fn bitor(self, rhs: Self) -> Self::Output {
         Self(self.0 | rhs.0)
+    }
+}
+
+impl fmt::Display for Modifiers {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut mods = vec![];
+        let inner = self.0;
+
+        if inner.contains(keyboard::Modifiers::SHIFT) {
+            mods.push("Shift");
+        }
+        if inner.contains(keyboard::Modifiers::CTRL) {
+            if cfg!(target_os = "macos") {
+                // macOS: ⌃
+                mods.push("\u{2303}");
+            } else {
+                mods.push("Alt");
+            }
+        }
+        if inner.contains(keyboard::Modifiers::ALT) {
+            if cfg!(target_os = "macos") {
+                // macOS: ⌥
+                mods.push("\u{2325}");
+            } else {
+                mods.push("Alt");
+            }
+        }
+        if inner.contains(keyboard::Modifiers::LOGO) {
+            // macOS: ⌘
+            mods.push("\u{2318}");
+        }
+
+        if mods.is_empty() {
+            write!(f, "")
+        } else {
+            write!(f, "{}", mods.join(" "))
+        }
+    }
+}
+
+impl fmt::Display for KeyCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let key = match self.0.clone() {
+            key::Key::Named(name) => {
+                let named = match name {
+                    key::Named::F1 => "F1",
+                    key::Named::F2 => "F2",
+                    key::Named::F3 => "F3",
+                    key::Named::F4 => "F4",
+                    key::Named::F5 => "F5",
+                    key::Named::F6 => "F6",
+                    key::Named::F7 => "F7",
+                    key::Named::F8 => "F8",
+                    key::Named::F9 => "F9",
+                    key::Named::F10 => "F10",
+                    key::Named::F11 => "F11",
+                    key::Named::F12 => "F12",
+                    key::Named::F13 => "F13",
+                    key::Named::F14 => "F14",
+                    key::Named::F15 => "F15",
+                    key::Named::F16 => "F16",
+                    key::Named::F17 => "F17",
+                    key::Named::F18 => "F18",
+                    key::Named::F19 => "F19",
+                    key::Named::F20 => "F20",
+                    key::Named::F21 => "F21",
+                    key::Named::F22 => "F22",
+                    key::Named::F23 => "F23",
+                    key::Named::F24 => "F24",
+                    key::Named::Home => "Home",
+                    key::Named::Delete => "Delete",
+                    key::Named::End => "End",
+                    key::Named::PageDown => "PageDown",
+                    key::Named::PageUp => "PageUp",
+                    key::Named::ArrowLeft => "←",
+                    key::Named::ArrowUp => "↑",
+                    key::Named::ArrowRight => "→",
+                    key::Named::ArrowDown => "↓",
+                    key::Named::Backspace => "Backspace",
+                    key::Named::Enter => "Enter",
+                    key::Named::Space => "Space",
+                    key::Named::NumLock => "NumLock",
+                    key::Named::Alt => "Alt",
+                    key::Named::Tab => "Tab",
+                    key::Named::Pause => "Pause",
+                    key::Named::Insert => "Insert",
+                    key::Named::Cut => "Cut",
+                    key::Named::Paste => "Paste",
+                    key::Named::Copy => "Copy",
+                    key::Named::AudioVolumeDown => "VolumeDown",
+                    key::Named::AudioVolumeUp => "VolumeUp",
+                    key::Named::Shift => "Shift",
+                    key::Named::Control => "Control",
+                    key::Named::AudioVolumeMute => "Mute",
+                    key::Named::MediaStop => "MediaStop",
+                    key::Named::MediaPause => "MediaPause",
+                    key::Named::MediaTrackNext => "MediaTrackNext",
+                    key::Named::MediaTrackPrevious => "MediaTrackPrev",
+                    _ => "",
+                };
+
+                named.to_string()
+            }
+            key::Key::Character(c) => c.to_uppercase(),
+            key::Key::Unidentified => String::new(),
+        };
+
+        write!(f, "{}", key)
     }
 }
 

@@ -602,7 +602,7 @@ impl Dashboard {
                                 }
                                 command_bar::Buffer::ToggleLogs => {
                                     (self.toggle_logs(config, main_window), None)
-                                },
+                                }
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::OpenDirectory => {
@@ -938,7 +938,7 @@ impl Dashboard {
                 &self.panes,
                 self.focus,
                 config.sidebar,
-                config.tooltips,
+                &config.keyboard,
                 &self.file_transfers,
                 version,
                 self.theme_editor.is_some(),

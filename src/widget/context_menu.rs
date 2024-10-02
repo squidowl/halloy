@@ -2,14 +2,22 @@ use std::slice;
 
 use iced::advanced::widget::{operation, tree, Operation};
 use iced::advanced::{self, layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::widget::{button, column, container};
+use iced::widget::{column, container};
 use iced::{event, mouse, Element, Event, Length, Point, Rectangle, Size, Task, Vector};
 
 pub use iced::widget::container::{Style, StyleFn};
 
 use super::double_pass;
 
+#[derive(Debug, Default, Clone, Copy)]
+pub enum MouseButton {
+    Left,
+    #[default]
+    Right,
+}
+
 pub fn context_menu<'a, T, Message, Theme, Renderer>(
+    activation_button: MouseButton,
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     entries: Vec<T>,
     entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
@@ -18,8 +26,10 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
         base: base.into(),
         entries,
         entry: Box::new(entry),
-        // Refactor this out of here.
-        button: iced::mouse::Button::Left,
+        activation_button: match activation_button {
+            MouseButton::Left => iced::mouse::Button::Left,
+            MouseButton::Right => iced::mouse::Button::Right,
+        },
 
         menu: None,
     }
@@ -29,7 +39,7 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
     entries: Vec<T>,
     entry: Box<dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
-    button: iced::mouse::Button,
+    activation_button: iced::mouse::Button,
 
     // Cached, recreated during `overlay` if menu is open
     menu: Option<Element<'a, Message, Theme, Renderer>>,
@@ -162,7 +172,7 @@ where
     ) -> event::Status {
         let state = tree.state.downcast_mut::<State>();
 
-        let position = match self.button {
+        let position = match self.activation_button {
             mouse::Button::Left => {
                 if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) = event {
                     cursor.position_over(layout.bounds())
