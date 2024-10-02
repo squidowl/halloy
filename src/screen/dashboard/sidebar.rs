@@ -33,6 +33,7 @@ pub enum Message {
     ConfigReloaded(Result<Config, config::Error>),
     OpenReleaseWebsite,
     ReloadComplete,
+    Noop,
 }
 
 #[derive(Debug, Clone)]
@@ -109,6 +110,7 @@ impl Sidebar {
                 self.reloading_config = false;
                 (Task::none(), None)
             }
+            Message::Noop => (Task::none(), None),
         }
     }
 
@@ -122,127 +124,136 @@ impl Sidebar {
         version: &'a Version,
         theme_editor_open: bool,
     ) -> Element<'a, Message> {
-        let mut menu_buttons = row![]
-            .spacing(1)
-            .width(Length::Shrink)
-            .align_y(Alignment::End);
-
-        let tooltip_position = match config.position {
-            sidebar::Position::Top => tooltip::Position::Bottom,
-            sidebar::Position::Bottom | sidebar::Position::Left | sidebar::Position::Right => {
-                tooltip::Position::Top
-            }
-        };
-
-        let new_button = |icon: widget::Text<'a, theme::Theme>,
-                          style: fn(&theme::Theme) -> text::Style,
-                          on_press: Option<Message>,
-                          enabled: bool,
-                          tooltip_text: &'a str|
-         -> Element<'a, Message> {
-            let button = button(center(icon.style(style)))
-                .on_press_maybe(on_press)
-                .padding(5)
-                .width(22)
-                .height(22)
-                .style(move |theme, status| theme::button::primary(theme, status, enabled));
-            tooltip(
-                button,
-                show_tooltips.then_some(tooltip_text),
-                tooltip_position,
-            )
-        };
-
-        if version.is_old() {
-            menu_buttons = menu_buttons.push(new_button(
-                icon::megaphone(),
-                theme::text::tertiary,
-                Some(Message::OpenReleaseWebsite),
-                false,
-                "New Halloy version is available!",
-            ));
-        }
-
-        if config.buttons.reload_config {
-            menu_buttons = menu_buttons.push(if self.reloading_config {
-                new_button(
-                    icon::checkmark(),
-                    theme::text::success,
-                    None,
-                    self.reloading_config,
-                    "Reload config file",
-                )
-            } else {
-                new_button(
-                    icon::refresh(),
-                    theme::text::primary,
-                    Some(Message::ReloadingConfigFile),
-                    self.reloading_config,
-                    "Reload config file",
-                )
-            });
-        }
-
-        if config.buttons.command_bar {
-            menu_buttons = menu_buttons.push(new_button(
-                icon::search(),
-                theme::text::primary,
-                Some(Message::ToggleCommandBar),
-                false,
-                "Command Bar",
-            ));
-        }
-
-        if config.buttons.file_transfer {
-            let file_transfers_open = panes
-                .iter(main_window)
-                .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
-            menu_buttons = menu_buttons.push(new_button(
-                icon::file_transfer(),
-                if file_transfers.is_empty() {
-                    theme::text::primary
-                } else {
-                    theme::text::action
-                },
-                Some(Message::ToggleFileTransfers),
-                file_transfers_open,
-                "File Transfers",
-            ));
-        }
-
-        if config.buttons.theme_editor {
-            menu_buttons = menu_buttons.push(new_button(
-                icon::theme_editor(),
-                theme::text::primary,
-                Some(Message::ToggleThemeEditor),
-                theme_editor_open,
-                "Theme Editor",
-            ));
-        }
-
-        if config.buttons.logs {
-            let logs_open = panes
-                .iter(main_window)
-                .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::Logs(_)));
-            menu_buttons = menu_buttons.push(new_button(
-                icon::logs(),
-                theme::text::primary,
-                Some(Message::ToggleLogs),
-                logs_open,
-                "Logs",
-            ));
-        }
-
         let width = if config.position.is_horizontal() {
             Length::Shrink
         } else {
             Length::Fill
         };
 
-        container(menu_buttons)
+        container(menu_button(config, show_tooltips, version))
             .width(width)
-            .align_x(Alignment::Center)
             .into()
+        // let mut menu_buttons = row![]
+        //     .spacing(1)
+        //     .width(Length::Shrink)
+        //     .align_y(Alignment::End);
+
+        // let tooltip_position = match config.position {
+        //     sidebar::Position::Top => tooltip::Position::Bottom,
+        //     sidebar::Position::Bottom | sidebar::Position::Left | sidebar::Position::Right => {
+        //         tooltip::Position::Top
+        //     }
+        // };
+
+        // let new_button = |icon: widget::Text<'a, theme::Theme>,
+        //                   style: fn(&theme::Theme) -> text::Style,
+        //                   on_press: Option<Message>,
+        //                   enabled: bool,
+        //                   tooltip_text: &'a str|
+        //  -> Element<'a, Message> {
+        //     let button = button(center(icon.style(style)))
+        //         .on_press_maybe(on_press)
+        //         .padding(5)
+        //         .width(22)
+        //         .height(22)
+        //         .style(move |theme, status| theme::button::primary(theme, status, enabled));
+        //     tooltip(
+        //         button,
+        //         show_tooltips.then_some(tooltip_text),
+        //         tooltip_position,
+        //     )
+        // };
+
+        // if version.is_old() {
+        //     menu_buttons = menu_buttons.push(new_button(
+        //         icon::megaphone(),
+        //         theme::text::tertiary,
+        //         Some(Message::OpenReleaseWebsite),
+        //         false,
+        //         "New Halloy version is available!",
+        //     ));
+        // }
+
+        // if config.buttons.reload_config {
+        //     menu_buttons = menu_buttons.push(if self.reloading_config {
+        //         new_button(
+        //             icon::checkmark(),
+        //             theme::text::success,
+        //             None,
+        //             self.reloading_config,
+        //             "Reload config file",
+        //         )
+        //     } else {
+        //         new_button(
+        //             icon::refresh(),
+        //             theme::text::primary,
+        //             Some(Message::ReloadingConfigFile),
+        //             self.reloading_config,
+        //             "Reload config file",
+        //         )
+        //     });
+        // }
+
+        // if config.buttons.command_bar {
+        //     menu_buttons = menu_buttons.push(new_button(
+        //         icon::search(),
+        //         theme::text::primary,
+        //         Some(Message::ToggleCommandBar),
+        //         false,
+        //         "Command Bar",
+        //     ));
+        // }
+
+        // if config.buttons.file_transfer {
+        //     let file_transfers_open = panes
+        //         .iter(main_window)
+        //         .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
+        //     menu_buttons = menu_buttons.push(new_button(
+        //         icon::file_transfer(),
+        //         if file_transfers.is_empty() {
+        //             theme::text::primary
+        //         } else {
+        //             theme::text::action
+        //         },
+        //         Some(Message::ToggleFileTransfers),
+        //         file_transfers_open,
+        //         "File Transfers",
+        //     ));
+        // }
+
+        // if config.buttons.theme_editor {
+        //     menu_buttons = menu_buttons.push(new_button(
+        //         icon::theme_editor(),
+        //         theme::text::primary,
+        //         Some(Message::ToggleThemeEditor),
+        //         theme_editor_open,
+        //         "Theme Editor",
+        //     ));
+        // }
+
+        // if config.buttons.logs {
+        //     let logs_open = panes
+        //         .iter(main_window)
+        //         .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::Logs(_)));
+        //     menu_buttons = menu_buttons.push(new_button(
+        //         icon::logs(),
+        //         theme::text::primary,
+        //         Some(Message::ToggleLogs),
+        //         logs_open,
+        //         "Logs",
+        //     ));
+        // }
+
+        // let width = if config.position.is_horizontal() {
+        //     Length::Shrink
+        // } else {
+        //     Length::Fill
+        // };
+
+        // container(menu_buttons)
+        //     .width(width)
+        //     .align_x(Alignment::Center)
+        //     .into()
     }
 
     pub fn view<'a>(
@@ -404,6 +415,103 @@ impl Sidebar {
                 )
             }
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Menu {
+    NewVersion,
+    RefreshConfig,
+    CommandBar,
+    ThemeEditor,
+    Logs,
+    FileTransfers,
+}
+
+impl Menu {
+    fn list(is_old_version: bool) -> Vec<Self> {
+        let mut list = vec![
+            Menu::RefreshConfig,
+            Menu::CommandBar,
+            Menu::ThemeEditor,
+            Menu::Logs,
+            Menu::FileTransfers,
+        ];
+        
+        if is_old_version {
+            list.insert(0, Menu::NewVersion);
+        }
+
+        list
+    }
+}
+
+fn menu_button<'a>(config: data::config::Sidebar, show_tooltips: bool, version: &'a Version) -> Element<'a, Message> {
+    let row = row![
+        icon::connected().style(theme::text::primary),
+        // text("Menu".to_string()).shaping(text::Shaping::Advanced)
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
+
+    let tooltip_position = match config.position {
+        sidebar::Position::Top => tooltip::Position::Bottom,
+        sidebar::Position::Bottom | sidebar::Position::Left | sidebar::Position::Right => {
+            tooltip::Position::Top
+        }
+    };
+
+    let base = tooltip(
+        button(row)
+            .padding(5)
+            .width(Length::Shrink)
+            .on_press(Message::Noop),
+        show_tooltips.then_some("Toggle User Menu"),
+        tooltip_position,
+    );
+
+    let menu = Menu::list(true);
+
+    if menu.is_empty() {
+        base.into()
+    } else {
+        context_menu(base, menu, move |menu, length| {
+            let (title, icon, message) = match menu {
+                Menu::RefreshConfig => (
+                    "Reload config file",
+                    icon::refresh(),
+                    Message::ReloadingConfigFile,
+                ),
+                Menu::CommandBar => ("Command Bar", icon::search(), Message::ToggleCommandBar),
+                Menu::FileTransfers => (
+                    "File Transfers",
+                    icon::file_transfer(),
+                    Message::ToggleFileTransfers,
+                ),
+                Menu::Logs => ("Logs", icon::logs(), Message::ToggleLogs),
+                Menu::ThemeEditor => (
+                    "Theme Editor",
+                    icon::theme_editor(),
+                    Message::ToggleThemeEditor,
+                ),
+                Menu::NewVersion =>  (
+                    "New Halloy version is available!",
+                    icon::megaphone(),
+                    Message::OpenReleaseWebsite,
+                ),
+            };
+
+            button(
+                row![icon, text(title)]
+                    .spacing(8)
+                    .align_y(iced::Alignment::Center),
+            )
+            .width(length)
+            .padding(5)
+            .on_press(message)
+            .into()
+        })
+        .into()
     }
 }
 
