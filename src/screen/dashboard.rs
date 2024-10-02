@@ -472,16 +472,7 @@ impl Dashboard {
                         (Task::none(), None)
                     }
                     sidebar::Event::ToggleThemeEditor => {
-                        if let Some(editor) = self.theme_editor.take() {
-                            *theme = theme.selected();
-                            (window::close(editor.window), None)
-                        } else {
-                            let (editor, task) = ThemeEditor::open(main_window);
-
-                            self.theme_editor = Some(editor);
-
-                            (task.then(|_| Task::none()), None)
-                        }
+                        (self.toggle_theme_editor(theme, main_window), None)
                     }
                 };
 
@@ -780,6 +771,15 @@ impl Dashboard {
                     ReloadConfiguration => {
                         return (Task::perform(Config::load(), Message::ConfigReloaded), None);
                     }
+                    FileTransfers => {
+                        return (self.toggle_file_transfers(config, main_window), None);
+                    }
+                    Logs => {
+                        return (self.toggle_logs(config, main_window), None);
+                    }
+                    ThemeEditor => {
+                        return (self.toggle_theme_editor(theme, main_window), None);
+                    }
                 }
             }
             Message::FileTransfer(update) => {
@@ -941,7 +941,6 @@ impl Dashboard {
                 &config.keyboard,
                 &self.file_transfers,
                 version,
-                self.theme_editor.is_some(),
                 main_window.id,
             )
             .map(|e| e.map(Message::Sidebar));
@@ -1098,6 +1097,19 @@ impl Dashboard {
         }
 
         Task::batch(commands)
+    }
+
+    fn toggle_theme_editor(&mut self, theme: &mut Theme, main_window: &Window) -> Task<Message> {
+        if let Some(editor) = self.theme_editor.take() {
+            *theme = theme.selected();
+            window::close(editor.window)
+        } else {
+            let (editor, task) = ThemeEditor::open(main_window);
+
+            self.theme_editor = Some(editor);
+
+            task.then(|_| Task::none())
+        }
     }
 
     fn toggle_logs(&mut self, config: &Config, main_window: &Window) -> Task<Message> {
