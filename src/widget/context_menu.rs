@@ -2,7 +2,7 @@ use std::slice;
 
 use iced::advanced::widget::{operation, tree, Operation};
 use iced::advanced::{self, layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::widget::{column, container};
+use iced::widget::{button, column, container};
 use iced::{event, mouse, Element, Event, Length, Point, Rectangle, Size, Task, Vector};
 
 pub use iced::widget::container::{Style, StyleFn};
@@ -18,6 +18,8 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
         base: base.into(),
         entries,
         entry: Box::new(entry),
+        // Refactor this out of here.
+        button: iced::mouse::Button::Left,
 
         menu: None,
     }
@@ -27,6 +29,7 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
     entries: Vec<T>,
     entry: Box<dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
+    button: iced::mouse::Button,
 
     // Cached, recreated during `overlay` if menu is open
     menu: Option<Element<'a, Message, Theme, Renderer>>,
@@ -159,10 +162,26 @@ where
     ) -> event::Status {
         let state = tree.state.downcast_mut::<State>();
 
-        if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = &event {
-            if let Some(position) = cursor.position_over(layout.bounds()) {
-                state.status = Status::Open(position);
+        let position = match self.button {
+            mouse::Button::Left => {
+                if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) = event {
+                    cursor.position_over(layout.bounds())
+                } else {
+                    None
+                }
             }
+            mouse::Button::Right => {
+                if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
+                    cursor.position_over(layout.bounds())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        if let Some(position) = position {
+            state.status = Status::Open(position);
         }
 
         self.base.as_widget_mut().on_event(
