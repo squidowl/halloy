@@ -116,20 +116,10 @@ impl Sidebar {
 
     fn menu_button<'a>(
         &self,
-        main_window: window::Id,
-        panes: &Panes,
         keyboard: &'a data::config::Keyboard,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
-        theme_editor_open: bool,
     ) -> Element<'a, Message> {
-        let file_transfers_open = panes
-            .iter(main_window)
-            .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
-        let logs_open = panes
-            .iter(main_window)
-            .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::Logs(_)));
-
         let base = button(icon::menu())
             .padding(5)
             .width(Length::Shrink)
@@ -181,15 +171,12 @@ impl Sidebar {
                             Message::ToggleCommandBar,
                         ),
                         Menu::FileTransfers => context_button(
-                            text(format!("{}File Transfers", {
-                                file_transfers_open.then(|| "Close ").unwrap_or_default()
-                            }))
-                            .style(if file_transfers.is_empty() {
+                            text("File Transfers").style(if file_transfers.is_empty() {
                                 theme::text::primary
                             } else {
                                 theme::text::tertiary
                             }),
-                            None,
+                            Some(&keyboard.file_transfers),
                             icon::file_transfer().style(if file_transfers.is_empty() {
                                 theme::text::primary
                             } else {
@@ -198,18 +185,14 @@ impl Sidebar {
                             Message::ToggleFileTransfers,
                         ),
                         Menu::Logs => context_button(
-                            text(format!("{}Logs", {
-                                logs_open.then(|| "Close ").unwrap_or_default()
-                            })),
-                            None,
+                            text("Logs"),
+                            Some(&keyboard.logs),
                             icon::logs(),
                             Message::ToggleLogs,
                         ),
                         Menu::ThemeEditor => context_button(
-                            text(format!("{}Theme Editor", {
-                                theme_editor_open.then(|| "Close ").unwrap_or_default()
-                            })),
-                            None,
+                            text("Theme Editor"),
+                            Some(&keyboard.theme_editor),
                             icon::theme_editor(),
                             Message::ToggleThemeEditor,
                         ),
@@ -236,21 +219,13 @@ impl Sidebar {
         keyboard: &'a data::config::Keyboard,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
-        theme_editor_open: bool,
         main_window: window::Id,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
         }
 
-        let menu_button = self.menu_button(
-            main_window,
-            panes,
-            keyboard,
-            file_transfers,
-            version,
-            theme_editor_open,
-        );
+        let menu_button = self.menu_button(keyboard, file_transfers, version);
 
         let mut buffers = vec![];
 
