@@ -14,6 +14,7 @@ use crate::config::Error;
 
 // Hack since log messages are app wide and not scoped to any server
 pub static LOGS: Lazy<Server> = Lazy::new(|| Server("<halloy-logs>".to_string()));
+pub static HIGHLIGHTS: Lazy<Server> = Lazy::new(|| Server("<halloy-highlights>".to_string()));
 
 pub type Handle = Sender<proto::Message>;
 

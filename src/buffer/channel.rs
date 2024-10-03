@@ -113,8 +113,9 @@ pub fn view<'a>(
                                 .horizontal_alignment(alignment::Horizontal::Right);
                         }
 
-                        let nick = user_context::view(text, user, current_user, buffer, our_user)
-                            .map(scroll_view::Message::UserContext);
+                        let nick =
+                            user_context::view(text, user, current_user, Some(buffer), our_user)
+                                .map(scroll_view::Message::UserContext);
 
                         let message_content = message_content::with_context(
                             &message.content,
@@ -123,7 +124,7 @@ pub fn view<'a>(
                             theme::selectable_text::default,
                             move |link| match link {
                                 message::Link::User(_) => {
-                                    user_context::Entry::list(buffer, our_user)
+                                    user_context::Entry::list(Some(buffer), our_user)
                                 }
                                 _ => vec![],
                             },
@@ -335,9 +336,10 @@ impl Channel {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(message);
 
-                let event = event.map(|event| match event {
-                    scroll_view::Event::UserContext(event) => Event::UserContext(event),
-                    scroll_view::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                let event = event.and_then(|event| match event {
+                    scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
+                    scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
+                    scroll_view::Event::GoToMessage(..) => None,
                 });
 
                 (command.map(Message::ScrollView), event)
@@ -464,7 +466,7 @@ mod nick_list {
                 })
                 .width(Length::Fixed(width));
 
-            user_context::view(content, user, Some(user), buffer, our_user)
+            user_context::view(content, user, Some(user), Some(buffer), our_user)
         }));
 
         Scrollable::new(content)

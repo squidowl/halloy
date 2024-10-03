@@ -72,7 +72,7 @@ pub fn view<'a>(
                                 .horizontal_alignment(alignment::Horizontal::Right);
                         }
 
-                        let nick = user_context::view(text, user, None, buffer, None)
+                        let nick = user_context::view(text, user, None, Some(buffer), None)
                             .map(scroll_view::Message::UserContext);
 
                         let message = message_content::with_context(
@@ -81,7 +81,9 @@ pub fn view<'a>(
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
                             move |link| match link {
-                                message::Link::User(_) => user_context::Entry::list(buffer, None),
+                                message::Link::User(_) => {
+                                    user_context::Entry::list(Some(buffer), None)
+                                }
                                 _ => vec![],
                             },
                             move |link, entry, length| match link {
@@ -243,9 +245,10 @@ impl Query {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(message);
 
-                let event = event.map(|event| match event {
-                    scroll_view::Event::UserContext(event) => Event::UserContext(event),
-                    scroll_view::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                let event = event.and_then(|event| match event {
+                    scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
+                    scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
+                    scroll_view::Event::GoToMessage(_, _, _) => None,
                 });
 
                 (command.map(Message::ScrollView), event)
