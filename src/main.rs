@@ -645,9 +645,24 @@ impl Halloy {
                                         ) {
                                             commands.push(
                                                 dashboard
-                                                    .record_message(&server, message)
+                                                    .record_message(&server, message.clone())
                                                     .map(Message::Dashboard),
                                             );
+
+                                            if matches!(
+                                                notification,
+                                                data::client::Notification::Highlight { .. }
+                                            ) {
+                                                commands.extend(
+                                                    message.into_highlight(server.clone()).map(
+                                                        |message| {
+                                                            dashboard
+                                                                .record_highlight(message)
+                                                                .map(Message::Dashboard)
+                                                        },
+                                                    ),
+                                                );
+                                            }
                                         }
 
                                         match notification {
@@ -667,15 +682,18 @@ impl Halloy {
                                                     );
                                                 }
                                             }
-                                            data::client::Notification::Highlight(
+                                            data::client::Notification::Highlight {
+                                                enabled,
                                                 user,
                                                 channel,
-                                            ) => {
-                                                notification::highlight(
-                                                    &self.config.notifications,
-                                                    user.nickname(),
-                                                    channel,
-                                                );
+                                            } => {
+                                                if enabled {
+                                                    notification::highlight(
+                                                        &self.config.notifications,
+                                                        user.nickname(),
+                                                        channel,
+                                                    );
+                                                }
                                             }
                                             data::client::Notification::MonitoredOnline(
                                                 targets,

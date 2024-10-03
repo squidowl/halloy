@@ -27,6 +27,7 @@ pub enum Message {
     Leave(Buffer),
     ToggleFileTransfers,
     ToggleLogs,
+    ToggleHighlights,
     ToggleCommandBar,
     ToggleThemeEditor,
     ReloadingConfigFile,
@@ -48,6 +49,7 @@ pub enum Event {
     Leave(Buffer),
     ToggleFileTransfers,
     ToggleLogs,
+    ToggleHighlights,
     ToggleCommandBar,
     ToggleThemeEditor,
     OpenReleaseWebsite,
@@ -95,6 +97,7 @@ impl Sidebar {
             Message::Leave(buffer) => (Task::none(), Some(Event::Leave(buffer))),
             Message::ToggleFileTransfers => (Task::none(), Some(Event::ToggleFileTransfers)),
             Message::ToggleLogs => (Task::none(), Some(Event::ToggleLogs)),
+            Message::ToggleHighlights => (Task::none(), Some(Event::ToggleHighlights)),
             Message::ToggleCommandBar => (Task::none(), Some(Event::ToggleCommandBar)),
             Message::ToggleThemeEditor => (Task::none(), Some(Event::ToggleThemeEditor)),
             Message::ReloadingConfigFile => {
@@ -186,6 +189,13 @@ impl Sidebar {
                                 theme::text::tertiary
                             }),
                             Message::ToggleFileTransfers,
+                        ),
+                        Menu::Highlights => context_button(
+                            text("Highlights"),
+                            // TODO: Add keybind
+                            None,
+                            icon::highlights(),
+                            Message::ToggleHighlights,
                         ),
                         Menu::Logs => context_button(
                             text("Logs"),
@@ -391,6 +401,7 @@ enum Menu {
     RefreshConfig,
     CommandBar,
     ThemeEditor,
+    Highlights,
     Logs,
     FileTransfers,
     Version,
@@ -405,6 +416,7 @@ impl Menu {
             Menu::HorizontalRule,
             Menu::CommandBar,
             Menu::FileTransfers,
+            Menu::Highlights,
             Menu::Logs,
             Menu::RefreshConfig,
             Menu::ThemeEditor,

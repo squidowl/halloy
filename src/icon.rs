@@ -84,10 +84,9 @@ pub fn documentation<'a>() -> Text<'a> {
     to_text('\u{E812}')
 }
 
-// TODO: Highlight buffer.
-// pub fn highlight<'a>() -> Text<'a> {
-//     to_text('\u{E811}')
-// }
+pub fn highlights<'a>() -> Text<'a> {
+    to_text('\u{E811}')
+}
 
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())

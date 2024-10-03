@@ -27,6 +27,7 @@ pub enum Message {
 pub enum Event {
     UserContext(user_context::Event),
     OpenChannel(String),
+    GoToMessage(Server, String, message::Hash),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -35,6 +36,7 @@ pub enum Kind<'a> {
     Channel(&'a Server, &'a str),
     Query(&'a Server, &'a Nick),
     Logs,
+    Highlights,
 }
 
 impl Kind<'_> {
@@ -44,6 +46,7 @@ impl Kind<'_> {
             Kind::Channel(server, _) => server,
             Kind::Query(server, _) => server,
             Kind::Logs => &server::LOGS,
+            Kind::Highlights => &server::HIGHLIGHTS,
         }
     }
 }
@@ -55,6 +58,7 @@ impl From<Kind<'_>> for history::Kind {
             Kind::Channel(_, channel) => history::Kind::Channel(channel.to_string()),
             Kind::Query(_, nick) => history::Kind::Query(nick.clone()),
             Kind::Logs => history::Kind::Logs,
+            Kind::Highlights => history::Kind::Highlights,
         }
     }
 }
@@ -274,6 +278,12 @@ impl State {
                     ))),
                 )
             }
+            Message::Link(message::Link::GoToMessage(server, channel, message)) => {
+                return (
+                    Task::none(),
+                    Some(Event::GoToMessage(server, channel, message)),
+                )
+            }
             Message::ScrollTo(scroll_to::Result { prev, hit }) => {
                 let scroll_to::Offsets { absolute, relative } = hit;
 
@@ -329,7 +339,7 @@ impl State {
 
     pub fn scroll_to_message(
         &mut self,
-        message: &data::Message,
+        message: message::Hash,
         kind: Kind,
         history: &history::Manager,
         config: &Config,
@@ -347,18 +357,18 @@ impl State {
         let Some(pos) = old_messages
             .iter()
             .chain(&new_messages)
-            .position(|m| m.hash == message.hash)
+            .position(|m| m.hash == message)
         else {
             return Task::none();
         };
 
-        // Get all messages from bottom until 1 before found message
+        // Get all messages from bottom until 1 before message
         let offset = total - pos + 1;
 
         self.limit = Limit::Bottom(offset.max(Limit::DEFAULT_COUNT));
         self.status = Status::ScrollTo;
 
-        scroll_to::find_offsets(self.scrollable.clone(), scroll_to::Key::message(message))
+        scroll_to::find_offsets(self.scrollable.clone(), scroll_to::Key::Message(message))
             .map(Message::ScrollTo)
     }
 
@@ -569,6 +579,8 @@ mod scroll_to {
             ) {
                 if id == Some(&self.scrollable.clone().into()) {
                     self.viewport = Some((bounds, content_bounds));
+                } else {
+                    self.viewport = None;
                 }
             }
 
