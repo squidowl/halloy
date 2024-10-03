@@ -226,7 +226,7 @@ impl fmt::Display for Modifiers {
                 // macOS: ⌃
                 mods.push("\u{2303}");
             } else {
-                mods.push("Alt");
+                mods.push("Ctrl");
             }
         }
         if inner.contains(keyboard::Modifiers::ALT) {
