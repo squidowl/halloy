@@ -143,7 +143,7 @@ impl Sidebar {
                             button(
                                 row![icon.width(Length::Fixed(12.0)), title]
                                     .push_maybe(keybind.map(|kb| {
-                                        text(format!("({})", kb.to_string()))
+                                        text(format!("({kb})"))
                                             .shaping(text::Shaping::Advanced)
                                             .size(theme::TEXT_SIZE - 2.0)
                                             .style(theme::text::secondary)
