@@ -31,6 +31,7 @@ pub fn update(message: Message) -> Option<Event> {
         Message::Link(message::Link::User(user)) => Some(Event::UserContext(
             user_context::Event::SingleClick(user.nickname().to_owned()),
         )),
+        Message::Link(message::Link::GoToMessage(..)) => None,
     }
 }
 
@@ -59,7 +60,7 @@ pub fn view<'a>(
                 }),
                 user,
                 Some(user),
-                buffer,
+                Some(buffer),
                 our_user,
             )
         } else {

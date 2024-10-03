@@ -25,6 +25,13 @@ impl Resource {
             kind: history::Kind::Logs,
         }
     }
+
+    pub fn highlights() -> Self {
+        Self {
+            server: server::HIGHLIGHTS.clone(),
+            kind: history::Kind::Highlights,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -247,6 +254,17 @@ impl Manager {
             server::LOGS.clone(),
             history::Kind::Logs,
             crate::Message::log(record),
+        )
+    }
+
+    pub fn record_highlight(
+        &mut self,
+        message: crate::Message,
+    ) -> Option<impl Future<Output = Message>> {
+        self.data.add_message(
+            server::HIGHLIGHTS.clone(),
+            history::Kind::Highlights,
+            message,
         )
     }
 

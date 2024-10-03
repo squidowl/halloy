@@ -18,9 +18,9 @@ pub enum Entry {
 }
 
 impl Entry {
-    pub fn list(buffer: &Buffer, our_user: Option<&User>) -> Vec<Self> {
+    pub fn list(buffer: Option<&Buffer>, our_user: Option<&User>) -> Vec<Self> {
         match buffer {
-            Buffer::Channel(_, _) => {
+            Some(Buffer::Channel(_, _)) => {
                 if our_user.is_some_and(|u| u.has_access_level(data::user::AccessLevel::Oper)) {
                     vec![
                         Entry::UserInfo,
@@ -41,7 +41,7 @@ impl Entry {
                     ]
                 }
             }
-            Buffer::Server(_) | Buffer::Query(_, _) => vec![Entry::Whois, Entry::SendFile],
+            _ => vec![Entry::Whois, Entry::SendFile],
         }
     }
 
@@ -128,7 +128,7 @@ pub fn view<'a>(
     content: impl Into<Element<'a, Message>>,
     user: &'a User,
     current_user: Option<&'a User>,
-    buffer: &'a Buffer,
+    buffer: Option<&'a Buffer>,
     our_user: Option<&'a User>,
 ) -> Element<'a, Message> {
     let entries = Entry::list(buffer, our_user);

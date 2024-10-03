@@ -107,7 +107,9 @@ impl selectable_rich_text::Link for message::Link {
     fn underline(&self) -> bool {
         match self {
             data::message::Link::Url(_) => true,
-            data::message::Link::User(_) | data::message::Link::Channel(_) => false,
+            data::message::Link::User(_)
+            | data::message::Link::Channel(_)
+            | data::message::Link::GoToMessage(..) => false,
         }
     }
 }

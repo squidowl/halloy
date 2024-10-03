@@ -18,7 +18,7 @@ pub use self::source::Source;
 use crate::config::buffer::UsernameFormat;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
-use crate::{ctcp, Config, User};
+use crate::{ctcp, Config, Server, User};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -118,6 +118,11 @@ pub enum Target {
         source: Source,
     },
     Logs,
+    Highlights {
+        server: Server,
+        channel: Channel,
+        source: Source,
+    },
 }
 
 impl Target {
@@ -127,6 +132,7 @@ impl Target {
             Target::Channel { prefix, .. } => prefix.as_ref(),
             Target::Query { .. } => None,
             Target::Logs => None,
+            Target::Highlights { .. } => None,
         }
     }
 
@@ -136,6 +142,7 @@ impl Target {
             Target::Channel { source, .. } => source,
             Target::Query { source, .. } => source,
             Target::Logs => &Source::Internal(source::Internal::Logs),
+            Target::Highlights { source, .. } => source,
         }
     }
 }
@@ -286,6 +293,23 @@ impl Message {
             id: None,
             hash,
         }
+    }
+
+    pub fn into_highlight(mut self, server: Server) -> Option<Self> {
+        self.target = match self.target {
+            Target::Channel {
+                channel,
+                source: Source::User(user),
+                ..
+            } => Target::Highlights {
+                server,
+                channel,
+                source: Source::User(user),
+            },
+            _ => return None,
+        };
+
+        Some(self)
     }
 }
 
@@ -1147,7 +1171,19 @@ pub fn references_user(sender: NickRef, own_nick: NickRef, message: &Message) ->
 }
 
 pub fn references_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
-    sender != own_nick && text_references_nickname(text, own_nick).is_some()
+    sender != own_nick
+        && text
+            .chars()
+            .group_by(|c| c.is_whitespace())
+            .into_iter()
+            .any(|(is_whitespace, chars)| {
+                if !is_whitespace {
+                    let text = chars.collect::<String>();
+                    text_references_nickname(&text, own_nick).is_some()
+                } else {
+                    false
+                }
+            })
 }
 
 #[derive(Debug, Clone)]
@@ -1155,6 +1191,7 @@ pub enum Link {
     Channel(String),
     Url(String),
     User(User),
+    GoToMessage(Server, String, Hash),
 }
 
 fn fail_as_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
