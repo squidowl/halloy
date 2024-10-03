@@ -37,7 +37,11 @@ pub enum State {
 #[derive(Debug)]
 pub enum Notification {
     DirectMessage(User),
-    Highlight(User, String),
+    Highlight {
+        enabled: bool,
+        user: User,
+        channel: String,
+    },
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
 }
@@ -650,13 +654,15 @@ impl Client {
                         }
 
                         // Highlight notification
-                        if message::references_user_text(user.nickname(), self.nickname(), text)
-                            && self.highlight_blackout.allow_highlights()
-                        {
+                        if message::references_user_text(user.nickname(), self.nickname(), text) {
                             return Some(vec![Event::Notification(
                                 message.clone(),
                                 self.nickname().to_owned(),
-                                Notification::Highlight(user, channel.clone()),
+                                Notification::Highlight {
+                                    enabled: self.highlight_blackout.allow_highlights(),
+                                    user,
+                                    channel: channel.clone(),
+                                },
                             )]);
                         } else if user.nickname() == self.nickname() && context.is_some() {
                             // If we sent (echo) & context exists (we sent from this client), ignore

@@ -32,6 +32,7 @@ pub enum Kind {
     Channel(String),
     Query(Nick),
     Logs,
+    Highlights,
 }
 
 impl Kind {
@@ -41,6 +42,7 @@ impl Kind {
             Kind::Channel(channel) => Some(channel),
             Kind::Query(nick) => Some(nick.as_ref()),
             Kind::Logs => None,
+            Kind::Highlights => None,
         }
     }
 }
@@ -52,6 +54,7 @@ impl fmt::Display for Kind {
             Kind::Channel(channel) => write!(f, "channel {channel}"),
             Kind::Query(nick) => write!(f, "user {}", nick),
             Kind::Logs => write!(f, "logs"),
+            Kind::Highlights => write!(f, "highlights"),
         }
     }
 }
@@ -63,6 +66,7 @@ impl From<message::Target> for Kind {
             message::Target::Channel { channel, .. } => Kind::Channel(channel),
             message::Target::Query { nick, .. } => Kind::Query(nick),
             message::Target::Logs => Kind::Logs,
+            message::Target::Highlights { .. } => Kind::Highlights,
         }
     }
 }
@@ -159,6 +163,7 @@ async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
         Kind::Channel(channel) => format!("{server}channel{channel}"),
         Kind::Query(nick) => format!("{server}nickname{}", nick),
         Kind::Logs => "logs".to_string(),
+        Kind::Highlights => "highlights".to_string(),
     };
 
     let hashed_name = seahash::hash(name.as_bytes());

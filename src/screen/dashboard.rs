@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use data::dashboard::BufferAction;
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use std::collections::HashMap;
@@ -257,9 +258,10 @@ impl Dashboard {
                                                     Task::batch(vec![
                                                         task,
                                                         self.open_buffer(
-                                                            buffer,
-                                                            config.buffer.clone().into(),
                                                             main_window,
+                                                            config.buffer.clone().into(),
+                                                            |b| b.data() == Some(&buffer),
+                                                            || Buffer::from(buffer.clone()),
                                                         ),
                                                     ]),
                                                     None,
@@ -349,6 +351,42 @@ impl Dashboard {
                                         None,
                                     )
                                 }
+                                buffer::Event::GoToMessage(server, channel, message) => {
+                                    let buffer = data::Buffer::Channel(server, channel);
+
+                                    let mut tasks = vec![];
+
+                                    if self
+                                        .panes
+                                        .get_mut_by_buffer(main_window.id, &buffer)
+                                        .is_none()
+                                    {
+                                        tasks.push(self.open_buffer(
+                                            main_window,
+                                            config.buffer.clone().into(),
+                                            |b| b.data() == Some(&buffer),
+                                            || Buffer::from(buffer.clone()),
+                                        ));
+                                    }
+
+                                    if let Some((window, pane, state)) =
+                                        self.panes.get_mut_by_buffer(main_window.id, &buffer)
+                                    {
+                                        tasks.push(
+                                            state
+                                                .buffer
+                                                .scroll_to_message(message, &self.history, config)
+                                                .map(move |message| {
+                                                    Message::Pane(
+                                                        window,
+                                                        pane::Message::Buffer(pane, message),
+                                                    )
+                                                }),
+                                        );
+                                    }
+
+                                    return (Task::batch(tasks), None);
+                                }
                             }
 
                             return (task, None);
@@ -384,7 +422,12 @@ impl Dashboard {
 
                 let (event_task, event) = match event {
                     sidebar::Event::Open(kind) => (
-                        self.open_buffer(kind, config.buffer.clone().into(), main_window),
+                        self.open_buffer(
+                            main_window,
+                            config.buffer.clone().into(),
+                            |b| b.data() == Some(&kind),
+                            || Buffer::from(kind.clone()),
+                        ),
                         None,
                     ),
                     sidebar::Event::Popout(buffer) => (
@@ -454,6 +497,9 @@ impl Dashboard {
                         (self.toggle_file_transfers(config, main_window), None)
                     }
                     sidebar::Event::ToggleLogs => (self.toggle_logs(config, main_window), None),
+                    sidebar::Event::ToggleHighlights => {
+                        (self.toggle_highlights(config, main_window), None)
+                    }
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
                             &closed_buffers(self, main_window.id, clients),
@@ -1082,47 +1128,13 @@ impl Dashboard {
         }
     }
 
-    // TODO: Perhaps rewrite this, i just did this quickly.
     fn toggle_file_transfers(&mut self, config: &Config, main_window: &Window) -> Task<Message> {
-        let panes = self.panes.clone();
-
-        // If file transfers already is open, we close it.
-        for (window, id, pane) in panes.iter(main_window.id) {
-            if matches!(pane.buffer, Buffer::FileTransfers(_)) {
-                return self.close_pane(main_window, window, id);
-            }
-        }
-
-        // If we only have one pane, and its empty, we replace it.
-        if self.panes.len() == 1 {
-            for (id, pane) in panes.main.iter() {
-                if let Buffer::Empty = &pane.buffer {
-                    self.panes.main.panes.entry(*id).and_modify(|p| {
-                        *p = Pane::new(Buffer::FileTransfers(buffer::FileTransfers::new()), config)
-                    });
-                    self.last_changed = Some(Instant::now());
-
-                    return self.focus_pane(main_window, main_window.id, *id);
-                }
-            }
-        }
-
-        let mut commands = vec![];
-        let _ = self.new_pane(pane_grid::Axis::Vertical, config, main_window);
-
-        if let Some((window, pane)) = self.focus.take() {
-            if let Some(state) = self.panes.get_mut(main_window.id, window, pane) {
-                state.buffer = Buffer::FileTransfers(buffer::FileTransfers::new());
-                self.last_changed = Some(Instant::now());
-
-                commands.extend(vec![
-                    self.reset_pane(main_window, window, pane),
-                    self.focus_pane(main_window, window, pane),
-                ]);
-            }
-        }
-
-        Task::batch(commands)
+        self.toggle_buffer(
+            config,
+            main_window,
+            |buffer| matches!(buffer, Buffer::FileTransfers(_)),
+            || Buffer::FileTransfers(buffer::FileTransfers::new()),
+        )
     }
 
     fn toggle_theme_editor(&mut self, theme: &mut Theme, main_window: &Window) -> Task<Message> {
@@ -1139,60 +1151,65 @@ impl Dashboard {
     }
 
     fn toggle_logs(&mut self, config: &Config, main_window: &Window) -> Task<Message> {
+        self.toggle_buffer(
+            config,
+            main_window,
+            |buffer| matches!(buffer, Buffer::Logs(_)),
+            || Buffer::Logs(buffer::Logs::new()),
+        )
+    }
+
+    fn toggle_highlights(&mut self, config: &Config, main_window: &Window) -> Task<Message> {
+        self.toggle_buffer(
+            config,
+            main_window,
+            |buffer| matches!(buffer, Buffer::Highlights(_)),
+            || Buffer::Highlights(buffer::Highlights::new()),
+        )
+    }
+
+    fn toggle_buffer(
+        &mut self,
+        config: &Config,
+        main_window: &Window,
+        matches: impl Fn(&Buffer) -> bool,
+        new: impl Fn() -> Buffer,
+    ) -> Task<Message> {
         let panes = self.panes.clone();
 
-        // If logs already is open, we close it.
-        for (window, id, pane) in panes.iter(main_window.id) {
-            if matches!(pane.buffer, Buffer::Logs(_)) {
-                return self.close_pane(main_window, window, id);
-            }
-        }
+        let open = panes
+            .iter(main_window.id)
+            .find_map(|(window_id, pane, state)| {
+                (matches)(&state.buffer).then_some((window_id, pane))
+            });
 
-        // If we only have one pane, and its empty, we replace it.
-        if self.panes.len() == 1 {
-            for (id, pane) in panes.main.iter() {
-                if let Buffer::Empty = &pane.buffer {
-                    self.panes
-                        .main
-                        .panes
-                        .entry(*id)
-                        .and_modify(|p| *p = Pane::new(Buffer::Logs(buffer::Logs::new()), config));
-                    self.last_changed = Some(Instant::now());
-
-                    return self.focus_pane(main_window, main_window.id, *id);
+        if let Some((window, pane)) = open {
+            self.close_pane(main_window, window, pane)
+        } else {
+            match config.sidebar.buffer_action {
+                // Don't replace for file transfer / logs / highlights
+                BufferAction::NewPane | BufferAction::ReplacePane => {
+                    self.open_buffer(main_window, config.buffer.clone().into(), matches, new)
+                }
+                BufferAction::NewWindow => {
+                    self.open_popout_window(main_window, Pane::new(new(), config))
                 }
             }
         }
-
-        let mut commands = vec![];
-        let _ = self.new_pane(pane_grid::Axis::Vertical, config, main_window);
-
-        if let Some((window, pane)) = self.focus.take() {
-            if let Some(state) = self.panes.get_mut(main_window.id, window, pane) {
-                state.buffer = Buffer::Logs(buffer::Logs::new());
-                self.last_changed = Some(Instant::now());
-
-                commands.extend(vec![
-                    self.reset_pane(main_window, window, pane),
-                    self.focus_pane(main_window, window, pane),
-                ]);
-            }
-        }
-
-        Task::batch(commands)
     }
 
     fn open_buffer(
         &mut self,
-        kind: data::Buffer,
-        settings: buffer::Settings,
         main_window: &Window,
+        settings: buffer::Settings,
+        matches: impl Fn(&Buffer) -> bool,
+        new: impl Fn() -> Buffer,
     ) -> Task<Message> {
         let panes = self.panes.clone();
 
         // If channel already is open, we focus it.
         for (window, id, pane) in panes.iter(main_window.id) {
-            if pane.buffer.data() == Some(&kind) {
+            if matches(&pane.buffer) {
                 self.focus = Some((window, id));
 
                 return self.focus_pane(main_window, window, id);
@@ -1207,7 +1224,7 @@ impl Dashboard {
                         .main
                         .panes
                         .entry(*id)
-                        .and_modify(|p| *p = Pane::with_settings(Buffer::from(kind), settings));
+                        .and_modify(|p| *p = Pane::with_settings(new(), settings));
                     self.last_changed = Some(Instant::now());
 
                     return self.focus_pane(main_window, main_window.id, *id);
@@ -1228,11 +1245,10 @@ impl Dashboard {
             }
         };
 
-        let result = self.panes.main.split(
-            axis,
-            pane_to_split,
-            Pane::with_settings(Buffer::from(kind), settings),
-        );
+        let result =
+            self.panes
+                .main
+                .split(axis, pane_to_split, Pane::with_settings(new(), settings));
         self.last_changed = Some(Instant::now());
 
         if let Some((pane, _)) = result {
@@ -1312,6 +1328,14 @@ impl Dashboard {
 
     pub fn record_log(&mut self, record: data::log::Record) -> Task<Message> {
         if let Some(task) = self.history.record_log(record) {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
+    }
+
+    pub fn record_highlight(&mut self, message: data::Message) -> Task<Message> {
+        if let Some(task) = self.history.record_highlight(message) {
             Task::perform(task, Message::History)
         } else {
             Task::none()
@@ -1522,7 +1546,12 @@ impl Dashboard {
                 .and_then(|panes| panes.get(pane).cloned())
             {
                 let task = match pane.buffer.data().cloned() {
-                    Some(buffer) => self.open_buffer(buffer, pane.settings, main_window),
+                    Some(buffer) => self.open_buffer(
+                        main_window,
+                        pane.settings,
+                        |b| b.data() == Some(&buffer),
+                        || Buffer::from(buffer.clone()),
+                    ),
                     None if matches!(pane.buffer, Buffer::FileTransfers(_)) => {
                         self.toggle_file_transfers(config, main_window)
                     }
@@ -1714,6 +1743,10 @@ impl Dashboard {
                     Buffer::Logs(buffer::Logs::new()),
                     buffer::Settings::default(),
                 )),
+                data::Pane::Highlights => Configuration::Pane(Pane::with_settings(
+                    Buffer::Highlights(buffer::Highlights::new()),
+                    buffer::Settings::default(),
+                )),
             }
         }
 
@@ -1886,7 +1919,12 @@ impl Dashboard {
         if let Some((window, pane)) = matching_pane {
             self.focus_pane(main_window, window, pane)
         } else {
-            self.open_buffer(buffer, config.buffer.clone().into(), main_window)
+            self.open_buffer(
+                main_window,
+                config.buffer.clone().into(),
+                |b| b.data() == Some(&buffer),
+                || Buffer::from(buffer.clone()),
+            )
         }
     }
 }
@@ -1967,6 +2005,15 @@ impl Panes {
                 .get_mut(&window)
                 .and_then(|panes| panes.get_mut(pane))
         }
+    }
+
+    fn get_mut_by_buffer(
+        &mut self,
+        main_window: window::Id,
+        buffer: &data::Buffer,
+    ) -> Option<(window::Id, pane_grid::Pane, &mut Pane)> {
+        self.iter_mut(main_window)
+            .find(|(_, _, state)| state.buffer.data().is_some_and(|b| b == buffer))
     }
 
     fn iter(
