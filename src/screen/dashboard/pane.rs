@@ -21,6 +21,8 @@ pub enum Message {
     ToggleShowTopic,
     Popout,
     Merge,
+    ScrollToBacklog,
+    ScrollToBottom,
 }
 
 #[derive(Clone)]
@@ -162,6 +164,29 @@ impl TitleBar {
         let mut controls = row![].spacing(2);
 
         if let Buffer::Channel(state) = &buffer {
+            // Show scroll-to-bottom / scroll-to-backlog depending if scrollable is anchored to the end or not
+            let (icon, tooltip_text, message) =
+                if buffer.is_scrolled_to_bottom().unwrap_or_default() {
+                    (icon::dot(), "Scroll to Backlog", Message::ScrollToBacklog)
+                } else {
+                    (icon::cancel(), "Scroll to Bottom", Message::ScrollToBottom)
+                };
+
+            let scrollable_button = button(center(icon))
+                .padding(5)
+                .width(22)
+                .height(22)
+                .on_press(message)
+                .style(|theme, status| theme::button::secondary(theme, status, false));
+
+            let scrollable_button_with_tooltip = tooltip(
+                scrollable_button,
+                show_tooltips.then_some(tooltip_text),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(scrollable_button_with_tooltip);
+
             // Show topic button only if there is a topic to show
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
                 if topic.content.is_some() {
