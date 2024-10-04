@@ -397,6 +397,17 @@ impl Buffer {
                 .map(|message| Message::Highlights(highlights::Message::ScrollView(message))),
         }
     }
+
+    pub fn is_scrolled_to_bottom(&self) -> Option<bool> {
+        match self {
+            Buffer::Empty | Buffer::FileTransfers(_) => None,
+            Buffer::Channel(channel) => Some(channel.scroll_view.is_scrolled_to_bottom()),
+            Buffer::Server(server) => Some(server.scroll_view.is_scrolled_to_bottom()),
+            Buffer::Query(query) => Some(query.scroll_view.is_scrolled_to_bottom()),
+            Buffer::Logs(log) => Some(log.scroll_view.is_scrolled_to_bottom()),
+            Buffer::Highlights(highlights) => Some(highlights.scroll_view.is_scrolled_to_bottom()),
+        }
+    }
 }
 
 impl From<data::Buffer> for Buffer {
