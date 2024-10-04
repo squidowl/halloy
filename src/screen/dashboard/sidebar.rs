@@ -117,7 +117,7 @@ impl Sidebar {
         }
     }
 
-    fn menu_button<'a>(
+    fn user_menu_button<'a>(
         &self,
         keyboard: &'a data::config::Keyboard,
         file_transfers: &'a file_transfer::Manager,
@@ -246,7 +246,9 @@ impl Sidebar {
             return None;
         }
 
-        let menu_button = self.menu_button(keyboard, file_transfers, version);
+        let user_menu_button = config
+            .show_user_menu
+            .then(|| self.user_menu_button(keyboard, file_transfers, version));
 
         let mut buffers = vec![];
 
@@ -339,7 +341,8 @@ impl Sidebar {
                             .scroller_width(0),
                     )),];
 
-                let body = column![container(content).height(Length::Fill), menu_button];
+                let body =
+                    column![container(content).height(Length::Fill)].push_maybe(user_menu_button);
                 let padding = match config.position {
                     sidebar::Position::Left => padding::top(8).bottom(6).left(6),
                     sidebar::Position::Right => padding::top(8).bottom(6).right(6),
@@ -363,9 +366,9 @@ impl Sidebar {
                             .scroller_width(0),
                     )),];
 
-                let body: Row<Message, theme::Theme> =
-                    row![container(content).width(Length::Fill), menu_button]
-                        .align_y(Alignment::Center);
+                let body: Row<Message, theme::Theme> = row![container(content).width(Length::Fill)]
+                    .push_maybe(user_menu_button)
+                    .align_y(Alignment::Center);
                 let padding = match config.position {
                     sidebar::Position::Top => padding::top(8).left(8).right(8),
                     sidebar::Position::Bottom => padding::bottom(8).left(8).right(8),

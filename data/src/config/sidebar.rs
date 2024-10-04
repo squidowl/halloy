@@ -14,6 +14,8 @@ pub struct Sidebar {
     pub unread_indicator: UnreadIndicator,
     #[serde(default)]
     pub position: Position,
+    #[serde(default = "default_bool_true")]
+    pub show_user_menu: bool,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
@@ -52,10 +54,15 @@ impl Default for Sidebar {
             width: default_sidebar_width(),
             unread_indicator: UnreadIndicator::default(),
             position: Position::default(),
+            show_user_menu: default_bool_true(),
         }
     }
 }
 
 fn default_sidebar_width() -> u16 {
     120
+}
+
+fn default_bool_true() -> bool {
+    true
 }
