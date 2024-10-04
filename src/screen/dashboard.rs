@@ -411,6 +411,35 @@ impl Dashboard {
                     pane::Message::MaximizePane => self.maximize_pane(),
                     pane::Message::Popout => return (self.popout_pane(main_window), None),
                     pane::Message::Merge => return (self.merge_pane(config, main_window), None),
+                    pane::Message::ScrollToBacklog => {
+                        if let Some((window, pane)) = self.focus {
+                            if let Some(state) = self.panes.get_mut(main_window.id, window, pane) {
+                                return (
+                                    state.buffer.scroll_to_backlog(&self.history, config).map(
+                                        move |message| {
+                                            Message::Pane(
+                                                window,
+                                                pane::Message::Buffer(pane, message),
+                                            )
+                                        },
+                                    ),
+                                    None,
+                                );
+                            }
+                        }
+                    }
+                    pane::Message::ScrollToBottom => {
+                        if let Some((window, pane)) = self.focus {
+                            if let Some(state) = self.panes.get_mut(main_window.id, window, pane) {
+                                return (
+                                    state.buffer.scroll_to_end().map(move |message| {
+                                        Message::Pane(window, pane::Message::Buffer(pane, message))
+                                    }),
+                                    None,
+                                );
+                            }
+                        }
+                    }
                 }
             }
             Message::Sidebar(message) => {

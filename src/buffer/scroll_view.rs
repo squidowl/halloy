@@ -350,6 +350,10 @@ impl State {
         )
     }
 
+    pub fn is_scrolled_to_bottom(&self) -> bool {
+        matches!(self.status, Status::Idle(Anchor::Bottom))
+    }
+
     pub fn scroll_to_message(
         &mut self,
         message: message::Hash,
