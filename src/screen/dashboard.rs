@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use data::environment::RELEASE_WEBSITE;
+use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -473,6 +473,10 @@ impl Dashboard {
                     }
                     sidebar::Event::ToggleThemeEditor => {
                         (self.toggle_theme_editor(theme, main_window), None)
+                    }
+                    sidebar::Event::OpenDocumentation => {
+                        let _ = open::that_detached(WIKI_WEBSITE);
+                        (Task::none(), None)
                     }
                 };
 

@@ -2,8 +2,8 @@ use data::config::{self, sidebar, Config};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{file_transfer, history, Buffer, Version};
 use iced::widget::{
-    button, column, container, horizontal_space, pane_grid, row, scrollable, text, vertical_rule,
-    vertical_space, Column, Row, Scrollable,
+    button, column, container, horizontal_rule, horizontal_space, pane_grid, row, scrollable, text,
+    vertical_rule, vertical_space, Column, Row, Scrollable, Space,
 };
 use iced::{padding, Alignment, Length, Task};
 use std::time::Duration;
@@ -32,6 +32,7 @@ pub enum Message {
     ReloadingConfigFile,
     ConfigReloaded(Result<Config, config::Error>),
     OpenReleaseWebsite,
+    OpenDocumentation,
     ReloadComplete,
     Noop,
 }
@@ -50,6 +51,7 @@ pub enum Event {
     ToggleCommandBar,
     ToggleThemeEditor,
     OpenReleaseWebsite,
+    OpenDocumentation,
     ConfigReloaded(Result<Config, config::Error>),
 }
 
@@ -111,6 +113,7 @@ impl Sidebar {
                 (Task::none(), None)
             }
             Message::Noop => (Task::none(), None),
+            Message::OpenDocumentation => (Task::none(), Some(Event::OpenDocumentation)),
         }
     }
 
@@ -125,7 +128,7 @@ impl Sidebar {
             .width(Length::Shrink)
             .on_press(Message::Noop);
 
-        let menu = Menu::list(version.is_old());
+        let menu = Menu::list();
 
         if menu.is_empty() {
             base.into()
@@ -196,11 +199,29 @@ impl Sidebar {
                             icon::theme_editor(),
                             Message::ToggleThemeEditor,
                         ),
-                        Menu::NewVersion => context_button(
-                            text("New Halloy version").style(theme::text::tertiary),
+                        Menu::HorizontalRule => match length {
+                            Length::Fill => container(horizontal_rule(1)).padding([0, 6]).into(),
+                            _ => Space::new(length, 1).into(),
+                        },
+                        Menu::Version => match version.is_old() {
+                            true => context_button(
+                                text("New version available").style(theme::text::tertiary),
+                                None,
+                                icon::megaphone().style(theme::text::tertiary),
+                                Message::OpenReleaseWebsite,
+                            ),
+                            false => container(
+                                text(format!("Halloy ({})", version.current))
+                                    .style(theme::text::secondary),
+                            )
+                            .padding(5)
+                            .into(),
+                        },
+                        Menu::Documentation => context_button(
+                            text("Documentation"),
                             None,
-                            icon::megaphone().style(theme::text::tertiary),
-                            Message::OpenReleaseWebsite,
+                            icon::documentation(),
+                            Message::OpenDocumentation,
                         ),
                     }
                 },
@@ -364,29 +385,28 @@ impl Sidebar {
 
 #[derive(Debug, Clone, Copy)]
 enum Menu {
-    NewVersion,
     RefreshConfig,
     CommandBar,
     ThemeEditor,
     Logs,
     FileTransfers,
+    Version,
+    HorizontalRule,
+    Documentation,
 }
 
 impl Menu {
-    fn list(is_old_version: bool) -> Vec<Self> {
-        let mut list = vec![
+    fn list() -> Vec<Self> {
+        vec![
+            Menu::Version,
+            Menu::HorizontalRule,
             Menu::CommandBar,
             Menu::FileTransfers,
             Menu::Logs,
             Menu::RefreshConfig,
             Menu::ThemeEditor,
-        ];
-
-        if is_old_version {
-            list.insert(0, Menu::NewVersion);
-        }
-
-        list
+            Menu::Documentation,
+        ]
     }
 }
 
