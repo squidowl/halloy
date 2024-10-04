@@ -394,7 +394,12 @@ where
             .as_widget()
             .layout(&mut self.state.menu_tree, renderer, &limits);
 
-        let viewport = Rectangle::new(Point::ORIGIN, bounds);
+        // Small padding to ensure that we don't spawn context menu at the very edge of the viewport.
+        let padding = 5.0;
+        let viewport = Rectangle::new(
+            Point::new(Point::ORIGIN.x + padding, Point::ORIGIN.y + padding),
+            Size::new(bounds.width - 2.0 * padding, bounds.height - 2.0 * padding),
+        );
         let mut bounds = Rectangle::new(self.position, node.size());
 
         if bounds.x < viewport.x {
