@@ -167,9 +167,17 @@ impl TitleBar {
             // Show scroll-to-bottom / scroll-to-backlog depending if scrollable is anchored to the end or not
             let (icon, tooltip_text, message) =
                 if buffer.is_scrolled_to_bottom().unwrap_or_default() {
-                    (icon::dot(), "Scroll to Backlog", Message::ScrollToBacklog)
+                    (
+                        icon::scroll_to_unread(),
+                        "Scroll to Backlog",
+                        Message::ScrollToBacklog,
+                    )
                 } else {
-                    (icon::cancel(), "Scroll to Bottom", Message::ScrollToBottom)
+                    (
+                        icon::scroll_to_bottom(),
+                        "Scroll to Bottom",
+                        Message::ScrollToBottom,
+                    )
                 };
 
             let scrollable_button = button(center(icon))
