@@ -308,7 +308,7 @@ impl std::fmt::Display for Configuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Configuration::OpenDirectory => write!(f, "Open config directory"),
-            Configuration::OpenWebsite => write!(f, "Open wiki website"),
+            Configuration::OpenWebsite => write!(f, "Open documentation website"),
             Configuration::Reload => write!(f, "Reload config file"),
         }
     }

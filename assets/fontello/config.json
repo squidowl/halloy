@@ -131,6 +131,12 @@
       "css": "bell",
       "code": 59409,
       "src": "entypo"
+    },
+    {
+      "uid": "9755f76110ae4d12ac5f9466c9152031",
+      "css": "book",
+      "code": 59410,
+      "src": "fontawesome"
     }
   ]
 }

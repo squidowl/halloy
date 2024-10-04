@@ -80,6 +80,10 @@ pub fn menu<'a>() -> Text<'a> {
     to_text('\u{F0C9}')
 }
 
+pub fn documentation<'a>() -> Text<'a> {
+    to_text('\u{E812}')
+}
+
 // TODO: Highlight buffer.
 // pub fn highlight<'a>() -> Text<'a> {
 //     to_text('\u{E811}')
