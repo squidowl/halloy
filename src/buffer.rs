@@ -1,4 +1,4 @@
-pub use data::buffer::Settings;
+pub use data::buffer::{Internal, Settings, Upstream};
 use data::user::Nick;
 use data::{buffer, file_transfer, history, message, Config};
 use iced::Task;
@@ -57,26 +57,37 @@ impl Buffer {
         Self::Empty
     }
 
-    pub fn server(&self) -> Option<&data::Server> {
+    pub fn upstream(&self) -> Option<&buffer::Upstream> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => None,
-            Buffer::Channel(state) => Some(&state.server),
-            Buffer::Server(state) => Some(&state.server),
-            Buffer::Query(state) => Some(&state.server),
-            Buffer::Logs(_) => Some(&data::server::LOGS),
-            Buffer::Highlights(_) => Some(&data::server::HIGHLIGHTS),
-        }
-    }
-
-    pub fn data(&self) -> Option<&data::Buffer> {
-        match self {
-            Buffer::Empty => None,
             Buffer::Channel(state) => Some(&state.buffer),
             Buffer::Server(state) => Some(&state.buffer),
             Buffer::Query(state) => Some(&state.buffer),
-            Buffer::FileTransfers(_) => None,
-            Buffer::Logs(_) => None,
-            Buffer::Highlights(_) => None,
+            Buffer::Empty | Buffer::FileTransfers(_) | Buffer::Logs(_) | Buffer::Highlights(_) => {
+                None
+            }
+        }
+    }
+
+    pub fn internal(&self) -> Option<buffer::Internal> {
+        match self {
+            Buffer::Empty | Buffer::Channel(_) | Buffer::Server(_) | Buffer::Query(_) => None,
+            Buffer::FileTransfers(_) => Some(buffer::Internal::FileTransfers),
+            Buffer::Logs(_) => Some(buffer::Internal::Logs),
+            Buffer::Highlights(_) => Some(buffer::Internal::Highlights),
+        }
+    }
+
+    pub fn data(&self) -> Option<data::Buffer> {
+        match self {
+            Buffer::Empty => None,
+            Buffer::Channel(state) => Some(data::Buffer::Upstream(state.buffer.clone())),
+            Buffer::Server(state) => Some(data::Buffer::Upstream(state.buffer.clone())),
+            Buffer::Query(state) => Some(data::Buffer::Upstream(state.buffer.clone())),
+            Buffer::FileTransfers(_) => {
+                Some(data::Buffer::Internal(buffer::Internal::FileTransfers))
+            }
+            Buffer::Logs(_) => Some(data::Buffer::Internal(buffer::Internal::Logs)),
+            Buffer::Highlights(_) => Some(data::Buffer::Internal(buffer::Internal::Highlights)),
         }
     }
 
@@ -241,24 +252,20 @@ impl Buffer {
         nick: Nick,
         history: &mut history::Manager,
     ) -> Task<Message> {
-        if let Some(buffer) = self.data().cloned() {
-            match self {
-                Buffer::Empty
-                | Buffer::Server(_)
-                | Buffer::FileTransfers(_)
-                | Buffer::Logs(_)
-                | Buffer::Highlights(_) => Task::none(),
-                Buffer::Channel(channel) => channel
-                    .input_view
-                    .insert_user(nick, buffer, history)
-                    .map(|message| Message::Channel(channel::Message::InputView(message))),
-                Buffer::Query(query) => query
-                    .input_view
-                    .insert_user(nick, buffer, history)
-                    .map(|message| Message::Query(query::Message::InputView(message))),
-            }
-        } else {
-            Task::none()
+        match self {
+            Buffer::Empty
+            | Buffer::Server(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_) => Task::none(),
+            Buffer::Channel(state) => state
+                .input_view
+                .insert_user(nick, state.buffer.clone(), history)
+                .map(|message| Message::Channel(channel::Message::InputView(message))),
+            Buffer::Query(state) => state
+                .input_view
+                .insert_user(nick, state.buffer.clone(), history)
+                .map(|message| Message::Query(query::Message::InputView(message))),
         }
     }
 
@@ -413,9 +420,18 @@ impl Buffer {
 impl From<data::Buffer> for Buffer {
     fn from(buffer: data::Buffer) -> Self {
         match buffer {
-            data::Buffer::Server(server) => Self::Server(Server::new(server)),
-            data::Buffer::Channel(server, channel) => Self::Channel(Channel::new(server, channel)),
-            data::Buffer::Query(server, user) => Self::Query(Query::new(server, user)),
+            data::Buffer::Upstream(upstream) => match upstream {
+                buffer::Upstream::Server(server) => Self::Server(Server::new(server)),
+                buffer::Upstream::Channel(server, channel) => {
+                    Self::Channel(Channel::new(server, channel))
+                }
+                buffer::Upstream::Query(server, user) => Self::Query(Query::new(server, user)),
+            },
+            data::Buffer::Internal(internal) => match internal {
+                buffer::Internal::FileTransfers => Self::FileTransfers(FileTransfers::new()),
+                buffer::Internal::Logs => Self::Logs(Logs::new()),
+                buffer::Internal::Highlights => Self::Highlights(Highlights::new()),
+            },
         }
     }
 }

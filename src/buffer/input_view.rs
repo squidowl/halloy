@@ -1,6 +1,6 @@
 use data::input::{self, Cache, Draft};
 use data::user::Nick;
-use data::{client, history, Buffer, Config};
+use data::{buffer, client, history, Config};
 use iced::widget::{container, row, text, text_input};
 use iced::Task;
 
@@ -119,7 +119,7 @@ impl State {
     pub fn update(
         &mut self,
         message: Message,
-        buffer: &Buffer,
+        buffer: &buffer::Upstream,
         clients: &mut client::Map,
         history: &mut history::Manager,
         config: &Config,
@@ -186,7 +186,7 @@ impl State {
                         let mut channel_users = &[][..];
 
                         // Resolve our attributes if sending this message in a channel
-                        if let Buffer::Channel(server, channel) = &buffer {
+                        if let buffer::Upstream::Channel(server, channel) = &buffer {
                             channel_users = clients.get_channel_users(server, channel);
 
                             if let Some(user_with_attributes) =
@@ -288,7 +288,7 @@ impl State {
 
     fn on_completion(
         &self,
-        buffer: &Buffer,
+        buffer: &buffer::Upstream,
         history: &mut history::Manager,
         text: String,
     ) -> (Task<Message>, Option<Event>) {
@@ -313,7 +313,7 @@ impl State {
     pub fn insert_user(
         &mut self,
         nick: Nick,
-        buffer: Buffer,
+        buffer: buffer::Upstream,
         history: &mut history::Manager,
     ) -> Task<Message> {
         let mut text = history.input(&buffer).draft.to_string();

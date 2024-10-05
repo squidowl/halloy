@@ -1,4 +1,3 @@
-use once_cell::sync::Lazy;
 use std::collections::BTreeMap;
 use std::{fmt, str};
 use tokio::fs;
@@ -11,10 +10,6 @@ use serde::{Deserialize, Serialize};
 use crate::config;
 use crate::config::server::Sasl;
 use crate::config::Error;
-
-// Hack since log messages are app wide and not scoped to any server
-pub static LOGS: Lazy<Server> = Lazy::new(|| Server("<halloy-logs>".to_string()));
-pub static HIGHLIGHTS: Lazy<Server> = Lazy::new(|| Server("<halloy-highlights>".to_string()));
 
 pub type Handle = Sender<proto::Message>;
 

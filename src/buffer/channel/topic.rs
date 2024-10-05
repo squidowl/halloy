@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use data::user::Nick;
-use data::{message, Buffer, Config, User};
+use data::{message, Config, Server, User};
 use iced::widget::{column, container, horizontal_rule, row, scrollable, Scrollable};
 use iced::Length;
 
@@ -36,12 +36,13 @@ pub fn update(message: Message) -> Option<Event> {
 }
 
 pub fn view<'a>(
+    server: &'a Server,
+    channel: &'a String,
     content: &'a message::Content,
     who: Option<&'a str>,
     time: Option<&'a DateTime<Utc>>,
     max_lines: u16,
     users: &'a [User],
-    buffer: &'a Buffer,
     our_user: Option<&'a User>,
     config: &'a Config,
     theme: &'a Theme,
@@ -58,9 +59,10 @@ pub fn view<'a>(
                         false,
                     )
                 }),
+                server,
+                Some(channel),
                 user,
                 Some(user),
-                Some(buffer),
                 our_user,
             )
         } else {
