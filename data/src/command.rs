@@ -4,7 +4,7 @@ use irc::proto;
 use itertools::Itertools;
 use regex::Regex;
 
-use crate::{ctcp, message::formatting, Buffer};
+use crate::{buffer, ctcp, message::formatting};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Kind {
@@ -66,7 +66,7 @@ pub enum Command {
     Unknown(String, Vec<String>),
 }
 
-pub fn parse(s: &str, buffer: Option<&Buffer>) -> Result<Command, Error> {
+pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Error> {
     let (head, rest) = s.split_once('/').ok_or(Error::MissingSlash)?;
     // Don't allow leading whitespace before slash
     if !head.is_empty() {

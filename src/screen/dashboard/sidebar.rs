@@ -1,6 +1,6 @@
 use data::config::{self, sidebar, Config};
 use data::dashboard::{BufferAction, BufferFocusedAction};
-use data::{file_transfer, history, Buffer, Version};
+use data::{buffer, file_transfer, history, Version};
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, pane_grid, row, scrollable, text,
     vertical_rule, vertical_space, Column, Row, Scrollable, Space,
@@ -18,16 +18,14 @@ const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Open(Buffer),
-    Popout(Buffer),
+    Open(buffer::Upstream),
+    Popout(buffer::Upstream),
     Focus(window::Id, pane_grid::Pane),
-    Replace(window::Id, Buffer, pane_grid::Pane),
+    Replace(window::Id, buffer::Upstream, pane_grid::Pane),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
-    Leave(Buffer),
-    ToggleFileTransfers,
-    ToggleLogs,
-    ToggleHighlights,
+    Leave(buffer::Upstream),
+    ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
     ToggleThemeEditor,
     ReloadingConfigFile,
@@ -40,16 +38,14 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Open(Buffer),
-    Popout(Buffer),
+    Open(buffer::Upstream),
+    Popout(buffer::Upstream),
     Focus(window::Id, pane_grid::Pane),
-    Replace(window::Id, Buffer, pane_grid::Pane),
+    Replace(window::Id, buffer::Upstream, pane_grid::Pane),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane, window::Id, pane_grid::Pane),
-    Leave(Buffer),
-    ToggleFileTransfers,
-    ToggleLogs,
-    ToggleHighlights,
+    Leave(buffer::Upstream),
+    ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
     ToggleThemeEditor,
     OpenReleaseWebsite,
@@ -95,9 +91,9 @@ impl Sidebar {
                 Some(Event::Swap(from_window, from_pane, to_window, to_pane)),
             ),
             Message::Leave(buffer) => (Task::none(), Some(Event::Leave(buffer))),
-            Message::ToggleFileTransfers => (Task::none(), Some(Event::ToggleFileTransfers)),
-            Message::ToggleLogs => (Task::none(), Some(Event::ToggleLogs)),
-            Message::ToggleHighlights => (Task::none(), Some(Event::ToggleHighlights)),
+            Message::ToggleInternalBuffer(buffer) => {
+                (Task::none(), Some(Event::ToggleInternalBuffer(buffer)))
+            }
             Message::ToggleCommandBar => (Task::none(), Some(Event::ToggleCommandBar)),
             Message::ToggleThemeEditor => (Task::none(), Some(Event::ToggleThemeEditor)),
             Message::ReloadingConfigFile => {
@@ -188,20 +184,20 @@ impl Sidebar {
                             } else {
                                 theme::text::tertiary
                             }),
-                            Message::ToggleFileTransfers,
+                            Message::ToggleInternalBuffer(buffer::Internal::FileTransfers),
                         ),
                         Menu::Highlights => context_button(
                             text("Highlights"),
                             // TODO: Add keybind
                             None,
                             icon::highlights(),
-                            Message::ToggleHighlights,
+                            Message::ToggleInternalBuffer(buffer::Internal::Highlights),
                         ),
                         Menu::Logs => context_button(
                             text("Logs"),
                             Some(&keyboard.logs),
                             icon::logs(),
-                            Message::ToggleLogs,
+                            Message::ToggleInternalBuffer(buffer::Internal::Logs),
                         ),
                         Menu::ThemeEditor => context_button(
                             text("Theme Editor"),
@@ -265,61 +261,64 @@ impl Sidebar {
         for (i, (server, state)) in clients.iter().enumerate() {
             match state {
                 data::client::State::Disconnected => {
-                    buffers.push(buffer_button(
+                    buffers.push(upstream_buffer_button(
                         main_window,
                         panes,
                         focus,
-                        Buffer::Server(server.clone()),
+                        buffer::Upstream::Server(server.clone()),
                         false,
                         config.buffer_action,
                         config.buffer_focused_action,
                         config.position,
                         config.unread_indicator,
-                        history.has_unread(server, &history::Kind::Server),
+                        history.has_unread(&history::Kind::Server(server.clone())),
                     ));
                 }
                 data::client::State::Ready(connection) => {
-                    buffers.push(buffer_button(
+                    buffers.push(upstream_buffer_button(
                         main_window,
                         panes,
                         focus,
-                        Buffer::Server(server.clone()),
+                        buffer::Upstream::Server(server.clone()),
                         true,
                         config.buffer_action,
                         config.buffer_focused_action,
                         config.position,
                         config.unread_indicator,
-                        history.has_unread(server, &history::Kind::Server),
+                        history.has_unread(&history::Kind::Server(server.clone())),
                     ));
 
                     for channel in connection.channels() {
-                        buffers.push(buffer_button(
+                        buffers.push(upstream_buffer_button(
                             main_window,
                             panes,
                             focus,
-                            Buffer::Channel(server.clone(), channel.clone()),
+                            buffer::Upstream::Channel(server.clone(), channel.clone()),
                             true,
                             config.buffer_action,
                             config.buffer_focused_action,
                             config.position,
                             config.unread_indicator,
-                            history.has_unread(server, &history::Kind::Channel(channel.clone())),
+                            history.has_unread(&history::Kind::Channel(
+                                server.clone(),
+                                channel.clone(),
+                            )),
                         ));
                     }
 
                     let queries = history.get_unique_queries(server);
                     for user in queries {
-                        buffers.push(buffer_button(
+                        buffers.push(upstream_buffer_button(
                             main_window,
                             panes,
                             focus,
-                            Buffer::Query(server.clone(), user.clone()),
+                            buffer::Upstream::Query(server.clone(), user.clone()),
                             true,
                             config.buffer_action,
                             config.buffer_focused_action,
                             config.position,
                             config.unread_indicator,
-                            history.has_unread(server, &history::Kind::Query(user.clone())),
+                            history.has_unread(&history::Kind::Query(server.clone(), user.clone())),
                         ));
                     }
 
@@ -466,11 +465,11 @@ impl Entry {
     }
 }
 
-fn buffer_button(
+fn upstream_buffer_button(
     main_window: window::Id,
     panes: &Panes,
     focus: Option<(window::Id, pane_grid::Pane)>,
-    buffer: Buffer,
+    buffer: buffer::Upstream,
     connected: bool,
     buffer_action: BufferAction,
     focused_buffer_action: Option<BufferFocusedAction>,
@@ -481,12 +480,12 @@ fn buffer_button(
     let open = panes
         .iter(main_window)
         .find_map(|(window_id, pane, state)| {
-            (state.buffer.data() == Some(&buffer)).then_some((window_id, pane))
+            (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
         });
     let is_focused = panes
         .iter(main_window)
         .find_map(|(window_id, pane, state)| {
-            (Some((window_id, pane)) == focus && state.buffer.data() == Some(&buffer))
+            (Some((window_id, pane)) == focus && state.buffer.upstream() == Some(&buffer))
                 .then_some((window_id, pane))
         });
 
@@ -518,7 +517,7 @@ fn buffer_button(
     };
 
     let row = match &buffer {
-        Buffer::Server(server) => row![
+        buffer::Upstream::Server(server) => row![
             icon::connected().style(if connected {
                 if show_unread_indicator {
                     theme::text::unread_indicator
@@ -534,7 +533,7 @@ fn buffer_button(
         ]
         .spacing(8)
         .align_y(iced::Alignment::Center),
-        Buffer::Channel(_, channel) => row![]
+        buffer::Upstream::Channel(_, channel) => row![]
             .push(horizontal_space().width(3))
             .push_maybe(
                 show_unread_indicator
@@ -548,7 +547,7 @@ fn buffer_button(
             )
             .push(horizontal_space().width(3))
             .align_y(iced::Alignment::Center),
-        Buffer::Query(_, nick) => row![]
+        buffer::Upstream::Query(_, nick) => row![]
             .push(horizontal_space().width(3))
             .push_maybe(
                 show_unread_indicator
@@ -626,9 +625,9 @@ fn buffer_button(
                 ),
                 Entry::Leave => (
                     match &buffer {
-                        Buffer::Server(_) => "Leave server",
-                        Buffer::Channel(_, _) => "Leave channel",
-                        Buffer::Query(_, _) => "Close query",
+                        buffer::Upstream::Server(_) => "Leave server",
+                        buffer::Upstream::Channel(_, _) => "Leave channel",
+                        buffer::Upstream::Query(_, _) => "Close query",
                     },
                     Message::Leave(buffer.clone()),
                 ),

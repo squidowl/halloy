@@ -1,4 +1,4 @@
-use data::{history, message, Config};
+use data::{buffer, history, message, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Length, Task};
 
@@ -103,7 +103,7 @@ pub fn view<'a>(
 
 #[derive(Debug, Clone)]
 pub struct Server {
-    pub buffer: data::Buffer,
+    pub buffer: buffer::Upstream,
     pub server: data::server::Server,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
@@ -112,7 +112,7 @@ pub struct Server {
 impl Server {
     pub fn new(server: data::server::Server) -> Self {
         Self {
-            buffer: data::Buffer::Server(server.clone()),
+            buffer: buffer::Upstream::Server(server.clone()),
             server,
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),

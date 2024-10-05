@@ -47,7 +47,7 @@ pub fn view<'a>(
                                 selectable_text(timestamp).style(theme::selectable_text::timestamp)
                             });
 
-                    let channel = selectable_rich_text::<_, _, (), _, _>(vec![
+                    let channel_text = selectable_rich_text::<_, _, (), _, _>(vec![
                         span(channel).color(theme.colors().buffer.url).link(
                             message::Link::GoToMessage(
                                 server.clone(),
@@ -78,8 +78,9 @@ pub fn view<'a>(
                         )
                     });
 
-                    let nick = user_context::view(text, user, current_user, None, None)
-                        .map(scroll_view::Message::UserContext);
+                    let nick =
+                        user_context::view(text, server, Some(channel), user, current_user, None)
+                            .map(scroll_view::Message::UserContext);
 
                     let text = message_content::with_context(
                         &message.content,
@@ -87,12 +88,12 @@ pub fn view<'a>(
                         scroll_view::Message::Link,
                         theme::selectable_text::default,
                         move |link| match link {
-                            message::Link::User(_) => user_context::Entry::list(None, None),
+                            message::Link::User(_) => user_context::Entry::list(true, None),
                             _ => vec![],
                         },
                         move |link, entry, length| match link {
                             message::Link::User(user) => entry
-                                .view(user, current_user, length)
+                                .view(server, Some(channel), user, current_user, length)
                                 .map(scroll_view::Message::UserContext),
                             _ => row![].into(),
                         },
@@ -103,7 +104,7 @@ pub fn view<'a>(
                         container(
                             row![]
                                 .push_maybe(timestamp)
-                                .push(channel)
+                                .push(channel_text)
                                 .push(nick)
                                 .push(selectable_text(" "))
                                 .push(text),

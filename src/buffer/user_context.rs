@@ -1,5 +1,5 @@
 use data::user::Nick;
-use data::{Buffer, User};
+use data::{Server, User};
 use iced::widget::{button, container, horizontal_rule, row, text, Space};
 use iced::{padding, Length, Padding};
 
@@ -18,35 +18,36 @@ pub enum Entry {
 }
 
 impl Entry {
-    pub fn list(buffer: Option<&Buffer>, our_user: Option<&User>) -> Vec<Self> {
-        match buffer {
-            Some(Buffer::Channel(_, _)) => {
-                if our_user.is_some_and(|u| u.has_access_level(data::user::AccessLevel::Oper)) {
-                    vec![
-                        Entry::UserInfo,
-                        Entry::HorizontalRule,
-                        Entry::Whois,
-                        Entry::Query,
-                        Entry::ToggleAccessLevelOp,
-                        Entry::ToggleAccessLevelVoice,
-                        Entry::SendFile,
-                    ]
-                } else {
-                    vec![
-                        Entry::UserInfo,
-                        Entry::HorizontalRule,
-                        Entry::Whois,
-                        Entry::Query,
-                        Entry::SendFile,
-                    ]
-                }
+    pub fn list(is_channel: bool, our_user: Option<&User>) -> Vec<Self> {
+        if is_channel {
+            if our_user.is_some_and(|u| u.has_access_level(data::user::AccessLevel::Oper)) {
+                vec![
+                    Entry::UserInfo,
+                    Entry::HorizontalRule,
+                    Entry::Whois,
+                    Entry::Query,
+                    Entry::ToggleAccessLevelOp,
+                    Entry::ToggleAccessLevelVoice,
+                    Entry::SendFile,
+                ]
+            } else {
+                vec![
+                    Entry::UserInfo,
+                    Entry::HorizontalRule,
+                    Entry::Whois,
+                    Entry::Query,
+                    Entry::SendFile,
+                ]
             }
-            _ => vec![Entry::Whois, Entry::SendFile],
+        } else {
+            vec![Entry::Whois, Entry::SendFile]
         }
     }
 
     pub fn view<'a>(
         self,
+        server: &Server,
+        channel: Option<&str>,
         user: &User,
         current_user: Option<&User>,
         length: Length,
@@ -54,39 +55,73 @@ impl Entry {
         let nickname = user.nickname().to_owned();
 
         match self {
-            Entry::Whois => menu_button("Whois", Message::Whois(nickname), length),
-            Entry::Query => menu_button("Message", Message::Query(nickname), length),
+            Entry::Whois => menu_button("Whois", Message::Whois(server.clone(), nickname), length),
+            Entry::Query => {
+                menu_button("Message", Message::Query(server.clone(), nickname), length)
+            }
             Entry::ToggleAccessLevelOp => {
-                if user.has_access_level(data::user::AccessLevel::Oper) {
-                    menu_button(
-                        "Take Op (-o)",
-                        Message::ToggleAccessLevel(nickname, "-o".to_owned()),
-                        length,
-                    )
+                if let Some(channel) = channel {
+                    if user.has_access_level(data::user::AccessLevel::Oper) {
+                        menu_button(
+                            "Take Op (-o)",
+                            Message::ToggleAccessLevel(
+                                server.clone(),
+                                channel.to_string(),
+                                nickname,
+                                "-o".to_owned(),
+                            ),
+                            length,
+                        )
+                    } else {
+                        menu_button(
+                            "Give Op (+o)",
+                            Message::ToggleAccessLevel(
+                                server.clone(),
+                                channel.to_string(),
+                                nickname,
+                                "+o".to_owned(),
+                            ),
+                            length,
+                        )
+                    }
                 } else {
-                    menu_button(
-                        "Give Op (+o)",
-                        Message::ToggleAccessLevel(nickname, "+o".to_owned()),
-                        length,
-                    )
+                    row![].into()
                 }
             }
             Entry::ToggleAccessLevelVoice => {
-                if user.has_access_level(data::user::AccessLevel::Voice) {
-                    menu_button(
-                        "Take Voice (-v)",
-                        Message::ToggleAccessLevel(nickname, "-v".to_owned()),
-                        length,
-                    )
+                if let Some(channel) = channel {
+                    if user.has_access_level(data::user::AccessLevel::Voice) {
+                        menu_button(
+                            "Take Voice (-v)",
+                            Message::ToggleAccessLevel(
+                                server.clone(),
+                                channel.to_string(),
+                                nickname,
+                                "-v".to_owned(),
+                            ),
+                            length,
+                        )
+                    } else {
+                        menu_button(
+                            "Give Voice (+v)",
+                            Message::ToggleAccessLevel(
+                                server.clone(),
+                                channel.to_string(),
+                                nickname,
+                                "+v".to_owned(),
+                            ),
+                            length,
+                        )
+                    }
                 } else {
-                    menu_button(
-                        "Give Voice (+v)",
-                        Message::ToggleAccessLevel(nickname, "+v".to_owned()),
-                        length,
-                    )
+                    row![].into()
                 }
             }
-            Entry::SendFile => menu_button("Send File", Message::SendFile(nickname), length),
+            Entry::SendFile => menu_button(
+                "Send File",
+                Message::SendFile(server.clone(), nickname),
+                length,
+            ),
             Entry::UserInfo => user_info(current_user, length),
             Entry::HorizontalRule => match length {
                 Length::Fill => container(horizontal_rule(1)).padding([0, 6]).into(),
@@ -98,40 +133,43 @@ impl Entry {
 
 #[derive(Clone, Debug)]
 pub enum Message {
-    Whois(Nick),
-    Query(Nick),
+    Whois(Server, Nick),
+    Query(Server, Nick),
+    ToggleAccessLevel(Server, String, Nick, String),
+    SendFile(Server, Nick),
     SingleClick(Nick),
-    ToggleAccessLevel(Nick, String),
-    SendFile(Nick),
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    SendWhois(Nick),
-    OpenQuery(Nick),
+    SendWhois(Server, Nick),
+    OpenQuery(Server, Nick),
+    ToggleAccessLevel(Server, String, Nick, String),
+    SendFile(Server, Nick),
     SingleClick(Nick),
-    ToggleAccessLevel(Nick, String),
-    SendFile(Nick),
 }
 
 pub fn update(message: Message) -> Option<Event> {
     match message {
-        Message::Whois(nick) => Some(Event::SendWhois(nick)),
-        Message::Query(nick) => Some(Event::OpenQuery(nick)),
+        Message::Whois(server, nick) => Some(Event::SendWhois(server, nick)),
+        Message::Query(server, nick) => Some(Event::OpenQuery(server, nick)),
+        Message::ToggleAccessLevel(server, target, nick, mode) => {
+            Some(Event::ToggleAccessLevel(server, target, nick, mode))
+        }
+        Message::SendFile(server, nick) => Some(Event::SendFile(server, nick)),
         Message::SingleClick(nick) => Some(Event::SingleClick(nick)),
-        Message::ToggleAccessLevel(nick, mode) => Some(Event::ToggleAccessLevel(nick, mode)),
-        Message::SendFile(nick) => Some(Event::SendFile(nick)),
     }
 }
 
 pub fn view<'a>(
     content: impl Into<Element<'a, Message>>,
+    server: &'a Server,
+    channel: Option<&'a str>,
     user: &'a User,
     current_user: Option<&'a User>,
-    buffer: Option<&'a Buffer>,
     our_user: Option<&'a User>,
 ) -> Element<'a, Message> {
-    let entries = Entry::list(buffer, our_user);
+    let entries = Entry::list(channel.is_some(), our_user);
 
     let content = button(content)
         .padding(0)
@@ -142,7 +180,7 @@ pub fn view<'a>(
         Default::default(),
         content,
         entries,
-        move |entry, length| entry.view(user, current_user, length),
+        move |entry, length| entry.view(server, channel, user, current_user, length),
     )
     .into()
 }

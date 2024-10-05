@@ -123,17 +123,14 @@ impl Pane {
     pub fn resource(&self) -> Option<history::Resource> {
         match &self.buffer {
             Buffer::Empty => None,
-            Buffer::Channel(channel) => Some(history::Resource {
-                server: channel.server.clone(),
-                kind: history::Kind::Channel(channel.channel.clone()),
+            Buffer::Channel(state) => Some(history::Resource {
+                kind: history::Kind::Channel(state.server.clone(), state.channel.clone()),
             }),
-            Buffer::Server(server) => Some(history::Resource {
-                server: server.server.clone(),
-                kind: history::Kind::Server,
+            Buffer::Server(state) => Some(history::Resource {
+                kind: history::Kind::Server(state.server.clone()),
             }),
-            Buffer::Query(query) => Some(history::Resource {
-                server: query.server.clone(),
-                kind: history::Kind::Query(query.nick.clone()),
+            Buffer::Query(state) => Some(history::Resource {
+                kind: history::Kind::Query(state.server.clone(), state.nick.clone()),
             }),
             Buffer::FileTransfers(_) => None,
             Buffer::Logs(_) => Some(history::Resource::logs()),
@@ -335,12 +332,16 @@ impl From<Pane> for data::Pane {
     fn from(pane: Pane) -> Self {
         let buffer = match pane.buffer {
             Buffer::Empty => return data::Pane::Empty,
-            Buffer::Channel(state) => data::Buffer::Channel(state.server, state.channel),
-            Buffer::Server(state) => data::Buffer::Server(state.server),
-            Buffer::Query(state) => data::Buffer::Query(state.server, state.nick),
-            Buffer::FileTransfers(_) => return data::Pane::FileTransfers,
-            Buffer::Logs(_) => return data::Pane::Logs,
-            Buffer::Highlights(_) => return data::Pane::Highlights,
+            Buffer::Channel(state) => {
+                data::Buffer::Upstream(buffer::Upstream::Channel(state.server, state.channel))
+            }
+            Buffer::Server(state) => data::Buffer::Upstream(buffer::Upstream::Server(state.server)),
+            Buffer::Query(state) => {
+                data::Buffer::Upstream(buffer::Upstream::Query(state.server, state.nick))
+            }
+            Buffer::FileTransfers(_) => data::Buffer::Internal(buffer::Internal::FileTransfers),
+            Buffer::Logs(_) => data::Buffer::Internal(buffer::Internal::Logs),
+            Buffer::Highlights(_) => data::Buffer::Internal(buffer::Internal::Highlights),
         };
 
         data::Pane::Buffer {

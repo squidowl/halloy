@@ -15,9 +15,6 @@ pub enum Pane {
         settings: buffer::Settings,
     },
     Empty,
-    FileTransfers,
-    Logs,
-    Highlights,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]

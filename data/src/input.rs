@@ -3,13 +3,17 @@ use std::collections::HashMap;
 use irc::proto;
 use irc::proto::format;
 
-use crate::buffer::AutoFormat;
+use crate::buffer::{self, AutoFormat};
 use crate::message::formatting;
-use crate::{command, message, Buffer, Command, Message, Server, User};
+use crate::{command, message, Command, Message, Server, User};
 
 const INPUT_HISTORY_LENGTH: usize = 100;
 
-pub fn parse(buffer: Buffer, auto_format: AutoFormat, input: &str) -> Result<Input, Error> {
+pub fn parse(
+    buffer: buffer::Upstream,
+    auto_format: AutoFormat,
+    input: &str,
+) -> Result<Input, Error> {
     let content = match command::parse(input, Some(&buffer)) {
         Ok(command) => Content::Command(command),
         Err(command::Error::MissingSlash) => {
@@ -41,22 +45,18 @@ pub fn parse(buffer: Buffer, auto_format: AutoFormat, input: &str) -> Result<Inp
 
 #[derive(Debug, Clone)]
 pub struct Input {
-    buffer: Buffer,
+    pub buffer: buffer::Upstream,
     content: Content,
     raw: Option<String>,
 }
 
 impl Input {
-    pub fn command(buffer: Buffer, command: Command) -> Self {
+    pub fn command(buffer: buffer::Upstream, command: Command) -> Self {
         Self {
             buffer,
             content: Content::Command(command),
             raw: None,
         }
-    }
-
-    pub fn buffer(&self) -> &Buffer {
-        &self.buffer
     }
 
     pub fn server(&self) -> &Server {
@@ -120,7 +120,7 @@ enum Content {
 }
 
 impl Content {
-    fn command(&self, buffer: &Buffer) -> Option<Command> {
+    fn command(&self, buffer: &buffer::Upstream) -> Option<Command> {
         match self {
             Self::Text(text) => {
                 let target = buffer.target()?;
@@ -130,7 +130,7 @@ impl Content {
         }
     }
 
-    fn proto(&self, buffer: &Buffer) -> Option<proto::Message> {
+    fn proto(&self, buffer: &buffer::Upstream) -> Option<proto::Message> {
         self.command(buffer)
             .and_then(|command| proto::Command::try_from(command).ok())
             .map(proto::Message::from)
@@ -139,18 +139,18 @@ impl Content {
 
 #[derive(Debug, Clone)]
 pub struct Draft {
-    pub buffer: Buffer,
+    pub buffer: buffer::Upstream,
     pub text: String,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Storage {
-    sent: HashMap<Buffer, Vec<String>>,
-    draft: HashMap<Buffer, String>,
+    sent: HashMap<buffer::Upstream, Vec<String>>,
+    draft: HashMap<buffer::Upstream, String>,
 }
 
 impl Storage {
-    pub fn get<'a>(&'a self, buffer: &Buffer) -> Cache<'a> {
+    pub fn get<'a>(&'a self, buffer: &buffer::Upstream) -> Cache<'a> {
         Cache {
             history: self.sent.get(buffer).map(Vec::as_slice).unwrap_or_default(),
             draft: self
@@ -161,7 +161,7 @@ impl Storage {
         }
     }
 
-    pub fn record(&mut self, buffer: &Buffer, text: String) {
+    pub fn record(&mut self, buffer: &buffer::Upstream, text: String) {
         self.draft.remove(buffer);
         let history = self.sent.entry(buffer.clone()).or_default();
         history.insert(0, text);
