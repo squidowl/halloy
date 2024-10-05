@@ -21,6 +21,8 @@ pub enum Message {
     ToggleShowTopic,
     Popout,
     Merge,
+    ScrollToBacklog,
+    ScrollToBottom,
 }
 
 #[derive(Clone)]
@@ -83,6 +85,7 @@ impl Pane {
             }
             Buffer::FileTransfers(_) => "File Transfers".to_string(),
             Buffer::Logs(_) => "Logs".to_string(),
+            Buffer::Highlights(_) => "Highlights".to_string(),
         };
 
         let title_bar = self.title_bar.view(
@@ -120,20 +123,18 @@ impl Pane {
     pub fn resource(&self) -> Option<history::Resource> {
         match &self.buffer {
             Buffer::Empty => None,
-            Buffer::Channel(channel) => Some(history::Resource {
-                server: channel.server.clone(),
-                kind: history::Kind::Channel(channel.channel.clone()),
+            Buffer::Channel(state) => Some(history::Resource {
+                kind: history::Kind::Channel(state.server.clone(), state.channel.clone()),
             }),
-            Buffer::Server(server) => Some(history::Resource {
-                server: server.server.clone(),
-                kind: history::Kind::Server,
+            Buffer::Server(state) => Some(history::Resource {
+                kind: history::Kind::Server(state.server.clone()),
             }),
-            Buffer::Query(query) => Some(history::Resource {
-                server: query.server.clone(),
-                kind: history::Kind::Query(query.nick.clone()),
+            Buffer::Query(state) => Some(history::Resource {
+                kind: history::Kind::Query(state.server.clone(), state.nick.clone()),
             }),
             Buffer::FileTransfers(_) => None,
             Buffer::Logs(_) => Some(history::Resource::logs()),
+            Buffer::Highlights(_) => Some(history::Resource::highlights()),
         }
     }
 
@@ -160,6 +161,37 @@ impl TitleBar {
         let mut controls = row![].spacing(2);
 
         if let Buffer::Channel(state) = &buffer {
+            // Show scroll-to-bottom / scroll-to-backlog depending if scrollable is anchored to the end or not
+            let (icon, tooltip_text, message) =
+                if buffer.is_scrolled_to_bottom().unwrap_or_default() {
+                    (
+                        icon::scroll_to_unread(),
+                        "Scroll to Backlog",
+                        Message::ScrollToBacklog,
+                    )
+                } else {
+                    (
+                        icon::scroll_to_bottom(),
+                        "Scroll to Bottom",
+                        Message::ScrollToBottom,
+                    )
+                };
+
+            let scrollable_button = button(center(icon))
+                .padding(5)
+                .width(22)
+                .height(22)
+                .on_press(message)
+                .style(|theme, status| theme::button::secondary(theme, status, false));
+
+            let scrollable_button_with_tooltip = tooltip(
+                scrollable_button,
+                show_tooltips.then_some(tooltip_text),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(scrollable_button_with_tooltip);
+
             // Show topic button only if there is a topic to show
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
                 if topic.content.is_some() {
@@ -300,11 +332,16 @@ impl From<Pane> for data::Pane {
     fn from(pane: Pane) -> Self {
         let buffer = match pane.buffer {
             Buffer::Empty => return data::Pane::Empty,
-            Buffer::Channel(state) => data::Buffer::Channel(state.server, state.channel),
-            Buffer::Server(state) => data::Buffer::Server(state.server),
-            Buffer::Query(state) => data::Buffer::Query(state.server, state.nick),
-            Buffer::FileTransfers(_) => return data::Pane::FileTransfers,
-            Buffer::Logs(_) => return data::Pane::Logs,
+            Buffer::Channel(state) => {
+                data::Buffer::Upstream(buffer::Upstream::Channel(state.server, state.channel))
+            }
+            Buffer::Server(state) => data::Buffer::Upstream(buffer::Upstream::Server(state.server)),
+            Buffer::Query(state) => {
+                data::Buffer::Upstream(buffer::Upstream::Query(state.server, state.nick))
+            }
+            Buffer::FileTransfers(_) => data::Buffer::Internal(buffer::Internal::FileTransfers),
+            Buffer::Logs(_) => data::Buffer::Internal(buffer::Internal::Logs),
+            Buffer::Highlights(_) => data::Buffer::Internal(buffer::Internal::Highlights),
         };
 
         data::Pane::Buffer {

@@ -645,9 +645,24 @@ impl Halloy {
                                         ) {
                                             commands.push(
                                                 dashboard
-                                                    .record_message(&server, message)
+                                                    .record_message(&server, message.clone())
                                                     .map(Message::Dashboard),
                                             );
+
+                                            if matches!(
+                                                notification,
+                                                data::client::Notification::Highlight { .. }
+                                            ) {
+                                                commands.extend(
+                                                    message.into_highlight(server.clone()).map(
+                                                        |message| {
+                                                            dashboard
+                                                                .record_highlight(message)
+                                                                .map(Message::Dashboard)
+                                                        },
+                                                    ),
+                                                );
+                                            }
                                         }
 
                                         match notification {
@@ -655,8 +670,8 @@ impl Halloy {
                                                 // only send notification if query has unread
                                                 // or if window is not focused
                                                 if dashboard.history().has_unread(
-                                                    &server,
                                                     &history::Kind::Query(
+                                                        server.clone(),
                                                         user.nickname().to_owned(),
                                                     ),
                                                 ) || !self.main_window.focused
@@ -667,15 +682,18 @@ impl Halloy {
                                                     );
                                                 }
                                             }
-                                            data::client::Notification::Highlight(
+                                            data::client::Notification::Highlight {
+                                                enabled,
                                                 user,
                                                 channel,
-                                            ) => {
-                                                notification::highlight(
-                                                    &self.config.notifications,
-                                                    user.nickname(),
-                                                    channel,
-                                                );
+                                            } => {
+                                                if enabled {
+                                                    notification::highlight(
+                                                        &self.config.notifications,
+                                                        user.nickname(),
+                                                        channel,
+                                                    );
+                                                }
                                             }
                                             data::client::Notification::MonitoredOnline(
                                                 targets,
@@ -714,8 +732,10 @@ impl Halloy {
                                         commands.push(
                                             dashboard
                                                 .update_read_marker(
-                                                    server.clone(),
-                                                    target,
+                                                    history::Kind::from_target(
+                                                        server.clone(),
+                                                        target,
+                                                    ),
                                                     read_marker,
                                                 )
                                                 .map(Message::Dashboard),

@@ -28,7 +28,7 @@ fn path() -> Result<PathBuf, Error> {
     Ok(parent.join("halloy.log"))
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Record {
     pub timestamp: DateTime<Utc>,
     pub level: Level,

@@ -16,7 +16,6 @@ where
     Message: 'a,
 {
     decorate(base)
-        .state::<shortcut::Modifiers>()
         .on_event(
             move |modifiers: &mut shortcut::Modifiers,
                   inner: &mut Element<'a, Message>,

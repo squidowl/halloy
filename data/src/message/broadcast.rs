@@ -5,7 +5,7 @@ use super::{parse_fragments, plain, source, Content, Direction, Message, Source,
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::{Config, User};
+use crate::{message, Config, User};
 
 enum Cause {
     Server(Option<source::Server>),
@@ -21,13 +21,17 @@ fn expand(
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let message = |target, content| -> Message {
+        let received_at = Posix::now();
+        let hash = message::Hash::new(&received_at, &content);
+
         Message {
-            received_at: Posix::now(),
+            received_at,
             server_time: sent_time,
             direction: Direction::Received,
             target,
             content,
             id: None,
+            hash,
         }
     };
 
