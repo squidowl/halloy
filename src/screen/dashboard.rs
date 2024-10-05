@@ -167,106 +167,97 @@ impl Dashboard {
                                 buffer::Event::UserContext(event) => {
                                     match event {
                                         buffer::user_context::Event::ToggleAccessLevel(
+                                            server,
+                                            channel,
                                             nick,
                                             mode,
                                         ) => {
-                                            let Some(buffer) = pane.buffer.data() else {
-                                                return (task, None);
-                                            };
-
-                                            let Some(target) = buffer.target() else {
-                                                return (task, None);
-                                            };
+                                            let buffer = buffer::Upstream::Channel(
+                                                server.clone(),
+                                                channel.clone(),
+                                            );
 
                                             let command = data::Command::Mode(
-                                                target,
+                                                channel,
                                                 Some(mode),
                                                 Some(vec![nick.to_string()]),
                                             );
+                                            let input = data::Input::command(buffer, command);
+
+                                            if let Some(encoded) = input.encoded() {
+                                                clients.send(&input.buffer, encoded);
+                                            }
+                                        }
+                                        buffer::user_context::Event::SendWhois(server, nick) => {
+                                            let buffer =
+                                                pane.buffer.upstream().cloned().unwrap_or_else(
+                                                    || buffer::Upstream::Server(server.clone()),
+                                                );
+
+                                            let command =
+                                                data::Command::Whois(None, nick.to_string());
+
                                             let input =
                                                 data::Input::command(buffer.clone(), command);
 
                                             if let Some(encoded) = input.encoded() {
-                                                clients.send(input.buffer(), encoded);
+                                                clients.send(&input.buffer, encoded);
                                             }
-                                        }
-                                        buffer::user_context::Event::SendWhois(nick) => {
-                                            if let Some(buffer) = pane.buffer.data() {
-                                                let command =
-                                                    data::Command::Whois(None, nick.to_string());
 
-                                                let input =
-                                                    data::Input::command(buffer.clone(), command);
+                                            if let Some(nick) = clients.nickname(buffer.server()) {
+                                                let mut user = nick.to_owned().into();
+                                                let mut channel_users = &[][..];
 
-                                                if let Some(encoded) = input.encoded() {
-                                                    clients.send(input.buffer(), encoded);
-                                                }
-
-                                                if let Some(nick) =
-                                                    clients.nickname(buffer.server())
+                                                // Resolve our attributes if sending this message in a channel
+                                                if let buffer::Upstream::Channel(server, channel) =
+                                                    &buffer
                                                 {
-                                                    let mut user = nick.to_owned().into();
-                                                    let mut channel_users = &[][..];
+                                                    channel_users =
+                                                        clients.get_channel_users(server, channel);
 
-                                                    // Resolve our attributes if sending this message in a channel
-                                                    if let data::Buffer::Channel(server, channel) =
-                                                        &buffer
+                                                    if let Some(user_with_attributes) = clients
+                                                        .resolve_user_attributes(
+                                                            server, channel, &user,
+                                                        )
                                                     {
-                                                        channel_users = clients
-                                                            .get_channel_users(server, channel);
+                                                        user = user_with_attributes.clone();
+                                                    }
+                                                }
 
-                                                        if let Some(user_with_attributes) = clients
-                                                            .resolve_user_attributes(
-                                                                server, channel, &user,
-                                                            )
+                                                if let Some(messages) =
+                                                    input.messages(user, channel_users)
+                                                {
+                                                    let mut tasks = vec![task];
+
+                                                    for message in messages {
+                                                        if let Some(task) = self
+                                                            .history
+                                                            .record_message(input.server(), message)
                                                         {
-                                                            user = user_with_attributes.clone();
+                                                            tasks.push(Task::perform(
+                                                                task,
+                                                                Message::History,
+                                                            ));
                                                         }
                                                     }
 
-                                                    if let Some(messages) =
-                                                        input.messages(user, channel_users)
-                                                    {
-                                                        let mut tasks = vec![task];
-
-                                                        for message in messages {
-                                                            if let Some(task) =
-                                                                self.history.record_message(
-                                                                    input.server(),
-                                                                    message,
-                                                                )
-                                                            {
-                                                                tasks.push(Task::perform(
-                                                                    task,
-                                                                    Message::History,
-                                                                ));
-                                                            }
-                                                        }
-
-                                                        return (Task::batch(tasks), None);
-                                                    }
+                                                    return (Task::batch(tasks), None);
                                                 }
                                             }
                                         }
-                                        buffer::user_context::Event::OpenQuery(nick) => {
-                                            if let Some(data) = pane.buffer.data() {
-                                                let buffer = data::Buffer::Query(
-                                                    data.server().clone(),
-                                                    nick,
-                                                );
-                                                return (
-                                                    Task::batch(vec![
-                                                        task,
-                                                        self.open_buffer(
-                                                            main_window,
-                                                            config.buffer.clone().into(),
-                                                            |b| b.data() == Some(&buffer),
-                                                            || Buffer::from(buffer.clone()),
-                                                        ),
-                                                    ]),
-                                                    None,
-                                                );
-                                            }
+                                        buffer::user_context::Event::OpenQuery(server, nick) => {
+                                            let buffer = buffer::Upstream::Query(server, nick);
+                                            return (
+                                                Task::batch(vec![
+                                                    task,
+                                                    self.open_buffer(
+                                                        main_window,
+                                                        data::Buffer::Upstream(buffer),
+                                                        config.buffer.clone().into(),
+                                                    ),
+                                                ]),
+                                                None,
+                                            );
                                         }
                                         buffer::user_context::Event::SingleClick(nick) => {
                                             let Some((_, pane, history)) =
@@ -290,45 +281,43 @@ impl Dashboard {
                                                 None,
                                             );
                                         }
-                                        buffer::user_context::Event::SendFile(nick) => {
-                                            if let Some(buffer) = pane.buffer.data() {
-                                                let server = buffer.server().clone();
-                                                let starting_directory =
-                                                    config.file_transfer.save_directory.clone();
+                                        buffer::user_context::Event::SendFile(server, nick) => {
+                                            let starting_directory =
+                                                config.file_transfer.save_directory.clone();
 
-                                                return (
-                                                    Task::batch(vec![
-                                                        task,
-                                                        Task::perform(
-                                                            async move {
-                                                                rfd::AsyncFileDialog::new()
-                                                                    .set_directory(
-                                                                        starting_directory,
-                                                                    )
-                                                                    .pick_file()
-                                                                    .await
-                                                                    .map(|handle| {
-                                                                        handle.path().to_path_buf()
-                                                                    })
-                                                            },
-                                                            move |file| {
-                                                                Message::SendFileSelected(
-                                                                    server.clone(),
-                                                                    nick.clone(),
-                                                                    file,
-                                                                )
-                                                            },
-                                                        ),
-                                                    ]),
-                                                    None,
-                                                );
-                                            }
+                                            return (
+                                                Task::batch(vec![
+                                                    task,
+                                                    Task::perform(
+                                                        async move {
+                                                            rfd::AsyncFileDialog::new()
+                                                                .set_directory(starting_directory)
+                                                                .pick_file()
+                                                                .await
+                                                                .map(|handle| {
+                                                                    handle.path().to_path_buf()
+                                                                })
+                                                        },
+                                                        move |file| {
+                                                            Message::SendFileSelected(
+                                                                server.clone(),
+                                                                nick.clone(),
+                                                                file,
+                                                            )
+                                                        },
+                                                    ),
+                                                ]),
+                                                None,
+                                            );
                                         }
                                     }
                                 }
                                 buffer::Event::OpenChannel(channel) => {
-                                    if let Some(server) =
-                                        pane.buffer.data().map(data::Buffer::server).cloned()
+                                    if let Some(server) = pane
+                                        .buffer
+                                        .upstream()
+                                        .map(buffer::Upstream::server)
+                                        .cloned()
                                     {
                                         return (
                                             Task::batch(vec![
@@ -352,7 +341,9 @@ impl Dashboard {
                                     )
                                 }
                                 buffer::Event::GoToMessage(server, channel, message) => {
-                                    let buffer = data::Buffer::Channel(server, channel);
+                                    let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
+                                        server, channel,
+                                    ));
 
                                     let mut tasks = vec![];
 
@@ -363,9 +354,8 @@ impl Dashboard {
                                     {
                                         tasks.push(self.open_buffer(
                                             main_window,
+                                            buffer.clone(),
                                             config.buffer.clone().into(),
-                                            |b| b.data() == Some(&buffer),
-                                            || Buffer::from(buffer.clone()),
                                         ));
                                     }
 
@@ -450,28 +440,27 @@ impl Dashboard {
                 };
 
                 let (event_task, event) = match event {
-                    sidebar::Event::Open(kind) => (
+                    sidebar::Event::Open(buffer) => (
                         self.open_buffer(
                             main_window,
+                            data::Buffer::Upstream(buffer),
                             config.buffer.clone().into(),
-                            |b| b.data() == Some(&kind),
-                            || Buffer::from(kind.clone()),
                         ),
                         None,
                     ),
                     sidebar::Event::Popout(buffer) => (
                         self.open_popout_window(
                             main_window,
-                            Pane::new(Buffer::from(buffer), config),
+                            Pane::new(Buffer::from(data::Buffer::Upstream(buffer)), config),
                         ),
                         None,
                     ),
                     sidebar::Event::Focus(window, pane) => {
                         (self.focus_pane(main_window, window, pane), None)
                     }
-                    sidebar::Event::Replace(window, kind, pane) => {
+                    sidebar::Event::Replace(window, buffer, pane) => {
                         if let Some(state) = self.panes.get_mut(main_window.id, window, pane) {
-                            state.buffer = Buffer::from(kind);
+                            state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
                             self.last_changed = Some(Instant::now());
                             self.focus = None;
                             (
@@ -522,13 +511,10 @@ impl Dashboard {
                     sidebar::Event::Leave(buffer) => {
                         self.leave_buffer(main_window, clients, buffer)
                     }
-                    sidebar::Event::ToggleFileTransfers => {
-                        (self.toggle_file_transfers(config, main_window), None)
-                    }
-                    sidebar::Event::ToggleLogs => (self.toggle_logs(config, main_window), None),
-                    sidebar::Event::ToggleHighlights => {
-                        (self.toggle_highlights(config, main_window), None)
-                    }
+                    sidebar::Event::ToggleInternalBuffer(buffer) => (
+                        self.toggle_internal_buffer(config, main_window, buffer),
+                        None,
+                    ),
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
                             &closed_buffers(self, main_window.id, clients),
@@ -584,14 +570,11 @@ impl Dashboard {
             Message::History(message) => {
                 if let Some(event) = self.history.update(message) {
                     match event {
-                        history::manager::Event::Loaded(server, kind) => {
+                        history::manager::Event::Loaded(kind) => {
+                            let buffer = kind.into();
+
                             if let Some((window, pane, state)) =
-                                self.panes.iter_mut(main_window.id).find(|(_, _, state)| {
-                                    state.buffer.server() == Some(&server)
-                                        && state.buffer.data().map_or(true, |data| {
-                                            data.target().as_deref() == kind.target()
-                                        })
-                                })
+                                self.panes.get_mut_by_buffer(main_window.id, &buffer)
                             {
                                 return (
                                     state.buffer.scroll_to_backlog(&self.history, config).map(
@@ -606,16 +589,19 @@ impl Dashboard {
                                 );
                             }
                         }
-                        history::manager::Event::Closed(server, kind, read_marker) => {
-                            if let Some((target, read_marker)) = kind.target().zip(read_marker) {
-                                clients.send_markread(&server, target, read_marker);
+                        history::manager::Event::Closed(kind, read_marker) => {
+                            if let Some(((server, target), read_marker)) =
+                                kind.server().zip(kind.target()).zip(read_marker)
+                            {
+                                clients.send_markread(server, target, read_marker);
                             }
                         }
                         history::manager::Event::Exited(results) => {
-                            for (server, kind, read_marker) in results {
-                                if let Some((target, read_marker)) = kind.target().zip(read_marker)
+                            for (kind, read_marker) in results {
+                                if let Some(((server, target), read_marker)) =
+                                    kind.server().zip(kind.target()).zip(read_marker)
                                 {
-                                    clients.send_markread(&server, target, read_marker);
+                                    clients.send_markread(server, target, read_marker);
                                 }
                             }
 
@@ -671,7 +657,8 @@ impl Dashboard {
                                         if let Some(state) =
                                             self.panes.get_mut(main_window.id, window, pane)
                                         {
-                                            state.buffer = Buffer::from(buffer);
+                                            state.buffer =
+                                                Buffer::from(data::Buffer::Upstream(buffer));
                                             self.last_changed = Some(Instant::now());
 
                                             commands.extend(vec![
@@ -689,12 +676,10 @@ impl Dashboard {
                                 command_bar::Buffer::Merge => {
                                     (self.merge_pane(config, main_window), None)
                                 }
-                                command_bar::Buffer::ToggleFileTransfers => {
-                                    (self.toggle_file_transfers(config, main_window), None)
-                                }
-                                command_bar::Buffer::ToggleLogs => {
-                                    (self.toggle_logs(config, main_window), None)
-                                }
+                                command_bar::Buffer::ToggleInternal(buffer) => (
+                                    self.toggle_internal_buffer(config, main_window, buffer),
+                                    None,
+                                ),
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::OpenDirectory => {
@@ -807,10 +792,12 @@ impl Dashboard {
                         let open_buffers = open_buffers(self, main_window.id);
 
                         if let Some((window, pane, state)) = self.get_focused_mut(main_window) {
-                            if let Some(buffer) =
-                                cycle_next_buffer(state.buffer.data(), all_buffers, &open_buffers)
-                            {
-                                state.buffer = Buffer::from(buffer);
+                            if let Some(buffer) = cycle_next_buffer(
+                                state.buffer.upstream(),
+                                all_buffers,
+                                &open_buffers,
+                            ) {
+                                state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
                                 self.focus = None;
                                 return (self.focus_pane(main_window, window, pane), None);
                             }
@@ -822,11 +809,11 @@ impl Dashboard {
 
                         if let Some((window, pane, state)) = self.get_focused_mut(main_window) {
                             if let Some(buffer) = cycle_previous_buffer(
-                                state.buffer.data(),
+                                state.buffer.upstream(),
                                 all_buffers,
                                 &open_buffers,
                             ) {
-                                state.buffer = Buffer::from(buffer);
+                                state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
                                 self.focus = None;
                                 return (self.focus_pane(main_window, window, pane), None);
                             }
@@ -834,7 +821,7 @@ impl Dashboard {
                     }
                     LeaveBuffer => {
                         if let Some((_, _, state)) = self.get_focused_mut(main_window) {
-                            if let Some(buffer) = state.buffer.data().cloned() {
+                            if let Some(buffer) = state.buffer.upstream().cloned() {
                                 return self.leave_buffer(main_window, clients, buffer);
                             }
                         }
@@ -873,10 +860,24 @@ impl Dashboard {
                         return (Task::perform(Config::load(), Message::ConfigReloaded), None);
                     }
                     FileTransfers => {
-                        return (self.toggle_file_transfers(config, main_window), None);
+                        return (
+                            self.toggle_internal_buffer(
+                                config,
+                                main_window,
+                                buffer::Internal::FileTransfers,
+                            ),
+                            None,
+                        );
                     }
                     Logs => {
-                        return (self.toggle_logs(config, main_window), None);
+                        return (
+                            self.toggle_internal_buffer(
+                                config,
+                                main_window,
+                                buffer::Internal::Logs,
+                            ),
+                            None,
+                        );
                     }
                     ThemeEditor => {
                         return (self.toggle_theme_editor(theme, main_window), None);
@@ -1157,15 +1158,6 @@ impl Dashboard {
         }
     }
 
-    fn toggle_file_transfers(&mut self, config: &Config, main_window: &Window) -> Task<Message> {
-        self.toggle_buffer(
-            config,
-            main_window,
-            |buffer| matches!(buffer, Buffer::FileTransfers(_)),
-            || Buffer::FileTransfers(buffer::FileTransfers::new()),
-        )
-    }
-
     fn toggle_theme_editor(&mut self, theme: &mut Theme, main_window: &Window) -> Task<Message> {
         if let Some(editor) = self.theme_editor.take() {
             *theme = theme.selected();
@@ -1179,50 +1171,34 @@ impl Dashboard {
         }
     }
 
-    fn toggle_logs(&mut self, config: &Config, main_window: &Window) -> Task<Message> {
-        self.toggle_buffer(
-            config,
-            main_window,
-            |buffer| matches!(buffer, Buffer::Logs(_)),
-            || Buffer::Logs(buffer::Logs::new()),
-        )
-    }
-
-    fn toggle_highlights(&mut self, config: &Config, main_window: &Window) -> Task<Message> {
-        self.toggle_buffer(
-            config,
-            main_window,
-            |buffer| matches!(buffer, Buffer::Highlights(_)),
-            || Buffer::Highlights(buffer::Highlights::new()),
-        )
-    }
-
-    fn toggle_buffer(
+    fn toggle_internal_buffer(
         &mut self,
         config: &Config,
         main_window: &Window,
-        matches: impl Fn(&Buffer) -> bool,
-        new: impl Fn() -> Buffer,
+        buffer: buffer::Internal,
     ) -> Task<Message> {
         let panes = self.panes.clone();
 
         let open = panes
             .iter(main_window.id)
             .find_map(|(window_id, pane, state)| {
-                (matches)(&state.buffer).then_some((window_id, pane))
+                (state.buffer.internal().as_ref() == Some(&buffer)).then_some((window_id, pane))
             });
 
         if let Some((window, pane)) = open {
             self.close_pane(main_window, window, pane)
         } else {
             match config.sidebar.buffer_action {
-                // Don't replace for file transfer / logs / highlights
-                BufferAction::NewPane | BufferAction::ReplacePane => {
-                    self.open_buffer(main_window, config.buffer.clone().into(), matches, new)
-                }
-                BufferAction::NewWindow => {
-                    self.open_popout_window(main_window, Pane::new(new(), config))
-                }
+                // Don't replace for internal buffers
+                BufferAction::NewPane | BufferAction::ReplacePane => self.open_buffer(
+                    main_window,
+                    data::Buffer::Internal(buffer),
+                    config.buffer.clone().into(),
+                ),
+                BufferAction::NewWindow => self.open_popout_window(
+                    main_window,
+                    Pane::new(Buffer::from(data::Buffer::Internal(buffer)), config),
+                ),
             }
         }
     }
@@ -1230,15 +1206,14 @@ impl Dashboard {
     fn open_buffer(
         &mut self,
         main_window: &Window,
+        buffer: data::Buffer,
         settings: buffer::Settings,
-        matches: impl Fn(&Buffer) -> bool,
-        new: impl Fn() -> Buffer,
     ) -> Task<Message> {
         let panes = self.panes.clone();
 
-        // If channel already is open, we focus it.
+        // If buffer already is open, we focus it.
         for (window, id, pane) in panes.iter(main_window.id) {
-            if matches(&pane.buffer) {
+            if pane.buffer.data().as_ref() == Some(&buffer) {
                 self.focus = Some((window, id));
 
                 return self.focus_pane(main_window, window, id);
@@ -1253,7 +1228,7 @@ impl Dashboard {
                         .main
                         .panes
                         .entry(*id)
-                        .and_modify(|p| *p = Pane::with_settings(new(), settings));
+                        .and_modify(|p| *p = Pane::with_settings(Buffer::from(buffer), settings));
                     self.last_changed = Some(Instant::now());
 
                     return self.focus_pane(main_window, main_window.id, *id);
@@ -1274,10 +1249,11 @@ impl Dashboard {
             }
         };
 
-        let result =
-            self.panes
-                .main
-                .split(axis, pane_to_split, Pane::with_settings(new(), settings));
+        let result = self.panes.main.split(
+            axis,
+            pane_to_split,
+            Pane::with_settings(Buffer::from(buffer), settings),
+        );
         self.last_changed = Some(Instant::now());
 
         if let Some((pane, _)) = result {
@@ -1291,13 +1267,13 @@ impl Dashboard {
         &mut self,
         main_window: &Window,
         clients: &mut data::client::Map,
-        buffer: data::Buffer,
+        buffer: buffer::Upstream,
     ) -> (Task<Message>, Option<Event>) {
         let open = self
             .panes
             .iter(main_window.id)
             .find_map(|(window, pane, state)| {
-                (state.buffer.data() == Some(&buffer)).then_some((window, pane))
+                (state.buffer.upstream() == Some(&buffer)).then_some((window, pane))
             });
 
         let mut tasks = vec![];
@@ -1314,8 +1290,10 @@ impl Dashboard {
         }
 
         match buffer.clone() {
-            data::Buffer::Server(server) => (Task::batch(tasks), Some(Event::QuitServer(server))),
-            data::Buffer::Channel(server, channel) => {
+            buffer::Upstream::Server(server) => {
+                (Task::batch(tasks), Some(Event::QuitServer(server)))
+            }
+            buffer::Upstream::Channel(server, channel) => {
                 // Send part & close history file
                 let command = data::Command::Part(channel.clone(), None);
                 let input = data::Input::command(buffer.clone(), command);
@@ -1326,17 +1304,17 @@ impl Dashboard {
 
                 tasks.push(
                     self.history
-                        .close(server, history::Kind::Channel(channel))
+                        .close(history::Kind::Channel(server, channel))
                         .map(|task| Task::perform(task, Message::History))
                         .unwrap_or_else(Task::none),
                 );
 
                 (Task::batch(tasks), None)
             }
-            data::Buffer::Query(server, nick) => {
+            buffer::Upstream::Query(server, nick) => {
                 tasks.push(
                     self.history
-                        .close(server, history::Kind::Query(nick))
+                        .close(history::Kind::Query(server, nick))
                         .map(|task| Task::perform(task, Message::History))
                         .unwrap_or_else(Task::none),
                 );
@@ -1388,11 +1366,10 @@ impl Dashboard {
 
     pub fn update_read_marker(
         &mut self,
-        server: Server,
         kind: impl Into<history::Kind> + 'static,
         read_marker: ReadMarker,
     ) -> Task<Message> {
-        if let Some(task) = self.history.update_read_marker(server, kind, read_marker) {
+        if let Some(task) = self.history.update_read_marker(kind, read_marker) {
             Task::perform(task, Message::History)
         } else {
             Task::none()
@@ -1574,19 +1551,8 @@ impl Dashboard {
                 .remove(&window)
                 .and_then(|panes| panes.get(pane).cloned())
             {
-                let task = match pane.buffer.data().cloned() {
-                    Some(buffer) => self.open_buffer(
-                        main_window,
-                        pane.settings,
-                        |b| b.data() == Some(&buffer),
-                        || Buffer::from(buffer.clone()),
-                    ),
-                    None if matches!(pane.buffer, Buffer::FileTransfers(_)) => {
-                        self.toggle_file_transfers(config, main_window)
-                    }
-                    None if matches!(pane.buffer, Buffer::Logs(_)) => {
-                        self.toggle_logs(config, main_window)
-                    }
+                let task = match pane.buffer.data() {
+                    Some(buffer) => self.open_buffer(main_window, buffer, pane.settings),
                     None => self.new_pane(pane_grid::Axis::Horizontal, config, main_window),
                 };
 
@@ -1636,7 +1602,7 @@ impl Dashboard {
 
     pub fn toggle_command_bar(
         &mut self,
-        buffers: &[data::Buffer],
+        buffers: &[buffer::Upstream],
         version: &Version,
         config: &Config,
         theme: &mut Theme,
@@ -1660,7 +1626,7 @@ impl Dashboard {
 
     fn open_command_bar(
         &mut self,
-        buffers: &[data::Buffer],
+        buffers: &[buffer::Upstream],
         version: &Version,
         config: &Config,
         main_window: &Window,
@@ -1762,18 +1728,6 @@ impl Dashboard {
                 }
                 data::Pane::Empty => Configuration::Pane(Pane::with_settings(
                     Buffer::empty(),
-                    buffer::Settings::default(),
-                )),
-                data::Pane::FileTransfers => Configuration::Pane(Pane::with_settings(
-                    Buffer::FileTransfers(buffer::FileTransfers::new()),
-                    buffer::Settings::default(),
-                )),
-                data::Pane::Logs => Configuration::Pane(Pane::with_settings(
-                    Buffer::Logs(buffer::Logs::new()),
-                    buffer::Settings::default(),
-                )),
-                data::Pane::Highlights => Configuration::Pane(Pane::with_settings(
-                    Buffer::Highlights(buffer::Highlights::new()),
                     buffer::Settings::default(),
                 )),
             }
@@ -1926,7 +1880,7 @@ impl Dashboard {
         main_window: &Window,
         config: &Config,
     ) -> Task<Message> {
-        let buffer = data::Buffer::Channel(server.clone(), channel.clone());
+        let buffer = buffer::Upstream::Channel(server.clone(), channel.clone());
 
         // Need to join channel
         if !clients
@@ -1942,7 +1896,7 @@ impl Dashboard {
             .panes
             .iter(main_window.id)
             .find_map(|(window, pane, state)| {
-                (state.buffer.data() == Some(&buffer)).then_some((window, pane))
+                (state.buffer.upstream() == Some(&buffer)).then_some((window, pane))
             });
 
         if let Some((window, pane)) = matching_pane {
@@ -1950,9 +1904,8 @@ impl Dashboard {
         } else {
             self.open_buffer(
                 main_window,
+                data::Buffer::Upstream(buffer),
                 config.buffer.clone().into(),
-                |b| b.data() == Some(&buffer),
-                || Buffer::from(buffer.clone()),
             )
         }
     }
@@ -2042,7 +1995,7 @@ impl Panes {
         buffer: &data::Buffer,
     ) -> Option<(window::Id, pane_grid::Pane, &mut Pane)> {
         self.iter_mut(main_window)
-            .find(|(_, _, state)| state.buffer.data().is_some_and(|b| b == buffer))
+            .find(|(_, _, state)| state.buffer.data().is_some_and(|b| b == *buffer))
     }
 
     fn iter(
@@ -2080,32 +2033,32 @@ impl Panes {
     }
 }
 
-fn all_buffers(clients: &client::Map, history: &history::Manager) -> Vec<data::Buffer> {
+fn all_buffers(clients: &client::Map, history: &history::Manager) -> Vec<buffer::Upstream> {
     clients
         .connected_servers()
         .flat_map(|server| {
-            std::iter::once(data::Buffer::Server(server.clone()))
+            std::iter::once(buffer::Upstream::Server(server.clone()))
                 .chain(
                     clients
                         .get_channels(server)
                         .iter()
-                        .map(|channel| data::Buffer::Channel(server.clone(), channel.clone())),
+                        .map(|channel| buffer::Upstream::Channel(server.clone(), channel.clone())),
                 )
                 .chain(
                     history
                         .get_unique_queries(server)
                         .into_iter()
-                        .map(|nick| data::Buffer::Query(server.clone(), nick.clone())),
+                        .map(|nick| buffer::Upstream::Query(server.clone(), nick.clone())),
                 )
         })
         .collect()
 }
 
-fn open_buffers(dashboard: &Dashboard, main_window: window::Id) -> Vec<data::Buffer> {
+fn open_buffers(dashboard: &Dashboard, main_window: window::Id) -> Vec<buffer::Upstream> {
     dashboard
         .panes
         .iter(main_window)
-        .filter_map(|(_, _, pane)| pane.buffer.data())
+        .filter_map(|(_, _, pane)| pane.buffer.upstream())
         .cloned()
         .collect()
 }
@@ -2114,7 +2067,7 @@ fn closed_buffers(
     dashboard: &Dashboard,
     main_window: window::Id,
     clients: &client::Map,
-) -> Vec<data::Buffer> {
+) -> Vec<buffer::Upstream> {
     let open_buffers = open_buffers(dashboard, main_window);
 
     all_buffers(clients, &dashboard.history)
@@ -2124,10 +2077,10 @@ fn closed_buffers(
 }
 
 fn cycle_next_buffer(
-    current: Option<&data::Buffer>,
-    mut all: Vec<data::Buffer>,
-    opened: &[data::Buffer],
-) -> Option<data::Buffer> {
+    current: Option<&buffer::Upstream>,
+    mut all: Vec<buffer::Upstream>,
+    opened: &[buffer::Upstream],
+) -> Option<buffer::Upstream> {
     all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
 
     let next = || {
@@ -2140,10 +2093,10 @@ fn cycle_next_buffer(
 }
 
 fn cycle_previous_buffer(
-    current: Option<&data::Buffer>,
-    mut all: Vec<data::Buffer>,
-    opened: &[data::Buffer],
-) -> Option<data::Buffer> {
+    current: Option<&buffer::Upstream>,
+    mut all: Vec<buffer::Upstream>,
+    opened: &[buffer::Upstream],
+) -> Option<buffer::Upstream> {
     all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
 
     let previous = || {

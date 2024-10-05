@@ -670,8 +670,8 @@ impl Halloy {
                                                 // only send notification if query has unread
                                                 // or if window is not focused
                                                 if dashboard.history().has_unread(
-                                                    &server,
                                                     &history::Kind::Query(
+                                                        server.clone(),
                                                         user.nickname().to_owned(),
                                                     ),
                                                 ) || !self.main_window.focused
@@ -732,8 +732,10 @@ impl Halloy {
                                         commands.push(
                                             dashboard
                                                 .update_read_marker(
-                                                    server.clone(),
-                                                    target,
+                                                    history::Kind::from_target(
+                                                        server.clone(),
+                                                        target,
+                                                    ),
                                                     read_marker,
                                                 )
                                                 .map(Message::Dashboard),

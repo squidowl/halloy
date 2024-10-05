@@ -1,5 +1,5 @@
 use data::message::{self, Limit};
-use data::server::{self, Server};
+use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
 use iced::widget::{column, container, horizontal_rule, row, scrollable, text, Scrollable};
@@ -40,24 +40,14 @@ pub enum Kind<'a> {
     Highlights,
 }
 
-impl Kind<'_> {
-    fn server(&self) -> &Server {
-        match self {
-            Kind::Server(server) => server,
-            Kind::Channel(server, _) => server,
-            Kind::Query(server, _) => server,
-            Kind::Logs => &server::LOGS,
-            Kind::Highlights => &server::HIGHLIGHTS,
-        }
-    }
-}
-
 impl From<Kind<'_>> for history::Kind {
     fn from(value: Kind<'_>) -> Self {
         match value {
-            Kind::Server(_) => history::Kind::Server,
-            Kind::Channel(_, channel) => history::Kind::Channel(channel.to_string()),
-            Kind::Query(_, nick) => history::Kind::Query(nick.clone()),
+            Kind::Server(server) => history::Kind::Server(server.clone()),
+            Kind::Channel(server, channel) => {
+                history::Kind::Channel(server.clone(), channel.to_string())
+            }
+            Kind::Query(server, nick) => history::Kind::Query(server.clone(), nick.clone()),
             Kind::Logs => history::Kind::Logs,
             Kind::Highlights => history::Kind::Highlights,
         }
@@ -77,12 +67,7 @@ pub fn view<'a>(
         new_messages,
         max_nick_chars,
         max_prefix_chars,
-    }) = history.get_messages(
-        kind.server(),
-        &kind.into(),
-        Some(state.limit),
-        &config.buffer,
-    )
+    }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
     else {
         return column![].into();
     };
@@ -366,7 +351,7 @@ impl State {
             old_messages,
             new_messages,
             ..
-        }) = history.get_messages(kind.server(), &kind.into(), None, &config.buffer)
+        }) = history.get_messages(&kind.into(), None, &config.buffer)
         else {
             // We're still loading history, which will trigger
             // scroll_to_backlog after loading. If this is set,
@@ -408,7 +393,7 @@ impl State {
             total,
             old_messages,
             ..
-        }) = history.get_messages(kind.server(), &kind.into(), None, &config.buffer)
+        }) = history.get_messages(&kind.into(), None, &config.buffer)
         else {
             return Task::none();
         };

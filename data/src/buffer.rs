@@ -6,34 +6,64 @@ use crate::user::Nick;
 use crate::{channel, config, message, Server};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum Buffer {
+    Upstream(Upstream),
+    Internal(Internal),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Upstream {
     Server(Server),
     Channel(Server, String),
     Query(Server, Nick),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display)]
+pub enum Internal {
+    #[strum(serialize = "File Transfers")]
+    FileTransfers,
+    Logs,
+    Highlights,
+}
+
 impl Buffer {
+    pub fn upstream(&self) -> Option<&Upstream> {
+        if let Self::Upstream(upstream) = self {
+            Some(upstream)
+        } else {
+            None
+        }
+    }
+
+    pub fn internal(&self) -> Option<&Internal> {
+        if let Self::Internal(internal) = self {
+            Some(internal)
+        } else {
+            None
+        }
+    }
+}
+
+impl Upstream {
     pub fn server(&self) -> &Server {
         match self {
-            Buffer::Server(server) | Buffer::Channel(server, _) | Buffer::Query(server, _) => {
-                server
-            }
+            Self::Server(server) | Self::Channel(server, _) | Self::Query(server, _) => server,
         }
     }
 
     pub fn channel(&self) -> Option<&str> {
         match self {
-            Buffer::Server(_) => None,
-            Buffer::Channel(_, channel) => Some(channel),
-            Buffer::Query(_, _) => None,
+            Self::Channel(_, channel) => Some(channel),
+            Self::Server(_) | Self::Query(_, _) => None,
         }
     }
 
     pub fn target(&self) -> Option<String> {
         match self {
-            Buffer::Server(_) => None,
-            Buffer::Channel(_, channel) => Some(channel.clone()),
-            Buffer::Query(_, nick) => Some(nick.to_string()),
+            Self::Channel(_, channel) => Some(channel.clone()),
+            Self::Query(_, nick) => Some(nick.to_string()),
+            Self::Server(_) => None,
         }
     }
 
@@ -53,6 +83,10 @@ impl Buffer {
             },
         }
     }
+}
+
+impl Internal {
+    pub const ALL: &'static [Self] = &[Self::FileTransfers, Self::Logs, Self::Highlights];
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
