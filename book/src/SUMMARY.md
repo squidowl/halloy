@@ -51,7 +51,6 @@
       - [Plain](configuration/servers/sasl/plain.md)
       - [External](configuration/servers/sasl/external.md)
   - [Sidebar](configuration/sidebar/README.md)
-    - [Buttons](configuration/sidebar/buttons.md)
   - [Themes](configuration/themes/README.md)
     - [Community](configuration/themes/community.md)
   - [Tooltips](configuration/tooltips.md)

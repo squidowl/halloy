@@ -76,6 +76,19 @@ pub fn logs<'a>() -> Text<'a> {
     to_text('\u{E810}')
 }
 
+pub fn menu<'a>() -> Text<'a> {
+    to_text('\u{F0C9}')
+}
+
+pub fn documentation<'a>() -> Text<'a> {
+    to_text('\u{E812}')
+}
+
+// TODO: Highlight buffer.
+// pub fn highlight<'a>() -> Text<'a> {
+//     to_text('\u{E811}')
+// }
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .line_height(LineHeight::Relative(1.0))
