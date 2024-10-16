@@ -116,7 +116,7 @@ pub fn view<'a>(
                         let nick = user_context::view(text, user, current_user, buffer, our_user)
                             .map(scroll_view::Message::UserContext);
 
-                        let text = message_content::with_context(
+                        let message_content = message_content::with_context(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
@@ -136,29 +136,36 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(
-                            row![]
-                                .push(container(
-                                    row![]
-                                        .push_maybe(timestamp)
-                                        .push_maybe(prefix)
-                                        .push(nick)
-                                        .push(space),
-                                ))
-                                .push(container(text).style(move |theme| match our_nick {
-                                    Some(nick)
-                                        if message::references_user(
-                                            user.nickname(),
-                                            nick,
-                                            message,
-                                        ) =>
-                                    {
-                                        theme::container::highlight(theme)
-                                    }
-                                    _ => Default::default(),
-                                }))
-                                .into(),
-                        )
+                        let timestamp_nickname_row = row![]
+                            .push_maybe(timestamp)
+                            .push_maybe(prefix)
+                            .push(nick)
+                            .push(space);
+
+                        let text_container =
+                            container(message_content).style(move |theme| match our_nick {
+                                Some(nick)
+                                    if message::references_user(user.nickname(), nick, message) =>
+                                {
+                                    theme::container::highlight(theme)
+                                }
+                                _ => Default::default(),
+                            });
+
+                        match &config.buffer.nickname.alignment {
+                            data::buffer::Alignment::Left | data::buffer::Alignment::Right => Some(
+                                row![]
+                                    .push(timestamp_nickname_row)
+                                    .push(text_container)
+                                    .into(),
+                            ),
+                            data::buffer::Alignment::Top => Some(
+                                column![]
+                                    .push(timestamp_nickname_row)
+                                    .push(text_container)
+                                    .into(),
+                            ),
+                        }
                     }
                     message::Source::Server(server) => {
                         let message_style = move |message_theme: &Theme| {
