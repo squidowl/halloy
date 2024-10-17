@@ -9,7 +9,15 @@ pub use iced::widget::container::{Style, StyleFn};
 
 use super::double_pass;
 
+#[derive(Debug, Default, Clone, Copy)]
+pub enum MouseButton {
+    Left,
+    #[default]
+    Right,
+}
+
 pub fn context_menu<'a, T, Message, Theme, Renderer>(
+    activation_button: MouseButton,
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     entries: Vec<T>,
     entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
@@ -18,6 +26,10 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
         base: base.into(),
         entries,
         entry: Box::new(entry),
+        activation_button: match activation_button {
+            MouseButton::Left => iced::mouse::Button::Left,
+            MouseButton::Right => iced::mouse::Button::Right,
+        },
 
         menu: None,
     }
@@ -27,6 +39,7 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
     entries: Vec<T>,
     entry: Box<dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
+    activation_button: iced::mouse::Button,
 
     // Cached, recreated during `overlay` if menu is open
     menu: Option<Element<'a, Message, Theme, Renderer>>,
@@ -159,10 +172,26 @@ where
     ) -> event::Status {
         let state = tree.state.downcast_mut::<State>();
 
-        if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = &event {
-            if let Some(position) = cursor.position_over(layout.bounds()) {
-                state.status = Status::Open(position);
+        let position = match self.activation_button {
+            mouse::Button::Left => {
+                if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) = event {
+                    cursor.position_over(layout.bounds())
+                } else {
+                    None
+                }
             }
+            mouse::Button::Right => {
+                if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
+                    cursor.position_over(layout.bounds())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        if let Some(position) = position {
+            state.status = Status::Open(position);
         }
 
         self.base.as_widget_mut().on_event(
@@ -365,7 +394,12 @@ where
             .as_widget()
             .layout(&mut self.state.menu_tree, renderer, &limits);
 
-        let viewport = Rectangle::new(Point::ORIGIN, bounds);
+        // Small padding to ensure that we don't spawn context menu at the very edge of the viewport.
+        let padding = 5.0;
+        let viewport = Rectangle::new(
+            Point::new(Point::ORIGIN.x + padding, Point::ORIGIN.y + padding),
+            Size::new(bounds.width - 2.0 * padding, bounds.height - 2.0 * padding),
+        );
         let mut bounds = Rectangle::new(self.position, node.size());
 
         if bounds.x < viewport.x {

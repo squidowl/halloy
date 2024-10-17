@@ -2,10 +2,14 @@
 
 Added:
 
-- Dynamically select dark or light theme based on OS appearance. See [configuartion](https://halloy.squidowl.org/configuration/themes/index.html).
-- Toggle channel topic with hotkey (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>t</kbd> (macOS: <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd>))
 - Logging buffer to view logs. Can be opened via sidebar button or command bar.
+- New hotkeys
+  - Toggle channel topic (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>t</kbd> (macOS: <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd>))
+  - Toggle file_transfers buffer (<kbd>Ctrl</kbd> + <kbd>j</kbd> (macOS: <kbd>⌘</kbd> + <kbd>j</kbd>))
+  - Toggle logs buffer (<kbd>Ctrl</kbd> + <kbd>l</kbd> (macOS: <kbd>⌘</kbd> + <kbd>l</kbd>))
+  - Toggle theme editor window (<kbd>Ctrl</kbd> + <kbd>t</kbd> (macOS: <kbd>⌘</kbd> + <kbd>t</kbd>))
 - New configuration options
+  - Dynamically select dark or light theme based on OS appearance. See [configuartion](https://halloy.squidowl.org/configuration/themes/index.html).
   - Ability to define a shell command for loading a NICKSERV password. See [configuration](https://halloy.squidowl.org/configuration/servers/index.html#nick_password_command)
   - Ability to define a shell command for loading a SASL password. See [configuration](https://halloy.squidowl.org/configuration/servers/sasl/plain.html)
   - Show/hide sidebar button to view logs. See [configuration](https://halloy.squidowl.org/configuration/sidebar/buttons.html#logs)
@@ -16,6 +20,11 @@ Fixed:
 - Inverted scrolling direction.
 - Only highlight if user nick isn't part of another word.
 - Errors from password commands are now caught and displayed to the user.
+
+Removed:
+
+- Configuration options:
+  - `[sidebar.buttons]` in favor for the new User Menu
 
 # 2024.12 (2024-09-17)
 
