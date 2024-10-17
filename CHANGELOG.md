@@ -9,6 +9,7 @@ Added:
   - Ability to define a shell command for loading a NICKSERV password. See [configuration](https://halloy.squidowl.org/configuration/servers/index.html#nick_password_command)
   - Ability to define a shell command for loading a SASL password. See [configuration](https://halloy.squidowl.org/configuration/servers/sasl/plain.html)
   - Show/hide sidebar button to view logs. See [configuration](https://halloy.squidowl.org/configuration/sidebar/buttons.html#logs)
+  - Ability to align nicknames above messages. See [configuration](https://halloy.squidowl.org/configuration/buffer/nickname.html#alignment). 
 
 Fixed:
 
