@@ -93,16 +93,17 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(
-                            container(
-                                row![]
-                                    .push_maybe(timestamp)
-                                    .push(nick)
-                                    .push(space)
-                                    .push(message),
-                            )
-                            .into(),
-                        )
+                        let timestamp_nickname_row =
+                            row![].push_maybe(timestamp).push(nick).push(space);
+
+                        match &config.buffer.nickname.alignment {
+                            data::buffer::Alignment::Left | data::buffer::Alignment::Right => {
+                                Some(row![].push(timestamp_nickname_row).push(message).into())
+                            }
+                            data::buffer::Alignment::Top => {
+                                Some(column![].push(timestamp_nickname_row).push(message).into())
+                            }
+                        }
                     }
                     message::Source::Server(server) => {
                         let message_style = move |message_theme: &Theme| {

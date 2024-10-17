@@ -165,6 +165,7 @@ pub enum Alignment {
     #[default]
     Left,
     Right,
+    Top,
 }
 
 impl Alignment {

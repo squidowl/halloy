@@ -17,7 +17,7 @@ show_access_levels = true
 Horizontal alignment of nicknames.
 
 - **type**: string
-- **values**: `"left"`, `"right"`
+- **values**: `"left"`, `"right"`, `"top"`
 - **default**: `"left"`
 
 ## `brackets`
