@@ -2,8 +2,8 @@ use data::config::{self, sidebar, Config};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{file_transfer, history, Buffer, Version};
 use iced::widget::{
-    self, button, center, column, container, horizontal_space, pane_grid, row, scrollable, text,
-    vertical_rule, vertical_space, Column, Row, Scrollable,
+    button, column, container, horizontal_rule, horizontal_space, pane_grid, row, scrollable, text,
+    vertical_rule, vertical_space, Column, Row, Scrollable, Space,
 };
 use iced::{padding, Alignment, Length, Task};
 use std::time::Duration;
@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::time;
 
 use super::Panes;
-use crate::widget::{context_menu, tooltip, Element};
+use crate::widget::{context_menu, Element, Text};
 use crate::{icon, theme, window};
 
 const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
@@ -32,7 +32,9 @@ pub enum Message {
     ReloadingConfigFile,
     ConfigReloaded(Result<Config, config::Error>),
     OpenReleaseWebsite,
+    OpenDocumentation,
     ReloadComplete,
+    Noop,
 }
 
 #[derive(Debug, Clone)]
@@ -49,6 +51,7 @@ pub enum Event {
     ToggleCommandBar,
     ToggleThemeEditor,
     OpenReleaseWebsite,
+    OpenDocumentation,
     ConfigReloaded(Result<Config, config::Error>),
 }
 
@@ -109,140 +112,122 @@ impl Sidebar {
                 self.reloading_config = false;
                 (Task::none(), None)
             }
+            Message::Noop => (Task::none(), None),
+            Message::OpenDocumentation => (Task::none(), Some(Event::OpenDocumentation)),
         }
     }
 
-    fn menu_buttons<'a>(
+    fn user_menu_button<'a>(
         &self,
-        main_window: window::Id,
-        panes: &Panes,
-        config: data::config::Sidebar,
-        show_tooltips: bool,
+        keyboard: &'a data::config::Keyboard,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
-        theme_editor_open: bool,
     ) -> Element<'a, Message> {
-        let mut menu_buttons = row![]
-            .spacing(1)
+        let base = button(icon::menu())
+            .padding(5)
             .width(Length::Shrink)
-            .align_y(Alignment::End);
+            .on_press(Message::Noop);
 
-        let tooltip_position = match config.position {
-            sidebar::Position::Top => tooltip::Position::Bottom,
-            sidebar::Position::Bottom | sidebar::Position::Left | sidebar::Position::Right => {
-                tooltip::Position::Top
-            }
-        };
+        let menu = Menu::list();
 
-        let new_button = |icon: widget::Text<'a, theme::Theme>,
-                          style: fn(&theme::Theme) -> text::Style,
-                          on_press: Option<Message>,
-                          enabled: bool,
-                          tooltip_text: &'a str|
-         -> Element<'a, Message> {
-            let button = button(center(icon.style(style)))
-                .on_press_maybe(on_press)
-                .padding(5)
-                .width(22)
-                .height(22)
-                .style(move |theme, status| theme::button::primary(theme, status, enabled));
-            tooltip(
-                button,
-                show_tooltips.then_some(tooltip_text),
-                tooltip_position,
-            )
-        };
-
-        if version.is_old() {
-            menu_buttons = menu_buttons.push(new_button(
-                icon::megaphone(),
-                theme::text::tertiary,
-                Some(Message::OpenReleaseWebsite),
-                false,
-                "New Halloy version is available!",
-            ));
-        }
-
-        if config.buttons.reload_config {
-            menu_buttons = menu_buttons.push(if self.reloading_config {
-                new_button(
-                    icon::checkmark(),
-                    theme::text::success,
-                    None,
-                    self.reloading_config,
-                    "Reload config file",
-                )
-            } else {
-                new_button(
-                    icon::refresh(),
-                    theme::text::primary,
-                    Some(Message::ReloadingConfigFile),
-                    self.reloading_config,
-                    "Reload config file",
-                )
-            });
-        }
-
-        if config.buttons.command_bar {
-            menu_buttons = menu_buttons.push(new_button(
-                icon::search(),
-                theme::text::primary,
-                Some(Message::ToggleCommandBar),
-                false,
-                "Command Bar",
-            ));
-        }
-
-        if config.buttons.file_transfer {
-            let file_transfers_open = panes
-                .iter(main_window)
-                .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::FileTransfers(_)));
-            menu_buttons = menu_buttons.push(new_button(
-                icon::file_transfer(),
-                if file_transfers.is_empty() {
-                    theme::text::primary
-                } else {
-                    theme::text::action
-                },
-                Some(Message::ToggleFileTransfers),
-                file_transfers_open,
-                "File Transfers",
-            ));
-        }
-
-        if config.buttons.theme_editor {
-            menu_buttons = menu_buttons.push(new_button(
-                icon::theme_editor(),
-                theme::text::primary,
-                Some(Message::ToggleThemeEditor),
-                theme_editor_open,
-                "Theme Editor",
-            ));
-        }
-
-        if config.buttons.logs {
-            let logs_open = panes
-                .iter(main_window)
-                .any(|(_, _, pane)| matches!(pane.buffer, crate::buffer::Buffer::Logs(_)));
-            menu_buttons = menu_buttons.push(new_button(
-                icon::logs(),
-                theme::text::primary,
-                Some(Message::ToggleLogs),
-                logs_open,
-                "Logs",
-            ));
-        }
-
-        let width = if config.position.is_horizontal() {
-            Length::Shrink
+        if menu.is_empty() {
+            base.into()
         } else {
-            Length::Fill
-        };
+            context_menu(
+                context_menu::MouseButton::Left,
+                base,
+                menu,
+                move |menu, length| {
+                    let context_button =
+                        |title: Text<'a>,
+                         keybind: Option<&data::shortcut::KeyBind>,
+                         icon: Text<'a>,
+                         message: Message| {
+                            button(
+                                row![icon.width(Length::Fixed(12.0)), title]
+                                    .push_maybe(keybind.map(|kb| {
+                                        text(format!("({kb})"))
+                                            .shaping(text::Shaping::Advanced)
+                                            .size(theme::TEXT_SIZE - 2.0)
+                                            .style(theme::text::secondary)
+                                    }))
+                                    .spacing(8)
+                                    .align_y(iced::Alignment::Center),
+                            )
+                            .width(length)
+                            .padding(5)
+                            .on_press(message)
+                            .into()
+                        };
 
-        container(menu_buttons)
-            .width(width)
-            .align_x(Alignment::Center)
+                    match menu {
+                        Menu::RefreshConfig => context_button(
+                            text("Reload configuration"),
+                            Some(&keyboard.reload_configuration),
+                            icon::refresh(),
+                            Message::ReloadingConfigFile,
+                        ),
+                        Menu::CommandBar => context_button(
+                            text("Command Bar"),
+                            Some(&keyboard.command_bar),
+                            icon::search(),
+                            Message::ToggleCommandBar,
+                        ),
+                        Menu::FileTransfers => context_button(
+                            text("File Transfers").style(if file_transfers.is_empty() {
+                                theme::text::primary
+                            } else {
+                                theme::text::tertiary
+                            }),
+                            Some(&keyboard.file_transfers),
+                            icon::file_transfer().style(if file_transfers.is_empty() {
+                                theme::text::primary
+                            } else {
+                                theme::text::tertiary
+                            }),
+                            Message::ToggleFileTransfers,
+                        ),
+                        Menu::Logs => context_button(
+                            text("Logs"),
+                            Some(&keyboard.logs),
+                            icon::logs(),
+                            Message::ToggleLogs,
+                        ),
+                        Menu::ThemeEditor => context_button(
+                            text("Theme Editor"),
+                            Some(&keyboard.theme_editor),
+                            icon::theme_editor(),
+                            Message::ToggleThemeEditor,
+                        ),
+                        Menu::HorizontalRule => match length {
+                            Length::Fill => container(horizontal_rule(1)).padding([0, 6]).into(),
+                            _ => Space::new(length, 1).into(),
+                        },
+                        Menu::Version => match version.is_old() {
+                            true => context_button(
+                                text("New version available").style(theme::text::tertiary),
+                                None,
+                                icon::megaphone().style(theme::text::tertiary),
+                                Message::OpenReleaseWebsite,
+                            ),
+                            false => container(
+                                text(format!("Halloy ({})", version.current))
+                                    .style(theme::text::secondary),
+                            )
+                            .padding(5)
+                            .into(),
+                        },
+                        Menu::Documentation => context_button(
+                            text("Documentation"),
+                            None,
+                            icon::documentation(),
+                            Message::OpenDocumentation,
+                        ),
+                    }
+                },
+            )
             .into()
+        }
     }
 
     pub fn view<'a>(
@@ -252,25 +237,18 @@ impl Sidebar {
         panes: &'a Panes,
         focus: Option<(window::Id, pane_grid::Pane)>,
         config: data::config::Sidebar,
-        show_tooltips: bool,
+        keyboard: &'a data::config::Keyboard,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
-        theme_editor_open: bool,
         main_window: window::Id,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
         }
 
-        let menu_buttons = self.menu_buttons(
-            main_window,
-            panes,
-            config,
-            show_tooltips,
-            file_transfers,
-            version,
-            theme_editor_open,
-        );
+        let user_menu_button = config
+            .show_user_menu
+            .then(|| self.user_menu_button(keyboard, file_transfers, version));
 
         let mut buffers = vec![];
 
@@ -363,7 +341,8 @@ impl Sidebar {
                             .scroller_width(0),
                     )),];
 
-                let body = column![container(content).height(Length::Fill), menu_buttons];
+                let body =
+                    column![container(content).height(Length::Fill)].push_maybe(user_menu_button);
                 let padding = match config.position {
                     sidebar::Position::Left => padding::top(8).bottom(6).left(6),
                     sidebar::Position::Right => padding::top(8).bottom(6).right(6),
@@ -387,9 +366,9 @@ impl Sidebar {
                             .scroller_width(0),
                     )),];
 
-                let body: Row<Message, theme::Theme> =
-                    row![container(content).width(Length::Fill), menu_buttons]
-                        .align_y(Alignment::Center);
+                let body: Row<Message, theme::Theme> = row![container(content).width(Length::Fill)]
+                    .push_maybe(user_menu_button)
+                    .align_y(Alignment::Center);
                 let padding = match config.position {
                     sidebar::Position::Top => padding::top(8).left(8).right(8),
                     sidebar::Position::Bottom => padding::bottom(8).left(8).right(8),
@@ -404,6 +383,33 @@ impl Sidebar {
                 )
             }
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Menu {
+    RefreshConfig,
+    CommandBar,
+    ThemeEditor,
+    Logs,
+    FileTransfers,
+    Version,
+    HorizontalRule,
+    Documentation,
+}
+
+impl Menu {
+    fn list() -> Vec<Self> {
+        vec![
+            Menu::Version,
+            Menu::HorizontalRule,
+            Menu::CommandBar,
+            Menu::FileTransfers,
+            Menu::Logs,
+            Menu::RefreshConfig,
+            Menu::ThemeEditor,
+            Menu::Documentation,
+        ]
     }
 }
 
@@ -593,7 +599,7 @@ fn buffer_button(
     if entries.is_empty() || !connected {
         base.into()
     } else {
-        context_menu(base, entries, move |entry, length| {
+        context_menu(Default::default(), base, entries, move |entry, length| {
             let (content, message) = match entry {
                 Entry::NewPane => ("Open in new pane", Message::Open(buffer.clone())),
                 Entry::Popout => ("Open in new window", Message::Popout(buffer.clone())),

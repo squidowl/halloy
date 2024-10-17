@@ -138,9 +138,12 @@ pub fn view<'a>(
         .style(theme::button::bare)
         .on_press(Message::SingleClick(user.nickname().to_owned()));
 
-    context_menu(content, entries, move |entry, length| {
-        entry.view(user, current_user, length)
-    })
+    context_menu(
+        Default::default(),
+        content,
+        entries,
+        move |entry, length| entry.view(user, current_user, length),
+    )
     .into()
 }
 

@@ -50,4 +50,12 @@ Specify sidebar width in pixels. Only used if `position` is `"left"` or `"right"
 
 - **type**: integer
 - **values**: any positive integer
-- **default**: `120"`
+- **default**: `120`
+
+## `show_menu_button`
+
+Show or hide the user menu button in the sidemenu.
+
+- **type**: bool
+- **values**: `true`, `false`
+- **default**: `true`

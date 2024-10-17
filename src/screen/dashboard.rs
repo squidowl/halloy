@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use data::environment::RELEASE_WEBSITE;
+use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -472,16 +472,11 @@ impl Dashboard {
                         (Task::none(), None)
                     }
                     sidebar::Event::ToggleThemeEditor => {
-                        if let Some(editor) = self.theme_editor.take() {
-                            *theme = theme.selected();
-                            (window::close(editor.window), None)
-                        } else {
-                            let (editor, task) = ThemeEditor::open(main_window);
-
-                            self.theme_editor = Some(editor);
-
-                            (task.then(|_| Task::none()), None)
-                        }
+                        (self.toggle_theme_editor(theme, main_window), None)
+                    }
+                    sidebar::Event::OpenDocumentation => {
+                        let _ = open::that_detached(WIKI_WEBSITE);
+                        (Task::none(), None)
                     }
                 };
 
@@ -602,7 +597,7 @@ impl Dashboard {
                                 }
                                 command_bar::Buffer::ToggleLogs => {
                                     (self.toggle_logs(config, main_window), None)
-                                },
+                                }
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::OpenDirectory => {
@@ -780,6 +775,15 @@ impl Dashboard {
                     ReloadConfiguration => {
                         return (Task::perform(Config::load(), Message::ConfigReloaded), None);
                     }
+                    FileTransfers => {
+                        return (self.toggle_file_transfers(config, main_window), None);
+                    }
+                    Logs => {
+                        return (self.toggle_logs(config, main_window), None);
+                    }
+                    ThemeEditor => {
+                        return (self.toggle_theme_editor(theme, main_window), None);
+                    }
                 }
             }
             Message::FileTransfer(update) => {
@@ -938,10 +942,9 @@ impl Dashboard {
                 &self.panes,
                 self.focus,
                 config.sidebar,
-                config.tooltips,
+                &config.keyboard,
                 &self.file_transfers,
                 version,
-                self.theme_editor.is_some(),
                 main_window.id,
             )
             .map(|e| e.map(Message::Sidebar));
@@ -1098,6 +1101,19 @@ impl Dashboard {
         }
 
         Task::batch(commands)
+    }
+
+    fn toggle_theme_editor(&mut self, theme: &mut Theme, main_window: &Window) -> Task<Message> {
+        if let Some(editor) = self.theme_editor.take() {
+            *theme = theme.selected();
+            window::close(editor.window)
+        } else {
+            let (editor, task) = ThemeEditor::open(main_window);
+
+            self.theme_editor = Some(editor);
+
+            task.then(|_| Task::none())
+        }
     }
 
     fn toggle_logs(&mut self, config: &Config, main_window: &Window) -> Task<Message> {
