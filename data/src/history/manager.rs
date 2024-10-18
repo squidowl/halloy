@@ -5,7 +5,7 @@ use futures::future::BoxFuture;
 use futures::{future, Future, FutureExt};
 use tokio::time::Instant;
 
-use crate::history::{self, History};
+use crate::history::{self, History, MessageReferences};
 use crate::message::{self, Limit};
 use crate::user::Nick;
 use crate::{buffer, config, input};
@@ -238,12 +238,33 @@ impl Manager {
         self.data.update_read_marker(kind, read_marker)
     }
 
-    pub fn channel_joined(
+    pub fn load_metadata(
         &mut self,
         server: Server,
         channel: String,
     ) -> Option<impl Future<Output = Message>> {
-        self.data.channel_joined(server, channel)
+        self.data.load_metadata(server, channel)
+    }
+
+    pub fn first_can_reference(&self, server: &Server, target: &str) -> Option<&crate::Message> {
+        self.data
+            .map
+            .get(server)
+            .and_then(|map| map.get(&history::Kind::from(target)))
+            .map(|history| history.first_can_reference())?
+    }
+
+    pub fn last_can_reference_before(
+        &self,
+        server: &Server,
+        target: &str,
+        server_time: DateTime<Utc>,
+    ) -> Option<MessageReferences> {
+        self.data
+            .map
+            .get(server)
+            .and_then(|map| map.get(&history::Kind::from(target)))
+            .map(|history| history.last_can_reference_before(server_time))?
     }
 
     pub fn get_messages(
@@ -717,7 +738,7 @@ impl Data {
         }
     }
 
-    fn channel_joined(
+    fn load_metadata(
         &mut self,
         server: server::Server,
         channel: String,

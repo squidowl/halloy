@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::history::{dir_path, Error, Kind};
-use crate::message::source;
-use crate::Message;
+use crate::{isupport, message, server, Message};
 
-#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Metadata {
     pub read_marker: Option<ReadMarker>,
     pub last_triggers_unread: Option<DateTime<Utc>>,
+    pub chathistory_references: Option<MessageReferences>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Deserialize, Serialize)]
@@ -57,12 +57,68 @@ impl fmt::Display for ReadMarker {
     }
 }
 
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct MessageReferences {
+    pub timestamp: DateTime<Utc>,
+    pub id: Option<String>,
+}
+
+impl MessageReferences {
+    pub fn message_reference(
+        &self,
+        message_reference_types: &[isupport::MessageReferenceType],
+    ) -> isupport::MessageReference {
+        for message_reference_type in message_reference_types {
+            match message_reference_type {
+                isupport::MessageReferenceType::MessageId => {
+                    if let Some(id) = &self.id {
+                        return isupport::MessageReference::MessageId(id.clone());
+                    }
+                }
+                isupport::MessageReferenceType::Timestamp => {
+                    return isupport::MessageReference::Timestamp(self.timestamp);
+                }
+            }
+        }
+
+        isupport::MessageReference::None
+    }
+}
+
+impl PartialEq for MessageReferences {
+    fn eq(&self, other: &Self) -> bool {
+        self.timestamp.eq(&other.timestamp)
+    }
+}
+
+impl Eq for MessageReferences {}
+
+impl Ord for MessageReferences {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.timestamp.cmp(&other.timestamp)
+    }
+}
+
+impl PartialOrd for MessageReferences {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 pub fn latest_triggers_unread(messages: &[Message]) -> Option<DateTime<Utc>> {
     messages
         .iter()
         .rev()
         .find(|message| message.triggers_unread())
         .map(|message| message.server_time)
+}
+
+pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
+    messages
+        .iter()
+        .rev()
+        .find(|message| message.can_reference())
+        .map(|message| message.references())
 }
 
 pub async fn load(kind: Kind) -> Result<Metadata, Error> {
@@ -83,6 +139,7 @@ pub async fn save(
     let bytes = serde_json::to_vec(&Metadata {
         read_marker,
         last_triggers_unread: latest_triggers_unread(messages),
+        chathistory_references: latest_can_reference(messages),
     })?;
 
     let path = path(kind).await?;
@@ -105,6 +162,7 @@ pub async fn update(kind: &Kind, read_marker: &ReadMarker) -> Result<(), Error> 
     let bytes = serde_json::to_vec(&Metadata {
         read_marker: Some(*read_marker),
         last_triggers_unread: metadata.last_triggers_unread,
+        chathistory_references: metadata.chathistory_references,
     })?;
 
     let path = path(kind).await?;

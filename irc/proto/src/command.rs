@@ -99,6 +99,8 @@ pub enum Command {
     ACCOUNT(String),
     /* IRC extensions */
     BATCH(String, Vec<String>),
+    /// <subcommand> [<params>]
+    CHATHISTORY(String, Vec<String>),
     /// <new_username> <new_hostname>
     CHGHOST(String, String),
     /// <nickname> <channel> :<message>
@@ -203,6 +205,7 @@ impl Command {
             "WALLOPS" if len > 0 => WALLOPS(req!()),
             "ACCOUNT" if len > 0 => ACCOUNT(req!()),
             "BATCH" if len > 0 => BATCH(req!(), params.collect()),
+            "CHATHISTORY" if len > 0 => CHATHISTORY(req!(), params.collect()),
             "CHGHOST" if len > 1 => CHGHOST(req!(), req!()),
             "CNOTICE" if len > 2 => CNOTICE(req!(), req!(), req!()),
             "CPRIVMSG" if len > 2 => CPRIVMSG(req!(), req!(), req!()),
@@ -264,6 +267,7 @@ impl Command {
             Command::WALLOPS(a) => vec![a],
             Command::ACCOUNT(a) => vec![a],
             Command::BATCH(a, rest) => std::iter::once(a).chain(rest).collect(),
+            Command::CHATHISTORY(a, b) => std::iter::once(a).chain(b).collect(),
             Command::CHGHOST(a, b) => vec![a, b],
             Command::CNOTICE(a, b, c) => vec![a, b, c],
             Command::CPRIVMSG(a, b, c) => vec![a, b, c],
@@ -324,6 +328,7 @@ impl Command {
             WALLOPS(_) => "WALLOPS".to_string(),
             ACCOUNT(_) => "ACCOUNT".to_string(),
             BATCH(_, _) => "BATCH".to_string(),
+            CHATHISTORY(_, _) => "CHATHISTORY".to_string(),
             CHGHOST(_, _) => "CHGHOST".to_string(),
             CNOTICE(_, _, _) => "CNOTICE".to_string(),
             CPRIVMSG(_, _, _) => "CPRIVMSG".to_string(),

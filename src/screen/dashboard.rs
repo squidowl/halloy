@@ -10,6 +10,7 @@ use std::{convert, slice};
 use data::config;
 use data::file_transfer;
 use data::history::manager::Broadcast;
+use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::user::Nick;
 use data::{client, environment, history, Config, Server, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
@@ -59,6 +60,8 @@ pub enum Message {
     CloseContextMenu(window::Id, bool),
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
+    RequestNewerChatHistory(Server, String, DateTime<Utc>),
+    RequestChatHistoryTargets(Server, Option<DateTime<Utc>>, DateTime<Utc>),
 }
 
 #[derive(Debug)]
@@ -379,6 +382,11 @@ impl Dashboard {
                                     }
 
                                     return (Task::batch(tasks), None);
+                                }
+                                buffer::Event::RequestOlderChatHistory => {
+                                    if let Some(buffer) = pane.buffer.data().cloned() {
+                                        self.request_older_chathistory(clients, &buffer);
+                                    }
                                 }
                             }
 
@@ -943,6 +951,43 @@ impl Dashboard {
             Message::ConfigReloaded(config) => {
                 return (Task::none(), Some(Event::ConfigReloaded(config)));
             }
+            Message::RequestNewerChatHistory(server, target, server_time) => {
+                let message_reference_types =
+                    clients.get_server_chathistory_message_reference_types(&server);
+
+                let message_reference = self
+                    .history
+                    .last_can_reference_before(&server, &target, server_time)
+                    .map_or(MessageReference::None, |message_references| {
+                        message_references.message_reference(&message_reference_types)
+                    });
+
+                let limit = clients.get_server_chathistory_limit(&server);
+
+                clients.send_chathistory_request(
+                    &server,
+                    ChatHistorySubcommand::Latest(target.clone(), message_reference, limit),
+                );
+            }
+            Message::RequestChatHistoryTargets(server, timestamp, server_time) => {
+                let start_message_reference = timestamp
+                    .map_or(MessageReference::None, |timestamp| {
+                        MessageReference::Timestamp(timestamp)
+                    });
+
+                let end_message_reference = MessageReference::Timestamp(server_time);
+
+                let limit = clients.get_server_chathistory_limit(&server);
+
+                clients.send_chathistory_request(
+                    &server,
+                    ChatHistorySubcommand::Targets(
+                        start_message_reference,
+                        end_message_reference,
+                        limit,
+                    ),
+                );
+            }
         }
 
         (Task::none(), None)
@@ -1109,7 +1154,7 @@ impl Dashboard {
         &mut self,
         window: window::Id,
         event: event::Event,
-        clients: &data::client::Map,
+        clients: &mut data::client::Map,
         version: &Version,
         config: &Config,
         theme: &mut Theme,
@@ -1139,14 +1184,23 @@ impl Dashboard {
                 }
             }
             Copy => selectable_text::selected(Message::SelectedText),
-            Home => self
-                .get_focused_mut(main_window)
-                .map(|(window, id, pane)| {
-                    pane.buffer.scroll_to_start().map(move |message| {
-                        Message::Pane(window, pane::Message::Buffer(id, message))
+            Home => {
+                if config.buffer.chathistory.infinite_scroll {
+                    if let Some((_, _, state)) = self.get_focused(main_window) {
+                        if let Some(buffer) = state.buffer.data() {
+                            self.request_older_chathistory(clients, buffer);
+                        }
+                    }
+                }
+
+                self.get_focused_mut(main_window)
+                    .map(|(window, id, pane)| {
+                        pane.buffer.scroll_to_start().map(move |message| {
+                            Message::Pane(window, pane::Message::Buffer(id, message))
+                        })
                     })
-                })
-                .unwrap_or_else(Task::none),
+                    .unwrap_or_else(Task::none)
+            }
             End => self
                 .get_focused_mut(main_window)
                 .map(|(window, pane, state)| {
@@ -1349,6 +1403,62 @@ impl Dashboard {
         }
     }
 
+    pub fn get_oldest_message_reference(
+        &self,
+        server: &Server,
+        target: &str,
+        message_reference_types: &[isupport::MessageReferenceType],
+    ) -> MessageReference {
+        if let Some(first_can_reference) = self.history.first_can_reference(server, target) {
+            log::debug!(
+                "[{server}] {target} - first_can_reference {:?}",
+                first_can_reference
+            );
+
+            for message_reference_type in message_reference_types {
+                match message_reference_type {
+                    isupport::MessageReferenceType::MessageId => {
+                        if let Some(id) = &first_can_reference.id {
+                            return MessageReference::MessageId(id.clone());
+                        }
+                    }
+                    isupport::MessageReferenceType::Timestamp => {
+                        return MessageReference::Timestamp(first_can_reference.server_time);
+                    }
+                }
+            }
+        }
+
+        MessageReference::None
+    }
+
+    pub fn request_older_chathistory(
+        &self,
+        clients: &mut data::client::Map,
+        buffer: &data::Buffer,
+    ) {
+        let server = buffer.server();
+
+        if clients.get_server_supports_chathistory(server) {
+            if let Some(target) = buffer.target() {
+                let message_reference_types =
+                    clients.get_server_chathistory_message_reference_types(server);
+
+                let first_can_reference =
+                    self.get_oldest_message_reference(server, &target, &message_reference_types);
+
+                clients.send_chathistory_request(
+                    server,
+                    ChatHistorySubcommand::Before(
+                        target.clone(),
+                        first_can_reference,
+                        clients.get_server_chathistory_limit(server),
+                    ),
+                );
+            }
+        }
+    }
+
     pub fn broadcast(
         &mut self,
         server: &Server,
@@ -1376,12 +1486,17 @@ impl Dashboard {
         }
     }
 
-    pub fn channel_joined(&mut self, server: Server, channel: String) -> Task<Message> {
-        if let Some(task) = self.history.channel_joined(server, channel) {
-            Task::perform(task, Message::History)
-        } else {
-            Task::none()
-        }
+    pub fn load_metadata(&mut self, server: Server, channel: String) -> Option<Task<Message>> {
+        self.history
+            .load_metadata(server, channel)
+            .map(|task| Task::perform(task, Message::History))
+    }
+
+    fn get_focused(&self, main_window: &Window) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
+        let (window, pane) = self.focus?;
+        self.panes
+            .get(main_window.id, window, pane)
+            .map(|state| (window, pane, state))
     }
 
     fn get_focused_mut(
@@ -1402,6 +1517,10 @@ impl Dashboard {
         self.panes
             .get_mut(main_window.id, window, pane)
             .map(|state| (pane, state, &mut self.history))
+    }
+
+    pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
+        self.history.get_unique_queries(server)
     }
 
     fn focus_pane(

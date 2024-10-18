@@ -21,12 +21,12 @@ use std::time::{Duration, Instant};
 use std::{env, mem};
 
 use appearance::{theme, Theme};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use data::config::{self, Config};
-use data::history::manager::Broadcast;
+use data::history::{self, manager::Broadcast};
+use data::isupport::ChatHistorySubcommand;
 use data::version::Version;
-use data::{environment, server, version, Url, User};
-use data::{history, Server};
+use data::{environment, server, version, Server, Url, User};
 use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
@@ -227,6 +227,12 @@ pub enum Message {
     Window(window::Id, window::Event),
     WindowSettingsSaved(Result<(), window::Error>),
     Logging(Vec<logger::Record>),
+    ChatHistoryRequest(server::Server, ChatHistorySubcommand),
+    UpdateChatHistoryTargetsTimestamp(
+        server::Server,
+        DateTime<Utc>,
+        Result<(), data::client::Error>,
+    ),
 }
 
 impl Halloy {
@@ -767,11 +773,160 @@ impl Halloy {
                                                 .map(Message::Dashboard),
                                         );
                                     }
-                                    data::client::Event::JoinedChannel(channel) => {
+                                    data::client::Event::JoinedChannel(channel, server_time) => {
+                                        let command = dashboard
+                                            .load_metadata(server.clone(), channel.clone())
+                                            .map_or(Task::none(), |command| command.map(Message::Dashboard));
+
+                                        let command = if self.clients.get_server_supports_chathistory(&server) {
+                                            command.chain(Task::done(Message::Dashboard(
+                                                dashboard::Message::RequestNewerChatHistory(
+                                                    server.clone(),
+                                                    channel,
+                                                    server_time,
+                                                ),
+                                            )))
+                                        } else {
+                                            command
+                                        };
+
+                                        commands.push(command);
+                                    }
+                                    data::client::Event::ChatHistoryAcknowledged(server_time) => {
+                                        let server = server.clone();
+
+                                        commands.push(Task::perform(
+                                            async move {
+                                                (
+                                                    server.clone(),
+                                                    data::client::load_chathistory_targets_timestamp(server.clone())
+                                                        .await
+                                                        .ok()
+                                                        .flatten(),
+                                                )
+                                            },
+                                            move |(server, timestamp)| {
+                                                Message::Dashboard(dashboard::Message::RequestChatHistoryTargets(
+                                                    server,
+                                                    timestamp,
+                                                    server_time,
+                                                ))
+                                            },
+                                        ));
+                                    }
+                                    data::client::Event::ChatHistoryRequest(subcommand) => {
+                                        self.clients.send_chathistory_request(
+                                            &server,
+                                            subcommand,
+                                        );
+                                    }
+                                    data::client::Event::ChatHistoryRequestReceived(
+                                        subcommand,
+                                        batch_len,
+                                    ) => {
+                                        match &subcommand {
+                                            ChatHistorySubcommand::Latest(target, message_reference, _) => {
+                                                log::debug!(
+                                                    "[{}] received latest {} messages in {} since {}",
+                                                    server,
+                                                    batch_len,
+                                                    target,
+                                                    message_reference,
+                                                );
+                                            }
+                                            ChatHistorySubcommand::Before(target, message_reference, _) => {
+                                                log::debug!(
+                                                    "[{}] received {} messages in {} before {}",
+                                                    server,
+                                                    batch_len,
+                                                    target,
+                                                    message_reference,
+                                                );
+                                            }
+                                            ChatHistorySubcommand::Between(
+                                                target,
+                                                start_message_reference,
+                                                end_message_reference,
+                                                _,
+                                            ) => {
+                                                log::debug!(
+                                                    "[{}] received {} messages in {} between {} and {}",
+                                                    server,
+                                                    batch_len,
+                                                    target,
+                                                    start_message_reference,
+                                                    end_message_reference,
+                                                );
+                                            }
+                                            ChatHistorySubcommand::Targets(
+                                                start_message_reference,
+                                                end_message_reference,
+                                                _,
+                                            ) => {
+                                                log::debug!(
+                                                    "[{}] received {} targets between {} and {}",
+                                                    server,
+                                                    batch_len,
+                                                    start_message_reference,
+                                                    end_message_reference,
+                                                );
+                                            }
+                                        }
+
+                                        self.clients.clear_chathistory_request(&server, subcommand.target());
+                                    }
+                                    data::client::Event::ChatHistoryTarget(target, server_time) => {
+                                        let command = dashboard
+                                            .load_metadata(server.clone(), target.clone())
+                                            .map_or(Task::none(), |command| command.map(Message::Dashboard));
+
+                                        let command = command.chain(Task::done(Message::Dashboard(
+                                            dashboard::Message::RequestNewerChatHistory(
+                                                server.clone(),
+                                                target,
+                                                server_time,
+                                            ),
+                                        )));
+
+                                        commands.push(command);
+                                    }
+                                    data::client::Event::ChatHistoryTargetsReceived(
+                                        subcommand,
+                                        batch_len,
+                                        server_time
+                                    ) => {
+                                        if let ChatHistorySubcommand::Targets(
+                                                start_message_reference,
+                                                end_message_reference,
+                                                _,
+                                        ) = subcommand {
+                                            log::debug!(
+                                                "[{}] received {} targets between {} and {}",
+                                                server.clone(),
+                                                batch_len,
+                                                start_message_reference,
+                                                end_message_reference,
+                                            );
+                                        }
+
+                                        let server = server.clone();
+
                                         commands.push(
-                                            dashboard
-                                                .channel_joined(server.clone(), channel)
-                                                .map(Message::Dashboard),
+                                            Task::perform(
+                                                async move {
+                                                    (
+                                                        server.clone(),
+                                                        data::client::overwrite_chathistory_targets_timestamp(
+                                                            server,
+                                                            server_time,
+                                                        )
+                                                        .await,
+                                                    )
+                                                },
+                                                move |(server, result)| {
+                                                    Message::UpdateChatHistoryTargetsTimestamp(server, server_time, result)
+                                                }
+                                            ),
                                         );
                                     }
                                 }
@@ -830,7 +985,7 @@ impl Halloy {
                         .handle_event(
                             window,
                             event,
-                            &self.clients,
+                            &mut self.clients,
                             &self.version,
                             &self.config,
                             &mut self.theme,
@@ -964,6 +1119,23 @@ impl Halloy {
                         .map(|record| dashboard.record_log(record)),
                 )
                 .map(Message::Dashboard)
+            }
+            Message::ChatHistoryRequest(server, subcommand) => {
+                self.clients.send_chathistory_request(&server, subcommand);
+
+                Task::none()
+            }
+            Message::UpdateChatHistoryTargetsTimestamp(server, timestamp, Ok(_)) => {
+                log::debug!("updated targets timestamp for {server} to {timestamp}");
+
+                Task::none()
+            }
+            Message::UpdateChatHistoryTargetsTimestamp(server, timestamp, Err(error)) => {
+                log::warn!(
+                    "failed to update targets timestamp for {server} to {timestamp}: {error}"
+                );
+
+                Task::none()
             }
         }
     }
