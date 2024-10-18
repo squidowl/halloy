@@ -6,11 +6,10 @@ use futures::{future, Future, FutureExt};
 use itertools::Itertools;
 use tokio::time::Instant;
 
-use crate::history::{self, History};
+use crate::history::{self, History, MessageReferences};
 use crate::message::{self, Limit};
 use crate::user::Nick;
-use crate::{config, input};
-use crate::{server, Buffer, Config, Input, Server, User};
+use crate::{config, input, server, Buffer, Config, Input, Server, User};
 
 // Hack since log messages are app wide and not scoped to any server
 const LOG_SERVER_NAME: &str = "<halloy-logs>";
@@ -134,6 +133,7 @@ impl Manager {
             }
             Message::UpdatePartial(server, kind, Ok(metadata)) => {
                 log::debug!("loaded metadata for {kind} on {server}");
+
                 self.data.update_partial(server, kind, metadata);
             }
             Message::UpdatePartial(server, kind, Err(error)) => {
@@ -260,12 +260,33 @@ impl Manager {
         self.data.update_read_marker(server, kind, read_marker)
     }
 
-    pub fn channel_joined(
+    pub fn load_metadata(
         &mut self,
         server: Server,
         channel: String,
     ) -> Option<impl Future<Output = Message>> {
-        self.data.channel_joined(server, channel)
+        self.data.load_metadata(server, channel)
+    }
+
+    pub fn first_can_reference(&self, server: &Server, target: &str) -> Option<&crate::Message> {
+        self.data
+            .map
+            .get(server)
+            .and_then(|map| map.get(&history::Kind::from(target)))
+            .map(|history| history.first_can_reference())?
+    }
+
+    pub fn last_can_reference_before(
+        &self,
+        server: &Server,
+        target: &str,
+        server_time: DateTime<Utc>,
+    ) -> Option<MessageReferences> {
+        self.data
+            .map
+            .get(server)
+            .and_then(|map| map.get(&history::Kind::from(target)))
+            .map(|history| history.last_can_reference_before(server_time))?
     }
 
     pub fn get_channel_messages(
@@ -785,7 +806,7 @@ impl Data {
         }
     }
 
-    fn channel_joined(
+    fn load_metadata(
         &mut self,
         server: server::Server,
         channel: String,
