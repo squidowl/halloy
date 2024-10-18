@@ -188,6 +188,7 @@ impl Message {
         config: &'a Config,
         resolve_attributes: impl Fn(&User, &str) -> Option<User>,
         channel_users: impl Fn(&str) -> &'a [User],
+        chantypes: &[char]
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
         let id = message_id(&encoded);
@@ -197,8 +198,9 @@ impl Message {
             config,
             &resolve_attributes,
             &channel_users,
+            chantypes,
         )?;
-        let target = target(encoded, &our_nick, &resolve_attributes)?;
+        let target = target(encoded, &our_nick, &resolve_attributes, chantypes)?;
         let received_at = Posix::now();
         let hash = Hash::new(&received_at, &content);
 
@@ -610,6 +612,7 @@ fn target(
     message: Encoded,
     our_nick: &Nick,
     resolve_attributes: &dyn Fn(&User, &str) -> Option<User>,
+    chantypes: &[char],
 ) -> Option<Target> {
     use proto::command::Numeric::*;
 
@@ -617,7 +620,7 @@ fn target(
 
     match message.0.command {
         // Channel
-        Command::MODE(target, ..) if proto::is_channel(&target) => Some(Target::Channel {
+        Command::MODE(target, ..) if proto::is_channel(&target, chantypes) => Some(Target::Channel {
             channel: target,
             source: source::Source::Server(None),
             prefix: None,
@@ -681,7 +684,7 @@ fn target(
                 }
             };
 
-            match (proto::parse_channel_from_target(&target), user) {
+            match (proto::parse_channel_from_target(&target, chantypes), user) {
                 (Some((prefix, channel)), Some(user)) => {
                     let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
                     Some(Target::Channel {
@@ -715,7 +718,7 @@ fn target(
                 }
             };
 
-            match (proto::parse_channel_from_target(&target), user) {
+            match (proto::parse_channel_from_target(&target, chantypes), user) {
                 (Some((prefix, channel)), Some(user)) => {
                     let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
                     Some(Target::Channel {
@@ -833,6 +836,7 @@ fn content<'a>(
     config: &Config,
     resolve_attributes: &dyn Fn(&User, &str) -> Option<User>,
     channel_users: &dyn Fn(&str) -> &'a [User],
+    chantypes: &[char],
 ) -> Option<Content> {
     use irc::proto::command::Numeric::*;
 
@@ -902,7 +906,7 @@ fn content<'a>(
                 &[],
             ))
         }
-        Command::MODE(target, modes, args) if proto::is_channel(target) => {
+        Command::MODE(target, modes, args) if proto::is_channel(target, chantypes) => {
             let raw_user = message.user()?;
             let with_access_levels = config.buffer.nickname.show_access_levels;
             let user = resolve_attributes(&raw_user, target)
