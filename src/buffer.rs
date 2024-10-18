@@ -50,6 +50,7 @@ pub enum Event {
     OpenChannel(String),
     GoToMessage(data::Server, String, message::Hash),
     History(Task<history::manager::Message>),
+    RequestOlderChatHistory,
 }
 
 impl Buffer {
@@ -107,6 +108,7 @@ impl Buffer {
                     channel::Event::UserContext(event) => Event::UserContext(event),
                     channel::Event::OpenChannel(channel) => Event::OpenChannel(channel),
                     channel::Event::History(task) => Event::History(task),
+                    channel::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                 });
 
                 (command.map(Message::Channel), event)
@@ -129,6 +131,7 @@ impl Buffer {
                     query::Event::UserContext(event) => Event::UserContext(event),
                     query::Event::OpenChannel(channel) => Event::OpenChannel(channel),
                     query::Event::History(task) => Event::History(task),
+                    query::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                 });
 
                 (command.map(Message::Query), event)

@@ -13,7 +13,7 @@ use crate::user::Nick;
 use crate::{buffer, compression, environment, message, Buffer, Message, Server};
 
 pub use self::manager::{Manager, Resource};
-pub use self::metadata::{Metadata, ReadMarker};
+pub use self::metadata::{MessageReferences, Metadata, ReadMarker};
 
 pub mod manager;
 pub mod metadata;
@@ -157,7 +157,9 @@ pub async fn append(
     let loaded = load(kind.clone()).await?;
 
     let mut all_messages = loaded.messages;
-    all_messages.extend(messages);
+    messages.into_iter().for_each(|message| {
+        insert_message(&mut all_messages, message);
+    });
 
     overwrite(kind, &all_messages, read_marker).await
 }
@@ -203,6 +205,7 @@ pub enum History {
         last_updated_at: Option<Instant>,
         max_triggers_unread: Option<DateTime<Utc>>,
         read_marker: Option<ReadMarker>,
+        chathistory_references: Option<MessageReferences>,
     },
     Full {
         kind: Kind,
@@ -220,6 +223,7 @@ impl History {
             last_updated_at: None,
             max_triggers_unread: None,
             read_marker: None,
+            chathistory_references: None,
         }
     }
 
@@ -227,11 +231,15 @@ impl History {
         if let Self::Partial {
             max_triggers_unread,
             read_marker,
+            chathistory_references,
             ..
         } = self
         {
             *read_marker = (*read_marker).max(metadata.read_marker);
             *max_triggers_unread = (*max_triggers_unread).max(metadata.last_triggers_unread);
+            *chathistory_references = chathistory_references
+                .clone()
+                .max(metadata.chathistory_references);
         }
     }
 
@@ -279,7 +287,7 @@ impl History {
             } => {
                 *last_updated_at = Some(Instant::now());
 
-                messages.push(message);
+                insert_message(messages, message);
             }
         }
     }
@@ -357,6 +365,7 @@ impl History {
 
                 let read_marker = ReadMarker::latest(&messages).max(*read_marker);
                 let max_triggers_unread = metadata::latest_triggers_unread(&messages);
+                let chathistory_references = metadata::latest_can_reference(&messages);
 
                 *self = Self::Partial {
                     kind: kind.clone(),
@@ -364,6 +373,7 @@ impl History {
                     last_updated_at: None,
                     read_marker,
                     max_triggers_unread,
+                    chathistory_references,
                 };
 
                 Some(async move {
@@ -402,6 +412,48 @@ impl History {
         }
     }
 
+    pub fn first_can_reference(&self) -> Option<&Message> {
+        match self {
+            History::Partial { messages, .. } | History::Full { messages, .. } => {
+                messages.iter().find(|message| message.can_reference())
+            }
+        }
+    }
+
+    pub fn last_can_reference_before(
+        &self,
+        server_time: DateTime<Utc>,
+    ) -> Option<MessageReferences> {
+        match self {
+            History::Partial {
+                messages,
+                chathistory_references,
+                ..
+            } => messages
+                .iter()
+                .rev()
+                .find(|message| message.can_reference() && message.server_time < server_time)
+                .map_or(
+                    if chathistory_references
+                        .as_ref()
+                        .is_some_and(|chathistory_references| {
+                            chathistory_references.timestamp < server_time
+                        })
+                    {
+                        chathistory_references.clone()
+                    } else {
+                        None
+                    },
+                    |message| Some(message.references()),
+                ),
+            History::Full { messages, .. } => messages
+                .iter()
+                .rev()
+                .find(|message| message.can_reference() && message.server_time < server_time)
+                .map(|message| message.references()),
+        }
+    }
+
     pub fn update_read_marker(&mut self, read_marker: ReadMarker) {
         let stored = match self {
             History::Partial { read_marker, .. } => read_marker,
@@ -417,6 +469,90 @@ impl History {
                 *read_marker
             }
         }
+    }
+}
+
+/// Insert the incoming message into the provided vector, sorted
+/// on server time
+///
+/// Deduplication is only checked +/- 1 second around the server time
+/// of the incoming message. Either message IDs match, or server times
+/// have an exact match + target & content.
+pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
+    if messages.is_empty() {
+        messages.push(message);
+
+        return;
+    }
+
+    let start = message::fuzz_start_server_time(message.server_time);
+    let end = message::fuzz_end_server_time(message.server_time);
+
+    let start_index = match messages.binary_search_by(|stored| stored.server_time.cmp(&start)) {
+        Ok(match_index) => match_index,
+        Err(sorted_insert_index) => sorted_insert_index,
+    };
+    let end_index = match messages.binary_search_by(|stored| stored.server_time.cmp(&end)) {
+        Ok(match_index) => match_index,
+        Err(sorted_insert_index) => sorted_insert_index,
+    };
+
+    let mut current_index = start_index;
+    let mut insert_at = start_index;
+    let mut replace_at = None;
+
+    for stored in &messages[start_index..end_index] {
+        if (message.id.is_some() && stored.id == message.id)
+            || ((stored.server_time == message.server_time
+                || (matches!(stored.direction, message::Direction::Sent)
+                    && matches!(message.direction, message::Direction::Received)))
+                && has_matching_content(stored, &message))
+        {
+            replace_at = Some(current_index);
+            break;
+        }
+
+        if message.server_time >= stored.server_time {
+            insert_at = current_index + 1;
+        }
+
+        current_index += 1;
+    }
+
+    if let Some(index) = replace_at {
+        if has_matching_content(&messages[index], &message) {
+            messages[index].id = message.id;
+            messages[index].received_at = message.received_at;
+        } else {
+            messages[index] = message;
+        }
+    } else {
+        messages.insert(insert_at, message);
+    }
+}
+
+/// The content of JOIN, PART, and QUIT messages may be dependent on how
+/// the user attributes are resolved.  Match those messages based on Nick
+/// alone (covered by comparing target components) to avoid false negatives.
+fn has_matching_content(message: &Message, other: &Message) -> bool {
+    if message.target == other.target {
+        if let message::Source::Server(Some(source)) = message.target.source() {
+            match source.kind() {
+                message::source::server::Kind::Join
+                | message::source::server::Kind::Part
+                | message::source::server::Kind::Quit => {
+                    return true;
+                }
+                message::source::server::Kind::ReplyTopic
+                | message::source::server::Kind::ChangeHost
+                | message::source::server::Kind::MonitoredOnline
+                | message::source::server::Kind::MonitoredOffline => (),
+            }
+        }
+
+        message.content == other.content
+    } else {
+        false
     }
 }
 

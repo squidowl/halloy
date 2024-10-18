@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use const_format::concatcp;
 use irc::proto;
 use irc::proto::Command;
@@ -16,6 +16,7 @@ pub use self::formatting::Formatting;
 pub use self::source::Source;
 
 use crate::config::buffer::UsernameFormat;
+use crate::history::MessageReferences;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, Config, Server, User};
@@ -186,6 +187,30 @@ impl Message {
                 Source::Internal(source::Internal::Logs) => true,
                 _ => false,
             }
+    }
+
+    pub fn can_reference(&self) -> bool {
+        if matches!(self.target.source(), Source::Internal(_)) {
+            return false;
+        } else if let Source::Server(Some(source)) = self.target.source() {
+            if matches!(
+                source.kind(),
+                source::server::Kind::ReplyTopic
+                    | source::server::Kind::MonitoredOnline
+                    | source::server::Kind::MonitoredOffline
+            ) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn references(&self) -> MessageReferences {
+        MessageReferences {
+            timestamp: self.server_time,
+            id: self.id.clone(),
+        }
     }
 
     pub fn received<'a>(
@@ -802,6 +827,7 @@ fn target(
         | Command::AUTHENTICATE(_)
         | Command::ACCOUNT(_)
         | Command::BATCH(_, _)
+        | Command::CHATHISTORY(_, _)
         | Command::CNOTICE(_, _, _)
         | Command::CPRIVMSG(_, _, _)
         | Command::KNOCK(_, _)
@@ -836,6 +862,20 @@ pub fn server_time(message: &Encoded) -> DateTime<Utc> {
         .and_then(|rfc3339| DateTime::parse_from_rfc3339(&rfc3339).ok())
         .map(|dt| dt.with_timezone(&Utc))
         .unwrap_or_else(Utc::now)
+}
+
+pub const FUZZ_SECONDS: i64 = 1;
+
+pub fn fuzz_start_server_time(server_time: DateTime<Utc>) -> DateTime<Utc> {
+    TimeDelta::try_seconds(FUZZ_SECONDS)
+        .and_then(|time_delta| server_time.checked_sub_signed(time_delta))
+        .map_or(server_time, |fuzzed_server_time| fuzzed_server_time)
+}
+
+pub fn fuzz_end_server_time(server_time: DateTime<Utc>) -> DateTime<Utc> {
+    TimeDelta::try_seconds(FUZZ_SECONDS)
+        .and_then(|time_delta| server_time.checked_add_signed(time_delta))
+        .map_or(server_time, |fuzzed_server_time| fuzzed_server_time)
 }
 
 fn content<'a>(
