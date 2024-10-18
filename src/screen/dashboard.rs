@@ -207,6 +207,7 @@ impl Dashboard {
                                                     let mut user = nick.to_owned().into();
                                                     let mut channel_users = &[][..];
                                                     let chantypes = clients.get_chantypes(buffer.server());
+                                                    let statusmsg = clients.get_statusmsg(buffer.server());
 
                                                     // Resolve our attributes if sending this message in a channel
                                                     if let data::Buffer::Channel(server, channel) =
@@ -225,7 +226,7 @@ impl Dashboard {
                                                     }
 
                                                     if let Some(messages) =
-                                                        input.messages(user, channel_users, chantypes)
+                                                        input.messages(user, channel_users, chantypes, statusmsg)
                                                     {
                                                         let mut tasks = vec![task];
 

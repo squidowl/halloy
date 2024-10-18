@@ -71,17 +71,26 @@ pub fn is_channel(target: &str, chantypes: &[char]) -> bool {
 // Reference: https://defs.ircdocs.horse/defs/chanmembers
 pub const CHANNEL_MEMBERSHIP_PREFIXES: &[char] = &['~', '&', '!', '@', '%', '+'];
 
-pub fn parse_channel_from_target(target: &str, chantypes: &[char]) -> Option<(Option<char>, String)> {
-    if target.starts_with(CHANNEL_MEMBERSHIP_PREFIXES) {
-        let channel = target.strip_prefix(CHANNEL_MEMBERSHIP_PREFIXES)?;
+/// https://modern.ircdocs.horse/#channels
+///
+/// Given a target, split it into a channel name (beginning with a character in `chantypes`) and a
+/// possible list of prefixes (given in `statusmsg_prefixes`). If these two lists overlap, the
+/// behaviour is unspecified.
+pub fn parse_channel_from_target(
+    target: &str,
+    chantypes: &[char],
+    statusmsg_prefixes: &[char],
+) -> Option<(Vec<char>, String)> {
+    // We parse the target by finding the first character in chantypes, and returing (even if that
+    // character is in statusmsg_prefixes)
+    // If the characters before the first chantypes character are all valid prefixes, then we have
+    // a valid channel name with those prefixes.    let chan_index = target.find(chantypes)?;
+    let chan_index = target.find(chantypes)?;
 
-        if is_channel(channel, chantypes) {
-            return Some((target.chars().next(), channel.to_string()));
-        }
-    }
-
-    if is_channel(target, chantypes) {
-        Some((None, target.to_string()))
+    // will not panic, since `find` always returns a valid codepoint index
+    let (prefix, chan) = target.split_at(chan_index);
+    if prefix.chars().all(|ref c| statusmsg_prefixes.contains(c)) {
+        Some((prefix.chars().collect(), chan.to_owned()))
     } else {
         None
     }

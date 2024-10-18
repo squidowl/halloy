@@ -504,6 +504,7 @@ impl Halloy {
                                 };
 
                                 let chantypes = self.clients.get_chantypes(&server);
+                                let statusmsg = self.clients.get_statusmsg(&server);
 
                                 match event {
                                     data::client::Event::Single(encoded, our_nick) => {
@@ -514,6 +515,7 @@ impl Halloy {
                                             resolve_user_attributes,
                                             channel_users,
                                             chantypes,
+                                            statusmsg,
                                         ) {
                                             commands.push(
                                                 dashboard
@@ -530,6 +532,7 @@ impl Halloy {
                                             resolve_user_attributes,
                                             channel_users,
                                             chantypes,
+                                            statusmsg,
                                         ) {
                                             commands.push(
                                                 dashboard
@@ -647,6 +650,7 @@ impl Halloy {
                                             resolve_user_attributes,
                                             channel_users,
                                             chantypes,
+                                            statusmsg,
                                         ) {
                                             commands.push(
                                                 dashboard
