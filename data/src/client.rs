@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
 use itertools::{Either, Itertools};
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -1287,8 +1288,27 @@ impl Client {
         }
     }
 
+    // TODO allow configuring the "sorting method"
+    // this function sorts channels together which have similar names when the chantype prefix
+    // (sometimes multipled) is removed
+    // e.g. '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
+    // wildly different places.
+    fn compare_channels(&self, a: &str, b: &str) -> Ordering {
+        let (Some(a_chantype), Some(b_chantype)) = (a.chars().nth(0), b.chars().nth(0)) else {
+            return a.cmp(b);
+        };
+
+        if [a_chantype, b_chantype].iter().all(|c| self.chantypes().contains(c)) {
+            let ord = a.trim_start_matches(a_chantype).cmp(b.trim_start_matches(b_chantype));
+            if ord != Ordering::Equal {
+                return ord;
+            }
+        }
+        a.cmp(b)
+    }
+
     fn sync(&mut self) {
-        self.channels = self.chanmap.keys().cloned().collect();
+        self.channels = self.chanmap.keys().cloned().sorted_by(|a, b| self.compare_channels(a, b)).collect();
         self.users = self
             .chanmap
             .iter()
