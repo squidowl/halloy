@@ -44,8 +44,8 @@ rodio = "0.19.0"
 strum = { version = "0.26.3", features = ["derive"] }
 tokio-stream = { version = "0.1.16", features = ["fs"] }
 
-# Using a fork from @madsmtm since he has a outstanding PR to the original repo which fixes a memory leak on macOS.
-dark-light = { git = "https://github.com/casperstorm/rust-dark-light", rev = "10176d160bc3922ed0511ab0e3949b4b6eaf4d50" }
+# change to 1.2.0 when it is released https://github.com/frewsxcv/rust-dark-light/issues/38
+dark-light = { git = "https://github.com/frewsxcv/rust-dark-light", rev = "3eb3e93dd0fa30733c3e93082dd9517fb580ae95" }
 
 [dependencies.uuid]
 version = "1.0"
