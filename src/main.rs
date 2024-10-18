@@ -503,6 +503,8 @@ impl Halloy {
                                     self.clients.get_channel_users(&server, channel)
                                 };
 
+                                let chantypes = self.clients.get_chantypes(&server);
+
                                 match event {
                                     data::client::Event::Single(encoded, our_nick) => {
                                         if let Some(message) = data::Message::received(
@@ -511,6 +513,7 @@ impl Halloy {
                                             &self.config,
                                             resolve_user_attributes,
                                             channel_users,
+                                            chantypes,
                                         ) {
                                             commands.push(
                                                 dashboard
@@ -526,6 +529,7 @@ impl Halloy {
                                             &self.config,
                                             resolve_user_attributes,
                                             channel_users,
+                                            chantypes,
                                         ) {
                                             commands.push(
                                                 dashboard
@@ -642,6 +646,7 @@ impl Halloy {
                                             &self.config,
                                             resolve_user_attributes,
                                             channel_users,
+                                            chantypes,
                                         ) {
                                             commands.push(
                                                 dashboard
@@ -735,6 +740,7 @@ impl Halloy {
                                                     history::Kind::from_target(
                                                         server.clone(),
                                                         target,
+                                                        chantypes,
                                                     ),
                                                     read_marker,
                                                 )

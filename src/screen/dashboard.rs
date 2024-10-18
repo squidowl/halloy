@@ -207,6 +207,7 @@ impl Dashboard {
                                             if let Some(nick) = clients.nickname(buffer.server()) {
                                                 let mut user = nick.to_owned().into();
                                                 let mut channel_users = &[][..];
+                                                let chantypes = clients.get_chantypes(buffer.server());
 
                                                 // Resolve our attributes if sending this message in a channel
                                                 if let buffer::Upstream::Channel(server, channel) =
@@ -225,7 +226,7 @@ impl Dashboard {
                                                 }
 
                                                 if let Some(messages) =
-                                                    input.messages(user, channel_users)
+                                                    input.messages(user, channel_users, chantypes)
                                                 {
                                                     let mut tasks = vec![task];
 

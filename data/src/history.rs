@@ -36,8 +36,8 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub fn from_target(server: Server, target: String) -> Self {
-        if proto::is_channel(&target) {
+    pub fn from_target(server: Server, target: String, chantypes: &[char]) -> Self {
+        if proto::is_channel(&target, chantypes) {
             Self::Channel(server, target)
         } else {
             Self::Query(server, Nick::from(target))

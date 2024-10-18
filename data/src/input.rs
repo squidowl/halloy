@@ -63,9 +63,9 @@ impl Input {
         self.buffer.server()
     }
 
-    pub fn messages(&self, user: User, channel_users: &[User]) -> Option<Vec<Message>> {
+    pub fn messages(&self, user: User, channel_users: &[User], chantypes: &[char]) -> Option<Vec<Message>> {
         let to_target = |target: &str, source| {
-            if let Some((prefix, channel)) = proto::parse_channel_from_target(target) {
+            if let Some((prefix, channel)) = proto::parse_channel_from_target(target, chantypes) {
                 Some(message::Target::Channel {
                     channel,
                     source,
