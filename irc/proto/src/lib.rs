@@ -105,3 +105,47 @@ macro_rules! command {
         $crate::command($c, vec![$($p.into(),)*])
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_channel_correct() {
+        let chantypes = DEFAULT_CHANNEL_PREFIXES;
+        assert!(is_channel("#foo", chantypes));
+        assert!(is_channel("&foo", chantypes));
+        assert!(!is_channel("foo", chantypes));
+    }
+
+    #[test]
+    fn empty_chantypes() {
+        assert!(!is_channel("#foo", &[]));
+        assert!(!is_channel("&foo", &[]));
+    }
+
+    #[test]
+    fn parse_channel() {
+        let chantypes = DEFAULT_CHANNEL_PREFIXES;
+        let prefixes = CHANNEL_MEMBERSHIP_PREFIXES;
+        assert_eq!(
+            parse_channel_from_target("#foo", chantypes, prefixes),
+            Some((vec![], "#foo".to_owned()))
+        );
+        assert_eq!(
+            parse_channel_from_target("+%#foo", chantypes, prefixes),
+            Some((vec!['+', '%'], "#foo".to_owned()))
+        );
+        assert_eq!(
+            parse_channel_from_target("&+%foo", chantypes, prefixes),
+            Some((vec![], "&+%foo".to_owned()))
+        );
+    }
+
+    #[test]
+    fn invalid_channels() {
+        let chantypes = DEFAULT_CHANNEL_PREFIXES;
+        let prefixes = CHANNEL_MEMBERSHIP_PREFIXES;
+        assert!(parse_channel_from_target("+%foo", chantypes, prefixes).is_none());
+    }
+}
