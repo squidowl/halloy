@@ -1,5 +1,10 @@
-use irc::proto;
+use chrono::{format::SecondsFormat, DateTime, Utc};
+use std::fmt;
 use std::str::FromStr;
+
+use irc::proto;
+
+use crate::{message, Message};
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
 // returned by Operation::kind() and Parameter::kind()
@@ -9,6 +14,7 @@ pub enum Kind {
     AWAYLEN,
     CHANLIMIT,
     CHANNELLEN,
+    CHATHISTORY,
     CNOTICE,
     CPRIVMSG,
     ELIST,
@@ -16,6 +22,7 @@ pub enum Kind {
     KICKLEN,
     KNOCK,
     MONITOR,
+    MSGREFTYPES,
     NICKLEN,
     SAFELIST,
     STATUSMSG,
@@ -149,9 +156,9 @@ impl FromStr for Operation {
                                 Err("value must only contain channel types if specified")
                             }
                         }
-                        "CHATHISTORY" => Ok(Operation::Add(Parameter::CHATHISTORY(
-                            parse_required_positive_integer(value)?,
-                        ))),
+                        "CHATHISTORY" | "draft/CHATHISTORY" => Ok(Operation::Add(
+                            Parameter::CHATHISTORY(parse_required_positive_integer(value)?),
+                        )),
                         "CLIENTTAGDENY" => {
                             let mut client_tag_denials = vec![];
 
@@ -310,7 +317,7 @@ impl FromStr for Operation {
                             value.split(',').for_each(|message_reference_type| {
                                 match message_reference_type {
                                     "msgid" => message_reference_types
-                                        .insert(0, MessageReferenceType::MessageID),
+                                        .insert(0, MessageReferenceType::MessageId),
                                     "timestamp" => message_reference_types
                                         .insert(0, MessageReferenceType::Timestamp),
                                     _ => (),
@@ -485,6 +492,7 @@ impl Operation {
                 "AWAYLEN" => Some(Kind::AWAYLEN),
                 "CHANLIMIT" => Some(Kind::CHANLIMIT),
                 "CHANNELLEN" => Some(Kind::CHANNELLEN),
+                "CHATHISTORY" => Some(Kind::CHATHISTORY),
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
                 "ELIST" => Some(Kind::ELIST),
@@ -492,6 +500,7 @@ impl Operation {
                 "KICKLEN" => Some(Kind::KICKLEN),
                 "KNOCK" => Some(Kind::KNOCK),
                 "MONITOR" => Some(Kind::MONITOR),
+                "MSGREFTYPES" => Some(Kind::MSGREFTYPES),
                 "NICKLEN" => Some(Kind::NICKLEN),
                 "SAFELIST" => Some(Kind::SAFELIST),
                 "STATUSMSG" => Some(Kind::STATUSMSG),
@@ -581,6 +590,7 @@ impl Parameter {
             Parameter::AWAYLEN(_) => Some(Kind::AWAYLEN),
             Parameter::CHANLIMIT(_) => Some(Kind::CHANLIMIT),
             Parameter::CHANNELLEN(_) => Some(Kind::CHANNELLEN),
+            Parameter::CHATHISTORY(_) => Some(Kind::CHATHISTORY),
             Parameter::CNOTICE => Some(Kind::CNOTICE),
             Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
             Parameter::ELIST(_) => Some(Kind::ELIST),
@@ -588,6 +598,7 @@ impl Parameter {
             Parameter::KICKLEN(_) => Some(Kind::KICKLEN),
             Parameter::KNOCK => Some(Kind::KNOCK),
             Parameter::MONITOR(_) => Some(Kind::MONITOR),
+            Parameter::MSGREFTYPES(_) => Some(Kind::MSGREFTYPES),
             Parameter::NICKLEN(_) => Some(Kind::NICKLEN),
             Parameter::SAFELIST => Some(Kind::SAFELIST),
             Parameter::STATUSMSG(_) => Some(Kind::STATUSMSG),
@@ -622,6 +633,25 @@ pub struct ChannelMode {
     pub modes: String,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ChatHistorySubcommand {
+    Latest(String, MessageReference, u16),
+    Before(String, MessageReference, u16),
+    Between(String, MessageReference, MessageReference, u16),
+    Targets(MessageReference, MessageReference, u16),
+}
+
+impl ChatHistorySubcommand {
+    pub fn target(&self) -> Option<&str> {
+        match self {
+            ChatHistorySubcommand::Latest(target, _, _)
+            | ChatHistorySubcommand::Before(target, _, _)
+            | ChatHistorySubcommand::Between(target, _, _, _) => Some(target),
+            ChatHistorySubcommand::Targets(_, _, _) => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ClientOnlyTags {
     Allowed(String),
@@ -635,10 +665,41 @@ pub struct CommandTargetLimit {
     pub limit: Option<u16>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum MessageReference {
+    Timestamp(DateTime<Utc>),
+    MessageId(String),
+    None,
+}
+
+impl fmt::Display for MessageReference {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MessageReference::Timestamp(server_time) => write!(
+                f,
+                "timestamp={}",
+                server_time.to_rfc3339_opts(SecondsFormat::Millis, true)
+            ),
+            MessageReference::MessageId(id) => write!(f, "msgid={}", id),
+            MessageReference::None => write!(f, "*"),
+        }
+    }
+}
+
+impl PartialEq<Message> for MessageReference {
+    fn eq(&self, other: &Message) -> bool {
+        match self {
+            MessageReference::Timestamp(server_time) => other.server_time == *server_time,
+            MessageReference::MessageId(id) => other.id.as_deref() == Some(id.as_str()),
+            MessageReference::None => false,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum MessageReferenceType {
     Timestamp,
-    MessageID,
+    MessageId,
 }
 
 #[derive(Clone, Debug)]
@@ -660,6 +721,52 @@ const DEFAULT_CALLER_ID_LETTER: char = 'g';
 const DEFAULT_DEAF_LETTER: char = 'D';
 
 const DEFAULT_INVITE_EXCEPTION_LETTER: char = 'I';
+
+pub fn fuzz_start_message_reference(message_reference: MessageReference) -> MessageReference {
+    match message_reference {
+        MessageReference::Timestamp(start_server_time) => {
+            MessageReference::Timestamp(message::fuzz_start_server_time(start_server_time))
+        }
+        _ => message_reference,
+    }
+}
+
+pub fn fuzz_end_message_reference(message_reference: MessageReference) -> MessageReference {
+    match message_reference {
+        MessageReference::Timestamp(end_server_time) => {
+            MessageReference::Timestamp(message::fuzz_end_server_time(end_server_time))
+        }
+        _ => message_reference,
+    }
+}
+
+pub fn fuzz_message_reference_range(
+    first_message_reference: MessageReference,
+    second_message_reference: MessageReference,
+) -> (MessageReference, MessageReference) {
+    match (
+        first_message_reference.clone(),
+        second_message_reference.clone(),
+    ) {
+        (
+            MessageReference::Timestamp(start_server_time),
+            MessageReference::Timestamp(end_server_time),
+        ) => {
+            if start_server_time < end_server_time {
+                (
+                    fuzz_start_message_reference(first_message_reference),
+                    fuzz_end_message_reference(second_message_reference),
+                )
+            } else {
+                (
+                    fuzz_end_message_reference(first_message_reference),
+                    fuzz_start_message_reference(second_message_reference),
+                )
+            }
+        }
+        _ => (first_message_reference, second_message_reference),
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct WhoToken {
