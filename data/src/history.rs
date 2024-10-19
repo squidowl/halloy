@@ -75,7 +75,8 @@ impl From<String> for Kind {
 
 impl From<&str> for Kind {
     fn from(target: &str) -> Self {
-        if proto::is_channel(target) {
+        // XXX not sure how to fix this in a way that will preserve on-disk history
+        if proto::is_channel(target, proto::DEFAULT_CHANNEL_PREFIXES) {
             Kind::Channel(target.to_string())
         } else {
             Kind::Query(target.to_string().into())

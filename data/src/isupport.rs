@@ -9,6 +9,7 @@ pub enum Kind {
     AWAYLEN,
     CHANLIMIT,
     CHANNELLEN,
+    CHANTYPES,
     CNOTICE,
     CPRIVMSG,
     ELIST,
@@ -139,12 +140,11 @@ impl FromStr for Operation {
                             parse_required_positive_integer(value)?,
                         ))),
                         "CHANTYPES" => {
-                            if value.is_empty() {
+                            let chars = value.chars().collect::<Vec<_>>();
+                            if chars.is_empty() {
                                 Ok(Operation::Add(Parameter::CHANTYPES(None)))
-                            } else if value.chars().all(|c| proto::CHANNEL_PREFIXES.contains(&c)) {
-                                Ok(Operation::Add(Parameter::CHANTYPES(Some(
-                                    value.to_string(),
-                                ))))
+                            } else if chars.iter().all(|c| proto::CHANNEL_PREFIXES.contains(c)) {
+                                Ok(Operation::Add(Parameter::CHANTYPES(Some(chars))))
                             } else {
                                 Err("value must only contain channel types if specified")
                             }
@@ -350,11 +350,11 @@ impl FromStr for Operation {
                             parse_optional_positive_integer(value)?,
                         ))),
                         "STATUSMSG" => {
-                            if value
-                                .chars()
-                                .all(|c| proto::CHANNEL_MEMBERSHIP_PREFIXES.contains(&c))
+                            let chars = value.chars().collect::<Vec<_>>();
+                            if chars.iter()
+                                .all(|c| proto::CHANNEL_MEMBERSHIP_PREFIXES.contains(c))
                             {
-                                Ok(Operation::Add(Parameter::STATUSMSG(value.to_string())))
+                                Ok(Operation::Add(Parameter::STATUSMSG(chars)))
                             } else {
                                 Err("unknown channel membership prefix(es)")
                             }
@@ -485,6 +485,7 @@ impl Operation {
                 "AWAYLEN" => Some(Kind::AWAYLEN),
                 "CHANLIMIT" => Some(Kind::CHANLIMIT),
                 "CHANNELLEN" => Some(Kind::CHANNELLEN),
+                "CHANTYPES" => Some(Kind::CHANTYPES),
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
                 "ELIST" => Some(Kind::ELIST),
@@ -526,7 +527,7 @@ pub enum Parameter {
     CHANLIMIT(Vec<ChannelLimit>),
     CHANMODES(Vec<ChannelMode>),
     CHANNELLEN(u16),
-    CHANTYPES(Option<String>),
+    CHANTYPES(Option<Vec<char>>),
     CHATHISTORY(u16),
     CLIENTTAGDENY(Vec<ClientOnlyTags>),
     CLIENTVER(u16, u16),
@@ -563,7 +564,7 @@ pub enum Parameter {
     SAFELIST,
     SECURELIST,
     SILENCE(Option<u16>),
-    STATUSMSG(String),
+    STATUSMSG(Vec<char>),
     TARGMAX(Vec<CommandTargetLimit>),
     TOPICLEN(u16),
     UHNAMES,
