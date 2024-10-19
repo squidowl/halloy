@@ -2,7 +2,7 @@
 Name=Halloy
 Comment=IRC client written in Rust
 Type=Application
-Keywords=IM;Chat;
+Keywords=IRC;IM;Chat;
 Categories=Network;IRCClient;
 Exec=halloy %U
 Icon=org.squidowl.halloy
