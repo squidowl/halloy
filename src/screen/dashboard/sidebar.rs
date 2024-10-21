@@ -188,8 +188,7 @@ impl Sidebar {
                         ),
                         Menu::Highlights => context_button(
                             text("Highlights"),
-                            // TODO: Add keybind
-                            None,
+                            Some(&keyboard.highlight),
                             icon::highlights(),
                             Message::ToggleInternalBuffer(buffer::Internal::Highlights),
                         ),

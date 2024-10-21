@@ -882,6 +882,16 @@ impl Dashboard {
                     ThemeEditor => {
                         return (self.toggle_theme_editor(theme, main_window), None);
                     }
+                    Highlight => {
+                        return (
+                            self.toggle_internal_buffer(
+                                config,
+                                main_window,
+                                buffer::Internal::Highlights,
+                            ),
+                            None,
+                        );
+                    }
                 }
             }
             Message::FileTransfer(update) => {

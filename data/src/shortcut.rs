@@ -41,6 +41,7 @@ pub enum Command {
     FileTransfers,
     Logs,
     ThemeEditor,
+    Highlight,
 }
 
 macro_rules! default {
@@ -130,6 +131,7 @@ impl KeyBind {
     default!(file_transfers, "j", COMMAND);
     default!(logs, "l", COMMAND);
     default!(theme_editor, "t", COMMAND);
+    default!(highlight, "i", COMMAND);
 
     pub fn is_pressed(
         &self,
