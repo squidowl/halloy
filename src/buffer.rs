@@ -1,10 +1,11 @@
-pub use data::buffer::Settings;
+pub use data::buffer::{Internal, Settings, Upstream};
 use data::user::Nick;
-use data::{buffer, file_transfer, history, Config};
+use data::{buffer, file_transfer, history, message, Config};
 use iced::Task;
 
 pub use self::channel::Channel;
 pub use self::file_transfers::FileTransfers;
+pub use self::highlights::Highlights;
 pub use self::logs::Logs;
 pub use self::query::Query;
 pub use self::server::Server;
@@ -15,6 +16,7 @@ use crate::Theme;
 pub mod channel;
 pub mod empty;
 pub mod file_transfers;
+pub mod highlights;
 mod input_view;
 pub mod logs;
 pub mod query;
@@ -30,6 +32,7 @@ pub enum Buffer {
     Query(Query),
     FileTransfers(FileTransfers),
     Logs(Logs),
+    Highlights(Highlights),
 }
 
 #[derive(Debug, Clone)]
@@ -38,12 +41,14 @@ pub enum Message {
     Server(server::Message),
     Query(query::Message),
     FileTransfers(file_transfers::Message),
-    Log(logs::Message),
+    Logs(logs::Message),
+    Highlights(highlights::Message),
 }
 
 pub enum Event {
     UserContext(user_context::Event),
     OpenChannel(String),
+    GoToMessage(data::Server, String, message::Hash),
     History(Task<history::manager::Message>),
 }
 
@@ -52,14 +57,37 @@ impl Buffer {
         Self::Empty
     }
 
-    pub fn data(&self) -> Option<&data::Buffer> {
+    pub fn upstream(&self) -> Option<&buffer::Upstream> {
         match self {
-            Buffer::Empty => None,
             Buffer::Channel(state) => Some(&state.buffer),
             Buffer::Server(state) => Some(&state.buffer),
             Buffer::Query(state) => Some(&state.buffer),
-            Buffer::FileTransfers(_) => None,
-            Buffer::Logs(_) => None,
+            Buffer::Empty | Buffer::FileTransfers(_) | Buffer::Logs(_) | Buffer::Highlights(_) => {
+                None
+            }
+        }
+    }
+
+    pub fn internal(&self) -> Option<buffer::Internal> {
+        match self {
+            Buffer::Empty | Buffer::Channel(_) | Buffer::Server(_) | Buffer::Query(_) => None,
+            Buffer::FileTransfers(_) => Some(buffer::Internal::FileTransfers),
+            Buffer::Logs(_) => Some(buffer::Internal::Logs),
+            Buffer::Highlights(_) => Some(buffer::Internal::Highlights),
+        }
+    }
+
+    pub fn data(&self) -> Option<data::Buffer> {
+        match self {
+            Buffer::Empty => None,
+            Buffer::Channel(state) => Some(data::Buffer::Upstream(state.buffer.clone())),
+            Buffer::Server(state) => Some(data::Buffer::Upstream(state.buffer.clone())),
+            Buffer::Query(state) => Some(data::Buffer::Upstream(state.buffer.clone())),
+            Buffer::FileTransfers(_) => {
+                Some(data::Buffer::Internal(buffer::Internal::FileTransfers))
+            }
+            Buffer::Logs(_) => Some(data::Buffer::Internal(buffer::Internal::Logs)),
+            Buffer::Highlights(_) => Some(data::Buffer::Internal(buffer::Internal::Highlights)),
         }
     }
 
@@ -110,6 +138,31 @@ impl Buffer {
 
                 (command.map(Message::FileTransfers), None)
             }
+            (Buffer::Logs(state), Message::Logs(message)) => {
+                let (command, event) = state.update(message);
+
+                let event = event.map(|event| match event {
+                    logs::Event::UserContext(event) => Event::UserContext(event),
+                    logs::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    logs::Event::History(task) => Event::History(task),
+                });
+
+                (command.map(Message::Logs), event)
+            }
+            (Buffer::Highlights(state), Message::Highlights(message)) => {
+                let (command, event) = state.update(message);
+
+                let event = event.map(|event| match event {
+                    highlights::Event::UserContext(event) => Event::UserContext(event),
+                    highlights::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    highlights::Event::GoToMessage(server, channel, message) => {
+                        Event::GoToMessage(server, channel, message)
+                    }
+                    highlights::Event::History(task) => Event::History(task),
+                });
+
+                (command.map(Message::Highlights), event)
+            }
             _ => (Task::none(), None),
         }
     }
@@ -147,7 +200,10 @@ impl Buffer {
             Buffer::FileTransfers(state) => {
                 file_transfers::view(state, file_transfers).map(Message::FileTransfers)
             }
-            Buffer::Logs(state) => logs::view(state, history, config, theme).map(Message::Log),
+            Buffer::Logs(state) => logs::view(state, history, config, theme).map(Message::Logs),
+            Buffer::Highlights(state) => {
+                highlights::view(state, clients, history, config, theme).map(Message::Highlights)
+            }
         }
     }
 
@@ -173,7 +229,9 @@ impl Buffer {
 
     pub fn focus(&self) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) | Buffer::Logs(_) => Task::none(),
+            Buffer::Empty | Buffer::FileTransfers(_) | Buffer::Logs(_) | Buffer::Highlights(_) => {
+                Task::none()
+            }
             Buffer::Channel(channel) => channel.focus().map(Message::Channel),
             Buffer::Server(server) => server.focus().map(Message::Server),
             Buffer::Query(query) => query.focus().map(Message::Query),
@@ -182,7 +240,7 @@ impl Buffer {
 
     pub fn reset(&mut self) {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) | Buffer::Logs(_) => {}
+            Buffer::Empty | Buffer::FileTransfers(_) | Buffer::Logs(_) | Buffer::Highlights(_) => {}
             Buffer::Channel(channel) => channel.reset(),
             Buffer::Server(server) => server.reset(),
             Buffer::Query(query) => query.reset(),
@@ -194,22 +252,20 @@ impl Buffer {
         nick: Nick,
         history: &mut history::Manager,
     ) -> Task<Message> {
-        if let Some(buffer) = self.data().cloned() {
-            match self {
-                Buffer::Empty | Buffer::Server(_) | Buffer::FileTransfers(_) | Buffer::Logs(_) => {
-                    Task::none()
-                }
-                Buffer::Channel(channel) => channel
-                    .input_view
-                    .insert_user(nick, buffer, history)
-                    .map(|message| Message::Channel(channel::Message::InputView(message))),
-                Buffer::Query(query) => query
-                    .input_view
-                    .insert_user(nick, buffer, history)
-                    .map(|message| Message::Query(query::Message::InputView(message))),
-            }
-        } else {
-            Task::none()
+        match self {
+            Buffer::Empty
+            | Buffer::Server(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_) => Task::none(),
+            Buffer::Channel(state) => state
+                .input_view
+                .insert_user(nick, state.buffer.clone(), history)
+                .map(|message| Message::Channel(channel::Message::InputView(message))),
+            Buffer::Query(state) => state
+                .input_view
+                .insert_user(nick, state.buffer.clone(), history)
+                .map(|message| Message::Query(query::Message::InputView(message))),
         }
     }
 
@@ -231,7 +287,11 @@ impl Buffer {
             Buffer::Logs(log) => log
                 .scroll_view
                 .scroll_to_start()
-                .map(|message| Message::Log(logs::Message::ScrollView(message))),
+                .map(|message| Message::Logs(logs::Message::ScrollView(message))),
+            Buffer::Highlights(highlights) => highlights
+                .scroll_view
+                .scroll_to_start()
+                .map(|message| Message::Highlights(highlights::Message::ScrollView(message))),
         }
     }
 
@@ -253,7 +313,106 @@ impl Buffer {
             Buffer::Logs(log) => log
                 .scroll_view
                 .scroll_to_end()
-                .map(|message| Message::Log(logs::Message::ScrollView(message))),
+                .map(|message| Message::Logs(logs::Message::ScrollView(message))),
+            Buffer::Highlights(highlights) => highlights
+                .scroll_view
+                .scroll_to_end()
+                .map(|message| Message::Highlights(highlights::Message::ScrollView(message))),
+        }
+    }
+
+    pub fn scroll_to_message(
+        &mut self,
+        message: message::Hash,
+        history: &history::Manager,
+        config: &Config,
+    ) -> Task<Message> {
+        match self {
+            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Channel(state) => state
+                .scroll_view
+                .scroll_to_message(
+                    message,
+                    scroll_view::Kind::Channel(&state.server, &state.channel),
+                    history,
+                    config,
+                )
+                .map(|message| Message::Channel(channel::Message::ScrollView(message))),
+            Buffer::Server(state) => state
+                .scroll_view
+                .scroll_to_message(
+                    message,
+                    scroll_view::Kind::Server(&state.server),
+                    history,
+                    config,
+                )
+                .map(|message| Message::Server(server::Message::ScrollView(message))),
+            Buffer::Query(state) => state
+                .scroll_view
+                .scroll_to_message(
+                    message,
+                    scroll_view::Kind::Query(&state.server, &state.nick),
+                    history,
+                    config,
+                )
+                .map(|message| Message::Query(query::Message::ScrollView(message))),
+            Buffer::Logs(state) => state
+                .scroll_view
+                .scroll_to_message(message, scroll_view::Kind::Logs, history, config)
+                .map(|message| Message::Logs(logs::Message::ScrollView(message))),
+            Buffer::Highlights(state) => state
+                .scroll_view
+                .scroll_to_message(message, scroll_view::Kind::Highlights, history, config)
+                .map(|message| Message::Highlights(highlights::Message::ScrollView(message))),
+        }
+    }
+
+    pub fn scroll_to_backlog(
+        &mut self,
+        history: &history::Manager,
+        config: &Config,
+    ) -> Task<Message> {
+        match self {
+            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Channel(state) => state
+                .scroll_view
+                .scroll_to_backlog(
+                    scroll_view::Kind::Channel(&state.server, &state.channel),
+                    history,
+                    config,
+                )
+                .map(|message| Message::Channel(channel::Message::ScrollView(message))),
+            Buffer::Server(state) => state
+                .scroll_view
+                .scroll_to_backlog(scroll_view::Kind::Server(&state.server), history, config)
+                .map(|message| Message::Server(server::Message::ScrollView(message))),
+            Buffer::Query(state) => state
+                .scroll_view
+                .scroll_to_backlog(
+                    scroll_view::Kind::Query(&state.server, &state.nick),
+                    history,
+                    config,
+                )
+                .map(|message| Message::Query(query::Message::ScrollView(message))),
+            Buffer::Logs(state) => state
+                .scroll_view
+                .scroll_to_backlog(scroll_view::Kind::Logs, history, config)
+                .map(|message| Message::Logs(logs::Message::ScrollView(message))),
+            Buffer::Highlights(state) => state
+                .scroll_view
+                .scroll_to_backlog(scroll_view::Kind::Highlights, history, config)
+                .map(|message| Message::Highlights(highlights::Message::ScrollView(message))),
+        }
+    }
+
+    pub fn is_scrolled_to_bottom(&self) -> Option<bool> {
+        match self {
+            Buffer::Empty | Buffer::FileTransfers(_) => None,
+            Buffer::Channel(channel) => Some(channel.scroll_view.is_scrolled_to_bottom()),
+            Buffer::Server(server) => Some(server.scroll_view.is_scrolled_to_bottom()),
+            Buffer::Query(query) => Some(query.scroll_view.is_scrolled_to_bottom()),
+            Buffer::Logs(log) => Some(log.scroll_view.is_scrolled_to_bottom()),
+            Buffer::Highlights(highlights) => Some(highlights.scroll_view.is_scrolled_to_bottom()),
         }
     }
 }
@@ -261,9 +420,18 @@ impl Buffer {
 impl From<data::Buffer> for Buffer {
     fn from(buffer: data::Buffer) -> Self {
         match buffer {
-            data::Buffer::Server(server) => Self::Server(Server::new(server)),
-            data::Buffer::Channel(server, channel) => Self::Channel(Channel::new(server, channel)),
-            data::Buffer::Query(server, user) => Self::Query(Query::new(server, user)),
+            data::Buffer::Upstream(upstream) => match upstream {
+                buffer::Upstream::Server(server) => Self::Server(Server::new(server)),
+                buffer::Upstream::Channel(server, channel) => {
+                    Self::Channel(Channel::new(server, channel))
+                }
+                buffer::Upstream::Query(server, user) => Self::Query(Query::new(server, user)),
+            },
+            data::Buffer::Internal(internal) => match internal {
+                buffer::Internal::FileTransfers => Self::FileTransfers(FileTransfers::new()),
+                buffer::Internal::Logs => Self::Logs(Logs::new()),
+                buffer::Internal::Highlights => Self::Highlights(Highlights::new()),
+            },
         }
     }
 }

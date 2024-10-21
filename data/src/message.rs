@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 
 use chrono::{DateTime, Utc};
@@ -17,7 +18,7 @@ pub use self::source::Source;
 use crate::config::buffer::UsernameFormat;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
-use crate::{ctcp, Config, User};
+use crate::{ctcp, Config, Server, User};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -117,6 +118,11 @@ pub enum Target {
         source: Source,
     },
     Logs,
+    Highlights {
+        server: Server,
+        channel: Channel,
+        source: Source,
+    },
 }
 
 impl Target {
@@ -126,6 +132,7 @@ impl Target {
             Target::Channel { prefix, .. } => prefix.as_ref(),
             Target::Query { .. } => None,
             Target::Logs => None,
+            Target::Highlights { .. } => None,
         }
     }
 
@@ -135,6 +142,7 @@ impl Target {
             Target::Channel { source, .. } => source,
             Target::Query { source, .. } => source,
             Target::Logs => &Source::Internal(source::Internal::Logs),
+            Target::Highlights { source, .. } => source,
         }
     }
 }
@@ -153,6 +161,7 @@ pub struct Message {
     pub target: Target,
     pub content: Content,
     pub id: Option<String>,
+    pub hash: Hash,
 }
 
 impl Message {
@@ -168,6 +177,7 @@ impl Message {
                             | source::server::Kind::MonitoredOffline
                     )
                 }
+                Source::Internal(source::Internal::Logs) => true,
                 _ => false,
             }
     }
@@ -189,42 +199,70 @@ impl Message {
             &channel_users,
         )?;
         let target = target(encoded, &our_nick, &resolve_attributes)?;
+        let received_at = Posix::now();
+        let hash = Hash::new(&received_at, &content);
 
         Some(Message {
-            received_at: Posix::now(),
+            received_at,
             server_time,
             direction: Direction::Received,
             target,
             content,
             id,
+            hash,
         })
     }
 
-    pub fn file_transfer_request_received(from: &Nick, filename: &str) -> Message {
+    pub fn sent(target: Target, content: Content) -> Self {
+        let received_at = Posix::now();
+        let hash = Hash::new(&received_at, &content);
+
         Message {
-            received_at: Posix::now(),
+            received_at,
+            server_time: Utc::now(),
+            direction: Direction::Sent,
+            target,
+            content,
+            id: None,
+            hash,
+        }
+    }
+
+    pub fn file_transfer_request_received(from: &Nick, filename: &str) -> Message {
+        let received_at = Posix::now();
+        let content = plain(format!("{from} wants to send you \"{filename}\""));
+        let hash = Hash::new(&received_at, &content);
+
+        Message {
+            received_at,
             server_time: Utc::now(),
             direction: Direction::Received,
             target: Target::Query {
                 nick: from.clone(),
                 source: Source::Action,
             },
-            content: plain(format!("{from} wants to send you \"{filename}\"")),
+            content,
             id: None,
+            hash,
         }
     }
 
     pub fn file_transfer_request_sent(to: &Nick, filename: &str) -> Message {
+        let received_at = Posix::now();
+        let content = plain(format!("offering to send {to} \"{filename}\""));
+        let hash = Hash::new(&received_at, &content);
+
         Message {
-            received_at: Posix::now(),
+            received_at,
             server_time: Utc::now(),
             direction: Direction::Sent,
             target: Target::Query {
                 nick: to.clone(),
                 source: Source::Action,
             },
-            content: plain(format!("offering to send {to} \"{filename}\"")),
+            content,
             id: None,
+            hash,
         }
     }
 
@@ -241,14 +279,37 @@ impl Message {
     }
 
     pub fn log(record: crate::log::Record) -> Self {
+        let received_at = Posix::now();
+        let server_time = record.timestamp;
+        let content = Content::Log(record);
+        let hash = Hash::new(&received_at, &content);
+
         Self {
-            received_at: Posix::now(),
-            server_time: record.timestamp,
+            received_at,
+            server_time,
             direction: Direction::Received,
             target: Target::Logs,
-            content: Content::Log(record),
+            content,
             id: None,
+            hash,
         }
+    }
+
+    pub fn into_highlight(mut self, server: Server) -> Option<Self> {
+        self.target = match self.target {
+            Target::Channel {
+                channel,
+                source: Source::User(user),
+                ..
+            } => Target::Highlights {
+                server,
+                channel,
+                source: Source::User(user),
+            },
+            _ => return None,
+        };
+
+        Some(self)
     }
 }
 
@@ -320,6 +381,8 @@ impl<'de> Deserialize<'de> for Message {
             Content::Plain("".to_string())
         };
 
+        let hash = Hash::new(&received_at, &content);
+
         Ok(Message {
             received_at,
             server_time,
@@ -327,7 +390,20 @@ impl<'de> Deserialize<'de> for Message {
             target,
             content,
             id,
+            hash,
         })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Hash(u64);
+
+impl Hash {
+    pub fn new(received_at: &time::Posix, content: &Content) -> Self {
+        let mut hasher = DefaultHasher::new();
+        received_at.hash(&mut hasher);
+        content.hash(&mut hasher);
+        Self(hasher.finish())
     }
 }
 
@@ -478,7 +554,7 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
         })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Content {
     Plain(String),
     Fragments(Vec<Fragment>),
@@ -495,7 +571,7 @@ impl Content {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Fragment {
     Text(String),
     Channel(String),
@@ -1036,7 +1112,7 @@ pub enum Limit {
 
 impl Limit {
     pub const DEFAULT_STEP: usize = 50;
-    const DEFAULT_COUNT: usize = 500;
+    pub const DEFAULT_COUNT: usize = 500;
 
     pub fn top() -> Self {
         Self::Top(Self::DEFAULT_COUNT)
@@ -1095,7 +1171,19 @@ pub fn references_user(sender: NickRef, own_nick: NickRef, message: &Message) ->
 }
 
 pub fn references_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
-    sender != own_nick && text_references_nickname(text, own_nick).is_some()
+    sender != own_nick
+        && text
+            .chars()
+            .group_by(|c| c.is_whitespace())
+            .into_iter()
+            .any(|(is_whitespace, chars)| {
+                if !is_whitespace {
+                    let text = chars.collect::<String>();
+                    text_references_nickname(&text, own_nick).is_some()
+                } else {
+                    false
+                }
+            })
 }
 
 #[derive(Debug, Clone)]
@@ -1103,6 +1191,7 @@ pub enum Link {
     Channel(String),
     Url(String),
     User(User),
+    GoToMessage(Server, String, Hash),
 }
 
 fn fail_as_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>

@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::history::{dir_path, Error, Kind};
-use crate::{message, server, Message};
+use crate::message::source;
+use crate::Message;
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 pub struct Metadata {
@@ -23,7 +24,14 @@ impl ReadMarker {
         messages
             .iter()
             .rev()
-            .find(|message| !matches!(message.target.source(), message::Source::Internal(_)))
+            .find(|message| match message.target.source() {
+                source::Source::Internal(source) => match source {
+                    source::Internal::Status(_) => false,
+                    // Logs are in their own buffer and this gives us backlog support there
+                    source::Internal::Logs => true,
+                },
+                _ => true,
+            })
             .map(|message| message.server_time)
             .map(Self)
     }
@@ -57,8 +65,8 @@ pub fn latest_triggers_unread(messages: &[Message]) -> Option<DateTime<Utc>> {
         .map(|message| message.server_time)
 }
 
-pub async fn load(server: server::Server, kind: Kind) -> Result<Metadata, Error> {
-    let path = path(&server, &kind).await?;
+pub async fn load(kind: Kind) -> Result<Metadata, Error> {
+    let path = path(&kind).await?;
 
     if let Ok(bytes) = fs::read(path).await {
         Ok(serde_json::from_slice(&bytes).unwrap_or_default())
@@ -68,7 +76,6 @@ pub async fn load(server: server::Server, kind: Kind) -> Result<Metadata, Error>
 }
 
 pub async fn save(
-    server: &server::Server,
     kind: &Kind,
     messages: &[Message],
     read_marker: Option<ReadMarker>,
@@ -78,19 +85,15 @@ pub async fn save(
         last_triggers_unread: latest_triggers_unread(messages),
     })?;
 
-    let path = path(server, kind).await?;
+    let path = path(kind).await?;
 
     fs::write(path, &bytes).await?;
 
     Ok(())
 }
 
-pub async fn update(
-    server: &server::Server,
-    kind: &Kind,
-    read_marker: &ReadMarker,
-) -> Result<(), Error> {
-    let metadata = load(server.clone(), kind.clone()).await?;
+pub async fn update(kind: &Kind, read_marker: &ReadMarker) -> Result<(), Error> {
+    let metadata = load(kind.clone()).await?;
 
     if metadata
         .read_marker
@@ -104,21 +107,22 @@ pub async fn update(
         last_triggers_unread: metadata.last_triggers_unread,
     })?;
 
-    let path = path(server, kind).await?;
+    let path = path(kind).await?;
 
     fs::write(path, &bytes).await?;
 
     Ok(())
 }
 
-async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
+async fn path(kind: &Kind) -> Result<PathBuf, Error> {
     let dir = dir_path().await?;
 
     let name = match kind {
-        Kind::Server => format!("{server}-metadata"),
-        Kind::Channel(channel) => format!("{server}channel{channel}-metadata"),
-        Kind::Query(nick) => format!("{server}nickname{}-metadata", nick),
+        Kind::Server(server) => format!("{server}-metadata"),
+        Kind::Channel(server, channel) => format!("{server}channel{channel}-metadata"),
+        Kind::Query(server, nick) => format!("{server}nickname{}-metadata", nick),
         Kind::Logs => "logs-metadata".to_string(),
+        Kind::Highlights => "highlights-metadata".to_string(),
     };
 
     let hashed_name = seahash::hash(name.as_bytes());
