@@ -612,6 +612,14 @@ impl Data {
             }
         });
 
+        let has_read_messages = read_marker
+            .map(|marker| {
+                filtered
+                    .iter()
+                    .any(|message| message.server_time <= marker.date_time())
+            })
+            .unwrap_or_default();
+
         let limited = with_limit(limit, filtered.into_iter());
 
         let split_at = read_marker.map_or(0, |read_marker| {
@@ -619,7 +627,17 @@ impl Data {
                 .iter()
                 .rev()
                 .position(|message| message.server_time <= read_marker.date_time())
-                .map_or(limited.len(), |position| limited.len() - position)
+                .map_or_else(
+                    || {
+                        // Backlog is before this limit view of messages
+                        if has_read_messages {
+                            0
+                        } else {
+                            limited.len()
+                        }
+                    },
+                    |position| limited.len() - position,
+                )
         });
 
         let (old, new) = limited.split_at(split_at);
