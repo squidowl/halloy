@@ -588,7 +588,7 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
         })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, Hash, Serialize, Deserialize)]
 pub enum Content {
     Plain(String),
     Fragments(Vec<Fragment>),
@@ -602,6 +602,12 @@ impl Content {
             Content::Fragments(fragments) => fragments.iter().map(Fragment::as_str).join("").into(),
             Content::Log(record) => (&record.message).into(),
         }
+    }
+}
+
+impl PartialEq for Content {
+    fn eq(&self, other: &Self) -> bool {
+        self.text() == other.text()
     }
 }
 
