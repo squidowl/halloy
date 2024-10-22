@@ -479,14 +479,16 @@ impl History {
 /// of the incoming message. Either message IDs match, or server times
 /// have an exact match + target & content.
 pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
+    const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(1);
+
     if messages.is_empty() {
         messages.push(message);
 
         return;
     }
 
-    let start = message::fuzz_start_server_time(message.server_time);
-    let end = message::fuzz_end_server_time(message.server_time);
+    let start = message.server_time - FUZZ_SECONDS;
+    let end = message.server_time + FUZZ_SECONDS;
 
     let start_index = match messages.binary_search_by(|stored| stored.server_time.cmp(&start)) {
         Ok(match_index) => match_index,
