@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use irc::proto;
 
-use crate::{message, Message};
+use crate::Message;
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
 // returned by Operation::kind() and Parameter::kind()
@@ -712,10 +712,12 @@ const DEFAULT_DEAF_LETTER: char = 'D';
 
 const DEFAULT_INVITE_EXCEPTION_LETTER: char = 'I';
 
+const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(5);
+
 pub fn fuzz_start_message_reference(message_reference: MessageReference) -> MessageReference {
     match message_reference {
         MessageReference::Timestamp(start_server_time) => {
-            MessageReference::Timestamp(message::fuzz_start_server_time(start_server_time))
+            MessageReference::Timestamp(start_server_time - FUZZ_SECONDS)
         }
         _ => message_reference,
     }
@@ -724,7 +726,7 @@ pub fn fuzz_start_message_reference(message_reference: MessageReference) -> Mess
 pub fn fuzz_end_message_reference(message_reference: MessageReference) -> MessageReference {
     match message_reference {
         MessageReference::Timestamp(end_server_time) => {
-            MessageReference::Timestamp(message::fuzz_end_server_time(end_server_time))
+            MessageReference::Timestamp(end_server_time + FUZZ_SECONDS)
         }
         _ => message_reference,
     }
