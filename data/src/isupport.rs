@@ -1,4 +1,3 @@
-use irc::proto;
 use std::str::FromStr;
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
@@ -89,23 +88,21 @@ impl FromStr for Operation {
                             value.split(',').for_each(|channel_limit| {
                                 if let Some((prefix, limit)) = channel_limit.split_once(':') {
                                     if limit.is_empty() {
-                                        prefix.chars().for_each(|c| {
-                                            if proto::CHANNEL_PREFIXES.contains(&c) {
-                                                channel_limits.push(ChannelLimit {
-                                                    prefix: c,
-                                                    limit: None,
-                                                });
-                                            }
-                                        });
+                                        for c in prefix.chars() {
+                                            // TODO validate after STATUSMSG received
+                                            channel_limits.push(ChannelLimit {
+                                                prefix: c,
+                                                limit: None,
+                                            });
+                                        }
                                     } else if let Ok(limit) = limit.parse::<u16>() {
-                                        prefix.chars().for_each(|c| {
-                                            if proto::CHANNEL_PREFIXES.contains(&c) {
-                                                channel_limits.push(ChannelLimit {
-                                                    prefix: c,
-                                                    limit: Some(limit),
-                                                });
-                                            }
-                                        });
+                                        for c in prefix.chars() {
+                                            // TODO validate after STATUSMSG received
+                                            channel_limits.push(ChannelLimit {
+                                                prefix: c,
+                                                limit: Some(limit),
+                                            });
+                                        }
                                     }
                                 }
                             });
@@ -143,10 +140,9 @@ impl FromStr for Operation {
                             let chars = value.chars().collect::<Vec<_>>();
                             if chars.is_empty() {
                                 Ok(Operation::Add(Parameter::CHANTYPES(None)))
-                            } else if chars.iter().all(|c| proto::CHANNEL_PREFIXES.contains(c)) {
-                                Ok(Operation::Add(Parameter::CHANTYPES(Some(chars))))
                             } else {
-                                Err("value must only contain channel types if specified")
+                                // TODO validate after STATUSMSG is received
+                                Ok(Operation::Add(Parameter::CHANTYPES(Some(chars))))
                             }
                         }
                         "CHATHISTORY" => Ok(Operation::Add(Parameter::CHATHISTORY(
@@ -331,13 +327,9 @@ impl FromStr for Operation {
                             let mut prefix_maps = vec![];
 
                             if let Some((modes, prefixes)) = value.split_once(')') {
-                                modes.chars().skip(1).zip(prefixes.chars()).for_each(
-                                    |(mode, prefix)| {
-                                        if proto::CHANNEL_MEMBERSHIP_PREFIXES.contains(&prefix) {
-                                            prefix_maps.push(PrefixMap { mode, prefix })
-                                        }
-                                    },
-                                );
+                                for (mode, prefix) in modes.chars().skip(1).zip(prefixes.chars()) {
+                                    prefix_maps.push(PrefixMap { mode, prefix })
+                                }
 
                                 Ok(Operation::Add(Parameter::PREFIX(prefix_maps)))
                             } else {
@@ -351,13 +343,8 @@ impl FromStr for Operation {
                         ))),
                         "STATUSMSG" => {
                             let chars = value.chars().collect::<Vec<_>>();
-                            if chars.iter()
-                                .all(|c| proto::CHANNEL_MEMBERSHIP_PREFIXES.contains(c))
-                            {
-                                Ok(Operation::Add(Parameter::STATUSMSG(chars)))
-                            } else {
-                                Err("unknown channel membership prefix(es)")
-                            }
+                            // TODO validate that STATUSMSG ⊂ PREFIX after ISUPPORT ends
+                            Ok(Operation::Add(Parameter::STATUSMSG(chars)))
                         }
                         "TARGMAX" => {
                             let mut command_target_limits = vec![];
