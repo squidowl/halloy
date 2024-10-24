@@ -59,7 +59,7 @@ pub fn view<'a>(
                             selectable_text(timestamp).style(theme::selectable_text::timestamp)
                         });
 
-                let prefix = message.target.prefix().map_or(
+                let prefixes = message.target.prefixes().map_or(
                     max_nick_width.and_then(|_| {
                         max_prefix_width.map(|width| {
                             selectable_text("")
@@ -67,10 +67,10 @@ pub fn view<'a>(
                                 .horizontal_alignment(alignment::Horizontal::Right)
                         })
                     }),
-                    |prefix| {
+                    |prefixes| {
                         let text = selectable_text(format!(
                             "{} ",
-                            config.buffer.status_message_prefix.brackets.format(prefix)
+                            config.buffer.status_message_prefix.brackets.format(String::from_iter(prefixes))
                         ))
                         .style(theme::selectable_text::tertiary);
 
@@ -138,7 +138,7 @@ pub fn view<'a>(
 
                         let timestamp_nickname_row = row![]
                             .push_maybe(timestamp)
-                            .push_maybe(prefix)
+                            .push_maybe(prefixes)
                             .push(nick)
                             .push(space);
 
@@ -186,7 +186,7 @@ pub fn view<'a>(
                             container(
                                 row![]
                                     .push_maybe(timestamp)
-                                    .push_maybe(prefix)
+                                    .push_maybe(prefixes)
                                     .push(marker)
                                     .push(space)
                                     .push(message),
@@ -209,7 +209,7 @@ pub fn view<'a>(
                             container(
                                 row![]
                                     .push_maybe(timestamp)
-                                    .push_maybe(prefix)
+                                    .push_maybe(prefixes)
                                     .push(marker)
                                     .push(space)
                                     .push(message),
@@ -236,7 +236,7 @@ pub fn view<'a>(
                             container(
                                 row![]
                                     .push_maybe(timestamp)
-                                    .push_maybe(prefix)
+                                    .push_maybe(prefixes)
                                     .push(marker)
                                     .push(space)
                                     .push(message),
