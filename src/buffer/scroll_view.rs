@@ -2,7 +2,9 @@ use data::message::{self, Limit};
 use data::server::Server;
 use data::user::Nick;
 use data::{history, time, Config};
-use iced::widget::{column, container, horizontal_rule, row, scrollable, text, Scrollable};
+use iced::widget::{
+    button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, Scrollable,
+};
 use iced::{padding, Length, Task};
 
 use super::user_context;
@@ -20,19 +22,21 @@ pub enum Message {
     },
     UserContext(user_context::Message),
     Link(message::Link),
+    RequestOlderChatHistory,
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
     OpenChannel(String),
+    RequestOlderChatHistory,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Kind<'a> {
     Server(&'a Server),
-    Channel(&'a Server, &'a str),
-    Query(&'a Server, &'a Nick),
+    Channel(&'a Server, &'a str, Option<(bool, bool)>),
+    Query(&'a Server, &'a Nick, Option<(bool, bool)>),
     Log,
 }
 
@@ -53,10 +57,10 @@ pub fn view<'a>(
         Kind::Server(server) => {
             history.get_server_messages(server, Some(state.limit), &config.buffer)
         }
-        Kind::Channel(server, channel) => {
+        Kind::Channel(server, channel, _) => {
             history.get_channel_messages(server, channel, Some(state.limit), &config.buffer)
         }
-        Kind::Query(server, user) => {
+        Kind::Query(server, user, _) => {
             history.get_query_messages(server, user, Some(state.limit), &config.buffer)
         }
         Kind::Log => history.get_log_messages(Some(state.limit), &config.buffer),
@@ -64,6 +68,38 @@ pub fn view<'a>(
     else {
         return column![].into();
     };
+
+    let top_row =
+        if let Kind::Channel(_, _, Some((chathistory_request_is_some, chathistory_exhausted)))
+        | Kind::Query(_, _, Some((chathistory_request_is_some, chathistory_exhausted))) = kind
+        {
+            let (content, message) = if chathistory_request_is_some {
+                ("...", None)
+            } else if chathistory_exhausted {
+                ("No Older Chat History Messages Available", None)
+            } else {
+                (
+                    "Request Older Chat History Messages",
+                    Some(Message::RequestOlderChatHistory),
+                )
+            };
+
+            let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
+
+            let top_row_button = button(text(content).size(font_size))
+                .padding([3, 5])
+                .style(|theme, status| theme::button::primary(theme, status, false))
+                .on_press_maybe(message);
+
+            Some(
+                row![horizontal_space(), top_row_button, horizontal_space()]
+                    .padding(padding::top(2).bottom(6))
+                    .width(Length::Fill)
+                    .align_y(iced::Alignment::Center),
+            )
+        } else {
+            None
+        };
 
     let count = old_messages.len() + new_messages.len();
     let remaining = count < total;
@@ -112,9 +148,16 @@ pub fn view<'a>(
         .padding(2)
         .align_y(iced::Alignment::Center);
 
-        column![column(old), divider, column(new)]
+        column![]
+            .push_maybe(top_row)
+            .push(column(old))
+            .push(divider)
+            .push(column(new))
     } else {
-        column![column(old), column(new)]
+        column![]
+            .push_maybe(top_row)
+            .push(column(old))
+            .push(column(new))
     };
 
     Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
@@ -157,7 +200,11 @@ impl State {
         Self::default()
     }
 
-    pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
+    pub fn update(
+        &mut self,
+        message: Message,
+        infinite_scroll: bool,
+    ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Scrolled {
                 count,
@@ -222,6 +269,11 @@ impl State {
                         scrollable::scroll_to(self.scrollable.clone(), new_offset),
                         None,
                     );
+                } else if infinite_scroll
+                    && matches!(self.limit, Limit::Top(_))
+                    && relative_offset == 0.0
+                {
+                    return (Task::none(), Some(Event::RequestOlderChatHistory));
                 }
             }
             Message::UserContext(message) => {
@@ -243,6 +295,9 @@ impl State {
                         user.nickname().to_owned(),
                     ))),
                 )
+            }
+            Message::RequestOlderChatHistory => {
+                return (Task::none(), Some(Event::RequestOlderChatHistory))
             }
         }
 

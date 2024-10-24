@@ -15,6 +15,7 @@ pub use self::formatting::Formatting;
 pub use self::source::Source;
 
 use crate::config::buffer::UsernameFormat;
+use crate::history::MessageReferences;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, Config, User};
@@ -170,6 +171,30 @@ impl Message {
                 }
                 _ => false,
             }
+    }
+
+    pub fn can_reference(&self) -> bool {
+        if matches!(self.target.source(), Source::Internal(_)) {
+            return false;
+        } else if let Source::Server(Some(source)) = self.target.source() {
+            if matches!(
+                source.kind(),
+                source::server::Kind::ReplyTopic
+                    | source::server::Kind::MonitoredOnline
+                    | source::server::Kind::MonitoredOffline
+            ) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn references(&self) -> MessageReferences {
+        MessageReferences {
+            timestamp: self.server_time,
+            id: self.id.clone(),
+        }
     }
 
     pub fn received<'a>(
@@ -478,7 +503,7 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
         })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, Serialize, Deserialize)]
 pub enum Content {
     Plain(String),
     Fragments(Vec<Fragment>),
@@ -492,6 +517,12 @@ impl Content {
             Content::Fragments(fragments) => fragments.iter().map(Fragment::as_str).join("").into(),
             Content::Log(record) => (&record.message).into(),
         }
+    }
+}
+
+impl PartialEq for Content {
+    fn eq(&self, other: &Self) -> bool {
+        self.text() == other.text()
     }
 }
 
@@ -715,6 +746,7 @@ fn target(
         | Command::AUTHENTICATE(_)
         | Command::ACCOUNT(_)
         | Command::BATCH(_, _)
+        | Command::CHATHISTORY(_, _)
         | Command::CNOTICE(_, _, _)
         | Command::CPRIVMSG(_, _, _)
         | Command::KNOCK(_, _)
