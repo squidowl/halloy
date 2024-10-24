@@ -597,11 +597,11 @@ impl Data {
                 filtered
                     .iter()
                     .filter_map(|message| {
-                        message.target.prefix().map(|prefix| {
+                        message.target.prefixes().map(|prefixes| {
                             buffer_config
                                 .status_message_prefix
                                 .brackets
-                                .format(prefix.iter().collect::<String>())
+                                .format(prefixes.iter().collect::<String>())
                                 .chars()
                                 .count()
                                 + 1

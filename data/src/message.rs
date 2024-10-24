@@ -111,7 +111,7 @@ pub enum Target {
     Channel {
         channel: Channel,
         source: Source,
-        prefix: Vec<char>,
+        prefixes: Vec<char>,
     },
     Query {
         nick: Nick,
@@ -126,10 +126,10 @@ pub enum Target {
 }
 
 impl Target {
-    pub fn prefix(&self) -> Option<&[char]> {
+    pub fn prefixes(&self) -> Option<&[char]> {
         match self {
             Target::Server { .. } => None,
-            Target::Channel { prefix, .. } => Some(prefix),
+            Target::Channel { prefixes, .. } => Some(prefixes),
             Target::Query { .. } => None,
             Target::Logs => None,
             Target::Highlights { .. } => None,
@@ -625,12 +625,12 @@ fn target(
         Command::MODE(target, ..) if proto::is_channel(&target, chantypes) => Some(Target::Channel {
             channel: target,
             source: source::Source::Server(None),
-            prefix: Default::default(),
+            prefixes: Default::default(),
         }),
         Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => Some(Target::Channel {
             channel,
             source: source::Source::Server(None),
-            prefix: Default::default(),
+            prefixes: Default::default(),
         }),
         Command::PART(channel, _) => Some(Target::Channel {
             channel,
@@ -638,7 +638,7 @@ fn target(
                 source::server::Kind::Part,
                 Some(user?.nickname().to_owned()),
             ))),
-            prefix: Default::default(),
+            prefixes: Default::default(),
         }),
         Command::JOIN(channel, _) => Some(Target::Channel {
             channel,
@@ -646,7 +646,7 @@ fn target(
                 source::server::Kind::Join,
                 Some(user?.nickname().to_owned()),
             ))),
-            prefix: Default::default(),
+            prefixes: Default::default(),
         }),
         Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME, params) => {
             let channel = params.get(1)?.clone();
@@ -656,7 +656,7 @@ fn target(
                     source::server::Kind::ReplyTopic,
                     None,
                 ))),
-                prefix: Default::default(),
+                prefixes: Default::default(),
             })
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
@@ -664,7 +664,7 @@ fn target(
             Some(Target::Channel {
                 channel,
                 source: source::Source::Server(None),
-                prefix: Default::default(),
+                prefixes: Default::default(),
             })
         }
         Command::Numeric(RPL_AWAY, params) => {
@@ -687,12 +687,12 @@ fn target(
             };
 
             match (proto::parse_channel_from_target(&target, chantypes, statusmsg), user) {
-                (Some((prefix, channel)), Some(user)) => {
+                (Some((prefixes, channel)), Some(user)) => {
                     let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
                     Some(Target::Channel {
                         channel,
                         source,
-                        prefix,
+                        prefixes,
                     })
                 }
                 (None, Some(user)) => {
@@ -721,12 +721,12 @@ fn target(
             };
 
             match (proto::parse_channel_from_target(&target, chantypes, statusmsg), user) {
-                (Some((prefix, channel)), Some(user)) => {
+                (Some((prefixes, channel)), Some(user)) => {
                     let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
                     Some(Target::Channel {
                         channel,
                         source,
-                        prefix,
+                        prefixes,
                     })
                 }
                 (None, Some(user)) => {
