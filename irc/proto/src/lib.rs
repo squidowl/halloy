@@ -47,10 +47,6 @@ pub fn command(command: &str, parameters: Vec<String>) -> Message {
         command: Command::new(command, parameters),
     }
 }
-
-/// Reference: https://defs.ircdocs.horse/defs/chantypes
-pub const CHANNEL_PREFIXES: &[char] = &['#', '&', '+', '!'];
-
 /// Reference: https://defs.ircdocs.horse/defs/chantypes
 ///
 /// Channel types which should be used if the CHANTYPES ISUPPORT is not returned
@@ -67,10 +63,6 @@ pub const CHANNEL_BLACKLIST_CHARS: &[char] = &[',', '\u{07}', ','];
 pub fn is_channel(target: &str, chantypes: &[char]) -> bool {
     target.starts_with(chantypes) && !target.contains(CHANNEL_BLACKLIST_CHARS)
 }
-
-// Reference: https://defs.ircdocs.horse/defs/chanmembers
-pub const CHANNEL_MEMBERSHIP_PREFIXES: &[char] = &['~', '&', '!', '@', '%', '+'];
-
 /// https://modern.ircdocs.horse/#channels
 ///
 /// Given a target, split it into a channel name (beginning with a character in `chantypes`) and a
@@ -84,10 +76,12 @@ pub fn parse_channel_from_target(
     // We parse the target by finding the first character in chantypes, and returing (even if that
     // character is in statusmsg_prefixes)
     // If the characters before the first chantypes character are all valid prefixes, then we have
-    // a valid channel name with those prefixes.    let chan_index = target.find(chantypes)?;
+    // a valid channel name with those prefixes.
     let chan_index = target.find(chantypes)?;
 
-    // will not panic, since `find` always returns a valid codepoint index
+    // This will not panic, since `find` always returns a valid codepoint index.
+    // We call `find` -> `split_at` because it is an _inclusive_ split, which includes the match.
+    // We need to return this since the channel target includes its chantype.
     let (prefix, chan) = target.split_at(chan_index);
     if prefix.chars().all(|ref c| statusmsg_prefixes.contains(c)) {
         Some((prefix.chars().collect(), chan.to_owned()))
@@ -109,6 +103,10 @@ macro_rules! command {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+
+    // Reference: https://defs.ircdocs.horse/defs/chanmembers
+    const CHANNEL_MEMBERSHIP_PREFIXES: &[char] = &['~', '&', '!', '@', '%', '+'];
 
     #[test]
     fn is_channel_correct() {
