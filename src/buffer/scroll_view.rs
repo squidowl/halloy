@@ -5,6 +5,7 @@ use data::{history, time, Config};
 use iced::widget::{column, container, horizontal_rule, row, scrollable, text, Scrollable};
 use iced::{padding, Length, Task};
 
+use self::keyed::keyed;
 use super::user_context;
 use crate::widget::{Element, MESSAGE_MARKER_TEXT};
 use crate::{font, theme};
@@ -20,12 +21,14 @@ pub enum Message {
     },
     UserContext(user_context::Message),
     Link(message::Link),
+    ScrollTo(keyed::Bounds),
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
     OpenChannel(String),
+    GoToMessage(Server, String, message::Hash),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -33,7 +36,22 @@ pub enum Kind<'a> {
     Server(&'a Server),
     Channel(&'a Server, &'a str),
     Query(&'a Server, &'a Nick),
-    Log,
+    Logs,
+    Highlights,
+}
+
+impl From<Kind<'_>> for history::Kind {
+    fn from(value: Kind<'_>) -> Self {
+        match value {
+            Kind::Server(server) => history::Kind::Server(server.clone()),
+            Kind::Channel(server, channel) => {
+                history::Kind::Channel(server.clone(), channel.to_string())
+            }
+            Kind::Query(server, nick) => history::Kind::Query(server.clone(), nick.clone()),
+            Kind::Logs => history::Kind::Logs,
+            Kind::Highlights => history::Kind::Highlights,
+        }
+    }
 }
 
 pub fn view<'a>(
@@ -49,18 +67,7 @@ pub fn view<'a>(
         new_messages,
         max_nick_chars,
         max_prefix_chars,
-    }) = (match kind {
-        Kind::Server(server) => {
-            history.get_server_messages(server, Some(state.limit), &config.buffer)
-        }
-        Kind::Channel(server, channel) => {
-            history.get_channel_messages(server, channel, Some(state.limit), &config.buffer)
-        }
-        Kind::Query(server, user) => {
-            history.get_query_messages(server, user, Some(state.limit), &config.buffer)
-        }
-        Kind::Log => history.get_log_messages(Some(state.limit), &config.buffer),
-    })
+    }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
     else {
         return column![].into();
     };
@@ -86,19 +93,26 @@ pub fn view<'a>(
 
     let old = old_messages
         .into_iter()
-        .filter_map(|message| format(message, max_nick_width, max_prefix_width))
+        .filter_map(|message| {
+            format(message, max_nick_width, max_prefix_width)
+                .map(|element| keyed(keyed::Key::message(message), element))
+        })
         .collect::<Vec<_>>();
     let new = new_messages
         .into_iter()
-        .filter_map(|message| format(message, max_nick_width, max_prefix_width))
+        .filter_map(|message| {
+            format(message, max_nick_width, max_prefix_width)
+                .map(|element| keyed(keyed::Key::message(message), element))
+        })
         .collect::<Vec<_>>();
 
-    let show_divider = !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom));
+    let show_divider =
+        !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom) | Status::ScrollTo);
 
-    let content = if show_divider {
+    let divider = if show_divider {
         let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
 
-        let divider = row![
+        row![
             container(horizontal_rule(1))
                 .width(Length::Fill)
                 .padding(padding::right(6)),
@@ -110,12 +124,16 @@ pub fn view<'a>(
                 .padding(padding::left(6))
         ]
         .padding(2)
-        .align_y(iced::Alignment::Center);
-
-        column![column(old), divider, column(new)]
+        .align_y(iced::Alignment::Center)
     } else {
-        column![column(old), column(new)]
+        row![]
     };
+
+    let content = column![
+        column(old),
+        keyed(keyed::Key::Divider, divider),
+        column(new)
+    ];
 
     Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
         .direction(scrollable::Direction::Vertical(
@@ -140,6 +158,7 @@ pub struct State {
     pub scrollable: scrollable::Id,
     limit: Limit,
     status: Status,
+    pending_scroll_to: Option<message::Hash>,
 }
 
 impl Default for State {
@@ -148,6 +167,7 @@ impl Default for State {
             scrollable: scrollable::Id::unique(),
             limit: Limit::bottom(),
             status: Status::default(),
+            pending_scroll_to: None,
         }
     }
 }
@@ -169,6 +189,9 @@ impl State {
                 let relative_offset = viewport.relative_offset().y;
 
                 match old_status {
+                    Status::ScrollTo => {
+                        return (Task::none(), None);
+                    }
                     Status::Loading(anchor) => {
                         self.status = Status::Unlocked(anchor);
 
@@ -244,6 +267,51 @@ impl State {
                     ))),
                 )
             }
+            Message::Link(message::Link::GoToMessage(server, channel, message)) => {
+                return (
+                    Task::none(),
+                    Some(Event::GoToMessage(server, channel, message)),
+                )
+            }
+            Message::ScrollTo(keyed::Bounds {
+                scrollable_bounds,
+                hit_bounds,
+                prev_bounds,
+            }) => {
+                let total_offset =
+                    scrollable_bounds.content.height - scrollable_bounds.viewport.height;
+
+                let absolute = hit_bounds.y - scrollable_bounds.content.y;
+                let relative = (absolute / total_offset).min(1.0);
+
+                self.status = Status::Idle(Anchor::Bottom);
+
+                // Offsets are given relative to top,
+                // and we must scroll to offsets relative to
+                // the bottom
+                let offset = if relative == 1.0 {
+                    0.0
+                } else {
+                    // If a prev element exists, put scrollable halfway over prev
+                    // element so it's obvious user can scroll up
+                    if let Some(bounds) = prev_bounds {
+                        let absolute =
+                            (bounds.y - scrollable_bounds.content.y) + bounds.height / 2.0;
+
+                        total_offset - absolute
+                    } else {
+                        total_offset - absolute
+                    }
+                };
+
+                return (
+                    scrollable::scroll_to(
+                        self.scrollable.clone(),
+                        scrollable::AbsoluteOffset { x: 0.0, y: offset },
+                    ),
+                    None,
+                );
+            }
         }
 
         (Task::none(), None)
@@ -266,6 +334,78 @@ impl State {
             scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
         )
     }
+
+    pub fn is_scrolled_to_bottom(&self) -> bool {
+        matches!(self.status, Status::Idle(Anchor::Bottom))
+    }
+
+    pub fn scroll_to_message(
+        &mut self,
+        message: message::Hash,
+        kind: Kind,
+        history: &history::Manager,
+        config: &Config,
+    ) -> Task<Message> {
+        let Some(history::View {
+            total,
+            old_messages,
+            new_messages,
+            ..
+        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        else {
+            // We're still loading history, which will trigger
+            // scroll_to_backlog after loading. If this is set,
+            // we will scroll_to_message
+            self.pending_scroll_to = Some(message);
+
+            return Task::none();
+        };
+
+        let Some(pos) = old_messages
+            .iter()
+            .chain(&new_messages)
+            .position(|m| m.hash == message)
+        else {
+            return Task::none();
+        };
+
+        // Get all messages from bottom until 1 before message
+        let offset = total - pos + 1;
+
+        self.limit = Limit::Bottom(offset.max(Limit::DEFAULT_COUNT));
+        self.status = Status::ScrollTo;
+
+        keyed::find_bounds(self.scrollable.clone(), keyed::Key::Message(message))
+            .map(Message::ScrollTo)
+    }
+
+    pub fn scroll_to_backlog(
+        &mut self,
+        kind: Kind,
+        history: &history::Manager,
+        config: &Config,
+    ) -> Task<Message> {
+        if let Some(message) = self.pending_scroll_to.take() {
+            return self.scroll_to_message(message, kind, history, config);
+        }
+
+        let Some(history::View {
+            total,
+            old_messages,
+            ..
+        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        else {
+            return Task::none();
+        };
+
+        // Get all messages from bottom until 1 before backlog
+        let offset = total - old_messages.len() + 1;
+
+        self.limit = Limit::Bottom(offset.max(Limit::DEFAULT_COUNT));
+        self.status = Status::ScrollTo;
+
+        keyed::find_bounds(self.scrollable.clone(), keyed::Key::Divider).map(Message::ScrollTo)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -273,6 +413,7 @@ pub enum Status {
     Idle(Anchor),
     Unlocked(Anchor),
     Loading(Anchor),
+    ScrollTo,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -287,6 +428,7 @@ impl Status {
             Status::Idle(anchor) => anchor,
             Status::Unlocked(anchor) => anchor,
             Status::Loading(anchor) => anchor,
+            Status::ScrollTo => Anchor::Bottom,
         }
     }
 
@@ -301,6 +443,7 @@ impl Status {
                 Anchor::Top => scrollable::Anchor::Start,
                 Anchor::Bottom => scrollable::Anchor::End,
             },
+            Status::ScrollTo => scrollable::Anchor::Start,
         }
     }
 
@@ -357,5 +500,140 @@ impl Status {
 impl Default for Status {
     fn default() -> Self {
         Self::Idle(Anchor::Bottom)
+    }
+}
+
+mod keyed {
+    use data::message;
+    use iced::advanced::widget::{self, Operation};
+    use iced::widget::scrollable;
+    use iced::{advanced, Rectangle, Task, Vector};
+
+    use crate::widget::Element;
+    use crate::widget::{decorate, Renderer};
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Key {
+        Divider,
+        Message(message::Hash),
+    }
+
+    impl Key {
+        pub fn message(message: &data::Message) -> Self {
+            Self::Message(message.hash)
+        }
+    }
+
+    pub fn keyed<'a, Message: 'a>(
+        key: Key,
+        inner: impl Into<Element<'a, Message>>,
+    ) -> Element<'a, Message> {
+        #[derive(Default)]
+        struct State;
+
+        decorate(inner)
+            .operate(
+                move |_state: &mut State,
+                      inner: &Element<'a, Message>,
+                      tree: &mut advanced::widget::Tree,
+                      layout: advanced::Layout<'_>,
+                      renderer: &Renderer,
+                      operation: &mut dyn advanced::widget::Operation<()>| {
+                    operation.custom(&mut (key, layout.bounds()), None);
+                    inner.as_widget().operate(tree, layout, renderer, operation);
+                },
+            )
+            .into()
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct Bounds {
+        pub scrollable_bounds: ScrollableBounds,
+        pub hit_bounds: Rectangle,
+        pub prev_bounds: Option<Rectangle>,
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct ScrollableBounds {
+        pub viewport: Rectangle,
+        pub content: Rectangle,
+    }
+
+    pub fn find_bounds(scrollable: scrollable::Id, key: Key) -> Task<Bounds> {
+        #[derive(Debug, Clone)]
+        struct State {
+            active: bool,
+            key: Key,
+            scrollable: scrollable::Id,
+            scrollable_bounds: Option<ScrollableBounds>,
+            hit_bounds: Option<Rectangle>,
+            prev_bounds: Option<Rectangle>,
+        }
+
+        impl Operation<State> for State {
+            fn scrollable(
+                &mut self,
+                _state: &mut dyn widget::operation::Scrollable,
+                id: Option<&widget::Id>,
+                bounds: Rectangle,
+                content_bounds: Rectangle,
+                _translation: Vector,
+            ) {
+                if id == Some(&self.scrollable.clone().into()) {
+                    self.scrollable_bounds = Some(ScrollableBounds {
+                        viewport: bounds,
+                        content: content_bounds,
+                    });
+                    self.active = true;
+                } else {
+                    self.active = false;
+                }
+            }
+
+            fn container(
+                &mut self,
+                _id: Option<&widget::Id>,
+                _bounds: Rectangle,
+                operate_on_children: &mut dyn FnMut(&mut dyn Operation<State>),
+            ) {
+                operate_on_children(self)
+            }
+
+            fn custom(&mut self, state: &mut dyn std::any::Any, _id: Option<&widget::Id>) {
+                if self.active {
+                    if let Some((key, bounds)) = state.downcast_ref::<(Key, Rectangle)>() {
+                        if self.key == *key {
+                            self.hit_bounds = Some(*bounds);
+                        } else if self.hit_bounds.is_none() {
+                            self.prev_bounds = Some(*bounds);
+                        }
+                    }
+                }
+            }
+
+            fn finish(&self) -> widget::operation::Outcome<State> {
+                widget::operation::Outcome::Some(self.clone())
+            }
+        }
+
+        widget::operate(State {
+            active: false,
+            scrollable,
+            key,
+            scrollable_bounds: None,
+            hit_bounds: None,
+            prev_bounds: None,
+        })
+        .map(|state| {
+            state
+                .scrollable_bounds
+                .zip(state.hit_bounds)
+                .map(|(scrollable_bounds, hit_bounds)| Bounds {
+                    scrollable_bounds,
+                    hit_bounds,
+                    prev_bounds: state.prev_bounds,
+                })
+        })
+        .and_then(Task::done)
     }
 }

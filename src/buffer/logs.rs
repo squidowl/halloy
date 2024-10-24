@@ -26,7 +26,7 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Log,
+            scroll_view::Kind::Logs,
             history,
             config,
             move |message, _, _| match message.target.source() {
@@ -69,9 +69,10 @@ impl Logs {
             Message::ScrollView(message) => {
                 let (command, event) = self.scroll_view.update(message);
 
-                let event = event.map(|event| match event {
-                    scroll_view::Event::UserContext(event) => Event::UserContext(event),
-                    scroll_view::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                let event = event.and_then(|event| match event {
+                    scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
+                    scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
+                    scroll_view::Event::GoToMessage(_, _, _) => None,
                 });
 
                 (command.map(Message::ScrollView), event)

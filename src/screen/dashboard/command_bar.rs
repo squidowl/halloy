@@ -1,4 +1,4 @@
-use data::Config;
+use data::{buffer, Config};
 use iced::widget::{column, container, pane_grid, text};
 use iced::Length;
 
@@ -20,7 +20,7 @@ pub enum Message {
 
 impl CommandBar {
     pub fn new(
-        buffers: &[data::Buffer],
+        buffers: &[buffer::Upstream],
         version: &data::Version,
         config: &Config,
         focus: Option<(window::Id, pane_grid::Pane)>,
@@ -54,7 +54,7 @@ impl CommandBar {
 
     pub fn view<'a>(
         &'a self,
-        buffers: &[data::Buffer],
+        buffers: &[buffer::Upstream],
         focus: Option<(window::Id, pane_grid::Pane)>,
         resize_buffer: data::buffer::Resize,
         version: &data::Version,
@@ -125,11 +125,10 @@ pub enum Buffer {
     Maximize(bool),
     New,
     Close,
-    Replace(data::Buffer),
+    Replace(buffer::Upstream),
     Popout,
     Merge,
-    ToggleFileTransfers,
-    ToggleLogs,
+    ToggleInternal(buffer::Internal),
 }
 
 #[derive(Debug, Clone)]
@@ -152,7 +151,7 @@ pub enum Theme {
 
 impl Command {
     pub fn list(
-        buffers: &[data::Buffer],
+        buffers: &[buffer::Upstream],
         config: &Config,
         focus: Option<(window::Id, pane_grid::Pane)>,
         resize_buffer: data::buffer::Resize,
@@ -196,12 +195,18 @@ impl std::fmt::Display for Command {
 
 impl Buffer {
     fn list(
-        buffers: &[data::Buffer],
+        buffers: &[buffer::Upstream],
         focus: Option<(window::Id, pane_grid::Pane)>,
         resize_buffer: data::buffer::Resize,
         main_window: window::Id,
     ) -> Vec<Self> {
-        let mut list = vec![Buffer::New, Buffer::ToggleFileTransfers, Buffer::ToggleLogs];
+        let mut list = vec![Buffer::New];
+        list.extend(
+            buffer::Internal::ALL
+                .iter()
+                .copied()
+                .map(Buffer::ToggleInternal),
+        );
 
         if let Some((window, _)) = focus {
             list.push(Buffer::Close);
@@ -290,16 +295,15 @@ impl std::fmt::Display for Buffer {
             Buffer::New => write!(f, "New buffer"),
             Buffer::Close => write!(f, "Close buffer"),
             Buffer::Replace(buffer) => match buffer {
-                data::Buffer::Server(server) => write!(f, "Change to {}", server),
-                data::Buffer::Channel(server, channel) => {
+                buffer::Upstream::Server(server) => write!(f, "Change to {}", server),
+                buffer::Upstream::Channel(server, channel) => {
                     write!(f, "Change to {} ({})", channel, server)
                 }
-                data::Buffer::Query(_, nick) => write!(f, "Change to {}", nick),
+                buffer::Upstream::Query(_, nick) => write!(f, "Change to {}", nick),
             },
             Buffer::Popout => write!(f, "Pop out buffer"),
             Buffer::Merge => write!(f, "Merge buffer"),
-            Buffer::ToggleFileTransfers => write!(f, "Toggle File Transfers"),
-            Buffer::ToggleLogs => write!(f, "Toggle Logs"),
+            Buffer::ToggleInternal(internal) => write!(f, "Toggle {internal}"),
         }
     }
 }

@@ -302,7 +302,6 @@ fn picker<'a, Message: 'a>(
     let color = data::appearance::theme::to_hsva(color);
 
     decorate(Space::new(width, height))
-        .state::<Option<Rectangle>>()
         .on_event(
             move |state: &mut Option<Rectangle>,
                   _inner: &mut Element<'a, Message>,

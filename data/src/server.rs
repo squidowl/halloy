@@ -71,7 +71,9 @@ async fn read_from_command(pass_command: &str) -> Result<String, Error> {
         // trailing newline
         Ok(str::from_utf8(&output.stdout)?.trim_end().to_string())
     } else {
-        Err(Error::ExecutePasswordCommand(String::from_utf8(output.stderr)?))
+        Err(Error::ExecutePasswordCommand(String::from_utf8(
+            output.stderr,
+        )?))
     }
 }
 
@@ -131,7 +133,7 @@ impl Map {
                         password_file: None,
                         password_command: None,
                         ..
-                    } => {},
+                    } => {}
                     Sasl::Plain {
                         password: password @ None,
                         password_file: Some(pass_file),

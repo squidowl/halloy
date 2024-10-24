@@ -152,7 +152,7 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Formatting {
     pub bold: bool,
     pub italics: bool,
@@ -233,7 +233,7 @@ impl TryFrom<char> for Modifier {
 }
 
 /// https://modern.ircdocs.horse/formatting.html#colors
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum Color {
     White = 0,

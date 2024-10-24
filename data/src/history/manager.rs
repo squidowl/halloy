@@ -3,60 +3,49 @@ use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 use futures::{future, Future, FutureExt};
-use itertools::Itertools;
 use tokio::time::Instant;
 
 use crate::history::{self, History};
 use crate::message::{self, Limit};
 use crate::user::Nick;
-use crate::{config, input};
-use crate::{server, Buffer, Config, Input, Server, User};
-
-// Hack since log messages are app wide and not scoped to any server
-const LOG_SERVER_NAME: &str = "<halloy-logs>";
+use crate::{buffer, config, input};
+use crate::{server, Config, Input, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
-    pub server: server::Server,
     pub kind: history::Kind,
 }
 
 impl Resource {
     pub fn logs() -> Self {
         Self {
-            server: Server::from(LOG_SERVER_NAME),
             kind: history::Kind::Logs,
+        }
+    }
+
+    pub fn highlights() -> Self {
+        Self {
+            kind: history::Kind::Highlights,
         }
     }
 }
 
 #[derive(Debug)]
 pub enum Message {
-    LoadFull(
-        server::Server,
-        history::Kind,
-        Result<history::Loaded, history::Error>,
-    ),
-    UpdatePartial(
-        server::Server,
-        history::Kind,
-        Result<history::Metadata, history::Error>,
-    ),
+    LoadFull(history::Kind, Result<history::Loaded, history::Error>),
+    UpdatePartial(history::Kind, Result<history::Metadata, history::Error>),
     UpdateReadMarker(
-        server::Server,
         history::Kind,
         history::ReadMarker,
         Result<(), history::Error>,
     ),
     Closed(
-        server::Server,
         history::Kind,
         Result<Option<history::ReadMarker>, history::Error>,
     ),
-    Flushed(server::Server, history::Kind, Result<(), history::Error>),
+    Flushed(history::Kind, Result<(), history::Error>),
     Exited(
         Vec<(
-            Server,
             history::Kind,
             Result<Option<history::ReadMarker>, history::Error>,
         )>,
@@ -64,8 +53,9 @@ pub enum Message {
 }
 
 pub enum Event {
-    Closed(server::Server, history::Kind, Option<history::ReadMarker>),
-    Exited(Vec<(Server, history::Kind, Option<history::ReadMarker>)>),
+    Loaded(history::Kind),
+    Closed(history::Kind, Option<history::ReadMarker>),
+    Exited(Vec<(history::Kind, Option<history::ReadMarker>)>),
 }
 
 #[derive(Debug, Default)]
@@ -81,20 +71,18 @@ impl Manager {
 
         let added = added.into_iter().map(|resource| {
             async move {
-                history::load(resource.server.clone(), resource.kind.clone())
-                    .map(move |result| Message::LoadFull(resource.server, resource.kind, result))
+                history::load(resource.kind.clone())
+                    .map(move |result| Message::LoadFull(resource.kind, result))
                     .await
             }
             .boxed()
         });
 
         let removed = removed.into_iter().filter_map(|resource| {
-            self.data
-                .untrack(&resource.server, &resource.kind)
-                .map(|task| {
-                    task.map(|result| Message::Closed(resource.server, resource.kind, result))
-                        .boxed()
-                })
+            self.data.untrack(&resource.kind).map(|task| {
+                task.map(|result| Message::Closed(resource.kind, result))
+                    .boxed()
+            })
         });
 
         let tasks = added.chain(removed).collect();
@@ -106,59 +94,58 @@ impl Manager {
 
     pub fn update(&mut self, message: Message) -> Option<Event> {
         match message {
-            Message::LoadFull(server, kind, Ok(loaded)) => {
+            Message::LoadFull(kind, Ok(loaded)) => {
                 log::debug!(
-                    "loaded history for {kind} on {server}: {} messages",
+                    "loaded history for {kind}: {} messages",
                     loaded.messages.len()
                 );
-                self.data.load_full(server, kind, loaded);
+                self.data.load_full(kind.clone(), loaded);
+                return Some(Event::Loaded(kind));
             }
-            Message::LoadFull(server, kind, Err(error)) => {
-                log::warn!("failed to load history for {kind} on {server}: {error}");
+            Message::LoadFull(kind, Err(error)) => {
+                log::warn!("failed to load history for {kind}: {error}");
             }
-            Message::Closed(server, kind, Ok(read_marker)) => {
-                log::debug!("closed history for {kind} on {server}",);
-                return Some(Event::Closed(server, kind, read_marker));
+            Message::Closed(kind, Ok(read_marker)) => {
+                log::debug!("closed history for {kind}",);
+                return Some(Event::Closed(kind, read_marker));
             }
-            Message::Closed(server, kind, Err(error)) => {
-                log::warn!("failed to close history for {kind} on {server}: {error}")
+            Message::Closed(kind, Err(error)) => {
+                log::warn!("failed to close history for {kind}: {error}")
             }
-            Message::Flushed(server, kind, Ok(_)) => {
+            Message::Flushed(kind, Ok(_)) => {
                 // Will cause flush loop if we emit a log every time we flush logs
                 if !matches!(kind, history::Kind::Logs) {
-                    log::debug!("flushed history for {kind} on {server}",);
+                    log::debug!("flushed history for {kind}",);
                 }
             }
-            Message::Flushed(server, kind, Err(error)) => {
-                log::warn!("failed to flush history for {kind} on {server}: {error}")
+            Message::Flushed(kind, Err(error)) => {
+                log::warn!("failed to flush history for {kind}: {error}")
             }
-            Message::UpdatePartial(server, kind, Ok(metadata)) => {
-                log::debug!("loaded metadata for {kind} on {server}");
-                self.data.update_partial(server, kind, metadata);
+            Message::UpdatePartial(kind, Ok(metadata)) => {
+                log::debug!("loaded metadata for {kind}");
+                self.data.update_partial(kind, metadata);
             }
-            Message::UpdatePartial(server, kind, Err(error)) => {
-                log::warn!("failed to load metadata for {kind} on {server}: {error}");
+            Message::UpdatePartial(kind, Err(error)) => {
+                log::warn!("failed to load metadata for {kind}: {error}");
             }
-            Message::UpdateReadMarker(server, kind, read_marker, Ok(_)) => {
-                log::debug!("updated read marker for {kind} on {server} to {read_marker}");
+            Message::UpdateReadMarker(kind, read_marker, Ok(_)) => {
+                log::debug!("updated read marker for {kind} to {read_marker}");
             }
-            Message::UpdateReadMarker(server, kind, read_marker, Err(error)) => {
-                log::warn!(
-                    "failed to update read marker for {kind} on {server} to {read_marker}: {error}"
-                );
+            Message::UpdateReadMarker(kind, read_marker, Err(error)) => {
+                log::warn!("failed to update read marker for {kind} to {read_marker}: {error}");
             }
             Message::Exited(results) => {
                 let mut output = vec![];
 
-                for (server, kind, result) in results {
+                for (kind, result) in results {
                     match result {
                         Ok(marker) => {
-                            log::debug!("closed history for {kind} on {server}",);
-                            output.push((server, kind, marker));
+                            log::debug!("closed history for {kind}",);
+                            output.push((kind, marker));
                         }
                         Err(error) => {
-                            log::warn!("failed to close history for {kind} on {server}: {error}");
-                            output.push((server, kind, None));
+                            log::warn!("failed to close history for {kind}: {error}");
+                            output.push((kind, None));
                         }
                     }
                 }
@@ -174,30 +161,19 @@ impl Manager {
         self.data.flush_all(now)
     }
 
-    pub fn close(
-        &mut self,
-        server: Server,
-        kind: history::Kind,
-    ) -> Option<impl Future<Output = Message>> {
-        let history = self.data.map.get_mut(&server)?.remove(&kind)?;
+    pub fn close(&mut self, kind: history::Kind) -> Option<impl Future<Output = Message>> {
+        let history = self.data.map.remove(&kind)?;
 
-        Some(
-            history
-                .close()
-                .map(|result| Message::Closed(server, kind, result)),
-        )
+        Some(history.close().map(|result| Message::Closed(kind, result)))
     }
 
     pub fn exit(&mut self) -> impl Future<Output = Message> {
         let map = std::mem::take(&mut self.data).map;
 
         async move {
-            let tasks = map.into_iter().flat_map(|(server, map)| {
-                map.into_iter().map(move |(kind, state)| {
-                    let server = server.clone();
-                    state.close().map(move |result| (server, kind, result))
-                })
-            });
+            let tasks = map
+                .into_iter()
+                .map(|(kind, state)| state.close().map(move |result| (kind, result)));
 
             Message::Exited(future::join_all(tasks).await)
         }
@@ -218,7 +194,7 @@ impl Manager {
         }
 
         if let Some(text) = input.raw() {
-            self.data.input.record(input.buffer(), text.to_string());
+            self.data.input.record(&input.buffer, text.to_string());
         }
 
         tasks
@@ -233,31 +209,31 @@ impl Manager {
         server: &Server,
         message: crate::Message,
     ) -> Option<impl Future<Output = Message>> {
-        self.data.add_message(
-            server.clone(),
-            history::Kind::from(message.target.clone()),
-            message,
-        )
+        history::Kind::from_server_message(server.clone(), &message)
+            .and_then(|kind| self.data.add_message(kind, message))
     }
 
     pub fn record_log(
         &mut self,
         record: crate::log::Record,
     ) -> Option<impl Future<Output = Message>> {
-        self.data.add_message(
-            Server::from(LOG_SERVER_NAME),
-            history::Kind::Logs,
-            crate::Message::log(record),
-        )
+        self.data
+            .add_message(history::Kind::Logs, crate::Message::log(record))
+    }
+
+    pub fn record_highlight(
+        &mut self,
+        message: crate::Message,
+    ) -> Option<impl Future<Output = Message>> {
+        self.data.add_message(history::Kind::Highlights, message)
     }
 
     pub fn update_read_marker(
         &mut self,
-        server: Server,
         kind: impl Into<history::Kind>,
         read_marker: history::ReadMarker,
     ) -> Option<impl Future<Output = Message>> {
-        self.data.update_read_marker(server, kind, read_marker)
+        self.data.update_read_marker(kind, read_marker)
     }
 
     pub fn channel_joined(
@@ -268,81 +244,33 @@ impl Manager {
         self.data.channel_joined(server, channel)
     }
 
-    pub fn get_channel_messages(
+    pub fn get_messages(
         &self,
-        server: &Server,
-        channel: &str,
+        kind: &history::Kind,
         limit: Option<Limit>,
         buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(
-            server,
-            &history::Kind::Channel(channel.to_string()),
-            limit,
-            buffer_config,
-        )
-    }
-
-    pub fn get_server_messages(
-        &self,
-        server: &Server,
-        limit: Option<Limit>,
-        buffer_config: &config::Buffer,
-    ) -> Option<history::View<'_>> {
-        self.data
-            .history_view(server, &history::Kind::Server, limit, buffer_config)
-    }
-
-    pub fn get_query_messages(
-        &self,
-        server: &Server,
-        nick: &Nick,
-        limit: Option<Limit>,
-        buffer_config: &config::Buffer,
-    ) -> Option<history::View<'_>> {
-        self.data.history_view(
-            server,
-            &history::Kind::Query(nick.clone()),
-            limit,
-            buffer_config,
-        )
-    }
-
-    pub fn get_log_messages(
-        &self,
-        limit: Option<Limit>,
-        buffer_config: &config::Buffer,
-    ) -> Option<history::View<'_>> {
-        self.data.history_view(
-            &Server::from(LOG_SERVER_NAME),
-            &history::Kind::Logs,
-            limit,
-            buffer_config,
-        )
+        self.data.history_view(kind, limit, buffer_config)
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
-        let Some(map) = self.data.map.get(server) else {
-            return vec![];
-        };
-
-        let queries = map
+        let queries = self
+            .data
+            .map
             .keys()
             .filter_map(|kind| match kind {
-                history::Kind::Query(user) => Some(user),
+                history::Kind::Query(s, user) => (s == server).then_some(user),
                 _ => None,
             })
-            .unique()
             .collect::<Vec<_>>();
 
         queries
     }
 
-    pub fn has_unread(&self, server: &Server, kind: &history::Kind) -> bool {
+    pub fn has_unread(&self, kind: &history::Kind) -> bool {
         self.data
             .map
-            .get(server)
-            .and_then(|map| map.get(kind))
+            .get(kind)
             .map(|history| history.has_unread())
             .unwrap_or_default()
     }
@@ -354,23 +282,25 @@ impl Manager {
         config: &Config,
         sent_time: DateTime<Utc>,
     ) -> Vec<impl Future<Output = Message>> {
-        let map = self.data.map.entry(server.clone()).or_default();
-
-        let channels = map
+        let channels = self
+            .data
+            .map
             .keys()
             .filter_map(|kind| {
-                if let history::Kind::Channel(channel) = kind {
-                    Some(channel)
+                if let history::Kind::Channel(s, channel) = kind {
+                    (s == server).then_some(channel)
                 } else {
                     None
                 }
             })
             .cloned();
-        let mut queries = map
+        let mut queries = self
+            .data
+            .map
             .keys()
             .filter_map(|kind| {
-                if let history::Kind::Query(nick) = kind {
-                    Some(nick)
+                if let history::Kind::Query(s, nick) = kind {
+                    (s == server).then_some(nick)
                 } else {
                     None
                 }
@@ -477,7 +407,7 @@ impl Manager {
             .collect()
     }
 
-    pub fn input<'a>(&'a self, buffer: &Buffer) -> input::Cache<'a> {
+    pub fn input<'a>(&'a self, buffer: &buffer::Upstream) -> input::Cache<'a> {
         self.data.input.get(buffer)
     }
 }
@@ -502,12 +432,12 @@ fn with_limit<'a>(
 
 #[derive(Debug, Default)]
 struct Data {
-    map: HashMap<server::Server, HashMap<history::Kind, History>>,
+    map: HashMap<history::Kind, History>,
     input: input::Storage,
 }
 
 impl Data {
-    fn load_full(&mut self, server: server::Server, kind: history::Kind, data: history::Loaded) {
+    fn load_full(&mut self, kind: history::Kind, data: history::Loaded) {
         use std::collections::hash_map;
 
         let history::Loaded {
@@ -515,12 +445,7 @@ impl Data {
             metadata,
         } = data;
 
-        match self
-            .map
-            .entry(server.clone())
-            .or_default()
-            .entry(kind.clone())
-        {
+        match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => match entry.get_mut() {
                 History::Partial {
                     messages: new_messages,
@@ -533,7 +458,6 @@ impl Data {
                     let last_updated_at = *last_updated_at;
                     messages.extend(std::mem::take(new_messages));
                     entry.insert(History::Full {
-                        server,
                         kind,
                         messages,
                         last_updated_at,
@@ -542,7 +466,6 @@ impl Data {
                 }
                 _ => {
                     entry.insert(History::Full {
-                        server,
                         kind,
                         messages,
                         last_updated_at: None,
@@ -552,7 +475,6 @@ impl Data {
             },
             hash_map::Entry::Vacant(entry) => {
                 entry.insert(History::Full {
-                    server,
                     kind,
                     messages,
                     last_updated_at: None,
@@ -562,20 +484,14 @@ impl Data {
         }
     }
 
-    fn update_partial(
-        &mut self,
-        server: server::Server,
-        kind: history::Kind,
-        data: history::Metadata,
-    ) {
-        if let Some(history) = self.map.get_mut(&server).and_then(|map| map.get_mut(&kind)) {
+    fn update_partial(&mut self, kind: history::Kind, data: history::Metadata) {
+        if let Some(history) = self.map.get_mut(&kind) {
             history.update_partial(data);
         }
     }
 
     fn history_view(
         &self,
-        server: &server::Server,
         kind: &history::Kind,
         limit: Option<Limit>,
         buffer_config: &config::Buffer,
@@ -584,7 +500,7 @@ impl Data {
             messages,
             read_marker,
             ..
-        } = self.map.get(server)?.get(kind)?
+        } = self.map.get(kind)?
         else {
             return None;
         };
@@ -675,7 +591,7 @@ impl Data {
         });
 
         let max_prefix_chars = buffer_config.nickname.alignment.is_right().then(|| {
-            if matches!(kind, history::Kind::Channel(_)) {
+            if matches!(kind, history::Kind::Channel(..)) {
                 filtered
                     .iter()
                     .filter_map(|message| {
@@ -696,6 +612,14 @@ impl Data {
             }
         });
 
+        let has_read_messages = read_marker
+            .map(|marker| {
+                filtered
+                    .iter()
+                    .any(|message| message.server_time <= marker.date_time())
+            })
+            .unwrap_or_default();
+
         let limited = with_limit(limit, filtered.into_iter());
 
         let split_at = read_marker.map_or(0, |read_marker| {
@@ -703,7 +627,17 @@ impl Data {
                 .iter()
                 .rev()
                 .position(|message| message.server_time <= read_marker.date_time())
-                .map_or(limited.len(), |position| limited.len() - position)
+                .map_or_else(
+                    || {
+                        // Backlog is before this limit view of messages
+                        if has_read_messages {
+                            0
+                        } else {
+                            limited.len()
+                        }
+                    },
+                    |position| limited.len() - position,
+                )
         });
 
         let (old, new) = limited.split_at(split_at);
@@ -719,18 +653,12 @@ impl Data {
 
     fn add_message(
         &mut self,
-        server: server::Server,
         kind: history::Kind,
         message: crate::Message,
     ) -> Option<impl Future<Output = Message>> {
         use std::collections::hash_map;
 
-        match self
-            .map
-            .entry(server.clone())
-            .or_default()
-            .entry(kind.clone())
-        {
+        match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
                 entry.get_mut().add_message(message);
 
@@ -738,14 +666,14 @@ impl Data {
             }
             hash_map::Entry::Vacant(entry) => {
                 entry
-                    .insert(History::partial(server.clone(), kind.clone()))
+                    .insert(History::partial(kind.clone()))
                     .add_message(message);
 
                 Some(
                     async move {
-                        let loaded = history::metadata::load(server.clone(), kind.clone()).await;
+                        let loaded = history::metadata::load(kind.clone()).await;
 
-                        Message::UpdatePartial(server, kind, loaded)
+                        Message::UpdatePartial(kind, loaded)
                     }
                     .boxed(),
                 )
@@ -755,7 +683,6 @@ impl Data {
 
     fn update_read_marker(
         &mut self,
-        server: server::Server,
         kind: impl Into<history::Kind>,
         read_marker: history::ReadMarker,
     ) -> Option<impl Future<Output = Message>> {
@@ -763,12 +690,7 @@ impl Data {
 
         let kind = kind.into();
 
-        match self
-            .map
-            .entry(server.clone())
-            .or_default()
-            .entry(kind.clone())
-        {
+        match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
                 entry.get_mut().update_read_marker(read_marker);
 
@@ -776,9 +698,9 @@ impl Data {
             }
             hash_map::Entry::Vacant(_) => Some(
                 async move {
-                    let updated = history::metadata::update(&server, &kind, &read_marker).await;
+                    let updated = history::metadata::update(&kind, &read_marker).await;
 
-                    Message::UpdateReadMarker(server, kind, read_marker, updated)
+                    Message::UpdateReadMarker(kind, read_marker, updated)
                 }
                 .boxed(),
             ),
@@ -792,23 +714,18 @@ impl Data {
     ) -> Option<impl Future<Output = Message>> {
         use std::collections::hash_map;
 
-        let kind = history::Kind::Channel(channel);
+        let kind = history::Kind::Channel(server, channel);
 
-        match self
-            .map
-            .entry(server.clone())
-            .or_default()
-            .entry(kind.clone())
-        {
+        match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(_) => None,
             hash_map::Entry::Vacant(entry) => {
-                entry.insert(History::partial(server.clone(), kind.clone()));
+                entry.insert(History::partial(kind.clone()));
 
                 Some(
                     async move {
-                        let loaded = history::metadata::load(server.clone(), kind.clone()).await;
+                        let loaded = history::metadata::load(kind.clone()).await;
 
-                        Message::UpdatePartial(server, kind, loaded)
+                        Message::UpdatePartial(kind, loaded)
                     }
                     .boxed(),
                 )
@@ -818,26 +735,20 @@ impl Data {
 
     fn untrack(
         &mut self,
-        server: &server::Server,
         kind: &history::Kind,
     ) -> Option<impl Future<Output = Result<Option<history::ReadMarker>, history::Error>>> {
-        self.map
-            .get_mut(server)
-            .and_then(|map| map.get_mut(kind).and_then(History::make_partial))
+        self.map.get_mut(kind).and_then(History::make_partial)
     }
 
     fn flush_all(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
         self.map
             .iter_mut()
-            .flat_map(|(server, map)| {
-                map.iter_mut().filter_map(|(kind, state)| {
-                    let server = server.clone();
-                    let kind = kind.clone();
+            .filter_map(|(kind, state)| {
+                let kind = kind.clone();
 
-                    state.flush(now).map(move |task| {
-                        task.map(move |result| Message::Flushed(server, kind, result))
-                            .boxed()
-                    })
+                state.flush(now).map(move |task| {
+                    task.map(move |result| Message::Flushed(kind, result))
+                        .boxed()
                 })
             })
             .collect()

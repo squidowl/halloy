@@ -10,7 +10,7 @@ use crate::history::ReadMarker;
 use crate::message::server_time;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{config, ctcp, dcc, isupport, message, mode, Buffer, Server, User};
+use crate::{buffer, config, ctcp, dcc, isupport, message, mode, Server, User};
 use crate::{file_transfer, server};
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
@@ -37,7 +37,11 @@ pub enum State {
 #[derive(Debug)]
 pub enum Notification {
     DirectMessage(User),
-    Highlight(User, String),
+    Highlight {
+        enabled: bool,
+        user: User,
+        channel: String,
+    },
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
 }
@@ -95,7 +99,7 @@ pub struct Client {
     users: HashMap<String, Vec<User>>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
-    reroute_responses_to: Option<Buffer>,
+    reroute_responses_to: Option<buffer::Upstream>,
     registration_step: RegistrationStep,
     listed_caps: Vec<String>,
     supports_labels: bool,
@@ -184,7 +188,7 @@ impl Client {
         }
     }
 
-    fn send(&mut self, buffer: &Buffer, mut message: message::Encoded) {
+    fn send(&mut self, buffer: &buffer::Upstream, mut message: message::Encoded) {
         if self.supports_labels {
             use proto::Tag;
 
@@ -650,13 +654,15 @@ impl Client {
                         }
 
                         // Highlight notification
-                        if message::references_user_text(user.nickname(), self.nickname(), text)
-                            && self.highlight_blackout.allow_highlights()
-                        {
+                        if message::references_user_text(user.nickname(), self.nickname(), text) {
                             return Some(vec![Event::Notification(
                                 message.clone(),
                                 self.nickname().to_owned(),
-                                Notification::Highlight(user, channel.clone()),
+                                Notification::Highlight {
+                                    enabled: self.highlight_blackout.allow_highlights(),
+                                    user,
+                                    channel: channel.clone(),
+                                },
                             )]);
                         } else if user.nickname() == self.nickname() && context.is_some() {
                             // If we sent (echo) & context exists (we sent from this client), ignore
@@ -1465,7 +1471,7 @@ impl Map {
         }
     }
 
-    pub fn send(&mut self, buffer: &Buffer, message: message::Encoded) {
+    pub fn send(&mut self, buffer: &buffer::Upstream, message: message::Encoded) {
         if let Some(client) = self.client_mut(buffer.server()) {
             client.send(buffer, message);
         }
@@ -1582,12 +1588,12 @@ impl Map {
 
 #[derive(Debug, Clone)]
 pub enum Context {
-    Buffer(Buffer),
-    Whois(Buffer),
+    Buffer(buffer::Upstream),
+    Whois(buffer::Upstream),
 }
 
 impl Context {
-    fn new(message: &message::Encoded, buffer: Buffer) -> Self {
+    fn new(message: &message::Encoded, buffer: buffer::Upstream) -> Self {
         if let Command::WHOIS(_, _) = message.command {
             Self::Whois(buffer)
         } else {
@@ -1599,7 +1605,7 @@ impl Context {
         matches!(self, Self::Whois(_))
     }
 
-    fn buffer(self) -> Buffer {
+    fn buffer(self) -> buffer::Upstream {
         match self {
             Context::Buffer(buffer) => buffer,
             Context::Whois(buffer) => buffer,
