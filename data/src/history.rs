@@ -10,7 +10,7 @@ use tokio::fs;
 use tokio::time::Instant;
 
 use crate::user::Nick;
-use crate::{compression, environment, message, server, Message};
+use crate::{buffer, compression, environment, message, Buffer, Message, Server};
 
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
@@ -28,19 +28,61 @@ const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
-    Server,
-    Channel(String),
-    Query(Nick),
+    Server(Server),
+    Channel(Server, String),
+    Query(Server, Nick),
     Logs,
+    Highlights,
 }
 
 impl Kind {
+    pub fn from_target(server: Server, target: String) -> Self {
+        if proto::is_channel(&target) {
+            Self::Channel(server, target)
+        } else {
+            Self::Query(server, Nick::from(target))
+        }
+    }
+
+    pub fn from_input_buffer(buffer: buffer::Upstream) -> Self {
+        match buffer {
+            buffer::Upstream::Server(server) => Self::Server(server),
+            buffer::Upstream::Channel(server, channel) => Self::Channel(server, channel),
+            buffer::Upstream::Query(server, nick) => Self::Query(server, nick),
+        }
+    }
+
+    pub fn from_server_message(server: Server, message: &Message) -> Option<Self> {
+        match &message.target {
+            message::Target::Server { .. } => Some(Self::Server(server)),
+            message::Target::Channel { channel, .. } => {
+                Some(Self::Channel(server, channel.clone()))
+            }
+            message::Target::Query { nick, .. } => Some(Self::Query(server, nick.clone())),
+            message::Target::Logs => None,
+            message::Target::Highlights { .. } => None,
+        }
+    }
+}
+
+impl Kind {
+    pub fn server(&self) -> Option<&Server> {
+        match self {
+            Kind::Server(server) => Some(server),
+            Kind::Channel(server, _) => Some(server),
+            Kind::Query(server, _) => Some(server),
+            Kind::Logs => None,
+            Kind::Highlights => None,
+        }
+    }
+
     pub fn target(&self) -> Option<&str> {
         match self {
-            Kind::Server => None,
-            Kind::Channel(channel) => Some(channel),
-            Kind::Query(nick) => Some(nick.as_ref()),
+            Kind::Server(_) => None,
+            Kind::Channel(_, channel) => Some(channel),
+            Kind::Query(_, nick) => Some(nick.as_ref()),
             Kind::Logs => None,
+            Kind::Highlights => None,
         }
     }
 }
@@ -48,37 +90,25 @@ impl Kind {
 impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Kind::Server => write!(f, "server"),
-            Kind::Channel(channel) => write!(f, "channel {channel}"),
-            Kind::Query(nick) => write!(f, "user {}", nick),
+            Kind::Server(server) => write!(f, "server on {server}"),
+            Kind::Channel(server, channel) => write!(f, "channel {channel} on {server}"),
+            Kind::Query(server, nick) => write!(f, "user {nick} on {server}"),
             Kind::Logs => write!(f, "logs"),
+            Kind::Highlights => write!(f, "highlights"),
         }
     }
 }
 
-impl From<message::Target> for Kind {
-    fn from(target: message::Target) -> Self {
-        match target {
-            message::Target::Server { .. } => Kind::Server,
-            message::Target::Channel { channel, .. } => Kind::Channel(channel),
-            message::Target::Query { nick, .. } => Kind::Query(nick),
-            message::Target::Logs => Kind::Logs,
-        }
-    }
-}
-
-impl From<String> for Kind {
-    fn from(target: String) -> Self {
-        Kind::from(target.as_ref())
-    }
-}
-
-impl From<&str> for Kind {
-    fn from(target: &str) -> Self {
-        if proto::is_channel(target) {
-            Kind::Channel(target.to_string())
-        } else {
-            Kind::Query(target.to_string().into())
+impl From<Kind> for Buffer {
+    fn from(kind: Kind) -> Self {
+        match kind {
+            Kind::Server(server) => Buffer::Upstream(buffer::Upstream::Server(server)),
+            Kind::Channel(server, channel) => {
+                Buffer::Upstream(buffer::Upstream::Channel(server, channel))
+            }
+            Kind::Query(server, nick) => Buffer::Upstream(buffer::Upstream::Query(server, nick)),
+            Kind::Logs => Buffer::Internal(buffer::Internal::Logs),
+            Kind::Highlights => Buffer::Internal(buffer::Internal::Highlights),
         }
     }
 }
@@ -89,49 +119,47 @@ pub struct Loaded {
     pub metadata: Metadata,
 }
 
-pub async fn load(server: server::Server, kind: Kind) -> Result<Loaded, Error> {
-    let path = path(&server, &kind).await?;
+pub async fn load(kind: Kind) -> Result<Loaded, Error> {
+    let path = path(&kind).await?;
 
     let messages = read_all(&path).await.unwrap_or_default();
-    let metadata = metadata::load(server, kind).await.unwrap_or_default();
+    let metadata = metadata::load(kind).await.unwrap_or_default();
 
     Ok(Loaded { messages, metadata })
 }
 
 pub async fn overwrite(
-    server: &server::Server,
     kind: &Kind,
     messages: &[Message],
     read_marker: Option<ReadMarker>,
 ) -> Result<(), Error> {
     if messages.is_empty() {
-        return metadata::save(server, kind, messages, read_marker).await;
+        return metadata::save(kind, messages, read_marker).await;
     }
 
     let latest = &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
 
-    let path = path(server, kind).await?;
+    let path = path(kind).await?;
     let compressed = compression::compress(&latest)?;
 
     fs::write(path, &compressed).await?;
 
-    metadata::save(server, kind, latest, read_marker).await?;
+    metadata::save(kind, latest, read_marker).await?;
 
     Ok(())
 }
 
 pub async fn append(
-    server: &server::Server,
     kind: &Kind,
     messages: Vec<Message>,
     read_marker: Option<ReadMarker>,
 ) -> Result<(), Error> {
-    let loaded = load(server.clone(), kind.clone()).await?;
+    let loaded = load(kind.clone()).await?;
 
     let mut all_messages = loaded.messages;
     all_messages.extend(messages);
 
-    overwrite(server, kind, &all_messages, read_marker).await
+    overwrite(kind, &all_messages, read_marker).await
 }
 
 async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
@@ -151,14 +179,15 @@ pub async fn dir_path() -> Result<PathBuf, Error> {
     Ok(history_dir)
 }
 
-async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
+async fn path(kind: &Kind) -> Result<PathBuf, Error> {
     let dir = dir_path().await?;
 
     let name = match kind {
-        Kind::Server => format!("{server}"),
-        Kind::Channel(channel) => format!("{server}channel{channel}"),
-        Kind::Query(nick) => format!("{server}nickname{}", nick),
+        Kind::Server(server) => format!("{server}"),
+        Kind::Channel(server, channel) => format!("{server}channel{channel}"),
+        Kind::Query(server, nick) => format!("{server}nickname{}", nick),
         Kind::Logs => "logs".to_string(),
+        Kind::Highlights => "highlights".to_string(),
     };
 
     let hashed_name = seahash::hash(name.as_bytes());
@@ -169,7 +198,6 @@ async fn path(server: &server::Server, kind: &Kind) -> Result<PathBuf, Error> {
 #[derive(Debug)]
 pub enum History {
     Partial {
-        server: server::Server,
         kind: Kind,
         messages: Vec<Message>,
         last_updated_at: Option<Instant>,
@@ -177,7 +205,6 @@ pub enum History {
         read_marker: Option<ReadMarker>,
     },
     Full {
-        server: server::Server,
         kind: Kind,
         messages: Vec<Message>,
         last_updated_at: Option<Instant>,
@@ -186,9 +213,8 @@ pub enum History {
 }
 
 impl History {
-    fn partial(server: server::Server, kind: Kind) -> Self {
+    fn partial(kind: Kind) -> Self {
         Self::Partial {
-            server,
             kind,
             messages: vec![],
             last_updated_at: None,
@@ -261,7 +287,6 @@ impl History {
     fn flush(&mut self, now: Instant) -> Option<BoxFuture<'static, Result<(), Error>>> {
         match self {
             History::Partial {
-                server,
                 kind,
                 messages,
                 last_updated_at,
@@ -272,7 +297,6 @@ impl History {
                     let since = now.duration_since(last_received);
 
                     if since >= FLUSH_AFTER_LAST_RECEIVED {
-                        let server = server.clone();
                         let kind = kind.clone();
                         let messages = std::mem::take(messages);
                         let read_marker = *read_marker;
@@ -280,8 +304,7 @@ impl History {
                         *last_updated_at = None;
 
                         return Some(
-                            async move { append(&server, &kind, messages, read_marker).await }
-                                .boxed(),
+                            async move { append(&kind, messages, read_marker).await }.boxed(),
                         );
                     }
                 }
@@ -289,7 +312,6 @@ impl History {
                 None
             }
             History::Full {
-                server,
                 kind,
                 messages,
                 last_updated_at,
@@ -300,7 +322,6 @@ impl History {
                     let since = now.duration_since(last_received);
 
                     if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
-                        let server = server.clone();
                         let kind = kind.clone();
                         let read_marker = *read_marker;
                         *last_updated_at = None;
@@ -312,8 +333,7 @@ impl History {
                         let messages = messages.clone();
 
                         return Some(
-                            async move { overwrite(&server, &kind, &messages, read_marker).await }
-                                .boxed(),
+                            async move { overwrite(&kind, &messages, read_marker).await }.boxed(),
                         );
                     }
                 }
@@ -327,13 +347,11 @@ impl History {
         match self {
             History::Partial { .. } => None,
             History::Full {
-                server,
                 kind,
                 messages,
                 read_marker,
                 ..
             } => {
-                let server = server.clone();
                 let kind = kind.clone();
                 let messages = std::mem::take(messages);
 
@@ -341,7 +359,6 @@ impl History {
                 let max_triggers_unread = metadata::latest_triggers_unread(&messages);
 
                 *self = Self::Partial {
-                    server: server.clone(),
                     kind: kind.clone(),
                     messages: vec![],
                     last_updated_at: None,
@@ -350,7 +367,7 @@ impl History {
                 };
 
                 Some(async move {
-                    overwrite(&server, &kind, &messages, read_marker)
+                    overwrite(&kind, &messages, read_marker)
                         .await
                         .map(|_| read_marker)
                 })
@@ -361,18 +378,16 @@ impl History {
     async fn close(self) -> Result<Option<ReadMarker>, Error> {
         match self {
             History::Partial {
-                server,
                 kind,
                 messages,
                 read_marker,
                 ..
             } => {
-                append(&server, &kind, messages, read_marker).await?;
+                append(&kind, messages, read_marker).await?;
 
                 Ok(None)
             }
             History::Full {
-                server,
                 kind,
                 messages,
                 read_marker,
@@ -380,7 +395,7 @@ impl History {
             } => {
                 let read_marker = ReadMarker::latest(&messages).max(read_marker);
 
-                overwrite(&server, &kind, &messages, read_marker).await?;
+                overwrite(&kind, &messages, read_marker).await?;
 
                 Ok(read_marker)
             }
@@ -394,6 +409,14 @@ impl History {
         };
 
         *stored = (*stored).max(Some(read_marker));
+    }
+
+    pub fn read_marker(&self) -> Option<ReadMarker> {
+        match self {
+            History::Partial { read_marker, .. } | History::Full { read_marker, .. } => {
+                *read_marker
+            }
+        }
     }
 }
 
