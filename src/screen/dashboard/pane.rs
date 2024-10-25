@@ -21,7 +21,6 @@ pub enum Message {
     ToggleShowTopic,
     Popout,
     Merge,
-    ScrollToBacklog,
     ScrollToBottom,
 }
 
@@ -161,36 +160,23 @@ impl TitleBar {
         let mut controls = row![].spacing(2);
 
         if let Buffer::Channel(state) = &buffer {
-            // Show scroll-to-bottom / scroll-to-backlog depending if scrollable is anchored to the end or not
-            let (icon, tooltip_text, message) =
-                if buffer.is_scrolled_to_bottom().unwrap_or_default() {
-                    (
-                        icon::scroll_to_unread(),
-                        "Scroll to Backlog",
-                        Message::ScrollToBacklog,
-                    )
-                } else {
-                    (
-                        icon::scroll_to_bottom(),
-                        "Scroll to Bottom",
-                        Message::ScrollToBottom,
-                    )
-                };
+            // Show scroll-to-bottom if scrollable isnt scrolled to bottom.
+            if !buffer.is_scrolled_to_bottom().unwrap_or_default() {
+                let scrollable_button = button(center(icon::scroll_to_bottom()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::ScrollToBottom)
+                    .style(|theme, status| theme::button::secondary(theme, status, false));
 
-            let scrollable_button = button(center(icon))
-                .padding(5)
-                .width(22)
-                .height(22)
-                .on_press(message)
-                .style(|theme, status| theme::button::secondary(theme, status, false));
+                let scrollable_button_with_tooltip = tooltip(
+                    scrollable_button,
+                    show_tooltips.then_some("Scroll to Bottom"),
+                    tooltip::Position::Bottom,
+                );
 
-            let scrollable_button_with_tooltip = tooltip(
-                scrollable_button,
-                show_tooltips.then_some(tooltip_text),
-                tooltip::Position::Bottom,
-            );
-
-            controls = controls.push(scrollable_button_with_tooltip);
+                controls = controls.push(scrollable_button_with_tooltip);
+            }
 
             // Show topic button only if there is a topic to show
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
