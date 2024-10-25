@@ -1,7 +1,7 @@
 # Unreleased
 
 Added:
-
+- Highlight buffer to view highlights across all servers. Can be opened via sidebar button or command bar.
 - Logging buffer to view logs. Can be opened via sidebar button or command bar.
 - New hotkeys
   - Toggle channel topic (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>t</kbd> (macOS: <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd>))
