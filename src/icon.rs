@@ -92,10 +92,6 @@ pub fn scroll_to_bottom<'a>() -> Text<'a> {
     to_text('\u{E814}')
 }
 
-pub fn scroll_to_unread<'a>() -> Text<'a> {
-    to_text('\u{F0E0}')
-}
-
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .line_height(LineHeight::Relative(1.0))
