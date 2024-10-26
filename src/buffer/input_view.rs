@@ -185,6 +185,7 @@ impl State {
                         let mut user = nick.to_owned().into();
                         let mut channel_users = &[][..];
                         let chantypes = clients.get_chantypes(buffer.server());
+                        let statusmsg = clients.get_statusmsg(buffer.server());
 
                         // Resolve our attributes if sending this message in a channel
                         if let buffer::Upstream::Channel(server, channel) = &buffer {
@@ -199,7 +200,7 @@ impl State {
 
                         history_task = Task::batch(
                             history
-                                .record_input(input, user, channel_users, chantypes)
+                                .record_input(input, user, channel_users, chantypes, statusmsg)
                                 .into_iter()
                                 .map(Task::future),
                         );

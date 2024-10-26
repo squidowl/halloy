@@ -72,7 +72,7 @@ pub fn view<'a>(
                     |prefix| {
                         let text = selectable_text(format!(
                             "{} ",
-                            config.buffer.status_message_prefix.brackets.format(prefix)
+                            config.buffer.status_message_prefix.brackets.format(String::from_iter(prefix))
                         ))
                         .style(theme::selectable_text::tertiary);
 

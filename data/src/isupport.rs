@@ -350,11 +350,11 @@ impl FromStr for Operation {
                             parse_optional_positive_integer(value)?,
                         ))),
                         "STATUSMSG" => {
-                            if value
-                                .chars()
-                                .all(|c| proto::CHANNEL_MEMBERSHIP_PREFIXES.contains(&c))
+                            let chars = value.chars().collect::<Vec<_>>();
+                            if chars.iter()
+                                .all(|c| proto::CHANNEL_MEMBERSHIP_PREFIXES.contains(c))
                             {
-                                Ok(Operation::Add(Parameter::STATUSMSG(value.to_string())))
+                                Ok(Operation::Add(Parameter::STATUSMSG(chars)))
                             } else {
                                 Err("unknown channel membership prefix(es)")
                             }
@@ -564,7 +564,7 @@ pub enum Parameter {
     SAFELIST,
     SECURELIST,
     SILENCE(Option<u16>),
-    STATUSMSG(String),
+    STATUSMSG(Vec<char>),
     TARGMAX(Vec<CommandTargetLimit>),
     TOPICLEN(u16),
     UHNAMES,

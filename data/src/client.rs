@@ -1416,6 +1416,15 @@ impl Client {
         }).unwrap_or(proto::DEFAULT_CHANNEL_PREFIXES)
     }
 
+    pub fn statusmsg(&self) -> &[char] {
+        self.isupport.get(&isupport::Kind::STATUSMSG).map(|statusmsg| {
+            let isupport::Parameter::STATUSMSG(prefixes) = statusmsg else {
+                unreachable!("Corruption in isupport table.")
+            };
+            prefixes.as_ref()
+        }).unwrap_or(&[])
+    }
+
     pub fn is_channel(&self, target: &str) -> bool {
         proto::is_channel(target, self.chantypes())
     }
@@ -1576,6 +1585,12 @@ impl Map {
     pub fn get_chantypes<'a>(&'a self, server: &Server) -> &'a [char] {
         self.client(server)
             .map(|client| client.chantypes())
+            .unwrap_or_default()
+    }
+
+    pub fn get_statusmsg<'a>(&'a self, server: &Server) -> &'a [char] {
+        self.client(server)
+            .map(|client| client.statusmsg())
             .unwrap_or_default()
     }
 
