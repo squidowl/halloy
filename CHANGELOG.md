@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2024.13 (2024-10-27)
+
 Added:
 - Highlight buffer to view highlights across all servers. Can be opened via sidebar button or command bar.
 - Logging buffer to view logs. Can be opened via sidebar button or command bar.
