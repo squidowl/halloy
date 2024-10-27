@@ -189,10 +189,10 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h2 id="saslplain"><a class="header" href="#saslplain"><code>[sasl.plain]</code></a></h2>
+                        <h2 id="saslexternal"><a class="header" href="#saslexternal"><code>[sasl.external]</code></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
 <p><strong>Example</strong></p>
-<pre><code class="language-toml">[servers.liberachat.sasl.plain]
+<pre><code class="language-toml">[servers.liberachat.sasl.external]
 cert = "/path/to/your/certificate.pem"
 key = "/path/to/your/private_key.pem"
 </code></pre>
