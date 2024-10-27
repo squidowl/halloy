@@ -1,11 +1,11 @@
-## `[sasl.plain]`
+## `[sasl.external]`
 
 External SASL auth uses a PEM encoded X509 certificate. [Reference](https://libera.chat/guides/certfp).
 
 **Example**
 
 ```toml
-[servers.liberachat.sasl.plain]
+[servers.liberachat.sasl.external]
 cert = "/path/to/your/certificate.pem"
 key = "/path/to/your/private_key.pem"
 ```
