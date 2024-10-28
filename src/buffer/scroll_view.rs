@@ -389,6 +389,10 @@ impl State {
             return self.scroll_to_message(message, kind, history, config);
         }
 
+        if history.read_marker(&kind.into()).is_none() {
+            return Task::none();
+        }
+
         let Some(history::View {
             total,
             old_messages,
