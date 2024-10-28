@@ -275,6 +275,14 @@ impl Manager {
             .unwrap_or_default()
     }
 
+    pub fn read_marker(&self, kind: &history::Kind) -> Option<history::ReadMarker> {
+        self.data
+            .map
+            .get(kind)
+            .map(|history| history.read_marker())
+            .unwrap_or_default()
+    }
+
     pub fn broadcast(
         &mut self,
         server: &Server,
