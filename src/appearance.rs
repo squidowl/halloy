@@ -61,6 +61,7 @@ impl subscription::Recipe for Appearance {
     }
 }
 
+#[allow(dead_code)]
 pub fn subscription() -> Subscription<Mode> {
     subscription::from_recipe(Appearance)
 }

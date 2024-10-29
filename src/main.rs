@@ -1020,7 +1020,9 @@ impl Halloy {
             url::listen().map(Message::RouteReceived),
             events().map(|(window, event)| Message::Event(window, event)),
             window::events().map(|(window, event)| Message::Window(window, event)),
-            appearance::subscription().map(Message::AppearanceChange),
+            // Enable once dark_light has a proper way to detect appereance changes without spiking CPU.
+            // See: https://github.com/frewsxcv/rust-dark-light/issues/47
+            // appearance::subscription().map(Message::AppearanceChange),
             tick,
             streams,
         ])
