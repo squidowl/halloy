@@ -1,6 +1,6 @@
 # Unreleased
 
-# 2024.14 (2024-10-28)
+# 2024.14 (2024-10-29)
 
 Fixed:
   - CPU spiking due to memory leak in upstream crate.
