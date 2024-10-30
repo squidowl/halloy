@@ -1,3 +1,4 @@
+use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
 use data::user::Nick;
@@ -38,8 +39,8 @@ pub enum Event {
 #[derive(Debug, Clone, Copy)]
 pub enum Kind<'a> {
     Server(&'a Server),
-    Channel(&'a Server, &'a str, Option<(bool, bool)>),
-    Query(&'a Server, &'a Nick, Option<(bool, bool)>),
+    Channel(&'a Server, &'a str, Option<ChatHistoryState>),
+    Query(&'a Server, &'a Nick, Option<ChatHistoryState>),
     Logs,
     Highlights,
 }
@@ -48,10 +49,10 @@ impl From<Kind<'_>> for history::Kind {
     fn from(value: Kind<'_>) -> Self {
         match value {
             Kind::Server(server) => history::Kind::Server(server.clone()),
-            Kind::Channel(server, channel) => {
+            Kind::Channel(server, channel, _) => {
                 history::Kind::Channel(server.clone(), channel.to_string())
             }
-            Kind::Query(server, nick) => history::Kind::Query(server.clone(), nick.clone()),
+            Kind::Query(server, nick, _) => history::Kind::Query(server.clone(), nick.clone()),
             Kind::Logs => history::Kind::Logs,
             Kind::Highlights => history::Kind::Highlights,
         }
@@ -76,37 +77,34 @@ pub fn view<'a>(
         return column![].into();
     };
 
-    let top_row =
-        if let Kind::Channel(_, _, Some((chathistory_request_is_some, chathistory_exhausted)))
-        | Kind::Query(_, _, Some((chathistory_request_is_some, chathistory_exhausted))) = kind
-        {
-            let (content, message) = if chathistory_request_is_some {
-                ("...", None)
-            } else if chathistory_exhausted {
-                ("No Older Chat History Messages Available", None)
-            } else {
-                (
-                    "Request Older Chat History Messages",
-                    Some(Message::RequestOlderChatHistory),
-                )
-            };
-
-            let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
-
-            let top_row_button = button(text(content).size(font_size))
-                .padding([3, 5])
-                .style(|theme, status| theme::button::primary(theme, status, false))
-                .on_press_maybe(message);
-
-            Some(
-                row![horizontal_space(), top_row_button, horizontal_space()]
-                    .padding(padding::top(2).bottom(6))
-                    .width(Length::Fill)
-                    .align_y(iced::Alignment::Center),
-            )
-        } else {
-            None
+    let top_row = if let Kind::Channel(_, _, Some(chathistory_state))
+    | Kind::Query(_, _, Some(chathistory_state)) = kind
+    {
+        let (content, message) = match chathistory_state {
+            ChatHistoryState::Exhausted => ("No Older Chat History Messages Available", None),
+            ChatHistoryState::PendingRequest => ("...", None),
+            ChatHistoryState::Ready => (
+                "Request Older Chat History Messages",
+                Some(Message::RequestOlderChatHistory),
+            ),
         };
+
+        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
+
+        let top_row_button = button(text(content).size(font_size))
+            .padding([3, 5])
+            .style(|theme, status| theme::button::primary(theme, status, false))
+            .on_press_maybe(message);
+
+        Some(
+            row![horizontal_space(), top_row_button, horizontal_space()]
+                .padding(padding::top(2).bottom(6))
+                .width(Length::Fill)
+                .align_y(iced::Alignment::Center),
+        )
+    } else {
+        None
+    };
 
     let count = old_messages.len() + new_messages.len();
     let remaining = count < total;

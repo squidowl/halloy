@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::history::{dir_path, Error, Kind};
-use crate::{isupport, message, server, Message};
+use crate::message::source;
+use crate::{isupport, Message};
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Metadata {

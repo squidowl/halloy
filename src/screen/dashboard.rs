@@ -368,10 +368,25 @@ impl Dashboard {
                                     if let Some((window, pane, state)) =
                                         self.panes.get_mut_by_buffer(main_window.id, &buffer)
                                     {
+                                        let chathistory_state =
+                                            state.buffer.upstream().and_then(|upstream| {
+                                                upstream.target().as_ref().and_then(|target| {
+                                                    clients.get_chathistory_state(
+                                                        upstream.server(),
+                                                        target,
+                                                    )
+                                                })
+                                            });
+
                                         tasks.push(
                                             state
                                                 .buffer
-                                                .scroll_to_message(message, &self.history, config)
+                                                .scroll_to_message(
+                                                    message,
+                                                    &self.history,
+                                                    config,
+                                                    chathistory_state,
+                                                )
                                                 .map(move |message| {
                                                     Message::Pane(
                                                         window,
@@ -384,7 +399,7 @@ impl Dashboard {
                                     return (Task::batch(tasks), None);
                                 }
                                 buffer::Event::RequestOlderChatHistory => {
-                                    if let Some(buffer) = pane.buffer.data().cloned() {
+                                    if let Some(buffer) = pane.buffer.data() {
                                         self.request_older_chathistory(clients, &buffer);
                                     }
                                 }
@@ -570,15 +585,23 @@ impl Dashboard {
                             if let Some((window, pane, state)) =
                                 self.panes.get_mut_by_buffer(main_window.id, &buffer)
                             {
+                                let chathistory_state =
+                                    state.buffer.upstream().and_then(|upstream| {
+                                        upstream.target().as_ref().and_then(|target| {
+                                            clients.get_chathistory_state(upstream.server(), target)
+                                        })
+                                    });
+
                                 return (
-                                    state.buffer.scroll_to_backlog(&self.history, config).map(
-                                        move |message| {
+                                    state
+                                        .buffer
+                                        .scroll_to_backlog(&self.history, config, chathistory_state)
+                                        .map(move |message| {
                                             Message::Pane(
                                                 window,
                                                 pane::Message::Buffer(pane, message),
                                             )
-                                        },
-                                    ),
+                                        }),
                                     None,
                                 );
                             }
@@ -957,7 +980,7 @@ impl Dashboard {
 
                 let message_reference = self
                     .history
-                    .last_can_reference_before(&server, &target, server_time)
+                    .last_can_reference_before(server.clone(), target.clone(), server_time)
                     .map_or(MessageReference::None, |message_references| {
                         message_references.message_reference(&message_reference_types)
                     });
@@ -1188,7 +1211,7 @@ impl Dashboard {
                 if config.buffer.chathistory.infinite_scroll {
                     if let Some((_, _, state)) = self.get_focused(main_window) {
                         if let Some(buffer) = state.buffer.data() {
-                            self.request_older_chathistory(clients, buffer);
+                            self.request_older_chathistory(clients, &buffer);
                         }
                     }
                 }
@@ -1409,7 +1432,10 @@ impl Dashboard {
         target: &str,
         message_reference_types: &[isupport::MessageReferenceType],
     ) -> MessageReference {
-        if let Some(first_can_reference) = self.history.first_can_reference(server, target) {
+        if let Some(first_can_reference) = self
+            .history
+            .first_can_reference(server.clone(), target.to_string())
+        {
             log::debug!(
                 "[{server}] {target} - first_can_reference {:?}",
                 first_can_reference
@@ -1437,10 +1463,14 @@ impl Dashboard {
         clients: &mut data::client::Map,
         buffer: &data::Buffer,
     ) {
-        let server = buffer.server();
+        let Some(upstream) = buffer.upstream() else {
+            return;
+        };
+
+        let server = upstream.server();
 
         if clients.get_server_supports_chathistory(server) {
-            if let Some(target) = buffer.target() {
+            if let Some(target) = upstream.target() {
                 let message_reference_types =
                     clients.get_server_chathistory_message_reference_types(server);
 

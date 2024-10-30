@@ -246,25 +246,18 @@ impl Manager {
         self.data.load_metadata(server, channel)
     }
 
-    pub fn first_can_reference(&self, server: &Server, target: &str) -> Option<&crate::Message> {
-        self.data
-            .map
-            .get(server)
-            .and_then(|map| map.get(&history::Kind::from(target)))
-            .map(|history| history.first_can_reference())?
+    pub fn first_can_reference(&self, server: Server, target: String) -> Option<&crate::Message> {
+        self.data.first_can_reference(server, target)
     }
 
     pub fn last_can_reference_before(
         &self,
-        server: &Server,
-        target: &str,
+        server: Server,
+        target: String,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
         self.data
-            .map
-            .get(server)
-            .and_then(|map| map.get(&history::Kind::from(target)))
-            .map(|history| history.last_can_reference_before(server_time))?
+            .last_can_reference_before(server, target, server_time)
     }
 
     pub fn get_messages(
@@ -762,6 +755,31 @@ impl Data {
                 )
             }
         }
+    }
+
+    fn first_can_reference(
+        &self,
+        server: server::Server,
+        target: String,
+    ) -> Option<&crate::Message> {
+        let kind = history::Kind::from_target(server, target);
+
+        self.map
+            .get(&kind)
+            .and_then(|history| history.first_can_reference())
+    }
+
+    fn last_can_reference_before(
+        &self,
+        server: Server,
+        target: String,
+        server_time: DateTime<Utc>,
+    ) -> Option<MessageReferences> {
+        let kind = history::Kind::from_target(server, target);
+
+        self.map
+            .get(&kind)
+            .and_then(|history| history.last_can_reference_before(server_time))
     }
 
     fn untrack(
