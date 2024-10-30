@@ -642,6 +642,13 @@ impl ChatHistorySubcommand {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ChatHistoryState {
+    Exhausted,
+    PendingRequest,
+    Ready,
+}
+
 #[derive(Clone, Debug)]
 pub enum ClientOnlyTags {
     Allowed(String),

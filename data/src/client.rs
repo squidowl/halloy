@@ -13,12 +13,12 @@ use tokio::fs;
 use anyhow::{anyhow, bail, Result};
 
 use crate::history::ReadMarker;
-use crate::isupport::{ChatHistorySubcommand, MessageReference};
+use crate::isupport::{ChatHistoryState, ChatHistorySubcommand, MessageReference};
 use crate::message::{message_id, server_time, source};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{
-    buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Buffer, Server, User,
+    buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Server, User,
 };
 use crate::{file_transfer, server};
 
@@ -2169,6 +2169,22 @@ impl Map {
         self.client(server)
             .map(|client| client.chathistory_exhausted(target))
             .unwrap_or_default()
+    }
+
+    pub fn get_chathistory_state(&self, server: &Server, target: &str) -> Option<ChatHistoryState> {
+        self.client(server).and_then(|client| {
+            if client.supports_chathistory {
+                if client.chathistory_request(target).is_some() {
+                    Some(ChatHistoryState::PendingRequest)
+                } else if client.chathistory_exhausted(target) {
+                    Some(ChatHistoryState::Exhausted)
+                } else {
+                    Some(ChatHistoryState::Ready)
+                }
+            } else {
+                None
+            }
+        })
     }
 
     pub fn get_server_handle(&self, server: &Server) -> Option<&server::Handle> {

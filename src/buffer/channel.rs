@@ -47,21 +47,12 @@ pub fn view<'a>(
 
     let users = clients.get_channel_users(&state.server, &state.channel);
 
-    let chathistory_before_button = if clients.get_server_supports_chathistory(&state.server) {
-        Some((
-            clients
-                .get_chathistory_request(&state.server, &state.channel)
-                .is_some(),
-            clients.get_chathistory_exhausted(&state.server, &state.channel),
-        ))
-    } else {
-        None
-    };
+    let chathistory_state = clients.get_chathistory_state(server, channel);
 
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Channel(&state.server, &state.channel, chathistory_before_button),
+            scroll_view::Kind::Channel(&state.server, &state.channel, chathistory_state),
             history,
             config,
             move |message, max_nick_width, max_prefix_width| {
@@ -359,7 +350,9 @@ impl Channel {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
                     scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
                     scroll_view::Event::GoToMessage(..) => None,
-                    scroll_view::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
+                    scroll_view::Event::RequestOlderChatHistory => {
+                        Some(Event::RequestOlderChatHistory)
+                    }
                 });
 
                 (command.map(Message::ScrollView), event)

@@ -133,14 +133,15 @@ impl Highlights {
     pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let (command, event) = self.scroll_view.update(message);
+                let (command, event) = self.scroll_view.update(message, false);
 
-                let event = event.map(|event| match event {
-                    scroll_view::Event::UserContext(event) => Event::UserContext(event),
-                    scroll_view::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                let event = event.and_then(|event| match event {
+                    scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
+                    scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
                     scroll_view::Event::GoToMessage(server, channel, message) => {
-                        Event::GoToMessage(server, channel, message)
+                        Some(Event::GoToMessage(server, channel, message))
                     }
+                    scroll_view::Event::RequestOlderChatHistory => None,
                 });
 
                 (command.map(Message::ScrollView), event)
