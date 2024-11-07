@@ -17,7 +17,11 @@ pub fn message_bytes(bytes: Vec<u8>) -> Result<Message, Error> {
 
 /// Parses a single IRC message terminated by '\r\n`
 pub fn message(input: &str) -> Result<Message, Error> {
-    let mut message = cut(terminated(tuple((opt(tags), opt(source), command)), crlf));
+    let mut message = cut(terminated(
+        tuple((opt(tags), opt(source), command)),
+        // Discard addtl. \r if it exists
+        alt((preceded(char('\r'), crlf), crlf)),
+    ));
 
     message(input)
         .finish()
@@ -259,6 +263,8 @@ mod test {
             ":test!test@5555:5555:0:55:5555:5555:5555:5555 396 test user/test :is now your visible host\r\n",
             ":atw.hu.quakenet.org 001 test :Welcome to the QuakeNet IRC Network, test\r\n",
             "@time=2023-07-20T21:19:11.000Z :chat!test@user/test/bot/chat PRIVMSG ##chat :\\_o< quack!\r\n",
+            // Extra \r sent by digitalirc
+            "@batch=JQlhpjWY7SYaBPQtXAfUQh;msgid=UGnor4DBoafs6ge0UgsHF7-aVdnYMbjbdTf9eEHQmPKWA;time=2024-11-07T12:04:28.361Z :foo!~foo@F3FF3610.5A633F24.29800D3F.IP JOIN #pixelcove * :foo\r\r\n",
         ];
 
         for test in tests {
