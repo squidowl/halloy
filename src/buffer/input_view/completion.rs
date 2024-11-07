@@ -185,19 +185,20 @@ impl Commands {
                         }
                     }
                     "MSG" => {
-                        let channel_membership_prefixes = if let Some(
+                        let channel_membership_prefixes = 
+                        if let Some(
                             isupport::Parameter::STATUSMSG(channel_membership_prefixes),
                         ) =
                             isupport.get(&isupport::Kind::STATUSMSG)
                         {
-                            Some(channel_membership_prefixes)
+                            channel_membership_prefixes.clone()
                         } else {
-                            None
+                            vec![]
                         };
 
                         let target_limit = find_target_limit(isupport, "PRIVMSG");
 
-                        if channel_membership_prefixes.is_some() || target_limit.is_some() {
+                        if !channel_membership_prefixes.is_empty() || target_limit.is_some() {
                             return msg_command(channel_membership_prefixes, target_limit);
                         }
                     }
@@ -1181,27 +1182,23 @@ static MONITOR_STATUS_COMMAND: Lazy<Command> = Lazy::new(|| Command {
 });
 
 fn msg_command(
-    channel_membership_prefixes: Option<&String>,
+    channel_membership_prefixes: Vec<char>,
     target_limit: Option<&isupport::CommandTargetLimit>,
 ) -> Command {
     let mut targets_tooltip = String::from(
         "comma-separated\n    {user}: user directly\n {channel}: all users in channel",
     );
 
-    if let Some(channel_membership_prefixes) = channel_membership_prefixes {
-        channel_membership_prefixes
-            .chars()
-            .for_each(
-                |channel_membership_prefix| match channel_membership_prefix {
-                    '~' => targets_tooltip.push_str("\n~{channel}: all founders in channel"),
-                    '&' => targets_tooltip.push_str("\n&{channel}: all protected users in channel"),
-                    '!' => targets_tooltip.push_str("\n!{channel}: all protected users in channel"),
-                    '@' => targets_tooltip.push_str("\n@{channel}: all operators in channel"),
-                    '%' => targets_tooltip.push_str("\n%{channel}: all half-operators in channel"),
-                    '+' => targets_tooltip.push_str("\n+{channel}: all voiced users in channel"),
-                    _ => (),
-                },
-            );
+    for channel_membership_prefix in channel_membership_prefixes {
+        match channel_membership_prefix {
+            '~' => targets_tooltip.push_str("\n~{channel}: all founders in channel"),
+            '&' => targets_tooltip.push_str("\n&{channel}: all protected users in channel"),
+            '!' => targets_tooltip.push_str("\n!{channel}: all protected users in channel"),
+            '@' => targets_tooltip.push_str("\n@{channel}: all operators in channel"),
+            '%' => targets_tooltip.push_str("\n%{channel}: all half-operators in channel"),
+            '+' => targets_tooltip.push_str("\n+{channel}: all voiced users in channel"),
+            _ => (),
+        }
     }
 
     if let Some(target_limit) = target_limit {

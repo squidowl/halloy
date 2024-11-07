@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use irc::proto::{self, command, Command};
 use itertools::{Either, Itertools};
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -188,6 +189,17 @@ impl Client {
         }
     }
 
+    fn start_reroute(&self, command: &Command) -> bool {
+        use Command::*;
+
+        if let MODE(target, _, _) = command {
+            !self.is_channel(target)
+        } else {
+            matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..))
+        }
+    }
+
+
     fn send(&mut self, buffer: &buffer::Upstream, mut message: message::Encoded) {
         if self.supports_labels {
             use proto::Tag;
@@ -204,7 +216,7 @@ impl Client {
             }];
         }
 
-        self.reroute_responses_to = start_reroute(&message.command).then(|| buffer.clone());
+        self.reroute_responses_to = self.start_reroute(&message.command).then(|| buffer.clone());
 
         if let Err(e) = self.handle.try_send(message.into()) {
             log::warn!("Error sending message: {e}");
@@ -896,7 +908,7 @@ impl Client {
             Command::Numeric(RPL_WHOREPLY, args) => {
                 let target = args.get(1)?;
 
-                if proto::is_channel(target) {
+                if self.is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
                         channel.update_user_away(args.get(5)?, args.get(6)?);
 
@@ -915,7 +927,7 @@ impl Client {
             Command::Numeric(RPL_WHOSPCRPL, args) => {
                 let target = args.get(2)?;
 
-                if proto::is_channel(target) {
+                if self.is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
                         channel.update_user_away(args.get(3)?, args.get(4)?);
 
@@ -947,7 +959,7 @@ impl Client {
             Command::Numeric(RPL_ENDOFWHO, args) => {
                 let target = args.get(1)?;
 
-                if proto::is_channel(target) {
+                if self.is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
                         if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
                             channel.last_who = Some(WhoStatus::Done(Instant::now()));
@@ -995,7 +1007,7 @@ impl Client {
                 }
             }
             Command::MODE(target, Some(modes), Some(args)) => {
-                if proto::is_channel(target) {
+                if self.is_channel(target) {
                     let modes = mode::parse::<mode::Channel>(modes, args);
 
                     if let Some(channel) = self.chanmap.get_mut(target) {
@@ -1053,7 +1065,7 @@ impl Client {
             Command::Numeric(RPL_ENDOFNAMES, args) => {
                 let target = args.get(1)?;
 
-                if proto::is_channel(target) {
+                if self.is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
                         if !channel.names_init {
                             channel.names_init = true;
@@ -1276,8 +1288,27 @@ impl Client {
         }
     }
 
+    // TODO allow configuring the "sorting method"
+    // this function sorts channels together which have similar names when the chantype prefix
+    // (sometimes multipled) is removed
+    // e.g. '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
+    // wildly different places.
+    fn compare_channels(&self, a: &str, b: &str) -> Ordering {
+        let (Some(a_chantype), Some(b_chantype)) = (a.chars().nth(0), b.chars().nth(0)) else {
+            return a.cmp(b);
+        };
+
+        if [a_chantype, b_chantype].iter().all(|c| self.chantypes().contains(c)) {
+            let ord = a.trim_start_matches(a_chantype).cmp(b.trim_start_matches(b_chantype));
+            if ord != Ordering::Equal {
+                return ord;
+            }
+        }
+        a.cmp(b)
+    }
+
     fn sync(&mut self) {
-        self.channels = self.chanmap.keys().cloned().collect();
+        self.channels = self.chanmap.keys().cloned().sorted_by(|a, b| self.compare_channels(a, b)).collect();
         self.users = self
             .chanmap
             .iter()
@@ -1394,6 +1425,28 @@ impl Client {
                 );
             }
         }
+    }
+
+    pub fn chantypes(&self) -> &[char] {
+        self.isupport.get(&isupport::Kind::CHANTYPES).and_then(|chantypes| {
+            let isupport::Parameter::CHANTYPES(types) = chantypes else {
+                unreachable!("Corruption in isupport table.")
+            };
+            types.as_deref()
+        }).unwrap_or(proto::DEFAULT_CHANNEL_PREFIXES)
+    }
+
+    pub fn statusmsg(&self) -> &[char] {
+        self.isupport.get(&isupport::Kind::STATUSMSG).map(|statusmsg| {
+            let isupport::Parameter::STATUSMSG(prefixes) = statusmsg else {
+                unreachable!("Corruption in isupport table.")
+            };
+            prefixes.as_ref()
+        }).unwrap_or(&[])
+    }
+
+    pub fn is_channel(&self, target: &str) -> bool {
+        proto::is_channel(target, self.chantypes())
     }
 }
 
@@ -1549,6 +1602,18 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_chantypes<'a>(&'a self, server: &Server) -> &'a [char] {
+        self.client(server)
+            .map(|client| client.chantypes())
+            .unwrap_or_default()
+    }
+
+    pub fn get_statusmsg<'a>(&'a self, server: &Server) -> &'a [char] {
+        self.client(server)
+            .map(|client| client.statusmsg())
+            .unwrap_or_default()
+    }
+
     pub fn get_server_handle(&self, server: &Server) -> Option<&server::Handle> {
         self.client(server).map(|client| &client.handle)
     }
@@ -1635,16 +1700,6 @@ fn generate_label() -> String {
 fn remove_tag(key: &str, tags: &mut Vec<irc::proto::Tag>) -> Option<String> {
     tags.remove(tags.iter().position(|tag| tag.key == key)?)
         .value
-}
-
-fn start_reroute(command: &Command) -> bool {
-    use Command::*;
-
-    if let MODE(target, _, _) = command {
-        !proto::is_channel(target)
-    } else {
-        matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..))
-    }
 }
 
 fn stop_reroute(command: &Command) -> bool {

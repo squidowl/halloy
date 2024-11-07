@@ -1,4 +1,3 @@
-use irc::proto;
 use std::str::FromStr;
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
@@ -9,6 +8,7 @@ pub enum Kind {
     AWAYLEN,
     CHANLIMIT,
     CHANNELLEN,
+    CHANTYPES,
     CNOTICE,
     CPRIVMSG,
     ELIST,
@@ -88,23 +88,21 @@ impl FromStr for Operation {
                             value.split(',').for_each(|channel_limit| {
                                 if let Some((prefix, limit)) = channel_limit.split_once(':') {
                                     if limit.is_empty() {
-                                        prefix.chars().for_each(|c| {
-                                            if proto::CHANNEL_PREFIXES.contains(&c) {
-                                                channel_limits.push(ChannelLimit {
-                                                    prefix: c,
-                                                    limit: None,
-                                                });
-                                            }
-                                        });
+                                        for c in prefix.chars() {
+                                            // TODO validate after STATUSMSG received
+                                            channel_limits.push(ChannelLimit {
+                                                prefix: c,
+                                                limit: None,
+                                            });
+                                        }
                                     } else if let Ok(limit) = limit.parse::<u16>() {
-                                        prefix.chars().for_each(|c| {
-                                            if proto::CHANNEL_PREFIXES.contains(&c) {
-                                                channel_limits.push(ChannelLimit {
-                                                    prefix: c,
-                                                    limit: Some(limit),
-                                                });
-                                            }
-                                        });
+                                        for c in prefix.chars() {
+                                            // TODO validate after STATUSMSG received
+                                            channel_limits.push(ChannelLimit {
+                                                prefix: c,
+                                                limit: Some(limit),
+                                            });
+                                        }
                                     }
                                 }
                             });
@@ -139,14 +137,12 @@ impl FromStr for Operation {
                             parse_required_positive_integer(value)?,
                         ))),
                         "CHANTYPES" => {
-                            if value.is_empty() {
+                            let chars = value.chars().collect::<Vec<_>>();
+                            if chars.is_empty() {
                                 Ok(Operation::Add(Parameter::CHANTYPES(None)))
-                            } else if value.chars().all(|c| proto::CHANNEL_PREFIXES.contains(&c)) {
-                                Ok(Operation::Add(Parameter::CHANTYPES(Some(
-                                    value.to_string(),
-                                ))))
                             } else {
-                                Err("value must only contain channel types if specified")
+                                // TODO validate after STATUSMSG is received
+                                Ok(Operation::Add(Parameter::CHANTYPES(Some(chars))))
                             }
                         }
                         "CHATHISTORY" => Ok(Operation::Add(Parameter::CHATHISTORY(
@@ -331,13 +327,9 @@ impl FromStr for Operation {
                             let mut prefix_maps = vec![];
 
                             if let Some((modes, prefixes)) = value.split_once(')') {
-                                modes.chars().skip(1).zip(prefixes.chars()).for_each(
-                                    |(mode, prefix)| {
-                                        if proto::CHANNEL_MEMBERSHIP_PREFIXES.contains(&prefix) {
-                                            prefix_maps.push(PrefixMap { mode, prefix })
-                                        }
-                                    },
-                                );
+                                for (mode, prefix) in modes.chars().skip(1).zip(prefixes.chars()) {
+                                    prefix_maps.push(PrefixMap { mode, prefix })
+                                }
 
                                 Ok(Operation::Add(Parameter::PREFIX(prefix_maps)))
                             } else {
@@ -350,14 +342,9 @@ impl FromStr for Operation {
                             parse_optional_positive_integer(value)?,
                         ))),
                         "STATUSMSG" => {
-                            if value
-                                .chars()
-                                .all(|c| proto::CHANNEL_MEMBERSHIP_PREFIXES.contains(&c))
-                            {
-                                Ok(Operation::Add(Parameter::STATUSMSG(value.to_string())))
-                            } else {
-                                Err("unknown channel membership prefix(es)")
-                            }
+                            let chars = value.chars().collect::<Vec<_>>();
+                            // TODO validate that STATUSMSG ⊂ PREFIX after ISUPPORT ends
+                            Ok(Operation::Add(Parameter::STATUSMSG(chars)))
                         }
                         "TARGMAX" => {
                             let mut command_target_limits = vec![];
@@ -485,6 +472,7 @@ impl Operation {
                 "AWAYLEN" => Some(Kind::AWAYLEN),
                 "CHANLIMIT" => Some(Kind::CHANLIMIT),
                 "CHANNELLEN" => Some(Kind::CHANNELLEN),
+                "CHANTYPES" => Some(Kind::CHANTYPES),
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
                 "ELIST" => Some(Kind::ELIST),
@@ -526,7 +514,7 @@ pub enum Parameter {
     CHANLIMIT(Vec<ChannelLimit>),
     CHANMODES(Vec<ChannelMode>),
     CHANNELLEN(u16),
-    CHANTYPES(Option<String>),
+    CHANTYPES(Option<Vec<char>>),
     CHATHISTORY(u16),
     CLIENTTAGDENY(Vec<ClientOnlyTags>),
     CLIENTVER(u16, u16),
@@ -563,7 +551,7 @@ pub enum Parameter {
     SAFELIST,
     SECURELIST,
     SILENCE(Option<u16>),
-    STATUSMSG(String),
+    STATUSMSG(Vec<char>),
     TARGMAX(Vec<CommandTargetLimit>),
     TOPICLEN(u16),
     UHNAMES,
