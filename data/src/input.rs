@@ -63,13 +63,13 @@ impl Input {
         self.buffer.server()
     }
 
-    pub fn messages(&self, user: User, channel_users: &[User]) -> Option<Vec<Message>> {
+    pub fn messages(&self, user: User, channel_users: &[User], chantypes: &[char], statusmsg: &[char]) -> Option<Vec<Message>> {
         let to_target = |target: &str, source| {
-            if let Some((prefix, channel)) = proto::parse_channel_from_target(target) {
+            if let Some((prefixes, channel)) = proto::parse_channel_from_target(target, chantypes, statusmsg) {
                 Some(message::Target::Channel {
                     channel,
                     source,
-                    prefix,
+                    prefixes,
                 })
             } else if let Ok(user) = User::try_from(target) {
                 Some(message::Target::Query {

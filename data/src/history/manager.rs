@@ -184,10 +184,12 @@ impl Manager {
         input: Input,
         user: User,
         channel_users: &[User],
+        chantypes: &[char],
+        statusmsg: &[char],
     ) -> Vec<impl Future<Output = Message>> {
         let mut tasks = vec![];
 
-        if let Some(messages) = input.messages(user, channel_users) {
+        if let Some(messages) = input.messages(user, channel_users, chantypes, statusmsg) {
             for message in messages {
                 tasks.extend(self.record_message(input.server(), message));
             }
@@ -603,11 +605,11 @@ impl Data {
                 filtered
                     .iter()
                     .filter_map(|message| {
-                        message.target.prefix().map(|prefix| {
+                        message.target.prefixes().map(|prefixes| {
                             buffer_config
                                 .status_message_prefix
                                 .brackets
-                                .format(prefix)
+                                .format(prefixes.iter().collect::<String>())
                                 .chars()
                                 .count()
                                 + 1

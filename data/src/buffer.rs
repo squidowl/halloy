@@ -75,7 +75,7 @@ impl Upstream {
             Self::Channel(_, channel) => message::Target::Channel {
                 channel,
                 source: message::Source::Server(source),
-                prefix: None,
+                prefixes: Default::default(),
             },
             Self::Query(_, nick) => message::Target::Query {
                 nick,
