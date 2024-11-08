@@ -52,13 +52,14 @@ pub fn view<'a>(
 
         let user = if let Some(user) = users.iter().find(|user| user.nickname() == nick) {
             user_context::view(
-                selectable_text(who).style(|theme| {
-                    theme::selectable_text::nickname(
-                        theme,
-                        user.nick_color(theme.colors(), config.buffer.nickname.color),
-                        false,
-                    )
-                }),
+                selectable_text(user.display(config.buffer.channel.nicklist.show_access_levels))
+                    .style(|theme| {
+                        theme::selectable_text::nickname(
+                            theme,
+                            user.nick_color(theme.colors(), config.buffer.nickname.color),
+                            false,
+                        )
+                    }),
                 server,
                 Some(channel),
                 user,
