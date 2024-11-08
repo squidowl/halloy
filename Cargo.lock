@@ -1073,6 +1073,7 @@ checksum = "0c87e182de0887fd5361989c677c4e8f5000cd9491d6d563161a8f3a5519fc7f"
 name = "data"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64 0.21.7",
  "bytes",
  "chrono",
@@ -1831,6 +1832,7 @@ dependencies = [
 name = "halloy"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bytesize",
  "chrono",
  "dark-light",

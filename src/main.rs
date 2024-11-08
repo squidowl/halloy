@@ -118,6 +118,10 @@ fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
     }
 }
 
+fn handle_irc_error(e: anyhow::Error) {
+    log::error!("IRC error: {:?}", e);
+}
+
 struct Halloy {
     version: Version,
     screen: Screen,
@@ -345,6 +349,10 @@ impl Halloy {
                         self.clients.quit(&server, None);
                         Task::none()
                     }
+                    Some(dashboard::Event::IrcError(e)) => {
+                        handle_irc_error(e);
+                        Task::none()
+                    }
                     Some(dashboard::Event::Exit) => {
                         let pending_exit = self.clients.exit();
 
@@ -489,9 +497,17 @@ impl Halloy {
                     let commands = messages
                         .into_iter()
                         .flat_map(|message| {
+                            let events = match self.clients.receive(&server, message) {
+                                Ok(events) => events,
+                                Err(e) => {
+                                    handle_irc_error(e);
+                                    return vec![];
+                                }
+                            };
+
                             let mut commands = vec![];
 
-                            for event in self.clients.receive(&server, message) {
+                            for event in events {
                                 // Resolve a user using client state which stores attributes
                                 let resolve_user_attributes = |user: &User, channel: &str| {
                                     self.clients
@@ -816,9 +832,10 @@ impl Halloy {
                 Task::none()
             }
             Message::Tick(now) => {
-                self.clients.tick(now);
-
-                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                if let Err(e) = self.clients.tick(now) {
+                    handle_irc_error(e);
+                    Task::none()
+                } else if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.tick(now).map(Message::Dashboard)
                 } else {
                     Task::none()
