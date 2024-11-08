@@ -39,6 +39,7 @@ nom = "7.1"
 const_format = "0.2.32"
 strum = { version = "0.26.3", features = ["derive"] }
 derive_more = { version = "1.0.0", features = ["full"] }
+anyhow = "1.0.91"
 
 [dependencies.irc]
 path = "../irc"
