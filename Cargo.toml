@@ -46,6 +46,7 @@ tokio-stream = { version = "0.1.16", features = ["fs"] }
 
 # change to 1.2.0 when it is released https://github.com/frewsxcv/rust-dark-light/issues/38
 dark-light = { git = "https://github.com/frewsxcv/rust-dark-light", rev = "3eb3e93dd0fa30733c3e93082dd9517fb580ae95" }
+anyhow = "1.0.91"
 
 [dependencies.uuid]
 version = "1.0"

@@ -7,6 +7,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::time::{Duration, Instant};
 
+use anyhow::{anyhow, bail, Result};
+
 use crate::history::ReadMarker;
 use crate::message::server_time;
 use crate::time::Posix;
@@ -123,25 +125,8 @@ impl Client {
     pub fn new(
         server: Server,
         config: config::Server,
-        mut sender: mpsc::Sender<proto::Message>,
+        sender: mpsc::Sender<proto::Message>,
     ) -> Self {
-        // Begin registration
-        let _ = sender.try_send(command!("CAP", "LS", "302"));
-        let registration_step = RegistrationStep::List;
-
-        // Identify
-        {
-            let nick = &config.nickname;
-            let user = config.username.as_ref().unwrap_or(nick);
-            let real = config.realname.as_ref().unwrap_or(nick);
-
-            if let Some(pass) = config.password.as_ref() {
-                let _ = sender.try_send(command!("PASS", pass));
-            }
-            let _ = sender.try_send(command!("NICK", nick));
-            let _ = sender.try_send(command!("USER", user, real));
-        }
-
         Self {
             server,
             config,
@@ -154,7 +139,7 @@ impl Client {
             labels: HashMap::new(),
             batches: HashMap::new(),
             reroute_responses_to: None,
-            registration_step,
+            registration_step: RegistrationStep::Start,
             listed_caps: vec![],
             supports_labels: false,
             supports_away_notify: false,
@@ -165,6 +150,24 @@ impl Client {
             registration_required_channels: vec![],
             isupport: HashMap::new(),
         }
+    }
+
+    pub fn connect(&mut self) -> Result<()> {
+        // Begin registration
+        self.handle.try_send(command!("CAP", "LS", "302"))?;
+
+        // Identify
+        let nick = &self.config.nickname;
+        let user = self.config.username.as_ref().unwrap_or(nick);
+        let real = self.config.realname.as_ref().unwrap_or(nick);
+
+        if let Some(pass) = self.config.password.as_ref() {
+            self.handle.try_send(command!("PASS", pass))?;
+        }
+        self.handle.try_send(command!("NICK", nick))?;
+        self.handle.try_send(command!("USER", user, real))?;
+        self.registration_step = RegistrationStep::List;
+        Ok(())
     }
 
     fn quit(&mut self, reason: Option<String>) {
@@ -223,25 +226,25 @@ impl Client {
         }
     }
 
-    fn receive(&mut self, message: message::Encoded) -> Vec<Event> {
+    fn receive(&mut self, message: message::Encoded) -> Result<Vec<Event>> {
         log::trace!("Message received => {:?}", *message);
 
         let stop_reroute = stop_reroute(&message.command);
 
-        let events = self.handle(message, None).unwrap_or_default();
+        let events = self.handle(message, None)?;
 
         if stop_reroute {
             self.reroute_responses_to = None;
         }
 
-        events
+        Ok(events)
     }
 
     fn handle(
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
-    ) -> Option<Vec<Event>> {
+    ) -> Result<Vec<Event>> {
         use irc::proto::command::Numeric::*;
 
         let label_tag = remove_tag("label", message.tags.as_mut());
@@ -261,10 +264,16 @@ impl Client {
                 })
         });
 
+        macro_rules! ok {
+            ($option:expr) => {
+                $option.ok_or_else(|| anyhow!("Malformed command: {:?}", message.command))?
+            };
+        }
+
         match &message.command {
             Command::BATCH(batch, ..) => {
                 let mut chars = batch.chars();
-                let symbol = chars.next()?;
+                let symbol = ok!(chars.next());
                 let reference = chars.collect::<String>();
 
                 match symbol {
@@ -281,23 +290,23 @@ impl Client {
                             {
                                 parent.events.extend(finished.events);
                             } else {
-                                return Some(finished.events);
+                                return Ok(finished.events);
                             }
                         }
                     }
                     _ => {}
                 }
 
-                return None;
+                return Ok(vec![]);
             }
             _ if batch_tag.is_some() => {
                 let events = self.handle(message, context)?;
 
                 if let Some(batch) = self.batches.get_mut(&batch_tag.unwrap()) {
                     batch.events.extend(events);
-                    return None;
+                    return Ok(vec![]);
                 } else {
-                    return Some(events);
+                    return Ok(events);
                 }
             }
             // Label context whois
@@ -306,7 +315,7 @@ impl Client {
                     .map(Context::buffer)
                     .map(|buffer| buffer.server_message_target(None))
                 {
-                    return Some(vec![Event::WithTarget(
+                    return Ok(vec![Event::WithTarget(
                         message,
                         self.nickname().to_owned(),
                         source,
@@ -320,7 +329,7 @@ impl Client {
                     .clone()
                     .map(|buffer| buffer.server_message_target(None))
                 {
-                    return Some(vec![Event::WithTarget(
+                    return Ok(vec![Event::WithTarget(
                         message,
                         self.nickname().to_owned(),
                         source,
@@ -332,7 +341,7 @@ impl Client {
                     (Some(caps), None) => (caps, None),
                     (Some(asterisk), Some(caps)) => (caps, Some(asterisk)),
                     // Unreachable
-                    (None, None) | (None, Some(_)) => return None,
+                    (None, None) | (None, Some(_)) => return Ok(vec![]),
                 };
 
                 self.listed_caps.extend(caps.split(' ').map(String::from));
@@ -397,17 +406,19 @@ impl Client {
                         self.registration_step = RegistrationStep::Req;
 
                         for message in group_capability_requests(&requested) {
-                            let _ = self.handle.try_send(message);
+                            self.handle.try_send(message)?;
                         }
                     } else {
                         // If none requested, end negotiation
                         self.registration_step = RegistrationStep::End;
-                        let _ = self.handle.try_send(command!("CAP", "END"));
+                        self.handle.try_send(command!("CAP", "END"))?;
                     }
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "ACK" => {
-                let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+                // TODO this code is duplicated several times. Fix in `Command`.
+                let caps = ok!(b.as_ref().or(a.as_ref()));
+
                 log::info!("[{}] capabilities acknowledged: {caps}", self.server);
 
                 let caps = caps.split(' ').collect::<Vec<_>>();
@@ -432,26 +443,26 @@ impl Client {
 
                 if let Some(sasl) = self.config.sasl.as_ref().filter(|_| supports_sasl) {
                     self.registration_step = RegistrationStep::Sasl;
-                    let _ = self
-                        .handle
-                        .try_send(command!("AUTHENTICATE", sasl.command()));
+                    self.handle
+                        .try_send(command!("AUTHENTICATE", sasl.command()))?;
                 } else {
                     self.registration_step = RegistrationStep::End;
-                    let _ = self.handle.try_send(command!("CAP", "END"));
+                    self.handle.try_send(command!("CAP", "END"))?;
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "NAK" => {
-                let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+                let caps = ok!(b.as_ref().or(a.as_ref()));
+
                 log::warn!("[{}] capabilities not acknowledged: {caps}", self.server);
 
                 // End we didn't move to sasl or already ended
                 if self.registration_step < RegistrationStep::Sasl {
                     self.registration_step = RegistrationStep::End;
-                    let _ = self.handle.try_send(command!("CAP", "END"));
+                    self.handle.try_send(command!("CAP", "END"))?;
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "NEW" => {
-                let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+                let caps = ok!(b.as_ref().or(a.as_ref()));
 
                 let new_caps = caps.split(' ').map(String::from).collect::<Vec<String>>();
 
@@ -513,14 +524,14 @@ impl Client {
 
                 if !requested.is_empty() {
                     for message in group_capability_requests(&requested) {
-                        let _ = self.handle.try_send(message);
+                        self.handle.try_send(message)?;
                     }
                 }
 
                 self.listed_caps.extend(new_caps);
             }
             Command::CAP(_, sub, a, b) if sub == "DEL" => {
-                let caps = if b.is_none() { a.as_ref() } else { b.as_ref() }?;
+                let caps = ok!(b.as_ref().or(a.as_ref()));
 
                 let del_caps = caps.split(' ').collect::<Vec<_>>();
 
@@ -547,9 +558,9 @@ impl Client {
                 if let Some(sasl) = self.config.sasl.as_ref() {
                     log::info!("[{}] sasl auth: {}", self.server, sasl.command());
 
-                    let _ = self.handle.try_send(command!("AUTHENTICATE", sasl.param()));
+                    self.handle.try_send(command!("AUTHENTICATE", sasl.param()))?;
                     self.registration_step = RegistrationStep::End;
-                    let _ = self.handle.try_send(command!("CAP", "END"));
+                    self.handle.try_send(command!("CAP", "END"))?;
                 }
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
@@ -560,14 +571,14 @@ impl Client {
                         &self.registration_required_channels,
                         &self.config.channel_keys,
                     ) {
-                        let _ = self.handle.try_send(message);
+                        self.handle.try_send(message)?;
                     }
 
                     self.registration_required_channels.clear();
                 }
 
                 if !self.supports_account_notify {
-                    let accountname = args.first()?;
+                    let accountname = ok!(args.first());
 
                     let old_user = User::from(self.nickname().to_owned());
 
@@ -597,7 +608,7 @@ impl Client {
                         match command {
                             dcc::Command::Send(request) => {
                                 log::trace!("DCC Send => {request:?}");
-                                return Some(vec![Event::FileTransferRequest(
+                                return Ok(vec![Event::FileTransferRequest(
                                     file_transfer::ReceiveRequest {
                                         from: user.nickname().to_owned(),
                                         dcc_send: request,
@@ -607,8 +618,7 @@ impl Client {
                                 )]);
                             }
                             dcc::Command::Unsupported(command) => {
-                                log::debug!("Unsupported DCC command: {command}",);
-                                return None;
+                                bail!("Unsupported DCC command: {command}",);
                             }
                         }
                     } else {
@@ -622,36 +632,36 @@ impl Client {
                                     match query.command {
                                         ctcp::Command::Action => (),
                                         ctcp::Command::ClientInfo => {
-                                            let _ = self.handle.try_send(ctcp::response_message(
+                                            self.handle.try_send(ctcp::response_message(
                                                 &query.command,
                                                 user.nickname().to_string(),
                                                 Some("ACTION CLIENTINFO DCC PING SOURCE VERSION"),
-                                            ));
+                                            ))?;
                                         }
                                         ctcp::Command::DCC => (),
                                         ctcp::Command::Ping => {
-                                            let _ = self.handle.try_send(ctcp::response_message(
+                                            self.handle.try_send(ctcp::response_message(
                                                 &query.command,
                                                 user.nickname().to_string(),
                                                 query.params,
-                                            ));
+                                            ))?;
                                         }
                                         ctcp::Command::Source => {
-                                            let _ = self.handle.try_send(ctcp::response_message(
+                                            self.handle.try_send(ctcp::response_message(
                                                 &query.command,
                                                 user.nickname().to_string(),
                                                 Some(crate::environment::SOURCE_WEBSITE),
-                                            ));
+                                            ))?;
                                         }
                                         ctcp::Command::Version => {
-                                            let _ = self.handle.try_send(ctcp::response_message(
+                                            self.handle.try_send(ctcp::response_message(
                                                 &query.command,
                                                 user.nickname().to_string(),
                                                 Some(format!(
                                                     "Halloy {}",
                                                     crate::environment::VERSION
                                                 )),
-                                            ));
+                                            ))?;
                                         }
                                         ctcp::Command::Unknown(command) => {
                                             log::debug!(
@@ -661,13 +671,13 @@ impl Client {
                                     }
                                 }
 
-                                return None;
+                                return Ok(vec![]);
                             }
                         }
 
                         // Highlight notification
                         if message::references_user_text(user.nickname(), self.nickname(), text) {
-                            return Some(vec![Event::Notification(
+                            return Ok(vec![Event::Notification(
                                 message.clone(),
                                 self.nickname().to_owned(),
                                 Notification::Highlight {
@@ -678,12 +688,12 @@ impl Client {
                             )]);
                         } else if user.nickname() == self.nickname() && context.is_some() {
                             // If we sent (echo) & context exists (we sent from this client), ignore
-                            return None;
+                            return Ok(vec![]);
                         }
 
                         // use `channel` to confirm the direct message, then send notification
                         if channel == &self.nickname().to_string() {
-                            return Some(vec![Event::Notification(
+                            return Ok(vec![Event::Notification(
                                 message.clone(),
                                 self.nickname().to_owned(),
                                 Notification::DirectMessage(user),
@@ -694,10 +704,10 @@ impl Client {
             }
             Command::INVITE(user, channel) => {
                 let user = User::from(Nick::from(user.as_str()));
-                let inviter = message.user()?;
+                let inviter = ok!(message.user());
                 let user_channels = self.user_channels(user.nickname());
 
-                return Some(vec![Event::Broadcast(Broadcast::Invite {
+                return Ok(vec![Event::Broadcast(Broadcast::Invite {
                     inviter,
                     channel: channel.clone(),
                     user_channels,
@@ -705,7 +715,7 @@ impl Client {
                 })]);
             }
             Command::NICK(nick) => {
-                let old_user = message.user()?;
+                let old_user = ok!(message.user());
                 let ourself = self.nickname() == old_user.nickname();
 
                 if ourself {
@@ -722,7 +732,7 @@ impl Client {
 
                 let channels = self.user_channels(old_user.nickname());
 
-                return Some(vec![Event::Broadcast(Broadcast::Nickname {
+                return Ok(vec![Event::Broadcast(Broadcast::Nickname {
                     old_user,
                     new_nick,
                     ourself,
@@ -747,12 +757,12 @@ impl Client {
                 }
 
                 if let Some(nick) = self.alt_nick.and_then(|i| self.config.alt_nicks.get(i)) {
-                    let _ = self.handle.try_send(command!("NICK", nick));
+                    self.handle.try_send(command!("NICK", nick))?;
                 }
             }
             Command::Numeric(RPL_WELCOME, args) => {
                 // Updated actual nick
-                let nick = args.first()?;
+                let nick = ok!(args.first());
                 self.resolved_nick = Some(nick.to_string());
 
                 // Send nick password & ghost
@@ -760,29 +770,29 @@ impl Client {
                     // Try ghost recovery if we couldn't claim our nick
                     if self.config.should_ghost && nick != &self.config.nickname {
                         for sequence in &self.config.ghost_sequence {
-                            let _ = self.handle.try_send(command!(
+                            self.handle.try_send(command!(
                                 "PRIVMSG",
                                 "NickServ",
                                 format!("{sequence} {} {nick_pass}", &self.config.nickname)
-                            ));
+                            ))?;
                         }
                     }
 
-                    let _ = if let Some(identify_syntax) = &self.config.nick_identify_syntax {
+                    if let Some(identify_syntax) = &self.config.nick_identify_syntax {
                         match identify_syntax {
                             config::server::IdentifySyntax::PasswordNick => {
                                 self.handle.try_send(command!(
                                     "PRIVMSG",
                                     "NickServ",
                                     format!("IDENTIFY {nick_pass} {}", &self.config.nickname)
-                                ))
+                                ))?
                             }
                             config::server::IdentifySyntax::NickPassword => {
                                 self.handle.try_send(command!(
                                     "PRIVMSG",
                                     "NickServ",
                                     format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                                ))
+                                ))?
                             }
                         }
                     } else if self.resolved_nick == Some(self.config.nickname.clone()) {
@@ -792,39 +802,39 @@ impl Client {
                             "PRIVMSG",
                             "NickServ",
                             format!("IDENTIFY {nick_pass}")
-                        ))
+                        ))?
                     } else {
                         // Default to most common syntax if unknown
                         self.handle.try_send(command!(
                             "PRIVMSG",
                             "NickServ",
                             format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                        ))
-                    };
+                        ))?
+                    }
                 }
 
                 // Send user modestring
                 if let Some(modestring) = self.config.umodes.as_ref() {
-                    let _ = self.handle.try_send(command!("MODE", nick, modestring));
+                    self.handle.try_send(command!("MODE", nick, modestring))?;
                 }
 
                 // Loop on connect commands
                 for command in self.config.on_connect.iter() {
                     if let Ok(cmd) = crate::command::parse(command, None) {
                         if let Ok(command) = proto::Command::try_from(cmd) {
-                            let _ = self.handle.try_send(command.into());
+                            self.handle.try_send(command.into())?;
                         };
                     };
                 }
 
                 // Send JOIN
                 for message in group_joins(&self.config.channels, &self.config.channel_keys) {
-                    let _ = self.handle.try_send(message);
+                    self.handle.try_send(message)?;
                 }
             }
             // QUIT
             Command::QUIT(comment) => {
-                let user = message.user()?;
+                let user = ok!(message.user());
 
                 self.chanmap.values_mut().for_each(|channel| {
                     channel.users.remove(&user);
@@ -832,7 +842,7 @@ impl Client {
 
                 let channels = self.user_channels(user.nickname());
 
-                return Some(vec![Event::Broadcast(Broadcast::Quit {
+                return Ok(vec![Event::Broadcast(Broadcast::Quit {
                     user,
                     comment: comment.clone(),
                     channels,
@@ -840,7 +850,7 @@ impl Client {
                 })]);
             }
             Command::PART(channel, _) => {
-                let user = message.user()?;
+                let user = ok!(message.user());
 
                 if user.nickname() == self.nickname() {
                     self.chanmap.remove(channel);
@@ -849,7 +859,7 @@ impl Client {
                 }
             }
             Command::JOIN(channel, accountname) => {
-                let user = message.user()?;
+                let user = ok!(message.user());
 
                 if user.nickname() == self.nickname() {
                     self.chanmap.insert(channel.clone(), Channel::default());
@@ -864,26 +874,26 @@ impl Client {
                                     "tcnf"
                                 };
 
-                                let _ = self.handle.try_send(command!(
+                                self.handle.try_send(command!(
                                     "WHO",
                                     channel,
                                     fields,
                                     isupport::WHO_POLL_TOKEN.to_owned()
-                                ));
+                                ))?;
 
                                 state.last_who = Some(WhoStatus::Requested(
                                     Instant::now(),
                                     Some(isupport::WHO_POLL_TOKEN),
                                 ));
                             } else {
-                                let _ = self.handle.try_send(command!("WHO", channel));
+                                self.handle.try_send(command!("WHO", channel))?;
                                 state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
                             }
                             log::debug!("[{}] {channel} - WHO requested", self.server);
                         }
                     }
 
-                    return Some(vec![Event::JoinedChannel(channel.clone())]);
+                    return Ok(vec![Event::JoinedChannel(channel.clone())]);
                 } else if let Some(channel) = self.chanmap.get_mut(channel) {
                     let user = if self.supports_extended_join {
                         accountname.as_ref().map_or(user.clone(), |accountname| {
@@ -906,11 +916,11 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_WHOREPLY, args) => {
-                let target = args.get(1)?;
+                let target = ok!(args.get(1));
 
                 if self.is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
-                        channel.update_user_away(args.get(5)?, args.get(6)?);
+                        channel.update_user_away(ok!(args.get(5)), ok!(args.get(6)));
 
                         if matches!(channel.last_who, Some(WhoStatus::Requested(_, None)) | None) {
                             channel.last_who = Some(WhoStatus::Receiving(None));
@@ -919,17 +929,17 @@ impl Client {
 
                         if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
                             // We requested, don't save to history
-                            return None;
+                            return Ok(vec![]);
                         }
                     }
                 }
             }
             Command::Numeric(RPL_WHOSPCRPL, args) => {
-                let target = args.get(2)?;
+                let target = ok!(args.get(2));
 
                 if self.is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
-                        channel.update_user_away(args.get(3)?, args.get(4)?);
+                        channel.update_user_away(ok!(args.get(3)), ok!(args.get(4)));
 
                         if self.supports_account_notify {
                             if let (Some(user), Some(accountname)) = (args.get(3), args.get(5)) {
@@ -937,7 +947,7 @@ impl Client {
                             }
                         }
 
-                        if let Ok(token) = args.get(1)?.parse::<isupport::WhoToken>() {
+                        if let Ok(token) = ok!(args.get(1)).parse::<isupport::WhoToken>() {
                             if let Some(WhoStatus::Requested(_, Some(request_token))) =
                                 channel.last_who
                             {
@@ -951,27 +961,27 @@ impl Client {
 
                         if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
                             // We requested, don't save to history
-                            return None;
+                            return Ok(vec![]);
                         }
                     }
                 }
             }
             Command::Numeric(RPL_ENDOFWHO, args) => {
-                let target = args.get(1)?;
+                let target = ok!(args.get(1));
 
                 if self.is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
                         if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
                             channel.last_who = Some(WhoStatus::Done(Instant::now()));
                             log::debug!("[{}] {target} - WHO done", self.server);
-                            return None;
+                            return Ok(vec![]);
                         }
                     }
                 }
             }
             Command::AWAY(args) => {
                 let away = args.is_some();
-                let user = message.user()?;
+                let user = ok!(message.user());
 
                 for channel in self.chanmap.values_mut() {
                     if let Some(mut user) = channel.users.take(&user) {
@@ -981,8 +991,8 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_UNAWAY, args) => {
-                let nick = args.first()?.as_str();
-                let user = User::try_from(nick).ok()?;
+                let nick = ok!(args.first()).as_str();
+                let user = User::try_from(nick)?;
 
                 if user.nickname() == self.nickname() {
                     for channel in self.chanmap.values_mut() {
@@ -994,8 +1004,8 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_NOWAWAY, args) => {
-                let nick = args.first()?.as_str();
-                let user = User::try_from(nick).ok()?;
+                let nick = ok!(args.first()).as_str();
+                let user = User::try_from(nick)?;
 
                 if user.nickname() == self.nickname() {
                     for channel in self.chanmap.values_mut() {
@@ -1040,7 +1050,7 @@ impl Client {
                                 &self.registration_required_channels,
                                 &self.config.channel_keys,
                             ) {
-                                let _ = self.handle.try_send(message);
+                                self.handle.try_send(message)?;
                             }
 
                             self.registration_required_channels.clear();
@@ -1058,19 +1068,19 @@ impl Client {
 
                     // Don't save to history if names list was triggered by JOIN
                     if !channel.names_init {
-                        return None;
+                        return Ok(vec![]);
                     }
                 }
             }
             Command::Numeric(RPL_ENDOFNAMES, args) => {
-                let target = args.get(1)?;
+                let target = ok!(args.get(1));
 
                 if self.is_channel(target) {
                     if let Some(channel) = self.chanmap.get_mut(target) {
                         if !channel.names_init {
                             channel.names_init = true;
 
-                            return None;
+                            return Ok(vec![]);
                         }
                     }
                 }
@@ -1088,29 +1098,27 @@ impl Client {
             Command::Numeric(RPL_TOPIC, args) => {
                 if let Some(channel) = self.chanmap.get_mut(&args[1]) {
                     channel.topic.content =
-                        Some(message::parse_fragments(args.get(2)?.to_owned(), &[]));
+                        Some(message::parse_fragments(ok!(args.get(2)).to_owned(), &[]));
                 }
                 // Exclude topic message from history to prevent spam during dev
                 #[cfg(feature = "dev")]
-                return None;
+                return Ok(vec![]);
             }
             Command::Numeric(RPL_TOPICWHOTIME, args) => {
                 if let Some(channel) = self.chanmap.get_mut(&args[1]) {
-                    channel.topic.who = Some(args.get(2)?.to_string());
-                    channel.topic.time = Some(
-                        args.get(3)?
-                            .parse::<u64>()
-                            .ok()
-                            .map(Posix::from_seconds)?
-                            .datetime()?,
-                    );
+                    channel.topic.who = Some(ok!(args.get(2)).to_string());
+                    let timestamp = Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
+                    channel.topic.time =
+                        Some(timestamp.datetime().ok_or_else(|| {
+                            anyhow!("Unable to parse timestamp: {:?}", timestamp)
+                        })?);
                 }
                 // Exclude topic message from history to prevent spam during dev
                 #[cfg(feature = "dev")]
-                return None;
+                return Ok(vec![]);
             }
             Command::Numeric(ERR_NOCHANMODES, args) => {
-                let channel = args.get(1)?;
+                let channel = ok!(args.get(1));
 
                 // If the channel has not been joined but is in the configured channels,
                 // then interpret this numeric as ERR_NEEDREGGEDNICK (which has the
@@ -1127,7 +1135,7 @@ impl Client {
             }
             Command::Numeric(RPL_ISUPPORT, args) => {
                 let args_len = args.len();
-                args.iter().enumerate().skip(1).for_each(|(index, arg)| {
+                for (index, arg) in args.iter().enumerate().skip(1) {
                     let operation = arg.parse::<isupport::Operation>();
 
                     match operation {
@@ -1150,7 +1158,7 @@ impl Client {
                                                 group_monitors(&self.config.monitor, target_limit);
 
                                             for message in messages {
-                                                let _ = self.handle.try_send(message);
+                                                self.handle.try_send(message)?;
                                             }
                                         }
                                     } else {
@@ -1184,15 +1192,15 @@ impl Client {
                             }
                         }
                     }
-                });
+                }
 
-                return None;
+                return Ok(vec![]);
             }
             Command::TAGMSG(_) => {
-                return None;
+                return Ok(vec![]);
             }
             Command::ACCOUNT(accountname) => {
-                let old_user = message.user()?;
+                let old_user = ok!(message.user());
 
                 self.chanmap.values_mut().for_each(|channel| {
                     if let Some(user) = channel.users.take(&old_user) {
@@ -1208,14 +1216,14 @@ impl Client {
                         &self.registration_required_channels,
                         &self.config.channel_keys,
                     ) {
-                        let _ = self.handle.try_send(message);
+                        self.handle.try_send(message)?;
                     }
 
                     self.registration_required_channels.clear();
                 }
             }
             Command::CHGHOST(new_username, new_hostname) => {
-                let old_user = message.user()?;
+                let old_user = ok!(message.user());
 
                 let ourself = old_user.nickname() == self.nickname();
 
@@ -1230,7 +1238,7 @@ impl Client {
 
                 let channels = self.user_channels(old_user.nickname());
 
-                return Some(vec![Event::Broadcast(Broadcast::ChangeHost {
+                return Ok(vec![Event::Broadcast(Broadcast::ChangeHost {
                     old_user,
                     new_username: new_username.clone(),
                     new_hostname: new_hostname.clone(),
@@ -1240,52 +1248,55 @@ impl Client {
                 })]);
             }
             Command::Numeric(RPL_MONONLINE, args) => {
-                let targets = args
-                    .get(1)?
+                let targets = ok!(args.get(1))
                     .split(',')
                     .filter_map(|target| User::try_from(target).ok())
                     .collect::<Vec<_>>();
 
-                return Some(vec![Event::Notification(
+                return Ok(vec![Event::Notification(
                     message.clone(),
                     self.nickname().to_owned(),
                     Notification::MonitoredOnline(targets),
                 )]);
             }
             Command::Numeric(RPL_MONOFFLINE, args) => {
-                let targets = args.get(1)?.split(',').map(Nick::from).collect::<Vec<_>>();
+                let targets = ok!(args.get(1))
+                    .split(',')
+                    .map(Nick::from)
+                    .collect::<Vec<_>>();
 
-                return Some(vec![Event::Notification(
+                return Ok(vec![Event::Notification(
                     message.clone(),
                     self.nickname().to_owned(),
                     Notification::MonitoredOffline(targets),
                 )]);
             }
             Command::Numeric(RPL_ENDOFMONLIST, _) => {
-                return None;
+                return Ok(vec![]);
             }
             Command::MARKREAD(target, Some(timestamp)) => {
                 if let Some(read_marker) = timestamp
                     .strip_prefix("timestamp=")
                     .and_then(|timestamp| timestamp.parse::<ReadMarker>().ok())
                 {
-                    return Some(vec![Event::UpdateReadMarker(target.clone(), read_marker)]);
+                    return Ok(vec![Event::UpdateReadMarker(target.clone(), read_marker)]);
                 }
             }
             _ => {}
         }
 
-        Some(vec![Event::Single(message, self.nickname().to_owned())])
+        Ok(vec![Event::Single(message, self.nickname().to_owned())])
     }
 
-    pub fn send_markread(&mut self, target: &str, read_marker: ReadMarker) {
+    pub fn send_markread(&mut self, target: &str, read_marker: ReadMarker) -> Result<()> {
         if self.supports_read_marker {
-            let _ = self.handle.try_send(command!(
+            self.handle.try_send(command!(
                 "MARKREAD",
                 target.to_string(),
                 format!("timestamp={read_marker}"),
-            ));
+            ))?;
         }
+        Ok(())
     }
 
     // TODO allow configuring the "sorting method"
@@ -1363,7 +1374,7 @@ impl Client {
         )
     }
 
-    pub fn tick(&mut self, now: Instant) {
+    pub fn tick(&mut self, now: Instant) -> Result<()> {
         match self.highlight_blackout {
             HighlightBlackout::Blackout(instant) => {
                 if now.duration_since(instant) >= HIGHLIGHT_BLACKOUT_INTERVAL {
@@ -1400,19 +1411,19 @@ impl Client {
                         "tcnf"
                     };
 
-                    let _ = self.handle.try_send(command!(
+                    self.handle.try_send(command!(
                         "WHO",
                         channel,
                         fields,
                         isupport::WHO_POLL_TOKEN.to_owned()
-                    ));
+                    ))?;
 
                     state.last_who = Some(WhoStatus::Requested(
                         Instant::now(),
                         Some(isupport::WHO_POLL_TOKEN),
                     ));
                 } else {
-                    let _ = self.handle.try_send(command!("WHO", channel));
+                    self.handle.try_send(command!("WHO", channel))?;
                     state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
                 }
                 log::debug!(
@@ -1425,6 +1436,7 @@ impl Client {
                 );
             }
         }
+        Ok(())
     }
 
     pub fn chantypes(&self) -> &[char] {
@@ -1512,10 +1524,12 @@ impl Map {
         self.client(server).map(Client::nickname)
     }
 
-    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Vec<Event> {
-        self.client_mut(server)
-            .map(|client| client.receive(message))
-            .unwrap_or_default()
+    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Result<Vec<Event>> {
+        if let Some(client) = self.client_mut(server) {
+            client.receive(message)
+        } else {
+            Ok(Default::default())
+        }
     }
 
     pub fn sync(&mut self, server: &Server) {
@@ -1530,10 +1544,11 @@ impl Map {
         }
     }
 
-    pub fn send_markread(&mut self, server: &Server, target: &str, read_marker: ReadMarker) {
+    pub fn send_markread(&mut self, server: &Server, target: &str, read_marker: ReadMarker) -> Result<()> {
         if let Some(client) = self.client_mut(server) {
-            client.send_markread(target, read_marker);
+            client.send_markread(target, read_marker)?;
         }
+        Ok(())
     }
 
     pub fn join(&mut self, server: &Server, channels: &[String]) {
@@ -1642,12 +1657,13 @@ impl Map {
             .unwrap_or(Status::Unavailable)
     }
 
-    pub fn tick(&mut self, now: Instant) {
-        self.0.values_mut().for_each(|client| {
+    pub fn tick(&mut self, now: Instant) -> Result<()> {
+        for client in self.0.values_mut() {
             if let State::Ready(client) = client {
-                client.tick(now);
+                client.tick(now)?;
             }
-        })
+        }
+        Ok(())
     }
 }
 
@@ -1726,6 +1742,7 @@ fn stop_reroute(command: &Command) -> bool {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum RegistrationStep {
+    Start,
     List,
     Req,
     Sasl,
