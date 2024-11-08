@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
 
+use thiserror::Error;
+
 use irc::proto;
 use itertools::sorted;
 use serde::{Deserialize, Serialize};
@@ -49,8 +51,16 @@ impl PartialOrd for User {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum TryFromUserError {
+    #[error("nickname can't be empty")]
+    NicknameEmpty,
+    #[error("nickname must start with alphabetic or [ \\ ] ^ _ ` {{ | }} *")]
+    NicknameInvalidCharacter,
+}
+
 impl TryFrom<String> for User {
-    type Error = &'static str;
+    type Error = TryFromUserError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::try_from(value.as_str())
@@ -58,17 +68,17 @@ impl TryFrom<String> for User {
 }
 
 impl<'a> TryFrom<&'a str> for User {
-    type Error = &'static str;
+    type Error = TryFromUserError;
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         if value.is_empty() {
-            return Err("nickname can't be empty");
+            return Err(Self::Error::NicknameEmpty);
         }
 
         let Some(index) =
             value.find(|c: char| c.is_alphabetic() || "[\\]^_`{|}*".find(c).is_some())
         else {
-            return Err("nickname must start with alphabetic or [ \\ ] ^ _ ` { | } *");
+            return Err(Self::Error::NicknameInvalidCharacter);
         };
 
         let (access_levels, rest) = (&value[..index], &value[index..]);

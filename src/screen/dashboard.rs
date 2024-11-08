@@ -66,6 +66,7 @@ pub enum Event {
     ConfigReloaded(Result<Config, config::Error>),
     ReloadThemes,
     QuitServer(Server),
+    IrcError(anyhow::Error),
     Exit,
 }
 
@@ -578,7 +579,9 @@ impl Dashboard {
                             if let Some(((server, target), read_marker)) =
                                 kind.server().zip(kind.target()).zip(read_marker)
                             {
-                                clients.send_markread(server, target, read_marker);
+                                if let Err(e) = clients.send_markread(server, target, read_marker) {
+                                    return (Task::none(), Some(Event::IrcError(e)));
+                                };
                             }
                         }
                         history::manager::Event::Exited(results) => {
@@ -586,7 +589,9 @@ impl Dashboard {
                                 if let Some(((server, target), read_marker)) =
                                     kind.server().zip(kind.target()).zip(read_marker)
                                 {
-                                    clients.send_markread(server, target, read_marker);
+                                    if let Err(e) = clients.send_markread(server, target, read_marker) {
+                                        return (Task::none(), Some(Event::IrcError(e)));
+                                    };
                                 }
                             }
 

@@ -280,12 +280,17 @@ async fn connect(
 
     let (sender, receiver) = mpsc::channel(100);
 
+    let mut client = Client::new(server, config, sender);
+    if let Err(e) = client.connect() {
+        log::error!("Error when connecting client: {:?}", e);
+    }
+
     Ok((
         Stream {
             connection,
             receiver,
         },
-        Client::new(server, config, sender),
+        client,
     ))
 }
 
