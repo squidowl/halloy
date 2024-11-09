@@ -231,7 +231,13 @@ impl Message {
             &channel_users,
             chantypes,
         )?;
-        let target = target(encoded, &our_nick, &resolve_attributes, chantypes, statusmsg)?;
+        let target = target(
+            encoded,
+            &our_nick,
+            &resolve_attributes,
+            chantypes,
+            statusmsg,
+        )?;
         let received_at = Posix::now();
         let hash = Hash::new(&received_at, &content);
 
@@ -664,11 +670,13 @@ fn target(
 
     match message.0.command {
         // Channel
-        Command::MODE(target, ..) if proto::is_channel(&target, chantypes) => Some(Target::Channel {
-            channel: target,
-            source: source::Source::Server(None),
-            prefixes: Default::default(),
-        }),
+        Command::MODE(target, ..) if proto::is_channel(&target, chantypes) => {
+            Some(Target::Channel {
+                channel: target,
+                source: source::Source::Server(None),
+                prefixes: Default::default(),
+            })
+        }
         Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => Some(Target::Channel {
             channel,
             source: source::Source::Server(None),
@@ -728,7 +736,10 @@ fn target(
                 }
             };
 
-            match (proto::parse_channel_from_target(&target, chantypes, statusmsg), user) {
+            match (
+                proto::parse_channel_from_target(&target, chantypes, statusmsg),
+                user,
+            ) {
                 (Some((prefixes, channel)), Some(user)) => {
                     let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
                     Some(Target::Channel {
@@ -762,7 +773,10 @@ fn target(
                 }
             };
 
-            match (proto::parse_channel_from_target(&target, chantypes, statusmsg), user) {
+            match (
+                proto::parse_channel_from_target(&target, chantypes, statusmsg),
+                user,
+            ) {
                 (Some((prefixes, channel)), Some(user)) => {
                     let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
                     Some(Target::Channel {

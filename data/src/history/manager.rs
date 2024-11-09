@@ -246,18 +246,24 @@ impl Manager {
         self.data.load_metadata(server, channel)
     }
 
-    pub fn first_can_reference(&self, server: Server, target: String) -> Option<&crate::Message> {
-        self.data.first_can_reference(server, target)
+    pub fn first_can_reference(
+        &self,
+        server: Server,
+        chantypes: &[char],
+        target: String,
+    ) -> Option<&crate::Message> {
+        self.data.first_can_reference(server, chantypes, target)
     }
 
     pub fn last_can_reference_before(
         &self,
         server: Server,
+        chantypes: &[char],
         target: String,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
         self.data
-            .last_can_reference_before(server, target, server_time)
+            .last_can_reference_before(server, chantypes, target, server_time)
     }
 
     pub fn get_messages(
@@ -760,9 +766,10 @@ impl Data {
     fn first_can_reference(
         &self,
         server: server::Server,
+        chantypes: &[char],
         target: String,
     ) -> Option<&crate::Message> {
-        let kind = history::Kind::from_target(server, target);
+        let kind = history::Kind::from_target(server, target, chantypes);
 
         self.map
             .get(&kind)
@@ -772,10 +779,11 @@ impl Data {
     fn last_can_reference_before(
         &self,
         server: Server,
+        chantypes: &[char],
         target: String,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
-        let kind = history::Kind::from_target(server, target);
+        let kind = history::Kind::from_target(server, target, chantypes);
 
         self.map
             .get(&kind)

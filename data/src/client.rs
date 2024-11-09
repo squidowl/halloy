@@ -229,7 +229,6 @@ impl Client {
         }
     }
 
-
     fn send(&mut self, buffer: &buffer::Upstream, mut message: message::Encoded) {
         if self.supports_labels {
             use proto::Tag;
@@ -453,7 +452,7 @@ impl Client {
                                 let target = message::Target::Channel {
                                     channel: target,
                                     source: source::Source::Server(None),
-                                    prefix: None,
+                                    prefixes: Default::default(),
                                 };
 
                                 vec![Event::WithTarget(
@@ -471,7 +470,7 @@ impl Client {
                                             .user()
                                             .map(|user| Nick::from(user.nickname().as_ref())),
                                     ))),
-                                    prefix: None,
+                                    prefixes: Default::default(),
                                 };
 
                                 vec![Event::WithTarget(
@@ -655,7 +654,7 @@ impl Client {
                 if caps.contains(&"draft/chathistory") && self.config.chathistory {
                     self.supports_chathistory = true;
 
-                    return Some(vec![Event::ChatHistoryAcknowledged(server_time(&message))]);
+                    return Ok(vec![Event::ChatHistoryAcknowledged(server_time(&message))]);
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "NAK" => {
@@ -780,7 +779,8 @@ impl Client {
                 if let Some(sasl) = self.config.sasl.as_ref() {
                     log::info!("[{}] sasl auth: {}", self.server, sasl.command());
 
-                    self.handle.try_send(command!("AUTHENTICATE", sasl.param()))?;
+                    self.handle
+                        .try_send(command!("AUTHENTICATE", sasl.param()))?;
                     self.registration_step = RegistrationStep::End;
                     self.handle.try_send(command!("CAP", "END"))?;
                 }
@@ -1514,24 +1514,28 @@ impl Client {
             }
             Command::CHATHISTORY(sub, args) => {
                 if sub == "TARGETS" {
-                    let target = args.first()?;
-
-                    if let Some((prefix, channel)) = proto::parse_channel_from_target(target) {
-                        if prefix.is_some() && self.chanmap.contains_key(&channel) {
-                            return Some(vec![Event::ChatHistoryTarget(
+                    if let Some(target) = args.first() {
+                        if let Some((prefixes, channel)) = proto::parse_channel_from_target(
+                            target,
+                            self.chantypes(),
+                            self.statusmsg(),
+                        ) {
+                            if !prefixes.is_empty() && self.chanmap.contains_key(&channel) {
+                                return Ok(vec![Event::ChatHistoryTarget(
+                                    target.clone(),
+                                    server_time(&message),
+                                )]);
+                            }
+                        } else {
+                            return Ok(vec![Event::ChatHistoryTarget(
                                 target.clone(),
                                 server_time(&message),
                             )]);
                         }
-                    } else {
-                        return Some(vec![Event::ChatHistoryTarget(
-                            target.clone(),
-                            server_time(&message),
-                        )]);
                     }
                 }
 
-                return None;
+                return Ok(vec![]);
             }
             _ => {}
         }
@@ -1560,8 +1564,13 @@ impl Client {
             return a.cmp(b);
         };
 
-        if [a_chantype, b_chantype].iter().all(|c| self.chantypes().contains(c)) {
-            let ord = a.trim_start_matches(a_chantype).cmp(b.trim_start_matches(b_chantype));
+        if [a_chantype, b_chantype]
+            .iter()
+            .all(|c| self.chantypes().contains(c))
+        {
+            let ord = a
+                .trim_start_matches(a_chantype)
+                .cmp(b.trim_start_matches(b_chantype));
             if ord != Ordering::Equal {
                 return ord;
             }
@@ -1741,7 +1750,12 @@ impl Client {
     }
 
     fn sync(&mut self) {
-        self.channels = self.chanmap.keys().cloned().sorted_by(|a, b| self.compare_channels(a, b)).collect();
+        self.channels = self
+            .chanmap
+            .keys()
+            .cloned()
+            .sorted_by(|a, b| self.compare_channels(a, b))
+            .collect();
         self.users = self
             .chanmap
             .iter()
@@ -1867,21 +1881,27 @@ impl Client {
     }
 
     pub fn chantypes(&self) -> &[char] {
-        self.isupport.get(&isupport::Kind::CHANTYPES).and_then(|chantypes| {
-            let isupport::Parameter::CHANTYPES(types) = chantypes else {
-                unreachable!("Corruption in isupport table.")
-            };
-            types.as_deref()
-        }).unwrap_or(proto::DEFAULT_CHANNEL_PREFIXES)
+        self.isupport
+            .get(&isupport::Kind::CHANTYPES)
+            .and_then(|chantypes| {
+                let isupport::Parameter::CHANTYPES(types) = chantypes else {
+                    unreachable!("Corruption in isupport table.")
+                };
+                types.as_deref()
+            })
+            .unwrap_or(proto::DEFAULT_CHANNEL_PREFIXES)
     }
 
     pub fn statusmsg(&self) -> &[char] {
-        self.isupport.get(&isupport::Kind::STATUSMSG).map(|statusmsg| {
-            let isupport::Parameter::STATUSMSG(prefixes) = statusmsg else {
-                unreachable!("Corruption in isupport table.")
-            };
-            prefixes.as_ref()
-        }).unwrap_or(&[])
+        self.isupport
+            .get(&isupport::Kind::STATUSMSG)
+            .map(|statusmsg| {
+                let isupport::Parameter::STATUSMSG(prefixes) = statusmsg else {
+                    unreachable!("Corruption in isupport table.")
+                };
+                prefixes.as_ref()
+            })
+            .unwrap_or(&[])
     }
 
     pub fn is_channel(&self, target: &str) -> bool {
@@ -2038,7 +2058,12 @@ impl Map {
         }
     }
 
-    pub fn send_markread(&mut self, server: &Server, target: &str, read_marker: ReadMarker) -> Result<()> {
+    pub fn send_markread(
+        &mut self,
+        server: &Server,
+        target: &str,
+        read_marker: ReadMarker,
+    ) -> Result<()> {
         if let Some(client) = self.client_mut(server) {
             client.send_markread(target, read_marker)?;
         }
