@@ -1,7 +1,7 @@
-use chrono::{format::SecondsFormat, DateTime, Utc};
 use std::fmt;
 use std::str::FromStr;
 
+use chrono::{format::SecondsFormat, DateTime, Utc};
 use irc::proto;
 
 use crate::Message;

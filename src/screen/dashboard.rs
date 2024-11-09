@@ -368,25 +368,10 @@ impl Dashboard {
                                     if let Some((window, pane, state)) =
                                         self.panes.get_mut_by_buffer(main_window.id, &buffer)
                                     {
-                                        let chathistory_state =
-                                            state.buffer.upstream().and_then(|upstream| {
-                                                upstream.target().as_ref().and_then(|target| {
-                                                    clients.get_chathistory_state(
-                                                        upstream.server(),
-                                                        target,
-                                                    )
-                                                })
-                                            });
-
                                         tasks.push(
                                             state
                                                 .buffer
-                                                .scroll_to_message(
-                                                    message,
-                                                    &self.history,
-                                                    config,
-                                                    chathistory_state,
-                                                )
+                                                .scroll_to_message(message, &self.history, config)
                                                 .map(move |message| {
                                                     Message::Pane(
                                                         window,
@@ -585,23 +570,15 @@ impl Dashboard {
                             if let Some((window, pane, state)) =
                                 self.panes.get_mut_by_buffer(main_window.id, &buffer)
                             {
-                                let chathistory_state =
-                                    state.buffer.upstream().and_then(|upstream| {
-                                        upstream.target().as_ref().and_then(|target| {
-                                            clients.get_chathistory_state(upstream.server(), target)
-                                        })
-                                    });
-
                                 return (
-                                    state
-                                        .buffer
-                                        .scroll_to_backlog(&self.history, config, chathistory_state)
-                                        .map(move |message| {
+                                    state.buffer.scroll_to_backlog(&self.history, config).map(
+                                        move |message| {
                                             Message::Pane(
                                                 window,
                                                 pane::Message::Buffer(pane, message),
                                             )
-                                        }),
+                                        },
+                                    ),
                                     None,
                                 );
                             }

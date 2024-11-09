@@ -1,5 +1,4 @@
 pub use data::buffer::{Internal, Settings, Upstream};
-use data::isupport::ChatHistoryState;
 use data::user::Nick;
 use data::{buffer, file_transfer, history, message, Config};
 use iced::Task;
@@ -330,7 +329,6 @@ impl Buffer {
         message: message::Hash,
         history: &history::Manager,
         config: &Config,
-        chathistory_state: Option<ChatHistoryState>,
     ) -> Task<Message> {
         match self {
             Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
@@ -338,7 +336,7 @@ impl Buffer {
                 .scroll_view
                 .scroll_to_message(
                     message,
-                    scroll_view::Kind::Channel(&state.server, &state.channel, chathistory_state),
+                    scroll_view::Kind::Channel(&state.server, &state.channel),
                     history,
                     config,
                 )
@@ -356,7 +354,7 @@ impl Buffer {
                 .scroll_view
                 .scroll_to_message(
                     message,
-                    scroll_view::Kind::Query(&state.server, &state.nick, chathistory_state),
+                    scroll_view::Kind::Query(&state.server, &state.nick),
                     history,
                     config,
                 )
@@ -376,14 +374,13 @@ impl Buffer {
         &mut self,
         history: &history::Manager,
         config: &Config,
-        chathistory_state: Option<ChatHistoryState>,
     ) -> Task<Message> {
         match self {
             Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
             Buffer::Channel(state) => state
                 .scroll_view
                 .scroll_to_backlog(
-                    scroll_view::Kind::Channel(&state.server, &state.channel, chathistory_state),
+                    scroll_view::Kind::Channel(&state.server, &state.channel),
                     history,
                     config,
                 )
@@ -395,7 +392,7 @@ impl Buffer {
             Buffer::Query(state) => state
                 .scroll_view
                 .scroll_to_backlog(
-                    scroll_view::Kind::Query(&state.server, &state.nick, chathistory_state),
+                    scroll_view::Kind::Query(&state.server, &state.nick),
                     history,
                     config,
                 )

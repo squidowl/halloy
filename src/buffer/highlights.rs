@@ -30,6 +30,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Highlights,
             history,
+            None,
             config,
             move |message, _, _| match &message.target {
                 message::Target::Highlights {
