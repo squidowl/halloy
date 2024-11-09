@@ -486,7 +486,11 @@ impl Data {
                     let read_marker = (*partial_read_marker).max(metadata.read_marker);
 
                     let last_updated_at = *last_updated_at;
-                    messages.extend(std::mem::take(new_messages));
+                    std::mem::take(new_messages)
+                        .into_iter()
+                        .for_each(|message| {
+                            history::insert_message(&mut messages, message);
+                        });
                     entry.insert(History::Full {
                         kind,
                         messages,
