@@ -211,8 +211,10 @@ impl Dashboard {
                                             if let Some(nick) = clients.nickname(buffer.server()) {
                                                 let mut user = nick.to_owned().into();
                                                 let mut channel_users = &[][..];
-                                                let chantypes = clients.get_chantypes(buffer.server());
-                                                let statusmsg = clients.get_statusmsg(buffer.server());
+                                                let chantypes =
+                                                    clients.get_chantypes(buffer.server());
+                                                let statusmsg =
+                                                    clients.get_statusmsg(buffer.server());
 
                                                 // Resolve our attributes if sending this message in a channel
                                                 if let buffer::Upstream::Channel(server, channel) =
@@ -230,9 +232,12 @@ impl Dashboard {
                                                     }
                                                 }
 
-                                                if let Some(messages) =
-                                                    input.messages(user, channel_users, chantypes, statusmsg)
-                                                {
+                                                if let Some(messages) = input.messages(
+                                                    user,
+                                                    channel_users,
+                                                    chantypes,
+                                                    statusmsg,
+                                                ) {
                                                     let mut tasks = vec![task];
 
                                                     for message in messages {
@@ -597,7 +602,9 @@ impl Dashboard {
                                 if let Some(((server, target), read_marker)) =
                                     kind.server().zip(kind.target()).zip(read_marker)
                                 {
-                                    if let Err(e) = clients.send_markread(server, target, read_marker) {
+                                    if let Err(e) =
+                                        clients.send_markread(server, target, read_marker)
+                                    {
                                         return (Task::none(), Some(Event::IrcError(e)));
                                     };
                                 }
@@ -957,7 +964,12 @@ impl Dashboard {
 
                 let message_reference = self
                     .history
-                    .last_can_reference_before(server.clone(), target.clone(), server_time)
+                    .last_can_reference_before(
+                        server.clone(),
+                        clients.get_chantypes(&server),
+                        target.clone(),
+                        server_time,
+                    )
                     .map_or(MessageReference::None, |message_references| {
                         message_references.message_reference(&message_reference_types)
                     });
@@ -1405,14 +1417,16 @@ impl Dashboard {
 
     pub fn get_oldest_message_reference(
         &self,
+        clients: &client::Map,
         server: &Server,
         target: &str,
         message_reference_types: &[isupport::MessageReferenceType],
     ) -> MessageReference {
-        if let Some(first_can_reference) = self
-            .history
-            .first_can_reference(server.clone(), target.to_string())
-        {
+        if let Some(first_can_reference) = self.history.first_can_reference(
+            server.clone(),
+            clients.get_chantypes(server),
+            target.to_string(),
+        ) {
             log::debug!(
                 "[{server}] {target} - first_can_reference {:?}",
                 first_can_reference
@@ -1451,8 +1465,12 @@ impl Dashboard {
                 let message_reference_types =
                     clients.get_server_chathistory_message_reference_types(server);
 
-                let first_can_reference =
-                    self.get_oldest_message_reference(server, &target, &message_reference_types);
+                let first_can_reference = self.get_oldest_message_reference(
+                    clients,
+                    server,
+                    &target,
+                    &message_reference_types,
+                );
 
                 clients.send_chathistory_request(
                     server,
