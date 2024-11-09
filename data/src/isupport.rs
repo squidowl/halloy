@@ -569,6 +569,7 @@ impl Parameter {
             Parameter::AWAYLEN(_) => Some(Kind::AWAYLEN),
             Parameter::CHANLIMIT(_) => Some(Kind::CHANLIMIT),
             Parameter::CHANNELLEN(_) => Some(Kind::CHANNELLEN),
+            Parameter::CHANTYPES(_) => Some(Kind::CHANTYPES),
             Parameter::CNOTICE => Some(Kind::CNOTICE),
             Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
             Parameter::ELIST(_) => Some(Kind::ELIST),

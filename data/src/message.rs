@@ -129,7 +129,13 @@ impl Target {
     pub fn prefixes(&self) -> Option<&[char]> {
         match self {
             Target::Server { .. } => None,
-            Target::Channel { prefixes, .. } => Some(prefixes),
+            Target::Channel { prefixes, .. } => {
+                if prefixes.is_empty() {
+                    None
+                } else {
+                    Some(prefixes)
+                }
+            }
             Target::Query { .. } => None,
             Target::Logs => None,
             Target::Highlights { .. } => None,
