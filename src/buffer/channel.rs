@@ -52,8 +52,9 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Channel(&state.server, &state.channel, chathistory_state),
+            scroll_view::Kind::Channel(&state.server, &state.channel),
             history,
+            chathistory_state,
             config,
             move |message, max_nick_width, max_prefix_width| {
                 let timestamp =

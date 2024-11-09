@@ -38,8 +38,9 @@ pub fn view<'a>(
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Query(server, &state.nick, chathistory_state),
+            scroll_view::Kind::Query(server, &state.nick),
             history,
+            chathistory_state,
             config,
             move |message, max_nick_width, _| {
                 let timestamp =

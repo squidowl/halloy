@@ -28,6 +28,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Logs,
             history,
+            None,
             config,
             move |message, _, _| match message.target.source() {
                 message::Source::Internal(message::source::Internal::Logs) => Some(

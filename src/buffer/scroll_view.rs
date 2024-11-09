@@ -39,8 +39,8 @@ pub enum Event {
 #[derive(Debug, Clone, Copy)]
 pub enum Kind<'a> {
     Server(&'a Server),
-    Channel(&'a Server, &'a str, Option<ChatHistoryState>),
-    Query(&'a Server, &'a Nick, Option<ChatHistoryState>),
+    Channel(&'a Server, &'a str),
+    Query(&'a Server, &'a Nick),
     Logs,
     Highlights,
 }
@@ -49,10 +49,10 @@ impl From<Kind<'_>> for history::Kind {
     fn from(value: Kind<'_>) -> Self {
         match value {
             Kind::Server(server) => history::Kind::Server(server.clone()),
-            Kind::Channel(server, channel, _) => {
+            Kind::Channel(server, channel) => {
                 history::Kind::Channel(server.clone(), channel.to_string())
             }
-            Kind::Query(server, nick, _) => history::Kind::Query(server.clone(), nick.clone()),
+            Kind::Query(server, nick) => history::Kind::Query(server.clone(), nick.clone()),
             Kind::Logs => history::Kind::Logs,
             Kind::Highlights => history::Kind::Highlights,
         }
@@ -63,6 +63,7 @@ pub fn view<'a>(
     state: &State,
     kind: Kind,
     history: &'a history::Manager,
+    chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
     format: impl Fn(&'a data::Message, Option<f32>, Option<f32>) -> Option<Element<'a, Message>> + 'a,
 ) -> Element<'a, Message> {
@@ -77,9 +78,7 @@ pub fn view<'a>(
         return column![].into();
     };
 
-    let top_row = if let Kind::Channel(_, _, Some(chathistory_state))
-    | Kind::Query(_, _, Some(chathistory_state)) = kind
-    {
+    let top_row = if let Some(chathistory_state) = chathistory_state {
         let (content, message) = match chathistory_state {
             ChatHistoryState::Exhausted => ("No Older Chat History Messages Available", None),
             ChatHistoryState::PendingRequest => ("...", None),
@@ -283,10 +282,7 @@ impl State {
                         scrollable::scroll_to(self.scrollable.clone(), new_offset),
                         None,
                     );
-                } else if infinite_scroll
-                    && matches!(self.limit, Limit::Top(_))
-                    && relative_offset == 0.0
-                {
+                } else if infinite_scroll && self.status.is_top(relative_offset) {
                     return (Task::none(), Some(Event::RequestOlderChatHistory));
                 }
             }

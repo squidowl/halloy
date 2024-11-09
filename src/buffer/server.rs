@@ -35,6 +35,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Server(&state.server),
             history,
+            None,
             config,
             move |message, _, _| {
                 let timestamp =
