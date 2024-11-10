@@ -4,7 +4,7 @@ To edit configuration parameters, create a `config.toml` file located in your co
 
 * Windows: `%AppData%\halloy`
 * Mac: `~/Library/Application Support/halloy` or `$HOME/.config/halloy`
-* Linux: `$XDG_CONFIG_HOME` or `$HOME/.config`
+* Linux: `$XDG_CONFIG_HOME/halloy` or `$HOME/.config/halloy`
 
 > 💡 You can easily open the config file directory from command bar in Halloy
 
