@@ -675,6 +675,13 @@ impl Client {
                             }
                         }
 
+                        // add user to user list if we somehow missed the join
+                        if let Some(channel) = self.chanmap.get_mut(channel) {
+                            if channel.users.take(&user).is_none() {
+                                channel.users.insert(user.clone());
+                            }
+                        }
+
                         // Highlight notification
                         if message::references_user_text(user.nickname(), self.nickname(), text) {
                             return Ok(vec![Event::Notification(
