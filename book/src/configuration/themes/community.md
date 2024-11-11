@@ -25,7 +25,6 @@ This is a list of community created themes for Halloy.
 
 <img src="catppuccin-latte.png">
 
-
 ## Catppuccin Macchiato 
  [Open in Halloy](halloy:///theme?e=ABgZJv8BbnON_wIkJzr_A8ag9v8EytP1_wWlrcv_Bsag9v8HptqV_wjth5b_CfWpf_8KHiAw_wskJzr_DCQnOv8NGBkm_w5MQWP_D7e9-P8QWUx2_xGR1-P_EiwySv8TW2B2_xSAh6L_FYqt9P8d7tSf_x4AAAAAHx4fL_8gIiM1_yEnKD3_IiksQv8jMjVQ_yRKQGL_JY10sf8)
 
@@ -75,3 +74,8 @@ This is a list of community created themes for Halloy.
 [Open in Halloy](halloy:///theme?e=AAArNv8Bk6Gh_wKToaH_A5Ohof8Eg5SW_wVYbnX_BpOhof8HhZkA_wjcMi__CctLFv8KACs2_wsHNkL_DAc2Qv8Ng5SW_w6ToaH_D9M2gv8QBzZC_xEmi9L_EgArNv8TWG51_xSDlJb_FSqhmP8dWG51_x4AKzb_Hwc2Qv8gBzZC_yEHNkL_IgArNv8jBzZC_yQHNkL_JQc2Qv8)
 
 <img src="solarized-dark.png">
+
+## Cyberpunk 
+ [Open in Halloy](halloy:///theme?e=AAoOFP8BLjxJ_wIbHyf_AwD_2f8EOf8U_wUAv___Bv8A__8HAP-d_wj_TEz_CQD_mf8KDQ8U_wsRFRz_DBsfJ_8NAAAAAA4A_9n_Dzn_FP8QiwCL_xH_AP__EhoeJf8TYHCL_xQAv___FQC___8d_9cA_x4KDhT_Hx0jL_8gDRIY_yEUGiH_IhsfJ_8jJCoz_yQuPEn_JTlFVP8)
+
+<img src="cyberpunk.png">
