@@ -1,5 +1,4 @@
 use data::appearance::theme::randomize_color;
-use data::user::NickColor;
 use data::{message, Config};
 use iced::widget::span;
 use iced::widget::text::Span;
@@ -69,13 +68,14 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             .color(theme.colors().buffer.url)
                             .link(message::Link::Channel(s.as_str().to_string())),
                         data::message::Fragment::User(user, text) => {
-                            let color_kind = &config.buffer.channel.message.nickname_color;
-
-                            let NickColor { seed, color } =
-                                user.nick_color(theme.colors(), *color_kind);
+                            let color = theme.colors().buffer.nickname;
+                            let seed = match &config.buffer.channel.message.nickname_color {
+                                data::buffer::Color::Solid => None,
+                                data::buffer::Color::Unique => Some(user.seed()),
+                            };
 
                             let color = match seed {
-                                Some(seed) => randomize_color(color, &seed),
+                                Some(seed) => randomize_color(color, seed),
                                 None => theme.colors().text.primary,
                             };
 

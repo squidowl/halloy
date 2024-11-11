@@ -59,13 +59,7 @@ pub fn view<'a>(
                                 .brackets
                                 .format(user.display(with_access_levels)),
                         )
-                        .style(|theme| {
-                            theme::selectable_text::nickname(
-                                theme,
-                                user.nick_color(theme.colors(), config.buffer.nickname.color),
-                                false,
-                            )
-                        });
+                        .style(|theme| theme::selectable_text::nickname(theme, config, user));
 
                         if let Some(width) = max_nick_width {
                             text = text

@@ -1,7 +1,4 @@
-use data::{
-    appearance::theme::{alpha_color, randomize_color},
-    user::NickColor,
-};
+use data::appearance::theme::{alpha_color, randomize_color};
 use iced::{
     widget::text::{Catalog, Style, StyleFn},
     Color,
@@ -85,15 +82,14 @@ pub fn unread_indicator(theme: &Theme) -> Style {
     }
 }
 
-pub fn nickname(theme: &Theme, nick_color: NickColor, away: bool) -> Style {
-    let NickColor { color, seed } = nick_color;
-
+pub fn nickname(theme: &Theme, seed: Option<&str>, should_dim_nickname: bool) -> Style {
+    let color = theme.colors().buffer.nickname;
     let calculate_alpha_color = |color: Color| -> Color {
         alpha_color(0.15, 0.61, theme.colors().buffer.background, color)
     };
 
     let Some(seed) = seed else {
-        let color = if away {
+        let color = if should_dim_nickname {
             calculate_alpha_color(color)
         } else {
             color
@@ -102,8 +98,8 @@ pub fn nickname(theme: &Theme, nick_color: NickColor, away: bool) -> Style {
         return Style { color: Some(color) };
     };
 
-    let randomized_color = randomize_color(color, &seed);
-    let color = if away {
+    let randomized_color = randomize_color(color, seed);
+    let color = if should_dim_nickname {
         calculate_alpha_color(randomized_color)
     } else {
         randomized_color
