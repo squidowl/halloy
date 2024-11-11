@@ -60,8 +60,7 @@ pub enum Message {
     CloseContextMenu(window::Id, bool),
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
-    RequestNewerChatHistory(Server, String, DateTime<Utc>),
-    RequestChatHistoryTargets(Server, Option<DateTime<Utc>>, DateTime<Utc>),
+    Client(client::Message),
 }
 
 #[derive(Debug)]
@@ -958,48 +957,65 @@ impl Dashboard {
             Message::ConfigReloaded(config) => {
                 return (Task::none(), Some(Event::ConfigReloaded(config)));
             }
-            Message::RequestNewerChatHistory(server, target, server_time) => {
-                let message_reference_types =
-                    clients.get_server_chathistory_message_reference_types(&server);
+            Message::Client(message) => match message {
+                client::Message::ChatHistoryRequest(server, subcommand) => {
+                    clients.send_chathistory_request(&server, subcommand);
+                }
+                client::Message::ChatHistoryTargetsTimestampUpdated(server, timestamp, Ok(_)) => {
+                    log::debug!("updated targets timestamp for {server} to {timestamp}");
+                }
+                client::Message::ChatHistoryTargetsTimestampUpdated(
+                    server,
+                    timestamp,
+                    Err(error),
+                ) => {
+                    log::warn!(
+                        "failed to update targets timestamp for {server} to {timestamp}: {error}"
+                    );
+                }
+                client::Message::RequestNewerChatHistory(server, target, server_time) => {
+                    let message_reference_types =
+                        clients.get_server_chathistory_message_reference_types(&server);
 
-                let message_reference = self
-                    .history
-                    .last_can_reference_before(
-                        server.clone(),
-                        clients.get_chantypes(&server),
-                        target.clone(),
-                        server_time,
-                    )
-                    .map_or(MessageReference::None, |message_references| {
-                        message_references.message_reference(&message_reference_types)
-                    });
+                    let message_reference = self
+                        .history
+                        .last_can_reference_before(
+                            server.clone(),
+                            clients.get_chantypes(&server),
+                            target.clone(),
+                            server_time,
+                        )
+                        .map_or(MessageReference::None, |message_references| {
+                            message_references.message_reference(&message_reference_types)
+                        });
 
-                let limit = clients.get_server_chathistory_limit(&server);
+                    let limit = clients.get_server_chathistory_limit(&server);
 
-                clients.send_chathistory_request(
-                    &server,
-                    ChatHistorySubcommand::Latest(target.clone(), message_reference, limit),
-                );
-            }
-            Message::RequestChatHistoryTargets(server, timestamp, server_time) => {
-                let start_message_reference = timestamp
-                    .map_or(MessageReference::None, |timestamp| {
-                        MessageReference::Timestamp(timestamp)
-                    });
+                    clients.send_chathistory_request(
+                        &server,
+                        ChatHistorySubcommand::Latest(target.clone(), message_reference, limit),
+                    );
+                }
+                client::Message::RequestChatHistoryTargets(server, timestamp, server_time) => {
+                    let start_message_reference = timestamp
+                        .map_or(MessageReference::None, |timestamp| {
+                            MessageReference::Timestamp(timestamp)
+                        });
 
-                let end_message_reference = MessageReference::Timestamp(server_time);
+                    let end_message_reference = MessageReference::Timestamp(server_time);
 
-                let limit = clients.get_server_chathistory_limit(&server);
+                    let limit = clients.get_server_chathistory_limit(&server);
 
-                clients.send_chathistory_request(
-                    &server,
-                    ChatHistorySubcommand::Targets(
-                        start_message_reference,
-                        end_message_reference,
-                        limit,
-                    ),
-                );
-            }
+                    clients.send_chathistory_request(
+                        &server,
+                        ChatHistorySubcommand::Targets(
+                            start_message_reference,
+                            end_message_reference,
+                            limit,
+                        ),
+                    );
+                }
+            },
         }
 
         (Task::none(), None)
@@ -1511,10 +1527,49 @@ impl Dashboard {
         }
     }
 
-    pub fn load_metadata(&mut self, server: Server, channel: String) -> Option<Task<Message>> {
-        self.history
-            .load_metadata(server, channel)
-            .map(|task| Task::perform(task, Message::History))
+    pub fn load_metadata(
+        &mut self,
+        clients: &data::client::Map,
+        server: Server,
+        channel: String,
+        server_time: DateTime<Utc>,
+    ) -> Option<Task<Message>> {
+        let command = self
+            .history
+            .load_metadata(server.clone(), channel.clone())
+            .map(|task| Task::perform(task, Message::History));
+
+        command.map(|command| {
+            if clients.get_server_supports_chathistory(&server) {
+                command.chain(Task::done(Message::Client(
+                    data::client::Message::RequestNewerChatHistory(server, channel, server_time),
+                )))
+            } else {
+                command
+            }
+        })
+    }
+
+    pub fn load_chathistory_targets_timestamp(
+        &self,
+        clients: &data::client::Map,
+        server: &Server,
+        server_time: DateTime<Utc>,
+    ) -> Option<Task<Message>> {
+        clients
+            .load_chathistory_targets_timestamp(server, server_time)
+            .map(|task| Task::perform(task, Message::Client))
+    }
+
+    pub fn overwrite_chathistory_targets_timestamp(
+        &self,
+        clients: &data::client::Map,
+        server: &Server,
+        timestamp: DateTime<Utc>,
+    ) -> Option<Task<Message>> {
+        clients
+            .overwrite_chathistory_targets_timestamp(server, timestamp)
+            .map(|task| Task::perform(task, Message::Client))
     }
 
     fn get_focused(&self, main_window: &Window) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
