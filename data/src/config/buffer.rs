@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local, Utc};
 use serde::Deserialize;
 
-use super::Channel;
+use super::{away::Away, Channel};
 use crate::{
     buffer::{Nickname, StatusMessagePrefix, TextInput, Timestamp},
     message::source,
@@ -9,6 +9,8 @@ use crate::{
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Buffer {
+    #[serde(default)]
+    pub away: Away,
     #[serde(default)]
     pub timestamp: Timestamp,
     #[serde(default)]

@@ -10,6 +10,7 @@ use rand_chacha::ChaCha8Rng;
 use serde::Deserialize;
 use thiserror::Error;
 
+pub use self::away::Away;
 pub use self::buffer::Buffer;
 pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
@@ -26,6 +27,7 @@ use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
 use crate::{environment, Theme};
 
+pub mod away;
 pub mod buffer;
 pub mod channel;
 pub mod file_transfer;

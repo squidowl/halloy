@@ -6,7 +6,7 @@ use irc::proto;
 use itertools::sorted;
 use serde::{Deserialize, Serialize};
 
-use crate::{appearance::theme::Colors, buffer, config::buffer::UsernameFormat, mode};
+use crate::{config::buffer::UsernameFormat, mode};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(into = "String")]
@@ -145,15 +145,8 @@ impl From<Nick> for User {
 }
 
 impl User {
-    pub fn nick_color(&self, colors: &Colors, kind: buffer::Color) -> NickColor {
-        let color = colors.buffer.nickname;
-        match kind {
-            buffer::Color::Solid => NickColor { seed: None, color },
-            buffer::Color::Unique => NickColor {
-                seed: Some(self.nickname().as_ref().to_string()),
-                color,
-            },
-        }
+    pub fn seed(&self) -> &str {
+        self.as_str()
     }
 
     pub fn display(&self, with_access_levels: bool) -> String {

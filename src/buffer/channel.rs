@@ -72,7 +72,11 @@ pub fn view<'a>(
                     |prefixes| {
                         let text = selectable_text(format!(
                             "{} ",
-                            config.buffer.status_message_prefix.brackets.format(String::from_iter(prefixes))
+                            config
+                                .buffer
+                                .status_message_prefix
+                                .brackets
+                                .format(String::from_iter(prefixes))
                         ))
                         .style(theme::selectable_text::tertiary);
 
@@ -101,13 +105,7 @@ pub fn view<'a>(
                                 .brackets
                                 .format(user.display(with_access_levels)),
                         )
-                        .style(|theme| {
-                            theme::selectable_text::nickname(
-                                theme,
-                                user.nick_color(theme.colors(), config.buffer.nickname.color),
-                                user.is_away(),
-                            )
-                        });
+                        .style(|theme| theme::selectable_text::nickname(theme, config, user));
 
                         if let Some(width) = max_nick_width {
                             text = text
@@ -462,13 +460,7 @@ mod nick_list {
 
         let content = column(users.iter().map(|user| {
             let content = selectable_text(user.display(nicklist_config.show_access_levels))
-                .style(|theme| {
-                    theme::selectable_text::nickname(
-                        theme,
-                        user.nick_color(theme.colors(), nicklist_config.color),
-                        user.is_away(),
-                    )
-                })
+                .style(|theme| theme::selectable_text::nicklist_nickname(theme, config, user))
                 .horizontal_alignment(match nicklist_config.alignment {
                     config::channel::Alignment::Left => alignment::Horizontal::Left,
                     config::channel::Alignment::Right => alignment::Horizontal::Right,
