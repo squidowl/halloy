@@ -2,6 +2,10 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
+pub use self::away::Away;
+
+pub mod away;
+
 use crate::user::Nick;
 use crate::{channel, config, message, Server};
 

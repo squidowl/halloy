@@ -1,9 +1,9 @@
 use chrono::{DateTime, Local, Utc};
 use serde::Deserialize;
 
-use super::{away::Away, Channel};
+use super::Channel;
 use crate::{
-    buffer::{Nickname, StatusMessagePrefix, TextInput, Timestamp},
+    buffer::{Away, Nickname, StatusMessagePrefix, TextInput, Timestamp},
     message::source,
 };
 
