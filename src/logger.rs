@@ -38,7 +38,7 @@ pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, Error> {
         io_sink = io_sink.chain(log_file);
     }
 
-    let (channel_sink, reciever) = channel_logger();
+    let (channel_sink, receiver) = channel_logger();
 
     fern::Dispatch::new()
         .level(log::LevelFilter::Off)
@@ -50,7 +50,7 @@ pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, Error> {
         .chain(channel_sink)
         .apply()?;
 
-    Ok(reciever)
+    Ok(receiver)
 }
 
 fn channel_logger() -> (Box<dyn Log>, ReceiverStream<Vec<Record>>) {
