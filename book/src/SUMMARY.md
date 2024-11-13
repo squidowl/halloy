@@ -7,7 +7,7 @@
 - [Get in touch](get-in-touch.md)
 
 # Guides
- 
+
 - [Connect with soju](guides/connect-with-soju.md)
 - [Connect with ZNC](guides/connect-with-znc.md)
 - [Portable mode](guides/portable-mode.md)
@@ -20,6 +20,7 @@
 
 - [Configuration](configuration/README.md)
   - [Buffer](configuration/buffer/README.md)
+    - [Away](configuration/buffer/away.md)
     - [Channel](configuration/buffer/channel/README.md)
       - [Nicklist](configuration/buffer/channel/nicklist.md)
       - [Message](configuration/buffer/channel/message.md)
