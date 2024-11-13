@@ -1,10 +1,14 @@
 # Unreleased
 
+Added:
+- New configuration options
+  - Ability to disable dimming of away usernames. See [buffer configuartion](https://halloy.squidowl.org/configuration/buffer/away.html).
+
 # 2024.14 (2024-10-29)
 
 Fixed:
   - CPU spiking due to memory leak in upstream crate.
-  
+
 # 2024.13 (2024-10-27)
 
 Added:
@@ -20,7 +24,7 @@ Added:
   - Ability to define a shell command for loading a NICKSERV password. See [configuration](https://halloy.squidowl.org/configuration/servers/index.html#nick_password_command)
   - Ability to define a shell command for loading a SASL password. See [configuration](https://halloy.squidowl.org/configuration/servers/sasl/plain.html)
   - Show/hide sidebar button to view logs. See [configuration](https://halloy.squidowl.org/configuration/sidebar/buttons.html#logs)
-  - Ability to align nicknames above messages. See [configuration](https://halloy.squidowl.org/configuration/buffer/nickname.html#alignment). 
+  - Ability to align nicknames above messages. See [configuration](https://halloy.squidowl.org/configuration/buffer/nickname.html#alignment).
 
 Fixed:
 
@@ -75,7 +79,7 @@ Fixed:
 - Messages with multiple targets are correctly recorded into multiple buffers (and/or multiple times into the same buffer) client-side.
 - Messages sent with a STATUSMSG prefix are recorded and indicated in the corresponding channel.
 - Ability to position the sidebar at the top, bottom, right, or left. See [configuration](https://halloy.squidowl.org/configuration/sidebar/index.html#position).
-- `/mode` requires too many parameters for certain commands. 
+- `/mode` requires too many parameters for certain commands.
 
 Changed:
 
@@ -84,7 +88,7 @@ Changed:
 - Unread indicator has changed from a boolean value to a enum. See [configuration](https://halloy.squidowl.org/configuration/sidebar/index.html#unread_indicators).
 - Renamed `sidebar.default_action` to `sidebar.buffer_action`.
 - Auto-completing (with tab) a nickname at the beginning of the input line will append ': ' (colon space). Otherwise, a space is appended to the completion.
- 
+
 Removed:
 
 - Removed `hex` configuration option for server messages and nicknames.
@@ -96,7 +100,7 @@ Removed:
 
 Added:
 
-- Small icon in sidemenu when a new release is available 
+- Small icon in sidemenu when a new release is available
 - Enable support for IRCv3 `chghost`, `account-notify`, and `extended-join`
 
 Removed:
@@ -145,7 +149,7 @@ Added:
 - User information added to context menu
 - Support for IRCv3 `CAP NEW` and `CAP DEL` subcommands
 - Enable support for IRCv3 `multi-prefix`, `message-tags`, `WHOX`, and `UTF8ONLY`
-- Dynamic commands and tooltips added to command auto-completion via `ISUPPORT` 
+- Dynamic commands and tooltips added to command auto-completion via `ISUPPORT`
 - Added support for `socks5` proxy configuration (see [proxy configuration](https://halloy.squidowl.org/configuration/proxy.html))
 - Added support for `http` proxy configuration (see [proxy configuration](https://halloy.squidowl.org/configuration/proxy.html))
 
