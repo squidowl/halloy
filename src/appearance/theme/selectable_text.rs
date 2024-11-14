@@ -1,4 +1,4 @@
-use data::{message, user::NickColor};
+use data::{message, Config, User};
 
 use crate::widget::{
     selectable_rich_text,
@@ -82,8 +82,45 @@ pub fn server(theme: &Theme, server: Option<&message::source::Server>) -> Style 
     }
 }
 
-pub fn nickname(theme: &Theme, nick_color: NickColor, away: bool) -> Style {
-    let color = text::nickname(theme, nick_color, away).color;
+pub fn nicklist_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
+    nickname_style(
+        theme,
+        config.buffer.channel.nicklist.color,
+        user,
+        config.buffer.away.should_dim_nickname(user.is_away()),
+    )
+}
+
+pub fn nickname(theme: &Theme, config: &Config, user: &User) -> Style {
+    nickname_style(
+        theme,
+        config.buffer.channel.message.nickname_color,
+        user,
+        config.buffer.away.should_dim_nickname(user.is_away()),
+    )
+}
+
+pub fn topic_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
+    nickname_style(
+        theme,
+        config.buffer.channel.message.nickname_color,
+        user,
+        false,
+    )
+}
+
+fn nickname_style(
+    theme: &Theme,
+    kind: data::buffer::Color,
+    user: &User,
+    should_dim_nickname: bool,
+) -> Style {
+    let seed = match kind {
+        data::buffer::Color::Solid => None,
+        data::buffer::Color::Unique => Some(user.seed()),
+    };
+
+    let color = text::nickname(theme, seed, should_dim_nickname).color;
 
     Style {
         color,

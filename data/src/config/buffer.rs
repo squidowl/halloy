@@ -3,12 +3,14 @@ use serde::Deserialize;
 
 use super::Channel;
 use crate::{
-    buffer::{Nickname, StatusMessagePrefix, TextInput, Timestamp},
+    buffer::{Away, Nickname, StatusMessagePrefix, TextInput, Timestamp},
     message::source,
 };
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Buffer {
+    #[serde(default)]
+    pub away: Away,
     #[serde(default)]
     pub timestamp: Timestamp,
     #[serde(default)]
