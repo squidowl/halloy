@@ -70,13 +70,7 @@ pub fn view<'a>(
                             .brackets
                             .format(user.display(with_access_levels)),
                     )
-                    .style(|theme| {
-                        theme::selectable_text::nickname(
-                            theme,
-                            user.nick_color(theme.colors(), config.buffer.nickname.color),
-                            user.is_away(),
-                        )
-                    });
+                    .style(|theme| theme::selectable_text::nickname(theme, config, user));
 
                     let nick =
                         user_context::view(text, server, Some(channel), user, current_user, None)
