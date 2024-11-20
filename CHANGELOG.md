@@ -3,6 +3,7 @@
 Added:
 - New configuration options
   - Ability to disable dimming of away usernames. See [buffer configuartion](https://halloy.squidowl.org/configuration/buffer/away.html).
+- Enable support for IRCv3 `chathistory`
 
 # 2024.14 (2024-10-29)
 
