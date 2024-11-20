@@ -23,10 +23,9 @@ use std::{env, mem};
 use appearance::{theme, Theme};
 use chrono::Utc;
 use data::config::{self, Config};
-use data::history::manager::Broadcast;
+use data::history::{self, manager::Broadcast};
 use data::version::Version;
-use data::{environment, server, version, Url, User};
-use data::{history, Server};
+use data::{environment, server, version, Server, Url, User};
 use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
@@ -767,12 +766,60 @@ impl Halloy {
                                                 .map(Message::Dashboard),
                                         );
                                     }
-                                    data::client::Event::JoinedChannel(channel) => {
-                                        commands.push(
-                                            dashboard
-                                                .channel_joined(server.clone(), channel)
-                                                .map(Message::Dashboard),
-                                        );
+                                    data::client::Event::JoinedChannel(channel, server_time) => {
+                                        if let Some(command) = dashboard
+                                            .load_metadata(
+                                                &self.clients,
+                                                server.clone(),
+                                                channel.clone(),
+                                                server_time,
+                                            )
+                                            .map(|command| command.map(Message::Dashboard))
+                                        {
+                                            commands.push(command);
+                                        }
+                                    }
+                                    data::client::Event::ChatHistoryAcknowledged(server_time) => {
+                                        if let Some(command) = dashboard
+                                            .load_chathistory_targets_timestamp(
+                                                &self.clients,
+                                                &server,
+                                                server_time,
+                                            )
+                                            .map(|command| command.map(Message::Dashboard))
+                                        {
+                                            commands.push(command);
+                                        }
+                                    }
+                                    data::client::Event::ChatHistoryTargetReceived(
+                                        target,
+                                        server_time,
+                                    ) => {
+                                        if let Some(command) = dashboard
+                                            .load_metadata(
+                                                &self.clients,
+                                                server.clone(),
+                                                target.clone(),
+                                                server_time,
+                                            )
+                                            .map(|command| command.map(Message::Dashboard))
+                                        {
+                                            commands.push(command);
+                                        }
+                                    }
+                                    data::client::Event::ChatHistoryTargetsReceived(
+                                        server_time,
+                                    ) => {
+                                        if let Some(command) = dashboard
+                                            .overwrite_chathistory_targets_timestamp(
+                                                &self.clients,
+                                                &server,
+                                                server_time,
+                                            )
+                                            .map(|command| command.map(Message::Dashboard))
+                                        {
+                                            commands.push(command);
+                                        }
                                     }
                                 }
                             }
@@ -830,7 +877,7 @@ impl Halloy {
                         .handle_event(
                             window,
                             event,
-                            &self.clients,
+                            &mut self.clients,
                             &self.version,
                             &self.config,
                             &mut self.theme,

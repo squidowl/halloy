@@ -18,7 +18,7 @@ pub use self::source::Source;
 use crate::config::buffer::UsernameFormat;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
-use crate::{ctcp, Config, Server, User};
+use crate::{ctcp, isupport, Config, Server, User};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -188,6 +188,30 @@ impl Message {
             }
     }
 
+    pub fn can_reference(&self) -> bool {
+        if matches!(self.target.source(), Source::Internal(_)) {
+            return false;
+        } else if let Source::Server(Some(source)) = self.target.source() {
+            if matches!(
+                source.kind(),
+                source::server::Kind::ReplyTopic
+                    | source::server::Kind::MonitoredOnline
+                    | source::server::Kind::MonitoredOffline
+            ) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn references(&self) -> MessageReferences {
+        MessageReferences {
+            timestamp: self.server_time,
+            id: self.id.clone(),
+        }
+    }
+
     pub fn received<'a>(
         encoded: Encoded,
         our_nick: Nick,
@@ -207,7 +231,13 @@ impl Message {
             &channel_users,
             chantypes,
         )?;
-        let target = target(encoded, &our_nick, &resolve_attributes, chantypes, statusmsg)?;
+        let target = target(
+            encoded,
+            &our_nick,
+            &resolve_attributes,
+            chantypes,
+            statusmsg,
+        )?;
         let received_at = Posix::now();
         let hash = Hash::new(&received_at, &content);
 
@@ -563,7 +593,7 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
         })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, Serialize, Deserialize)]
 pub enum Content {
     Plain(String),
     Fragments(Vec<Fragment>),
@@ -577,6 +607,18 @@ impl Content {
             Content::Fragments(fragments) => fragments.iter().map(Fragment::as_str).join("").into(),
             Content::Log(record) => (&record.message).into(),
         }
+    }
+}
+
+impl PartialEq for Content {
+    fn eq(&self, other: &Self) -> bool {
+        self.text() == other.text()
+    }
+}
+
+impl std::hash::Hash for Content {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.text().hash(state);
     }
 }
 
@@ -628,11 +670,13 @@ fn target(
 
     match message.0.command {
         // Channel
-        Command::MODE(target, ..) if proto::is_channel(&target, chantypes) => Some(Target::Channel {
-            channel: target,
-            source: source::Source::Server(None),
-            prefixes: Default::default(),
-        }),
+        Command::MODE(target, ..) if proto::is_channel(&target, chantypes) => {
+            Some(Target::Channel {
+                channel: target,
+                source: source::Source::Server(None),
+                prefixes: Default::default(),
+            })
+        }
         Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => Some(Target::Channel {
             channel,
             source: source::Source::Server(None),
@@ -692,7 +736,10 @@ fn target(
                 }
             };
 
-            match (proto::parse_channel_from_target(&target, chantypes, statusmsg), user) {
+            match (
+                proto::parse_channel_from_target(&target, chantypes, statusmsg),
+                user,
+            ) {
                 (Some((prefixes, channel)), Some(user)) => {
                     let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
                     Some(Target::Channel {
@@ -726,7 +773,10 @@ fn target(
                 }
             };
 
-            match (proto::parse_channel_from_target(&target, chantypes, statusmsg), user) {
+            match (
+                proto::parse_channel_from_target(&target, chantypes, statusmsg),
+                user,
+            ) {
                 (Some((prefixes, channel)), Some(user)) => {
                     let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
                     Some(Target::Channel {
@@ -802,6 +852,7 @@ fn target(
         | Command::AUTHENTICATE(_)
         | Command::ACCOUNT(_)
         | Command::BATCH(_, _)
+        | Command::CHATHISTORY(_, _)
         | Command::CNOTICE(_, _, _)
         | Command::CPRIVMSG(_, _, _)
         | Command::KNOCK(_, _)
@@ -1119,7 +1170,7 @@ fn content<'a>(
 pub enum Limit {
     Top(usize),
     Bottom(usize),
-    Since(time::Posix),
+    Since(DateTime<Utc>),
 }
 
 impl Limit {
@@ -1218,6 +1269,54 @@ where
     let intermediate = serde_json::Value::deserialize(deserializer)?;
 
     Ok(Option::<T>::deserialize(intermediate).unwrap_or_default())
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct MessageReferences {
+    pub timestamp: DateTime<Utc>,
+    pub id: Option<String>,
+}
+
+impl MessageReferences {
+    pub fn message_reference(
+        &self,
+        message_reference_types: &[isupport::MessageReferenceType],
+    ) -> isupport::MessageReference {
+        for message_reference_type in message_reference_types {
+            match message_reference_type {
+                isupport::MessageReferenceType::MessageId => {
+                    if let Some(id) = &self.id {
+                        return isupport::MessageReference::MessageId(id.clone());
+                    }
+                }
+                isupport::MessageReferenceType::Timestamp => {
+                    return isupport::MessageReference::Timestamp(self.timestamp);
+                }
+            }
+        }
+
+        isupport::MessageReference::None
+    }
+}
+
+impl PartialEq for MessageReferences {
+    fn eq(&self, other: &Self) -> bool {
+        self.timestamp.eq(&other.timestamp)
+    }
+}
+
+impl Eq for MessageReferences {}
+
+impl Ord for MessageReferences {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.timestamp.cmp(&other.timestamp)
+    }
+}
+
+impl PartialOrd for MessageReferences {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 #[cfg(test)]

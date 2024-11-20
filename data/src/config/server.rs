@@ -96,6 +96,8 @@ pub struct Server {
     /// A list of nicknames to monitor (if MONITOR is supported by the server).
     #[serde(default)]
     pub monitor: Vec<String>,
+    #[serde(default = "default_chathistory")]
+    pub chathistory: bool,
 }
 
 impl Server {
@@ -175,6 +177,7 @@ impl Default for Server {
             who_poll_interval: default_who_poll_interval(),
             who_retry_interval: default_who_retry_interval(),
             monitor: Default::default(),
+            chathistory: default_chathistory(),
         }
     }
 }
@@ -296,4 +299,8 @@ fn default_who_poll_interval() -> Duration {
 
 fn default_who_retry_interval() -> Duration {
     Duration::from_secs(10)
+}
+
+fn default_chathistory() -> bool {
+    true
 }

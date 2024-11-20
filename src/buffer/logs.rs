@@ -28,6 +28,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Logs,
             history,
+            None,
             config,
             move |message, _, _| match message.target.source() {
                 message::Source::Internal(message::source::Internal::Logs) => Some(
@@ -67,12 +68,13 @@ impl Logs {
     pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let (command, event) = self.scroll_view.update(message);
+                let (command, event) = self.scroll_view.update(message, false);
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
                     scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
                     scroll_view::Event::GoToMessage(_, _, _) => None,
+                    scroll_view::Event::RequestOlderChatHistory => None,
                 });
 
                 (command.map(Message::ScrollView), event)

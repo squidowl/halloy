@@ -25,6 +25,8 @@ pub struct Buffer {
     pub internal_messages: InternalMessages,
     #[serde(default)]
     pub status_message_prefix: StatusMessagePrefix,
+    #[serde(default)]
+    pub chathistory: ChatHistory,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -139,6 +141,12 @@ impl Default for InternalMessage {
             smart: Default::default(),
         }
     }
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ChatHistory {
+    #[serde(default)]
+    pub infinite_scroll: bool,
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]

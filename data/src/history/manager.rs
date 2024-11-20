@@ -5,7 +5,7 @@ use futures::future::BoxFuture;
 use futures::{future, Future, FutureExt};
 use tokio::time::Instant;
 
-use crate::history::{self, History};
+use crate::history::{self, History, MessageReferences};
 use crate::message::{self, Limit};
 use crate::user::Nick;
 use crate::{buffer, config, input};
@@ -238,12 +238,32 @@ impl Manager {
         self.data.update_read_marker(kind, read_marker)
     }
 
-    pub fn channel_joined(
+    pub fn load_metadata(
         &mut self,
         server: Server,
         channel: String,
     ) -> Option<impl Future<Output = Message>> {
-        self.data.channel_joined(server, channel)
+        self.data.load_metadata(server, channel)
+    }
+
+    pub fn first_can_reference(
+        &self,
+        server: Server,
+        chantypes: &[char],
+        target: String,
+    ) -> Option<&crate::Message> {
+        self.data.first_can_reference(server, chantypes, target)
+    }
+
+    pub fn last_can_reference_before(
+        &self,
+        server: Server,
+        chantypes: &[char],
+        target: String,
+        server_time: DateTime<Utc>,
+    ) -> Option<MessageReferences> {
+        self.data
+            .last_can_reference_before(server, chantypes, target, server_time)
     }
 
     pub fn get_messages(
@@ -434,7 +454,7 @@ fn with_limit<'a>(
             collected[length.saturating_sub(n)..length].to_vec()
         }
         Some(Limit::Since(timestamp)) => messages
-            .skip_while(|message| message.received_at < timestamp)
+            .skip_while(|message| message.server_time < timestamp)
             .collect(),
         None => messages.collect(),
     }
@@ -466,7 +486,11 @@ impl Data {
                     let read_marker = (*partial_read_marker).max(metadata.read_marker);
 
                     let last_updated_at = *last_updated_at;
-                    messages.extend(std::mem::take(new_messages));
+                    std::mem::take(new_messages)
+                        .into_iter()
+                        .for_each(|message| {
+                            history::insert_message(&mut messages, message);
+                        });
                     entry.insert(History::Full {
                         kind,
                         messages,
@@ -717,7 +741,7 @@ impl Data {
         }
     }
 
-    fn channel_joined(
+    fn load_metadata(
         &mut self,
         server: server::Server,
         channel: String,
@@ -741,6 +765,33 @@ impl Data {
                 )
             }
         }
+    }
+
+    fn first_can_reference(
+        &self,
+        server: server::Server,
+        chantypes: &[char],
+        target: String,
+    ) -> Option<&crate::Message> {
+        let kind = history::Kind::from_target(server, target, chantypes);
+
+        self.map
+            .get(&kind)
+            .and_then(|history| history.first_can_reference())
+    }
+
+    fn last_can_reference_before(
+        &self,
+        server: Server,
+        chantypes: &[char],
+        target: String,
+        server_time: DateTime<Utc>,
+    ) -> Option<MessageReferences> {
+        let kind = history::Kind::from_target(server, target, chantypes);
+
+        self.map
+            .get(&kind)
+            .and_then(|history| history.last_can_reference_before(server_time))
     }
 
     fn untrack(

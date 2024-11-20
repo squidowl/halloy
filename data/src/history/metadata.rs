@@ -7,13 +7,14 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::history::{dir_path, Error, Kind};
-use crate::message::source;
+use crate::message::{source, MessageReferences};
 use crate::Message;
 
-#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Metadata {
     pub read_marker: Option<ReadMarker>,
     pub last_triggers_unread: Option<DateTime<Utc>>,
+    pub chathistory_references: Option<MessageReferences>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Deserialize, Serialize)]
@@ -65,6 +66,14 @@ pub fn latest_triggers_unread(messages: &[Message]) -> Option<DateTime<Utc>> {
         .map(|message| message.server_time)
 }
 
+pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
+    messages
+        .iter()
+        .rev()
+        .find(|message| message.can_reference())
+        .map(|message| message.references())
+}
+
 pub async fn load(kind: Kind) -> Result<Metadata, Error> {
     let path = path(&kind).await?;
 
@@ -83,6 +92,7 @@ pub async fn save(
     let bytes = serde_json::to_vec(&Metadata {
         read_marker,
         last_triggers_unread: latest_triggers_unread(messages),
+        chathistory_references: latest_can_reference(messages),
     })?;
 
     let path = path(kind).await?;
@@ -105,6 +115,7 @@ pub async fn update(kind: &Kind, read_marker: &ReadMarker) -> Result<(), Error> 
     let bytes = serde_json::to_vec(&Metadata {
         read_marker: Some(*read_marker),
         last_triggers_unread: metadata.last_triggers_unread,
+        chathistory_references: metadata.chathistory_references,
     })?;
 
     let path = path(kind).await?;
