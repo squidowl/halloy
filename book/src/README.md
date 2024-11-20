@@ -11,6 +11,7 @@
     * [away-notify](https://ircv3.net/specs/extensions/away-notify)
     * [batch](https://ircv3.net/specs/extensions/batch)
     * [cap-notify](https://ircv3.net/specs/extensions/capability-negotiation.html#cap-notify)
+    * [chathistory](https://ircv3.net/specs/extensions/chathistory)
     * [chghost](https://ircv3.net/specs/extensions/chghost)
     * [echo-message](https://ircv3.net/specs/extensions/echo-message)
     * [extended-join](https://ircv3.net/specs/extensions/extended-join)
