@@ -1170,7 +1170,7 @@ fn content<'a>(
 pub enum Limit {
     Top(usize),
     Bottom(usize),
-    Since(time::Posix),
+    Since(DateTime<Utc>),
 }
 
 impl Limit {

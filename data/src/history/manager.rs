@@ -454,7 +454,7 @@ fn with_limit<'a>(
             collected[length.saturating_sub(n)..length].to_vec()
         }
         Some(Limit::Since(timestamp)) => messages
-            .skip_while(|message| message.received_at < timestamp)
+            .skip_while(|message| message.server_time < timestamp)
             .collect(),
         None => messages.collect(),
     }
