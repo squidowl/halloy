@@ -1,8 +1,9 @@
+use chrono::{DateTime, Utc};
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
 use data::user::Nick;
-use data::{history, time, Config};
+use data::{history, Config};
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, Scrollable,
 };
@@ -18,7 +19,7 @@ pub enum Message {
     Scrolled {
         count: usize,
         remaining: bool,
-        oldest: time::Posix,
+        oldest: DateTime<Utc>,
         status: Status,
         viewport: scrollable::Viewport,
     },
@@ -111,8 +112,8 @@ pub fn view<'a>(
         .iter()
         .chain(&new_messages)
         .next()
-        .map(|message| message.received_at)
-        .unwrap_or_else(time::Posix::now);
+        .map(|message| message.server_time)
+        .unwrap_or_else(Utc::now);
     let status = state.status;
 
     let max_nick_width = max_nick_chars.map(|len| {
