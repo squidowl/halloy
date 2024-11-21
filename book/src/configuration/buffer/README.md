@@ -21,3 +21,4 @@ Each buffer is shown inside a [pane](../pane/index.html).
 | [Server Messages](./server_messages/index.html)     | Settings for server messages such as `join`, `part`, `quit` etc |
 | [Text Input](./text_input.md)                       | Customize the text input for a buffer                           |
 | [Timestamp](./timestamp.md)                         | Customize how timestamps are displayed within a buffer          |
+| [Chat History](./chat_history.md)                   | Customize IRCv3 Chat History extension          |
