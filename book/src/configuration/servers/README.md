@@ -256,4 +256,12 @@ Example: `["Foo", "Bar"]`
 - **values**: array of any strings
 - **default**: not set
 
+## `chathistory`
+
+Whether or not to enable [IRCv3 Chat History](https://ircv3.net/specs/extensions/chathistory) (if it is supported by the server).
+
+- **type**: boolean
+- **values**: `true`, `false`
+- **default**: `true`
+
 [^1]: Shell expansions (e.g. `"~/"` → `"/home/user/"`) are not supported in path strings.
