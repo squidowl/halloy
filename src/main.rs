@@ -767,17 +767,16 @@ impl Halloy {
                                         );
                                     }
                                     data::client::Event::JoinedChannel(channel, server_time) => {
-                                        if let Some(command) = dashboard
+                                        let command = dashboard
                                             .load_metadata(
                                                 &self.clients,
                                                 server.clone(),
                                                 channel.clone(),
                                                 server_time,
                                             )
-                                            .map(|command| command.map(Message::Dashboard))
-                                        {
-                                            commands.push(command);
-                                        }
+                                            .map(Message::Dashboard);
+
+                                        commands.push(command);
                                     }
                                     data::client::Event::ChatHistoryAcknowledged(server_time) => {
                                         if let Some(command) = dashboard
@@ -795,17 +794,16 @@ impl Halloy {
                                         target,
                                         server_time,
                                     ) => {
-                                        if let Some(command) = dashboard
+                                        let command = dashboard
                                             .load_metadata(
                                                 &self.clients,
                                                 server.clone(),
                                                 target.clone(),
                                                 server_time,
                                             )
-                                            .map(|command| command.map(Message::Dashboard))
-                                        {
-                                            commands.push(command);
-                                        }
+                                            .map(Message::Dashboard);
+
+                                        commands.push(command);
                                     }
                                     data::client::Event::ChatHistoryTargetsReceived(
                                         server_time,
