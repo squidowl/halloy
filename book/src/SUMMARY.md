@@ -39,6 +39,7 @@
       - [Topic](configuration/buffer/server_messages/topic.md)
     - [Text Input](configuration/buffer/text_input.md)
     - [Timestamp](configuration/buffer/timestamp.md)
+    - [Chat History](configuration/buffer/chat_history.md)
   - [File Transfer](configuration/file_transfer/README.md)
     - [Server](configuration/file_transfer/server.md)
   - [Font](configuration/font.md)
