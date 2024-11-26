@@ -1,5 +1,4 @@
-use data::user::Nick;
-use data::{buffer, history, message, Config, Server};
+use data::{buffer, history, message, target, Config, Server};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{alignment, Length, Task};
 
@@ -15,7 +14,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(String),
+    OpenChannel(target::Channel),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
 }
@@ -29,17 +28,19 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let server = &state.server;
+    let casemapping = clients.get_casemapping(server);
+    let query = &state.target;
     let status = clients.status(server);
     let buffer = &state.buffer;
     let input = history.input(buffer);
     let our_nick = clients.nickname(&state.server);
 
-    let chathistory_state = clients.get_chathistory_state(server, state.nick.as_ref());
+    let chathistory_state = clients.get_chathistory_state(server, &query.to_target());
 
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Query(server, &state.nick),
+            scroll_view::Kind::Query(server, query),
             history,
             chathistory_state,
             config,
@@ -72,11 +73,13 @@ pub fn view<'a>(
                                 .horizontal_alignment(alignment::Horizontal::Right);
                         }
 
-                        let nick = user_context::view(text, server, None, user, None, None)
-                            .map(scroll_view::Message::UserContext);
+                        let nick =
+                            user_context::view(text, server, casemapping, None, user, None, None)
+                                .map(scroll_view::Message::UserContext);
 
                         let message_content = message_content::with_context(
                             &message.content,
+                            casemapping,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
@@ -86,7 +89,7 @@ pub fn view<'a>(
                             },
                             move |link, entry, length| match link {
                                 message::Link::User(user) => entry
-                                    .view(server, None, user, None, length)
+                                    .view(server, casemapping, None, user, None, length)
                                     .map(scroll_view::Message::UserContext),
                                 _ => row![].into(),
                             },
@@ -123,6 +126,7 @@ pub fn view<'a>(
 
                         let message = message_content(
                             &message.content,
+                            casemapping,
                             theme,
                             scroll_view::Message::Link,
                             message_style,
@@ -145,6 +149,7 @@ pub fn view<'a>(
 
                         let message_content = message_content(
                             &message.content,
+                            casemapping,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::action,
@@ -180,6 +185,7 @@ pub fn view<'a>(
 
                         let message = message_content(
                             &message.content,
+                            casemapping,
                             theme,
                             scroll_view::Message::Link,
                             message_style,
@@ -234,17 +240,17 @@ pub fn view<'a>(
 pub struct Query {
     pub buffer: buffer::Upstream,
     pub server: Server,
-    pub nick: Nick,
+    pub target: target::Query,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
 }
 
 impl Query {
-    pub fn new(server: Server, nick: Nick) -> Self {
+    pub fn new(server: Server, target: target::Query) -> Self {
         Self {
-            buffer: buffer::Upstream::Query(server.clone(), nick.clone()),
+            buffer: buffer::Upstream::Query(server.clone(), target.clone()),
             server,
-            nick,
+            target,
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
         }

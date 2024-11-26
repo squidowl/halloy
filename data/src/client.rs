@@ -20,7 +20,7 @@ use crate::user::{Nick, NickRef};
 use crate::{
     buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Server, User,
 };
-use crate::{file_transfer, server};
+use crate::{file_transfer, server, target};
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -67,20 +67,20 @@ pub enum Broadcast {
     Quit {
         user: User,
         comment: Option<String>,
-        channels: Vec<String>,
+        channels: Vec<target::Channel>,
         sent_time: DateTime<Utc>,
     },
     Nickname {
         old_user: User,
         new_nick: Nick,
         ourself: bool,
-        channels: Vec<String>,
+        channels: Vec<target::Channel>,
         sent_time: DateTime<Utc>,
     },
     Invite {
         inviter: User,
-        channel: String,
-        user_channels: Vec<String>,
+        channel: target::Channel,
+        user_channels: Vec<target::Channel>,
         sent_time: DateTime<Utc>,
     },
     ChangeHost {
@@ -88,7 +88,7 @@ pub enum Broadcast {
         new_username: String,
         new_hostname: String,
         ourself: bool,
-        channels: Vec<String>,
+        channels: Vec<target::Channel>,
         sent_time: DateTime<Utc>,
     },
 }
@@ -109,7 +109,7 @@ pub enum Event {
     Notification(message::Encoded, Nick, Notification),
     FileTransferRequest(file_transfer::ReceiveRequest),
     UpdateReadMarker(String, ReadMarker),
-    JoinedChannel(String, DateTime<Utc>),
+    JoinedChannel(target::Channel, DateTime<Utc>),
     ChatHistoryAcknowledged(DateTime<Utc>),
     ChatHistoryTargetReceived(String, DateTime<Utc>),
     ChatHistoryTargetsReceived(DateTime<Utc>),
@@ -126,11 +126,11 @@ pub struct Client {
     handle: server::Handle,
     alt_nick: Option<usize>,
     resolved_nick: Option<String>,
-    chanmap: BTreeMap<String, Channel>,
-    channels: Vec<String>,
-    users: HashMap<String, Vec<User>>,
+    chanmap: BTreeMap<target::Channel, Channel>,
+    channels: Vec<target::Channel>,
+    users: HashMap<target::Channel, Vec<User>>,
     labels: HashMap<String, Context>,
-    batches: HashMap<String, Batch>,
+    batches: HashMap<target::Target, Batch>,
     reroute_responses_to: Option<buffer::Upstream>,
     registration_step: RegistrationStep,
     listed_caps: Vec<String>,
@@ -140,11 +140,11 @@ pub struct Client {
     supports_extended_join: bool,
     supports_read_marker: bool,
     supports_chathistory: bool,
-    chathistory_requests: HashMap<String, ChatHistoryRequest>,
-    chathistory_exhausted: HashMap<String, bool>,
+    chathistory_requests: HashMap<target::Target, ChatHistoryRequest>,
+    chathistory_exhausted: HashMap<target::Target, bool>,
     chathistory_targets_request: Option<ChatHistoryRequest>,
     highlight_blackout: HighlightBlackout,
-    registration_required_channels: Vec<String>,
+    registration_required_channels: Vec<target::Channel>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
 }
 
@@ -217,7 +217,7 @@ impl Client {
         }
     }
 
-    fn join(&mut self, channels: &[String]) {
+    fn join(&mut self, channels: &[target::Channel]) {
         let keys = HashMap::new();
 
         let messages = group_joins(channels, &keys);
@@ -294,7 +294,12 @@ impl Client {
                 .or_else(|| {
                     batch_tag.as_ref().and_then(|batch| {
                         self.batches
-                            .get(batch)
+                            .get(&target::Target::parse(
+                                batch,
+                                self.chantypes(),
+                                self.statusmsg(),
+                                self.casemapping(),
+                            ))
                             .and_then(|batch| batch.context.clone())
                     })
                 })
@@ -317,22 +322,44 @@ impl Client {
                         let mut batch = Batch::new(context);
 
                         batch.chathistory = match params.first().map(|x| x.as_str()) {
-                            Some("chathistory") => params
-                                .get(1)
-                                .map(|target| ChatHistoryBatch::Target(target.clone())),
+                            Some("chathistory") => params.get(1).map(|target| {
+                                ChatHistoryBatch::Target(target::Target::parse(
+                                    target,
+                                    self.chantypes(),
+                                    self.statusmsg(),
+                                    self.casemapping(),
+                                ))
+                            }),
                             Some("draft/chathistory-targets") => Some(ChatHistoryBatch::Targets),
                             _ => None,
                         };
 
-                        self.batches.insert(reference, batch);
+                        self.batches.insert(
+                            target::Target::parse(
+                                &reference,
+                                self.chantypes(),
+                                self.statusmsg(),
+                                self.casemapping(),
+                            ),
+                            batch,
+                        );
                     }
                     '-' => {
-                        if let Some(mut finished) = self.batches.remove(&reference) {
+                        if let Some(mut finished) = self.batches.remove(&target::Target::parse(
+                            &reference,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        )) {
                             // If nested, extend events into parent batch
-                            if let Some(parent) = batch_tag
-                                .as_ref()
-                                .and_then(|batch| self.batches.get_mut(batch))
-                            {
+                            if let Some(parent) = batch_tag.as_ref().and_then(|batch| {
+                                self.batches.get_mut(&target::Target::parse(
+                                    batch,
+                                    self.chantypes(),
+                                    self.statusmsg(),
+                                    self.casemapping(),
+                                ))
+                            }) {
                                 parent.events.extend(finished.events);
                             } else {
                                 match &finished.chathistory {
@@ -346,7 +373,7 @@ impl Client {
                                                 subcommand
                                             {
                                                 self.chathistory_exhausted.insert(
-                                                    batch_target.to_string(),
+                                                    batch_target.clone(),
                                                     finished.events.len() < *limit as usize,
                                                 );
                                             }
@@ -488,7 +515,14 @@ impl Client {
             _ if batch_tag.is_some() => {
                 let events = if let Some(target) = batch_tag
                     .as_ref()
-                    .and_then(|batch| self.batches.get(batch))
+                    .and_then(|batch| {
+                        self.batches.get(&target::Target::parse(
+                            batch,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        ))
+                    })
                     .and_then(|batch| {
                         batch
                             .chathistory
@@ -510,37 +544,41 @@ impl Client {
                         vec![]
                     } else {
                         match &message.command {
-                            Command::NICK(_) => {
-                                let target = message::Target::Channel {
-                                    channel: target,
-                                    source: source::Source::Server(None),
-                                    prefixes: Default::default(),
-                                };
+                            Command::NICK(_) => target
+                                .as_channel()
+                                .map(|channel| {
+                                    let target = message::Target::Channel {
+                                        channel: channel.clone(),
+                                        source: source::Source::Server(None),
+                                    };
 
-                                vec![Event::WithTarget(
-                                    message,
-                                    self.nickname().to_owned(),
-                                    target,
-                                )]
-                            }
-                            Command::QUIT(_) => {
-                                let target = message::Target::Channel {
-                                    channel: target,
-                                    source: source::Source::Server(Some(source::Server::new(
-                                        source::server::Kind::Quit,
-                                        message
-                                            .user()
-                                            .map(|user| Nick::from(user.nickname().as_ref())),
-                                    ))),
-                                    prefixes: Default::default(),
-                                };
+                                    vec![Event::WithTarget(
+                                        message,
+                                        self.nickname().to_owned(),
+                                        target,
+                                    )]
+                                })
+                                .unwrap_or_default(),
+                            Command::QUIT(_) => target
+                                .as_channel()
+                                .map(|channel| {
+                                    let target = message::Target::Channel {
+                                        channel: channel.clone(),
+                                        source: source::Source::Server(Some(source::Server::new(
+                                            source::server::Kind::Quit,
+                                            message
+                                                .user()
+                                                .map(|user| Nick::from(user.nickname().as_ref())),
+                                        ))),
+                                    };
 
-                                vec![Event::WithTarget(
-                                    message,
-                                    self.nickname().to_owned(),
-                                    target,
-                                )]
-                            }
+                                    vec![Event::WithTarget(
+                                        message,
+                                        self.nickname().to_owned(),
+                                        target,
+                                    )]
+                                })
+                                .unwrap_or_default(),
                             Command::PRIVMSG(_, text) | Command::NOTICE(_, text) => {
                                 if ctcp::is_query(text) && !message::is_action(text) {
                                     // Ignore historical CTCP queries/responses except for ACTIONs
@@ -556,7 +594,12 @@ impl Client {
                     self.handle(message, context)?
                 };
 
-                if let Some(batch) = self.batches.get_mut(&batch_tag.unwrap()) {
+                if let Some(batch) = self.batches.get_mut(&target::Target::parse(
+                    &batch_tag.unwrap(),
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )) {
                     batch.events.extend(events);
                     return Ok(vec![]);
                 } else {
@@ -993,12 +1036,18 @@ impl Client {
             }
             Command::INVITE(user, channel) => {
                 let user = User::from(Nick::from(user.as_str()));
+                let channel = target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?;
                 let inviter = ok!(message.user());
                 let user_channels = self.user_channels(user.nickname());
 
                 return Ok(vec![Event::Broadcast(Broadcast::Invite {
                     inviter,
-                    channel: channel.clone(),
+                    channel,
                     user_channels,
                     sent_time: server_time(&message),
                 })]);
@@ -1116,8 +1165,23 @@ impl Client {
                     };
                 }
 
+                let channels = self
+                    .config
+                    .channels
+                    .iter()
+                    .filter_map(|channel| {
+                        target::Channel::parse(
+                            channel,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        )
+                        .ok()
+                    })
+                    .collect::<Vec<_>>();
+
                 // Send JOIN
-                for message in group_joins(&self.config.channels, &self.config.channel_keys) {
+                for message in group_joins(&channels, &self.config.channel_keys) {
                     self.handle.try_send(message)?;
                 }
             }
@@ -1142,20 +1206,37 @@ impl Client {
                 let user = ok!(message.user());
 
                 if user.nickname() == self.nickname() {
-                    self.chanmap.remove(channel);
-                } else if let Some(channel) = self.chanmap.get_mut(channel) {
+                    self.chanmap.remove(&target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )?);
+                } else if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
                     channel.users.remove(&user);
                 }
             }
             Command::JOIN(channel, accountname) => {
                 let user = ok!(message.user());
 
+                let target = target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?;
+
                 if user.nickname() == self.nickname() {
-                    self.chanmap.insert(channel.clone(), Channel::default());
+                    self.chanmap.insert(target.clone(), Channel::default());
 
                     // Sends WHO to get away state on users if WHO poll is enabled.
                     if self.config.who_poll_enabled {
-                        if let Some(state) = self.chanmap.get_mut(channel) {
+                        if let Some(state) = self.chanmap.get_mut(&target) {
                             if self.isupport.contains_key(&isupport::Kind::WHOX) {
                                 let fields = if self.supports_account_notify {
                                     "tcnfa"
@@ -1182,11 +1263,8 @@ impl Client {
                         }
                     }
 
-                    return Ok(vec![Event::JoinedChannel(
-                        channel.clone(),
-                        server_time(&message),
-                    )]);
-                } else if let Some(channel) = self.chanmap.get_mut(channel) {
+                    return Ok(vec![Event::JoinedChannel(target, server_time(&message))]);
+                } else if let Some(channel) = self.chanmap.get_mut(&target) {
                     let user = if self.supports_extended_join {
                         accountname.as_ref().map_or(user.clone(), |accountname| {
                             user.with_accountname(accountname)
@@ -1200,8 +1278,18 @@ impl Client {
             }
             Command::KICK(channel, victim, _) => {
                 if victim == self.nickname().as_ref() {
-                    self.chanmap.remove(channel);
-                } else if let Some(channel) = self.chanmap.get_mut(channel) {
+                    self.chanmap.remove(&target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )?);
+                } else if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
                     channel
                         .users
                         .remove(&User::from(Nick::from(victim.as_str())));
@@ -1210,64 +1298,71 @@ impl Client {
             Command::Numeric(RPL_WHOREPLY, args) => {
                 let target = ok!(args.get(1));
 
-                if self.is_channel(target) {
-                    if let Some(channel) = self.chanmap.get_mut(target) {
-                        channel.update_user_away(ok!(args.get(5)), ok!(args.get(6)));
+                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    target,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
+                    channel.update_user_away(ok!(args.get(5)), ok!(args.get(6)));
 
-                        if matches!(channel.last_who, Some(WhoStatus::Requested(_, None)) | None) {
-                            channel.last_who = Some(WhoStatus::Receiving(None));
-                            log::debug!("[{}] {target} - WHO receiving...", self.server);
-                        }
+                    if matches!(channel.last_who, Some(WhoStatus::Requested(_, None)) | None) {
+                        channel.last_who = Some(WhoStatus::Receiving(None));
+                        log::debug!("[{}] {target} - WHO receiving...", self.server);
+                    }
 
-                        if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
-                            // We requested, don't save to history
-                            return Ok(vec![]);
-                        }
+                    if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
+                        // We requested, don't save to history
+                        return Ok(vec![]);
                     }
                 }
             }
             Command::Numeric(RPL_WHOSPCRPL, args) => {
                 let target = ok!(args.get(2));
 
-                if self.is_channel(target) {
-                    if let Some(channel) = self.chanmap.get_mut(target) {
-                        channel.update_user_away(ok!(args.get(3)), ok!(args.get(4)));
+                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    target,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
+                    channel.update_user_away(ok!(args.get(3)), ok!(args.get(4)));
 
-                        if self.supports_account_notify {
-                            if let (Some(user), Some(accountname)) = (args.get(3), args.get(5)) {
-                                channel.update_user_accountname(user, accountname);
+                    if self.supports_account_notify {
+                        if let (Some(user), Some(accountname)) = (args.get(3), args.get(5)) {
+                            channel.update_user_accountname(user, accountname);
+                        }
+                    }
+
+                    if let Ok(token) = ok!(args.get(1)).parse::<isupport::WhoToken>() {
+                        if let Some(WhoStatus::Requested(_, Some(request_token))) = channel.last_who
+                        {
+                            if request_token == token {
+                                channel.last_who = Some(WhoStatus::Receiving(Some(request_token)));
+                                log::debug!("[{}] {target} - WHO receiving...", self.server);
                             }
                         }
+                    }
 
-                        if let Ok(token) = ok!(args.get(1)).parse::<isupport::WhoToken>() {
-                            if let Some(WhoStatus::Requested(_, Some(request_token))) =
-                                channel.last_who
-                            {
-                                if request_token == token {
-                                    channel.last_who =
-                                        Some(WhoStatus::Receiving(Some(request_token)));
-                                    log::debug!("[{}] {target} - WHO receiving...", self.server);
-                                }
-                            }
-                        }
-
-                        if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
-                            // We requested, don't save to history
-                            return Ok(vec![]);
-                        }
+                    if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
+                        // We requested, don't save to history
+                        return Ok(vec![]);
                     }
                 }
             }
             Command::Numeric(RPL_ENDOFWHO, args) => {
                 let target = ok!(args.get(1));
 
-                if self.is_channel(target) {
-                    if let Some(channel) = self.chanmap.get_mut(target) {
-                        if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
-                            channel.last_who = Some(WhoStatus::Done(Instant::now()));
-                            log::debug!("[{}] {target} - WHO done", self.server);
-                            return Ok(vec![]);
-                        }
+                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    target,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
+                    if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
+                        channel.last_who = Some(WhoStatus::Done(Instant::now()));
+                        log::debug!("[{}] {target} - WHO done", self.server);
+                        return Ok(vec![]);
                     }
                 }
             }
@@ -1309,19 +1404,22 @@ impl Client {
                 }
             }
             Command::MODE(target, Some(modes), Some(args)) => {
-                if self.is_channel(target) {
+                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    target,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
                     let modes = mode::parse::<mode::Channel>(modes, args);
 
-                    if let Some(channel) = self.chanmap.get_mut(target) {
-                        for mode in modes {
-                            if let Some((op, lookup)) = mode
-                                .operation()
-                                .zip(mode.arg().map(|nick| User::from(Nick::from(nick))))
-                            {
-                                if let Some(mut user) = channel.users.take(&lookup) {
-                                    user.update_access_level(op, *mode.value());
-                                    channel.users.insert(user);
-                                }
+                    for mode in modes {
+                        if let Some((op, lookup)) = mode
+                            .operation()
+                            .zip(mode.arg().map(|nick| User::from(Nick::from(nick))))
+                        {
+                            if let Some(mut user) = channel.users.take(&lookup) {
+                                user.update_access_level(op, *mode.value());
+                                channel.users.insert(user);
                             }
                         }
                     }
@@ -1351,7 +1449,14 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_NAMREPLY, args) if args.len() > 3 => {
-                if let Some(channel) = self.chanmap.get_mut(&args[2]) {
+                let channel = ok!(args.get(2));
+
+                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
                     for user in args[3].split(' ') {
                         if let Ok(user) = User::try_from(user) {
                             channel.users.insert(user);
@@ -1367,18 +1472,26 @@ impl Client {
             Command::Numeric(RPL_ENDOFNAMES, args) => {
                 let target = ok!(args.get(1));
 
-                if self.is_channel(target) {
-                    if let Some(channel) = self.chanmap.get_mut(target) {
-                        if !channel.names_init {
-                            channel.names_init = true;
+                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    target,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
+                    if !channel.names_init {
+                        channel.names_init = true;
 
-                            return Ok(vec![]);
-                        }
+                        return Ok(vec![]);
                     }
                 }
             }
             Command::TOPIC(channel, topic) => {
-                if let Some(channel) = self.chanmap.get_mut(channel) {
+                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
                     if let Some(text) = topic {
                         channel.topic.content = Some(message::parse_fragments(text.clone(), &[]));
                     }
@@ -1388,7 +1501,14 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_TOPIC, args) => {
-                if let Some(channel) = self.chanmap.get_mut(&args[1]) {
+                let channel = ok!(args.get(1));
+
+                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
                     channel.topic.content =
                         Some(message::parse_fragments(ok!(args.get(2)).to_owned(), &[]));
                 }
@@ -1397,7 +1517,14 @@ impl Client {
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_TOPICWHOTIME, args) => {
-                if let Some(channel) = self.chanmap.get_mut(&args[1]) {
+                let channel = ok!(args.get(1));
+
+                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?) {
                     channel.topic.who = Some(ok!(args.get(2)).to_string());
                     let timestamp = Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
                     channel.topic.time =
@@ -1410,17 +1537,22 @@ impl Client {
                 return Ok(vec![]);
             }
             Command::Numeric(ERR_NOCHANMODES, args) => {
-                let channel = ok!(args.get(1));
+                let channel = target::Channel::parse(
+                    ok!(args.get(1)),
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )?;
 
                 // If the channel has not been joined but is in the configured channels,
                 // then interpret this numeric as ERR_NEEDREGGEDNICK (which has the
                 // same number as ERR_NOCHANMODES)
-                if !self.chanmap.contains_key(channel)
+                if !self.chanmap.contains_key(&channel)
                     && self
                         .config
                         .channels
                         .iter()
-                        .any(|config_channel| config_channel == channel)
+                        .any(|config_channel| config_channel == channel.as_str())
                 {
                     self.registration_required_channels.push(channel.clone());
                 }
@@ -1578,29 +1710,32 @@ impl Client {
                 let mut events = vec![];
 
                 if sub == "TARGETS" {
-                    if let Some(target) = args.first() {
-                        if let Some((prefixes, channel)) = proto::parse_channel_from_target(
-                            target,
-                            self.chantypes(),
-                            self.statusmsg(),
-                        ) {
-                            if !prefixes.is_empty() && self.chanmap.contains_key(&channel) {
+                    match target::Target::parse(
+                        ok!(args.first()),
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    ) {
+                        target::Target::Channel(channel) => {
+                            if !channel.prefixes().is_empty() && self.chanmap.contains_key(&channel)
+                            {
                                 events.push(Event::ChatHistoryTargetReceived(
-                                    target.clone(),
+                                    channel.to_string(),
                                     server_time(&message),
                                 ));
                             }
-                        } else {
+                        }
+                        target::Target::Query(query) => {
                             events.push(Event::ChatHistoryTargetReceived(
-                                target.clone(),
+                                query.to_string(),
                                 server_time(&message),
                             ));
                         }
+                    }
 
-                        if self.chathistory_targets_request.is_none() {
-                            // User requested, save to history
-                            events.push(Event::Single(message.clone(), self.nickname().to_owned()));
-                        }
+                    if self.chathistory_targets_request.is_none() {
+                        // User requested, save to history
+                        events.push(Event::Single(message.clone(), self.nickname().to_owned()));
                     }
                 }
 
@@ -1669,25 +1804,31 @@ impl Client {
         }
     }
 
-    pub fn chathistory_request(&self, target: &str) -> Option<ChatHistorySubcommand> {
+    pub fn chathistory_request(&self, target: &target::Target) -> Option<ChatHistorySubcommand> {
         self.chathistory_requests
             .get(target)
             .map(|request| request.subcommand.clone())
     }
 
     pub fn send_chathistory_request(&mut self, subcommand: ChatHistorySubcommand) {
+        use std::collections::hash_map;
+
         if self.supports_chathistory {
             if let Some(target) = subcommand.target() {
-                if self.chathistory_requests.contains_key(target) {
-                    return;
+                if let hash_map::Entry::Vacant(entry) =
+                    self.chathistory_requests.entry(target::Target::parse(
+                        target,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    ))
+                {
+                    entry.insert(ChatHistoryRequest {
+                        subcommand: subcommand.clone(),
+                        requested_at: Instant::now(),
+                    });
                 } else {
-                    self.chathistory_requests.insert(
-                        target.to_string(),
-                        ChatHistoryRequest {
-                            subcommand: subcommand.clone(),
-                            requested_at: Instant::now(),
-                        },
-                    );
+                    return;
                 }
             } else if self.chathistory_targets_request.is_some() {
                 return;
@@ -1803,7 +1944,7 @@ impl Client {
         }
     }
 
-    pub fn clear_chathistory_request(&mut self, target: Option<&str>) {
+    pub fn clear_chathistory_request(&mut self, target: Option<&target::Target>) {
         if let Some(target) = target {
             self.chathistory_requests.remove(target);
         } else {
@@ -1811,7 +1952,7 @@ impl Client {
         }
     }
 
-    pub fn chathistory_exhausted(&self, target: &str) -> bool {
+    pub fn chathistory_exhausted(&self, target: &target::Target) -> bool {
         self.chathistory_exhausted
             .get(target)
             .cloned()
@@ -1869,7 +2010,7 @@ impl Client {
             .chanmap
             .keys()
             .cloned()
-            .sorted_by(|a, b| self.compare_channels(a, b))
+            .sorted_by(|a, b| self.compare_channels(a.as_str(), b.as_str()))
             .collect();
         self.users = self
             .chanmap
@@ -1883,28 +2024,32 @@ impl Client {
             .collect();
     }
 
-    pub fn channels(&self) -> &[String] {
+    pub fn channels(&self) -> &[target::Channel] {
         &self.channels
     }
 
-    fn topic<'a>(&'a self, channel: &str) -> Option<&'a Topic> {
+    fn topic<'a>(&'a self, channel: &target::Channel) -> Option<&'a Topic> {
         self.chanmap.get(channel).map(|channel| &channel.topic)
     }
 
-    fn resolve_user_attributes<'a>(&'a self, channel: &str, user: &User) -> Option<&'a User> {
+    fn resolve_user_attributes<'a>(
+        &'a self,
+        channel: &target::Channel,
+        user: &User,
+    ) -> Option<&'a User> {
         self.chanmap
             .get(channel)
             .and_then(|channel| channel.users.get(user))
     }
 
-    pub fn users<'a>(&'a self, channel: &str) -> &'a [User] {
+    pub fn users<'a>(&'a self, channel: &target::Channel) -> &'a [User] {
         self.users
             .get(channel)
             .map(Vec::as_slice)
             .unwrap_or_default()
     }
 
-    fn user_channels(&self, nick: NickRef) -> Vec<String> {
+    fn user_channels(&self, nick: NickRef) -> Vec<target::Channel> {
         self.channels()
             .iter()
             .filter(|channel| {
@@ -1964,7 +2109,7 @@ impl Client {
 
                     self.handle.try_send(command!(
                         "WHO",
-                        channel,
+                        channel.to_string(),
                         fields,
                         isupport::WHO_POLL_TOKEN.to_owned()
                     ))?;
@@ -1974,7 +2119,7 @@ impl Client {
                         Some(isupport::WHO_POLL_TOKEN),
                     ));
                 } else {
-                    self.handle.try_send(command!("WHO", channel))?;
+                    self.handle.try_send(command!("WHO", channel.to_string()))?;
                     state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
                 }
                 log::debug!(
@@ -1993,6 +2138,16 @@ impl Client {
         });
 
         Ok(())
+    }
+
+    pub fn casemapping(&self) -> isupport::CaseMap {
+        if let Some(isupport::Parameter::CASEMAPPING(casemapping)) =
+            self.isupport.get(&isupport::Kind::CASEMAPPING)
+        {
+            return *casemapping;
+        }
+
+        isupport::CaseMap::default()
     }
 
     pub fn chantypes(&self) -> &[char] {
@@ -2185,7 +2340,7 @@ impl Map {
         Ok(())
     }
 
-    pub fn join(&mut self, server: &Server, channels: &[String]) {
+    pub fn join(&mut self, server: &Server, channels: &[target::Channel]) {
         if let Some(client) = self.client_mut(server) {
             client.join(channels);
         }
@@ -2214,32 +2369,40 @@ impl Map {
     pub fn resolve_user_attributes<'a>(
         &'a self,
         server: &Server,
-        channel: &str,
+        channel: &target::Channel,
         user: &User,
     ) -> Option<&'a User> {
         self.client(server)
             .and_then(|client| client.resolve_user_attributes(channel, user))
     }
 
-    pub fn get_channel_users<'a>(&'a self, server: &Server, channel: &str) -> &'a [User] {
+    pub fn get_channel_users<'a>(
+        &'a self,
+        server: &Server,
+        channel: &target::Channel,
+    ) -> &'a [User] {
         self.client(server)
             .map(|client| client.users(channel))
             .unwrap_or_default()
     }
 
-    pub fn get_user_channels(&self, server: &Server, nick: NickRef) -> Vec<String> {
+    pub fn get_user_channels(&self, server: &Server, nick: NickRef) -> Vec<target::Channel> {
         self.client(server)
             .map(|client| client.user_channels(nick))
             .unwrap_or_default()
     }
 
-    pub fn get_channel_topic<'a>(&'a self, server: &Server, channel: &str) -> Option<&'a Topic> {
+    pub fn get_channel_topic<'a>(
+        &'a self,
+        server: &Server,
+        channel: &target::Channel,
+    ) -> Option<&'a Topic> {
         self.client(server)
             .map(|client| client.topic(channel))
             .unwrap_or_default()
     }
 
-    pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [String] {
+    pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [target::Channel] {
         self.client(server)
             .map(|client| client.channels())
             .unwrap_or_default()
@@ -2248,6 +2411,12 @@ impl Map {
     pub fn get_isupport(&self, server: &Server) -> HashMap<isupport::Kind, isupport::Parameter> {
         self.client(server)
             .map(|client| client.isupport.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn get_casemapping(&self, server: &Server) -> isupport::CaseMap {
+        self.client(server)
+            .map(|client| client.casemapping())
             .unwrap_or_default()
     }
 
@@ -2287,7 +2456,7 @@ impl Map {
     pub fn get_chathistory_request(
         &self,
         server: &Server,
-        target: &str,
+        target: &target::Target,
     ) -> Option<ChatHistorySubcommand> {
         self.client(server)
             .and_then(|client| client.chathistory_request(target))
@@ -2299,19 +2468,23 @@ impl Map {
         }
     }
 
-    pub fn clear_chathistory_request(&mut self, server: &Server, target: Option<&str>) {
+    pub fn clear_chathistory_request(&mut self, server: &Server, target: Option<&target::Target>) {
         if let Some(client) = self.client_mut(server) {
             client.clear_chathistory_request(target);
         }
     }
 
-    pub fn get_chathistory_exhausted(&self, server: &Server, target: &str) -> bool {
+    pub fn get_chathistory_exhausted(&self, server: &Server, target: &target::Target) -> bool {
         self.client(server)
             .map(|client| client.chathistory_exhausted(target))
             .unwrap_or_default()
     }
 
-    pub fn get_chathistory_state(&self, server: &Server, target: &str) -> Option<ChatHistoryState> {
+    pub fn get_chathistory_state(
+        &self,
+        server: &Server,
+        target: &target::Target,
+    ) -> Option<ChatHistoryState> {
         self.client(server).and_then(|client| {
             if client.supports_chathistory {
                 if client.chathistory_request(target).is_some() {
@@ -2412,12 +2585,12 @@ impl Context {
 
 #[derive(Debug)]
 pub enum ChatHistoryBatch {
-    Target(String),
+    Target(target::Target),
     Targets,
 }
 
 impl ChatHistoryBatch {
-    pub fn target(&self) -> Option<String> {
+    pub fn target(&self) -> Option<target::Target> {
         match self {
             ChatHistoryBatch::Target(batch_target) => Some(batch_target.clone()),
             ChatHistoryBatch::Targets => None,
@@ -2554,13 +2727,13 @@ fn group_capability_requests<'a>(
 
 /// Group channels together into as few JOIN messages as possible
 fn group_joins<'a>(
-    channels: &'a [String],
+    channels: &'a [target::Channel],
     keys: &'a HashMap<String, String>,
 ) -> impl Iterator<Item = proto::Message> + 'a {
     const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"JOIN \r\n".len();
 
     let (without_keys, with_keys): (Vec<_>, Vec<_>) = channels.iter().partition_map(|channel| {
-        keys.get(channel)
+        keys.get(channel.as_str())
             .map(|key| Either::Right((channel, key)))
             .unwrap_or(Either::Left(channel))
     });
@@ -2569,7 +2742,7 @@ fn group_joins<'a>(
         .into_iter()
         .scan(0, |count, channel| {
             // Channel + a comma
-            *count += channel.len() + 1;
+            *count += channel.as_str().len() + 1;
 
             let chunk = *count / MAX_LEN;
 
@@ -2583,7 +2756,7 @@ fn group_joins<'a>(
         .into_iter()
         .scan(0, |count, (channel, key)| {
             // Channel + key + a comma for each
-            *count += channel.len() + key.len() + 2;
+            *count += channel.as_str().len() + key.len() + 2;
 
             let chunk = *count / MAX_LEN;
 
@@ -2635,4 +2808,6 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+    #[error(transparent)]
+    Target(#[from] target::ParseError),
 }

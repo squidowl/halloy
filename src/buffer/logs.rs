@@ -1,4 +1,4 @@
-use data::{history, message, Config};
+use data::{history, isupport, message, target, Config};
 use iced::widget::container;
 use iced::{Length, Task};
 
@@ -13,7 +13,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(String),
+    OpenChannel(target::Channel),
     History(Task<history::manager::Message>),
 }
 
@@ -34,6 +34,7 @@ pub fn view<'a>(
                 message::Source::Internal(message::source::Internal::Logs) => Some(
                     container(message_content(
                         &message.content,
+                        isupport::CaseMap::default(),
                         theme,
                         scroll_view::Message::Link,
                         theme::selectable_text::default,

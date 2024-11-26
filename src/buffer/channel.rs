@@ -1,7 +1,7 @@
 use data::server::Server;
 use data::user::Nick;
 use data::{buffer, User};
-use data::{channel, history, message, Config};
+use data::{channel, history, message, target, Config};
 use iced::widget::{column, container, row};
 use iced::{alignment, padding, Length, Task};
 
@@ -21,7 +21,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(String),
+    OpenChannel(target::Channel),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
 }
@@ -36,23 +36,24 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let server = &state.server;
-    let channel = &state.channel;
+    let casemapping = clients.get_casemapping(server);
+    let channel = &state.target;
     let buffer = &state.buffer;
     let input = history.input(buffer);
     let our_nick = clients.nickname(&state.server);
 
     let our_user = our_nick
         .map(|our_nick| User::from(Nick::from(our_nick.as_ref())))
-        .and_then(|user| clients.resolve_user_attributes(&state.server, &state.channel, &user));
+        .and_then(|user| clients.resolve_user_attributes(&state.server, channel, &user));
 
-    let users = clients.get_channel_users(&state.server, &state.channel);
+    let users = clients.get_channel_users(&state.server, channel);
 
-    let chathistory_state = clients.get_chathistory_state(server, channel);
+    let chathistory_state = clients.get_chathistory_state(server, &channel.to_target());
 
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
-            scroll_view::Kind::Channel(&state.server, &state.channel),
+            scroll_view::Kind::Channel(&state.server, channel),
             history,
             chathistory_state,
             config,
@@ -120,6 +121,7 @@ pub fn view<'a>(
                         let nick = user_context::view(
                             text,
                             server,
+                            casemapping,
                             Some(channel),
                             user,
                             current_user,
@@ -129,6 +131,7 @@ pub fn view<'a>(
 
                         let message_content = message_content::with_context(
                             &message.content,
+                            casemapping,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
@@ -138,7 +141,14 @@ pub fn view<'a>(
                             },
                             move |link, entry, length| match link {
                                 message::Link::User(user) => entry
-                                    .view(server, Some(channel), user, current_user, length)
+                                    .view(
+                                        server,
+                                        casemapping,
+                                        Some(channel),
+                                        user,
+                                        current_user,
+                                        length,
+                                    )
                                     .map(scroll_view::Message::UserContext),
                                 _ => row![].into(),
                             },
@@ -184,6 +194,7 @@ pub fn view<'a>(
 
                         let message = message_content(
                             &message.content,
+                            casemapping,
                             theme,
                             scroll_view::Message::Link,
                             message_style,
@@ -207,6 +218,7 @@ pub fn view<'a>(
 
                         let message_content = message_content(
                             &message.content,
+                            casemapping,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::action,
@@ -243,6 +255,7 @@ pub fn view<'a>(
 
                         let message = message_content(
                             &message.content,
+                            casemapping,
                             theme,
                             scroll_view::Message::Link,
                             message_style,
@@ -270,8 +283,8 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let nick_list =
-        nick_list::view(server, channel, users, our_user, config).map(Message::UserContext);
+    let nick_list = nick_list::view(server, casemapping, channel, users, our_user, config)
+        .map(Message::UserContext);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
@@ -284,7 +297,7 @@ pub fn view<'a>(
     };
 
     let channels = clients.get_channels(&state.server);
-    let is_connected_to_channel = channels.iter().any(|c| c == &state.channel);
+    let is_connected_to_channel = channels.iter().any(|c| c == &state.target);
 
     let text_input = show_text_input.then(move || {
         input_view::view(
@@ -325,18 +338,17 @@ pub fn view<'a>(
 pub struct Channel {
     pub buffer: buffer::Upstream,
     pub server: Server,
-    pub channel: String,
-
+    pub target: target::Channel,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
 }
 
 impl Channel {
-    pub fn new(server: Server, channel: String) -> Self {
+    pub fn new(server: Server, target: target::Channel) -> Self {
         Self {
-            buffer: buffer::Upstream::Channel(server.clone(), channel.clone()),
+            buffer: buffer::Upstream::Channel(server.clone(), target.clone()),
             server,
-            channel,
+            target,
             scroll_view: scroll_view::State::new(),
             input_view: input_view::State::new(),
         }
@@ -420,12 +432,15 @@ fn topic<'a>(
         return None;
     }
 
-    let topic = clients.get_channel_topic(&state.server, &state.channel)?;
+    let casemapping = clients.get_casemapping(&state.server);
+
+    let topic = clients.get_channel_topic(&state.server, &state.target)?;
 
     Some(
         topic::view(
             &state.server,
-            &state.channel,
+            casemapping,
+            &state.target,
             topic.content.as_ref()?,
             topic.who.as_deref(),
             topic.time.as_ref(),
@@ -440,7 +455,7 @@ fn topic<'a>(
 }
 
 mod nick_list {
-    use data::{config, Config, Server, User};
+    use data::{config, isupport, target, Config, Server, User};
     use iced::widget::{column, scrollable, Scrollable};
     use iced::{alignment, Length};
     use user_context::Message;
@@ -451,7 +466,8 @@ mod nick_list {
 
     pub fn view<'a>(
         server: &'a Server,
-        channel: &'a str,
+        casemapping: isupport::CaseMap,
+        channel: &'a target::Channel,
         users: &'a [User],
         our_user: Option<&'a User>,
         config: &'a Config,
@@ -484,7 +500,15 @@ mod nick_list {
                 })
                 .width(Length::Fixed(width));
 
-            user_context::view(content, server, Some(channel), user, Some(user), our_user)
+            user_context::view(
+                content,
+                server,
+                casemapping,
+                Some(channel),
+                user,
+                Some(user),
+                our_user,
+            )
         }));
 
         Scrollable::new(content)

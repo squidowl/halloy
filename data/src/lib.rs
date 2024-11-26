@@ -1,5 +1,6 @@
 #![allow(clippy::large_enum_variant, clippy::too_many_arguments)]
 
+pub use self::appearance::Theme;
 pub use self::buffer::Buffer;
 pub use self::command::Command;
 pub use self::config::Config;
@@ -10,7 +11,6 @@ pub use self::mode::Mode;
 pub use self::pane::Pane;
 pub use self::server::Server;
 pub use self::shortcut::Shortcut;
-pub use self::appearance::Theme;
 pub use self::url::Url;
 pub use self::user::User;
 pub use self::version::Version;
@@ -39,6 +39,7 @@ pub mod pane;
 pub mod server;
 pub mod shortcut;
 pub mod stream;
+pub mod target;
 pub mod time;
 pub mod url;
 pub mod user;
