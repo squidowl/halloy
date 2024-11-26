@@ -1488,14 +1488,21 @@ impl Dashboard {
                     &message_reference_types,
                 );
 
-                clients.send_chathistory_request(
-                    server,
+                let subcommand = if matches!(first_can_reference, MessageReference::None) {
+                    ChatHistorySubcommand::Latest(
+                        target.clone(),
+                        first_can_reference,
+                        clients.get_server_chathistory_limit(server),
+                    )
+                } else {
                     ChatHistorySubcommand::Before(
                         target.clone(),
                         first_can_reference,
                         clients.get_server_chathistory_limit(server),
-                    ),
-                );
+                    )
+                };
+
+                clients.send_chathistory_request(server, subcommand);
             }
         }
     }
@@ -1533,21 +1540,19 @@ impl Dashboard {
         server: Server,
         channel: String,
         server_time: DateTime<Utc>,
-    ) -> Option<Task<Message>> {
+    ) -> Task<Message> {
         let command = self
             .history
             .load_metadata(server.clone(), channel.clone())
-            .map(|task| Task::perform(task, Message::History));
+            .map_or(Task::none(), |task| Task::perform(task, Message::History));
 
-        command.map(|command| {
-            if clients.get_server_supports_chathistory(&server) {
-                command.chain(Task::done(Message::Client(
-                    data::client::Message::RequestNewerChatHistory(server, channel, server_time),
-                )))
-            } else {
-                command
-            }
-        })
+        if clients.get_server_supports_chathistory(&server) {
+            command.chain(Task::done(Message::Client(
+                data::client::Message::RequestNewerChatHistory(server, channel, server_time),
+            )))
+        } else {
+            command
+        }
     }
 
     pub fn load_chathistory_targets_timestamp(
