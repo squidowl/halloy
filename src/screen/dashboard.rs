@@ -1488,25 +1488,21 @@ impl Dashboard {
                     &message_reference_types,
                 );
 
-                if matches!(first_can_reference, MessageReference::None) {
-                    clients.send_chathistory_request(
-                        server,
-                        ChatHistorySubcommand::Latest(
-                            target.clone(),
-                            first_can_reference,
-                            clients.get_server_chathistory_limit(server),
-                        ),
-                    );
+                let subcommand = if matches!(first_can_reference, MessageReference::None) {
+                    ChatHistorySubcommand::Latest(
+                        target.clone(),
+                        first_can_reference,
+                        clients.get_server_chathistory_limit(server),
+                    )
                 } else {
-                    clients.send_chathistory_request(
-                        server,
-                        ChatHistorySubcommand::Before(
-                            target.clone(),
-                            first_can_reference,
-                            clients.get_server_chathistory_limit(server),
-                        ),
-                    );
-                }
+                    ChatHistorySubcommand::Before(
+                        target.clone(),
+                        first_can_reference,
+                        clients.get_server_chathistory_limit(server),
+                    )
+                };
+
+                clients.send_chathistory_request(server, subcommand);
             }
         }
     }
