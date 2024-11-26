@@ -689,7 +689,7 @@ fn target(
 
     match message.0.command {
         // Channel
-        Command::MODE(target, ..) if proto::is_channel(&target, chantypes) => {
+        Command::MODE(target, ..) => {
             let channel =
                 target::Channel::parse(&target, chantypes, statusmsg, casemapping).ok()?;
 
@@ -889,7 +889,6 @@ fn target(
         | Command::TAGMSG(_)
         | Command::USERIP(_)
         | Command::HELP(_)
-        | Command::MODE(_, _, _)
         | Command::Numeric(_, _)
         | Command::Unknown(_, _)
         | Command::Raw(_) => Some(Target::Server {

@@ -190,8 +190,8 @@ async fn path(kind: &Kind) -> Result<PathBuf, Error> {
 
     let name = match kind {
         Kind::Server(server) => format!("{server}"),
-        Kind::Channel(server, channel) => format!("{server}channel{channel}"),
-        Kind::Query(server, nick) => format!("{server}nickname{}", nick),
+        Kind::Channel(server, channel) => format!("{server}channel{}", channel.as_normalized_str()),
+        Kind::Query(server, query) => format!("{server}nickname{}", query.as_normalized_str()),
         Kind::Logs => "logs".to_string(),
         Kind::Highlights => "highlights".to_string(),
     };

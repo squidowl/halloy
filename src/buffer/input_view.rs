@@ -156,7 +156,8 @@ impl State {
                 self.selected_history = None;
 
                 if let Some(entry) = self.completion.select() {
-                    let new_input = entry.complete_input(input);
+                    let chantypes = clients.get_chantypes(buffer.server());
+                    let new_input = entry.complete_input(input, chantypes);
 
                     self.on_completion(buffer, history, new_input)
                 } else if !input.is_empty() {
@@ -223,7 +224,8 @@ impl State {
                 let input = history.input(buffer).draft;
 
                 if let Some(entry) = self.completion.tab(reverse) {
-                    let new_input = entry.complete_input(input);
+                    let chantypes = clients.get_chantypes(buffer.server());
+                    let new_input = entry.complete_input(input, chantypes);
 
                     self.on_completion(buffer, history, new_input)
                 } else {
