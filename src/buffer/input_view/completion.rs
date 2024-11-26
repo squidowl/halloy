@@ -694,7 +694,7 @@ impl Text {
         if let Some(index) = self.selected {
             self.filtered.get(index).cloned()
         } else {
-            (!self.prompt.is_empty()).then(|| self.prompt.clone())
+            None
         }
     }
 }
