@@ -1,5 +1,5 @@
 use data::appearance::theme::randomize_color;
-use data::{message, Config};
+use data::{isupport, message, target, Config};
 use iced::widget::span;
 use iced::widget::text::Span;
 use iced::{border, Length};
@@ -10,6 +10,7 @@ use super::{selectable_rich_text, selectable_text, Element, Renderer};
 
 pub fn message_content<'a, M: 'a>(
     content: &'a message::Content,
+    casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
@@ -17,6 +18,7 @@ pub fn message_content<'a, M: 'a>(
 ) -> Element<'a, M> {
     message_content_impl::<(), M>(
         content,
+        casemapping,
         theme,
         on_link,
         style,
@@ -27,6 +29,7 @@ pub fn message_content<'a, M: 'a>(
 
 pub fn with_context<'a, T: Copy + 'a, M: 'a>(
     content: &'a message::Content,
+    casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
@@ -36,6 +39,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
 ) -> Element<'a, M> {
     message_content_impl(
         content,
+        casemapping,
         theme,
         on_link,
         style,
@@ -47,6 +51,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
 #[allow(clippy::type_complexity)]
 fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
     content: &'a message::Content,
+    casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
@@ -66,7 +71,10 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                         data::message::Fragment::Text(s) => span(s),
                         data::message::Fragment::Channel(s) => span(s.as_str())
                             .color(theme.colors().buffer.url)
-                            .link(message::Link::Channel(s.as_str().to_string())),
+                            .link(message::Link::Channel(target::Channel::from_str(
+                                s.as_str(),
+                                casemapping,
+                            ))),
                         data::message::Fragment::User(user, text) => {
                             let color = theme.colors().buffer.nickname;
                             let seed = match &config.buffer.channel.message.nickname_color {

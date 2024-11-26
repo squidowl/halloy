@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use data::isupport;
 use data::user::User;
+use data::{isupport, target};
 use iced::widget::{column, container, row, text, tooltip};
 use iced::Length;
 use once_cell::sync::Lazy;
@@ -28,10 +28,18 @@ impl Completion {
         &mut self,
         input: &str,
         users: &[User],
-        channels: &[String],
+        channels: &[target::Channel],
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     ) {
         let is_command = input.starts_with('/');
+
+        let casemapping = if let Some(isupport::Parameter::CASEMAPPING(casemapping)) =
+            isupport.get(&isupport::Kind::CASEMAPPING)
+        {
+            *casemapping
+        } else {
+            isupport::CaseMap::default()
+        };
 
         if is_command {
             self.commands.process(input, isupport);
@@ -40,10 +48,10 @@ impl Completion {
             if matches!(self.commands, Commands::Selecting { .. }) {
                 self.text = Text::default();
             } else {
-                self.text.process(input, users, channels);
+                self.text.process(input, casemapping, users, channels);
             }
         } else {
-            self.text.process(input, users, channels);
+            self.text.process(input, casemapping, users, channels);
             self.commands = Commands::default();
         }
     }
@@ -185,8 +193,7 @@ impl Commands {
                         }
                     }
                     "MSG" => {
-                        let channel_membership_prefixes = 
-                        if let Some(
+                        let channel_membership_prefixes = if let Some(
                             isupport::Parameter::STATUSMSG(channel_membership_prefixes),
                         ) =
                             isupport.get(&isupport::Kind::STATUSMSG)
@@ -593,8 +600,14 @@ struct Text {
 }
 
 impl Text {
-    fn process(&mut self, input: &str, users: &[User], channels: &[String]) {
-        if !self.process_channels(input, channels) {
+    fn process(
+        &mut self,
+        input: &str,
+        casemapping: isupport::CaseMap,
+        users: &[User],
+        channels: &[target::Channel],
+    ) {
+        if !self.process_channels(input, casemapping, channels) {
             self.process_users(input, users);
         }
     }
@@ -622,23 +635,26 @@ impl Text {
             .collect();
     }
 
-    fn process_channels(&mut self, input: &str, channels: &[String]) -> bool {
+    fn process_channels(
+        &mut self,
+        input: &str,
+        casemapping: isupport::CaseMap,
+        channels: &[target::Channel],
+    ) -> bool {
         let (_, last) = input.rsplit_once(' ').unwrap_or(("", input));
         let Some((_, rest)) = last.split_once('#') else {
             *self = Self::default();
             return false;
         };
 
-        let channel = format!("#{}", rest.to_lowercase());
+        let input_channel = format!("#{}", casemapping.normalize(rest));
 
         self.selected = None;
         self.prompt = format!("#{rest}");
         self.filtered = channels
             .iter()
-            .filter_map(|c| {
-                let lower_channel = c.to_lowercase();
-                lower_channel.starts_with(&channel).then(|| c.to_string())
-            })
+            .filter(|&channel| channel.as_str().starts_with(input_channel.as_str()))
+            .map(|channel| channel.to_string())
             .collect();
 
         true

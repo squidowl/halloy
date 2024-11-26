@@ -67,17 +67,17 @@ impl Pane {
         let title_bar_text = match &self.buffer {
             Buffer::Empty => "".to_string(),
             Buffer::Channel(state) => {
-                let channel = &state.channel;
+                let channel = state.target.as_str();
                 let server = &state.server;
                 let users = clients
-                    .get_channel_users(&state.server, &state.channel)
+                    .get_channel_users(&state.server, &state.target)
                     .len();
 
                 format!("{channel} @ {server} - {users} users")
             }
             Buffer::Server(state) => state.server.to_string(),
             Buffer::Query(state) => {
-                let nick = &state.nick;
+                let nick = state.target.as_str();
                 let server = &state.server;
 
                 format!("{nick} @ {server}")
@@ -123,13 +123,13 @@ impl Pane {
         match &self.buffer {
             Buffer::Empty => None,
             Buffer::Channel(state) => Some(history::Resource {
-                kind: history::Kind::Channel(state.server.clone(), state.channel.clone()),
+                kind: history::Kind::Channel(state.server.clone(), state.target.clone()),
             }),
             Buffer::Server(state) => Some(history::Resource {
                 kind: history::Kind::Server(state.server.clone()),
             }),
             Buffer::Query(state) => Some(history::Resource {
-                kind: history::Kind::Query(state.server.clone(), state.nick.clone()),
+                kind: history::Kind::Query(state.server.clone(), state.target.clone()),
             }),
             Buffer::FileTransfers(_) => None,
             Buffer::Logs(_) => Some(history::Resource::logs()),
@@ -179,7 +179,7 @@ impl TitleBar {
             }
 
             // Show topic button only if there is a topic to show
-            if let Some(topic) = clients.get_channel_topic(&state.server, &state.channel) {
+            if let Some(topic) = clients.get_channel_topic(&state.server, &state.target) {
                 if topic.content.is_some() {
                     let topic_button = button(center(icon::topic()))
                         .padding(5)
@@ -319,11 +319,11 @@ impl From<Pane> for data::Pane {
         let buffer = match pane.buffer {
             Buffer::Empty => return data::Pane::Empty,
             Buffer::Channel(state) => {
-                data::Buffer::Upstream(buffer::Upstream::Channel(state.server, state.channel))
+                data::Buffer::Upstream(buffer::Upstream::Channel(state.server, state.target))
             }
             Buffer::Server(state) => data::Buffer::Upstream(buffer::Upstream::Server(state.server)),
             Buffer::Query(state) => {
-                data::Buffer::Upstream(buffer::Upstream::Query(state.server, state.nick))
+                data::Buffer::Upstream(buffer::Upstream::Query(state.server, state.target))
             }
             Buffer::FileTransfers(_) => data::Buffer::Internal(buffer::Internal::FileTransfers),
             Buffer::Logs(_) => data::Buffer::Internal(buffer::Internal::Logs),

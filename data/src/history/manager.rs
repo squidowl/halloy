@@ -8,8 +8,8 @@ use tokio::time::Instant;
 use crate::history::{self, History, MessageReferences};
 use crate::message::{self, Limit};
 use crate::user::Nick;
-use crate::{buffer, config, input};
-use crate::{server, Config, Input, Server, User};
+use crate::{buffer, config, input, isupport};
+use crate::{server, target, Config, Input, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -186,10 +186,13 @@ impl Manager {
         channel_users: &[User],
         chantypes: &[char],
         statusmsg: &[char],
+        casemapping: isupport::CaseMap,
     ) -> Vec<impl Future<Output = Message>> {
         let mut tasks = vec![];
 
-        if let Some(messages) = input.messages(user, channel_users, chantypes, statusmsg) {
+        if let Some(messages) =
+            input.messages(user, channel_users, chantypes, statusmsg, casemapping)
+        {
             for message in messages {
                 tasks.extend(self.record_message(input.server(), message));
             }
@@ -241,7 +244,7 @@ impl Manager {
     pub fn load_metadata(
         &mut self,
         server: Server,
-        channel: String,
+        channel: target::Channel,
     ) -> Option<impl Future<Output = Message>> {
         self.data.load_metadata(server, channel)
     }
@@ -250,20 +253,31 @@ impl Manager {
         &self,
         server: Server,
         chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
         target: String,
     ) -> Option<&crate::Message> {
-        self.data.first_can_reference(server, chantypes, target)
+        self.data
+            .first_can_reference(server, chantypes, statusmsg, casemapping, target)
     }
 
     pub fn last_can_reference_before(
         &self,
         server: Server,
         chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
         target: String,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
-        self.data
-            .last_can_reference_before(server, chantypes, target, server_time)
+        self.data.last_can_reference_before(
+            server,
+            chantypes,
+            statusmsg,
+            casemapping,
+            target,
+            server_time,
+        )
     }
 
     pub fn get_messages(
@@ -275,7 +289,7 @@ impl Manager {
         self.data.history_view(kind, limit, buffer_config)
     }
 
-    pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
+    pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
         let queries = self
             .data
             .map
@@ -352,7 +366,7 @@ impl Manager {
                 comment,
                 user_channels,
             } => {
-                let user_query = queries.find(|nick| user.nickname() == *nick);
+                let user_query = queries.find(|query| user.as_str() == query.as_str());
 
                 message::broadcast::quit(
                     user_channels,
@@ -381,7 +395,7 @@ impl Manager {
                     )
                 } else {
                     // Otherwise just the query channel of the user w/ nick change
-                    let user_query = queries.find(|nick| old_nick == *nick);
+                    let user_query = queries.find(|query| old_nick.as_ref() == query.as_str());
                     message::broadcast::nickname(
                         user_channels,
                         user_query,
@@ -417,7 +431,7 @@ impl Manager {
                     )
                 } else {
                     // Otherwise just the query channel of the user w/ host change
-                    let user_query = queries.find(|nick| old_user.nickname() == *nick);
+                    let user_query = queries.find(|query| old_user.as_str() == query.as_str());
                     message::broadcast::change_host(
                         user_channels,
                         user_query,
@@ -548,7 +562,7 @@ impl Data {
                     if let Some(server_message) = buffer_config.server_messages.get(source) {
                         // Check if target is a channel, and if included/excluded.
                         if let message::Target::Channel { channel, .. } = &message.target {
-                            if !server_message.should_send_message(channel.as_ref()) {
+                            if !server_message.should_send_message(channel.as_str()) {
                                 return false;
                             }
                         }
@@ -744,7 +758,7 @@ impl Data {
     fn load_metadata(
         &mut self,
         server: server::Server,
-        channel: String,
+        channel: target::Channel,
     ) -> Option<impl Future<Output = Message>> {
         use std::collections::hash_map;
 
@@ -771,9 +785,11 @@ impl Data {
         &self,
         server: server::Server,
         chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
         target: String,
     ) -> Option<&crate::Message> {
-        let kind = history::Kind::from_target(server, target, chantypes);
+        let kind = history::Kind::from_target(server, chantypes, statusmsg, casemapping, target);
 
         self.map
             .get(&kind)
@@ -784,10 +800,12 @@ impl Data {
         &self,
         server: Server,
         chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
         target: String,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
-        let kind = history::Kind::from_target(server, target, chantypes);
+        let kind = history::Kind::from_target(server, chantypes, statusmsg, casemapping, target);
 
         self.map
             .get(&kind)
@@ -857,24 +875,24 @@ pub enum Broadcast {
     Quit {
         user: User,
         comment: Option<String>,
-        user_channels: Vec<String>,
+        user_channels: Vec<target::Channel>,
     },
     Nickname {
         old_nick: Nick,
         new_nick: Nick,
         ourself: bool,
-        user_channels: Vec<String>,
+        user_channels: Vec<target::Channel>,
     },
     Invite {
         inviter: Nick,
-        channel: String,
-        user_channels: Vec<String>,
+        channel: target::Channel,
+        user_channels: Vec<target::Channel>,
     },
     ChangeHost {
         old_user: User,
         new_username: String,
         new_hostname: String,
         ourself: bool,
-        user_channels: Vec<String>,
+        user_channels: Vec<target::Channel>,
     },
 }
