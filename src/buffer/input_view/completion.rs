@@ -80,11 +80,11 @@ pub enum Entry {
 }
 
 impl Entry {
-    pub fn complete_input(&self, input: &str) -> String {
+    pub fn complete_input(&self, input: &str, chantypes: &[char]) -> String {
         match self {
             Entry::Command(command) => format!("/{}", command.title.to_lowercase()),
             Entry::Text(next) => {
-                let is_channel = next.starts_with('#');
+                let is_channel = next.starts_with(chantypes);
                 let colon_space = ": ";
 
                 let trimmed_input = input.trim_end_matches(colon_space);
