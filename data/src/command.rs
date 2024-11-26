@@ -104,7 +104,7 @@ pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Erro
             }
             Kind::Me => {
                 if let Some(target) = buffer.and_then(|b| b.target()) {
-                    validated::<1, 0, true>(args, |[text], _| Command::Me(target, text))
+                    validated::<1, 0, true>(args, |[text], _| Command::Me(target.to_string(), text))
                 } else {
                     Ok(unknown())
                 }
@@ -148,7 +148,10 @@ pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Erro
             Kind::Raw => Ok(Command::Raw(raw.to_string())),
             Kind::Format => {
                 if let Some(target) = buffer.and_then(|b| b.target()) {
-                    Ok(Command::Msg(target, formatting::encode(raw, false)))
+                    Ok(Command::Msg(
+                        target.to_string(),
+                        formatting::encode(raw, false),
+                    ))
                 } else {
                     Ok(unknown())
                 }

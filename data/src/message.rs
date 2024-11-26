@@ -18,7 +18,7 @@ pub use self::source::Source;
 use crate::config::buffer::UsernameFormat;
 use crate::time::{self, Posix};
 use crate::user::{Nick, NickRef};
-use crate::{ctcp, isupport, Config, Server, User};
+use crate::{ctcp, isupport, target, Config, Server, User};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -109,18 +109,17 @@ pub enum Target {
         source: Source,
     },
     Channel {
-        channel: Channel,
+        channel: target::Channel,
         source: Source,
-        prefixes: Vec<char>,
     },
     Query {
-        nick: Nick,
+        query: target::Query,
         source: Source,
     },
     Logs,
     Highlights {
         server: Server,
-        channel: Channel,
+        channel: target::Channel,
         source: Source,
     },
 }
@@ -129,11 +128,11 @@ impl Target {
     pub fn prefixes(&self) -> Option<&[char]> {
         match self {
             Target::Server { .. } => None,
-            Target::Channel { prefixes, .. } => {
-                if prefixes.is_empty() {
+            Target::Channel { channel, .. } => {
+                if channel.prefixes().is_empty() {
                     None
                 } else {
-                    Some(prefixes)
+                    Some(channel.prefixes())
                 }
             }
             Target::Query { .. } => None,
@@ -218,10 +217,11 @@ impl Message {
         encoded: Encoded,
         our_nick: Nick,
         config: &'a Config,
-        resolve_attributes: impl Fn(&User, &str) -> Option<User>,
-        channel_users: impl Fn(&str) -> &'a [User],
+        resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
+        channel_users: impl Fn(&target::Channel) -> &'a [User],
         chantypes: &[char],
         statusmsg: &[char],
+        casemapping: isupport::CaseMap,
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
         let id = message_id(&encoded);
@@ -232,6 +232,8 @@ impl Message {
             &resolve_attributes,
             &channel_users,
             chantypes,
+            statusmsg,
+            casemapping,
         )?;
         let target = target(
             encoded,
@@ -239,6 +241,7 @@ impl Message {
             &resolve_attributes,
             chantypes,
             statusmsg,
+            casemapping,
         )?;
         let received_at = Posix::now();
         let hash = Hash::new(&received_at, &content);
@@ -269,7 +272,11 @@ impl Message {
         }
     }
 
-    pub fn file_transfer_request_received(from: &Nick, filename: &str) -> Message {
+    pub fn file_transfer_request_received(
+        from: &Nick,
+        query: &target::Query,
+        filename: &str,
+    ) -> Message {
         let received_at = Posix::now();
         let content = plain(format!("{from} wants to send you \"{filename}\""));
         let hash = Hash::new(&received_at, &content);
@@ -279,7 +286,7 @@ impl Message {
             server_time: Utc::now(),
             direction: Direction::Received,
             target: Target::Query {
-                nick: from.clone(),
+                query: query.clone(),
                 source: Source::Action(None),
             },
             content,
@@ -288,7 +295,7 @@ impl Message {
         }
     }
 
-    pub fn file_transfer_request_sent(to: &Nick, filename: &str) -> Message {
+    pub fn file_transfer_request_sent(to: &Nick, query: &target::Query, filename: &str) -> Message {
         let received_at = Posix::now();
         let content = plain(format!("offering to send {to} \"{filename}\""));
         let hash = Hash::new(&received_at, &content);
@@ -298,7 +305,7 @@ impl Message {
             server_time: Utc::now(),
             direction: Direction::Sent,
             target: Target::Query {
-                nick: to.clone(),
+                query: query.clone(),
                 source: Source::Action(None),
             },
             content,
@@ -671,9 +678,10 @@ impl From<formatting::Fragment> for Fragment {
 fn target(
     message: Encoded,
     our_nick: &Nick,
-    resolve_attributes: &dyn Fn(&User, &str) -> Option<User>,
+    resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
     chantypes: &[char],
     statusmsg: &[char],
+    casemapping: isupport::CaseMap,
 ) -> Option<Target> {
     use proto::command::Numeric::*;
 
@@ -682,58 +690,72 @@ fn target(
     match message.0.command {
         // Channel
         Command::MODE(target, ..) if proto::is_channel(&target, chantypes) => {
+            let channel =
+                target::Channel::parse(&target, chantypes, statusmsg, casemapping).ok()?;
+
             Some(Target::Channel {
-                channel: target,
+                channel,
                 source: source::Source::Server(None),
-                prefixes: Default::default(),
             })
         }
-        Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => Some(Target::Channel {
-            channel,
-            source: source::Source::Server(None),
-            prefixes: Default::default(),
-        }),
-        Command::PART(channel, _) => Some(Target::Channel {
-            channel,
-            source: source::Source::Server(Some(source::Server::new(
-                source::server::Kind::Part,
-                Some(user?.nickname().to_owned()),
-            ))),
-            prefixes: Default::default(),
-        }),
-        Command::JOIN(channel, _) => Some(Target::Channel {
-            channel,
-            source: source::Source::Server(Some(source::Server::new(
-                source::server::Kind::Join,
-                Some(user?.nickname().to_owned()),
-            ))),
-            prefixes: Default::default(),
-        }),
+        Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => {
+            let channel =
+                target::Channel::parse(&channel, chantypes, statusmsg, casemapping).ok()?;
+
+            Some(Target::Channel {
+                channel,
+                source: source::Source::Server(None),
+            })
+        }
+        Command::PART(channel, _) => {
+            let channel =
+                target::Channel::parse(&channel, chantypes, statusmsg, casemapping).ok()?;
+
+            Some(Target::Channel {
+                channel,
+                source: source::Source::Server(Some(source::Server::new(
+                    source::server::Kind::Part,
+                    Some(user?.nickname().to_owned()),
+                ))),
+            })
+        }
+        Command::JOIN(channel, _) => {
+            let channel =
+                target::Channel::parse(&channel, chantypes, statusmsg, casemapping).ok()?;
+
+            Some(Target::Channel {
+                channel,
+                source: source::Source::Server(Some(source::Server::new(
+                    source::server::Kind::Join,
+                    Some(user?.nickname().to_owned()),
+                ))),
+            })
+        }
         Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME, params) => {
-            let channel = params.get(1)?.clone();
+            let channel =
+                target::Channel::parse(params.get(1)?, chantypes, statusmsg, casemapping).ok()?;
             Some(Target::Channel {
                 channel,
                 source: source::Source::Server(Some(source::Server::new(
                     source::server::Kind::ReplyTopic,
                     None,
                 ))),
-                prefixes: Default::default(),
             })
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
-            let channel = params.get(1)?.clone();
+            let channel =
+                target::Channel::parse(params.get(1)?, chantypes, statusmsg, casemapping).ok()?;
             Some(Target::Channel {
                 channel,
                 source: source::Source::Server(None),
-                prefixes: Default::default(),
             })
         }
         Command::Numeric(RPL_AWAY, params) => {
-            let user = params.get(1)?;
-            let target = User::try_from(user.as_str()).ok()?;
+            let query =
+                target::Query::parse(params.get(1)?, chantypes, statusmsg, casemapping).ok()?;
 
             Some(Target::Query {
-                nick: target.nickname().to_owned(),
+                query,
                 source: Source::Action(None),
             })
         }
@@ -748,28 +770,27 @@ fn target(
             };
 
             match (
-                proto::parse_channel_from_target(&target, chantypes, statusmsg),
+                target::Target::parse(&target, chantypes, statusmsg, casemapping),
                 user,
             ) {
-                (Some((prefixes, channel)), Some(user)) => {
+                (target::Target::Channel(channel), Some(user)) => {
                     let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
-                    Some(Target::Channel {
-                        channel,
-                        source,
-                        prefixes,
-                    })
+                    Some(Target::Channel { channel, source })
                 }
-                (None, Some(user)) => {
-                    let (nick, source) = if user.nickname() == *our_nick {
+                (target::Target::Query(query), Some(user)) => {
+                    let query = if user.nickname() == *our_nick {
                         // Message from ourself, from another client.
-                        let target = User::try_from(target.as_str()).ok()?;
-                        (target.nickname().to_owned(), source(user))
+                        query
                     } else {
                         // Message from conversation partner.
-                        (user.nickname().to_owned(), source(user))
+                        target::Query::parse(user.as_str(), chantypes, statusmsg, casemapping)
+                            .ok()?
                     };
 
-                    Some(Target::Query { nick, source })
+                    Some(Target::Query {
+                        query,
+                        source: source(user),
+                    })
                 }
                 _ => None,
             }
@@ -785,22 +806,18 @@ fn target(
             };
 
             match (
-                proto::parse_channel_from_target(&target, chantypes, statusmsg),
+                target::Target::parse(&target, chantypes, statusmsg, casemapping),
                 user,
             ) {
-                (Some((prefixes, channel)), Some(user)) => {
+                (target::Target::Channel(channel), Some(user)) => {
                     let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
-                    Some(Target::Channel {
-                        channel,
-                        source,
-                        prefixes,
-                    })
+                    Some(Target::Channel { channel, source })
                 }
-                (None, Some(user)) => {
-                    let target = User::try_from(target.as_str()).ok()?;
+                (target::Target::Query(query), Some(user)) => {
+                    let target = User::try_from(query.as_str()).ok()?;
 
                     (target.nickname() == *our_nick).then(|| Target::Query {
-                        nick: user.nickname().to_owned(),
+                        query,
                         source: source(user),
                     })
                 }
@@ -904,16 +921,21 @@ fn content<'a>(
     message: &Encoded,
     our_nick: &Nick,
     config: &Config,
-    resolve_attributes: &dyn Fn(&User, &str) -> Option<User>,
-    channel_users: &dyn Fn(&str) -> &'a [User],
+    resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
+    channel_users: &dyn Fn(&target::Channel) -> &'a [User],
     chantypes: &[char],
+    statusmsg: &[char],
+    casemapping: isupport::CaseMap,
 ) -> Option<Content> {
     use irc::proto::command::Numeric::*;
 
     match &message.command {
         Command::TOPIC(target, topic) => {
             let raw_user = message.user()?;
-            let user = resolve_attributes(&raw_user, target).unwrap_or(raw_user);
+            let user = target::Channel::parse(target, chantypes, statusmsg, casemapping)
+                .ok()
+                .and_then(|channel| resolve_attributes(&raw_user, &channel))
+                .unwrap_or(raw_user);
 
             let topic = topic.as_ref()?;
             let with_access_levels = config.buffer.nickname.show_access_levels;
@@ -926,7 +948,9 @@ fn content<'a>(
         }
         Command::PART(target, text) => {
             let raw_user = message.user()?;
-            let user = resolve_attributes(&raw_user, target)
+            let user = target::Channel::parse(target, chantypes, statusmsg, casemapping)
+                .ok()
+                .and_then(|channel| resolve_attributes(&raw_user, &channel))
                 .unwrap_or(raw_user)
                 .formatted(config.buffer.server_messages.part.username_format);
 
@@ -942,7 +966,10 @@ fn content<'a>(
         }
         Command::JOIN(target, _) => {
             let raw_user = message.user()?;
-            let user = resolve_attributes(&raw_user, target).unwrap_or(raw_user);
+            let user = target::Channel::parse(target, chantypes, statusmsg, casemapping)
+                .ok()
+                .and_then(|channel| resolve_attributes(&raw_user, &channel))
+                .unwrap_or(raw_user);
 
             (user.nickname() != *our_nick).then(|| {
                 parse_fragments(
@@ -957,7 +984,9 @@ fn content<'a>(
         Command::KICK(channel, victim, comment) => {
             let raw_user = message.user()?;
             let with_access_levels = config.buffer.nickname.show_access_levels;
-            let user = resolve_attributes(&raw_user, channel)
+            let user = target::Channel::parse(channel, chantypes, statusmsg, casemapping)
+                .ok()
+                .and_then(|channel| resolve_attributes(&raw_user, &channel))
                 .unwrap_or(raw_user)
                 .display(with_access_levels);
 
@@ -976,30 +1005,32 @@ fn content<'a>(
                 &[],
             ))
         }
-        Command::MODE(target, modes, args) if proto::is_channel(target, chantypes) => {
+        Command::MODE(target, modes, args) => {
             let raw_user = message.user()?;
-            let with_access_levels = config.buffer.nickname.show_access_levels;
-            let user = resolve_attributes(&raw_user, target)
-                .unwrap_or(raw_user)
-                .display(with_access_levels);
 
-            let modes = modes
-                .iter()
-                .map(|mode| mode.to_string())
-                .collect::<Vec<_>>()
-                .join(" ");
+            target::Channel::parse(target, chantypes, statusmsg, casemapping)
+                .ok()
+                .map(|channel| {
+                    let with_access_levels = config.buffer.nickname.show_access_levels;
+                    let user = resolve_attributes(&raw_user, &channel)
+                        .unwrap_or(raw_user)
+                        .display(with_access_levels);
 
-            let args = args
-                .iter()
-                .flatten()
-                .map(|arg| arg.to_string())
-                .collect::<Vec<_>>()
-                .join(" ");
+                    let modes = modes
+                        .iter()
+                        .map(|mode| mode.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ");
 
-            Some(parse_fragments(
-                format!("{user} sets mode {modes} {args}"),
-                &[],
-            ))
+                    let args = args
+                        .iter()
+                        .flatten()
+                        .map(|arg| arg.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+
+                    parse_fragments(format!("{user} sets mode {modes} {args}"), &[])
+                })
         }
         Command::PRIVMSG(target, text) => {
             // Check if a synthetic action message
@@ -1009,7 +1040,10 @@ fn content<'a>(
                 }
             }
 
-            let channel_users = channel_users(target);
+            let channel_users = target::Channel::parse(target, chantypes, statusmsg, casemapping)
+                .map(|channel| channel_users(&channel))
+                .unwrap_or_default();
+
             Some(parse_fragments(text.clone(), channel_users))
         }
         Command::NOTICE(_, text) => Some(parse_fragments(text.clone(), &[])),
@@ -1273,10 +1307,10 @@ pub fn references_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> b
 
 #[derive(Debug, Clone)]
 pub enum Link {
-    Channel(String),
+    Channel(target::Channel),
     Url(String),
     User(User),
-    GoToMessage(Server, String, Hash),
+    GoToMessage(Server, target::Channel, Hash),
 }
 
 fn fail_as_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
