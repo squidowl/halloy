@@ -35,17 +35,24 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub fn from_target(
+    pub fn from_target(server: Server, target: target::Target) -> Self {
+        match target {
+            target::Target::Channel(channel) => Self::Channel(server, channel),
+            target::Target::Query(query) => Self::Query(server, query),
+        }
+    }
+
+    pub fn from_str(
         server: Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
-        target: String,
+        target: &str,
     ) -> Self {
-        match target::Target::parse(&target, chantypes, statusmsg, casemapping) {
-            target::Target::Channel(channel) => Self::Channel(server, channel),
-            target::Target::Query(query) => Self::Query(server, query),
-        }
+        Self::from_target(
+            server,
+            target::Target::parse(target, chantypes, statusmsg, casemapping),
+        )
     }
 
     pub fn from_input_buffer(buffer: buffer::Upstream) -> Self {
