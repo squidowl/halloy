@@ -306,18 +306,19 @@ impl Sidebar {
                     }
 
                     let queries = history.get_unique_queries(server);
-                    for user in queries {
+                    for query in queries {
                         buffers.push(upstream_buffer_button(
                             main_window,
                             panes,
                             focus,
-                            buffer::Upstream::Query(server.clone(), user.clone()),
+                            buffer::Upstream::Query(server.clone(), query.clone()),
                             true,
                             config.buffer_action,
                             config.buffer_focused_action,
                             config.position,
                             config.unread_indicator,
-                            history.has_unread(&history::Kind::Query(server.clone(), user.clone())),
+                            history
+                                .has_unread(&history::Kind::Query(server.clone(), query.clone())),
                         ));
                     }
 

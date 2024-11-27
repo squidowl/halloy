@@ -994,14 +994,7 @@ impl Dashboard {
 
                     let message_reference = self
                         .history
-                        .last_can_reference_before(
-                            server.clone(),
-                            clients.get_chantypes(&server),
-                            clients.get_statusmsg(&server),
-                            clients.get_casemapping(&server),
-                            target.clone(),
-                            server_time,
-                        )
+                        .last_can_reference_before(server.clone(), target.clone(), server_time)
                         .map_or(MessageReference::None, |message_references| {
                             message_references.message_reference(&message_reference_types)
                         });
@@ -1010,7 +1003,7 @@ impl Dashboard {
 
                     clients.send_chathistory_request(
                         &server,
-                        ChatHistorySubcommand::Latest(target.clone(), message_reference, limit),
+                        ChatHistorySubcommand::Latest(target.to_string(), message_reference, limit),
                     );
                 }
                 client::Message::RequestChatHistoryTargets(server, timestamp, server_time) => {
@@ -1450,18 +1443,14 @@ impl Dashboard {
 
     pub fn get_oldest_message_reference(
         &self,
-        clients: &client::Map,
         server: &Server,
-        target: &str,
+        target: target::Target,
         message_reference_types: &[isupport::MessageReferenceType],
     ) -> MessageReference {
-        if let Some(first_can_reference) = self.history.first_can_reference(
-            server.clone(),
-            clients.get_chantypes(server),
-            clients.get_statusmsg(server),
-            clients.get_casemapping(server),
-            target.to_string(),
-        ) {
+        if let Some(first_can_reference) = self
+            .history
+            .first_can_reference(server.clone(), target.clone())
+        {
             log::debug!(
                 "[{server}] {target} - first_can_reference {:?}",
                 first_can_reference
@@ -1501,9 +1490,8 @@ impl Dashboard {
                     clients.get_server_chathistory_message_reference_types(server);
 
                 let first_can_reference = self.get_oldest_message_reference(
-                    clients,
                     server,
-                    target.as_str(),
+                    target.clone(),
                     &message_reference_types,
                 );
 
@@ -1557,21 +1545,17 @@ impl Dashboard {
         &mut self,
         clients: &data::client::Map,
         server: Server,
-        channel: target::Channel,
+        target: target::Target,
         server_time: DateTime<Utc>,
     ) -> Task<Message> {
         let command = self
             .history
-            .load_metadata(server.clone(), channel.clone())
+            .load_metadata(server.clone(), target.clone())
             .map_or(Task::none(), |task| Task::perform(task, Message::History));
 
         if clients.get_server_supports_chathistory(&server) {
             command.chain(Task::done(Message::Client(
-                data::client::Message::RequestNewerChatHistory(
-                    server,
-                    channel.to_string(),
-                    server_time,
-                ),
+                data::client::Message::RequestNewerChatHistory(server, target, server_time),
             )))
         } else {
             command

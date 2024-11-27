@@ -244,40 +244,27 @@ impl Manager {
     pub fn load_metadata(
         &mut self,
         server: Server,
-        channel: target::Channel,
+        target: target::Target,
     ) -> Option<impl Future<Output = Message>> {
-        self.data.load_metadata(server, channel)
+        self.data.load_metadata(server, target)
     }
 
     pub fn first_can_reference(
         &self,
         server: Server,
-        chantypes: &[char],
-        statusmsg: &[char],
-        casemapping: isupport::CaseMap,
-        target: String,
+        target: target::Target,
     ) -> Option<&crate::Message> {
-        self.data
-            .first_can_reference(server, chantypes, statusmsg, casemapping, target)
+        self.data.first_can_reference(server, target)
     }
 
     pub fn last_can_reference_before(
         &self,
         server: Server,
-        chantypes: &[char],
-        statusmsg: &[char],
-        casemapping: isupport::CaseMap,
-        target: String,
+        target: target::Target,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
-        self.data.last_can_reference_before(
-            server,
-            chantypes,
-            statusmsg,
-            casemapping,
-            target,
-            server_time,
-        )
+        self.data
+            .last_can_reference_before(server, target, server_time)
     }
 
     pub fn get_messages(
@@ -295,7 +282,7 @@ impl Manager {
             .map
             .keys()
             .filter_map(|kind| match kind {
-                history::Kind::Query(s, user) => (s == server).then_some(user),
+                history::Kind::Query(s, query) => (s == server).then_some(query),
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -758,11 +745,11 @@ impl Data {
     fn load_metadata(
         &mut self,
         server: server::Server,
-        channel: target::Channel,
+        target: target::Target,
     ) -> Option<impl Future<Output = Message>> {
         use std::collections::hash_map;
 
-        let kind = history::Kind::Channel(server, channel);
+        let kind = history::Kind::from_target(server, target);
 
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(_) => None,
@@ -784,12 +771,9 @@ impl Data {
     fn first_can_reference(
         &self,
         server: server::Server,
-        chantypes: &[char],
-        statusmsg: &[char],
-        casemapping: isupport::CaseMap,
-        target: String,
+        target: target::Target,
     ) -> Option<&crate::Message> {
-        let kind = history::Kind::from_target(server, chantypes, statusmsg, casemapping, target);
+        let kind = history::Kind::from_target(server, target);
 
         self.map
             .get(&kind)
@@ -799,13 +783,10 @@ impl Data {
     fn last_can_reference_before(
         &self,
         server: Server,
-        chantypes: &[char],
-        statusmsg: &[char],
-        casemapping: isupport::CaseMap,
-        target: String,
+        target: target::Target,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
-        let kind = history::Kind::from_target(server, chantypes, statusmsg, casemapping, target);
+        let kind = history::Kind::from_target(server, target);
 
         self.map
             .get(&kind)
