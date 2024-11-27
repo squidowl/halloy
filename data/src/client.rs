@@ -93,7 +93,7 @@ pub enum Broadcast {
 pub enum Message {
     ChatHistoryRequest(Server, ChatHistorySubcommand),
     ChatHistoryTargetsTimestampUpdated(Server, DateTime<Utc>, Result<(), Error>),
-    RequestNewerChatHistory(Server, String, DateTime<Utc>),
+    RequestNewerChatHistory(Server, target::Target, DateTime<Utc>),
     RequestChatHistoryTargets(Server, Option<DateTime<Utc>>, DateTime<Utc>),
 }
 
@@ -104,10 +104,10 @@ pub enum Event {
     Broadcast(Broadcast),
     Notification(message::Encoded, Nick, Notification),
     FileTransferRequest(file_transfer::ReceiveRequest),
-    UpdateReadMarker(String, ReadMarker),
+    UpdateReadMarker(target::Target, ReadMarker),
     JoinedChannel(target::Channel, DateTime<Utc>),
     ChatHistoryAcknowledged(DateTime<Utc>),
-    ChatHistoryTargetReceived(String, DateTime<Utc>),
+    ChatHistoryTargetReceived(target::Target, DateTime<Utc>),
     ChatHistoryTargetsReceived(DateTime<Utc>),
 }
 
@@ -1699,29 +1699,39 @@ impl Client {
                     .strip_prefix("timestamp=")
                     .and_then(|timestamp| timestamp.parse::<ReadMarker>().ok())
                 {
-                    return Ok(vec![Event::UpdateReadMarker(target.clone(), read_marker)]);
+                    return Ok(vec![Event::UpdateReadMarker(
+                        target::Target::parse(
+                            target,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        ),
+                        read_marker,
+                    )]);
                 }
             }
             Command::CHATHISTORY(sub, args) => {
                 if sub == "TARGETS" {
-                    match target::Target::parse(
+                    let target = target::Target::parse(
                         ok!(args.first()),
                         self.chantypes(),
                         self.statusmsg(),
                         self.casemapping(),
-                    ) {
-                        target::Target::Channel(channel) => {
-                            if !channel.prefixes().is_empty() && self.chanmap.contains_key(&channel)
+                    );
+
+                    match target {
+                        target::Target::Channel(ref channel) => {
+                            if !channel.prefixes().is_empty() && self.chanmap.contains_key(channel)
                             {
                                 return Ok(vec![Event::ChatHistoryTargetReceived(
-                                    channel.to_string(),
+                                    target,
                                     server_time(&message),
                                 )]);
                             }
                         }
-                        target::Target::Query(query) => {
+                        target::Target::Query(_) => {
                             return Ok(vec![Event::ChatHistoryTargetReceived(
-                                query.to_string(),
+                                target,
                                 server_time(&message),
                             )])
                         }

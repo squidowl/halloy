@@ -773,9 +773,6 @@ impl Halloy {
                                                 .update_read_marker(
                                                     history::Kind::from_target(
                                                         server.clone(),
-                                                        chantypes,
-                                                        statusmsg,
-                                                        casemapping,
                                                         target,
                                                     ),
                                                     read_marker,
@@ -788,7 +785,7 @@ impl Halloy {
                                             .load_metadata(
                                                 &self.clients,
                                                 server.clone(),
-                                                channel.clone(),
+                                                target::Target::Channel(channel),
                                                 server_time,
                                             )
                                             .map(Message::Dashboard);
@@ -811,23 +808,16 @@ impl Halloy {
                                         target,
                                         server_time,
                                     ) => {
-                                        if let Ok(channel) = target::Channel::parse(
-                                            &target,
-                                            chantypes,
-                                            statusmsg,
-                                            casemapping,
-                                        ) {
-                                            let command = dashboard
-                                                .load_metadata(
-                                                    &self.clients,
-                                                    server.clone(),
-                                                    channel,
-                                                    server_time,
-                                                )
-                                                .map(Message::Dashboard);
+                                        let command = dashboard
+                                            .load_metadata(
+                                                &self.clients,
+                                                server.clone(),
+                                                target,
+                                                server_time,
+                                            )
+                                            .map(Message::Dashboard);
 
-                                            commands.push(command);
-                                        }
+                                        commands.push(command);
                                     }
                                     data::client::Event::ChatHistoryTargetsReceived(
                                         server_time,
