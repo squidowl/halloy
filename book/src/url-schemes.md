@@ -36,3 +36,8 @@ Below is a few URL examples.
 - **Connect to OFTC on port 9999 and join #oftc and #asahi-dev:**  
   [ircs://irc.oftc.net:9999/#oftc,#asahi-dev](ircs://irc.oftc.net:9999/#oftc,#asahi-dev)
 
+## Halloy
+
+The `halloy://` scheme is used to import themes.
+The syntax for that is `halloy:///theme?e=base64EncodedThemeData`.
+A list of community created themes can be found [here](./configuration/themes/community.md).
