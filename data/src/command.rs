@@ -251,6 +251,6 @@ fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
 
         format!("expected {min} argument{s}, received {actual}")
     } else {
-        format!("expected {min} to {max} arguments, recevied {actual}")
+        format!("expected {min} to {max} arguments, received {actual}")
     }
 }
