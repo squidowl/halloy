@@ -142,6 +142,7 @@ pub struct Client {
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<String>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
+    dm_notification_times: HashMap<User, DateTime<Utc>>,
 }
 
 impl fmt::Debug for Client {
@@ -182,6 +183,7 @@ impl Client {
             highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
             isupport: HashMap::new(),
+            dm_notification_times: HashMap::new(),
         }
     }
 
@@ -2010,6 +2012,14 @@ impl Client {
 
     pub fn is_channel(&self, target: &str) -> bool {
         proto::is_channel(target, self.chantypes())
+    }
+
+    pub fn get_dm_notification_times(&self, user: &User) -> Option<DateTime<Utc>> {
+        self.dm_notification_times.get(user).cloned()
+    }
+
+    pub fn update_dm_notification_times(&mut self, user: &User) {
+        self.dm_notification_times.insert(user.clone(), Utc::now());
     }
 }
 
