@@ -44,8 +44,8 @@ impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
     }
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Modal<'a, Message, Theme, Renderer>
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Modal<'_, Message, Theme, Renderer>
 where
     Renderer: advanced::Renderer,
 {
@@ -173,8 +173,8 @@ struct Overlay<'a, 'b, Message, Theme, Renderer> {
     on_blur: &'b dyn Fn() -> Message,
 }
 
-impl<'a, 'b, Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
-    for Overlay<'a, 'b, Message, Theme, Renderer>
+impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
+    for Overlay<'_, '_, Message, Theme, Renderer>
 where
     Renderer: advanced::Renderer,
 {
