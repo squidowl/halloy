@@ -44,6 +44,7 @@ pub struct Dashboard {
     command_bar: Option<CommandBar>,
     file_transfers: file_transfer::Manager,
     theme_editor: Option<ThemeEditor>,
+    notifications: notification::Notifications,
 }
 
 #[derive(Debug)]
@@ -88,6 +89,7 @@ impl Dashboard {
             command_bar: None,
             file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
             theme_editor: None,
+            notifications: notification::Notifications::new(),
         };
 
         let command = dashboard.track();
@@ -1864,7 +1866,11 @@ impl Dashboard {
             .file_transfers
             .receive(request.clone(), config.proxy.as_ref())
         {
-            notification::file_transfer_request(&config.notifications, request.from, server);
+            self.notifications.notify(
+                &config.notifications,
+                &client::Notification::FileTransferRequest(request.from.clone()),
+                Some(server),
+            );
 
             return Some(self.handle_file_transfer_event(server, event));
         }
@@ -1949,6 +1955,7 @@ impl Dashboard {
             command_bar: None,
             file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
             theme_editor: None,
+            notifications: notification::Notifications::new(),
         };
 
         let mut tasks = vec![];
