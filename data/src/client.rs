@@ -492,7 +492,7 @@ impl Client {
                             .and_then(|chathistory| chathistory.target())
                     })
                     .and_then(|target| {
-                        if self.chathistory_requests.contains_key(&target) {
+                        if self.chathistory_requests.contains_key(&target.to_lowercase()) {
                             Some(target)
                         } else {
                             None
@@ -1147,7 +1147,7 @@ impl Client {
                 let user = ok!(message.user());
 
                 if user.nickname() == self.nickname() {
-                    self.chanmap.insert(channel.clone(), Channel::default());
+                    self.chanmap.insert(channel.to_lowercase(), Channel::default());
 
                     // Sends WHO to get away state on users if WHO poll is enabled.
                     if self.config.who_poll_enabled {
@@ -1578,7 +1578,8 @@ impl Client {
                             self.chantypes(),
                             self.statusmsg(),
                         ) {
-                            if !prefixes.is_empty() && self.chanmap.contains_key(&channel) {
+                            let channel_lower = channel.to_lowercase();
+                            if !prefixes.is_empty() && self.chanmap.contains_key(&channel_lower) {
                                 return Ok(vec![Event::ChatHistoryTargetReceived(
                                     target.clone(),
                                     server_time(&message),
@@ -1592,6 +1593,7 @@ impl Client {
                         }
                     }
                 }
+            
 
                 return Ok(vec![]);
             }
@@ -1660,18 +1662,18 @@ impl Client {
 
     pub fn chathistory_request(&self, target: &str) -> Option<ChatHistorySubcommand> {
         self.chathistory_requests
-            .get(target)
+            .get(&target.to_string().to_lowercase())
             .map(|request| request.subcommand.clone())
     }
 
     pub fn send_chathistory_request(&mut self, subcommand: ChatHistorySubcommand) {
         if self.supports_chathistory {
             if let Some(target) = subcommand.target() {
-                if self.chathistory_requests.contains_key(target) {
+                if self.chathistory_requests.contains_key(&target.to_lowercase()) {
                     return;
                 } else {
                     self.chathistory_requests.insert(
-                        target.to_string(),
+                        target.to_string().to_lowercase(),
                         ChatHistoryRequest {
                             subcommand: subcommand.clone(),
                             requested_at: Instant::now(),
