@@ -32,7 +32,7 @@ struct AnchoredOverlay<'a, Message> {
     offset: f32,
 }
 
-impl<'a, Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'a, Message> {
+impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> {
     fn size(&self) -> Size<Length> {
         self.base.as_widget().size()
     }
@@ -184,7 +184,7 @@ struct Overlay<'a, 'b, Message> {
     position: Point,
 }
 
-impl<'a, 'b, Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'a, 'b, Message> {
+impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Message> {
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
         let height = match self.anchor {
             // From top of base to top of viewport

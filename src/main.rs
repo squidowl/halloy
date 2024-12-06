@@ -704,7 +704,7 @@ impl Halloy {
                                                         user.nickname().to_owned(),
                                                     ),
                                                 ) || !self.main_window.focused)
-                                                    && (last_notification == None
+                                                    && (last_notification.is_none()
                                                         || last_notification.unwrap()
                                                             <= Utc::now()
                                                                 - Duration::from_millis(
@@ -712,7 +712,6 @@ impl Halloy {
                                                                         .notifications
                                                                         .direct_message
                                                                         .smart
-                                                                        .clone()
                                                                         .unwrap_or(500),
                                                                 ))
                                                 {
