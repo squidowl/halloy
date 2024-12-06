@@ -19,6 +19,8 @@ Following notifications are available:
 | `disconnected`          | Triggered when a server disconnects                |
 | `file_transfer_request` | Triggered when a file transfer request is received |
 | `highlight`             | Triggered when you were highlighted in a buffer    |
+| `monitored_online`      | Triggered when a user you're monitoring is online  |
+| `monitored_offline`     | Triggered when a user you're monitoring is offline |
 | `reconnected`           | Triggered when a server reconnects                 |
 
 
@@ -39,3 +41,11 @@ Notification should trigger a OS toast.
 - **type**: boolean
 - **values**: `true`, `false`
 - **default**: `false`
+
+## `delay`
+
+Delay in milliseconds before triggering the next notification.
+
+- **type**: integer
+- **values**: `0` or greater
+- **default**: `500`
