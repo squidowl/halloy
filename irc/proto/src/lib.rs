@@ -104,7 +104,6 @@ macro_rules! command {
 mod tests {
     use super::*;
 
-
     // Reference: https://defs.ircdocs.horse/defs/chanmembers
     const CHANNEL_MEMBERSHIP_PREFIXES: &[char] = &['~', '&', '!', '@', '%', '+'];
 
