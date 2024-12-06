@@ -189,7 +189,9 @@ impl Message {
     }
 
     pub fn can_reference(&self) -> bool {
-        if matches!(self.target.source(), Source::Internal(_)) {
+        if matches!(self.direction, Direction::Sent)
+            || matches!(self.target.source(), Source::Internal(_))
+        {
             return false;
         } else if let Source::Server(Some(source)) = self.target.source() {
             if matches!(
