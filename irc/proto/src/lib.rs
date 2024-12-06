@@ -82,7 +82,8 @@ pub fn parse_channel_from_target(
     // This will not panic, since `find` always returns a valid codepoint index.
     // We call `find` -> `split_at` because it is an _inclusive_ split, which includes the match.
     // We need to return this since the channel target includes its chantype.
-    let (prefix, chan) = target.split_at(chan_index);
+    let (prefix, chanoriginal) = target.split_at(chan_index);
+    let chan = chanoriginal.to_lowercase();
     if prefix.chars().all(|ref c| statusmsg_prefixes.contains(c)) {
         Some((prefix.chars().collect(), chan.to_owned()))
     } else {
