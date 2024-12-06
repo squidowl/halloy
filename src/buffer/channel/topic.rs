@@ -37,7 +37,7 @@ pub fn update(message: Message) -> Option<Event> {
 
 pub fn view<'a>(
     server: &'a Server,
-    channel: &'a String,
+    channel: &'a str,
     content: &'a message::Content,
     who: Option<&'a str>,
     time: Option<&'a DateTime<Utc>>,

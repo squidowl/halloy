@@ -39,3 +39,11 @@ Notification should trigger a OS toast.
 - **type**: boolean
 - **values**: `true`, `false`
 - **default**: `false`
+
+## `smart` (only for direct messages)
+
+Delay in milliseconds before triggering the next notification.
+
+- **type**: integer
+- **values**: `0` or greater
+- **default**: `500`

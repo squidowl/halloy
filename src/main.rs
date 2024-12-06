@@ -691,18 +691,36 @@ impl Halloy {
 
                                         match notification {
                                             data::client::Notification::DirectMessage(user) => {
-                                                // only send notification if query has unread
-                                                // or if window is not focused
-                                                if dashboard.history().has_unread(
+                                                let client = self
+                                                    .clients
+                                                    .client_mut(&server)
+                                                    .unwrap();
+                                                let last_notification =
+                                                    client.get_dm_notification_times(&user);
+
+                                                if (dashboard.history().has_unread(
                                                     &history::Kind::Query(
                                                         server.clone(),
                                                         user.nickname().to_owned(),
                                                     ),
-                                                ) || !self.main_window.focused
+                                                ) || !self.main_window.focused)
+                                                    && (last_notification.is_none()
+                                                        || last_notification.unwrap()
+                                                            <= Utc::now()
+                                                                - Duration::from_millis(
+                                                                    self.config
+                                                                        .notifications
+                                                                        .direct_message
+                                                                        .smart
+                                                                        .unwrap_or(500),
+                                                                ))
                                                 {
                                                     notification::direct_message(
                                                         &self.config.notifications,
                                                         user.nickname(),
+                                                    );
+                                                    client.update_dm_notification_times(
+                                                        &user,
                                                     );
                                                 }
                                             }
