@@ -1,7 +1,7 @@
 use std::{io::Cursor, path::PathBuf, sync::Arc};
 
 use bytes::Bytes;
-use tokio::{fs, net::TcpStream};
+use tokio::fs;
 use tokio_rustls::{
     client::TlsStream,
     rustls::{
@@ -12,14 +12,16 @@ use tokio_rustls::{
     TlsConnector,
 };
 
+use super::IRCStream;
+
 pub async fn connect<'a>(
-    tcp: TcpStream,
+    stream: IRCStream,
     server: &str,
     accept_invalid_certs: bool,
     root_cert_path: Option<&'a PathBuf>,
     client_cert_path: Option<&'a PathBuf>,
     client_key_path: Option<&'a PathBuf>,
-) -> Result<TlsStream<TcpStream>, Error> {
+) -> Result<TlsStream<IRCStream>, Error> {
     let builder = if accept_invalid_certs {
         rustls::ClientConfig::builder()
             .dangerous()
@@ -63,7 +65,7 @@ pub async fn connect<'a>(
     let server_name = pki_types::ServerName::try_from(server.to_string())?;
 
     Ok(TlsConnector::from(Arc::new(client_config))
-        .connect(server_name, tcp)
+        .connect(server_name, stream)
         .await?)
 }
 
