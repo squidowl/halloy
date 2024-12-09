@@ -316,37 +316,37 @@ impl<'a> From<&'a str> for NickRef<'a> {
     }
 }
 
-impl<'a> NickRef<'a> {
+impl NickRef<'_> {
     pub fn to_owned(self) -> Nick {
         Nick(self.0.to_string())
     }
 }
 
-impl<'a> fmt::Display for NickRef<'a> {
+impl fmt::Display for NickRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<'a> AsRef<str> for NickRef<'a> {
+impl AsRef<str> for NickRef<'_> {
     fn as_ref(&self) -> &str {
         self.0
     }
 }
 
-impl<'a> PartialOrd for NickRef<'a> {
+impl PartialOrd for NickRef<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.0.to_lowercase().cmp(&other.0.to_lowercase()))
     }
 }
 
-impl<'a> Ord for NickRef<'a> {
+impl Ord for NickRef<'_> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0.to_lowercase().cmp(&other.0.to_lowercase())
     }
 }
 
-impl<'a> PartialEq<Nick> for NickRef<'a> {
+impl PartialEq<Nick> for NickRef<'_> {
     fn eq(&self, other: &Nick) -> bool {
         self.0.eq(other.0.as_str())
     }

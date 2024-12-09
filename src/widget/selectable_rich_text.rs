@@ -199,8 +199,8 @@ where
     }
 }
 
-impl<'a, Message, Link, Entry, Theme, Renderer> Default
-    for Rich<'a, Message, Link, Entry, Theme, Renderer>
+impl<Message, Link, Entry, Theme, Renderer> Default
+    for Rich<'_, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
