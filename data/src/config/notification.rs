@@ -9,6 +9,7 @@ pub struct Notification<T = String> {
     #[serde(default)]
     pub show_toast: bool,
     pub sound: Option<T>,
+    pub smart: Option<u64>,
 }
 
 impl<T> Default for Notification<T> {
@@ -16,6 +17,7 @@ impl<T> Default for Notification<T> {
         Self {
             show_toast: false,
             sound: None,
+            smart: Some(500),
         }
     }
 }
@@ -61,6 +63,7 @@ impl Notifications {
             Ok(Notification {
                 show_toast: notification.show_toast,
                 sound: notification.sound.as_deref().map(Sound::load).transpose()?,
+                smart: notification.smart,
             })
         };
 
