@@ -506,12 +506,21 @@ impl Command {
     }
 
     fn view<'a, Message: 'a>(&self, input: &str) -> Element<'a, Message> {
-        let active_arg = [input, "_"]
-            .concat()
-            .split_ascii_whitespace()
-            .count()
-            .saturating_sub(2)
-            .min(self.args.len().saturating_sub(1));
+        let command_prefix = format!("/{}", self.title.to_lowercase());
+
+        let active_arg = [
+            "_",
+            input
+                .to_lowercase()
+                .strip_prefix(&command_prefix)
+                .unwrap_or(input),
+            "_",
+        ]
+        .concat()
+        .split_ascii_whitespace()
+        .count()
+        .saturating_sub(2)
+        .min(self.args.len().saturating_sub(1));
 
         let title = Some(Element::from(text(self.title)));
 
