@@ -1003,7 +1003,7 @@ impl Dashboard {
 
                     clients.send_chathistory_request(
                         &server,
-                        ChatHistorySubcommand::Latest(target.to_string(), message_reference, limit),
+                        ChatHistorySubcommand::Latest(target, message_reference, limit),
                     );
                 }
                 client::Message::RequestChatHistoryTargets(server, timestamp, server_time) => {
@@ -1497,13 +1497,13 @@ impl Dashboard {
 
                 let subcommand = if matches!(first_can_reference, MessageReference::None) {
                     ChatHistorySubcommand::Latest(
-                        target.to_string(),
+                        target,
                         first_can_reference,
                         clients.get_server_chathistory_limit(server),
                     )
                 } else {
                     ChatHistorySubcommand::Before(
-                        target.to_string(),
+                        target,
                         first_can_reference,
                         clients.get_server_chathistory_limit(server),
                     )

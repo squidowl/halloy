@@ -1863,7 +1863,7 @@ impl Client {
                     let _ = self.handle.try_send(command!(
                         "CHATHISTORY",
                         "LATEST",
-                        target,
+                        target.to_string(),
                         command_message_reference.to_string(),
                         limit.to_string(),
                     ));
@@ -1881,7 +1881,7 @@ impl Client {
                     let _ = self.handle.try_send(command!(
                         "CHATHISTORY",
                         "BEFORE",
-                        target,
+                        target.to_string(),
                         command_message_reference.to_string(),
                         limit.to_string(),
                     ));
@@ -1908,7 +1908,7 @@ impl Client {
                     let _ = self.handle.try_send(command!(
                         "CHATHISTORY",
                         "BETWEEN",
-                        target,
+                        target.to_string(),
                         command_start_message_reference.to_string(),
                         command_end_message_reference.to_string(),
                         limit.to_string(),
@@ -2190,7 +2190,7 @@ impl Client {
 }
 
 fn continue_chathistory_between(
-    target: &str,
+    target: &target::Target,
     events: &[Event],
     end_message_reference: &MessageReference,
     limit: u16,
@@ -2209,7 +2209,7 @@ fn continue_chathistory_between(
 
     start_message_reference.map(|start_message_reference| {
         ChatHistorySubcommand::Between(
-            target.to_string(),
+            target.clone(),
             start_message_reference,
             end_message_reference.clone(),
             limit,
