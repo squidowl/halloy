@@ -1281,7 +1281,7 @@ fn list_command(
     if let Some(target_limit) = target_limit {
         if let Some(limit) = target_limit.limit {
             channels_tooltip.push_str(format!("\nup to {} channel", limit).as_str());
-            if limit > 1 {
+            if limit != 1 {
                 channels_tooltip.push('s')
             }
         }
@@ -1362,7 +1362,7 @@ fn monitor_add_command(target_limit: &Option<u16>) -> Command {
 
     if let Some(target_limit) = target_limit {
         targets_tooltip.push_str(format!("\nup to {} target", target_limit).as_str());
-        if *target_limit > 1 {
+        if *target_limit != 1 {
             targets_tooltip.push('s')
         }
         targets_tooltip.push_str(" in total");
@@ -1430,7 +1430,7 @@ fn msg_command(
     if let Some(target_limit) = target_limit {
         if let Some(limit) = target_limit.limit {
             targets_tooltip.push_str(format!("\nup to {} target", limit).as_str());
-            if limit > 1 {
+            if limit != 1 {
                 targets_tooltip.push('s')
             }
         }
@@ -1459,7 +1459,7 @@ fn names_command(target_limit: &isupport::CommandTargetLimit) -> Command {
 
     if let Some(limit) = target_limit.limit {
         channels_tooltip.push_str(format!("\nup to {} channel", limit).as_str());
-        if limit > 1 {
+        if limit != 1 {
             channels_tooltip.push('s')
         }
     }
@@ -1579,7 +1579,7 @@ fn whois_command(target_limit: &isupport::CommandTargetLimit) -> Command {
 
     if let Some(limit) = target_limit.limit {
         nicks_tooltip.push_str(format!("\nup to {} nick", limit).as_str());
-        if limit > 1 {
+        if limit != 1 {
             nicks_tooltip.push('s')
         }
     }
