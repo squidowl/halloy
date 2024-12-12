@@ -1,5 +1,5 @@
 use data::user::Nick;
-use data::{Server, User};
+use data::{isupport, target, Server, User};
 use iced::widget::{button, container, horizontal_rule, row, text, Space};
 use iced::{padding, Length, Padding};
 
@@ -47,7 +47,8 @@ impl Entry {
     pub fn view<'a>(
         self,
         server: &Server,
-        channel: Option<&str>,
+        casemapping: isupport::CaseMap,
+        channel: Option<&target::Channel>,
         user: &User,
         current_user: Option<&User>,
         length: Length,
@@ -56,9 +57,11 @@ impl Entry {
 
         match self {
             Entry::Whois => menu_button("Whois", Message::Whois(server.clone(), nickname), length),
-            Entry::Query => {
-                menu_button("Message", Message::Query(server.clone(), nickname), length)
-            }
+            Entry::Query => menu_button(
+                "Message",
+                Message::Query(server.clone(), target::Query::from_user(user, casemapping)),
+                length,
+            ),
             Entry::ToggleAccessLevelOp => {
                 if let Some(channel) = channel {
                     if user.has_access_level(data::user::AccessLevel::Oper) {
@@ -66,7 +69,7 @@ impl Entry {
                             "Take Op (-o)",
                             Message::ToggleAccessLevel(
                                 server.clone(),
-                                channel.to_string(),
+                                channel.clone(),
                                 nickname,
                                 "-o".to_owned(),
                             ),
@@ -77,7 +80,7 @@ impl Entry {
                             "Give Op (+o)",
                             Message::ToggleAccessLevel(
                                 server.clone(),
-                                channel.to_string(),
+                                channel.clone(),
                                 nickname,
                                 "+o".to_owned(),
                             ),
@@ -95,7 +98,7 @@ impl Entry {
                             "Take Voice (-v)",
                             Message::ToggleAccessLevel(
                                 server.clone(),
-                                channel.to_string(),
+                                channel.clone(),
                                 nickname,
                                 "-v".to_owned(),
                             ),
@@ -106,7 +109,7 @@ impl Entry {
                             "Give Voice (+v)",
                             Message::ToggleAccessLevel(
                                 server.clone(),
-                                channel.to_string(),
+                                channel.clone(),
                                 nickname,
                                 "+v".to_owned(),
                             ),
@@ -134,8 +137,8 @@ impl Entry {
 #[derive(Clone, Debug)]
 pub enum Message {
     Whois(Server, Nick),
-    Query(Server, Nick),
-    ToggleAccessLevel(Server, String, Nick, String),
+    Query(Server, target::Query),
+    ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, Nick),
     SingleClick(Nick),
 }
@@ -143,8 +146,8 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     SendWhois(Server, Nick),
-    OpenQuery(Server, Nick),
-    ToggleAccessLevel(Server, String, Nick, String),
+    OpenQuery(Server, target::Query),
+    ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, Nick),
     SingleClick(Nick),
 }
@@ -164,7 +167,8 @@ pub fn update(message: Message) -> Option<Event> {
 pub fn view<'a>(
     content: impl Into<Element<'a, Message>>,
     server: &'a Server,
-    channel: Option<&'a str>,
+    casemapping: isupport::CaseMap,
+    channel: Option<&'a target::Channel>,
     user: &'a User,
     current_user: Option<&'a User>,
     our_user: Option<&'a User>,
@@ -180,7 +184,7 @@ pub fn view<'a>(
         Default::default(),
         content,
         entries,
-        move |entry, length| entry.view(server, channel, user, current_user, length),
+        move |entry, length| entry.view(server, casemapping, channel, user, current_user, length),
     )
     .into()
 }
