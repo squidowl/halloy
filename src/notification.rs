@@ -1,6 +1,7 @@
 use data::{
     audio::Sound,
     config::{self, notification},
+    target,
     user::{Nick, NickRef},
 };
 
@@ -30,7 +31,7 @@ pub fn direct_message(config: &config::Notifications<Sound>, nick: NickRef) {
     );
 }
 
-pub fn highlight(config: &config::Notifications<Sound>, nick: NickRef, channel: String) {
+pub fn highlight(config: &config::Notifications<Sound>, nick: NickRef, channel: target::Channel) {
     show_notification(
         &config.highlight,
         "Highlight",

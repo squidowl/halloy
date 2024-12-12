@@ -52,7 +52,7 @@ pub enum Notification {
     Highlight {
         enabled: bool,
         user: User,
-        channel: String,
+        channel: target::Channel,
     },
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
@@ -1006,7 +1006,12 @@ impl Client {
                                 Notification::Highlight {
                                     enabled: self.highlight_blackout.allow_highlights(),
                                     user,
-                                    channel: channel.clone(),
+                                    channel: target::Channel::parse(
+                                        channel,
+                                        self.chantypes(),
+                                        self.statusmsg(),
+                                        self.casemapping(),
+                                    )?,
                                 },
                             )]);
                         } else if user.nickname() == self.nickname()
