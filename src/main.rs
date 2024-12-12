@@ -721,13 +721,13 @@ impl Halloy {
                                             data::client::Notification::Highlight {
                                                 enabled,
                                                 user,
-                                                channel,
+                                                target,
                                             } => {
                                                 if enabled {
                                                     notification::highlight(
                                                         &self.config.notifications,
                                                         user.nickname(),
-                                                        channel,
+                                                        target,
                                                     );
                                                 }
                                             }
