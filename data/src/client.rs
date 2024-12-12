@@ -55,7 +55,7 @@ pub enum Notification {
     Highlight {
         enabled: bool,
         user: User,
-        channel: target::Channel,
+        target: target::Target,
     },
     FileTransferRequest(Nick),
     MonitoredOnline(Vec<User>),
@@ -929,7 +929,7 @@ impl Client {
                     });
                 }
             }
-            Command::PRIVMSG(channel, text) | Command::NOTICE(channel, text) => {
+            Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
                 if let Some(user) = message.user() {
                     if let Some(command) = dcc::decode(text) {
                         match command {
@@ -1010,12 +1010,12 @@ impl Client {
                                 Notification::Highlight {
                                     enabled: self.highlight_blackout.allow_highlights(),
                                     user,
-                                    channel: target::Channel::parse(
-                                        channel,
+                                    target: target::Target::parse(
+                                        target,
                                         self.chantypes(),
                                         self.statusmsg(),
                                         self.casemapping(),
-                                    )?,
+                                    ),
                                 },
                             )]);
                         } else if user.nickname() == self.nickname()
@@ -1028,8 +1028,8 @@ impl Client {
                             return Ok(vec![]);
                         }
 
-                        // use `channel` to confirm the direct message, then send notification
-                        if channel == &self.nickname().to_string() {
+                        // use `target` to confirm the direct message, then send notification
+                        if target == &self.nickname().to_string() {
                             return Ok(vec![Event::Notification(
                                 message.clone(),
                                 self.nickname().to_owned(),
