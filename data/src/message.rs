@@ -1155,6 +1155,16 @@ fn content<'a>(
 
             Some(plain(format!("Monitored {targets} offline")))
         }
+        Command::CHATHISTORY(sub, args) => {
+            if sub == "TARGETS" {
+                let target = args.first()?;
+                let timestamp = args.get(1)?;
+
+                Some(plain(format!("Chat history for {target} at {timestamp}")))
+            } else {
+                None
+            }
+        }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => Some(parse_fragments(
             responses
                 .iter()
