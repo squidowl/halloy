@@ -130,7 +130,7 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Action => {
+                    message::Source::Action(_) => {
                         let marker = message_marker(max_nick_width, theme::selectable_text::action);
 
                         let message = message_content(

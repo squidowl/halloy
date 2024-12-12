@@ -8,7 +8,7 @@ pub use self::server::Server;
 pub enum Source {
     User(User),
     Server(Option<Server>),
-    Action,
+    Action(Option<User>),
     Internal(Internal),
 }
 
