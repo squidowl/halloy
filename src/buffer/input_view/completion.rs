@@ -185,8 +185,7 @@ impl Commands {
                         }
                     }
                     "MSG" => {
-                        let channel_membership_prefixes = 
-                        if let Some(
+                        let channel_membership_prefixes = if let Some(
                             isupport::Parameter::STATUSMSG(channel_membership_prefixes),
                         ) =
                             isupport.get(&isupport::Kind::STATUSMSG)
@@ -978,7 +977,9 @@ fn chathistory_after_command(maximum_limit: &u16) -> Command {
             Arg {
                 text: "timestamp | msgid",
                 optional: false,
-                tooltip: Some(String::from("timestamp format: YYYY-MM-DDThh:mm:ss.sssZ")),
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
             },
             Arg {
                 text: "limit",
@@ -1008,7 +1009,9 @@ fn chathistory_around_command(maximum_limit: &u16) -> Command {
             Arg {
                 text: "timestamp | msgid",
                 optional: false,
-                tooltip: Some(String::from("timestamp format: YYYY-MM-DDThh:mm:ss.sssZ")),
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
             },
             Arg {
                 text: "limit",
@@ -1038,7 +1041,9 @@ fn chathistory_before_command(maximum_limit: &u16) -> Command {
             Arg {
                 text: "timestamp | msgid",
                 optional: false,
-                tooltip: Some(String::from("timestamp format: YYYY-MM-DDThh:mm:ss.sssZ")),
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
             },
             Arg {
                 text: "limit",
@@ -1068,12 +1073,16 @@ fn chathistory_between_command(maximum_limit: &u16) -> Command {
             Arg {
                 text: "timestamp | msgid",
                 optional: false,
-                tooltip: Some(String::from("timestamp format: YYYY-MM-DDThh:mm:ss.sssZ")),
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
             },
             Arg {
                 text: "timestamp | msgid",
                 optional: false,
-                tooltip: Some(String::from("timestamp format: YYYY-MM-DDThh:mm:ss.sssZ")),
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
             },
             Arg {
                 text: "limit",
@@ -1105,7 +1114,7 @@ fn chathistory_latest_command(maximum_limit: &u16) -> Command {
                 optional: false,
                 tooltip: Some(String::from(
                     "               *: no restriction on returned messages\
-                   \ntimestamp format: YYYY-MM-DDThh:mm:ss.sssZ",
+                   \ntimestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
             Arg {
@@ -1131,12 +1140,16 @@ fn chathistory_targets_command(maximum_limit: &u16) -> Command {
             Arg {
                 text: "timestamp",
                 optional: false,
-                tooltip: Some(String::from("timestamp format: YYYY-MM-DDThh:mm:ss.sssZ")),
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
             },
             Arg {
                 text: "timestamp",
                 optional: false,
-                tooltip: Some(String::from("timestamp format: YYYY-MM-DDThh:mm:ss.sssZ")),
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
             },
             Arg {
                 text: "limit",
