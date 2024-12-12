@@ -203,16 +203,33 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Action => {
+                    message::Source::Action(user) => {
                         let marker = message_marker(max_nick_width, theme::selectable_text::action);
 
-                        let message = message_content(
+                        let message_content = message_content(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::action,
                             config,
                         );
+
+                        let text_container =
+                            container(message_content).style(move |theme| match user {
+                                Some(user) => match our_nick {
+                                    Some(nick)
+                                        if message::references_user(
+                                            user.nickname(),
+                                            nick,
+                                            message,
+                                        ) =>
+                                    {
+                                        theme::container::highlight(theme)
+                                    }
+                                    _ => Default::default(),
+                                },
+                                _ => Default::default(),
+                            });
 
                         Some(
                             container(
@@ -221,7 +238,7 @@ pub fn view<'a>(
                                     .push_maybe(prefixes)
                                     .push(marker)
                                     .push(space)
-                                    .push(message),
+                                    .push(text_container),
                             )
                             .into(),
                         )
