@@ -538,6 +538,7 @@ fn text_references_nickname(text: &str, nickname: NickRef) -> Option<bool> {
 
 fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<Fragment> {
     text.chars()
+        .filter(|&c| c != '\u{1}')
         .group_by(|c| c.is_whitespace())
         .into_iter()
         .flat_map(|(is_whitespace, chars)| {
@@ -1239,6 +1240,7 @@ pub fn references_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> b
     sender != own_nick
         && text
             .chars()
+            .filter(|&c| c != '\u{1}')
             .group_by(|c| c.is_whitespace())
             .into_iter()
             .any(|(is_whitespace, chars)| {
