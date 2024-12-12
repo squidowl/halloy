@@ -24,7 +24,7 @@ The client's nickname.
 - **values**: any string
 - **default**: not set
 
-## `nickname_password`
+## `nick_password`
 
 The client's NICKSERV password.
 
@@ -42,7 +42,7 @@ Read nick_password from the file at the given path.[^1]
 
 ## `nick_password_command`
 
-Executes the command with `sh` (or equivalent) and reads `nickname_password` as the output.
+Executes the command with `sh` (or equivalent) and reads `nick_password` as the output.
 
 - **type**: string
 - **values**: any string
