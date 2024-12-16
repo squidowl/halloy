@@ -214,22 +214,14 @@ pub fn view<'a>(
                             config,
                         );
 
-                        let text_container =
-                            container(message_content).style(move |theme| match user {
-                                Some(user) => match our_nick {
-                                    Some(nick)
-                                        if message::references_user(
-                                            user.nickname(),
-                                            nick,
-                                            message,
-                                        ) =>
-                                    {
-                                        theme::container::highlight(theme)
-                                    }
-                                    _ => Default::default(),
-                                },
-                                _ => Default::default(),
-                            });
+                        let text_container = container(message_content).style(move |theme| {
+                            if let (Some(user), Some(nick)) = (user, our_nick) {
+                                if message::references_user(user.nickname(), nick, message) {
+                                    return theme::container::highlight(theme);
+                                }
+                            }
+                            Default::default()
+                        });
 
                         Some(
                             container(

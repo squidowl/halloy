@@ -106,7 +106,7 @@ pub fn view<'a>(
                         )
                         .into(),
                     )
-                },
+                }
                 message::Target::Highlights {
                     server,
                     channel,
@@ -141,15 +141,10 @@ pub fn view<'a>(
                     );
 
                     Some(
-                        container(
-                            row![]
-                                .push_maybe(timestamp)
-                                .push(channel_text)
-                                .push(text),
-                        )
-                        .into(),
+                        container(row![].push_maybe(timestamp).push(channel_text).push(text))
+                            .into(),
                     )
-                },
+                }
                 _ => None,
             },
         )
