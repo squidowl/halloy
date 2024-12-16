@@ -1,6 +1,6 @@
 pub use data::buffer::{Internal, Settings, Upstream};
 use data::user::Nick;
-use data::{buffer, file_transfer, history, message, Config};
+use data::{buffer, file_transfer, history, message, target, Config};
 use iced::Task;
 
 pub use self::channel::Channel;
@@ -47,8 +47,8 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(String),
-    GoToMessage(data::Server, String, message::Hash),
+    OpenChannel(target::Channel),
+    GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
 }
@@ -222,9 +222,13 @@ impl Buffer {
 
     // TODO: Placeholder in case we need
     #[allow(unused)]
-    pub fn get_channel(&self, server: &data::Server, channel: &str) -> Option<&Channel> {
+    pub fn get_channel(
+        &self,
+        server: &data::Server,
+        channel: &target::Channel,
+    ) -> Option<&Channel> {
         if let Buffer::Channel(state) = self {
-            (&state.server == server && state.channel.as_str() == channel).then_some(state)
+            (&state.server == server && state.target == *channel).then_some(state)
         } else {
             None
         }
@@ -336,7 +340,7 @@ impl Buffer {
                 .scroll_view
                 .scroll_to_message(
                     message,
-                    scroll_view::Kind::Channel(&state.server, &state.channel),
+                    scroll_view::Kind::Channel(&state.server, &state.target),
                     history,
                     config,
                 )
@@ -354,7 +358,7 @@ impl Buffer {
                 .scroll_view
                 .scroll_to_message(
                     message,
-                    scroll_view::Kind::Query(&state.server, &state.nick),
+                    scroll_view::Kind::Query(&state.server, &state.target),
                     history,
                     config,
                 )
@@ -380,7 +384,7 @@ impl Buffer {
             Buffer::Channel(state) => state
                 .scroll_view
                 .scroll_to_backlog(
-                    scroll_view::Kind::Channel(&state.server, &state.channel),
+                    scroll_view::Kind::Channel(&state.server, &state.target),
                     history,
                     config,
                 )
@@ -392,7 +396,7 @@ impl Buffer {
             Buffer::Query(state) => state
                 .scroll_view
                 .scroll_to_backlog(
-                    scroll_view::Kind::Query(&state.server, &state.nick),
+                    scroll_view::Kind::Query(&state.server, &state.target),
                     history,
                     config,
                 )
@@ -428,7 +432,7 @@ impl From<data::Buffer> for Buffer {
                 buffer::Upstream::Channel(server, channel) => {
                     Self::Channel(Channel::new(server, channel))
                 }
-                buffer::Upstream::Query(server, user) => Self::Query(Query::new(server, user)),
+                buffer::Upstream::Query(server, query) => Self::Query(Query::new(server, query)),
             },
             data::Buffer::Internal(internal) => match internal {
                 buffer::Internal::FileTransfers => Self::FileTransfers(FileTransfers::new()),
