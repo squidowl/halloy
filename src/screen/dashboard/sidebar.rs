@@ -307,6 +307,8 @@ impl Sidebar {
 
                     let queries = history.get_unique_queries(server);
                     for query in queries {
+                        let query = clients.resolve_query(server, query).unwrap_or(query);
+
                         buffers.push(upstream_buffer_button(
                             main_window,
                             panes,
