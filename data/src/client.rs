@@ -125,6 +125,7 @@ pub struct Client {
     chanmap: BTreeMap<target::Channel, Channel>,
     channels: Vec<target::Channel>,
     users: HashMap<target::Channel, Vec<User>>,
+    resolved_queries: HashSet<target::Query>,
     labels: HashMap<String, Context>,
     batches: HashMap<target::Target, Batch>,
     reroute_responses_to: Option<buffer::Upstream>,
@@ -165,6 +166,7 @@ impl Client {
             chanmap: BTreeMap::default(),
             channels: vec![],
             users: HashMap::new(),
+            resolved_queries: HashSet::new(),
             labels: HashMap::new(),
             batches: HashMap::new(),
             reroute_responses_to: None,
@@ -1026,6 +1028,9 @@ impl Client {
 
                         // use `target` to confirm the direct message, then send notification
                         if target == &self.nickname().to_string() {
+                            self.resolved_queries
+                                .replace(target::Query::from_user(&user, self.casemapping()));
+
                             return Ok(vec![Event::Notification(
                                 message.clone(),
                                 self.nickname().to_owned(),
@@ -1738,7 +1743,7 @@ impl Client {
                             return Ok(vec![Event::ChatHistoryTargetReceived(
                                 target,
                                 server_time(&message),
-                            )])
+                            )]);
                         }
                     }
                 }
@@ -2063,6 +2068,10 @@ impl Client {
             })
             .cloned()
             .collect()
+    }
+
+    fn resolve_query<'a>(&'a self, query: &target::Query) -> Option<&'a target::Query> {
+        self.resolved_queries.get(query)
     }
 
     pub fn nickname(&self) -> NickRef {
@@ -2410,6 +2419,15 @@ impl Map {
         self.client(server)
             .map(|client| client.channels())
             .unwrap_or_default()
+    }
+
+    pub fn resolve_query<'a>(
+        &'a self,
+        server: &Server,
+        query: &target::Query,
+    ) -> Option<&'a target::Query> {
+        self.client(server)
+            .and_then(|client| client.resolve_query(query))
     }
 
     pub fn get_isupport(&self, server: &Server) -> HashMap<isupport::Kind, isupport::Parameter> {
