@@ -151,15 +151,14 @@ pub fn view<'a>(
                             .push(nick)
                             .push(space);
 
-                        let text_container =
-                            container(message_content).style(move |theme| match our_nick {
-                                Some(nick)
-                                    if message::references_user(user.nickname(), nick, message) =>
-                                {
-                                    theme::container::highlight(theme)
+                        let text_container = container(message_content).style(move |theme| {
+                            if let Some(nick) = our_nick {
+                                if message::references_user(user.nickname(), nick, message) {
+                                    return theme::container::highlight(theme);
                                 }
-                                _ => Default::default(),
-                            });
+                            }
+                            Default::default()
+                        });
 
                         match &config.buffer.nickname.alignment {
                             data::buffer::Alignment::Left | data::buffer::Alignment::Right => Some(
