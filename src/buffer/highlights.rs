@@ -149,8 +149,11 @@ pub fn view<'a>(
                     ])
                     .on_link(scroll_view::Message::Link);
 
+                    let casemapping = clients.get_casemapping(server);
+
                     let text = message_content(
                         &message.content,
+                        casemapping,
                         theme,
                         scroll_view::Message::Link,
                         theme::selectable_text::action,
