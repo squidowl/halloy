@@ -175,7 +175,7 @@ impl Message {
         matches!(self.direction, Direction::Received)
             && match self.target.source() {
                 Source::User(_) => true,
-                Source::Action => true,
+                Source::Action(_) => true,
                 Source::Server(Some(server)) => {
                     matches!(
                         server.kind(),
@@ -280,7 +280,7 @@ impl Message {
             direction: Direction::Received,
             target: Target::Query {
                 nick: from.clone(),
-                source: Source::Action,
+                source: Source::Action(None),
             },
             content,
             id: None,
@@ -299,7 +299,7 @@ impl Message {
             direction: Direction::Sent,
             target: Target::Query {
                 nick: to.clone(),
-                source: Source::Action,
+                source: Source::Action(None),
             },
             content,
             id: None,
@@ -346,6 +346,15 @@ impl Message {
                 server,
                 channel,
                 source: Source::User(user),
+            },
+            Target::Channel {
+                channel,
+                source: Source::Action(user),
+                ..
+            } => Target::Highlights {
+                server,
+                channel,
+                source: Source::Action(user),
             },
             _ => return None,
         };
@@ -725,14 +734,14 @@ fn target(
 
             Some(Target::Query {
                 nick: target.nickname().to_owned(),
-                source: Source::Action,
+                source: Source::Action(None),
             })
         }
         Command::PRIVMSG(target, text) => {
             let is_action = is_action(&text);
             let source = |user| {
                 if is_action {
-                    Source::Action
+                    Source::Action(Some(user))
                 } else {
                     Source::User(user)
                 }
@@ -769,7 +778,7 @@ fn target(
             let is_action = is_action(&text);
             let source = |user| {
                 if is_action {
-                    Source::Action
+                    Source::Action(Some(user))
                 } else {
                     Source::User(user)
                 }
@@ -1239,6 +1248,7 @@ pub fn references_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> b
     sender != own_nick
         && text
             .chars()
+            .filter(|&c| c != '\u{1}')
             .group_by(|c| c.is_whitespace())
             .into_iter()
             .any(|(is_whitespace, chars)| {

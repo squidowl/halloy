@@ -97,7 +97,7 @@ impl Input {
                     .collect(),
             ),
             Command::Me(target, action) => Some(vec![Message::sent(
-                to_target(&target, message::Source::Action)?,
+                to_target(&target, message::Source::Action(Some(user.clone())))?,
                 message::action_text(user.nickname(), Some(&action)),
             )]),
             _ => None,

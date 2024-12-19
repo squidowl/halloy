@@ -32,6 +32,7 @@ pub fn view<'a>(
     let status = clients.status(server);
     let buffer = &state.buffer;
     let input = history.input(buffer);
+    let our_nick = clients.nickname(&state.server);
 
     let chathistory_state = clients.get_chathistory_state(server, state.nick.as_ref());
 
@@ -74,7 +75,7 @@ pub fn view<'a>(
                         let nick = user_context::view(text, server, None, user, None, None)
                             .map(scroll_view::Message::UserContext);
 
-                        let message = message_content::with_context(
+                        let message_content = message_content::with_context(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
@@ -95,12 +96,21 @@ pub fn view<'a>(
                         let timestamp_nickname_row =
                             row![].push_maybe(timestamp).push(nick).push(space);
 
+                        let text_container = container(message_content).style(move |theme| {
+                            if let Some(nick) = our_nick {
+                                if message::references_user(user.nickname(), nick, message) {
+                                    return theme::container::highlight(theme);
+                                }
+                            }
+                            Default::default()
+                        });
+
                         match &config.buffer.nickname.alignment {
                             data::buffer::Alignment::Left | data::buffer::Alignment::Right => {
-                                Some(row![].push(timestamp_nickname_row).push(message).into())
+                                Some(row![].push(timestamp_nickname_row).push(text_container).into())
                             }
                             data::buffer::Alignment::Top => {
-                                Some(column![].push(timestamp_nickname_row).push(message).into())
+                                Some(column![].push(timestamp_nickname_row).push(text_container).into())
                             }
                         }
                     }
@@ -130,10 +140,10 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Action => {
+                    message::Source::Action(user) => {
                         let marker = message_marker(max_nick_width, theme::selectable_text::action);
 
-                        let message = message_content(
+                        let message_content = message_content(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
@@ -141,13 +151,22 @@ pub fn view<'a>(
                             config,
                         );
 
+                        let text_container = container(message_content).style(move |theme| {
+                            if let (Some(user), Some(nick)) = (user, our_nick) {
+                                if message::references_user(user.nickname(), nick, message) {
+                                    return theme::container::highlight(theme);
+                                }
+                            }
+                            Default::default()
+                        });
+
                         Some(
                             container(
                                 row![]
                                     .push_maybe(timestamp)
                                     .push(marker)
                                     .push(space)
-                                    .push(message),
+                                    .push(text_container),
                             )
                             .into(),
                         )
