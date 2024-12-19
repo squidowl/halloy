@@ -185,8 +185,7 @@ impl Commands {
                         }
                     }
                     "MSG" => {
-                        let channel_membership_prefixes = 
-                        if let Some(
+                        let channel_membership_prefixes = if let Some(
                             isupport::Parameter::STATUSMSG(channel_membership_prefixes),
                         ) =
                             isupport.get(&isupport::Kind::STATUSMSG)
@@ -247,6 +246,9 @@ impl Commands {
                 isupport
                     .iter()
                     .filter_map(|(_, isupport_parameter)| match isupport_parameter {
+                        isupport::Parameter::CHATHISTORY(maximum_limit) => {
+                            Some(chathistory_command(maximum_limit))
+                        }
                         isupport::Parameter::MONITOR(target_limit) => {
                             Some(monitor_command(target_limit))
                         }
@@ -503,12 +505,21 @@ impl Command {
     }
 
     fn view<'a, Message: 'a>(&self, input: &str) -> Element<'a, Message> {
-        let active_arg = [input, "_"]
-            .concat()
-            .split_ascii_whitespace()
-            .count()
-            .saturating_sub(2)
-            .min(self.args.len().saturating_sub(1));
+        let command_prefix = format!("/{}", self.title.to_lowercase());
+
+        let active_arg = [
+            "_",
+            input
+                .to_lowercase()
+                .strip_prefix(&command_prefix)
+                .unwrap_or(input),
+            "_",
+        ]
+        .concat()
+        .split_ascii_whitespace()
+        .count()
+        .saturating_sub(2)
+        .min(self.args.len().saturating_sub(1));
 
         let title = Some(Element::from(text(self.title)));
 
@@ -922,6 +933,234 @@ fn away_command(max_len: &u16) -> Command {
     }
 }
 
+fn chathistory_command(maximum_limit: &u16) -> Command {
+    Command {
+        title: "CHATHISTORY",
+        args: vec![Arg {
+            text: "subcommand",
+            optional: false,
+            tooltip: Some(String::from(
+                " BEFORE: Request messages before a timestamp or msgid\
+               \n  AFTER: Request after before a timestamp or msgid\
+               \n LATEST: Request most recent messages that have been sent\
+               \n AROUND: Request messages before or after a timestamp or msgid\
+               \nBETWEEN: Request messages between a timestamp or msgid and another timestamp or msgid\
+               \nTARGETS: List channels with visible history and users that have sent direct messages",
+            )),
+        }],
+        subcommands: Some(vec![
+            chathistory_after_command(maximum_limit),
+            chathistory_around_command(maximum_limit),
+            chathistory_before_command(maximum_limit),
+            chathistory_between_command(maximum_limit),
+            chathistory_latest_command(maximum_limit),
+            chathistory_targets_command(maximum_limit),
+        ]),
+    }
+}
+
+fn chathistory_after_command(maximum_limit: &u16) -> Command {
+    let limit_tooltip = if *maximum_limit == 1 {
+        String::from("up to 1 message")
+    } else {
+        format!("up to {} messages", maximum_limit)
+    };
+
+    Command {
+        title: "CHATHISTORY AFTER",
+        args: vec![
+            Arg {
+                text: "target",
+                optional: false,
+                tooltip: None,
+            },
+            Arg {
+                text: "timestamp | msgid",
+                optional: false,
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
+            },
+            Arg {
+                text: "limit",
+                optional: false,
+                tooltip: Some(limit_tooltip),
+            },
+        ],
+        subcommands: None,
+    }
+}
+
+fn chathistory_around_command(maximum_limit: &u16) -> Command {
+    let limit_tooltip = if *maximum_limit == 1 {
+        String::from("up to 1 message")
+    } else {
+        format!("up to {} messages", maximum_limit)
+    };
+
+    Command {
+        title: "CHATHISTORY AROUND",
+        args: vec![
+            Arg {
+                text: "target",
+                optional: false,
+                tooltip: None,
+            },
+            Arg {
+                text: "timestamp | msgid",
+                optional: false,
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
+            },
+            Arg {
+                text: "limit",
+                optional: false,
+                tooltip: Some(limit_tooltip),
+            },
+        ],
+        subcommands: None,
+    }
+}
+
+fn chathistory_before_command(maximum_limit: &u16) -> Command {
+    let limit_tooltip = if *maximum_limit == 1 {
+        String::from("up to 1 message")
+    } else {
+        format!("up to {} messages", maximum_limit)
+    };
+
+    Command {
+        title: "CHATHISTORY BEFORE",
+        args: vec![
+            Arg {
+                text: "target",
+                optional: false,
+                tooltip: None,
+            },
+            Arg {
+                text: "timestamp | msgid",
+                optional: false,
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
+            },
+            Arg {
+                text: "limit",
+                optional: false,
+                tooltip: Some(limit_tooltip),
+            },
+        ],
+        subcommands: None,
+    }
+}
+
+fn chathistory_between_command(maximum_limit: &u16) -> Command {
+    let limit_tooltip = if *maximum_limit == 1 {
+        String::from("up to 1 message")
+    } else {
+        format!("up to {} messages", maximum_limit)
+    };
+
+    Command {
+        title: "CHATHISTORY BETWEEN",
+        args: vec![
+            Arg {
+                text: "target",
+                optional: false,
+                tooltip: None,
+            },
+            Arg {
+                text: "timestamp | msgid",
+                optional: false,
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
+            },
+            Arg {
+                text: "timestamp | msgid",
+                optional: false,
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
+            },
+            Arg {
+                text: "limit",
+                optional: false,
+                tooltip: Some(limit_tooltip),
+            },
+        ],
+        subcommands: None,
+    }
+}
+
+fn chathistory_latest_command(maximum_limit: &u16) -> Command {
+    let limit_tooltip = if *maximum_limit == 1 {
+        String::from("up to 1 message")
+    } else {
+        format!("up to {} messages", maximum_limit)
+    };
+
+    Command {
+        title: "CHATHISTORY LATEST",
+        args: vec![
+            Arg {
+                text: "target",
+                optional: false,
+                tooltip: None,
+            },
+            Arg {
+                text: "* | timestamp | msgid",
+                optional: false,
+                tooltip: Some(String::from(
+                    "               *: no restriction on returned messages\
+                   \ntimestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
+            },
+            Arg {
+                text: "limit",
+                optional: false,
+                tooltip: Some(limit_tooltip),
+            },
+        ],
+        subcommands: None,
+    }
+}
+
+fn chathistory_targets_command(maximum_limit: &u16) -> Command {
+    let limit_tooltip = if *maximum_limit == 1 {
+        String::from("up to 1 target")
+    } else {
+        format!("up to {} targets", maximum_limit)
+    };
+
+    Command {
+        title: "CHATHISTORY TARGETS",
+        args: vec![
+            Arg {
+                text: "timestamp",
+                optional: false,
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
+            },
+            Arg {
+                text: "timestamp",
+                optional: false,
+                tooltip: Some(String::from(
+                    "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
+                )),
+            },
+            Arg {
+                text: "limit",
+                optional: false,
+                tooltip: Some(limit_tooltip),
+            },
+        ],
+        subcommands: None,
+    }
+}
+
 static CNOTICE_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     title: "CNOTICE",
     args: vec![
@@ -1055,7 +1294,7 @@ fn list_command(
     if let Some(target_limit) = target_limit {
         if let Some(limit) = target_limit.limit {
             channels_tooltip.push_str(format!("\nup to {} channel", limit).as_str());
-            if limit > 1 {
+            if limit != 1 {
                 channels_tooltip.push('s')
             }
         }
@@ -1136,7 +1375,7 @@ fn monitor_add_command(target_limit: &Option<u16>) -> Command {
 
     if let Some(target_limit) = target_limit {
         targets_tooltip.push_str(format!("\nup to {} target", target_limit).as_str());
-        if *target_limit > 1 {
+        if *target_limit != 1 {
             targets_tooltip.push('s')
         }
         targets_tooltip.push_str(" in total");
@@ -1204,7 +1443,7 @@ fn msg_command(
     if let Some(target_limit) = target_limit {
         if let Some(limit) = target_limit.limit {
             targets_tooltip.push_str(format!("\nup to {} target", limit).as_str());
-            if limit > 1 {
+            if limit != 1 {
                 targets_tooltip.push('s')
             }
         }
@@ -1233,7 +1472,7 @@ fn names_command(target_limit: &isupport::CommandTargetLimit) -> Command {
 
     if let Some(limit) = target_limit.limit {
         channels_tooltip.push_str(format!("\nup to {} channel", limit).as_str());
-        if limit > 1 {
+        if limit != 1 {
             channels_tooltip.push('s')
         }
     }
@@ -1353,7 +1592,7 @@ fn whois_command(target_limit: &isupport::CommandTargetLimit) -> Command {
 
     if let Some(limit) = target_limit.limit {
         nicks_tooltip.push_str(format!("\nup to {} nick", limit).as_str());
-        if limit > 1 {
+        if limit != 1 {
             nicks_tooltip.push('s')
         }
     }

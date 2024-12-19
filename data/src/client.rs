@@ -1571,6 +1571,8 @@ impl Client {
                 }
             }
             Command::CHATHISTORY(sub, args) => {
+                let mut events = vec![];
+
                 if sub == "TARGETS" {
                     if let Some(target) = args.first() {
                         if let Some((prefixes, channel)) = proto::parse_channel_from_target(
@@ -1579,21 +1581,26 @@ impl Client {
                             self.statusmsg(),
                         ) {
                             if !prefixes.is_empty() && self.chanmap.contains_key(&channel) {
-                                return Ok(vec![Event::ChatHistoryTargetReceived(
+                                events.push(Event::ChatHistoryTargetReceived(
                                     target.clone(),
                                     server_time(&message),
-                                )]);
+                                ));
                             }
                         } else {
-                            return Ok(vec![Event::ChatHistoryTargetReceived(
+                            events.push(Event::ChatHistoryTargetReceived(
                                 target.clone(),
                                 server_time(&message),
-                            )]);
+                            ));
+                        }
+
+                        if self.chathistory_targets_request.is_none() {
+                            // User requested, save to history
+                            events.push(Event::Single(message.clone(), self.nickname().to_owned()));
                         }
                     }
                 }
 
-                return Ok(vec![]);
+                return Ok(events);
             }
             _ => {}
         }
