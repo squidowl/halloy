@@ -151,15 +151,14 @@ pub fn view<'a>(
                             .push(nick)
                             .push(space);
 
-                        let text_container =
-                            container(message_content).style(move |theme| match our_nick {
-                                Some(nick)
-                                    if message::references_user(user.nickname(), nick, message) =>
-                                {
-                                    theme::container::highlight(theme)
+                        let text_container = container(message_content).style(move |theme| {
+                            if let Some(nick) = our_nick {
+                                if message::references_user(user.nickname(), nick, message) {
+                                    return theme::container::highlight(theme);
                                 }
-                                _ => Default::default(),
-                            });
+                            }
+                            Default::default()
+                        });
 
                         match &config.buffer.nickname.alignment {
                             data::buffer::Alignment::Left | data::buffer::Alignment::Right => Some(
@@ -203,16 +202,25 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Action => {
+                    message::Source::Action(user) => {
                         let marker = message_marker(max_nick_width, theme::selectable_text::action);
 
-                        let message = message_content(
+                        let message_content = message_content(
                             &message.content,
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::action,
                             config,
                         );
+
+                        let text_container = container(message_content).style(move |theme| {
+                            if let (Some(user), Some(nick)) = (user, our_nick) {
+                                if message::references_user(user.nickname(), nick, message) {
+                                    return theme::container::highlight(theme);
+                                }
+                            }
+                            Default::default()
+                        });
 
                         Some(
                             container(
@@ -221,7 +229,7 @@ pub fn view<'a>(
                                     .push_maybe(prefixes)
                                     .push(marker)
                                     .push(space)
-                                    .push(message),
+                                    .push(text_container),
                             )
                             .into(),
                         )

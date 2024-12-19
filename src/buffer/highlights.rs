@@ -107,6 +107,44 @@ pub fn view<'a>(
                         .into(),
                     )
                 }
+                message::Target::Highlights {
+                    server,
+                    channel,
+                    source: message::Source::Action(_),
+                } => {
+                    let timestamp =
+                        config
+                            .buffer
+                            .format_timestamp(&message.server_time)
+                            .map(|timestamp| {
+                                selectable_text(timestamp).style(theme::selectable_text::timestamp)
+                            });
+
+                    let channel_text = selectable_rich_text::<_, _, (), _, _>(vec![
+                        span(channel.as_str())
+                            .color(theme.colors().buffer.url)
+                            .link(message::Link::GoToMessage(
+                                server.clone(),
+                                channel.clone(),
+                                message.hash,
+                            )),
+                        span(" "),
+                    ])
+                    .on_link(scroll_view::Message::Link);
+
+                    let text = message_content(
+                        &message.content,
+                        theme,
+                        scroll_view::Message::Link,
+                        theme::selectable_text::action,
+                        config,
+                    );
+
+                    Some(
+                        container(row![].push_maybe(timestamp).push(channel_text).push(text))
+                            .into(),
+                    )
+                }
                 _ => None,
             },
         )
