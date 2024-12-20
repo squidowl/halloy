@@ -1,4 +1,4 @@
-use data::{history, message, Config, Server};
+use data::{history, message, target, Config, Server};
 use iced::widget::{container, row, span};
 use iced::{Length, Task};
 
@@ -13,8 +13,8 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(String),
-    GoToMessage(Server, String, message::Hash),
+    OpenChannel(target::Channel),
+    GoToMessage(Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
 }
 
@@ -49,13 +49,13 @@ pub fn view<'a>(
                             });
 
                     let channel_text = selectable_rich_text::<_, _, (), _, _>(vec![
-                        span(channel).color(theme.colors().buffer.url).link(
-                            message::Link::GoToMessage(
+                        span(channel.as_str())
+                            .color(theme.colors().buffer.url)
+                            .link(message::Link::GoToMessage(
                                 server.clone(),
-                                channel.to_string(),
+                                channel.clone(),
                                 message.hash,
-                            ),
-                        ),
+                            )),
                         span(" "),
                     ])
                     .on_link(scroll_view::Message::Link);
@@ -73,12 +73,22 @@ pub fn view<'a>(
                     )
                     .style(|theme| theme::selectable_text::nickname(theme, config, user));
 
-                    let nick =
-                        user_context::view(text, server, Some(channel), user, current_user, None)
-                            .map(scroll_view::Message::UserContext);
+                    let casemapping = clients.get_casemapping(server);
+
+                    let nick = user_context::view(
+                        text,
+                        server,
+                        casemapping,
+                        Some(channel),
+                        user,
+                        current_user,
+                        None,
+                    )
+                    .map(scroll_view::Message::UserContext);
 
                     let text = message_content::with_context(
                         &message.content,
+                        casemapping,
                         theme,
                         scroll_view::Message::Link,
                         theme::selectable_text::default,
@@ -88,7 +98,14 @@ pub fn view<'a>(
                         },
                         move |link, entry, length| match link {
                             message::Link::User(user) => entry
-                                .view(server, Some(channel), user, current_user, length)
+                                .view(
+                                    server,
+                                    clients.get_casemapping(server),
+                                    Some(channel),
+                                    user,
+                                    current_user,
+                                    length,
+                                )
                                 .map(scroll_view::Message::UserContext),
                             _ => row![].into(),
                         },
@@ -132,8 +149,11 @@ pub fn view<'a>(
                     ])
                     .on_link(scroll_view::Message::Link);
 
+                    let casemapping = clients.get_casemapping(server);
+
                     let text = message_content(
                         &message.content,
+                        casemapping,
                         theme,
                         scroll_view::Message::Link,
                         theme::selectable_text::action,

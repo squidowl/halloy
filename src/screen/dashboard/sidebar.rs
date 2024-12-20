@@ -306,18 +306,21 @@ impl Sidebar {
                     }
 
                     let queries = history.get_unique_queries(server);
-                    for user in queries {
+                    for query in queries {
+                        let query = clients.resolve_query(server, query).unwrap_or(query);
+
                         buffers.push(upstream_buffer_button(
                             main_window,
                             panes,
                             focus,
-                            buffer::Upstream::Query(server.clone(), user.clone()),
+                            buffer::Upstream::Query(server.clone(), query.clone()),
                             true,
                             config.buffer_action,
                             config.buffer_focused_action,
                             config.position,
                             config.unread_indicator,
-                            history.has_unread(&history::Kind::Query(server.clone(), user.clone())),
+                            history
+                                .has_unread(&history::Kind::Query(server.clone(), query.clone())),
                         ));
                     }
 
@@ -540,13 +543,13 @@ fn upstream_buffer_button(
             )
             .push(unread_dot_indicator_spacing)
             .push(
-                text(channel.clone())
+                text(channel.to_string())
                     .style(buffer_title_style)
                     .shaping(text::Shaping::Advanced),
             )
             .push(horizontal_space().width(3))
             .align_y(iced::Alignment::Center),
-        buffer::Upstream::Query(_, nick) => row![]
+        buffer::Upstream::Query(_, query) => row![]
             .push(horizontal_space().width(3))
             .push_maybe(
                 show_unread_indicator
@@ -554,7 +557,7 @@ fn upstream_buffer_button(
             )
             .push(unread_dot_indicator_spacing)
             .push(
-                text(nick.to_string())
+                text(query.to_string())
                     .style(buffer_title_style)
                     .shaping(text::Shaping::Advanced),
             )
