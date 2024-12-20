@@ -6,47 +6,29 @@ Proxy settings for Halloy.
 
 ```toml
 [proxy]
-type = "socks5"
-host = "192.168.1.100"
-port = 1080
+Socks5 = { host = "192.168.1.100", port = 1080 }
 ```
 
-## `type`
+## `Http`
 
-Proxy type.
+Utilizes an HTTP proxy.
 
-- **type**: string
-- **values**: `http`, `socks5`
-- **default**: not set
-   
-## `host`
+- **host**: string
+- **port**: u16
+- **username**: string (optional)
+- **password**: string (optional)
 
-Proxy host to connect to .
+## `Socks5`
 
-- **type**: string
-- **values**: any string
-- **default**: not set
- 
-## `port`
+Utilizes a SOCKS5 proxy.
 
-Proxy port to connect on.
+- **host**: string
+- **port**: u16
+- **username**: string (optional)
+- **password**: string (optional)
 
-- **type**: integer
-- **values**: any positive integer
-- **default**: not set
-- 
-## `username`
+## `Tor`
 
-Proxy username (optional).
+Utilizes the [arti](https://arti.torproject.org) to integrate Tor natively.
 
-- **type**: string
-- **values**: any string
-- **default**: not set
-  
-## `password`
-
-Proxy password (optional).
-
-- **type**: string
-- **values**: any string
-- **default**: not set
+It accepts no further configuration.
