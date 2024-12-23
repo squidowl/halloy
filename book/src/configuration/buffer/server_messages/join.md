@@ -37,7 +37,7 @@ Adjust the amount of information displayed for a username in server messages. If
 
 ## `exclude`
 
-Exclude channels from receiving the server messag.
+Exclude channels from receiving the server message.
 If you pass `["#halloy"]`, the channel `#halloy` will not receive the server message. You can also exclude all channels by using a wildcard: `["*"]`.
 
 - **type**: array of strings
