@@ -203,6 +203,8 @@ direct_message = { sound = "peck", show_toast = true }
 <tr><td><code>disconnected</code></td><td>Triggered when a server disconnects</td></tr>
 <tr><td><code>file_transfer_request</code></td><td>Triggered when a file transfer request is received</td></tr>
 <tr><td><code>highlight</code></td><td>Triggered when you were highlighted in a buffer</td></tr>
+<tr><td><code>monitored_online</code></td><td>Triggered when a user you're monitoring is online</td></tr>
+<tr><td><code>monitored_offline</code></td><td>Triggered when a user you're monitoring is offline</td></tr>
 <tr><td><code>reconnected</code></td><td>Triggered when a server reconnects</td></tr>
 </tbody></table>
 </div>
@@ -220,6 +222,13 @@ Supports both built-in sounds, and external sound files (<code>mp3</code>, <code
 <li><strong>type</strong>: boolean</li>
 <li><strong>values</strong>: <code>true</code>, <code>false</code></li>
 <li><strong>default</strong>: <code>false</code></li>
+</ul>
+<h2 id="delay"><a class="header" href="#delay"><code>delay</code></a></h2>
+<p>Delay in milliseconds before triggering the next notification.</p>
+<ul>
+<li><strong>type</strong>: integer</li>
+<li><strong>values</strong>: <code>0</code> or greater</li>
+<li><strong>default</strong>: <code>500</code></li>
 </ul>
 
                     </main>
