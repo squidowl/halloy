@@ -1,7 +1,12 @@
+use std::collections::HashMap;
+use std::time::Duration;
+
+use chrono::{DateTime, Utc};
+
 use data::{
     audio::Sound,
+    client::Notification,
     config::{self, notification},
-    user::{Nick, NickRef},
 };
 
 use crate::audio;
@@ -10,68 +15,137 @@ pub use self::toast::prepare;
 
 mod toast;
 
-pub fn connected(config: &config::Notifications<Sound>, server: impl ToString) {
-    show_notification(&config.connected, "Connected", server);
+pub struct Notifications {
+    recent_notifications: HashMap<Notification, DateTime<Utc>>,
 }
 
-pub fn reconnected(config: &config::Notifications<Sound>, server: impl ToString) {
-    show_notification(&config.reconnected, "Reconnected", server);
-}
-
-pub fn disconnected(config: &config::Notifications<Sound>, server: impl ToString) {
-    show_notification(&config.disconnected, "Disconnected", server);
-}
-
-pub fn direct_message(config: &config::Notifications<Sound>, nick: NickRef) {
-    show_notification(
-        &config.direct_message,
-        "Direct message",
-        format!("{} sent you a direct message", nick),
-    );
-}
-
-pub fn highlight(config: &config::Notifications<Sound>, nick: NickRef, channel: String) {
-    show_notification(
-        &config.highlight,
-        "Highlight",
-        format!("{} highlighted you in {}", nick, channel),
-    );
-}
-
-pub fn file_transfer_request(
-    config: &config::Notifications<Sound>,
-    nick: Nick,
-    server: impl ToString,
-) {
-    show_notification(
-        &config.file_transfer_request,
-        &format!("File transfer from {}", nick),
-        server,
-    );
-}
-
-pub fn monitored_online(config: &config::Notifications<Sound>, nick: Nick, server: impl ToString) {
-    show_notification(
-        &config.monitored_online,
-        &format!("{} is online", nick),
-        server,
-    );
-}
-
-pub fn monitored_offline(config: &config::Notifications<Sound>, nick: Nick, server: impl ToString) {
-    show_notification(
-        &config.monitored_offline,
-        &format!("{} is offline", nick),
-        server,
-    );
-}
-
-fn show_notification(notification: &notification::Loaded, title: &str, body: impl ToString) {
-    if notification.show_toast {
-        toast::show(title, body);
+impl Notifications {
+    pub fn new() -> Self {
+        Self {
+            recent_notifications: HashMap::new(),
+        }
     }
 
-    if let Some(sound) = &notification.sound {
-        audio::play(sound.clone());
+    pub fn notify(
+        &mut self,
+        config: &config::Notifications<Sound>,
+        notification: &Notification,
+        server: Option<impl ToString>,
+    ) {
+        match notification {
+            Notification::Connected => {
+                if let Some(server) = server {
+                    self.execute(
+                        &config.connected,
+                        notification,
+                        "Connected",
+                        server.to_string(),
+                    );
+                }
+            }
+            Notification::Disconnected => {
+                if let Some(server) = server {
+                    self.execute(
+                        &config.disconnected,
+                        notification,
+                        "Disconnected",
+                        server.to_string(),
+                    );
+                }
+            }
+            Notification::Reconnected => {
+                if let Some(server) = server {
+                    self.execute(
+                        &config.reconnected,
+                        notification,
+                        "Reconnected",
+                        server.to_string(),
+                    );
+                }
+            }
+            Notification::MonitoredOnline(targets) => {
+                if let Some(server) = server {
+                    targets.iter().for_each(|target| {
+                        self.execute(
+                            &config.monitored_online,
+                            notification,
+                            &format!("{} is online", target.nickname()),
+                            server.to_string(),
+                        );
+                    });
+                }
+            }
+            Notification::MonitoredOffline(targets) => {
+                if let Some(server) = server {
+                    targets.iter().for_each(|target| {
+                        self.execute(
+                            &config.monitored_offline,
+                            notification,
+                            &format!("{} is offline", target),
+                            server.to_string(),
+                        );
+                    });
+                }
+            }
+            Notification::FileTransferRequest(nick) => {
+                if let Some(server) = server {
+                    self.execute(
+                        &config.file_transfer_request,
+                        notification,
+                        &format!("File transfer from {}", nick),
+                        server.to_string(),
+                    );
+                }
+            }
+            Notification::DirectMessage(user) => {
+                self.execute(
+                    &config.direct_message,
+                    notification,
+                    "Direct message",
+                    format!("{} sent you a direct message", user.nickname()),
+                );
+            }
+            Notification::Highlight {
+                enabled,
+                user,
+                channel,
+            } => {
+                if *enabled {
+                    self.execute(
+                        &config.highlight,
+                        notification,
+                        "Highlight",
+                        format!("{} highlighted you in {}", user.nickname(), channel),
+                    );
+                }
+            }
+        }
+    }
+
+    fn execute(
+        &mut self,
+        config: &notification::Loaded,
+        notification: &Notification,
+        title: &str,
+        body: impl ToString,
+    ) {
+        let last_notification = self.recent_notifications.get(notification).cloned();
+
+        if last_notification.is_some()
+            && last_notification.unwrap()
+                > Utc::now() - Duration::from_millis(config.delay.unwrap_or(500))
+        {
+            return;
+        }
+
+        if config.show_toast {
+            toast::show(title, body);
+        }
+
+        if let Some(sound) = &config.sound {
+            audio::play(sound.clone());
+        }
+
+        self.recent_notifications.insert(notification.clone(), Utc::now());
     }
 }
