@@ -721,7 +721,7 @@ impl Halloy {
                                                     if dashboard.history().has_unread(
                                                         &history::Kind::Query(
                                                             server.clone(),
-                                                            user.nickname().to_owned(),
+                                                            query,
                                                         ),
                                                     ) || !self.main_window.focused
                                                     {
@@ -736,7 +736,7 @@ impl Halloy {
                                             data::client::Notification::Highlight {
                                                 enabled: _,
                                                 user: _,
-                                                channel: _,
+                                                target: _,
                                             }
                                             | data::client::Notification::MonitoredOnline(_)
                                             | data::client::Notification::MonitoredOffline(_) => {
