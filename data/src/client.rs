@@ -15,12 +15,13 @@ use anyhow::{anyhow, bail, Result};
 use crate::history::ReadMarker;
 use crate::isupport::{ChatHistoryState, ChatHistorySubcommand, MessageReference};
 use crate::message::{message_id, server_time, source};
+use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{
     buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Server, User,
 };
-use crate::{file_transfer, server, target};
+use crate::{file_transfer, server};
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -55,7 +56,7 @@ pub enum Notification {
     Highlight {
         enabled: bool,
         user: User,
-        target: target::Target,
+        target: Target,
     },
     FileTransferRequest(Nick),
     MonitoredOnline(Vec<User>),
@@ -97,7 +98,7 @@ pub enum Broadcast {
 pub enum Message {
     ChatHistoryRequest(Server, ChatHistorySubcommand),
     ChatHistoryTargetsTimestampUpdated(Server, DateTime<Utc>, Result<(), Error>),
-    RequestNewerChatHistory(Server, target::Target, DateTime<Utc>),
+    RequestNewerChatHistory(Server, Target, DateTime<Utc>),
     RequestChatHistoryTargets(Server, Option<DateTime<Utc>>, DateTime<Utc>),
 }
 
@@ -108,10 +109,10 @@ pub enum Event {
     Broadcast(Broadcast),
     Notification(message::Encoded, Nick, Notification),
     FileTransferRequest(file_transfer::ReceiveRequest),
-    UpdateReadMarker(target::Target, ReadMarker),
+    UpdateReadMarker(Target, ReadMarker),
     JoinedChannel(target::Channel, DateTime<Utc>),
     ChatHistoryAcknowledged(DateTime<Utc>),
-    ChatHistoryTargetReceived(target::Target, DateTime<Utc>),
+    ChatHistoryTargetReceived(Target, DateTime<Utc>),
     ChatHistoryTargetsReceived(DateTime<Utc>),
 }
 
@@ -131,7 +132,7 @@ pub struct Client {
     users: HashMap<target::Channel, Vec<User>>,
     resolved_queries: HashSet<target::Query>,
     labels: HashMap<String, Context>,
-    batches: HashMap<target::Target, Batch>,
+    batches: HashMap<Target, Batch>,
     reroute_responses_to: Option<buffer::Upstream>,
     registration_step: RegistrationStep,
     listed_caps: Vec<String>,
@@ -141,8 +142,8 @@ pub struct Client {
     supports_extended_join: bool,
     supports_read_marker: bool,
     supports_chathistory: bool,
-    chathistory_requests: HashMap<target::Target, ChatHistoryRequest>,
-    chathistory_exhausted: HashMap<target::Target, bool>,
+    chathistory_requests: HashMap<Target, ChatHistoryRequest>,
+    chathistory_exhausted: HashMap<Target, bool>,
     chathistory_targets_request: Option<ChatHistoryRequest>,
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<target::Channel>,
@@ -296,7 +297,7 @@ impl Client {
                 .or_else(|| {
                     batch_tag.as_ref().and_then(|batch| {
                         self.batches
-                            .get(&target::Target::parse(
+                            .get(&Target::parse(
                                 batch,
                                 self.chantypes(),
                                 self.statusmsg(),
@@ -325,7 +326,7 @@ impl Client {
 
                         batch.chathistory = match params.first().map(|x| x.as_str()) {
                             Some("chathistory") => params.get(1).map(|target| {
-                                ChatHistoryBatch::Target(target::Target::parse(
+                                ChatHistoryBatch::Target(Target::parse(
                                     target,
                                     self.chantypes(),
                                     self.statusmsg(),
@@ -337,7 +338,7 @@ impl Client {
                         };
 
                         self.batches.insert(
-                            target::Target::parse(
+                            Target::parse(
                                 &reference,
                                 self.chantypes(),
                                 self.statusmsg(),
@@ -347,7 +348,7 @@ impl Client {
                         );
                     }
                     '-' => {
-                        if let Some(mut finished) = self.batches.remove(&target::Target::parse(
+                        if let Some(mut finished) = self.batches.remove(&Target::parse(
                             &reference,
                             self.chantypes(),
                             self.statusmsg(),
@@ -355,7 +356,7 @@ impl Client {
                         )) {
                             // If nested, extend events into parent batch
                             if let Some(parent) = batch_tag.as_ref().and_then(|batch| {
-                                self.batches.get_mut(&target::Target::parse(
+                                self.batches.get_mut(&Target::parse(
                                     batch,
                                     self.chantypes(),
                                     self.statusmsg(),
@@ -518,7 +519,7 @@ impl Client {
                 let events = if let Some(target) = batch_tag
                     .as_ref()
                     .and_then(|batch| {
-                        self.batches.get(&target::Target::parse(
+                        self.batches.get(&Target::parse(
                             batch,
                             self.chantypes(),
                             self.statusmsg(),
@@ -596,7 +597,7 @@ impl Client {
                     self.handle(message, context)?
                 };
 
-                if let Some(batch) = self.batches.get_mut(&target::Target::parse(
+                if let Some(batch) = self.batches.get_mut(&Target::parse(
                     &batch_tag.unwrap(),
                     self.chantypes(),
                     self.statusmsg(),
@@ -1012,7 +1013,7 @@ impl Client {
                                 Notification::Highlight {
                                     enabled: self.highlight_blackout.allow_highlights(),
                                     user,
-                                    target: target::Target::parse(
+                                    target: Target::parse(
                                         target,
                                         self.chantypes(),
                                         self.statusmsg(),
@@ -1714,7 +1715,7 @@ impl Client {
                     .and_then(|timestamp| timestamp.parse::<ReadMarker>().ok())
                 {
                     return Ok(vec![Event::UpdateReadMarker(
-                        target::Target::parse(
+                        Target::parse(
                             target,
                             self.chantypes(),
                             self.statusmsg(),
@@ -1728,7 +1729,7 @@ impl Client {
                 let mut events = vec![];
 
                 if sub == "TARGETS" {
-                    let target = target::Target::parse(
+                    let target = Target::parse(
                         ok!(args.first()),
                         self.chantypes(),
                         self.statusmsg(),
@@ -1736,7 +1737,7 @@ impl Client {
                     );
 
                     match target {
-                        target::Target::Channel(ref channel) => {
+                        Target::Channel(ref channel) => {
                             if !channel.prefixes().is_empty() && self.chanmap.contains_key(channel)
                             {
                                 events.push(Event::ChatHistoryTargetReceived(
@@ -1745,7 +1746,7 @@ impl Client {
                                 ));
                             }
                         }
-                        target::Target::Query(query) => {
+                        Target::Query(_) => {
                             events.push(Event::ChatHistoryTargetReceived(
                                 target,
                                 server_time(&message),
@@ -1824,7 +1825,7 @@ impl Client {
         }
     }
 
-    pub fn chathistory_request(&self, target: &target::Target) -> Option<ChatHistorySubcommand> {
+    pub fn chathistory_request(&self, target: &Target) -> Option<ChatHistorySubcommand> {
         self.chathistory_requests
             .get(target)
             .map(|request| request.subcommand.clone())
@@ -1836,7 +1837,7 @@ impl Client {
         if self.supports_chathistory {
             if let Some(target) = subcommand.target() {
                 if let hash_map::Entry::Vacant(entry) =
-                    self.chathistory_requests.entry(target::Target::parse(
+                    self.chathistory_requests.entry(Target::parse(
                         target,
                         self.chantypes(),
                         self.statusmsg(),
@@ -1964,7 +1965,7 @@ impl Client {
         }
     }
 
-    pub fn clear_chathistory_request(&mut self, target: Option<&target::Target>) {
+    pub fn clear_chathistory_request(&mut self, target: Option<&Target>) {
         if let Some(target) = target {
             self.chathistory_requests.remove(target);
         } else {
@@ -1972,7 +1973,7 @@ impl Client {
         }
     }
 
-    pub fn chathistory_exhausted(&self, target: &target::Target) -> bool {
+    pub fn chathistory_exhausted(&self, target: &Target) -> bool {
         self.chathistory_exhausted
             .get(target)
             .cloned()
@@ -2204,7 +2205,7 @@ impl Client {
 }
 
 fn continue_chathistory_between(
-    target: &target::Target,
+    target: &Target,
     events: &[Event],
     end_message_reference: &MessageReference,
     limit: u16,
@@ -2489,7 +2490,7 @@ impl Map {
     pub fn get_chathistory_request(
         &self,
         server: &Server,
-        target: &target::Target,
+        target: &Target,
     ) -> Option<ChatHistorySubcommand> {
         self.client(server)
             .and_then(|client| client.chathistory_request(target))
@@ -2501,13 +2502,13 @@ impl Map {
         }
     }
 
-    pub fn clear_chathistory_request(&mut self, server: &Server, target: Option<&target::Target>) {
+    pub fn clear_chathistory_request(&mut self, server: &Server, target: Option<&Target>) {
         if let Some(client) = self.client_mut(server) {
             client.clear_chathistory_request(target);
         }
     }
 
-    pub fn get_chathistory_exhausted(&self, server: &Server, target: &target::Target) -> bool {
+    pub fn get_chathistory_exhausted(&self, server: &Server, target: &Target) -> bool {
         self.client(server)
             .map(|client| client.chathistory_exhausted(target))
             .unwrap_or_default()
@@ -2516,7 +2517,7 @@ impl Map {
     pub fn get_chathistory_state(
         &self,
         server: &Server,
-        target: &target::Target,
+        target: &Target,
     ) -> Option<ChatHistoryState> {
         self.client(server).and_then(|client| {
             if client.supports_chathistory {
@@ -2618,12 +2619,12 @@ impl Context {
 
 #[derive(Debug)]
 pub enum ChatHistoryBatch {
-    Target(target::Target),
+    Target(Target),
     Targets,
 }
 
 impl ChatHistoryBatch {
-    pub fn target(&self) -> Option<target::Target> {
+    pub fn target(&self) -> Option<Target> {
         match self {
             ChatHistoryBatch::Target(batch_target) => Some(batch_target.clone()),
             ChatHistoryBatch::Targets => None,

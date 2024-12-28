@@ -24,8 +24,9 @@ use appearance::{theme, Theme};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::history::{self, manager::Broadcast};
+use data::target::{self, Target};
 use data::version::Version;
-use data::{client::Notification, environment, server, target, version, Server, Url, User};
+use data::{client::Notification, environment, server, version, Server, Url, User};
 use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
@@ -778,7 +779,7 @@ impl Halloy {
                                             .load_metadata(
                                                 &self.clients,
                                                 server.clone(),
-                                                target::Target::Channel(channel),
+                                                Target::Channel(channel),
                                                 server_time,
                                             )
                                             .map(Message::Dashboard);

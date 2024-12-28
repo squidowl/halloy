@@ -7,9 +7,10 @@ use tokio::time::Instant;
 
 use crate::history::{self, History, MessageReferences};
 use crate::message::{self, Limit};
+use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{buffer, config, input, isupport};
-use crate::{server, target, Config, Input, Server, User};
+use crate::{server, Config, Input, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -244,23 +245,19 @@ impl Manager {
     pub fn load_metadata(
         &mut self,
         server: Server,
-        target: target::Target,
+        target: Target,
     ) -> Option<impl Future<Output = Message>> {
         self.data.load_metadata(server, target)
     }
 
-    pub fn first_can_reference(
-        &self,
-        server: Server,
-        target: target::Target,
-    ) -> Option<&crate::Message> {
+    pub fn first_can_reference(&self, server: Server, target: Target) -> Option<&crate::Message> {
         self.data.first_can_reference(server, target)
     }
 
     pub fn last_can_reference_before(
         &self,
         server: Server,
-        target: target::Target,
+        target: Target,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
         self.data
@@ -745,7 +742,7 @@ impl Data {
     fn load_metadata(
         &mut self,
         server: server::Server,
-        target: target::Target,
+        target: Target,
     ) -> Option<impl Future<Output = Message>> {
         use std::collections::hash_map;
 
@@ -771,7 +768,7 @@ impl Data {
     fn first_can_reference(
         &self,
         server: server::Server,
-        target: target::Target,
+        target: Target,
     ) -> Option<&crate::Message> {
         let kind = history::Kind::from_target(server, target);
 
@@ -783,7 +780,7 @@ impl Data {
     fn last_can_reference_before(
         &self,
         server: Server,
-        target: target::Target,
+        target: Target,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
         let kind = history::Kind::from_target(server, target);

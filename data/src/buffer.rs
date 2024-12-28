@@ -6,7 +6,8 @@ pub use self::away::Away;
 
 pub mod away;
 
-use crate::{channel, config, message, target, Server};
+use crate::target::{self, Target};
+use crate::{channel, config, message, Server};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -62,10 +63,10 @@ impl Upstream {
         }
     }
 
-    pub fn target(&self) -> Option<target::Target> {
+    pub fn target(&self) -> Option<Target> {
         match self {
-            Self::Channel(_, channel) => Some(target::Target::Channel(channel.clone())),
-            Self::Query(_, query) => Some(target::Target::Query(query.clone())),
+            Self::Channel(_, channel) => Some(Target::Channel(channel.clone())),
+            Self::Query(_, query) => Some(Target::Query(query.clone())),
             Self::Server(_) => None,
         }
     }
