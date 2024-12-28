@@ -9,7 +9,8 @@ use tokio::fs;
 use tokio::time::Instant;
 
 use crate::message::{self, MessageReferences};
-use crate::{buffer, compression, environment, isupport, target, Buffer, Message, Server};
+use crate::target::{self, Target};
+use crate::{buffer, compression, environment, isupport, Buffer, Message, Server};
 
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
@@ -35,10 +36,10 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub fn from_target(server: Server, target: target::Target) -> Self {
+    pub fn from_target(server: Server, target: Target) -> Self {
         match target {
-            target::Target::Channel(channel) => Self::Channel(server, channel),
-            target::Target::Query(query) => Self::Query(server, query),
+            Target::Channel(channel) => Self::Channel(server, channel),
+            Target::Query(query) => Self::Query(server, query),
         }
     }
 
@@ -51,7 +52,7 @@ impl Kind {
     ) -> Self {
         Self::from_target(
             server,
-            target::Target::parse(target, chantypes, statusmsg, casemapping),
+            Target::parse(target, chantypes, statusmsg, casemapping),
         )
     }
 

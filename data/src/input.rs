@@ -5,7 +5,8 @@ use irc::proto::format;
 
 use crate::buffer::{self, AutoFormat};
 use crate::message::formatting;
-use crate::{command, isupport, message, target, Command, Message, Server, User};
+use crate::target::Target;
+use crate::{command, isupport, message, Command, Message, Server, User};
 
 const INPUT_HISTORY_LENGTH: usize = 100;
 
@@ -71,15 +72,11 @@ impl Input {
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
     ) -> Option<Vec<Message>> {
-        let to_target = |target: &str, source| match target::Target::parse(
-            target,
-            chantypes,
-            statusmsg,
-            casemapping,
-        ) {
-            target::Target::Channel(channel) => message::Target::Channel { channel, source },
-            target::Target::Query(query) => message::Target::Query { query, source },
-        };
+        let to_target =
+            |target: &str, source| match Target::parse(target, chantypes, statusmsg, casemapping) {
+                Target::Channel(channel) => message::Target::Channel { channel, source },
+                Target::Query(query) => message::Target::Query { query, source },
+            };
 
         let command = self.content.command(&self.buffer)?;
 

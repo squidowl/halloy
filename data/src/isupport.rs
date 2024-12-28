@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use chrono::{format::SecondsFormat, DateTime, Utc};
 
-use crate::{target, Message};
+use crate::{target::Target, Message};
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
 // returned by Operation::kind() and Parameter::kind()
@@ -708,9 +708,9 @@ pub struct ChannelMode {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ChatHistorySubcommand {
-    Latest(target::Target, MessageReference, u16),
-    Before(target::Target, MessageReference, u16),
-    Between(target::Target, MessageReference, MessageReference, u16),
+    Latest(Target, MessageReference, u16),
+    Before(Target, MessageReference, u16),
+    Between(Target, MessageReference, MessageReference, u16),
     Targets(MessageReference, MessageReference, u16),
 }
 

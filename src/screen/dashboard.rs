@@ -11,8 +11,9 @@ use data::config;
 use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
+use data::target::{self, Target};
 use data::user::Nick;
-use data::{client, environment, history, target, Config, Server, Version};
+use data::{client, environment, history, Config, Server, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, Length, Task, Vector};
@@ -1444,7 +1445,7 @@ impl Dashboard {
     pub fn get_oldest_message_reference(
         &self,
         server: &Server,
-        target: target::Target,
+        target: Target,
         message_reference_types: &[isupport::MessageReferenceType],
     ) -> MessageReference {
         if let Some(first_can_reference) = self
@@ -1545,7 +1546,7 @@ impl Dashboard {
         &mut self,
         clients: &data::client::Map,
         server: Server,
-        target: target::Target,
+        target: Target,
         server_time: DateTime<Utc>,
     ) -> Task<Message> {
         let command = self
