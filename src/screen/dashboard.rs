@@ -1880,7 +1880,7 @@ impl Dashboard {
             &client::Notification::FileTransferRequest(request.from.clone()),
             Some(server),
         );
-            
+
         let query =
             target::Query::parse(request.from.as_ref(), chantypes, statusmsg, casemapping).ok()?;
 
