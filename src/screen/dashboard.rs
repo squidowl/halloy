@@ -11,6 +11,7 @@ use data::config;
 use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
+use data::target::{self, Target};
 use data::user::Nick;
 use data::{client, environment, history, Config, Server, Version};
 use iced::widget::pane_grid::{self, PaneGrid};
@@ -183,7 +184,7 @@ impl Dashboard {
                                             );
 
                                             let command = data::Command::Mode(
-                                                channel,
+                                                channel.to_string(),
                                                 Some(mode),
                                                 Some(vec![nick.to_string()]),
                                             );
@@ -216,6 +217,8 @@ impl Dashboard {
                                                     clients.get_chantypes(buffer.server());
                                                 let statusmsg =
                                                     clients.get_statusmsg(buffer.server());
+                                                let casemapping =
+                                                    clients.get_casemapping(buffer.server());
 
                                                 // Resolve our attributes if sending this message in a channel
                                                 if let buffer::Upstream::Channel(server, channel) =
@@ -238,6 +241,7 @@ impl Dashboard {
                                                     channel_users,
                                                     chantypes,
                                                     statusmsg,
+                                                    casemapping,
                                                 ) {
                                                     let mut tasks = vec![task];
 
@@ -257,8 +261,8 @@ impl Dashboard {
                                                 }
                                             }
                                         }
-                                        buffer::user_context::Event::OpenQuery(server, nick) => {
-                                            let buffer = buffer::Upstream::Query(server, nick);
+                                        buffer::user_context::Event::OpenQuery(server, query) => {
+                                            let buffer = buffer::Upstream::Query(server, query);
                                             return (
                                                 Task::batch(vec![
                                                     task,
@@ -906,16 +910,26 @@ impl Dashboard {
             Message::SendFileSelected(server, to, path) => {
                 if let Some(server_handle) = clients.get_server_handle(&server) {
                     if let Some(path) = path {
-                        if let Some(event) = self.file_transfers.send(
-                            file_transfer::SendRequest {
-                                to,
-                                path,
-                                server: server.clone(),
-                                server_handle: server_handle.clone(),
-                            },
-                            config.proxy.clone(),
+                        if let Ok(query) = target::Query::parse(
+                            to.as_ref(),
+                            clients.get_chantypes(&server),
+                            clients.get_statusmsg(&server),
+                            clients.get_casemapping(&server),
                         ) {
-                            return (self.handle_file_transfer_event(&server, event), None);
+                            if let Some(event) = self.file_transfers.send(
+                                file_transfer::SendRequest {
+                                    to,
+                                    path,
+                                    server: server.clone(),
+                                    server_handle: server_handle.clone(),
+                                },
+                                config.proxy.clone(),
+                            ) {
+                                return (
+                                    self.handle_file_transfer_event(&server, &query, event),
+                                    None,
+                                );
+                            }
                         }
                     }
                 }
@@ -981,12 +995,7 @@ impl Dashboard {
 
                     let message_reference = self
                         .history
-                        .last_can_reference_before(
-                            server.clone(),
-                            clients.get_chantypes(&server),
-                            target.clone(),
-                            server_time,
-                        )
+                        .last_can_reference_before(server.clone(), target.clone(), server_time)
                         .map_or(MessageReference::None, |message_references| {
                             message_references.message_reference(&message_reference_types)
                         });
@@ -995,7 +1004,7 @@ impl Dashboard {
 
                     clients.send_chathistory_request(
                         &server,
-                        ChatHistorySubcommand::Latest(target.clone(), message_reference, limit),
+                        ChatHistorySubcommand::Latest(target, message_reference, limit),
                     );
                 }
                 client::Message::RequestChatHistoryTargets(server, timestamp, server_time) => {
@@ -1379,7 +1388,7 @@ impl Dashboard {
             }
             buffer::Upstream::Channel(server, channel) => {
                 // Send part & close history file
-                let command = data::Command::Part(channel.clone(), None);
+                let command = data::Command::Part(channel.to_string(), None);
                 let input = data::Input::command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {
@@ -1435,16 +1444,14 @@ impl Dashboard {
 
     pub fn get_oldest_message_reference(
         &self,
-        clients: &client::Map,
         server: &Server,
-        target: &str,
+        target: Target,
         message_reference_types: &[isupport::MessageReferenceType],
     ) -> MessageReference {
-        if let Some(first_can_reference) = self.history.first_can_reference(
-            server.clone(),
-            clients.get_chantypes(server),
-            target.to_string(),
-        ) {
+        if let Some(first_can_reference) = self
+            .history
+            .first_can_reference(server.clone(), target.clone())
+        {
             log::debug!(
                 "[{server}] {target} - first_can_reference {:?}",
                 first_can_reference
@@ -1484,21 +1491,20 @@ impl Dashboard {
                     clients.get_server_chathistory_message_reference_types(server);
 
                 let first_can_reference = self.get_oldest_message_reference(
-                    clients,
                     server,
-                    &target,
+                    target.clone(),
                     &message_reference_types,
                 );
 
                 let subcommand = if matches!(first_can_reference, MessageReference::None) {
                     ChatHistorySubcommand::Latest(
-                        target.clone(),
+                        target,
                         first_can_reference,
                         clients.get_server_chathistory_limit(server),
                     )
                 } else {
                     ChatHistorySubcommand::Before(
-                        target.clone(),
+                        target,
                         first_can_reference,
                         clients.get_server_chathistory_limit(server),
                     )
@@ -1540,17 +1546,17 @@ impl Dashboard {
         &mut self,
         clients: &data::client::Map,
         server: Server,
-        channel: String,
+        target: Target,
         server_time: DateTime<Utc>,
     ) -> Task<Message> {
         let command = self
             .history
-            .load_metadata(server.clone(), channel.clone())
+            .load_metadata(server.clone(), target.clone())
             .map_or(Task::none(), |task| Task::perform(task, Message::History));
 
         if clients.get_server_supports_chathistory(&server) {
             command.chain(Task::done(Message::Client(
-                data::client::Message::RequestNewerChatHistory(server, channel, server_time),
+                data::client::Message::RequestNewerChatHistory(server, target, server_time),
             )))
         } else {
             command
@@ -1606,7 +1612,7 @@ impl Dashboard {
             .map(|state| (pane, state, &mut self.history))
     }
 
-    pub fn get_unique_queries(&self, server: &Server) -> Vec<&Nick> {
+    pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
         self.history.get_unique_queries(server)
     }
 
@@ -1859,28 +1865,32 @@ impl Dashboard {
     pub fn receive_file_transfer(
         &mut self,
         server: &Server,
+        chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
         request: file_transfer::ReceiveRequest,
         config: &Config,
     ) -> Option<Task<Message>> {
-        if let Some(event) = self
+        let event = self
             .file_transfers
-            .receive(request.clone(), config.proxy.as_ref())
-        {
-            self.notifications.notify(
-                &config.notifications,
-                &client::Notification::FileTransferRequest(request.from.clone()),
-                Some(server),
-            );
+            .receive(request.clone(), config.proxy.as_ref())?;
 
-            return Some(self.handle_file_transfer_event(server, event));
-        }
+        self.notifications.notify(
+            &config.notifications,
+            &client::Notification::FileTransferRequest(request.from.clone()),
+            Some(server),
+        );
+            
+        let query =
+            target::Query::parse(request.from.as_ref(), chantypes, statusmsg, casemapping).ok()?;
 
-        None
+        Some(self.handle_file_transfer_event(server, &query, event))
     }
 
     pub fn handle_file_transfer_event(
         &mut self,
         server: &Server,
+        query: &target::Query,
         event: file_transfer::manager::Event,
     ) -> Task<Message> {
         let mut tasks = vec![];
@@ -1893,6 +1903,7 @@ impl Dashboard {
                             server,
                             data::Message::file_transfer_request_received(
                                 &transfer.remote_user,
+                                query,
                                 &transfer.filename,
                             ),
                         ));
@@ -1902,6 +1913,7 @@ impl Dashboard {
                             server,
                             data::Message::file_transfer_request_sent(
                                 &transfer.remote_user,
+                                query,
                                 &transfer.filename,
                             ),
                         ));
@@ -2086,7 +2098,7 @@ impl Dashboard {
     fn open_channel(
         &mut self,
         server: Server,
-        channel: String,
+        channel: target::Channel,
         clients: &mut data::client::Map,
         main_window: &Window,
         config: &Config,

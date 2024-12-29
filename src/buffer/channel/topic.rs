@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use data::user::Nick;
-use data::{message, Config, Server, User};
+use data::{isupport, message, target, Config, Server, User};
 use iced::widget::{column, container, horizontal_rule, row, scrollable, Scrollable};
 use iced::Length;
 
@@ -11,7 +11,7 @@ use crate::{theme, Theme};
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(String),
+    OpenChannel(target::Channel),
 }
 
 #[derive(Debug, Clone)]
@@ -37,7 +37,8 @@ pub fn update(message: Message) -> Option<Event> {
 
 pub fn view<'a>(
     server: &'a Server,
-    channel: &'a str,
+    casemapping: isupport::CaseMap,
+    channel: &'a target::Channel,
     content: &'a message::Content,
     who: Option<&'a str>,
     time: Option<&'a DateTime<Utc>>,
@@ -55,6 +56,7 @@ pub fn view<'a>(
                 selectable_text(user.display(config.buffer.channel.nicklist.show_access_levels))
                     .style(|theme| theme::selectable_text::topic_nickname(theme, config, user)),
                 server,
+                casemapping,
                 Some(channel),
                 user,
                 Some(user),
@@ -79,6 +81,7 @@ pub fn view<'a>(
 
     let content = column![message_content(
         content,
+        casemapping,
         theme,
         Message::Link,
         theme::selectable_text::topic,

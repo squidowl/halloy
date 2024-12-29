@@ -6,6 +6,7 @@ Added:
 - Enable support for IRCv3 `chathistory`
 - Highlight notifications for `/me` actions
 - Timeout delay for notifications
+- Case mapping support via `ISUPPORT`
 
 # 2024.14 (2024-10-29)
 

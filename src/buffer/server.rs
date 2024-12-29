@@ -1,4 +1,4 @@
-use data::{buffer, history, message, Config};
+use data::{buffer, history, message, target, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Length, Task};
 
@@ -14,7 +14,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(String),
+    OpenChannel(target::Channel),
     History(Task<history::manager::Message>),
 }
 
@@ -27,6 +27,7 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let status = clients.status(&state.server);
+    let casemapping = clients.get_casemapping(&state.server);
     let buffer = &state.buffer;
     let input = history.input(buffer);
 
@@ -50,6 +51,7 @@ pub fn view<'a>(
                     message::Source::Server(server) => {
                         let message = message_content(
                             &message.content,
+                            casemapping,
                             theme,
                             scroll_view::Message::Link,
                             move |theme| theme::selectable_text::server(theme, server.as_ref()),
@@ -61,6 +63,7 @@ pub fn view<'a>(
                     message::Source::Internal(message::source::Internal::Status(status)) => {
                         let message = message_content(
                             &message.content,
+                            casemapping,
                             theme,
                             scroll_view::Message::Link,
                             move |theme| theme::selectable_text::status(theme, *status),

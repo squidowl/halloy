@@ -6,7 +6,7 @@ pub use self::away::Away;
 
 pub mod away;
 
-use crate::user::Nick;
+use crate::target::{self, Target};
 use crate::{channel, config, message, Server};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -19,8 +19,8 @@ pub enum Buffer {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Upstream {
     Server(Server),
-    Channel(Server, String),
-    Query(Server, Nick),
+    Channel(Server, target::Channel),
+    Query(Server, target::Query),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display)]
@@ -56,17 +56,17 @@ impl Upstream {
         }
     }
 
-    pub fn channel(&self) -> Option<&str> {
+    pub fn channel(&self) -> Option<&target::Channel> {
         match self {
             Self::Channel(_, channel) => Some(channel),
             Self::Server(_) | Self::Query(_, _) => None,
         }
     }
 
-    pub fn target(&self) -> Option<String> {
+    pub fn target(&self) -> Option<Target> {
         match self {
-            Self::Channel(_, channel) => Some(channel.clone()),
-            Self::Query(_, nick) => Some(nick.to_string()),
+            Self::Channel(_, channel) => Some(Target::Channel(channel.clone())),
+            Self::Query(_, query) => Some(Target::Query(query.clone())),
             Self::Server(_) => None,
         }
     }
@@ -79,10 +79,9 @@ impl Upstream {
             Self::Channel(_, channel) => message::Target::Channel {
                 channel,
                 source: message::Source::Server(source),
-                prefixes: Default::default(),
             },
-            Self::Query(_, nick) => message::Target::Query {
-                nick,
+            Self::Query(_, query) => message::Target::Query {
+                query,
                 source: message::Source::Server(source),
             },
         }

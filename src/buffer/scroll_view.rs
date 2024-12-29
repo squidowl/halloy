@@ -2,8 +2,7 @@ use chrono::{DateTime, Utc};
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
-use data::user::Nick;
-use data::{history, Config};
+use data::{history, target, Config};
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, Scrollable,
 };
@@ -32,16 +31,16 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(String),
-    GoToMessage(Server, String, message::Hash),
+    OpenChannel(target::Channel),
+    GoToMessage(Server, target::Channel, message::Hash),
     RequestOlderChatHistory,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Kind<'a> {
     Server(&'a Server),
-    Channel(&'a Server, &'a str),
-    Query(&'a Server, &'a Nick),
+    Channel(&'a Server, &'a target::Channel),
+    Query(&'a Server, &'a target::Query),
     Logs,
     Highlights,
 }
@@ -51,7 +50,7 @@ impl From<Kind<'_>> for history::Kind {
         match value {
             Kind::Server(server) => history::Kind::Server(server.clone()),
             Kind::Channel(server, channel) => {
-                history::Kind::Channel(server.clone(), channel.to_string())
+                history::Kind::Channel(server.clone(), channel.clone())
             }
             Kind::Query(server, nick) => history::Kind::Query(server.clone(), nick.clone()),
             Kind::Logs => history::Kind::Logs,

@@ -5,7 +5,7 @@ use super::{parse_fragments, plain, source, Content, Direction, Message, Source,
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::{message, Config, User};
+use crate::{message, target, Config, User};
 
 enum Cause {
     Server(Option<source::Server>),
@@ -13,8 +13,8 @@ enum Cause {
 }
 
 fn expand(
-    channels: impl IntoIterator<Item = String>,
-    queries: impl IntoIterator<Item = Nick>,
+    channels: impl IntoIterator<Item = target::Channel>,
+    queries: impl IntoIterator<Item = target::Query>,
     include_server: bool,
     cause: Cause,
     content: Content,
@@ -45,17 +45,16 @@ fn expand(
         .map(|channel| {
             message(
                 Target::Channel {
-                    channel,
+                    channel: channel.clone(),
                     source: source.clone(),
-                    prefixes: Default::default(),
                 },
                 content.clone(),
             )
         })
-        .chain(queries.into_iter().map(|nick| {
+        .chain(queries.into_iter().map(|query| {
             message(
                 Target::Query {
-                    nick,
+                    query: query.clone(),
                     source: source.clone(),
                 },
                 content.clone(),
@@ -109,8 +108,8 @@ pub fn connection_failed(error: String, sent_time: DateTime<Utc>) -> Vec<Message
 }
 
 pub fn disconnected(
-    channels: impl IntoIterator<Item = String>,
-    queries: impl IntoIterator<Item = Nick>,
+    channels: impl IntoIterator<Item = target::Channel>,
+    queries: impl IntoIterator<Item = target::Query>,
     error: Option<String>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
@@ -127,8 +126,8 @@ pub fn disconnected(
 }
 
 pub fn reconnected(
-    channels: impl IntoIterator<Item = String>,
-    queries: impl IntoIterator<Item = Nick>,
+    channels: impl IntoIterator<Item = target::Channel>,
+    queries: impl IntoIterator<Item = target::Query>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let content = plain("connection to server restored".into());
@@ -143,8 +142,8 @@ pub fn reconnected(
 }
 
 pub fn quit(
-    channels: impl IntoIterator<Item = String>,
-    queries: impl IntoIterator<Item = Nick>,
+    channels: impl IntoIterator<Item = target::Channel>,
+    queries: impl IntoIterator<Item = target::Query>,
     user: &User,
     comment: &Option<String>,
     config: &Config,
@@ -177,8 +176,8 @@ pub fn quit(
 }
 
 pub fn nickname(
-    channels: impl IntoIterator<Item = String>,
-    queries: impl IntoIterator<Item = Nick>,
+    channels: impl IntoIterator<Item = target::Channel>,
+    queries: impl IntoIterator<Item = target::Query>,
     old_nick: &Nick,
     new_nick: &Nick,
     ourself: bool,
@@ -202,8 +201,8 @@ pub fn nickname(
 
 pub fn invite(
     inviter: Nick,
-    channel: String,
-    channels: impl IntoIterator<Item = String>,
+    channel: target::Channel,
+    channels: impl IntoIterator<Item = target::Channel>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let content = plain(format!("{inviter} invited you to join {channel}"));
@@ -212,8 +211,8 @@ pub fn invite(
 }
 
 pub fn change_host(
-    channels: impl IntoIterator<Item = String>,
-    queries: impl IntoIterator<Item = Nick>,
+    channels: impl IntoIterator<Item = target::Channel>,
+    queries: impl IntoIterator<Item = target::Query>,
     old_user: &User,
     new_username: &str,
     new_hostname: &str,

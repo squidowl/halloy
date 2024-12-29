@@ -5,13 +5,12 @@ use std::{fmt, io};
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 use futures::{Future, FutureExt};
-use irc::proto;
 use tokio::fs;
 use tokio::time::Instant;
 
 use crate::message::{self, MessageReferences};
-use crate::user::Nick;
-use crate::{buffer, compression, environment, Buffer, Message, Server};
+use crate::target::{self, Target};
+use crate::{buffer, compression, environment, isupport, Buffer, Message, Server};
 
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
@@ -30,19 +29,31 @@ const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
     Server(Server),
-    Channel(Server, String),
-    Query(Server, Nick),
+    Channel(Server, target::Channel),
+    Query(Server, target::Query),
     Logs,
     Highlights,
 }
 
 impl Kind {
-    pub fn from_target(server: Server, target: String, chantypes: &[char]) -> Self {
-        if proto::is_channel(&target, chantypes) {
-            Self::Channel(server, target)
-        } else {
-            Self::Query(server, Nick::from(target))
+    pub fn from_target(server: Server, target: Target) -> Self {
+        match target {
+            Target::Channel(channel) => Self::Channel(server, channel),
+            Target::Query(query) => Self::Query(server, query),
         }
+    }
+
+    pub fn from_str(
+        server: Server,
+        chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
+        target: &str,
+    ) -> Self {
+        Self::from_target(
+            server,
+            Target::parse(target, chantypes, statusmsg, casemapping),
+        )
     }
 
     pub fn from_input_buffer(buffer: buffer::Upstream) -> Self {
@@ -59,7 +70,7 @@ impl Kind {
             message::Target::Channel { channel, .. } => {
                 Some(Self::Channel(server, channel.clone()))
             }
-            message::Target::Query { nick, .. } => Some(Self::Query(server, nick.clone())),
+            message::Target::Query { query, .. } => Some(Self::Query(server, query.clone())),
             message::Target::Logs => None,
             message::Target::Highlights { .. } => None,
         }
@@ -80,8 +91,8 @@ impl Kind {
     pub fn target(&self) -> Option<&str> {
         match self {
             Kind::Server(_) => None,
-            Kind::Channel(_, channel) => Some(channel),
-            Kind::Query(_, nick) => Some(nick.as_ref()),
+            Kind::Channel(_, channel) => Some(channel.as_str()),
+            Kind::Query(_, nick) => Some(nick.as_str()),
             Kind::Logs => None,
             Kind::Highlights => None,
         }
@@ -187,8 +198,8 @@ async fn path(kind: &Kind) -> Result<PathBuf, Error> {
 
     let name = match kind {
         Kind::Server(server) => format!("{server}"),
-        Kind::Channel(server, channel) => format!("{server}channel{channel}"),
-        Kind::Query(server, nick) => format!("{server}nickname{}", nick),
+        Kind::Channel(server, channel) => format!("{server}channel{}", channel.as_normalized_str()),
+        Kind::Query(server, query) => format!("{server}nickname{}", query.as_normalized_str()),
         Kind::Logs => "logs".to_string(),
         Kind::Highlights => "highlights".to_string(),
     };
