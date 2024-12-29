@@ -218,7 +218,9 @@ impl Sasl {
         }
     }
 
-    pub fn param(&self) -> String {
+    pub fn params(&self) -> Vec<String> {
+        const CHUNK_SIZE: usize = 400;
+
         match self {
             Sasl::Plain {
                 username, password, ..
@@ -229,10 +231,35 @@ impl Sasl {
                     .as_ref()
                     .expect("SASL password must exist at this point!");
 
-                base64::engine::general_purpose::STANDARD
-                    .encode(format!("{username}\x00{username}\x00{password}"))
+                // Exclude authorization ID, to use the authentication ID as the authorization ID
+                // https://datatracker.ietf.org/doc/html/rfc4616#section-2
+                let encoding = base64::engine::general_purpose::STANDARD
+                    .encode(format!("\x00{username}\x00{password}"));
+
+                let chunks = encoding
+                    .as_bytes()
+                    .chunks(CHUNK_SIZE)
+                    .collect::<Vec<&[u8]>>();
+
+                let signal_end_of_response = chunks
+                    .iter()
+                    .last()
+                    .is_none_or(|chunk| chunk.len() == CHUNK_SIZE);
+
+                let mut params = chunks
+                    .into_iter()
+                    .map(|chunk| {
+                        String::from_utf8(chunk.into()).expect("chunks should be valid UTF-8")
+                    })
+                    .collect::<Vec<String>>();
+
+                if signal_end_of_response {
+                    params.push("+".into())
+                }
+
+                params
             }
-            Sasl::External { .. } => "+".into(),
+            Sasl::External { .. } => vec!["+".into()],
         }
     }
 
