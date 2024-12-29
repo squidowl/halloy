@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use chrono::{format::SecondsFormat, DateTime, Utc};
 
-use crate::Message;
+use crate::{target::Target, Message};
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
 // returned by Operation::kind() and Parameter::kind()
@@ -11,6 +11,7 @@ use crate::Message;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Kind {
     AWAYLEN,
+    CASEMAPPING,
     CHANLIMIT,
     CHANNELLEN,
     CHANTYPES,
@@ -477,6 +478,7 @@ impl Operation {
             Operation::Add(parameter) => parameter.kind(),
             Operation::Remove(parameter) => match parameter.as_ref() {
                 "AWAYLEN" => Some(Kind::AWAYLEN),
+                "CASEMAPPING" => Some(Kind::CASEMAPPING),
                 "CHANLIMIT" => Some(Kind::CHANLIMIT),
                 "CHANNELLEN" => Some(Kind::CHANNELLEN),
                 "CHANTYPES" => Some(Kind::CHANTYPES),
@@ -576,6 +578,7 @@ impl Parameter {
     pub fn kind(&self) -> Option<Kind> {
         match self {
             Parameter::AWAYLEN(_) => Some(Kind::AWAYLEN),
+            Parameter::CASEMAPPING(_) => Some(Kind::CASEMAPPING),
             Parameter::CHANLIMIT(_) => Some(Kind::CHANLIMIT),
             Parameter::CHANNELLEN(_) => Some(Kind::CHANNELLEN),
             Parameter::CHANTYPES(_) => Some(Kind::CHANTYPES),
@@ -602,12 +605,93 @@ impl Parameter {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum CaseMap {
     ASCII,
     RFC1459,
     RFC1459_STRICT,
+    #[default]
     RFC7613,
+}
+
+impl CaseMap {
+    pub fn normalize(&self, from_str: &str) -> String {
+        match self {
+            CaseMap::ASCII => from_str.to_ascii_lowercase(),
+            CaseMap::RFC1459 => from_str
+                .chars()
+                .map(|c| match c {
+                    'A' => 'a',
+                    'B' => 'b',
+                    'C' => 'c',
+                    'D' => 'd',
+                    'E' => 'e',
+                    'F' => 'f',
+                    'G' => 'g',
+                    'H' => 'h',
+                    'I' => 'i',
+                    'J' => 'j',
+                    'K' => 'k',
+                    'L' => 'l',
+                    'M' => 'm',
+                    'N' => 'n',
+                    'O' => 'o',
+                    'P' => 'p',
+                    'Q' => 'q',
+                    'R' => 'r',
+                    'S' => 's',
+                    'T' => 't',
+                    'U' => 'u',
+                    'V' => 'v',
+                    'W' => 'w',
+                    'X' => 'x',
+                    'Y' => 'y',
+                    'Z' => 'z',
+                    '[' => '{',
+                    ']' => '}',
+                    '\\' => '|',
+                    '~' => '^',
+                    _ => c,
+                })
+                .collect(),
+            CaseMap::RFC1459_STRICT => from_str
+                .chars()
+                .map(|c| match c {
+                    'A' => 'a',
+                    'B' => 'b',
+                    'C' => 'c',
+                    'D' => 'd',
+                    'E' => 'e',
+                    'F' => 'f',
+                    'G' => 'g',
+                    'H' => 'h',
+                    'I' => 'i',
+                    'J' => 'j',
+                    'K' => 'k',
+                    'L' => 'l',
+                    'M' => 'm',
+                    'N' => 'n',
+                    'O' => 'o',
+                    'P' => 'p',
+                    'Q' => 'q',
+                    'R' => 'r',
+                    'S' => 's',
+                    'T' => 't',
+                    'U' => 'u',
+                    'V' => 'v',
+                    'W' => 'w',
+                    'X' => 'x',
+                    'Y' => 'y',
+                    'Z' => 'z',
+                    '[' => '{',
+                    ']' => '}',
+                    '\\' => '|',
+                    _ => c,
+                })
+                .collect(),
+            CaseMap::RFC7613 => from_str.to_lowercase(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -624,9 +708,9 @@ pub struct ChannelMode {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ChatHistorySubcommand {
-    Latest(String, MessageReference, u16),
-    Before(String, MessageReference, u16),
-    Between(String, MessageReference, MessageReference, u16),
+    Latest(Target, MessageReference, u16),
+    Before(Target, MessageReference, u16),
+    Between(Target, MessageReference, MessageReference, u16),
     Targets(MessageReference, MessageReference, u16),
 }
 
@@ -635,7 +719,7 @@ impl ChatHistorySubcommand {
         match self {
             ChatHistorySubcommand::Latest(target, _, _)
             | ChatHistorySubcommand::Before(target, _, _)
-            | ChatHistorySubcommand::Between(target, _, _, _) => Some(target),
+            | ChatHistorySubcommand::Between(target, _, _, _) => Some(target.as_str()),
             ChatHistorySubcommand::Targets(_, _, _) => None,
         }
     }

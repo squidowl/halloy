@@ -108,14 +108,14 @@ impl Notifications {
             Notification::Highlight {
                 enabled,
                 user,
-                channel,
+                target,
             } => {
                 if *enabled {
                     self.execute(
                         &config.highlight,
                         notification,
                         "Highlight",
-                        format!("{} highlighted you in {}", user.nickname(), channel),
+                        format!("{} highlighted you in {}", user.nickname(), target),
                     );
                 }
             }
@@ -146,6 +146,7 @@ impl Notifications {
             audio::play(sound.clone());
         }
 
-        self.recent_notifications.insert(notification.clone(), Utc::now());
+        self.recent_notifications
+            .insert(notification.clone(), Utc::now());
     }
 }

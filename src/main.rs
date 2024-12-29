@@ -24,6 +24,7 @@ use appearance::{theme, Theme};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::history::{self, manager::Broadcast};
+use data::target::{self, Target};
 use data::version::Version;
 use data::{client::Notification, environment, server, version, Server, Url, User};
 use iced::widget::{column, container};
@@ -523,18 +524,20 @@ impl Halloy {
 
                             for event in events {
                                 // Resolve a user using client state which stores attributes
-                                let resolve_user_attributes = |user: &User, channel: &str| {
-                                    self.clients
-                                        .resolve_user_attributes(&server, channel, user)
-                                        .cloned()
-                                };
+                                let resolve_user_attributes =
+                                    |user: &User, channel: &target::Channel| {
+                                        self.clients
+                                            .resolve_user_attributes(&server, channel, user)
+                                            .cloned()
+                                    };
 
-                                let channel_users = |channel: &str| -> &[User] {
+                                let channel_users = |channel: &target::Channel| -> &[User] {
                                     self.clients.get_channel_users(&server, channel)
                                 };
 
                                 let chantypes = self.clients.get_chantypes(&server);
                                 let statusmsg = self.clients.get_statusmsg(&server);
+                                let casemapping = self.clients.get_casemapping(&server);
 
                                 match event {
                                     data::client::Event::Single(encoded, our_nick) => {
@@ -546,6 +549,7 @@ impl Halloy {
                                             channel_users,
                                             chantypes,
                                             statusmsg,
+                                            casemapping,
                                         ) {
                                             commands.push(
                                                 dashboard
@@ -563,6 +567,7 @@ impl Halloy {
                                             channel_users,
                                             chantypes,
                                             statusmsg,
+                                            casemapping,
                                         ) {
                                             commands.push(
                                                 dashboard
@@ -681,6 +686,7 @@ impl Halloy {
                                             channel_users,
                                             chantypes,
                                             statusmsg,
+                                            casemapping,
                                         ) {
                                             commands.push(
                                                 dashboard
@@ -706,24 +712,31 @@ impl Halloy {
 
                                         match &notification {
                                             data::client::Notification::DirectMessage(user) => {
-                                                if dashboard.history().has_unread(
-                                                    &history::Kind::Query(
-                                                        server.clone(),
-                                                        user.nickname().to_owned(),
-                                                    ),
-                                                ) || !self.main_window.focused
-                                                {
-                                                    self.notifications.notify(
-                                                        &self.config.notifications,
-                                                        &notification,
-                                                        None::<Server>,
-                                                    );
+                                                if let Ok(query) = target::Query::parse(
+                                                    user.as_str(),
+                                                    chantypes,
+                                                    statusmsg,
+                                                    casemapping,
+                                                ) {
+                                                    if dashboard.history().has_unread(
+                                                        &history::Kind::Query(
+                                                            server.clone(),
+                                                            query,
+                                                        ),
+                                                    ) || !self.main_window.focused
+                                                    {
+                                                        self.notifications.notify(
+                                                            &self.config.notifications,
+                                                            &notification,
+                                                            None::<Server>,
+                                                        );
+                                                    }
                                                 }
                                             }
                                             data::client::Notification::Highlight {
                                                 enabled: _,
                                                 user: _,
-                                                channel: _,
+                                                target: _,
                                             }
                                             | data::client::Notification::MonitoredOnline(_)
                                             | data::client::Notification::MonitoredOffline(_) => {
@@ -739,6 +752,9 @@ impl Halloy {
                                     data::client::Event::FileTransferRequest(request) => {
                                         if let Some(command) = dashboard.receive_file_transfer(
                                             &server,
+                                            chantypes,
+                                            statusmsg,
+                                            casemapping,
                                             request,
                                             &self.config,
                                         ) {
@@ -752,7 +768,6 @@ impl Halloy {
                                                     history::Kind::from_target(
                                                         server.clone(),
                                                         target,
-                                                        chantypes,
                                                     ),
                                                     read_marker,
                                                 )
@@ -764,7 +779,7 @@ impl Halloy {
                                             .load_metadata(
                                                 &self.clients,
                                                 server.clone(),
-                                                channel.clone(),
+                                                Target::Channel(channel),
                                                 server_time,
                                             )
                                             .map(Message::Dashboard);
@@ -791,7 +806,7 @@ impl Halloy {
                                             .load_metadata(
                                                 &self.clients,
                                                 server.clone(),
-                                                target.clone(),
+                                                target,
                                                 server_time,
                                             )
                                             .map(Message::Dashboard);
@@ -909,7 +924,26 @@ impl Halloy {
 
                                 // If server already exists, we only want to join the new channels
                                 if let Some(entry) = existing_entry {
-                                    self.clients.join(&entry.server, &config.channels);
+                                    let chantypes = self.clients.get_chantypes(&server);
+                                    let statusmsg = self.clients.get_statusmsg(&server);
+                                    let casemapping = self.clients.get_casemapping(&server);
+
+                                    self.clients.join(
+                                        &entry.server,
+                                        &config
+                                            .channels
+                                            .iter()
+                                            .filter_map(|channel| {
+                                                target::Channel::parse(
+                                                    channel,
+                                                    chantypes,
+                                                    statusmsg,
+                                                    casemapping,
+                                                )
+                                                .ok()
+                                            })
+                                            .collect::<Vec<_>>(),
+                                    );
                                 } else {
                                     self.servers.insert(server, config);
                                 }

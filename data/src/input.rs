@@ -5,7 +5,8 @@ use irc::proto::format;
 
 use crate::buffer::{self, AutoFormat};
 use crate::message::formatting;
-use crate::{command, message, Command, Message, Server, User};
+use crate::target::Target;
+use crate::{command, isupport, message, Command, Message, Server, User};
 
 const INPUT_HISTORY_LENGTH: usize = 100;
 
@@ -63,23 +64,19 @@ impl Input {
         self.buffer.server()
     }
 
-    pub fn messages(&self, user: User, channel_users: &[User], chantypes: &[char], statusmsg: &[char]) -> Option<Vec<Message>> {
-        let to_target = |target: &str, source| {
-            if let Some((prefixes, channel)) = proto::parse_channel_from_target(target, chantypes, statusmsg) {
-                Some(message::Target::Channel {
-                    channel,
-                    source,
-                    prefixes,
-                })
-            } else if let Ok(user) = User::try_from(target) {
-                Some(message::Target::Query {
-                    nick: user.nickname().to_owned(),
-                    source,
-                })
-            } else {
-                None
-            }
-        };
+    pub fn messages(
+        &self,
+        user: User,
+        channel_users: &[User],
+        chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
+    ) -> Option<Vec<Message>> {
+        let to_target =
+            |target: &str, source| match Target::parse(target, chantypes, statusmsg, casemapping) {
+                Target::Channel(channel) => message::Target::Channel { channel, source },
+                Target::Query(query) => message::Target::Query { query, source },
+            };
 
         let command = self.content.command(&self.buffer)?;
 
@@ -87,17 +84,16 @@ impl Input {
             Command::Msg(targets, text) => Some(
                 targets
                     .split(',')
-                    .filter_map(|target| to_target(target, message::Source::User(user.clone())))
                     .map(|target| {
                         Message::sent(
-                            target,
+                            to_target(target, message::Source::User(user.clone())),
                             message::parse_fragments(text.clone(), channel_users),
                         )
                     })
                     .collect(),
             ),
             Command::Me(target, action) => Some(vec![Message::sent(
-                to_target(&target, message::Source::Action(Some(user.clone())))?,
+                to_target(&target, message::Source::Action(Some(user.clone()))),
                 message::action_text(user.nickname(), Some(&action)),
             )]),
             _ => None,
@@ -124,7 +120,7 @@ impl Content {
         match self {
             Self::Text(text) => {
                 let target = buffer.target()?;
-                Some(Command::Msg(target, text.clone()))
+                Some(Command::Msg(target.to_string(), text.clone()))
             }
             Self::Command(command) => Some(command.clone()),
         }

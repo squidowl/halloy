@@ -156,7 +156,8 @@ impl State {
                 self.selected_history = None;
 
                 if let Some(entry) = self.completion.select() {
-                    let new_input = entry.complete_input(input);
+                    let chantypes = clients.get_chantypes(buffer.server());
+                    let new_input = entry.complete_input(input, chantypes);
 
                     self.on_completion(buffer, history, new_input)
                 } else if !input.is_empty() {
@@ -186,6 +187,7 @@ impl State {
                         let mut channel_users = &[][..];
                         let chantypes = clients.get_chantypes(buffer.server());
                         let statusmsg = clients.get_statusmsg(buffer.server());
+                        let casemapping = clients.get_casemapping(buffer.server());
 
                         // Resolve our attributes if sending this message in a channel
                         if let buffer::Upstream::Channel(server, channel) = &buffer {
@@ -200,7 +202,14 @@ impl State {
 
                         history_task = Task::batch(
                             history
-                                .record_input(input, user, channel_users, chantypes, statusmsg)
+                                .record_input(
+                                    input,
+                                    user,
+                                    channel_users,
+                                    chantypes,
+                                    statusmsg,
+                                    casemapping,
+                                )
                                 .into_iter()
                                 .map(Task::future),
                         );
@@ -215,7 +224,8 @@ impl State {
                 let input = history.input(buffer).draft;
 
                 if let Some(entry) = self.completion.tab(reverse) {
-                    let new_input = entry.complete_input(input);
+                    let chantypes = clients.get_chantypes(buffer.server());
+                    let new_input = entry.complete_input(input, chantypes);
 
                     self.on_completion(buffer, history, new_input)
                 } else {
