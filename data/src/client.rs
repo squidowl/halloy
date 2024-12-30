@@ -770,7 +770,7 @@ impl Client {
 
                 log::warn!("[{}] capabilities not acknowledged: {caps}", self.server);
 
-                // End we didn't move to sasl or already ended
+                // End if we didn't move to sasl or already ended
                 if self.registration_step < RegistrationStep::Sasl {
                     self.registration_step = RegistrationStep::End;
                     self.handle.try_send(command!("CAP", "END"))?;
@@ -887,10 +887,9 @@ impl Client {
                 if let Some(sasl) = self.config.sasl.as_ref() {
                     log::info!("[{}] sasl auth: {}", self.server, sasl.command());
 
-                    self.handle
-                        .try_send(command!("AUTHENTICATE", sasl.param()))?;
-                    self.registration_step = RegistrationStep::End;
-                    self.handle.try_send(command!("CAP", "END"))?;
+                    for param in sasl.params() {
+                        self.handle.try_send(command!("AUTHENTICATE", param))?;
+                    }
                 }
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
@@ -1761,6 +1760,16 @@ impl Client {
                 }
 
                 return Ok(events);
+            }
+            Command::Numeric(RPL_SASLSUCCESS, _) => {
+                self.registration_step = RegistrationStep::End;
+                self.handle.try_send(command!("CAP", "END"))?;
+            }
+            Command::Numeric(ERR_SASLFAIL | ERR_SASLTOOLONG, _) => {
+                log::debug!("[{}] sasl auth failed", self.server);
+
+                self.registration_step = RegistrationStep::End;
+                self.handle.try_send(command!("CAP", "END"))?;
             }
             _ => {}
         }
