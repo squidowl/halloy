@@ -8,6 +8,9 @@ Added:
 - Timeout delay for notifications
 - Case mapping support via `ISUPPORT`
 
+Fixed:
+- Long username & password combinations could cause SASL authentication to fail
+
 # 2024.14 (2024-10-29)
 
 Fixed:
