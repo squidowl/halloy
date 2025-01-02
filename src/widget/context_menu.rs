@@ -3,7 +3,7 @@ use std::slice;
 use iced::advanced::widget::{operation, tree, Operation};
 use iced::advanced::{self, layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
 use iced::widget::{column, container};
-use iced::{event, mouse, Element, Event, Length, Point, Rectangle, Size, Task, Vector};
+use iced::{mouse, Element, Event, Length, Point, Rectangle, Size, Task, Vector};
 
 pub use iced::widget::container::{Style, StyleFn};
 
@@ -152,14 +152,14 @@ where
     ) {
         let state = tree.state.downcast_mut::<State>();
 
-        operation.custom(state, None);
+        operation.custom(state, None, state);
 
         self.base
             .as_widget()
             .operate(&mut tree.children[0], layout, renderer, operation);
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut widget::Tree,
         event: Event,
@@ -169,7 +169,7 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let state = tree.state.downcast_mut::<State>();
 
         let position = match self.activation_button {
@@ -194,7 +194,7 @@ where
             state.status = Status::Open(position);
         }
 
-        self.base.as_widget_mut().on_event(
+        self.base.as_widget_mut().update(
             &mut tree.children[0],
             event,
             layout,
@@ -203,7 +203,7 @@ where
             clipboard,
             shell,
             viewport,
-        )
+        );
     }
 
     fn mouse_interaction(
@@ -339,7 +339,12 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
             operate_on_children(self)
         }
 
-        fn custom(&mut self, state: &mut dyn std::any::Any, _id: Option<&widget::Id>) {
+        fn custom(
+            &mut self,
+            _id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            state: &mut dyn std::any::Any,
+        ) {
             if let Some(state) = state.downcast_mut::<State>() {
                 if let Status::Open(_) = state.status {
                     state.status = Status::Closed;
@@ -447,7 +452,7 @@ where
             .operate(&mut self.state.menu_tree, layout, renderer, operation);
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         event: Event,
         layout: Layout<'_>,
@@ -455,7 +460,7 @@ where
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
-    ) -> event::Status {
+    ) {
         if let Event::Mouse(mouse::Event::ButtonPressed(_)) = &event {
             if cursor.position_over(layout.bounds()).is_none() {
                 self.state.status = Status::Closed;
@@ -468,7 +473,7 @@ where
             }
         }
 
-        self.menu.as_widget_mut().on_event(
+        self.menu.as_widget_mut().update(
             &mut self.state.menu_tree,
             event,
             layout,
@@ -477,7 +482,7 @@ where
             clipboard,
             shell,
             &layout.bounds(),
-        )
+        );
     }
 
     fn mouse_interaction(

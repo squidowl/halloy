@@ -5,8 +5,7 @@ use iced::advanced::{layout, mouse, renderer, text, widget, Layout, Widget};
 use iced::widget::text::{Fragment, IntoFragment, Wrapping};
 use iced::widget::text_input::Value;
 use iced::{
-    alignment, event, touch, Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow,
-    Size, Task,
+    alignment, touch, Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow, Size, Task,
 };
 
 pub use self::selection::selection;
@@ -173,7 +172,7 @@ where
         })
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
         event: iced::Event,
@@ -183,7 +182,7 @@ where
         _clipboard: &mut dyn iced::advanced::Clipboard,
         _shell: &mut iced::advanced::Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
         match event {
@@ -217,8 +216,6 @@ where
             }
             _ => {}
         }
-
-        event::Status::Ignored
     }
 
     fn draw(
@@ -498,7 +495,12 @@ pub fn selected<Message: Send + 'static>(f: fn(Vec<(f32, String)>) -> Message) -
             operate_on_children(self)
         }
 
-        fn custom(&mut self, state: &mut dyn std::any::Any, _id: Option<&widget::Id>) {
+        fn custom(
+            &mut self,
+            _id: Option<&widget::Id>,
+            bounds: Rectangle,
+            state: &mut dyn std::any::Any,
+        ) {
             if let Some(content) = state.downcast_ref::<(f32, String)>() {
                 self.contents.push(content.clone());
             }

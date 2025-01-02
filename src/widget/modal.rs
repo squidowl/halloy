@@ -75,7 +75,7 @@ where
             .layout(&mut tree.children[0], renderer, limits)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         state: &mut widget::Tree,
         event: Event,
@@ -85,8 +85,8 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> event::Status {
-        self.base.as_widget_mut().on_event(
+    ) {
+        self.base.as_widget_mut().update(
             &mut state.children[0],
             event,
             layout,
@@ -95,7 +95,7 @@ where
             clipboard,
             shell,
             viewport,
-        )
+        );
     }
 
     fn draw(
@@ -192,7 +192,7 @@ where
         layout::Node::with_children(self.size, vec![child]).move_to(self.position)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         event: Event,
         layout: Layout<'_>,
@@ -200,7 +200,7 @@ where
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
-    ) -> event::Status {
+    ) {
         match event {
             Event::Keyboard(keyboard::Event::KeyPressed {
                 key: keyboard::Key::Named(key::Named::Escape),
@@ -220,7 +220,7 @@ where
             _ => {}
         }
 
-        self.content.as_widget_mut().on_event(
+        self.content.as_widget_mut().update(
             self.tree,
             event,
             layout.children().next().unwrap(),
@@ -229,7 +229,7 @@ where
             clipboard,
             shell,
             &layout.bounds(),
-        )
+        );
     }
 
     fn draw(
