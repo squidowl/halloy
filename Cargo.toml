@@ -27,7 +27,6 @@ iced = { version = "0.14.0-dev", default-features = false, features = [
     "lazy",
     "advanced",
     "image",
-    "multi-window",
 ] }
 log = "0.4.16"
 once_cell = "1.18"
@@ -68,5 +67,5 @@ windows_exe_info = "0.4"
 members = ["data", "ipc", "irc", "irc/proto"]
 
 [patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced", rev = "d660fad33d97cf78507c6797b5fe45b3daf47454" }
-iced_core = { git = "https://github.com/iced-rs/iced", rev = "d660fad33d97cf78507c6797b5fe45b3daf47454" }
+iced = { git = "https://github.com/iced-rs/iced", rev = "f2c9b6b2ffc50d67d9789e77cb55eeb2a0ebe470" }
+iced_core = { git = "https://github.com/iced-rs/iced", rev = "f2c9b6b2ffc50d67d9789e77cb55eeb2a0ebe470" }
