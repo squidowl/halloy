@@ -72,8 +72,8 @@ impl Default for Theme {
 }
 
 impl application::DefaultStyle for Theme {
-    fn default_style(&self) -> application::Appearance {
-        application::Appearance {
+    fn default_style(&self) -> iced::theme::Style {
+        iced::theme::Style {
             background_color: self.colors().general.background,
             text_color: self.colors().text.primary,
         }

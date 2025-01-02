@@ -579,13 +579,13 @@ mod keyed {
 
         decorate(inner)
             .operate(
-                move |_state: &mut State,
+                move |state: &mut State,
                       inner: &Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       layout: advanced::Layout<'_>,
                       renderer: &Renderer,
                       operation: &mut dyn advanced::widget::Operation<()>| {
-                    operation.custom(&mut (key, layout.bounds()), None);
+                    operation.custom(&mut (key, layout.bounds()), None, state);
                     inner.as_widget().operate(tree, layout, renderer, operation);
                 },
             )
@@ -619,11 +619,11 @@ mod keyed {
         impl Operation<State> for State {
             fn scrollable(
                 &mut self,
-                _state: &mut dyn widget::operation::Scrollable,
                 id: Option<&widget::Id>,
                 bounds: Rectangle,
                 content_bounds: Rectangle,
                 _translation: Vector,
+                _state: &mut dyn widget::operation::Scrollable,
             ) {
                 if id == Some(&self.scrollable.clone().into()) {
                     self.scrollable_bounds = Some(ScrollableBounds {
@@ -645,7 +645,12 @@ mod keyed {
                 operate_on_children(self)
             }
 
-            fn custom(&mut self, state: &mut dyn std::any::Any, _id: Option<&widget::Id>) {
+            fn custom(
+                &mut self,
+                _id: Option<&widget::Id>,
+                _bounds: Rectangle,
+                state: &mut dyn std::any::Any,
+            ) {
                 if self.active {
                     if let Some((key, bounds)) = state.downcast_ref::<(Key, Rectangle)>() {
                         if self.key == *key {

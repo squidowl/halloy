@@ -1,5 +1,5 @@
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::{event, mouse, Event, Length, Point, Rectangle, Size, Vector};
+use iced::{mouse, Event, Length, Point, Rectangle, Size, Vector};
 
 use super::{Element, Renderer};
 use crate::Theme;
@@ -96,7 +96,7 @@ impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> 
             .operate(&mut tree.children[0], layout, renderer, operation);
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut widget::Tree,
         event: Event,
@@ -106,8 +106,8 @@ impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> 
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> event::Status {
-        self.base.as_widget_mut().on_event(
+    ) {
+        self.base.as_widget_mut().update(
             &mut tree.children[0],
             event,
             layout,
@@ -116,7 +116,7 @@ impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> 
             clipboard,
             shell,
             viewport,
-        )
+        );
     }
 
     fn mouse_interaction(
@@ -251,7 +251,7 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
             .operate(self.tree, layout, renderer, operation);
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         event: Event,
         layout: Layout<'_>,
@@ -259,8 +259,8 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
-    ) -> event::Status {
-        self.content.as_widget_mut().on_event(
+    ) {
+        self.content.as_widget_mut().update(
             self.tree,
             event,
             layout,
@@ -269,7 +269,7 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
             clipboard,
             shell,
             &layout.bounds(),
-        )
+        );
     }
 
     fn mouse_interaction(
