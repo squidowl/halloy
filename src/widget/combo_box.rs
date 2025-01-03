@@ -5,7 +5,7 @@ use iced::advanced::{
 use iced::overlay::menu;
 use iced::widget::text::LineHeight;
 use iced::widget::{text_input, TextInput};
-use iced::{event, keyboard, Event, Length, Padding, Rectangle, Vector};
+use iced::{keyboard, window, Event, Length, Padding, Rectangle, Vector};
 
 use std::cell::RefCell;
 use std::fmt::Display;
@@ -403,7 +403,7 @@ where
         })
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut widget::Tree,
         event: Event,
@@ -413,7 +413,7 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let menu = tree.state.downcast_mut::<Menu<T>>();
 
         let started_focused = self.state.is_focused();
@@ -427,7 +427,7 @@ where
 
         // Provide it to the widget
         let mut tree = self.state.text_input_tree();
-        let mut event_status = self.text_input.on_event(
+        self.text_input.update(
             &mut tree,
             event.clone(),
             layout,
@@ -439,13 +439,27 @@ where
         );
         self.state.update_text_input(tree);
 
+        if local_shell.is_event_captured() {
+            shell.capture_event();
+        }
+
+        if let Some(redraw_request) = local_shell.redraw_request() {
+            match redraw_request {
+                window::RedrawRequest::NextFrame => {
+                    shell.request_redraw();
+                }
+                window::RedrawRequest::At(at) => {
+                    shell.request_redraw_at(at);
+                }
+            }
+        }
+
         // Then finally react to them here
         for message in local_messages {
             let TextInputEvent::TextChanged(new_value) = message;
 
             if let Some(on_input) = &self.on_input {
                 shell.publish((on_input)(new_value.clone()));
-                published_message_to_shell = true;
             }
 
             // Couple the filtered options with the `ComboBox`
@@ -462,6 +476,7 @@ where
                 );
             });
             shell.invalidate_layout();
+            shell.request_redraw();
         }
 
         if self.state.is_focused() {
@@ -488,7 +503,8 @@ where
                                 }
                             }
 
-                            event_status = event::Status::Captured;
+                            shell.capture_event();
+                            shell.request_redraw();
                         }
                         (keyboard::Key::Named(keyboard::key::Named::ArrowUp), _)
                         | (keyboard::Key::Named(keyboard::key::Named::Tab), true) => {
@@ -513,7 +529,8 @@ where
                                 }
                             }
 
-                            event_status = event::Status::Captured;
+                            shell.capture_event();
+                            shell.request_redraw();
                         }
                         (keyboard::Key::Named(keyboard::key::Named::ArrowDown), _)
                         | (keyboard::Key::Named(keyboard::key::Named::Tab), false) => {
@@ -541,7 +558,8 @@ where
                                 }
                             }
 
-                            event_status = event::Status::Captured;
+                            shell.capture_event();
+                            shell.request_redraw();
                         }
                         _ => {}
                     }
@@ -563,7 +581,7 @@ where
 
                 // Unfocus the input
                 let mut tree = state.text_input_tree();
-                let _ = self.text_input.on_event(
+                self.text_input.update(
                     &mut tree,
                     Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
                     layout,
@@ -587,8 +605,6 @@ where
         if started_focused != self.state.is_focused() {
             shell.invalidate_widgets();
         }
-
-        event_status
     }
 
     fn mouse_interaction(

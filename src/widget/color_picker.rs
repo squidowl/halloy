@@ -1,7 +1,7 @@
 use iced::advanced::renderer::{Quad, Renderer as _};
 use iced::widget::{column, container, row};
 use iced::{
-    advanced, border, event, mouse, touch, Color,
+    advanced, border, mouse, touch, Color,
     Length::{self, *},
     Point, Rectangle,
 };
@@ -302,7 +302,7 @@ fn picker<'a, Message: 'a>(
     let color = data::appearance::theme::to_hsva(color);
 
     decorate(Space::new(width, height))
-        .on_event(
+        .update(
             move |state: &mut Option<Rectangle>,
                   _inner: &mut Element<'a, Message>,
                   _tree: &mut advanced::widget::Tree,
@@ -371,8 +371,6 @@ fn picker<'a, Message: 'a>(
                     }
                     _ => {}
                 }
-
-                event::Status::Ignored
             },
         )
         .draw(

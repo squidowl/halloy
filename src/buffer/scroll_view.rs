@@ -574,18 +574,16 @@ mod keyed {
         key: Key,
         inner: impl Into<Element<'a, Message>>,
     ) -> Element<'a, Message> {
-        #[derive(Default)]
-        struct State;
-
         decorate(inner)
             .operate(
-                move |state: &mut State,
+                move |_state: &mut (),
                       inner: &Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       layout: advanced::Layout<'_>,
                       renderer: &Renderer,
                       operation: &mut dyn advanced::widget::Operation<()>| {
-                    operation.custom(&mut (key, layout.bounds()), None, state);
+                    let mut key = key;
+                    operation.custom(None, layout.bounds(), &mut key);
                     inner.as_widget().operate(tree, layout, renderer, operation);
                 },
             )
@@ -648,15 +646,15 @@ mod keyed {
             fn custom(
                 &mut self,
                 _id: Option<&widget::Id>,
-                _bounds: Rectangle,
+                bounds: Rectangle,
                 state: &mut dyn std::any::Any,
             ) {
                 if self.active {
-                    if let Some((key, bounds)) = state.downcast_ref::<(Key, Rectangle)>() {
+                    if let Some(key) = state.downcast_ref::<Key>() {
                         if self.key == *key {
-                            self.hit_bounds = Some(*bounds);
+                            self.hit_bounds = Some(bounds);
                         } else if self.hit_bounds.is_none() {
-                            self.prev_bounds = Some(*bounds);
+                            self.prev_bounds = Some(bounds);
                         }
                     }
                 }
