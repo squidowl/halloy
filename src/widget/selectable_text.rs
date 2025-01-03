@@ -5,8 +5,7 @@ use iced::advanced::{layout, mouse, renderer, text, widget, Layout, Widget};
 use iced::widget::text::{Fragment, IntoFragment, Wrapping};
 use iced::widget::text_input::Value;
 use iced::{
-    alignment, event, touch, Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow,
-    Size, Task,
+    alignment, touch, Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow, Size, Task,
 };
 
 pub use self::selection::selection;
@@ -173,18 +172,24 @@ where
         })
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
         event: iced::Event,
-        _layout: Layout<'_>,
+        layout: Layout<'_>,
         cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn iced::advanced::Clipboard,
-        _shell: &mut iced::advanced::Shell<'_, Message>,
+        shell: &mut iced::advanced::Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
+
+        let bounds = layout.bounds();
+
+        let prev_hovered = state.hovered;
+        let prev_interaction = state.interaction;
+        state.hovered = cursor.is_over(bounds);
 
         match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
@@ -218,7 +223,9 @@ where
             _ => {}
         }
 
-        event::Status::Ignored
+        if prev_hovered != state.hovered || prev_interaction != state.interaction {
+            shell.request_redraw();
+        }
     }
 
     fn draw(
@@ -365,13 +372,15 @@ where
 
     fn mouse_interaction(
         &self,
-        _state: &Tree,
-        layout: Layout<'_>,
-        cursor: mouse::Cursor,
+        tree: &Tree,
+        _layout: Layout<'_>,
+        _cursor: mouse::Cursor,
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
-        if cursor.position_over(layout.bounds()).is_some() {
+        let state = tree.state.downcast_ref::<State<Renderer::Paragraph>>();
+
+        if state.hovered {
             mouse::Interaction::Text
         } else {
             mouse::Interaction::default()
@@ -394,8 +403,8 @@ where
             .selection()
             .and_then(|raw| selection(raw, bounds, state.paragraph.raw(), &value))
         {
-            let content = value.select(selection.start, selection.end).to_string();
-            operation.custom(&mut (bounds.y, content), None);
+            let mut content = value.select(selection.start, selection.end).to_string();
+            operation.custom(None, bounds, &mut content);
         }
     }
 }
@@ -448,9 +457,10 @@ where
 pub struct State<P: Paragraph> {
     paragraph: paragraph::Plain<P>,
     interaction: Interaction,
+    hovered: bool,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub enum Interaction {
     #[default]
     Idle,
@@ -498,9 +508,14 @@ pub fn selected<Message: Send + 'static>(f: fn(Vec<(f32, String)>) -> Message) -
             operate_on_children(self)
         }
 
-        fn custom(&mut self, state: &mut dyn std::any::Any, _id: Option<&widget::Id>) {
-            if let Some(content) = state.downcast_ref::<(f32, String)>() {
-                self.contents.push(content.clone());
+        fn custom(
+            &mut self,
+            _id: Option<&widget::Id>,
+            bounds: Rectangle,
+            state: &mut dyn std::any::Any,
+        ) {
+            if let Some(content) = state.downcast_ref::<String>() {
+                self.contents.push((bounds.y, content.clone()));
             }
         }
 
