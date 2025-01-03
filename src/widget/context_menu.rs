@@ -60,7 +60,7 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Status {
     Closed,
     Open(Point),
@@ -152,7 +152,7 @@ where
     ) {
         let state = tree.state.downcast_mut::<State>();
 
-        operation.custom(state, None, state);
+        operation.custom(None, layout.bounds(), state);
 
         self.base
             .as_widget()
@@ -171,6 +171,7 @@ where
         viewport: &Rectangle,
     ) {
         let state = tree.state.downcast_mut::<State>();
+        let prev_status = state.status;
 
         let position = match self.activation_button {
             mouse::Button::Left => {
@@ -192,6 +193,13 @@ where
 
         if let Some(position) = position {
             state.status = Status::Open(position);
+        }
+
+        match (state.status, prev_status) {
+            (Status::Closed, Status::Open(_)) | (Status::Open(_), Status::Closed) => {
+                shell.request_redraw();
+            }
+            _ => {}
         }
 
         self.base.as_widget_mut().update(
@@ -471,6 +479,10 @@ where
             if cursor.position_over(layout.bounds()).is_some() {
                 self.state.status = Status::Closed;
             }
+        }
+
+        if matches!(self.state.status, Status::Closed) {
+            shell.request_redraw();
         }
 
         self.menu.as_widget_mut().update(

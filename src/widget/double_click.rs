@@ -17,7 +17,7 @@ where
     Message: Clone + 'a,
 {
     decorate(content)
-        .on_event(
+        .update(
             move |state: &mut Internal,
                   inner: &mut Element<'a, Message>,
                   tree: &mut Tree,
@@ -28,7 +28,7 @@ where
                   clipboard: &mut dyn Clipboard,
                   shell: &mut Shell<'_, Message>,
                   viewport: &iced::Rectangle| {
-                let status = inner.as_widget_mut().on_event(
+                inner.as_widget_mut().update(
                     tree,
                     event.clone(),
                     layout,
@@ -39,17 +39,17 @@ where
                     viewport,
                 );
 
-                if matches!(status, event::Status::Captured) {
-                    return event::Status::Captured;
+                if shell.is_event_captured() {
+                    return;
                 }
 
                 if !cursor.is_over(layout.bounds()) {
-                    return event::Status::Ignored;
+                    return;
                 }
 
                 let event::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) = event
                 else {
-                    return event::Status::Ignored;
+                    return;
                 };
 
                 let now = time::Instant::now();
@@ -58,10 +58,9 @@ where
 
                 if diff <= timeout {
                     shell.publish(message.clone());
-                    event::Status::Captured
+                    shell.capture_event();
                 } else {
                     state.instant = time::Instant::now();
-                    event::Status::Ignored
                 }
             },
         )

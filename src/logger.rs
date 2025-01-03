@@ -30,7 +30,7 @@ pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, Error> {
         ))
     });
 
-    if is_debug {
+    if is_debug || cfg!(feature = "dev") {
         io_sink = io_sink.chain(std::io::stdout());
     } else {
         let log_file = data::log::file()?;

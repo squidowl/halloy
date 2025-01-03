@@ -2,7 +2,7 @@ use std::{marker::PhantomData, slice};
 
 use iced::{
     advanced::{self, layout, Widget},
-    event, Element,
+    Element,
 };
 
 pub fn decorate<'a, Message, Theme, Renderer>(
@@ -17,7 +17,7 @@ pub struct Decorate<
     Theme,
     Renderer,
     Layout = (),
-    OnEvent = (),
+    Update = (),
     Draw = (),
     MouseInteraction = (),
     Operate = (),
@@ -26,7 +26,7 @@ pub struct Decorate<
 > {
     inner: Element<'a, Message, Theme, Renderer>,
     layout: Layout,
-    on_event: OnEvent,
+    update: Update,
     draw: Draw,
     mouse_interaction: MouseInteraction,
     operate: Operate,
@@ -38,7 +38,7 @@ impl<'a, Message, Theme, Renderer> Decorate<'a, Message, Theme, Renderer> {
     pub fn new(inner: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
         Self {
             inner: inner.into(),
-            on_event: (),
+            update: (),
             layout: (),
             draw: (),
             mouse_interaction: (),
@@ -55,7 +55,7 @@ impl<
         Theme,
         Renderer,
         Layout,
-        OnEvent,
+        Update,
         Draw,
         MouseInteraction,
         Operate,
@@ -68,7 +68,7 @@ impl<
         Theme,
         Renderer,
         Layout,
-        OnEvent,
+        Update,
         Draw,
         MouseInteraction,
         Operate,
@@ -85,7 +85,7 @@ impl<
         Theme,
         Renderer,
         T,
-        OnEvent,
+        Update,
         Draw,
         MouseInteraction,
         Operate,
@@ -97,7 +97,7 @@ impl<
     {
         Decorate {
             inner: self.inner,
-            on_event: self.on_event,
+            update: self.update,
             draw: self.draw,
             mouse_interaction: self.mouse_interaction,
             operate: self.operate,
@@ -107,9 +107,9 @@ impl<
         }
     }
 
-    pub fn on_event<T, U>(
+    pub fn update<T, U>(
         self,
-        on_event: T,
+        update: T,
     ) -> Decorate<
         'a,
         Message,
@@ -124,7 +124,7 @@ impl<
         U,
     >
     where
-        T: self::OnEvent<'a, Message, Theme, Renderer, U>,
+        T: self::Update<'a, Message, Theme, Renderer, U>,
     {
         Decorate {
             inner: self.inner,
@@ -133,7 +133,7 @@ impl<
             mouse_interaction: self.mouse_interaction,
             operate: self.operate,
             overlay: self.overlay,
-            on_event,
+            update,
             state: PhantomData,
         }
     }
@@ -147,7 +147,7 @@ impl<
         Theme,
         Renderer,
         Layout,
-        OnEvent,
+        Update,
         T,
         MouseInteraction,
         Operate,
@@ -159,7 +159,7 @@ impl<
     {
         Decorate {
             inner: self.inner,
-            on_event: self.on_event,
+            update: self.update,
             layout: self.layout,
             mouse_interaction: self.mouse_interaction,
             operate: self.operate,
@@ -172,14 +172,14 @@ impl<
     pub fn mouse_interaction<T, U>(
         self,
         mouse_interaction: T,
-    ) -> Decorate<'a, Message, Theme, Renderer, Layout, OnEvent, Draw, T, Operate, Overlay, U>
+    ) -> Decorate<'a, Message, Theme, Renderer, Layout, Update, Draw, T, Operate, Overlay, U>
     where
         T: self::MouseInteraction<'a, Message, Theme, Renderer, U>,
     {
         Decorate {
             inner: self.inner,
             layout: self.layout,
-            on_event: self.on_event,
+            update: self.update,
             draw: self.draw,
             operate: self.operate,
             overlay: self.overlay,
@@ -191,26 +191,14 @@ impl<
     pub fn operate<T, U>(
         self,
         operate: T,
-    ) -> Decorate<
-        'a,
-        Message,
-        Theme,
-        Renderer,
-        Layout,
-        OnEvent,
-        Draw,
-        MouseInteraction,
-        T,
-        Overlay,
-        U,
-    >
+    ) -> Decorate<'a, Message, Theme, Renderer, Layout, Update, Draw, MouseInteraction, T, Overlay, U>
     where
         T: self::Operate<'a, Message, Theme, Renderer, U>,
     {
         Decorate {
             inner: self.inner,
             layout: self.layout,
-            on_event: self.on_event,
+            update: self.update,
             draw: self.draw,
             mouse_interaction: self.mouse_interaction,
             overlay: self.overlay,
@@ -222,26 +210,14 @@ impl<
     pub fn overlay<T, U>(
         self,
         overlay: T,
-    ) -> Decorate<
-        'a,
-        Message,
-        Theme,
-        Renderer,
-        Layout,
-        OnEvent,
-        Draw,
-        MouseInteraction,
-        Operate,
-        T,
-        U,
-    >
+    ) -> Decorate<'a, Message, Theme, Renderer, Layout, Update, Draw, MouseInteraction, Operate, T, U>
     where
         T: self::Operate<'a, Message, Theme, Renderer, U>,
     {
         Decorate {
             inner: self.inner,
             layout: self.layout,
-            on_event: self.on_event,
+            update: self.update,
             draw: self.draw,
             mouse_interaction: self.mouse_interaction,
             operate: self.operate,
@@ -301,8 +277,8 @@ where
     }
 }
 
-pub trait OnEvent<'a, Message, Theme, Renderer, State> {
-    fn on_event(
+pub trait Update<'a, Message, Theme, Renderer, State> {
+    fn update(
         &mut self,
         state: &mut State,
         inner: &mut Element<'a, Message, Theme, Renderer>,
@@ -314,14 +290,14 @@ pub trait OnEvent<'a, Message, Theme, Renderer, State> {
         clipboard: &mut dyn advanced::Clipboard,
         shell: &mut advanced::Shell<'_, Message>,
         viewport: &iced::Rectangle,
-    ) -> event::Status;
+    );
 }
 
-impl<'a, Message, Theme, Renderer, State> OnEvent<'a, Message, Theme, Renderer, State> for ()
+impl<'a, Message, Theme, Renderer, State> Update<'a, Message, Theme, Renderer, State> for ()
 where
     Renderer: advanced::Renderer + 'a,
 {
-    fn on_event(
+    fn update(
         &mut self,
         _state: &mut State,
         inner: &mut Element<'a, Message, Theme, Renderer>,
@@ -333,14 +309,14 @@ where
         clipboard: &mut dyn advanced::Clipboard,
         shell: &mut advanced::Shell<'_, Message>,
         viewport: &iced::Rectangle,
-    ) -> event::Status {
-        inner.as_widget_mut().on_event(
+    ) {
+        inner.as_widget_mut().update(
             tree, event, layout, cursor, renderer, clipboard, shell, viewport,
         )
     }
 }
 
-impl<'a, T, Message, Theme, Renderer, State> OnEvent<'a, Message, Theme, Renderer, State> for T
+impl<'a, T, Message, Theme, Renderer, State> Update<'a, Message, Theme, Renderer, State> for T
 where
     T: Fn(
             &mut State,
@@ -353,10 +329,9 @@ where
             &mut dyn advanced::Clipboard,
             &mut advanced::Shell<'_, Message>,
             &iced::Rectangle,
-        ) -> event::Status
-        + 'a,
+        ) + 'a,
 {
-    fn on_event(
+    fn update(
         &mut self,
         state: &mut State,
         inner: &mut Element<'a, Message, Theme, Renderer>,
@@ -368,7 +343,7 @@ where
         clipboard: &mut dyn advanced::Clipboard,
         shell: &mut advanced::Shell<'_, Message>,
         viewport: &iced::Rectangle,
-    ) -> event::Status {
+    ) {
         self(
             state, inner, tree, event, layout, cursor, renderer, clipboard, shell, viewport,
         )
@@ -621,7 +596,7 @@ impl<
         Theme,
         Renderer,
         Layout,
-        OnEvent,
+        Update,
         Draw,
         MouseInteraction,
         Operate,
@@ -634,7 +609,7 @@ impl<
         Theme,
         Renderer,
         Layout,
-        OnEvent,
+        Update,
         Draw,
         MouseInteraction,
         Operate,
@@ -644,7 +619,7 @@ impl<
 where
     Renderer: advanced::Renderer,
     Layout: self::Layout<'a, Message, Theme, Renderer, State>,
-    OnEvent: self::OnEvent<'a, Message, Theme, Renderer, State>,
+    Update: self::Update<'a, Message, Theme, Renderer, State>,
     Draw: self::Draw<'a, Message, Theme, Renderer, State>,
     MouseInteraction: self::MouseInteraction<'a, Message, Theme, Renderer, State> + 'a,
     Operate: self::Operate<'a, Message, Theme, Renderer, State> + 'a,
@@ -691,7 +666,7 @@ where
         )
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut advanced::widget::Tree,
         event: iced::Event,
@@ -701,8 +676,8 @@ where
         clipboard: &mut dyn advanced::Clipboard,
         shell: &mut advanced::Shell<'_, Message>,
         viewport: &iced::Rectangle,
-    ) -> advanced::graphics::core::event::Status {
-        self.on_event.on_event(
+    ) {
+        self.update.update(
             tree.state.downcast_mut(),
             &mut self.inner,
             &mut tree.children[0],
@@ -799,7 +774,7 @@ impl<
         Theme,
         Renderer,
         Layout,
-        OnEvent,
+        Update,
         Draw,
         MouseInteraction,
         Operate,
@@ -813,7 +788,7 @@ impl<
             Theme,
             Renderer,
             Layout,
-            OnEvent,
+            Update,
             Draw,
             MouseInteraction,
             Operate,
@@ -826,7 +801,7 @@ where
     Theme: 'a,
     Renderer: advanced::Renderer + 'a,
     Layout: self::Layout<'a, Message, Theme, Renderer, State> + 'a,
-    OnEvent: self::OnEvent<'a, Message, Theme, Renderer, State> + 'a,
+    Update: self::Update<'a, Message, Theme, Renderer, State> + 'a,
     Draw: self::Draw<'a, Message, Theme, Renderer, State> + 'a,
     MouseInteraction: self::MouseInteraction<'a, Message, Theme, Renderer, State> + 'a,
     Operate: self::Operate<'a, Message, Theme, Renderer, State> + 'a,
@@ -840,7 +815,7 @@ where
             Theme,
             Renderer,
             Layout,
-            OnEvent,
+            Update,
             Draw,
             MouseInteraction,
             Operate,

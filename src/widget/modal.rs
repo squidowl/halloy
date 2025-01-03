@@ -4,9 +4,9 @@ use iced::advanced::renderer;
 use iced::advanced::widget::{self, Widget};
 use iced::advanced::{self, Clipboard, Shell};
 use iced::alignment::Alignment;
+use iced::keyboard;
 use iced::keyboard::key;
 use iced::mouse;
-use iced::{event, keyboard};
 use iced::{Color, Element, Event, Length, Point, Rectangle, Size, Vector};
 
 pub fn modal<'a, Message, Theme, Renderer>(
@@ -207,14 +207,16 @@ where
                 ..
             }) => {
                 shell.publish((self.on_blur)());
-                return event::Status::Captured;
+                shell.capture_event();
+                return;
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 let bounds = layout.children().next().unwrap().bounds();
 
                 if !cursor.is_over(bounds) {
                     shell.publish((self.on_blur)());
-                    return event::Status::Captured;
+                    shell.capture_event();
+                    return;
                 }
             }
             _ => {}
