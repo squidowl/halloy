@@ -7,6 +7,8 @@ If you need to commit your configuration file to a public repository, you can ke
 
 > 💡 Shell expansions (e.g. `"~/"` → `"/home/user/"`) are not supported in path strings.
 
+> 💡 Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
+
 ```toml
 [servers.liberachat]
 nickname = "foobar"
