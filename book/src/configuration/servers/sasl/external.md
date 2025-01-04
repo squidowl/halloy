@@ -4,10 +4,18 @@ External SASL auth uses a PEM encoded X509 certificate. [Reference](https://libe
 
 **Example**
 
+Linux/Mac:
 ```toml
 [servers.liberachat.sasl.external]
 cert = "/path/to/your/certificate.pem"
 key = "/path/to/your/private_key.pem"
+```
+
+Windows:
+```toml
+[servers.liberachat.sasl.external]
+cert = 'C:\path\to\your\certificate.pem'
+key = 'C:\path\to\your\private_key.pem'
 ```
 
 ## `cert`
