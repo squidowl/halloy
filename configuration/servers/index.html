@@ -217,7 +217,7 @@ channels = ["#asahi-dev"]
 <li><strong>default</strong>: not set</li>
 </ul>
 <h2 id="nick_password_file"><a class="header" href="#nick_password_file"><code>nick_password_file</code></a></h2>
-<p>Read nick_password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
+<p>Read nick_password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <ul>
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: any string</li>
@@ -281,7 +281,7 @@ Example: <code>["Foo", "Bar"]</code>.</p>
 <li><strong>default</strong>: not set</li>
 </ul>
 <h2 id="password_file"><a class="header" href="#password_file"><code>password_file</code></a></h2>
-<p>Read password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
+<p>Read password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <ul>
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: any string</li>
@@ -368,7 +368,7 @@ Example: <code>"+RB-x"</code>.</p>
 <li><strong>default</strong>: <code>false</code></li>
 </ul>
 <h2 id="root_cert_path"><a class="header" href="#root_cert_path"><code>root_cert_path</code></a></h2>
-<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <ul>
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: any string</li>
@@ -423,6 +423,9 @@ Example: <code>["Foo", "Bar"]</code></p>
 </ul>
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
 <p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
+</div>
+<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
 </div>
 
                     </main>

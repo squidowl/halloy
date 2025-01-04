@@ -374,6 +374,9 @@ channels = ["#asahi-dev"]
 <blockquote>
 <p>💡 Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
 </blockquote>
+<blockquote>
+<p>💡 Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
+</blockquote>
 <pre><code class="language-toml">[servers.liberachat]
 nickname = "foobar"
 nick_password_file = "/home/user/config/halloy/password"
@@ -466,6 +469,7 @@ auto_format = "disabled" | "markdown" | "all"
 <blockquote>
 <p>💡 You can easily open the config file directory from command bar in Halloy</p>
 </blockquote>
+<p>The specification for the configuration file format (<a href="https://toml.io/">TOML</a>) can be found at <a href="https://toml.io/">https://toml.io/</a>.</p>
 <p>Example config for connecting to <a href="https://libera.chat/">Libera</a>:</p>
 <pre><code class="language-toml">[servers.liberachat]
 nickname = "halloy-user"
@@ -1252,7 +1256,7 @@ channels = ["#asahi-dev"]
 <li><strong>default</strong>: not set</li>
 </ul>
 <h2 id="nick_password_file"><a class="header" href="#nick_password_file"><code>nick_password_file</code></a></h2>
-<p>Read nick_password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
+<p>Read nick_password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <ul>
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: any string</li>
@@ -1316,7 +1320,7 @@ Example: <code>["Foo", "Bar"]</code>.</p>
 <li><strong>default</strong>: not set</li>
 </ul>
 <h2 id="password_file"><a class="header" href="#password_file"><code>password_file</code></a></h2>
-<p>Read password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
+<p>Read password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <ul>
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: any string</li>
@@ -1403,7 +1407,7 @@ Example: <code>"+RB-x"</code>.</p>
 <li><strong>default</strong>: <code>false</code></li>
 </ul>
 <h2 id="root_cert_path"><a class="header" href="#root_cert_path"><code>root_cert_path</code></a></h2>
-<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <ul>
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: any string</li>
@@ -1459,6 +1463,9 @@ Example: <code>["Foo", "Bar"]</code></p>
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
 <p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
 </div>
+<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
+</div>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="serverssasl"><a class="header" href="#serverssasl"><code>[servers.*.sasl]</code></a></h1>
 <p>SASL configuration for a given server</p>
 <h2 id="configuration-7"><a class="header" href="#configuration-7">Configuration</a></h2>
@@ -1487,7 +1494,7 @@ password = "barbaz"
 <li><strong>default</strong>: not set</li>
 </ul>
 <h2 id="password_file-1"><a class="header" href="#password_file-1"><code>password_file</code></a></h2>
-<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
+<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <ul>
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: any string</li>
@@ -1503,22 +1510,31 @@ password = "barbaz"
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
 <p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
 </div>
+<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
+</div>
 <div style="break-before: page; page-break-before: always;"></div><h2 id="saslexternal"><a class="header" href="#saslexternal"><code>[sasl.external]</code></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
 <p><strong>Example</strong></p>
+<p>Linux/Mac:</p>
 <pre><code class="language-toml">[servers.liberachat.sasl.external]
 cert = "/path/to/your/certificate.pem"
 key = "/path/to/your/private_key.pem"
 </code></pre>
+<p>Windows:</p>
+<pre><code class="language-toml">[servers.liberachat.sasl.external]
+cert = 'C:\path\to\your\certificate.pem'
+key = 'C:\path\to\your\private_key.pem'
+</code></pre>
 <h2 id="cert"><a class="header" href="#cert"><code>cert</code></a></h2>
-<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
+<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <ul>
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: any string</li>
 <li><strong>default</strong>: not set</li>
 </ul>
 <h2 id="key"><a class="header" href="#key"><code>key</code></a></h2>
-<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference"><a href="#1">1</a></sup></p>
+<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <ul>
 <li><strong>type</strong>: string</li>
 <li><strong>values</strong>: any string</li>
@@ -1526,6 +1542,9 @@ key = "/path/to/your/private_key.pem"
 </ul>
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
 <p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
+</div>
+<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
 </div>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
 <p>Customize the sidebar of Halloy.</p>
