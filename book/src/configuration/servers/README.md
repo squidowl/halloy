@@ -34,7 +34,7 @@ The client's NICKSERV password.
  
 ## `nick_password_file`
 
-Read nick_password from the file at the given path.[^1]
+Read nick_password from the file at the given path.[^1] [^2]
 
 - **type**: string
 - **values**: any string
@@ -107,7 +107,7 @@ The password to connect to the server.
 
 ## `password_file`
 
-Read password from the file at the given path.[^1]
+Read password from the file at the given path.[^1] [^2]
 
 - **type**: string
 - **values**: any string
@@ -206,7 +206,7 @@ When `true`, all certificate validations are skipped.
 
 ## `root_cert_path`
 
-The path to the root TLS certificate for this server in PEM format.[^1]
+The path to the root TLS certificate for this server in PEM format.[^1] [^2]
 
 - **type**: string
 - **values**: any string
@@ -265,3 +265,4 @@ Whether or not to enable [IRCv3 Chat History](https://ircv3.net/specs/extensions
 - **default**: `true`
 
 [^1]: Shell expansions (e.g. `"~/"` → `"/home/user/"`) are not supported in path strings.
+[^2]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
