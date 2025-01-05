@@ -121,10 +121,10 @@ impl Map {
                 config.nick_password = Some(nick_pass);
             }
             if let Some(nick_pass_command) = &config.nick_password_command {
-                if config.password.is_some() {
+                if config.nick_password.is_some() {
                     return Err(Error::DuplicateNickPassword);
                 }
-                config.password = Some(read_from_command(nick_pass_command).await?);
+                config.nick_password = Some(read_from_command(nick_pass_command).await?);
             }
             if let Some(sasl) = &mut config.sasl {
                 match sasl {
