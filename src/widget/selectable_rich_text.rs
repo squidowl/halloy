@@ -8,7 +8,6 @@ use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Operation;
 use iced::advanced::{Clipboard, Layout, Shell, Widget};
 use iced::alignment;
-use iced::event;
 use iced::mouse;
 use iced::widget;
 use iced::widget::container;
@@ -223,11 +222,46 @@ struct State<Link, P: Paragraph> {
     spans: Vec<Span<'static, Link, P::Font>>,
     span_pressed: Option<usize>,
     paragraph: P,
+    hovered: bool,
+    link_hovered: bool,
     interaction: Interaction,
     shown_spoiler: Option<(usize, Color, Highlight)>,
 
     context_menu_link: Option<Link>,
     context_menu: context_menu::State,
+}
+
+struct Snapshot {
+    hovered: bool,
+    link_hovered: bool,
+    span_pressed: Option<usize>,
+    interaction: Interaction,
+    context_menu_status: context_menu::Status,
+    shown_spoiler: Option<(usize, Color, Highlight)>,
+}
+
+impl<Link, P: Paragraph> From<&State<Link, P>> for Snapshot {
+    fn from(value: &State<Link, P>) -> Self {
+        Snapshot {
+            hovered: value.hovered,
+            link_hovered: value.link_hovered,
+            span_pressed: value.span_pressed,
+            interaction: value.interaction,
+            context_menu_status: value.context_menu.status,
+            shown_spoiler: value.shown_spoiler,
+        }
+    }
+}
+
+impl Snapshot {
+    fn is_changed(&self, other: &Self) -> bool {
+        self.hovered != other.hovered
+            || self.link_hovered != other.link_hovered
+            || self.span_pressed != other.span_pressed
+            || self.interaction != other.interaction
+            || self.context_menu_status != other.context_menu_status
+            || self.shown_spoiler != other.shown_spoiler
+    }
 }
 
 impl<'a, Message, Link, Entry, Theme, Renderer> Widget<Message, Theme, Renderer>
@@ -253,6 +287,8 @@ where
             shown_spoiler: None,
             context_menu_link: None,
             context_menu: context_menu::State::new(),
+            hovered: false,
+            link_hovered: false,
         })
     }
 
@@ -285,7 +321,7 @@ where
         )
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
         event: Event,
@@ -295,20 +331,38 @@ where
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let state = tree
             .state
             .downcast_mut::<State<Link, Renderer::Paragraph>>();
+        let prev_snapshot = Snapshot::from(&*state);
 
         let bounds = layout.bounds();
 
         if viewport.intersection(&bounds).is_none()
             && matches!(state.interaction, Interaction::Idle)
         {
-            return event::Status::Ignored;
+            return;
         }
 
-        let mut status = event::Status::Ignored;
+        state.hovered = false;
+        state.link_hovered = false;
+
+        if let Some(position) = cursor.position_in(layout.bounds()) {
+            state.hovered = true;
+
+            if self.on_link.is_some() {
+                if let Some(span) = state
+                    .paragraph
+                    .hit_span(position)
+                    .and_then(|span| self.spans.get(span))
+                {
+                    if span.link.is_some() {
+                        state.link_hovered = true;
+                    }
+                }
+            }
+        }
 
         match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
@@ -316,8 +370,7 @@ where
                 if let Some(position) = cursor.position_in(bounds) {
                     if let Some(span) = state.paragraph.hit_span(position) {
                         state.span_pressed = Some(span);
-
-                        status = event::Status::Captured;
+                        shell.capture_event();
                     }
                 }
 
@@ -460,7 +513,9 @@ where
             _ => {}
         }
 
-        status
+        if prev_snapshot.is_changed(&Snapshot::from(&*state)) {
+            shell.request_redraw();
+        }
     }
 
     fn draw(
@@ -629,29 +684,21 @@ where
     fn mouse_interaction(
         &self,
         tree: &Tree,
-        layout: Layout<'_>,
-        cursor: mouse::Cursor,
+        _layout: Layout<'_>,
+        _cursor: mouse::Cursor,
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
-        if let Some(position) = cursor.position_in(layout.bounds()) {
-            let state = tree
-                .state
-                .downcast_ref::<State<Link, Renderer::Paragraph>>();
+        let state = tree
+            .state
+            .downcast_ref::<State<Link, Renderer::Paragraph>>();
 
-            if self.on_link.is_some() {
-                if let Some(span) = state
-                    .paragraph
-                    .hit_span(position)
-                    .and_then(|span| self.spans.get(span))
-                {
-                    if span.link.is_some() {
-                        return mouse::Interaction::Pointer;
-                    }
-                }
+        if state.hovered {
+            if state.link_hovered {
+                mouse::Interaction::Pointer
+            } else {
+                mouse::Interaction::Text
             }
-
-            mouse::Interaction::Text
         } else {
             mouse::Interaction::None
         }
@@ -675,12 +722,12 @@ where
             .selection()
             .and_then(|raw| selection(raw, bounds, &state.paragraph, &value))
         {
-            let content = value.select(selection.start, selection.end).to_string();
-            operation.custom(&mut (bounds.y, content), None);
+            let mut content = value.select(selection.start, selection.end).to_string();
+            operation.custom(None, bounds, &mut content);
         }
 
         // Context menu
-        operation.custom(&mut state.context_menu, None);
+        operation.custom(None, bounds, &mut state.context_menu);
     }
 
     fn overlay<'b>(

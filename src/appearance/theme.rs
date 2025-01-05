@@ -1,5 +1,3 @@
-use iced::application;
-
 use crate::widget::combo_box;
 
 pub use data::appearance::theme::{
@@ -71,9 +69,9 @@ impl Default for Theme {
     }
 }
 
-impl application::DefaultStyle for Theme {
-    fn default_style(&self) -> application::Appearance {
-        application::Appearance {
+impl iced::theme::Base for Theme {
+    fn base(&self) -> iced::theme::Style {
+        iced::theme::Style {
             background_color: self.colors().general.background,
             text_color: self.colors().text.primary,
         }

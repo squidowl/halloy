@@ -1,6 +1,6 @@
 use iced::advanced::{widget, Clipboard, Layout, Shell};
 pub use iced::keyboard::{key::Named, Key, Modifiers};
-use iced::{event, keyboard, mouse, Event, Rectangle};
+use iced::{keyboard, mouse, Event, Rectangle};
 
 use super::{decorate, Element, Renderer};
 
@@ -14,7 +14,7 @@ where
     Message: 'a + Clone,
 {
     decorate(base)
-        .on_event(
+        .update(
             move |_state: &mut (),
                   inner: &mut Element<'a, Message>,
                   tree: &mut widget::Tree,
@@ -33,11 +33,12 @@ where
                 {
                     if key == *k && modifiers == *m {
                         shell.publish(on_press.clone());
-                        return event::Status::Captured;
+                        shell.capture_event();
+                        return;
                     }
                 }
 
-                inner.as_widget_mut().on_event(
+                inner.as_widget_mut().update(
                     tree, event, layout, cursor, renderer, clipboard, shell, viewport,
                 )
             },
