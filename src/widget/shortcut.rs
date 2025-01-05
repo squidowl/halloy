@@ -1,7 +1,7 @@
 use data::shortcut;
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell};
-use iced::{event, keyboard, mouse, Event};
+use iced::{keyboard, mouse, Event};
 
 pub use data::shortcut::Command;
 
@@ -16,7 +16,7 @@ where
     Message: 'a,
 {
     decorate(base)
-        .on_event(
+        .update(
             move |modifiers: &mut shortcut::Modifiers,
                   inner: &mut Element<'a, Message>,
                   tree: &mut Tree,
@@ -36,7 +36,8 @@ where
                             .find_map(|shortcut| shortcut.execute(&key_bind))
                         {
                             shell.publish((on_press)(command));
-                            return event::Status::Captured;
+                            shell.capture_event();
+                            return;
                         }
                     }
                     Event::Keyboard(keyboard::Event::ModifiersChanged(new_modifiers)) => {
@@ -45,7 +46,7 @@ where
                     _ => {}
                 }
 
-                inner.as_widget_mut().on_event(
+                inner.as_widget_mut().update(
                     tree, event, layout, cursor, renderer, clipboard, shell, viewport,
                 )
             },

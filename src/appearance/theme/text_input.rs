@@ -33,7 +33,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
     };
 
     match status {
-        Status::Active | Status::Hovered | Status::Focused => active,
+        Status::Active | Status::Hovered | Status::Focused { .. } => active,
         Status::Disabled => Style {
             background: Background::Color(theme.colors().buffer.background_text_input),
             placeholder: Color {
@@ -55,7 +55,7 @@ pub fn error(theme: &Theme, status: Status) -> Style {
     let primary = primary(theme, status);
 
     match status {
-        Status::Active | Status::Hovered | Status::Focused => Style {
+        Status::Active | Status::Hovered | Status::Focused { .. } => Style {
             border: Border {
                 radius: 4.0.into(),
                 width: 1.0,

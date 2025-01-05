@@ -3,7 +3,7 @@ use iced::{Point, Rectangle, Vector};
 
 use super::Value;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Raw {
     pub start: Point,
     pub end: Point,
