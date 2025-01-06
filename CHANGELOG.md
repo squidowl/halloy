@@ -10,6 +10,7 @@ Added:
 
 Fixed:
 - Long username & password combinations could cause SASL authentication to fail
+- `nick_password_command` is now working as intended
 
 # 2024.14 (2024-10-29)
 
