@@ -12,6 +12,9 @@ Fixed:
 - Long username & password combinations could cause SASL authentication to fail
 - `nick_password_command` is now working as intended
 
+Changed:
+- Changed focus buffer shortcuts to include `Ctrl` (`⌘` on macOS) to avoid interfering with default text input shortcuts for word navigation (`⌥ + ←`, `⌥ + →`)
+
 # 2024.14 (2024-10-29)
 
 Fixed:
