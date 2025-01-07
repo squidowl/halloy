@@ -14,10 +14,10 @@ move_right = "alt+l"
 
 | Key                     | Description                  | Default MacOS                                       | Default Other                                       |
 | ----------------------- | ---------------------------- | --------------------------------------------------- | --------------------------------------------------- |
-| `move_up`               | Moves focus up               | <kbd>⌥</kbd> + <kbd>↑</kbd>                         | <kbd>alt</kbd> + <kbd>↑</kbd>                       |
-| `move_down`             | Moves focus down             | <kbd>⌥</kbd> + <kbd>↓</kbd>                         | <kbd>alt</kbd> + <kbd>↓</kbd>                       |
-| `move_left`             | Moves focus left             | <kbd>⌥</kbd> + <kbd>←</kbd>                         | <kbd>alt</kbd> + <kbd>←</kbd>                       |
-| `move_right`            | Moves focus right            | <kbd>⌥</kbd> + <kbd>→</kbd>                         | <kbd>alt</kbd> + <kbd>→</kbd>                       |
+| `move_up`               | Moves focus up               | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↑</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↑</kbd>     |
+| `move_down`             | Moves focus down             | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↓</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↓</kbd>     |
+| `move_left`             | Moves focus left             | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd>     |
+| `move_right`            | Moves focus right            | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd>     |
 | `close_buffer`          | Close focused buffer         | <kbd>⌘</kbd> + <kbd>w</kbd>                         | <kbd>ctrl</kbd> + <kbd>w</kbd>                      |
 | `maximize_buffer`       | Maximize focused buffer      | <kbd>⌘</kbd> + <kbd>↑</kbd>                         | <kbd>ctrl</kbd> + <kbd>↑</kbd>                      |
 | `restore_buffer`        | Restore focused buffer       | <kbd>⌘</kbd> + <kbd>↓</kbd>                         | <kbd>ctrl</kbd> + <kbd>↓</kbd>                      |
