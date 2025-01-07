@@ -113,10 +113,10 @@ impl Hash for KeyBind {
 }
 
 impl KeyBind {
-    default!(move_up, ArrowUp, ALT);
-    default!(move_down, ArrowDown, ALT);
-    default!(move_left, ArrowLeft, ALT);
-    default!(move_right, ArrowRight, ALT);
+    default!(move_up, ArrowUp, COMMAND | ALT);
+    default!(move_down, ArrowDown, COMMAND | ALT);
+    default!(move_left, ArrowLeft, COMMAND | ALT);
+    default!(move_right, ArrowRight, COMMAND | ALT);
     default!(close_buffer, "w", COMMAND);
     default!(maximize_buffer, ArrowUp, COMMAND);
     default!(restore_buffer, ArrowDown, COMMAND);
