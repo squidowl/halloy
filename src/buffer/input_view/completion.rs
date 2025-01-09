@@ -5,6 +5,7 @@ use data::user::User;
 use data::{isupport, target};
 use iced::widget::{column, container, row, text, tooltip};
 use iced::Length;
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 
 use crate::theme;
@@ -638,6 +639,7 @@ impl Text {
         self.prompt = rest.to_string();
         self.filtered = users
             .iter()
+            .sorted_by(|a, b| a.nickname().cmp(&b.nickname()))
             .filter_map(|user| {
                 let lower_nick = user.nickname().as_ref().to_lowercase();
                 lower_nick

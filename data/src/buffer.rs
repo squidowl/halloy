@@ -111,6 +111,22 @@ pub struct TextInput {
     pub visibility: TextInputVisibility,
     #[serde(default)]
     pub auto_format: AutoFormat,
+    #[serde(default)]
+    pub nickname_autocomplete: Autocomplete,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SortDirection {
+    #[default]
+    Asc,
+    Desc,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+pub struct Autocomplete {
+    pub sort_direction: SortDirection,
+    pub case_sensitive: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
