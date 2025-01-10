@@ -2,7 +2,8 @@
 
 Added:
 - New configuration options
-  - Ability to disable dimming of away usernames. See [buffer configuartion](https://halloy.squidowl.org/configuration/buffer/away.html).
+  - Ability to disable dimming of away usernames. See [configuartion](https://halloy.squidowl.org/configuration/buffer/away.html).
+  - Autocomplete. See [configuration](https://halloy.squidowl.org/configuration/buffer/text_input/autocomplete.html).
 - Enable support for IRCv3 `chathistory`
 - Highlight notifications for `/me` actions
 - Timeout delay for notifications
@@ -11,6 +12,7 @@ Added:
 Fixed:
 - Long username & password combinations could cause SASL authentication to fail
 - `nick_password_command` is now working as intended
+- Don't add suffix (`: `) to prompt if there is no valid nick to autocomplete
 
 Changed:
 - Changed focus buffer shortcuts to include `Ctrl` (`⌘` on macOS) to avoid interfering with default text input shortcuts for word navigation (`⌥ + ←`, `⌥ + →`)
