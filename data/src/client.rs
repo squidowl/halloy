@@ -10,7 +10,7 @@ use std::{fmt, io};
 
 use tokio::fs;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context as ErrorContext, Result};
 
 use crate::history::ReadMarker;
 use crate::isupport::{ChatHistoryState, ChatHistorySubcommand, MessageReference};
@@ -310,7 +310,17 @@ impl Client {
 
         macro_rules! ok {
             ($option:expr) => {
-                $option.ok_or_else(|| anyhow!("Malformed command: {:?}", message.command))?
+                $option.ok_or_else(|| {
+                    anyhow!("[{}] Malformed command: {:?}", self.server, message.command)
+                })?
+            };
+        }
+
+        macro_rules! context {
+            ($result:expr) => {
+                $result.with_context(|| {
+                    anyhow!("[{}] Malformed command: {:?}", self.server, message.command)
+                })?
             };
         }
 
@@ -1046,12 +1056,12 @@ impl Client {
             }
             Command::INVITE(user, channel) => {
                 let user = User::from(Nick::from(user.as_str()));
-                let channel = target::Channel::parse(
+                let channel = context!(target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?;
+                ));
                 let inviter = ok!(message.user());
                 let user_channels = self.user_channels(user.nickname());
 
@@ -1216,30 +1226,32 @@ impl Client {
                 let user = ok!(message.user());
 
                 if user.nickname() == self.nickname() {
-                    self.chanmap.remove(&target::Channel::parse(
+                    self.chanmap.remove(&context!(target::Channel::parse(
                         channel,
                         self.chantypes(),
                         self.statusmsg(),
                         self.casemapping(),
-                    )?);
-                } else if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
-                    channel,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                )?) {
+                    )));
+                } else if let Some(channel) =
+                    self.chanmap.get_mut(&context!(target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )))
+                {
                     channel.users.remove(&user);
                 }
             }
             Command::JOIN(channel, accountname) => {
                 let user = ok!(message.user());
 
-                let target = target::Channel::parse(
+                let target = context!(target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?;
+                ));
 
                 if user.nickname() == self.nickname() {
                     self.chanmap.insert(target.clone(), Channel::default());
@@ -1288,18 +1300,20 @@ impl Client {
             }
             Command::KICK(channel, victim, _) => {
                 if victim == self.nickname().as_ref() {
-                    self.chanmap.remove(&target::Channel::parse(
+                    self.chanmap.remove(&context!(target::Channel::parse(
                         channel,
                         self.chantypes(),
                         self.statusmsg(),
                         self.casemapping(),
-                    )?);
-                } else if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
-                    channel,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                )?) {
+                    )));
+                } else if let Some(channel) =
+                    self.chanmap.get_mut(&context!(target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )))
+                {
                     channel
                         .users
                         .remove(&User::from(Nick::from(victim.as_str())));
@@ -1330,12 +1344,12 @@ impl Client {
             Command::Numeric(RPL_WHOSPCRPL, args) => {
                 let target = ok!(args.get(2));
 
-                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?) {
+                ))) {
                     channel.update_user_away(ok!(args.get(3)), ok!(args.get(4)));
 
                     if self.supports_account_notify {
@@ -1363,12 +1377,12 @@ impl Client {
             Command::Numeric(RPL_ENDOFWHO, args) => {
                 let target = ok!(args.get(1));
 
-                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?) {
+                ))) {
                     if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
                         channel.last_who = Some(WhoStatus::Done(Instant::now()));
                         log::debug!("[{}] {target} - WHO done", self.server);
@@ -1414,46 +1428,51 @@ impl Client {
                 }
             }
             Command::MODE(target, Some(modes), Some(args)) => {
-                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                match Target::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?) {
-                    let modes = mode::parse::<mode::Channel>(modes, args);
+                ) {
+                    Target::Channel(ref channel) => {
+                        if let Some(channel) = self.chanmap.get_mut(channel) {
+                            let modes = mode::parse::<mode::Channel>(modes, args);
 
-                    for mode in modes {
-                        if let Some((op, lookup)) = mode
-                            .operation()
-                            .zip(mode.arg().map(|nick| User::from(Nick::from(nick))))
-                        {
-                            if let Some(mut user) = channel.users.take(&lookup) {
-                                user.update_access_level(op, *mode.value());
-                                channel.users.insert(user);
+                            for mode in modes {
+                                if let Some((op, lookup)) = mode
+                                    .operation()
+                                    .zip(mode.arg().map(|nick| User::from(Nick::from(nick))))
+                                {
+                                    if let Some(mut user) = channel.users.take(&lookup) {
+                                        user.update_access_level(op, *mode.value());
+                                        channel.users.insert(user);
+                                    }
+                                }
                             }
                         }
                     }
-                } else {
-                    // Only check for being logged in via mode if account-notify is not available,
-                    // since it is not standardized across networks.
+                    Target::Query(_) => {
+                        // Only check for being logged in via mode if account-notify is not available,
+                        // since it is not standardized across networks.
 
-                    if target == self.nickname().as_ref()
-                        && !self.supports_account_notify
-                        && !self.registration_required_channels.is_empty()
-                    {
-                        let modes = mode::parse::<mode::User>(modes, args);
+                        if target == self.nickname().as_ref()
+                            && !self.supports_account_notify
+                            && !self.registration_required_channels.is_empty()
+                        {
+                            let modes = mode::parse::<mode::User>(modes, args);
 
-                        if modes.into_iter().any(|mode| {
-                            matches!(mode, mode::Mode::Add(mode::User::Registered, None))
-                        }) {
-                            for message in group_joins(
-                                &self.registration_required_channels,
-                                &self.config.channel_keys,
-                            ) {
-                                self.handle.try_send(message)?;
+                            if modes.into_iter().any(|mode| {
+                                matches!(mode, mode::Mode::Add(mode::User::Registered, None))
+                            }) {
+                                for message in group_joins(
+                                    &self.registration_required_channels,
+                                    &self.config.channel_keys,
+                                ) {
+                                    self.handle.try_send(message)?;
+                                }
+
+                                self.registration_required_channels.clear();
                             }
-
-                            self.registration_required_channels.clear();
                         }
                     }
                 }
@@ -1461,12 +1480,12 @@ impl Client {
             Command::Numeric(RPL_NAMREPLY, args) if args.len() > 3 => {
                 let channel = ok!(args.get(2));
 
-                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?) {
+                ))) {
                     for user in args[3].split(' ') {
                         if let Ok(user) = User::try_from(user) {
                             channel.users.insert(user);
@@ -1482,12 +1501,12 @@ impl Client {
             Command::Numeric(RPL_ENDOFNAMES, args) => {
                 let target = ok!(args.get(1));
 
-                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?) {
+                ))) {
                     if !channel.names_init {
                         channel.names_init = true;
 
@@ -1496,12 +1515,12 @@ impl Client {
                 }
             }
             Command::TOPIC(channel, topic) => {
-                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?) {
+                ))) {
                     if let Some(text) = topic {
                         channel.topic.content = Some(message::parse_fragments(text.clone(), &[]));
                     }
@@ -1513,12 +1532,12 @@ impl Client {
             Command::Numeric(RPL_TOPIC, args) => {
                 let channel = ok!(args.get(1));
 
-                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?) {
+                ))) {
                     channel.topic.content =
                         Some(message::parse_fragments(ok!(args.get(2)).to_owned(), &[]));
                 }
@@ -1529,12 +1548,12 @@ impl Client {
             Command::Numeric(RPL_TOPICWHOTIME, args) => {
                 let channel = ok!(args.get(1));
 
-                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?) {
+                ))) {
                     channel.topic.who = Some(ok!(args.get(2)).to_string());
                     let timestamp = Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
                     channel.topic.time =
@@ -1547,12 +1566,12 @@ impl Client {
                 return Ok(vec![]);
             }
             Command::Numeric(ERR_NOCHANMODES, args) => {
-                let channel = target::Channel::parse(
+                let channel = context!(target::Channel::parse(
                     ok!(args.get(1)),
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?;
+                ));
 
                 // If the channel has not been joined but is in the configured channels,
                 // then interpret this numeric as ERR_NEEDREGGEDNICK (which has the
@@ -2592,7 +2611,9 @@ impl Map {
     pub fn tick(&mut self, now: Instant) -> Result<()> {
         for client in self.0.values_mut() {
             if let State::Ready(client) = client {
-                client.tick(now)?;
+                client
+                    .tick(now)
+                    .with_context(|| anyhow!("[{}] tick failed", client.server))?;
             }
         }
         Ok(())
