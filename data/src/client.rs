@@ -3,7 +3,7 @@ use futures::{channel::mpsc, Future, FutureExt};
 use irc::proto::{self, command, Command};
 use itertools::{Either, Itertools};
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fmt, io};
@@ -13,7 +13,9 @@ use tokio::fs;
 use anyhow::{anyhow, bail, Context as ErrorContext, Result};
 
 use crate::history::ReadMarker;
-use crate::isupport::{ChatHistoryState, ChatHistorySubcommand, MessageReference};
+use crate::isupport::{
+    ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken, WhoXPollParameters,
+};
 use crate::message::{message_id, server_time, source};
 use crate::target::{self, Target};
 use crate::time::Posix;
@@ -148,6 +150,7 @@ pub struct Client {
     highlight_blackout: HighlightBlackout,
     registration_required_channels: Vec<target::Channel>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
+    who_polls: VecDeque<WhoPoll>,
 }
 
 impl fmt::Debug for Client {
@@ -189,6 +192,7 @@ impl Client {
             highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
             isupport: HashMap::new(),
+            who_polls: VecDeque::new(),
         }
     }
 
@@ -259,6 +263,42 @@ impl Client {
         }
 
         self.reroute_responses_to = self.start_reroute(&message.command).then(|| buffer.clone());
+
+        if matches!(message.command, Command::WHO(..)) {
+            let params = message.command.clone().parameters();
+
+            if let Some(target) = params.first().and_then(|target| {
+                target::Channel::parse(
+                    target,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )
+                .ok()
+            }) {
+                // Record user WHO request(s) for reply filtering
+                let status = WhoStatus::Requested(
+                    WhoSource::User,
+                    Instant::now(),
+                    params
+                        .get(2)
+                        .and_then(|token| token.parse::<WhoToken>().ok()),
+                );
+
+                if let Some(who_poll) = self
+                    .who_polls
+                    .iter_mut()
+                    .find(|who_poll| who_poll.channel == target)
+                {
+                    who_poll.status = status;
+                } else {
+                    self.who_polls.push_front(WhoPoll {
+                        channel: target,
+                        status,
+                    });
+                }
+            }
+        }
 
         if let Err(e) = self.handle.try_send(message.into()) {
             log::warn!("Error sending message: {e}");
@@ -1246,7 +1286,7 @@ impl Client {
             Command::JOIN(channel, accountname) => {
                 let user = ok!(message.user());
 
-                let target = context!(target::Channel::parse(
+                let target_channel = context!(target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
@@ -1254,39 +1294,50 @@ impl Client {
                 ));
 
                 if user.nickname() == self.nickname() {
-                    self.chanmap.insert(target.clone(), Channel::default());
+                    self.chanmap
+                        .insert(target_channel.clone(), Channel::default());
 
                     // Sends WHO to get away state on users if WHO poll is enabled.
                     if self.config.who_poll_enabled {
-                        if let Some(state) = self.chanmap.get_mut(&target) {
-                            if self.isupport.contains_key(&isupport::Kind::WHOX) {
-                                let fields = if self.supports_account_notify {
-                                    "tcnfa"
-                                } else {
-                                    "tcnf"
-                                };
-
-                                self.handle.try_send(command!(
-                                    "WHO",
-                                    channel,
-                                    fields,
-                                    isupport::WHO_POLL_TOKEN.to_owned()
-                                ))?;
-
-                                state.last_who = Some(WhoStatus::Requested(
-                                    Instant::now(),
-                                    Some(isupport::WHO_POLL_TOKEN),
-                                ));
+                        if self.isupport.contains_key(&isupport::Kind::WHOX) {
+                            let whox_params = if self.supports_account_notify {
+                                WhoXPollParameters::WithAccountName
                             } else {
-                                self.handle.try_send(command!("WHO", channel))?;
-                                state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
-                            }
-                            log::debug!("[{}] {channel} - WHO requested", self.server);
+                                WhoXPollParameters::Default
+                            };
+
+                            self.who_polls.push_front(WhoPoll {
+                                channel: target_channel.clone(),
+                                status: WhoStatus::Requested(
+                                    WhoSource::Join,
+                                    Instant::now(),
+                                    Some(whox_params.token()),
+                                ),
+                            });
+
+                            self.handle.try_send(command!(
+                                "WHO",
+                                channel,
+                                whox_params.fields().to_string(),
+                                whox_params.token().to_owned()
+                            ))?;
+                        } else {
+                            self.who_polls.push_front(WhoPoll {
+                                channel: target_channel.clone(),
+                                status: WhoStatus::Requested(WhoSource::Join, Instant::now(), None),
+                            });
+
+                            self.handle.try_send(command!("WHO", channel))?;
                         }
+
+                        log::debug!("[{}] {channel} - WHO requested", self.server);
                     }
 
-                    return Ok(vec![Event::JoinedChannel(target, server_time(&message))]);
-                } else if let Some(channel) = self.chanmap.get_mut(&target) {
+                    return Ok(vec![Event::JoinedChannel(
+                        target_channel,
+                        server_time(&message),
+                    )]);
+                } else if let Some(channel) = self.chanmap.get_mut(&target_channel) {
                     let user = if self.supports_extended_join {
                         accountname.as_ref().map_or(user.clone(), |accountname| {
                             user.with_accountname(accountname)
@@ -1322,21 +1373,33 @@ impl Client {
             Command::Numeric(RPL_WHOREPLY, args) => {
                 let target = ok!(args.get(1));
 
-                if let Some(channel) = self.chanmap.get_mut(&target::Channel::parse(
+                let target_channel = context!(target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )?) {
+                ));
+
+                if let Some(channel) = self.chanmap.get_mut(&target_channel) {
                     channel.update_user_away(ok!(args.get(5)), ok!(args.get(6)));
 
-                    if matches!(channel.last_who, Some(WhoStatus::Requested(_, None)) | None) {
-                        channel.last_who = Some(WhoStatus::Receiving(None));
-                        log::debug!("[{}] {target} - WHO receiving...", self.server);
-                    }
+                    let user_request = if let Some(who_poll) = self
+                        .who_polls
+                        .iter_mut()
+                        .find(|who_poll| who_poll.channel == target_channel)
+                    {
+                        if let WhoStatus::Requested(source, _, None) = &who_poll.status {
+                            who_poll.status = WhoStatus::Receiving(source.clone(), None);
+                            log::debug!("[{}] {target} - WHO receiving...", self.server);
+                        }
 
-                    if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
-                        // We requested, don't save to history
+                        matches!(who_poll.status, WhoStatus::Receiving(WhoSource::User, None))
+                    } else {
+                        false
+                    };
+
+                    if !user_request {
+                        // User did not request, don't save to history
                         return Ok(vec![]);
                     }
                 }
@@ -1344,32 +1407,69 @@ impl Client {
             Command::Numeric(RPL_WHOSPCRPL, args) => {
                 let target = ok!(args.get(2));
 
-                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
+                let target_channel = context!(target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                ))) {
-                    channel.update_user_away(ok!(args.get(3)), ok!(args.get(4)));
+                ));
 
-                    if self.supports_account_notify {
-                        if let (Some(user), Some(accountname)) = (args.get(3), args.get(5)) {
-                            channel.update_user_accountname(user, accountname);
-                        }
-                    }
-
-                    if let Ok(token) = ok!(args.get(1)).parse::<isupport::WhoToken>() {
-                        if let Some(WhoStatus::Requested(_, Some(request_token))) = channel.last_who
-                        {
-                            if request_token == token {
-                                channel.last_who = Some(WhoStatus::Receiving(Some(request_token)));
+                if let Some(channel) = self.chanmap.get_mut(&target_channel) {
+                    let user_request = if let Some(who_poll) = self
+                        .who_polls
+                        .iter_mut()
+                        .find(|who_poll| who_poll.channel == target_channel)
+                    {
+                        match &who_poll.status {
+                            WhoStatus::Requested(source, _, Some(request_token))
+                                if matches!(source, WhoSource::Poll | WhoSource::Join) =>
+                            {
+                                if let Ok(token) = ok!(args.get(1)).parse::<WhoToken>() {
+                                    if *request_token == token {
+                                        who_poll.status = WhoStatus::Receiving(
+                                            source.clone(),
+                                            Some(*request_token),
+                                        );
+                                        log::debug!(
+                                            "[{}] {target} - WHO receiving...",
+                                            self.server
+                                        );
+                                    }
+                                }
+                            }
+                            WhoStatus::Requested(WhoSource::User, _, Some(request_token)) => {
+                                who_poll.status =
+                                    WhoStatus::Receiving(WhoSource::User, Some(*request_token));
                                 log::debug!("[{}] {target} - WHO receiving...", self.server);
                             }
+                            _ => (),
                         }
-                    }
 
-                    if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
-                        // We requested, don't save to history
+                        if let WhoStatus::Receiving(WhoSource::Poll, Some(_)) = &who_poll.status {
+                            // Check token to ~ensure reply is to poll request
+                            if let Ok(token) = ok!(args.get(1)).parse::<WhoToken>() {
+                                if token == WhoXPollParameters::Default.token() {
+                                    channel.update_user_away(ok!(args.get(3)), ok!(args.get(4)));
+                                } else if token == WhoXPollParameters::WithAccountName.token() {
+                                    let user = ok!(args.get(3));
+
+                                    channel.update_user_away(user, ok!(args.get(4)));
+
+                                    channel.update_user_accountname(user, ok!(args.get(5)));
+                                }
+                            }
+                        }
+
+                        matches!(
+                            &who_poll.status,
+                            WhoStatus::Receiving(WhoSource::User, Some(_))
+                        )
+                    } else {
+                        false
+                    };
+
+                    if !user_request {
+                        // User did not request, don't save to history
                         return Ok(vec![]);
                     }
                 }
@@ -1377,17 +1477,48 @@ impl Client {
             Command::Numeric(RPL_ENDOFWHO, args) => {
                 let target = ok!(args.get(1));
 
-                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
+                let target_channel = context!(target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                ))) {
-                    if matches!(channel.last_who, Some(WhoStatus::Receiving(_))) {
-                        channel.last_who = Some(WhoStatus::Done(Instant::now()));
-                        log::debug!("[{}] {target} - WHO done", self.server);
-                        return Ok(vec![]);
+                ));
+
+                let pos = self
+                    .who_polls
+                    .iter()
+                    .position(|who_poll| who_poll.channel == target_channel);
+
+                let user_request = pos.map_or(false, |pos| {
+                    matches!(
+                        self.who_polls[pos].status,
+                        WhoStatus::Receiving(WhoSource::User, _)
+                    )
+                });
+
+                if let Some(pos) = pos {
+                    self.who_polls[pos].status = WhoStatus::Received;
+
+                    if let Some(who_poll) = self.who_polls.remove(pos) {
+                        if self.chanmap.contains_key(&target_channel)
+                            && self.config.who_poll_enabled
+                        {
+                            self.who_polls.push_back(who_poll);
+                        }
                     }
+
+                    if let Some(who_poll) = self.who_polls.front_mut() {
+                        if matches!(who_poll.status, WhoStatus::Received) {
+                            who_poll.status = WhoStatus::Waiting(Instant::now());
+                        }
+                    }
+                }
+
+                log::debug!("[{}] {target} - WHO done", self.server);
+
+                if !user_request {
+                    // User did not request, don't save to history
+                    return Ok(vec![]);
                 }
             }
             Command::AWAY(args) => {
@@ -1501,12 +1632,14 @@ impl Client {
             Command::Numeric(RPL_ENDOFNAMES, args) => {
                 let target = ok!(args.get(1));
 
-                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
+                let target_channel = context!(target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                ))) {
+                ));
+
+                if let Some(channel) = self.chanmap.get_mut(&target_channel) {
                     if !channel.names_init {
                         channel.names_init = true;
 
@@ -2133,51 +2266,63 @@ impl Client {
             HighlightBlackout::Receiving => {}
         }
 
-        for (channel, state) in self.chanmap.iter_mut() {
+        if let Some(who_poll) = self.who_polls.front_mut() {
+            #[derive(Debug)]
             enum Request {
                 Poll,
                 Retry,
             }
 
-            let request = match state.last_who {
-                Some(WhoStatus::Done(last))
+            let request = match who_poll.status {
+                WhoStatus::Waiting(last)
                     if !self.supports_away_notify && self.config.who_poll_enabled =>
                 {
                     (now.duration_since(last) >= self.config.who_poll_interval)
                         .then_some(Request::Poll)
                 }
-                Some(WhoStatus::Requested(requested, _)) => (now.duration_since(requested)
-                    >= self.config.who_retry_interval)
-                    .then_some(Request::Retry),
+                WhoStatus::Requested(WhoSource::Poll | WhoSource::User, requested, _) => {
+                    (now.duration_since(requested) >= self.config.who_retry_interval)
+                        .then_some(Request::Retry)
+                }
+                WhoStatus::Requested(WhoSource::Join, requested, _) => {
+                    // Longer interval for polls sent after JOINing, as they may take longer to resolve
+                    (now.duration_since(requested) >= 4 * self.config.who_retry_interval)
+                        .then_some(Request::Retry)
+                }
                 _ => None,
             };
 
             if let Some(request) = request {
                 if self.isupport.contains_key(&isupport::Kind::WHOX) {
-                    let fields = if self.supports_account_notify {
-                        "tcnfa"
+                    let whox_params = if self.supports_account_notify {
+                        WhoXPollParameters::WithAccountName
                     } else {
-                        "tcnf"
+                        WhoXPollParameters::Default
                     };
+
+                    who_poll.status = WhoStatus::Requested(
+                        WhoSource::Poll,
+                        Instant::now(),
+                        Some(whox_params.token()),
+                    );
 
                     self.handle.try_send(command!(
                         "WHO",
-                        channel.to_string(),
-                        fields,
-                        isupport::WHO_POLL_TOKEN.to_owned()
+                        who_poll.channel.to_string(),
+                        whox_params.fields().to_string(),
+                        whox_params.token().to_owned()
                     ))?;
-
-                    state.last_who = Some(WhoStatus::Requested(
-                        Instant::now(),
-                        Some(isupport::WHO_POLL_TOKEN),
-                    ));
                 } else {
-                    self.handle.try_send(command!("WHO", channel.to_string()))?;
-                    state.last_who = Some(WhoStatus::Requested(Instant::now(), None));
+                    who_poll.status = WhoStatus::Requested(WhoSource::Poll, Instant::now(), None);
+
+                    self.handle
+                        .try_send(command!("WHO", who_poll.channel.to_string()))?;
                 }
+
                 log::debug!(
-                    "[{}] {channel} - WHO {}",
+                    "[{}] {} - WHO {}",
                     self.server,
+                    who_poll.channel,
                     match request {
                         Request::Poll => "poll",
                         Request::Retry => "retry",
@@ -2722,7 +2867,6 @@ enum RegistrationStep {
 #[derive(Debug, Default)]
 pub struct Channel {
     pub users: HashSet<User>,
-    pub last_who: Option<WhoStatus>,
     pub topic: Topic,
     pub names_init: bool,
 }
@@ -2763,10 +2907,24 @@ pub struct Topic {
 }
 
 #[derive(Debug, Clone)]
+pub struct WhoPoll {
+    channel: target::Channel,
+    status: WhoStatus,
+}
+
+#[derive(Debug, Clone)]
 pub enum WhoStatus {
-    Requested(Instant, Option<isupport::WhoToken>),
-    Receiving(Option<isupport::WhoToken>),
-    Done(Instant),
+    Requested(WhoSource, Instant, Option<WhoToken>),
+    Receiving(WhoSource, Option<WhoToken>),
+    Received,
+    Waiting(Instant),
+}
+
+#[derive(Debug, Clone)]
+pub enum WhoSource {
+    User,
+    Poll,
+    Join,
 }
 
 fn group_capability_requests<'a>(
