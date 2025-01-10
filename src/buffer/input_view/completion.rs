@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use data::buffer::SortDirection;
 use data::user::User;
-use data::{isupport, target};
+use data::{isupport, target, Config};
 use iced::widget::{column, container, row, text, tooltip};
 use iced::Length;
 use itertools::Itertools;
@@ -31,6 +32,7 @@ impl Completion {
         users: &[User],
         channels: &[target::Channel],
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+        config: &Config,
     ) {
         let is_command = input.starts_with('/');
 
@@ -49,10 +51,12 @@ impl Completion {
             if matches!(self.commands, Commands::Selecting { .. }) {
                 self.text = Text::default();
             } else {
-                self.text.process(input, casemapping, users, channels);
+                self.text
+                    .process(input, casemapping, users, channels, config);
             }
         } else {
-            self.text.process(input, casemapping, users, channels);
+            self.text
+                .process(input, casemapping, users, channels, config);
             self.commands = Commands::default();
         }
     }
@@ -81,15 +85,13 @@ pub enum Entry {
 }
 
 impl Entry {
-    pub fn complete_input(&self, input: &str, chantypes: &[char]) -> String {
+    pub fn complete_input(&self, input: &str, chantypes: &[char], config: &Config) -> String {
         match self {
             Entry::Command(command) => format!("/{}", command.title.to_lowercase()),
             Entry::Text(next) => {
+                let autocomplete = &config.buffer.text_input.autocomplete;
                 let is_channel = next.starts_with(chantypes);
-                let colon_space = ": ";
-
-                let trimmed_input = input.trim_end_matches(colon_space);
-                let mut words: Vec<_> = trimmed_input.split_whitespace().collect();
+                let mut words: Vec<_> = input.split_whitespace().collect();
 
                 // Replace the last word with the next word
                 if let Some(last_word) = words.last_mut() {
@@ -101,11 +103,13 @@ impl Entry {
                 let mut new_input = words.join(" ");
 
                 if words.len() == 1 && !is_channel {
-                    // If completed at the beginning of the input line, ': ' (colon space) is appended.
-                    new_input.push_str(colon_space);
+                    // If completed at the beginning of the input line and not a channel.
+                    let suffix = &autocomplete.completion_suffixes[0];
+                    new_input.push_str(suffix);
                 } else {
-                    // Otherwise, a space is appended to the completion.
-                    new_input.push(' ');
+                    // Otherwise, use second suffix.
+                    let suffix = &autocomplete.completion_suffixes[1];
+                    new_input.push_str(suffix);
                 }
 
                 new_input
@@ -619,13 +623,15 @@ impl Text {
         casemapping: isupport::CaseMap,
         users: &[User],
         channels: &[target::Channel],
+        config: &Config,
     ) {
-        if !self.process_channels(input, casemapping, channels) {
-            self.process_users(input, users);
+        if !self.process_channels(input, casemapping, channels, config) {
+            self.process_users(input, users, config);
         }
     }
 
-    fn process_users(&mut self, input: &str, users: &[User]) {
+    fn process_users(&mut self, input: &str, users: &[User], config: &Config) {
+        let autocomplete = &config.buffer.text_input.autocomplete;
         let (_, rest) = input.rsplit_once(' ').unwrap_or(("", input));
 
         if rest.is_empty() {
@@ -639,7 +645,10 @@ impl Text {
         self.prompt = rest.to_string();
         self.filtered = users
             .iter()
-            .sorted_by(|a, b| a.nickname().cmp(&b.nickname()))
+            .sorted_by(|a, b| match autocomplete.sort_direction {
+                SortDirection::Asc => a.nickname().cmp(&b.nickname()),
+                SortDirection::Desc => b.nickname().cmp(&a.nickname()),
+            })
             .filter_map(|user| {
                 let lower_nick = user.nickname().as_ref().to_lowercase();
                 lower_nick
@@ -654,7 +663,9 @@ impl Text {
         input: &str,
         casemapping: isupport::CaseMap,
         channels: &[target::Channel],
+        config: &Config,
     ) -> bool {
+        let autocomplete = &config.buffer.text_input.autocomplete;
         let (_, last) = input.rsplit_once(' ').unwrap_or(("", input));
         let Some((_, rest)) = last.split_once('#') else {
             *self = Self::default();
@@ -667,6 +678,10 @@ impl Text {
         self.prompt = format!("#{rest}");
         self.filtered = channels
             .iter()
+            .sorted_by(|a, b: &&target::Channel| match autocomplete.sort_direction {
+                SortDirection::Asc => a.as_normalized_str().cmp(&b.as_normalized_str()),
+                SortDirection::Desc => b.as_normalized_str().cmp(&a.as_normalized_str()),
+            })
             .filter(|&channel| channel.as_str().starts_with(input_channel.as_str()))
             .map(|channel| channel.to_string())
             .collect();

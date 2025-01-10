@@ -26,5 +26,4 @@ Control if the text input should auto format the input. By default text is only 
 - **values**: `"disabled"`, `"markdown"`, `"all"`
 - **default**: `"disabled"`
 
-
 > 💡 Read more about [text formatting](../../guides/text-formatting.html).
