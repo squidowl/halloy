@@ -120,7 +120,7 @@ fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
 }
 
 fn handle_irc_error(e: anyhow::Error) {
-    log::error!("IRC error: {:?}", e);
+    log::error!("{:#}", e);
 }
 
 struct Halloy {
