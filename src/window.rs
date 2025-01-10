@@ -1,7 +1,7 @@
 use futures::{stream::BoxStream, Stream, StreamExt};
 use iced::{advanced::graphics::futures::subscription, Point, Size, Subscription};
 
-pub use data::window::{default_size, Error, MIN_SIZE};
+pub use data::window::{Error, MIN_SIZE};
 pub use iced::window::{close, gain_focus, open, Id, Position, Settings};
 
 #[derive(Debug, Clone, Copy)]
@@ -153,6 +153,7 @@ impl subscription::Recipe for Events {
         use futures::stream;
         const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
 
+
         let window_events = events.filter_map(|event| {
             futures::future::ready(match event {
                 subscription::Event::Interaction {
@@ -160,9 +161,14 @@ impl subscription::Recipe for Events {
                     event: iced::Event::Window(window_event),
                     status: _,
                 } => match window_event {
-                    iced::window::Event::Moved(point) => Some((id, Event::Moved(point))),
-                    iced::window::Event::Resized(Size { width, height }) => {
-                        Some((id, Event::Resized(Size::new(width, height))))
+                    iced::window::Event::Moved(point) => {
+                        let is_sign_positive = point.x.is_sign_positive() && point.y.is_sign_positive();
+                        is_sign_positive.then_some((id, Event::Moved(point)))
+                    },
+                    iced::window::Event::Resized(size) => {
+                        println!("RESIZED: {:?}", size);
+                        let is_above_zero = size.width > 0.0 && size.height > 0.0;
+                        is_above_zero.then_some((id, Event::Resized(size)))
                     }
                     iced::window::Event::Focused => Some((id, Event::Focused)),
                     iced::window::Event::Unfocused => Some((id, Event::Unfocused)),

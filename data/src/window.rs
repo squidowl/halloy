@@ -41,8 +41,14 @@ impl Window {
         let path = path()?;
 
         let bytes = std::fs::read(path)?;
+        let Window { position, size} = serde_json::from_slice(&bytes)?;
 
-        Ok(serde_json::from_slice(&bytes)?)
+        let size = size.max(MIN_SIZE);
+        let position = position.map(|Point { x, y}| {
+            Point { x: x.max(0.0), y: y.max(0.0)}
+        });
+
+        Ok(Window { size, position })
     }
 
     pub async fn save(self) -> Result<(), Error> {
