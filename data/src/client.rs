@@ -2059,7 +2059,7 @@ impl Client {
             .chanmap
             .keys()
             .cloned()
-            .sorted_by(|a, b| self.compare_channels(a.as_str(), b.as_str()))
+            .sorted_by(|a, b| self.compare_channels(a.as_normalized_str(), b.as_normalized_str()))
             .collect();
         self.users = self
             .chanmap
