@@ -226,6 +226,8 @@ async fn _run(
                             .unbounded_send(Update::MessagesReceived(server.clone(), messages));
                     }
                     Input::Send(message) => {
+                        log::trace!("[{server}] Sending message => {:?}", message);
+
                         if let Command::QUIT(reason) = &message.command {
                             let reason = reason.clone();
 
