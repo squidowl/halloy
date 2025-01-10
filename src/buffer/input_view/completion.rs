@@ -679,8 +679,8 @@ impl Text {
         self.filtered = channels
             .iter()
             .sorted_by(|a, b: &&target::Channel| match autocomplete.sort_direction {
-                SortDirection::Asc => a.as_normalized_str().cmp(&b.as_normalized_str()),
-                SortDirection::Desc => b.as_normalized_str().cmp(&a.as_normalized_str()),
+                SortDirection::Asc => a.as_normalized_str().cmp(b.as_normalized_str()),
+                SortDirection::Desc => b.as_normalized_str().cmp(a.as_normalized_str()),
             })
             .filter(|&channel| channel.as_str().starts_with(input_channel.as_str()))
             .map(|channel| channel.to_string())
