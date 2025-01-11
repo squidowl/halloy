@@ -105,13 +105,41 @@ impl From<config::Buffer> for Settings {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct TextInput {
     #[serde(default)]
     pub visibility: TextInputVisibility,
     #[serde(default)]
     pub auto_format: AutoFormat,
+    #[serde(default)]
+    pub autocomplete: Autocomplete,
 }
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SortDirection {
+    #[default]
+    Asc,
+    Desc,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Autocomplete {
+    #[serde(default)]
+    pub sort_direction: SortDirection,
+    #[serde(default = "default_completion_suffixes")]
+    pub completion_suffixes: [String; 2]
+}
+
+impl Default for Autocomplete {
+    fn default() -> Self {
+        Self {
+            sort_direction: SortDirection::default(),
+            completion_suffixes: default_completion_suffixes(),
+        }
+    }
+}
+
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -239,3 +267,8 @@ fn default_timestamp() -> String {
 fn default_bool_true() -> bool {
     true
 }
+
+fn default_completion_suffixes() -> [String; 2] {
+    [": ".to_string(), " ".to_string()]
+}
+
