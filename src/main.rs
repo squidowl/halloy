@@ -234,7 +234,7 @@ impl Halloy {
     ) -> (Halloy, Task<Message>) {
         // Load stored window position and size, or use default.
         let data::Window { size, position} = data::Window::load().unwrap_or_default();
-        let position = position.map(|pos| window::Position::Specific(pos)).unwrap_or_default();
+        let position = position.map(window::Position::Specific).unwrap_or_default();
 
         let (main_window, open_main_window) = window::open(window::Settings {
             size,
