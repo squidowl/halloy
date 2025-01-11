@@ -85,18 +85,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // TODO: Renable persistant window position and size:
-    // Winit currently has a bug with resize and move events.
-    // Until it have been fixed, the persistant position and size has been disabled.
-    //
-    let initial_window_data = data::Window::load().unwrap_or_default();
-
     iced::daemon("Halloy", Halloy::update, Halloy::view)
         .theme(Halloy::theme)
         .scale_factor(Halloy::scale_factor)
         .subscription(Halloy::subscription)
         .settings(settings(&config_load))
-        .run_with(move || Halloy::new(config_load, initial_window_data, destination, log_stream))
+        .run_with(move || Halloy::new(config_load, destination, log_stream))
         .inspect_err(|err| log::error!("{}", err))?;
 
     Ok(())
@@ -235,12 +229,11 @@ pub enum Message {
 impl Halloy {
     fn new(
         config_load: Result<Config, config::Error>,
-        initial_window_data: data::Window,
         url_received: Option<data::Url>,
         log_stream: ReceiverStream<Vec<logger::Record>>,
     ) -> (Halloy, Task<Message>) {
-        let data::Window { size, position} = initial_window_data;
-        println!("INITIAL SIZE IS: {:?}", size);
+        // Load stored window position and size, or use default.
+        let data::Window { size, position} = data::Window::load().unwrap_or_default();
         let position = position.map(|pos| window::Position::Specific(pos)).unwrap_or_default();
 
         let (main_window, open_main_window) = window::open(window::Settings {

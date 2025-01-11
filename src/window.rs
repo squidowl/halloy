@@ -176,6 +176,10 @@ impl subscription::Recipe for Events {
         use futures::stream;
         const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
 
+        // This is a hack to skip n amount of certain events on Windows.
+        // This is a winit bug: https://github.com/rust-windowing/winit/issues/2094
+        //
+        // If we don't skip these events the window will become smaller and smaller on each launch.
         let mut move_events = {
             let threshold = if cfg!(target_os = "windows") { 1 } else { 0 };
             EventSkipper::new(threshold)
