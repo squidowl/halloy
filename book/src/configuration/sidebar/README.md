@@ -14,7 +14,7 @@ position = "top"
 
 ## `buffer_action`
 
-Action when pressing buffers in the sidebar. `"new-pane"` opens a new pane each time. `"repace-pane"` replaces the focused pane with the pressed buffer. `"new-window"` opens a new window each time.
+Action when pressing buffers in the sidebar. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the pressed buffer. `"new-window"` opens a new window each time.
 
 - **type**: string
 - **values**: `"new-pane"`, `"replace-pane"`, `"new-window"`
