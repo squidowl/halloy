@@ -48,7 +48,7 @@ impl Window {
             y: pos.y.max(0.0),
         });
 
-        return Ok(Window { position, size })
+        Ok(Window { position, size })
     }
 
     pub async fn save(self) -> Result<(), Error> {
