@@ -40,13 +40,10 @@ impl Window {
     pub async fn load() -> Result<Window, Error> {
         let path = path()?;
         let bytes = fs::read(path).await?;
-        let Window { position, size} = serde_json::from_slice(&bytes)?;
-    
+        let Window { position, size } = serde_json::from_slice(&bytes)?;
+
         let size = size.max(MIN_SIZE);
-        let position = position.map(|pos| Point {
-            x: pos.x.max(0.0),
-            y: pos.y.max(0.0),
-        });
+        let position = position.filter(|pos| pos.y.is_sign_positive() && pos.x.is_sign_positive());
 
         Ok(Window { position, size })
     }

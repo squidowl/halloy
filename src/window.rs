@@ -199,9 +199,10 @@ impl subscription::Recipe for Events {
                 } => match window_event {
                     iced::window::Event::Moved(point) => {
                         if move_events.should_process() {
-                            let is_sign_positive =
-                                point.x.is_sign_positive() && point.y.is_sign_positive();
-                            is_sign_positive.then_some((id, Event::Moved(point)))
+                            let clamped_x = point.x.max(0.0);
+                            let clamped_y = point.y.max(0.0);
+                        
+                            Some((id, Event::Moved(Point { x: clamped_x, y: clamped_y })))
                         } else {
                             move_events.skip();
                             None
@@ -209,8 +210,7 @@ impl subscription::Recipe for Events {
                     }
                     iced::window::Event::Resized(size) => {
                         if resize_events.should_process() {
-                            let is_above_zero = size.width > 0.0 && size.height > 0.0;
-                            is_above_zero.then_some((id, Event::Resized(size)))
+                             Some((id, Event::Resized(size.max(MIN_SIZE))))
                         } else {
                             resize_events.skip();
                             None
