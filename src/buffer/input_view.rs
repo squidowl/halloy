@@ -138,7 +138,7 @@ impl State {
                 let channels = clients.get_channels(buffer.server());
                 let isupport = clients.get_isupport(buffer.server());
 
-                self.completion.process(&input, users, channels, &isupport);
+                self.completion.process(&input, users, channels, &isupport, config);
 
                 history.record_draft(Draft {
                     buffer: buffer.clone(),
@@ -157,7 +157,7 @@ impl State {
 
                 if let Some(entry) = self.completion.select() {
                     let chantypes = clients.get_chantypes(buffer.server());
-                    let new_input = entry.complete_input(input, chantypes);
+                    let new_input = entry.complete_input(input, chantypes, config);
 
                     self.on_completion(buffer, history, new_input)
                 } else if !input.is_empty() {
@@ -225,7 +225,7 @@ impl State {
 
                 if let Some(entry) = self.completion.tab(reverse) {
                     let chantypes = clients.get_chantypes(buffer.server());
-                    let new_input = entry.complete_input(input, chantypes);
+                    let new_input = entry.complete_input(input, chantypes, config);
 
                     self.on_completion(buffer, history, new_input)
                 } else {
@@ -258,7 +258,7 @@ impl State {
                     let isupport = clients.get_isupport(buffer.server());
 
                     self.completion
-                        .process(&new_input, users, channels, &isupport);
+                        .process(&new_input, users, channels, &isupport, config);
 
                     return self.on_completion(buffer, history, new_input);
                 }
@@ -286,7 +286,7 @@ impl State {
                         let isupport = clients.get_isupport(buffer.server());
 
                         self.completion
-                            .process(&new_input, users, channels, &isupport);
+                            .process(&new_input, users, channels, &isupport, config);
                         new_input
                     };
 
