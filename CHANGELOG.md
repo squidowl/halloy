@@ -13,6 +13,7 @@ Fixed:
 - Long username & password combinations could cause SASL authentication to fail
 - `nick_password_command` is now working as intended
 - Don't add suffix (`: `) to prompt if there is no valid nick to autocomplete
+- Append .toml filename when saving themes on macOS
 
 Changed:
 - Changed focus buffer shortcuts to include `Ctrl` (`⌘` on macOS) to avoid interfering with default text input shortcuts for word navigation (`⌥ + ←`, `⌥ + →`)
