@@ -37,18 +37,18 @@ pub fn default_size() -> Size {
 }
 
 impl Window {
-    pub fn load() -> Result<Self, Error> {
+    pub async fn load() -> Result<Window, Error> {
         let path = path()?;
-
-        let bytes = std::fs::read(path)?;
+        let bytes = fs::read(path).await?;
         let Window { position, size} = serde_json::from_slice(&bytes)?;
-
+    
         let size = size.max(MIN_SIZE);
-        let position = position.map(|Point { x, y}| {
-            Point { x: x.max(0.0), y: y.max(0.0)}
+        let position = position.map(|pos| Point {
+            x: pos.x.max(0.0),
+            y: pos.y.max(0.0),
         });
 
-        Ok(Window { size, position })
+        return Ok(Window { position, size })
     }
 
     pub async fn save(self) -> Result<(), Error> {

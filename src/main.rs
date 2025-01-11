@@ -30,7 +30,7 @@ use data::{client::Notification, environment, server, version, Server, Url, User
 use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
-use tokio::runtime;
+use tokio::{join, runtime};
 use tokio_stream::wrappers::ReceiverStream;
 
 use self::event::{events, Event};
@@ -66,14 +66,18 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // spin up a single-threaded tokio runtime to run the config loading task to completion
     // we don't want to wrap our whole program with a runtime since iced starts its own.
-    let config_load = {
+    let (config_load, window_load) = {
         let rt = runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
 
-        rt.block_on(Config::load())
-    };
+        rt.block_on(async { 
+            let config = Config::load();
+            let window = data::Window::load();
 
+            join!(config, window)
+        })
+    };
     // DANGER ZONE - font must be set using config
     // before we do any iced related stuff w/ it
     font::set(config_load.as_ref().ok());
@@ -90,7 +94,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .scale_factor(Halloy::scale_factor)
         .subscription(Halloy::subscription)
         .settings(settings(&config_load))
-        .run_with(move || Halloy::new(config_load, destination, log_stream))
+        .run_with(move || Halloy::new(config_load, window_load, destination, log_stream))
         .inspect_err(|err| log::error!("{}", err))?;
 
     Ok(())
@@ -229,11 +233,11 @@ pub enum Message {
 impl Halloy {
     fn new(
         config_load: Result<Config, config::Error>,
+        window_load: Result<data::Window, window::Error>,
         url_received: Option<data::Url>,
         log_stream: ReceiverStream<Vec<logger::Record>>,
     ) -> (Halloy, Task<Message>) {
-        // Load stored window position and size, or use default.
-        let data::Window { size, position} = data::Window::load().unwrap_or_default();
+        let data::Window { size, position} = window_load.unwrap_or_default();
         let position = position.map(window::Position::Specific).unwrap_or_default();
 
         let (main_window, open_main_window) = window::open(window::Settings {
