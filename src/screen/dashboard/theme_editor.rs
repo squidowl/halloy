@@ -115,17 +115,9 @@ impl ThemeEditor {
             }
             Message::Save => {
                 let task = async move {
-                    // TODO: rfd `set_directory` can't be used in combination with `set_file_name` on macOS.
-                    // https://github.com/PolyMeilex/rfd/issues/214
-
-                    let mut dialog =
-                        rfd::AsyncFileDialog::new().set_directory(Config::themes_dir());
-
-                    if !cfg!(target_os = "macos") {
-                        dialog = dialog.set_file_name("custom-theme.toml");
-                    }
-
-                    dialog
+                    rfd::AsyncFileDialog::new()
+                        .set_directory(Config::themes_dir())
+                        .set_file_name("custom-theme.toml")
                         .save_file()
                         .await
                         .map(|handle| handle.path().to_path_buf())
