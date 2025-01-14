@@ -1301,40 +1301,17 @@ impl Client {
                     self.chanmap
                         .insert(target_channel.clone(), Channel::default());
 
-                    // Sends WHO to get away state on users if WHO poll is enabled.
-                    if self.config.who_poll_enabled {
-                        if self.isupport.contains_key(&isupport::Kind::WHOX) {
-                            let whox_params = if self.supports_account_notify {
-                                WhoXPollParameters::WithAccountName
-                            } else {
-                                WhoXPollParameters::Default
-                            };
-
-                            self.who_polls.push_front(WhoPoll {
-                                channel: target_channel.clone(),
-                                status: WhoStatus::Requested(
-                                    WhoSource::Join,
-                                    Instant::now(),
-                                    Some(whox_params.token()),
-                                ),
-                            });
-
-                            self.handle.try_send(command!(
-                                "WHO",
-                                channel,
-                                whox_params.fields().to_string(),
-                                whox_params.token().to_owned()
-                            ))?;
-                        } else {
-                            self.who_polls.push_front(WhoPoll {
-                                channel: target_channel.clone(),
-                                status: WhoStatus::Requested(WhoSource::Join, Instant::now(), None),
-                            });
-
-                            self.handle.try_send(command!("WHO", channel))?;
-                        }
-
-                        log::debug!("[{}] {channel} - WHO requested", self.server);
+                    // Add channel to WHO poll queue; queue will only be
+                    // processed if it is WHO polling is enabled
+                    if !self
+                        .who_polls
+                        .iter()
+                        .any(|who_poll| who_poll.channel == target_channel)
+                    {
+                        self.who_polls.push_back(WhoPoll {
+                            channel: target_channel.clone(),
+                            status: WhoStatus::Waiting(Instant::now()),
+                        });
                     }
 
                     return Ok(vec![Event::JoinedChannel(
@@ -1425,7 +1402,7 @@ impl Client {
                         {
                             match &who_poll.status {
                                 WhoStatus::Requested(source, _, Some(request_token))
-                                    if matches!(source, WhoSource::Poll | WhoSource::Join) =>
+                                    if matches!(source, WhoSource::Poll) =>
                                 {
                                     if let Ok(token) = ok!(args.get(1)).parse::<WhoToken>() {
                                         if *request_token == token {
@@ -2307,21 +2284,20 @@ impl Client {
                 Retry,
             }
 
-            let request = match who_poll.status {
+            let request = match &who_poll.status {
                 WhoStatus::Waiting(last)
                     if !self.supports_away_notify && self.config.who_poll_enabled =>
                 {
-                    (now.duration_since(last) >= self.config.who_poll_interval)
+                    (now.duration_since(*last) >= self.config.who_poll_interval)
                         .then_some(Request::Poll)
                 }
-                WhoStatus::Requested(WhoSource::Poll | WhoSource::User, requested, _) => {
-                    (now.duration_since(requested) >= self.config.who_retry_interval)
-                        .then_some(Request::Retry)
-                }
-                WhoStatus::Requested(WhoSource::Join, requested, _) => {
-                    // Longer interval for polls sent after JOINing, as they may take longer to resolve
-                    (now.duration_since(requested) >= 4 * self.config.who_retry_interval)
-                        .then_some(Request::Retry)
+                WhoStatus::Requested(source, requested, _) => {
+                    if matches!(source, WhoSource::Poll) && self.config.who_poll_enabled {
+                        None
+                    } else {
+                        (now.duration_since(*requested) >= self.config.who_retry_interval)
+                            .then_some(Request::Retry)
+                    }
                 }
                 _ => None,
             };
@@ -2958,7 +2934,6 @@ pub enum WhoStatus {
 pub enum WhoSource {
     User,
     Poll,
-    Join,
 }
 
 fn group_capability_requests<'a>(
