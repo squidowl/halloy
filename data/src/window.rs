@@ -37,12 +37,15 @@ pub fn default_size() -> Size {
 }
 
 impl Window {
-    pub fn load() -> Result<Self, Error> {
+    pub async fn load() -> Result<Window, Error> {
         let path = path()?;
+        let bytes = fs::read(path).await?;
+        let Window { position, size } = serde_json::from_slice(&bytes)?;
 
-        let bytes = std::fs::read(path)?;
+        let size = size.max(MIN_SIZE);
+        let position = position.filter(|pos| pos.y.is_sign_positive() && pos.x.is_sign_positive());
 
-        Ok(serde_json::from_slice(&bytes)?)
+        Ok(Window { position, size })
     }
 
     pub async fn save(self) -> Result<(), Error> {

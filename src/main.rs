@@ -66,14 +66,18 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // spin up a single-threaded tokio runtime to run the config loading task to completion
     // we don't want to wrap our whole program with a runtime since iced starts its own.
-    let config_load = {
+    let (config_load, window_load) = {
         let rt = runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
 
-        rt.block_on(Config::load())
-    };
+        rt.block_on(async { 
+            let config = Config::load().await;
+            let window = data::Window::load().await;
 
+            (config, window)
+        })
+    };
     // DANGER ZONE - font must be set using config
     // before we do any iced related stuff w/ it
     font::set(config_load.as_ref().ok());
@@ -85,18 +89,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // TODO: Renable persistant window position and size:
-    // Winit currently has a bug with resize and move events.
-    // Until it have been fixed, the persistant position and size has been disabled.
-    //
-    // let window_load = Window::load().unwrap_or_default();
-
     iced::daemon("Halloy", Halloy::update, Halloy::view)
         .theme(Halloy::theme)
         .scale_factor(Halloy::scale_factor)
         .subscription(Halloy::subscription)
         .settings(settings(&config_load))
-        .run_with(move || Halloy::new(config_load, destination, log_stream))
+        .run_with(move || Halloy::new(config_load, window_load, destination, log_stream))
         .inspect_err(|err| log::error!("{}", err))?;
 
     Ok(())
@@ -235,12 +233,16 @@ pub enum Message {
 impl Halloy {
     fn new(
         config_load: Result<Config, config::Error>,
+        window_load: Result<data::Window, window::Error>,
         url_received: Option<data::Url>,
         log_stream: ReceiverStream<Vec<logger::Record>>,
     ) -> (Halloy, Task<Message>) {
+        let data::Window { size, position} = window_load.unwrap_or_default();
+        let position = position.map(window::Position::Specific).unwrap_or_default();
+
         let (main_window, open_main_window) = window::open(window::Settings {
-            size: window::default_size(),
-            position: window::Position::Default,
+            size,
+            position,
             min_size: Some(window::MIN_SIZE),
             exit_on_close_request: false,
             ..window::settings()

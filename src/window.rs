@@ -1,7 +1,7 @@
 use futures::{stream::BoxStream, Stream, StreamExt};
 use iced::{advanced::graphics::futures::subscription, Point, Size, Subscription};
 
-pub use data::window::{default_size, Error, MIN_SIZE};
+pub use data::window::{Error, MIN_SIZE};
 pub use iced::window::{close, gain_focus, open, Id, Position, Settings};
 
 #[derive(Debug, Clone, Copy)]
@@ -135,6 +135,29 @@ enum State<T: Stream<Item = (Id, Event)>> {
     },
 }
 
+#[derive(Debug, Clone, Copy)]
+struct EventSkipper {
+    skipped: i32,
+    threshold: i32,
+}
+
+impl EventSkipper {
+    fn new(threshold: i32) -> EventSkipper {
+        EventSkipper {
+            skipped: 0,
+            threshold,
+        }
+    }
+
+    fn skip(&mut self) {
+        self.skipped += 1;
+    }
+
+    fn should_process(&self) -> bool {
+        self.skipped >= self.threshold
+    }
+}
+
 struct Events;
 
 impl subscription::Recipe for Events {
@@ -153,16 +176,45 @@ impl subscription::Recipe for Events {
         use futures::stream;
         const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
 
-        let window_events = events.filter_map(|event| {
+        // This is a hack to skip n amount of certain events on Windows.
+        // This is a winit bug: https://github.com/rust-windowing/winit/issues/2094
+        //
+        // If we don't skip these events the window will become smaller and smaller on each launch.
+        let mut move_events = {
+            let threshold = if cfg!(target_os = "windows") { 1 } else { 0 };
+            EventSkipper::new(threshold)
+        };
+
+        let mut resize_events = {
+            let threshold = if cfg!(target_os = "windows") { 2 } else { 0 };
+            EventSkipper::new(threshold)
+        };
+
+        let window_events = events.filter_map(move |event| {
             futures::future::ready(match event {
                 subscription::Event::Interaction {
                     window: id,
                     event: iced::Event::Window(window_event),
                     status: _,
                 } => match window_event {
-                    iced::window::Event::Moved(point) => Some((id, Event::Moved(point))),
-                    iced::window::Event::Resized(Size { width, height }) => {
-                        Some((id, Event::Resized(Size::new(width, height))))
+                    iced::window::Event::Moved(point) => {
+                        if move_events.should_process() {
+                            let clamped_x = point.x.max(0.0);
+                            let clamped_y = point.y.max(0.0);
+                        
+                            Some((id, Event::Moved(Point { x: clamped_x, y: clamped_y })))
+                        } else {
+                            move_events.skip();
+                            None
+                        }
+                    }
+                    iced::window::Event::Resized(size) => {
+                        if resize_events.should_process() {
+                             Some((id, Event::Resized(size.max(MIN_SIZE))))
+                        } else {
+                            resize_events.skip();
+                            None
+                        }
                     }
                     iced::window::Event::Focused => Some((id, Event::Focused)),
                     iced::window::Event::Unfocused => Some((id, Event::Unfocused)),
