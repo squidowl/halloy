@@ -963,7 +963,7 @@ impl Client {
                 }
 
                 if !self.supports_account_notify {
-                    let accountname = ok!(args.first());
+                    let accountname = ok!(args.get(2));
 
                     let old_user = User::from(self.nickname().to_owned());
 
