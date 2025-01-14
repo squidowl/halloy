@@ -267,35 +267,39 @@ impl Client {
         if matches!(message.command, Command::WHO(..)) {
             let params = message.command.clone().parameters();
 
-            if let Some(target) = params.first().and_then(|target| {
-                target::Channel::parse(
-                    target,
+            if let Some(mask) = params.first() {
+                let channel = if let Ok(channel) = target::Channel::parse(
+                    mask,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                )
-                .ok()
-            }) {
-                // Record user WHO request(s) for reply filtering
-                let status = WhoStatus::Requested(
-                    WhoSource::User,
-                    Instant::now(),
-                    params
-                        .get(2)
-                        .and_then(|token| token.parse::<WhoToken>().ok()),
-                );
-
-                if let Some(who_poll) = self
-                    .who_polls
-                    .iter_mut()
-                    .find(|who_poll| who_poll.channel == target)
-                {
-                    who_poll.status = status;
+                ) {
+                    Some(channel)
+                } else if mask == "*" {
+                    Some(target::Channel::from_str(mask, self.casemapping()))
                 } else {
-                    self.who_polls.push_front(WhoPoll {
-                        channel: target,
-                        status,
-                    });
+                    None
+                };
+
+                if let Some(channel) = channel {
+                    // Record user WHO request(s) for reply filtering
+                    let status = WhoStatus::Requested(
+                        WhoSource::User,
+                        Instant::now(),
+                        params
+                            .get(2)
+                            .and_then(|token| token.parse::<WhoToken>().ok()),
+                    );
+
+                    if let Some(who_poll) = self
+                        .who_polls
+                        .iter_mut()
+                        .find(|who_poll| who_poll.channel == channel)
+                    {
+                        who_poll.status = status;
+                    } else {
+                        self.who_polls.push_front(WhoPoll { channel, status });
+                    }
                 }
             }
         }
@@ -1371,154 +1375,184 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_WHOREPLY, args) => {
-                let target = ok!(args.get(1));
+                let channel = ok!(args.get(1));
 
-                let target_channel = context!(target::Channel::parse(
-                    target,
+                if let Ok(target_channel) = target::Channel::parse(
+                    channel,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                ));
+                ) {
+                    if let Some(client_channel) = self.chanmap.get_mut(&target_channel) {
+                        client_channel.update_user_away(ok!(args.get(5)), ok!(args.get(6)));
 
-                if let Some(channel) = self.chanmap.get_mut(&target_channel) {
-                    channel.update_user_away(ok!(args.get(5)), ok!(args.get(6)));
+                        let user_request = if let Some(who_poll) = self
+                            .who_polls
+                            .iter_mut()
+                            .find(|who_poll| who_poll.channel == target_channel)
+                        {
+                            if let WhoStatus::Requested(source, _, None) = &who_poll.status {
+                                who_poll.status = WhoStatus::Receiving(source.clone(), None);
+                                log::debug!("[{}] {channel} - WHO receiving...", self.server);
+                            }
 
-                    let user_request = if let Some(who_poll) = self
-                        .who_polls
-                        .iter_mut()
-                        .find(|who_poll| who_poll.channel == target_channel)
-                    {
-                        if let WhoStatus::Requested(source, _, None) = &who_poll.status {
-                            who_poll.status = WhoStatus::Receiving(source.clone(), None);
-                            log::debug!("[{}] {target} - WHO receiving...", self.server);
+                            matches!(who_poll.status, WhoStatus::Receiving(WhoSource::User, None))
+                        } else {
+                            false
+                        };
+
+                        if !user_request {
+                            // User did not request, don't save to history
+                            return Ok(vec![]);
                         }
-
-                        matches!(who_poll.status, WhoStatus::Receiving(WhoSource::User, None))
-                    } else {
-                        false
-                    };
-
-                    if !user_request {
-                        // User did not request, don't save to history
-                        return Ok(vec![]);
                     }
                 }
             }
             Command::Numeric(RPL_WHOSPCRPL, args) => {
-                let target = ok!(args.get(2));
+                let channel = ok!(args.get(2));
 
-                let target_channel = context!(target::Channel::parse(
-                    target,
+                if let Ok(target_channel) = target::Channel::parse(
+                    channel,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                ));
+                ) {
+                    if let Some(client_channel) = self.chanmap.get_mut(&target_channel) {
+                        let user_request = if let Some(who_poll) = self
+                            .who_polls
+                            .iter_mut()
+                            .find(|who_poll| who_poll.channel == target_channel)
+                        {
+                            match &who_poll.status {
+                                WhoStatus::Requested(source, _, Some(request_token))
+                                    if matches!(source, WhoSource::Poll | WhoSource::Join) =>
+                                {
+                                    if let Ok(token) = ok!(args.get(1)).parse::<WhoToken>() {
+                                        if *request_token == token {
+                                            who_poll.status = WhoStatus::Receiving(
+                                                source.clone(),
+                                                Some(*request_token),
+                                            );
+                                            log::debug!(
+                                                "[{}] {channel} - WHO receiving...",
+                                                self.server
+                                            );
+                                        }
+                                    }
+                                }
+                                WhoStatus::Requested(WhoSource::User, _, Some(request_token)) => {
+                                    who_poll.status =
+                                        WhoStatus::Receiving(WhoSource::User, Some(*request_token));
 
-                if let Some(channel) = self.chanmap.get_mut(&target_channel) {
-                    let user_request = if let Some(who_poll) = self
-                        .who_polls
-                        .iter_mut()
-                        .find(|who_poll| who_poll.channel == target_channel)
-                    {
-                        match &who_poll.status {
-                            WhoStatus::Requested(source, _, Some(request_token))
-                                if matches!(source, WhoSource::Poll | WhoSource::Join) =>
+                                    log::debug!("[{}] {channel} - WHO receiving...", self.server);
+                                }
+                                _ => (),
+                            }
+
+                            if let WhoStatus::Receiving(WhoSource::Poll, Some(_)) = &who_poll.status
                             {
+                                // Check token to ~ensure reply is to poll request
                                 if let Ok(token) = ok!(args.get(1)).parse::<WhoToken>() {
-                                    if *request_token == token {
-                                        who_poll.status = WhoStatus::Receiving(
-                                            source.clone(),
-                                            Some(*request_token),
-                                        );
-                                        log::debug!(
-                                            "[{}] {target} - WHO receiving...",
-                                            self.server
-                                        );
+                                    if token == WhoXPollParameters::Default.token() {
+                                        client_channel
+                                            .update_user_away(ok!(args.get(3)), ok!(args.get(4)));
+                                    } else if token == WhoXPollParameters::WithAccountName.token() {
+                                        let user = ok!(args.get(3));
+
+                                        client_channel.update_user_away(user, ok!(args.get(4)));
+
+                                        client_channel
+                                            .update_user_accountname(user, ok!(args.get(5)));
                                     }
                                 }
                             }
-                            WhoStatus::Requested(WhoSource::User, _, Some(request_token)) => {
-                                who_poll.status =
-                                    WhoStatus::Receiving(WhoSource::User, Some(*request_token));
-                                log::debug!("[{}] {target} - WHO receiving...", self.server);
-                            }
-                            _ => (),
+
+                            matches!(
+                                &who_poll.status,
+                                WhoStatus::Receiving(WhoSource::User, Some(_))
+                            )
+                        } else {
+                            false
+                        };
+
+                        if !user_request {
+                            // User did not request, don't save to history
+                            return Ok(vec![]);
                         }
+                    }
+                }
+            }
+            Command::Numeric(RPL_ENDOFWHO, args) => {
+                let mask = ok!(args.get(1));
 
-                        if let WhoStatus::Receiving(WhoSource::Poll, Some(_)) = &who_poll.status {
-                            // Check token to ~ensure reply is to poll request
-                            if let Ok(token) = ok!(args.get(1)).parse::<WhoToken>() {
-                                if token == WhoXPollParameters::Default.token() {
-                                    channel.update_user_away(ok!(args.get(3)), ok!(args.get(4)));
-                                } else if token == WhoXPollParameters::WithAccountName.token() {
-                                    let user = ok!(args.get(3));
+                if let Ok(target_channel) = target::Channel::parse(
+                    mask,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                ) {
+                    let pos = self
+                        .who_polls
+                        .iter()
+                        .position(|who_poll| who_poll.channel == target_channel);
 
-                                    channel.update_user_away(user, ok!(args.get(4)));
-
-                                    channel.update_user_accountname(user, ok!(args.get(5)));
-                                }
-                            }
-                        }
-
+                    let user_request = pos.map_or(false, |pos| {
                         matches!(
-                            &who_poll.status,
-                            WhoStatus::Receiving(WhoSource::User, Some(_))
+                            self.who_polls[pos].status,
+                            WhoStatus::Requested(WhoSource::User, _, _)
+                                | WhoStatus::Receiving(WhoSource::User, _)
                         )
-                    } else {
-                        false
-                    };
+                    });
+
+                    if let Some(pos) = pos {
+                        self.who_polls[pos].status = WhoStatus::Received;
+
+                        if let Some(who_poll) = self.who_polls.remove(pos) {
+                            if self.chanmap.contains_key(&target_channel)
+                                && self.config.who_poll_enabled
+                            {
+                                self.who_polls.push_back(who_poll);
+                            }
+                        }
+
+                        if let Some(who_poll) = self.who_polls.front_mut() {
+                            if matches!(who_poll.status, WhoStatus::Received) {
+                                who_poll.status = WhoStatus::Waiting(Instant::now());
+                            }
+                        }
+                    }
+
+                    log::debug!("[{}] {mask} - WHO done", self.server);
 
                     if !user_request {
                         // User did not request, don't save to history
                         return Ok(vec![]);
                     }
-                }
-            }
-            Command::Numeric(RPL_ENDOFWHO, args) => {
-                let target = ok!(args.get(1));
+                } else if mask == "*" {
+                    // Some servers respond with the mask * instead of the requested
+                    // channel name when rate-limiting WHO requests
+                    let target_channel = target::Channel::from_str(mask, self.casemapping());
 
-                let target_channel = context!(target::Channel::parse(
-                    target,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                ));
-
-                let pos = self
-                    .who_polls
-                    .iter()
-                    .position(|who_poll| who_poll.channel == target_channel);
-
-                let user_request = pos.map_or(false, |pos| {
-                    matches!(
-                        self.who_polls[pos].status,
-                        WhoStatus::Receiving(WhoSource::User, _)
-                    )
-                });
-
-                if let Some(pos) = pos {
-                    self.who_polls[pos].status = WhoStatus::Received;
-
-                    if let Some(who_poll) = self.who_polls.remove(pos) {
-                        if self.chanmap.contains_key(&target_channel)
-                            && self.config.who_poll_enabled
-                        {
-                            self.who_polls.push_back(who_poll);
-                        }
-                    }
-
-                    if let Some(who_poll) = self.who_polls.front_mut() {
-                        if matches!(who_poll.status, WhoStatus::Received) {
+                    if let Some(pos) = self
+                        .who_polls
+                        .iter()
+                        .position(|who_poll| who_poll.channel == target_channel)
+                    {
+                        self.who_polls.remove(pos);
+                    } else {
+                        // User did not request, treat as rate-limiting reesponse
+                        // and don't save to history
+                        if let Some(who_poll) = self.who_polls.front_mut() {
                             who_poll.status = WhoStatus::Waiting(Instant::now());
                         }
+
+                        self.who_polls
+                            .iter_mut()
+                            .skip(1)
+                            .for_each(|who_poll| who_poll.status = WhoStatus::Received);
+
+                        return Ok(vec![]);
                     }
-                }
-
-                log::debug!("[{}] {target} - WHO done", self.server);
-
-                if !user_request {
-                    // User did not request, don't save to history
-                    return Ok(vec![]);
                 }
             }
             Command::AWAY(args) => {
