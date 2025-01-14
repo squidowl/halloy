@@ -151,6 +151,7 @@ pub struct Client {
     registration_required_channels: Vec<target::Channel>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
     who_polls: VecDeque<WhoPoll>,
+    who_poll_interval: BackoffInterval,
 }
 
 impl fmt::Debug for Client {
@@ -167,7 +168,6 @@ impl Client {
     ) -> Self {
         Self {
             server,
-            config,
             handle: sender,
             resolved_nick: None,
             alt_nick: None,
@@ -193,6 +193,8 @@ impl Client {
             registration_required_channels: vec![],
             isupport: HashMap::new(),
             who_polls: VecDeque::new(),
+            who_poll_interval: BackoffInterval::from_duration(config.who_poll_interval),
+            config,
         }
     }
 
@@ -1493,7 +1495,10 @@ impl Client {
                         }
 
                         if let Some(who_poll) = self.who_polls.front_mut() {
-                            if matches!(who_poll.status, WhoStatus::Received) {
+                            if matches!(
+                                who_poll.status,
+                                WhoStatus::Received | WhoStatus::Waiting(_)
+                            ) {
                                 who_poll.status = WhoStatus::Waiting(Instant::now());
                             }
                         }
@@ -1502,6 +1507,8 @@ impl Client {
                     log::debug!("[{}] {mask} - WHO done", self.server);
 
                     if !user_request {
+                        self.who_poll_interval.long_enough();
+
                         // User did not request, don't save to history
                         return Ok(vec![]);
                     }
@@ -1934,6 +1941,24 @@ impl Client {
                 self.registration_step = RegistrationStep::End;
                 self.handle.try_send(command!("CAP", "END"))?;
             }
+            Command::Numeric(RPL_TRYAGAIN, args) => {
+                let command = ok!(args.get(1));
+
+                if command == "WHO" && self.config.who_poll_enabled {
+                    if self.who_polls.iter().any(|who_poll| {
+                        matches!(who_poll.status, WhoStatus::Requested(WhoSource::Poll, _, _))
+                    }) {
+                        self.who_poll_interval.too_short();
+                    }
+
+                    if !self.who_polls.iter().any(|who_poll| {
+                        matches!(who_poll.status, WhoStatus::Requested(WhoSource::User, _, _))
+                    }) {
+                        // No user request, rate-limited due to WHO polling
+                        return Ok(vec![]);
+                    }
+                }
+            }
             _ => {}
         }
 
@@ -2288,7 +2313,7 @@ impl Client {
                 WhoStatus::Waiting(last)
                     if !self.supports_away_notify && self.config.who_poll_enabled =>
                 {
-                    (now.duration_since(*last) >= self.config.who_poll_interval)
+                    (now.duration_since(*last) >= self.who_poll_interval.duration)
                         .then_some(Request::Poll)
                 }
                 WhoStatus::Requested(source, requested, _) => {
@@ -2918,8 +2943,8 @@ pub struct Topic {
 
 #[derive(Debug, Clone)]
 pub struct WhoPoll {
-    channel: target::Channel,
-    status: WhoStatus,
+    pub channel: target::Channel,
+    pub status: WhoStatus,
 }
 
 #[derive(Debug, Clone)]
@@ -2934,6 +2959,60 @@ pub enum WhoStatus {
 pub enum WhoSource {
     User,
     Poll,
+}
+
+pub struct BackoffInterval {
+    duration: Duration,
+    previous: Duration,
+    original: Duration,
+    mode: BackoffMode,
+}
+
+pub enum BackoffMode {
+    Set,
+    BackingOff(usize),
+    EasingOn,
+}
+
+impl BackoffInterval {
+    pub fn from_duration(duration: Duration) -> Self {
+        BackoffInterval {
+            duration,
+            previous: duration,
+            original: duration,
+            mode: BackoffMode::Set,
+        }
+    }
+
+    pub fn long_enough(&mut self) {
+        match &mut self.mode {
+            BackoffMode::Set => (),
+            BackoffMode::EasingOn => {
+                self.previous = self.duration;
+                self.duration = std::cmp::max(self.duration.mul_f64(0.9), self.original);
+            }
+            BackoffMode::BackingOff(count) => {
+                *count += 1;
+
+                if *count > 8 {
+                    self.mode = BackoffMode::EasingOn;
+                }
+            }
+        }
+    }
+
+    pub fn too_short(&mut self) {
+        match &mut self.mode {
+            BackoffMode::EasingOn => {
+                self.duration = self.previous;
+                self.mode = BackoffMode::Set;
+            }
+            _ => {
+                self.mode = BackoffMode::BackingOff(0);
+                self.duration = std::cmp::min(self.duration.mul_f64(2.0), 256 * self.original);
+            }
+        }
+    }
 }
 
 fn group_capability_requests<'a>(

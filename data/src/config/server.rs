@@ -321,7 +321,7 @@ fn default_who_poll_enabled() -> bool {
 }
 
 fn default_who_poll_interval() -> Duration {
-    Duration::from_secs(60)
+    Duration::from_secs(2)
 }
 
 fn default_who_retry_interval() -> Duration {
