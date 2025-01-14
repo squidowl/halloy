@@ -30,7 +30,7 @@ use data::{client::Notification, environment, server, version, Server, Url, User
 use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
-use tokio::{join, runtime};
+use tokio::runtime;
 use tokio_stream::wrappers::ReceiverStream;
 
 use self::event::{events, Event};
@@ -72,10 +72,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             .build()?;
 
         rt.block_on(async { 
-            let config = Config::load();
-            let window = data::Window::load();
+            let config = Config::load().await;
+            let window = data::Window::load().await;
 
-            join!(config, window)
+            (config, window)
         })
     };
     // DANGER ZONE - font must be set using config
