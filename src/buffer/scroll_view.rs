@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
@@ -124,20 +124,36 @@ pub fn view<'a>(
 
     let max_prefix_width = max_prefix_chars.map(|len| font::width_from_chars(len, &config.font));
 
-    let old = old_messages
-        .into_iter()
-        .filter_map(|message| {
-            format(message, max_nick_width, max_prefix_width)
-                .map(|element| keyed(keyed::Key::message(message), element))
-        })
-        .collect::<Vec<_>>();
-    let new = new_messages
-        .into_iter()
-        .filter_map(|message| {
-            format(message, max_nick_width, max_prefix_width)
-                .map(|element| keyed(keyed::Key::message(message), element))
-        })
-        .collect::<Vec<_>>();
+    let message_rows = |last_date: Option<NaiveDate>, messages: &[&'a data::Message]| {
+        messages
+            .iter()
+            .filter_map(|message| {
+                format(message, max_nick_width, max_prefix_width)
+                    .map(|element| (message, keyed(keyed::Key::message(message), element)))
+            })
+            .scan(last_date, |last_date, (message, element)| {
+                let date = message.server_time.with_timezone(&Local).date_naive();
+
+                let is_new_day = last_date.is_none_or(|prev| date > prev);
+
+                *last_date = Some(date);
+
+                if is_new_day {
+                    Some(column![text(date.to_string()), element].into())
+                } else {
+                    Some(element)
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let old = message_rows(None, &old_messages);
+    let new = message_rows(
+        old_messages
+            .last()
+            .map(|message| message.server_time.with_timezone(&Local).date_naive()),
+        &new_messages,
+    );
 
     let show_divider =
         !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom) | Status::ScrollTo);
