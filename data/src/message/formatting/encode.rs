@@ -83,7 +83,7 @@ fn markdown<'a>(
     };
     // Prev char is punctuation, not matching delimiter char
     let prev_is_punc =
-        move |d, i: &str| prev(i).map_or(false, |c| c != d && c.is_ascii_punctuation());
+        move |d, i: &str| prev(i).is_some_and(|c| c != d && c.is_ascii_punctuation());
 
     // A delimiter run is a sequence of one or more characters
     let delimiter_run = |d, n| count(char(d), n);
