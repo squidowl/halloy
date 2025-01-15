@@ -40,6 +40,7 @@
     - [Text Input](configuration/buffer/text_input/README.md)
       - [Autocomplete](configuration/buffer/text_input/autocomplete.md)
     - [Timestamp](configuration/buffer/timestamp.md)
+    - [Date Separators](configuration/buffer/date_separators.md)
     - [Chat History](configuration/buffer/chat_history.md)
   - [File Transfer](configuration/file_transfer/README.md)
     - [Server](configuration/file_transfer/server.md)
