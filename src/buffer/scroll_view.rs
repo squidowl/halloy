@@ -138,14 +138,15 @@ pub fn view<'a>(
 
                 *last_date = Some(date);
 
-                if is_new_day {
+                if is_new_day && config.buffer.date_separators.show {
+
                     Some(
                         column![
                             row![
                                 container(horizontal_rule(1))
                                     .width(Length::Fill)
                                     .padding(padding::right(6)),
-                                text(date.to_string())
+                                text(date.format(&config.buffer.date_separators.format).to_string())
                                     .size(divider_font_size)
                                     .style(theme::text::secondary),
                                 container(horizontal_rule(1))
