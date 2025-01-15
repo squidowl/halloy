@@ -588,9 +588,7 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
                 }
                 // Only parse on `#` since it's most common and
                 // using &!+ leads to more false positives than not
-                else if text
-                    .strip_prefix('#')
-                    .map_or(false, |rest| !rest.is_empty())
+                else if text.strip_prefix('#').is_some_and(|rest| !rest.is_empty())
                     && !text.contains(proto::CHANNEL_BLACKLIST_CHARS)
                 {
                     return Either::Left(iter::once(Fragment::Channel(text)));
