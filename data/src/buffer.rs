@@ -175,6 +175,24 @@ impl Default for Timestamp {
     }
 }
 
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct DateSeparators {
+    #[serde(default = "default_date_separators")]
+    pub format: String,
+    #[serde(default = "default_bool_true")]
+    pub show: bool,
+}
+
+impl Default for DateSeparators {
+    fn default() -> Self {
+        Self {
+            format: default_date_separators(),
+            show: true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Nickname {
     #[serde(default)]
@@ -262,6 +280,10 @@ impl Resize {
 
 fn default_timestamp() -> String {
     "%R".to_string()
+}
+
+fn default_date_separators() -> String {
+    "%A, %B %-d".to_string()
 }
 
 fn default_bool_true() -> bool {

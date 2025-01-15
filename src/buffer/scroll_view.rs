@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
@@ -67,6 +67,8 @@ pub fn view<'a>(
     config: &'a Config,
     format: impl Fn(&'a data::Message, Option<f32>, Option<f32>) -> Option<Element<'a, Message>> + 'a,
 ) -> Element<'a, Message> {
+    let divider_font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
+
     let Some(history::View {
         total,
         old_messages,
@@ -88,9 +90,7 @@ pub fn view<'a>(
             ),
         };
 
-        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
-
-        let top_row_button = button(text(content).size(font_size))
+        let top_row_button = button(text(content).size(divider_font_size))
             .padding([3, 5])
             .style(|theme, status| theme::button::primary(theme, status, false))
             .on_press_maybe(message);
@@ -124,33 +124,66 @@ pub fn view<'a>(
 
     let max_prefix_width = max_prefix_chars.map(|len| font::width_from_chars(len, &config.font));
 
-    let old = old_messages
-        .into_iter()
-        .filter_map(|message| {
-            format(message, max_nick_width, max_prefix_width)
-                .map(|element| keyed(keyed::Key::message(message), element))
-        })
-        .collect::<Vec<_>>();
-    let new = new_messages
-        .into_iter()
-        .filter_map(|message| {
-            format(message, max_nick_width, max_prefix_width)
-                .map(|element| keyed(keyed::Key::message(message), element))
-        })
-        .collect::<Vec<_>>();
+    let message_rows = |last_date: Option<NaiveDate>, messages: &[&'a data::Message]| {
+        messages
+            .iter()
+            .filter_map(|message| {
+                format(message, max_nick_width, max_prefix_width)
+                    .map(|element| (message, keyed(keyed::Key::message(message), element)))
+            })
+            .scan(last_date, |last_date, (message, element)| {
+                let date = message.server_time.with_timezone(&Local).date_naive();
+
+                let is_new_day = last_date.is_none_or(|prev| date > prev);
+
+                *last_date = Some(date);
+
+                if is_new_day && config.buffer.date_separators.show {
+
+                    Some(
+                        column![
+                            row![
+                                container(horizontal_rule(1))
+                                    .width(Length::Fill)
+                                    .padding(padding::right(6)),
+                                text(date.format(&config.buffer.date_separators.format).to_string())
+                                    .size(divider_font_size)
+                                    .style(theme::text::secondary),
+                                container(horizontal_rule(1))
+                                    .width(Length::Fill)
+                                    .padding(padding::left(6))
+                            ]
+                            .padding(2)
+                            .align_y(iced::Alignment::Center),
+                            element
+                        ]
+                        .into(),
+                    )
+                } else {
+                    Some(element)
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let old = message_rows(None, &old_messages);
+    let new = message_rows(
+        old_messages
+            .last()
+            .map(|message| message.server_time.with_timezone(&Local).date_naive()),
+        &new_messages,
+    );
 
     let show_divider =
         !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom) | Status::ScrollTo);
 
     let divider = if show_divider {
-        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
-
         row![
             container(horizontal_rule(1))
                 .width(Length::Fill)
                 .padding(padding::right(6)),
             text("backlog")
-                .size(font_size)
+                .size(divider_font_size)
                 .style(theme::text::secondary),
             container(horizontal_rule(1))
                 .width(Length::Fill)
