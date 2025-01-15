@@ -67,6 +67,8 @@ pub fn view<'a>(
     config: &'a Config,
     format: impl Fn(&'a data::Message, Option<f32>, Option<f32>) -> Option<Element<'a, Message>> + 'a,
 ) -> Element<'a, Message> {
+    let divider_font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
+
     let Some(history::View {
         total,
         old_messages,
@@ -88,9 +90,7 @@ pub fn view<'a>(
             ),
         };
 
-        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
-
-        let top_row_button = button(text(content).size(font_size))
+        let top_row_button = button(text(content).size(divider_font_size))
             .padding([3, 5])
             .style(|theme, status| theme::button::primary(theme, status, false))
             .on_press_maybe(message);
@@ -139,7 +139,25 @@ pub fn view<'a>(
                 *last_date = Some(date);
 
                 if is_new_day {
-                    Some(column![text(date.to_string()), element].into())
+                    Some(
+                        column![
+                            row![
+                                container(horizontal_rule(1))
+                                    .width(Length::Fill)
+                                    .padding(padding::right(6)),
+                                text(date.to_string())
+                                    .size(divider_font_size)
+                                    .style(theme::text::secondary),
+                                container(horizontal_rule(1))
+                                    .width(Length::Fill)
+                                    .padding(padding::left(6))
+                            ]
+                            .padding(2)
+                            .align_y(iced::Alignment::Center),
+                            element
+                        ]
+                        .into(),
+                    )
                 } else {
                     Some(element)
                 }
@@ -159,14 +177,12 @@ pub fn view<'a>(
         !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom) | Status::ScrollTo);
 
     let divider = if show_divider {
-        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
-
         row![
             container(horizontal_rule(1))
                 .width(Length::Fill)
                 .padding(padding::right(6)),
             text("backlog")
-                .size(font_size)
+                .size(divider_font_size)
                 .style(theme::text::secondary),
             container(horizontal_rule(1))
                 .width(Length::Fill)
