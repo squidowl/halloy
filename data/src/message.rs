@@ -894,6 +894,9 @@ fn target(
         | Command::MONITOR(_, _)
         | Command::TAGMSG(_)
         | Command::USERIP(_)
+        | Command::FAIL(_, _, _, _)
+        | Command::WARN(_, _, _, _)
+        | Command::NOTE(_, _, _, _)
         | Command::HELP(_)
         | Command::Numeric(_, _)
         | Command::Unknown(_, _)
@@ -1211,6 +1214,36 @@ fn content<'a>(
                 Some(plain(format!("Chat history for {target} at {timestamp}")))
             } else {
                 None
+            }
+        }
+        Command::FAIL(command, _, context, description) => {
+            if let Some(context) = context {
+                Some(plain(format!(
+                    "{command} ({}) failed: {description}",
+                    context.join(", ")
+                )))
+            } else {
+                Some(plain(format!("{command} failed: {description}")))
+            }
+        }
+        Command::WARN(command, _, context, description) => {
+            if let Some(context) = context {
+                Some(plain(format!(
+                    "{command} ({}) warning: {description}",
+                    context.join(", ")
+                )))
+            } else {
+                Some(plain(format!("{command} warning: {description}")))
+            }
+        }
+        Command::NOTE(command, _, context, description) => {
+            if let Some(context) = context {
+                Some(plain(format!(
+                    "{command} ({}) notice: {description}",
+                    context.join(", ")
+                )))
+            } else {
+                Some(plain(format!("{command} notice: {description}")))
             }
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => Some(parse_fragments(
