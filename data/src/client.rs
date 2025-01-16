@@ -1303,8 +1303,7 @@ impl Client {
                     self.chanmap
                         .insert(target_channel.clone(), Channel::default());
 
-                    // Add channel to WHO poll queue; queue will only be
-                    // processed if it is WHO polling is enabled
+                    // Add channel to WHO poll queue
                     if !self
                         .who_polls
                         .iter()
@@ -1312,7 +1311,7 @@ impl Client {
                     {
                         self.who_polls.push_back(WhoPoll {
                             channel: target_channel.clone(),
-                            status: WhoStatus::Waiting(Instant::now()),
+                            status: WhoStatus::Joined,
                         });
                     }
 
@@ -1494,17 +1493,30 @@ impl Client {
                             }
                         }
 
-                        if let Some(who_poll) = self.who_polls.front_mut() {
-                            if matches!(
-                                who_poll.status,
-                                WhoStatus::Received | WhoStatus::Waiting(_)
-                            ) {
-                                who_poll.status = WhoStatus::Waiting(Instant::now());
+                        // Prioritize WHO requests due to joining a channel
+                        if let Some(pos) = self
+                            .who_polls
+                            .iter()
+                            .position(|who_poll| matches!(who_poll.status, WhoStatus::Joined))
+                            .or(self.who_polls.iter().position(|who_poll| {
+                                matches!(who_poll.status, WhoStatus::Received)
+                            }))
+                        {
+                            self.who_polls[pos].status = WhoStatus::Waiting(Instant::now());
+
+                            if pos != 0 {
+                                if let Some(who_poll) = self.who_polls.remove(pos) {
+                                    self.who_polls.push_front(who_poll);
+                                }
                             }
                         }
                     }
 
                     log::debug!("[{}] {mask} - WHO done", self.server);
+
+                    if let Some(client_channel) = self.chanmap.get_mut(&target_channel) {
+                        client_channel.who_init = true;
+                    }
 
                     if !user_request {
                         self.who_poll_interval.long_enough();
@@ -1524,8 +1536,8 @@ impl Client {
                     {
                         self.who_polls.remove(pos);
                     } else {
-                        // User did not request, treat as rate-limiting reesponse
-                        // and don't save to history
+                        // User did not request, treat as part of rate-limiting reesponse
+                        // (in conjunction with RPL_TRYAGAIN) and don't save to history.
                         if let Some(who_poll) = self.who_polls.front_mut() {
                             who_poll.status = WhoStatus::Waiting(Instant::now());
                         }
@@ -1945,11 +1957,11 @@ impl Client {
                 let command = ok!(args.get(1));
 
                 if command == "WHO" && self.config.who_poll_enabled {
-                    if self.who_polls.iter().any(|who_poll| {
-                        matches!(who_poll.status, WhoStatus::Requested(WhoSource::Poll, _, _))
-                    }) {
-                        self.who_poll_interval.too_short();
-                    }
+                    self.who_poll_interval.too_short();
+                    log::debug!(
+                        "self.who_poll_interval is too short → duration = {:?}",
+                        self.who_poll_interval.duration
+                    );
 
                     if !self.who_polls.iter().any(|who_poll| {
                         matches!(who_poll.status, WhoStatus::Requested(WhoSource::User, _, _))
@@ -2310,14 +2322,23 @@ impl Client {
             }
 
             let request = match &who_poll.status {
-                WhoStatus::Waiting(last)
-                    if !self.supports_away_notify && self.config.who_poll_enabled =>
-                {
-                    (now.duration_since(*last) >= self.who_poll_interval.duration)
-                        .then_some(Request::Poll)
+                WhoStatus::Joined => (self.supports_away_notify || self.config.who_poll_enabled)
+                    .then_some(Request::Poll),
+                WhoStatus::Waiting(last) => {
+                    if self.supports_away_notify {
+                        self.chanmap.get(&who_poll.channel).and_then(|channel| {
+                            (!channel.who_init
+                                && (now.duration_since(*last) >= self.who_poll_interval.duration))
+                                .then_some(Request::Poll)
+                        })
+                    } else {
+                        (self.config.who_poll_enabled
+                            && (now.duration_since(*last) >= self.who_poll_interval.duration))
+                            .then_some(Request::Poll)
+                    }
                 }
                 WhoStatus::Requested(source, requested, _) => {
-                    if matches!(source, WhoSource::Poll) && self.config.who_poll_enabled {
+                    if matches!(source, WhoSource::Poll) && !self.config.who_poll_enabled {
                         None
                     } else {
                         (now.duration_since(*requested) >= self.config.who_retry_interval)
@@ -2904,6 +2925,7 @@ pub struct Channel {
     pub users: HashSet<User>,
     pub topic: Topic,
     pub names_init: bool,
+    pub who_init: bool,
 }
 
 impl Channel {
@@ -2953,6 +2975,7 @@ pub enum WhoStatus {
     Receiving(WhoSource, Option<WhoToken>),
     Received,
     Waiting(Instant),
+    Joined,
 }
 
 #[derive(Debug, Clone)]

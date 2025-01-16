@@ -285,7 +285,7 @@ where
     D: Deserializer<'de>,
 {
     let seconds: u64 = Deserialize::deserialize(deserializer)?;
-    Ok(Duration::from_secs(seconds.clamp(5, 3600)))
+    Ok(Duration::from_secs(seconds.clamp(1, 3600)))
 }
 
 fn default_use_tls() -> bool {
