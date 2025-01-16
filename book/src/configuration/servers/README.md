@@ -237,14 +237,6 @@ WHO poll interval (in seconds) for servers without away-notify.  Specifically, t
 - **values**: `1` .. `3600`
 - **default**: `2`
   
-## `who_retry_interval`
-
-WHO retry interval (in seconds) for servers without away-notify.
-
-- **type**: integer
-- **values**: `5` .. `3600`
-- **default**: `10`
-
 ## `monitor`
 
 A list of nicknames to [monitor](https://ircv3.net/specs/extensions/monitor) (if IRCv3 Monitor is supported by the server).

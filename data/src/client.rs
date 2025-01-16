@@ -2341,7 +2341,7 @@ impl Client {
                     if matches!(source, WhoSource::Poll) && !self.config.who_poll_enabled {
                         None
                     } else {
-                        (now.duration_since(*requested) >= self.config.who_retry_interval)
+                        (now.duration_since(*requested) >= 5 * self.who_poll_interval.duration)
                             .then_some(Request::Retry)
                     }
                 }
