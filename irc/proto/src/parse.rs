@@ -19,8 +19,8 @@ pub fn message_bytes(bytes: Vec<u8>) -> Result<Message, Error> {
 pub fn message(input: &str) -> Result<Message, Error> {
     let mut message = cut(terminated(
         tuple((opt(tags), opt(source), command)),
-        // Discard addtl. \r if it exists
-        alt((preceded(char('\r'), crlf), crlf)),
+        // Discard addtl. \r if it exists, allow whitespace before
+        preceded(many0(char(' ')), alt((preceded(char('\r'), crlf), crlf))),
     ));
 
     message(input)
@@ -265,6 +265,8 @@ mod test {
             "@time=2023-07-20T21:19:11.000Z :chat!test@user/test/bot/chat PRIVMSG ##chat :\\_o< quack!\r\n",
             // Extra \r sent by digitalirc
             "@batch=JQlhpjWY7SYaBPQtXAfUQh;msgid=UGnor4DBoafs6ge0UgsHF7-aVdnYMbjbdTf9eEHQmPKWA;time=2024-11-07T12:04:28.361Z :foo!~foo@F3FF3610.5A633F24.29800D3F.IP JOIN #pixelcove * :foo\r\r\n",
+            // Space between message and crlf sent by DejaToons
+            "@batch=AhaatzFmHPzct87cyiyxk4;time=2025-01-15T22:54:02.123Z;msgid=pgON6bxXjG7unoKIYwC3aV-KPRYjZhmCa3ZReibvMIrgw :atarians.dejatoons.net MODE #test +nt \r\n"
         ];
 
         for test in tests {
