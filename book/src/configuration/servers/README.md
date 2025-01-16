@@ -231,11 +231,11 @@ Whether or not to WHO polling is enabled.
 
 ## `who_poll_interval`
 
-WHO poll interval (in seconds) for servers without away-notify.
+WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests.  Will be increased automatically if the server sends a rate-limiting message.
 
 - **type**: integer
-- **values**: `5` .. `3600`
-- **default**: `180`
+- **values**: `1` .. `3600`
+- **default**: `2`
   
 ## `who_retry_interval`
 
