@@ -182,7 +182,8 @@ pub enum Error {
 mod test {
     use nom::combinator::all_consuming;
 
-    use crate::{Source, User};
+    use crate::command::Numeric::*;
+    use crate::{Command, Message, Source, Tag, User};
 
     #[test]
     fn user() {
@@ -255,23 +256,169 @@ mod test {
     #[test]
     fn message() {
         let tests = [
-            ":irc.example.com CAP LS * :multi-prefix extended-join sasl\r\n",
-            "@id=234AB :dan!d@localhost PRIVMSG #chan :Hey what's up!\r\n",
-            "CAP REQ :sasl\r\n",
-            "@tag=as\\\\\\:\\sdf\\z\\ UNKNOWN\r\n",
-            "@+1.1.1.1/wi2-asef-1=as\\\\\\:\\sdf\\z\\ UNKNOWN\r\n",
-            ":test!test@5555:5555:0:55:5555:5555:5555:5555 396 test user/test :is now your visible host\r\n",
-            ":atw.hu.quakenet.org 001 test :Welcome to the QuakeNet IRC Network, test\r\n",
-            "@time=2023-07-20T21:19:11.000Z :chat!test@user/test/bot/chat PRIVMSG ##chat :\\_o< quack!\r\n",
+            (
+                ":irc.example.com CAP LS * :multi-prefix extended-join sasl\r\n",
+                Message {
+                    tags: vec![],
+                    source: Some(Source::Server("irc.example.com".to_string())),
+                    command: Command::CAP(
+                        Some("LS".to_string()),
+                        "*".to_string(),
+                        Some("multi-prefix extended-join sasl".to_string()),
+                        None,
+                    ),
+                },
+            ),
+            (
+                "@id=234AB :dan!d@localhost PRIVMSG #chan :Hey what's up! \r\n",
+                Message {
+                    tags: vec![Tag {
+                        key: "id".to_string(),
+                        value: Some("234AB".to_string()),
+                    }],
+                    source: Some(Source::User(User {
+                        nickname: "dan".into(),
+                        username: Some("d".into()),
+                        hostname: Some("localhost".into()),
+                    })),
+                    command: Command::PRIVMSG("#chan".to_string(), "Hey what's up! ".to_string()),
+                },
+            ),
+            (
+                "CAP REQ :sasl\r\n",
+                Message {
+                    tags: vec![],
+                    source: None,
+                    command: Command::CAP(Some("REQ".to_string()), "sasl".to_string(), None, None),
+                },
+            ),
+            (
+                "@tag=as\\\\\\:\\sdf\\z\\ UNKNOWN\r\n",
+                Message {
+                    tags: vec![Tag {
+                        key: "tag".to_string(),
+                        value: Some("as\\; dfz".to_string()),
+                    }],
+                    source: None,
+                    command: Command::Unknown("UNKNOWN".to_string(), vec![]),
+                },
+            ),
+            (
+                "@+1.1.1.1/wi2-asef-1=as\\\\\\:\\sdf\\z\\ UNKNOWN\r\n",
+                Message {
+                    tags: vec![Tag {
+                        key: "+1.1.1.1/wi2-asef-1".to_string(),
+                        value: Some("as\\; dfz".to_string()),
+                    }],
+                    source: None,
+                    command: Command::Unknown("UNKNOWN".to_string(), vec![]),
+                },
+            ),
+            (
+                ":test!test@5555:5555:0:55:5555:5555:5555:5555 396 test user/test :is now your visible host\r\n",
+                Message {
+                    tags: vec![],
+                    source: Some(Source::User(User {
+                        nickname: "test".into(),
+                        username: Some("test".into()),
+                        hostname: Some("5555:5555:0:55:5555:5555:5555:5555".into()),
+                    })),
+                    command: Command::Unknown(
+                        "396".to_string(),
+                        vec![
+                            "test".to_string(),
+                            "user/test".to_string(),
+                            "is now your visible host".to_string(),
+                        ],
+                    ),
+                },
+            ),
+            (
+                ":atw.hu.quakenet.org 001 test :Welcome to the QuakeNet IRC Network, test\r\n",
+                Message {
+                    tags: vec![],
+                    source: Some(Source::Server("atw.hu.quakenet.org".to_string())),
+                    command: Command::Numeric(
+                        RPL_WELCOME,
+                        vec![
+                            "test".to_string(),
+                            "Welcome to the QuakeNet IRC Network, test".to_string(),
+                        ],
+                    ),
+                },
+            ),
+            (
+                "@time=2023-07-20T21:19:11.000Z :chat!test@user/test/bot/chat PRIVMSG ##chat :\\_o< quack!\r\n",
+                Message {
+                    tags: vec![Tag {
+                        key: "time".to_string(),
+                        value: Some("2023-07-20T21:19:11.000Z".to_string()),
+                    }],
+                    source: Some(Source::User(User {
+                        nickname: "chat".into(),
+                        username: Some("test".into()),
+                        hostname: Some("user/test/bot/chat".into()),
+                    })),
+                    command: Command::PRIVMSG("##chat".to_string(), "\\_o< quack!".to_string()),
+                },
+            ),
             // Extra \r sent by digitalirc
-            "@batch=JQlhpjWY7SYaBPQtXAfUQh;msgid=UGnor4DBoafs6ge0UgsHF7-aVdnYMbjbdTf9eEHQmPKWA;time=2024-11-07T12:04:28.361Z :foo!~foo@F3FF3610.5A633F24.29800D3F.IP JOIN #pixelcove * :foo\r\r\n",
+            (
+                "@batch=JQlhpjWY7SYaBPQtXAfUQh;msgid=UGnor4DBoafs6ge0UgsHF7-aVdnYMbjbdTf9eEHQmPKWA;time=2024-11-07T12:04:28.361Z :foo!~foo@F3FF3610.5A633F24.29800D3F.IP JOIN #pixelcove * :foo\r\r\n",
+                Message {
+                    tags: vec![
+                        Tag {
+                            key: "batch".to_string(),
+                            value: Some("JQlhpjWY7SYaBPQtXAfUQh".to_string()),
+                        },
+                        Tag {
+                            key: "msgid".to_string(),
+                            value: Some(
+                                "UGnor4DBoafs6ge0UgsHF7-aVdnYMbjbdTf9eEHQmPKWA".to_string(),
+                            ),
+                        },
+                        Tag {
+                            key: "time".to_string(),
+                            value: Some("2024-11-07T12:04:28.361Z".to_string()),
+                        },
+                    ],
+                    source: Some(Source::User(User {
+                        nickname: "foo".into(),
+                        username: Some("~foo".into()),
+                        hostname: Some("F3FF3610.5A633F24.29800D3F.IP".into()),
+                    })),
+                    command: Command::JOIN("#pixelcove".to_string(), Some("*".to_string())),
+                },
+            ),
             // Space between message and crlf sent by DejaToons
-            "@batch=AhaatzFmHPzct87cyiyxk4;time=2025-01-15T22:54:02.123Z;msgid=pgON6bxXjG7unoKIYwC3aV-KPRYjZhmCa3ZReibvMIrgw :atarians.dejatoons.net MODE #test +nt \r\n"
+            (
+                "@batch=AhaatzFmHPzct87cyiyxk4;time=2025-01-15T22:54:02.123Z;msgid=pgON6bxXjG7unoKIYwC3aV-KPRYjZhmCa3ZReibvMIrgw :atarians.dejatoons.net MODE #test +nt \r\n",
+                Message {
+                    tags: vec![
+                        Tag {
+                            key: "batch".to_string(),
+                            value: Some("AhaatzFmHPzct87cyiyxk4".to_string()),
+                        },
+                        Tag {
+                            key: "time".to_string(),
+                            value: Some(
+                                "2025-01-15T22:54:02.123Z".to_string(),
+                            ),
+                        },
+                        Tag {
+                            key: "msgid".to_string(),
+                            value: Some("pgON6bxXjG7unoKIYwC3aV-KPRYjZhmCa3ZReibvMIrgw".to_string()),
+                        },
+                    ],
+                    source: Some(Source::Server("atarians.dejatoons.net".to_string())),
+                    command: Command::MODE("#test".to_string(), Some("+nt".to_string()), Some(vec![])),
+                },
+            ),
         ];
 
-        for test in tests {
+        for (test, expected) in tests {
             let message = super::message(test).unwrap();
-            println!("{message:?}");
+            assert_eq!(message, expected);
         }
     }
 }
