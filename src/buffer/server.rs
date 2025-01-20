@@ -37,6 +37,7 @@ pub fn view<'a>(
             scroll_view::Kind::Server(&state.server),
             history,
             None,
+            None,
             config,
             move |message, _, _| {
                 let timestamp =
@@ -132,13 +133,21 @@ impl Server {
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let (command, event) = self.scroll_view.update(message, false);
+                let (command, event) = self.scroll_view.update(
+                    message,
+                    false,
+                    scroll_view::Kind::Server(&self.server),
+                    history,
+                    clients,
+                    config,
+                );
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
                     scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
+                    scroll_view::Event::PreviewChanged => None,
                 });
 
                 (command.map(Message::ScrollView), event)

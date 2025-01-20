@@ -1,4 +1,4 @@
-use data::{file_transfer, history, Config};
+use data::{file_transfer, history, preview, Config};
 use iced::widget::{button, center, container, pane_grid, row, text};
 
 use crate::buffer::{self, Buffer};
@@ -57,6 +57,7 @@ impl Pane {
         clients: &'a data::client::Map,
         file_transfers: &'a file_transfer::Manager,
         history: &'a history::Manager,
+        previews: &'a preview::Collection,
         sidebar: &'a sidebar::Sidebar,
         config: &'a Config,
         theme: &'a Theme,
@@ -106,6 +107,7 @@ impl Pane {
                 clients,
                 file_transfers,
                 history,
+                previews,
                 &self.settings,
                 config,
                 theme,
@@ -134,6 +136,18 @@ impl Pane {
             Buffer::FileTransfers(_) => None,
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
+        }
+    }
+
+    pub fn visible_urls(&self) -> Vec<&url::Url> {
+        match &self.buffer {
+            Buffer::Channel(channel) => channel.scroll_view.visible_urls().collect(),
+            Buffer::Query(query) => query.scroll_view.visible_urls().collect(),
+            Buffer::Empty
+            | Buffer::Server(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_) => vec![],
         }
     }
 

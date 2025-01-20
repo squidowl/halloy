@@ -573,6 +573,8 @@ fn has_matching_content(message: &Message, other: &Message) -> bool {
 #[derive(Debug)]
 pub struct View<'a> {
     pub total: usize,
+    pub has_more_older_messages: bool,
+    pub has_more_newer_messages: bool,
     pub old_messages: Vec<&'a Message>,
     pub new_messages: Vec<&'a Message>,
     pub max_nick_chars: Option<usize>,

@@ -1,6 +1,6 @@
 use data::server::Server;
 use data::user::Nick;
-use data::{buffer, User};
+use data::{buffer, preview, User};
 use data::{channel, history, message, target, Config};
 use iced::widget::{column, container, row};
 use iced::{alignment, padding, Length, Task};
@@ -24,12 +24,14 @@ pub enum Event {
     OpenChannel(target::Channel),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
+    PreviewChanged,
 }
 
 pub fn view<'a>(
     state: &'a Channel,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
+    previews: &'a preview::Collection,
     settings: &'a channel::Settings,
     config: &'a Config,
     theme: &'a Theme,
@@ -55,6 +57,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Channel(&state.server, channel),
             history,
+            Some(previews),
             chathistory_state,
             config,
             move |message, max_nick_width, max_prefix_width| {
@@ -364,9 +367,14 @@ impl Channel {
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let (command, event) = self
-                    .scroll_view
-                    .update(message, config.buffer.chathistory.infinite_scroll);
+                let (command, event) = self.scroll_view.update(
+                    message,
+                    config.buffer.chathistory.infinite_scroll,
+                    scroll_view::Kind::Channel(&self.server, &self.target),
+                    history,
+                    clients,
+                    config,
+                );
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
@@ -375,6 +383,7 @@ impl Channel {
                     scroll_view::Event::RequestOlderChatHistory => {
                         Some(Event::RequestOlderChatHistory)
                     }
+                    scroll_view::Event::PreviewChanged => Some(Event::PreviewChanged),
                 });
 
                 (command.map(Message::ScrollView), event)

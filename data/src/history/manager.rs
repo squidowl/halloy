@@ -652,7 +652,13 @@ impl Data {
             })
             .unwrap_or_default();
 
+        let first_without_limit = filtered.first().copied();
+        let last_without_limit = filtered.last().copied();
+
         let limited = with_limit(limit, filtered.into_iter());
+
+        let first_with_limit = limited.first();
+        let last_with_limit = limited.last();
 
         let split_at = read_marker.map_or(0, |read_marker| {
             limited
@@ -674,8 +680,23 @@ impl Data {
 
         let (old, new) = limited.split_at(split_at);
 
+        let has_more_older_messages =
+            first_without_limit
+                .zip(first_with_limit)
+                .is_some_and(|(without_limit, with_limit)| {
+                    without_limit.server_time < with_limit.server_time
+                });
+        let has_more_newer_messages =
+            last_without_limit
+                .zip(last_with_limit)
+                .is_some_and(|(without_limit, with_limit)| {
+                    without_limit.server_time > with_limit.server_time
+                });
+
         Some(history::View {
             total,
+            has_more_older_messages,
+            has_more_newer_messages,
             old_messages: old.to_vec(),
             new_messages: new.to_vec(),
             max_nick_chars,
