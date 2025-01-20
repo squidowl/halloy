@@ -1,4 +1,6 @@
 //! Generate messages that can be broadcast into every buffer
+use std::collections::HashSet;
+
 use chrono::{DateTime, Utc};
 
 use super::{parse_fragments, plain, source, Content, Direction, Message, Source, Target};
@@ -32,6 +34,7 @@ fn expand(
             content,
             id: None,
             hash,
+            hidden_urls: HashSet::default(),
         }
     };
 
