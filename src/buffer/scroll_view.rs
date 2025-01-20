@@ -1,31 +1,38 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
-use data::{history, target, Config};
+use data::{client, history, preview, target, Config};
 use iced::widget::{
-    button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, Scrollable,
+    button, column, container, horizontal_rule, horizontal_space, image, row, scrollable, text,
+    Scrollable,
 };
-use iced::{padding, Length, Task};
+use iced::{padding, ContentFit, Length, Task};
 
+use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::user_context;
-use crate::widget::{Element, MESSAGE_MARKER_TEXT};
+use crate::widget::{notify_visibility, Element, MESSAGE_MARKER_TEXT};
 use crate::{font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Scrolled {
         count: usize,
-        remaining: bool,
+        has_more_older_messages: bool,
+        has_more_newer_messages: bool,
         oldest: DateTime<Utc>,
         status: Status,
         viewport: scrollable::Viewport,
     },
     UserContext(user_context::Message),
     Link(message::Link),
-    ScrollTo(keyed::Bounds),
+    ScrollTo(keyed::Hit),
     RequestOlderChatHistory,
+    EnteringViewport(message::Hash, Vec<url::Url>),
+    ExitingViewport(message::Hash),
 }
 
 #[derive(Debug, Clone)]
@@ -34,6 +41,7 @@ pub enum Event {
     OpenChannel(target::Channel),
     GoToMessage(Server, target::Channel, message::Hash),
     RequestOlderChatHistory,
+    PreviewChanged,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -43,6 +51,17 @@ pub enum Kind<'a> {
     Query(&'a Server, &'a target::Query),
     Logs,
     Highlights,
+}
+
+impl Kind<'_> {
+    fn server(&self) -> Option<&Server> {
+        match self {
+            Kind::Server(server) | Kind::Channel(server, _) | Kind::Query(server, _) => {
+                Some(server)
+            }
+            Kind::Logs | Kind::Highlights => None,
+        }
+    }
 }
 
 impl From<Kind<'_>> for history::Kind {
@@ -63,6 +82,7 @@ pub fn view<'a>(
     state: &State,
     kind: Kind,
     history: &'a history::Manager,
+    previews: Option<&'a preview::Collection>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
     format: impl Fn(&'a data::Message, Option<f32>, Option<f32>) -> Option<Element<'a, Message>> + 'a,
@@ -70,43 +90,45 @@ pub fn view<'a>(
     let divider_font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
 
     let Some(history::View {
-        total,
+        has_more_older_messages,
+        has_more_newer_messages,
         old_messages,
         new_messages,
         max_nick_chars,
         max_prefix_chars,
+        ..
     }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
     else {
         return column![].into();
     };
 
-    let top_row = if let Some(chathistory_state) = chathistory_state {
-        let (content, message) = match chathistory_state {
-            ChatHistoryState::Exhausted => ("No Older Chat History Messages Available", None),
-            ChatHistoryState::PendingRequest => ("...", None),
-            ChatHistoryState::Ready => (
-                "Request Older Chat History Messages",
-                Some(Message::RequestOlderChatHistory),
-            ),
+    let top_row =
+        if let (false, Some(chathistory_state)) = (has_more_older_messages, chathistory_state) {
+            let (content, message) = match chathistory_state {
+                ChatHistoryState::Exhausted => ("No Older Chat History Messages Available", None),
+                ChatHistoryState::PendingRequest => ("...", None),
+                ChatHistoryState::Ready => (
+                    "Request Older Chat History Messages",
+                    Some(Message::RequestOlderChatHistory),
+                ),
+            };
+
+            let top_row_button = button(text(content).size(divider_font_size))
+                .padding([3, 5])
+                .style(|theme, status| theme::button::primary(theme, status, false))
+                .on_press_maybe(message);
+
+            Some(
+                row![horizontal_space(), top_row_button, horizontal_space()]
+                    .padding(padding::top(2).bottom(6))
+                    .width(Length::Fill)
+                    .align_y(iced::Alignment::Center),
+            )
+        } else {
+            None
         };
 
-        let top_row_button = button(text(content).size(divider_font_size))
-            .padding([3, 5])
-            .style(|theme, status| theme::button::primary(theme, status, false))
-            .on_press_maybe(message);
-
-        Some(
-            row![horizontal_space(), top_row_button, horizontal_space()]
-                .padding(padding::top(2).bottom(6))
-                .width(Length::Fill)
-                .align_y(iced::Alignment::Center),
-        )
-    } else {
-        None
-    };
-
     let count = old_messages.len() + new_messages.len();
-    let remaining = count < total;
     let oldest = old_messages
         .iter()
         .chain(&new_messages)
@@ -138,29 +160,98 @@ pub fn view<'a>(
 
                 *last_date = Some(date);
 
-                if is_new_day && config.buffer.date_separators.show {
+                let content = if let (message::Content::Fragments(fragments), Some(previews)) =
+                    (&message.content, previews)
+                {
+                    let urls = fragments
+                        .iter()
+                        .filter_map(message::Fragment::url)
+                        .cloned()
+                        .collect::<Vec<_>>();
 
+                    if !urls.is_empty() {
+                        let is_message_visible =
+                            state.visible_url_messages.contains_key(&message.hash);
+
+                        let element = if is_message_visible {
+                            notify_visibility(
+                                element,
+                                2000.0,
+                                notify_visibility::When::NotVisible,
+                                Message::ExitingViewport(message.hash),
+                            )
+                        } else {
+                            notify_visibility(
+                                element,
+                                1000.0,
+                                notify_visibility::When::Visible,
+                                Message::EnteringViewport(message.hash, urls.clone()),
+                            )
+                        };
+
+                        let mut column = column![element];
+
+                        for (idx, url) in urls.into_iter().enumerate() {
+                            if message.hidden_urls.contains(&url) {
+                                continue;
+                            }
+
+                            if let (true, Some(preview::State::Loaded(preview))) =
+                                (is_message_visible, previews.get(&url))
+                            {
+                                let content = match preview {
+                                    data::Preview::Card(preview::Card {
+                                        image: preview::Image { path, .. },
+                                        ..
+                                    }) => keyed(
+                                        keyed::Key::Image(message.hash, idx),
+                                        container(image(path).content_fit(ContentFit::ScaleDown))
+                                            .max_height(200),
+                                    ),
+                                    data::Preview::Image(preview::Image { path, .. }) => keyed(
+                                        keyed::Key::Image(message.hash, idx),
+                                        container(image(path).content_fit(ContentFit::ScaleDown))
+                                            .max_height(200),
+                                    ),
+                                };
+
+                                column = column.push(content);
+                            }
+                        }
+
+                        column.into()
+                    } else {
+                        element
+                    }
+                } else {
+                    element
+                };
+
+                if is_new_day && config.buffer.date_separators.show {
                     Some(
                         column![
                             row![
                                 container(horizontal_rule(1))
                                     .width(Length::Fill)
                                     .padding(padding::right(6)),
-                                text(date.format(&config.buffer.date_separators.format).to_string())
-                                    .size(divider_font_size)
-                                    .style(theme::text::secondary),
+                                text(
+                                    date.format(&config.buffer.date_separators.format)
+                                        .to_string()
+                                )
+                                .size(divider_font_size)
+                                .style(theme::text::secondary),
                                 container(horizontal_rule(1))
                                     .width(Length::Fill)
                                     .padding(padding::left(6))
                             ]
                             .padding(2)
                             .align_y(iced::Alignment::Center),
-                            element
+                            content
                         ]
                         .into(),
                     )
                 } else {
-                    Some(element)
+                    Some(content)
                 }
             })
             .collect::<Vec<_>>()
@@ -174,8 +265,9 @@ pub fn view<'a>(
         &new_messages,
     );
 
-    let show_divider =
-        !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom) | Status::ScrollTo);
+    // TODO: Any reason we need to hide it?
+    let show_divider = true;
+    // !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom) | Status::ScrollTo);
 
     let divider = if show_divider {
         row![
@@ -201,22 +293,26 @@ pub fn view<'a>(
         .push(keyed(keyed::Key::Divider, divider))
         .push(column(new));
 
-    Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Scrollbar::default()
-                .anchor(status.alignment())
-                .width(5)
-                .scroller_width(5),
-        ))
-        .on_scroll(move |viewport| Message::Scrolled {
-            count,
-            remaining,
-            oldest,
-            status,
-            viewport,
-        })
-        .id(state.scrollable.clone())
-        .into()
+    correct_viewport(
+        Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::default()
+                    .anchor(status.alignment())
+                    .width(5)
+                    .scroller_width(5),
+            ))
+            .on_scroll(move |viewport| Message::Scrolled {
+                has_more_older_messages,
+                has_more_newer_messages,
+                count,
+                oldest,
+                status,
+                viewport,
+            })
+            .id(state.scrollable.clone()),
+        state.scrollable.clone(),
+        !matches!(state.status, Status::Idle(Anchor::Bottom)),
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -225,6 +321,7 @@ pub struct State {
     limit: Limit,
     status: Status,
     pending_scroll_to: Option<message::Hash>,
+    visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
 }
 
 impl Default for State {
@@ -234,6 +331,7 @@ impl Default for State {
             limit: Limit::bottom(),
             status: Status::default(),
             pending_scroll_to: None,
+            visible_url_messages: HashMap::new(),
         }
     }
 }
@@ -247,77 +345,93 @@ impl State {
         &mut self,
         message: Message,
         infinite_scroll: bool,
+        kind: Kind,
+        history: &history::Manager,
+        clients: &client::Map,
+        config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Scrolled {
                 count,
-                remaining,
+                has_more_older_messages,
+                has_more_newer_messages,
                 oldest,
                 status: old_status,
                 viewport,
             } => {
                 let relative_offset = viewport.relative_offset().y;
 
-                match old_status {
-                    Status::ScrollTo => {
-                        return (Task::none(), None);
-                    }
-                    Status::Loading(anchor) => {
-                        self.status = Status::Unlocked(anchor);
+                let mut tasks = vec![];
+                let mut event = None;
 
-                        if matches!(anchor, Anchor::Bottom) {
-                            self.limit = Limit::Since(oldest);
-                        }
-                        // Top anchor can get stuck in loading state at
-                        // end of scrollable.
-                        else if old_status.is_end(relative_offset) {
-                            if remaining {
-                                self.status = Status::Loading(Anchor::Top);
-                                self.limit = Limit::Top(count + Limit::DEFAULT_STEP);
-                            } else {
-                                self.status = Status::Idle(Anchor::Bottom);
-                                self.limit = Limit::bottom();
+                match old_status {
+                    // Scrolling down from top & have more to load
+                    _ if old_status.is_bottom(relative_offset) && has_more_newer_messages => {
+                        self.limit = Limit::Top(count + Limit::DEFAULT_STEP);
+                    }
+                    // Scrolling up from bottom & have more to load
+                    _ if old_status.is_top(relative_offset) && has_more_older_messages => {
+                        self.limit = Limit::Bottom(count + Limit::DEFAULT_STEP);
+
+                        // Get new oldest message w/ new limit and use that w/ Since
+                        if let Some(history::View {
+                            old_messages,
+                            new_messages,
+                            ..
+                        }) = history.get_messages(&kind.into(), Some(self.limit), &config.buffer)
+                        {
+                            if let Some(oldest) = old_messages.iter().chain(&new_messages).next() {
+                                self.limit = Limit::Since(oldest.server_time);
                             }
                         }
                     }
-                    _ if old_status.is_end(relative_offset) && remaining => {
-                        match old_status.anchor() {
-                            Anchor::Top => {
-                                self.status = Status::Loading(Anchor::Top);
-                                self.limit = Limit::Top(count + Limit::DEFAULT_STEP);
-                            }
-                            Anchor::Bottom => {
-                                self.status = Status::Loading(Anchor::Bottom);
-                                self.limit = Limit::Bottom(count + Limit::DEFAULT_STEP);
-                            }
-                        }
-                    }
+                    // Hit bottom, anchor it
                     _ if old_status.is_bottom(relative_offset) => {
                         self.status = Status::Idle(Anchor::Bottom);
                         self.limit = Limit::bottom();
                     }
+                    // Hit top
                     _ if old_status.is_top(relative_offset) => {
-                        self.status = Status::Idle(Anchor::Top);
-                        self.limit = Limit::top();
+                        // If we're infinite scroll & out of messages, load more via chathistory
+                        if let Some(server) = kind
+                            .server()
+                            .filter(|_| infinite_scroll && !has_more_older_messages)
+                        {
+                            // Load more history & ensure scrollable is unlocked
+                            event = Some(Event::RequestOlderChatHistory);
+                            self.limit = Limit::Top(
+                                clients.get_server_chathistory_limit(server) as usize
+                                    + Limit::DEFAULT_COUNT,
+                            );
+
+                            if !matches!(self.status, Status::Unlocked) {
+                                self.status = Status::Unlocked;
+                            }
+                        } else {
+                            // Anchor it
+                            self.status = Status::Idle(Anchor::Top);
+                            self.limit = Limit::top();
+                        }
                     }
+                    // Moving away from anchored, unlock it
                     Status::Idle(anchor) if !old_status.is_start(relative_offset) => {
-                        self.status = Status::Unlocked(anchor);
+                        self.status = Status::Unlocked;
 
                         if matches!(anchor, Anchor::Bottom) {
                             self.limit = Limit::Since(oldest);
                         }
                     }
-                    Status::Unlocked(_) | Status::Idle(_) => {}
+                    // Normal scrolling w/ no side-effects
+                    Status::Unlocked | Status::Idle(_) => {}
                 }
 
-                if let Some(new_offset) = self.status.new_offset(old_status, viewport) {
-                    return (
-                        scrollable::scroll_to(self.scrollable.clone(), new_offset),
-                        None,
-                    );
-                } else if infinite_scroll && self.status.is_top(relative_offset) {
-                    return (Task::none(), Some(Event::RequestOlderChatHistory));
+                // If alignment changes, we need to flip the scrollable translation
+                // for the new offset
+                if let Some(new_offset) = self.status.alignment_flipped(old_status, viewport) {
+                    tasks.push(scrollable::scroll_to(self.scrollable.clone(), new_offset));
                 }
+
+                return (Task::batch(tasks), event);
             }
             Message::UserContext(message) => {
                 return (
@@ -345,47 +459,69 @@ impl State {
                     Some(Event::GoToMessage(server, channel, message)),
                 )
             }
-            Message::ScrollTo(keyed::Bounds {
-                scrollable_bounds,
+            Message::ScrollTo(keyed::Hit {
                 hit_bounds,
+                scrollable,
                 prev_bounds,
+                ..
             }) => {
-                let total_offset =
-                    scrollable_bounds.content.height - scrollable_bounds.viewport.height;
+                let max_translation = scrollable.content.height - scrollable.viewport.height;
 
-                let absolute = hit_bounds.y - scrollable_bounds.content.y;
-                let relative = (absolute / total_offset).min(1.0);
+                // Did this cause us to hit the bottom? If so, anchor it
+                if (scrollable.translation.y - max_translation).abs() <= f32::EPSILON {
+                    self.status = Status::Idle(Anchor::Bottom);
 
-                self.status = Status::Idle(Anchor::Bottom);
-
-                // Offsets are given relative to top,
-                // and we must scroll to offsets relative to
-                // the bottom
-                let offset = if relative == 1.0 {
-                    0.0
-                } else {
+                    return (
+                        scrollable::scroll_to(
+                            self.scrollable.clone(),
+                            scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
+                        ),
+                        None,
+                    );
+                }
+                // Otherwise scroll to the hit bounds
+                else {
                     // If a prev element exists, put scrollable halfway over prev
                     // element so it's obvious user can scroll up
-                    if let Some(bounds) = prev_bounds {
-                        let absolute =
-                            (bounds.y - scrollable_bounds.content.y) + bounds.height / 2.0;
-
-                        total_offset - absolute
+                    let offset = if let Some(bounds) = prev_bounds {
+                        (bounds.y - scrollable.content.y) + bounds.height / 2.0
                     } else {
-                        total_offset - absolute
+                        hit_bounds.y - scrollable.content.y
                     }
-                };
+                    .min(max_translation);
 
-                return (
-                    scrollable::scroll_to(
-                        self.scrollable.clone(),
-                        scrollable::AbsoluteOffset { x: 0.0, y: offset },
-                    ),
-                    None,
-                );
+                    self.status = Status::Unlocked;
+
+                    return (
+                        scrollable::scroll_to(
+                            self.scrollable.clone(),
+                            scrollable::AbsoluteOffset { x: 0.0, y: offset },
+                        ),
+                        None,
+                    );
+                }
             }
             Message::RequestOlderChatHistory => {
-                return (Task::none(), Some(Event::RequestOlderChatHistory))
+                if let Some(server) = kind.server() {
+                    self.limit = Limit::Top(
+                        clients.get_server_chathistory_limit(server) as usize
+                            + Limit::DEFAULT_COUNT,
+                    );
+
+                    if !matches!(self.status, Status::Unlocked) {
+                        self.status = Status::Unlocked;
+                    }
+
+                    return (Task::none(), Some(Event::RequestOlderChatHistory));
+                }
+            }
+            Message::EnteringViewport(hash, urls) => {
+                self.visible_url_messages.insert(hash, urls);
+                return (Task::none(), Some(Event::PreviewChanged));
+            }
+            Message::ExitingViewport(hash) => {
+                self.visible_url_messages.remove(&hash);
+                return (Task::none(), Some(Event::PreviewChanged));
             }
         }
 
@@ -448,10 +584,8 @@ impl State {
         let offset = total - pos + 1;
 
         self.limit = Limit::Bottom(offset.max(Limit::DEFAULT_COUNT));
-        self.status = Status::ScrollTo;
 
-        keyed::find_bounds(self.scrollable.clone(), keyed::Key::Message(message))
-            .map(Message::ScrollTo)
+        keyed::find(self.scrollable.clone(), keyed::Key::Message(message)).map(Message::ScrollTo)
     }
 
     pub fn scroll_to_backlog(
@@ -481,18 +615,19 @@ impl State {
         let offset = total - old_messages.len() + 1;
 
         self.limit = Limit::Bottom(offset.max(Limit::DEFAULT_COUNT));
-        self.status = Status::ScrollTo;
 
-        keyed::find_bounds(self.scrollable.clone(), keyed::Key::Divider).map(Message::ScrollTo)
+        keyed::find(self.scrollable.clone(), keyed::Key::Divider).map(Message::ScrollTo)
+    }
+
+    pub fn visible_urls(&self) -> impl Iterator<Item = &url::Url> {
+        self.visible_url_messages.values().flatten()
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
     Idle(Anchor),
-    Unlocked(Anchor),
-    Loading(Anchor),
-    ScrollTo,
+    Unlocked,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -505,9 +640,7 @@ impl Status {
     fn anchor(self) -> Anchor {
         match self {
             Status::Idle(anchor) => anchor,
-            Status::Unlocked(anchor) => anchor,
-            Status::Loading(anchor) => anchor,
-            Status::ScrollTo => Anchor::Bottom,
+            Status::Unlocked => Anchor::Top,
         }
     }
 
@@ -517,19 +650,7 @@ impl Status {
                 Anchor::Top => scrollable::Anchor::Start,
                 Anchor::Bottom => scrollable::Anchor::End,
             },
-            Status::Unlocked(_) => scrollable::Anchor::Start,
-            Status::Loading(anchor) => match anchor {
-                Anchor::Top => scrollable::Anchor::Start,
-                Anchor::Bottom => scrollable::Anchor::End,
-            },
-            Status::ScrollTo => scrollable::Anchor::Start,
-        }
-    }
-
-    fn is_end(self, relative_offset: f32) -> bool {
-        match self.anchor() {
-            Anchor::Top => self.is_bottom(relative_offset),
-            Anchor::Bottom => self.is_top(relative_offset),
+            Status::Unlocked => scrollable::Anchor::Start,
         }
     }
 
@@ -554,7 +675,7 @@ impl Status {
         }
     }
 
-    fn new_offset(
+    fn alignment_flipped(
         self,
         other: Self,
         viewport: scrollable::Viewport,
@@ -595,6 +716,7 @@ mod keyed {
     pub enum Key {
         Divider,
         Message(message::Hash),
+        Image(message::Hash, usize),
     }
 
     impl Key {
@@ -624,98 +746,353 @@ mod keyed {
     }
 
     #[derive(Debug, Clone, Copy)]
-    pub struct Bounds {
-        pub scrollable_bounds: ScrollableBounds,
+    pub struct Hit {
+        pub key: Key,
         pub hit_bounds: Rectangle,
         pub prev_bounds: Option<Rectangle>,
+        pub scrollable: Scrollable,
     }
 
     #[derive(Debug, Clone, Copy)]
-    pub struct ScrollableBounds {
+    pub struct Scrollable {
         pub viewport: Rectangle,
         pub content: Rectangle,
+        pub translation: Vector,
     }
 
-    pub fn find_bounds(scrollable: scrollable::Id, key: Key) -> Task<Bounds> {
-        #[derive(Debug, Clone)]
-        struct State {
-            active: bool,
-            key: Key,
-            scrollable: scrollable::Id,
-            scrollable_bounds: Option<ScrollableBounds>,
-            hit_bounds: Option<Rectangle>,
-            prev_bounds: Option<Rectangle>,
-        }
-
-        impl Operation<State> for State {
-            fn scrollable(
-                &mut self,
-                id: Option<&widget::Id>,
-                bounds: Rectangle,
-                content_bounds: Rectangle,
-                _translation: Vector,
-                _state: &mut dyn widget::operation::Scrollable,
-            ) {
-                if id == Some(&self.scrollable.clone().into()) {
-                    self.scrollable_bounds = Some(ScrollableBounds {
-                        viewport: bounds,
-                        content: content_bounds,
-                    });
-                    self.active = true;
-                } else {
-                    self.active = false;
-                }
-            }
-
-            fn container(
-                &mut self,
-                _id: Option<&widget::Id>,
-                _bounds: Rectangle,
-                operate_on_children: &mut dyn FnMut(&mut dyn Operation<State>),
-            ) {
-                operate_on_children(self)
-            }
-
-            fn custom(
-                &mut self,
-                _id: Option<&widget::Id>,
-                bounds: Rectangle,
-                state: &mut dyn std::any::Any,
-            ) {
-                if self.active {
-                    if let Some(key) = state.downcast_ref::<Key>() {
-                        if self.key == *key {
-                            self.hit_bounds = Some(bounds);
-                        } else if self.hit_bounds.is_none() {
-                            self.prev_bounds = Some(bounds);
-                        }
-                    }
-                }
-            }
-
-            fn finish(&self) -> widget::operation::Outcome<State> {
-                widget::operation::Outcome::Some(self.clone())
-            }
-        }
-
-        widget::operate(State {
+    pub fn find(scrollable: scrollable::Id, key: Key) -> Task<Hit> {
+        widget::operate(Find {
             active: false,
-            scrollable,
+            scrollable_id: scrollable,
             key,
-            scrollable_bounds: None,
+            scrollable: None,
             hit_bounds: None,
             prev_bounds: None,
         })
-        .map(|state| {
-            state
-                .scrollable_bounds
-                .zip(state.hit_bounds)
-                .map(|(scrollable_bounds, hit_bounds)| Bounds {
-                    scrollable_bounds,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct Find {
+        pub active: bool,
+        pub key: Key,
+        pub scrollable_id: scrollable::Id,
+        pub scrollable: Option<Scrollable>,
+        pub hit_bounds: Option<Rectangle>,
+        pub prev_bounds: Option<Rectangle>,
+    }
+
+    impl Operation<Hit> for Find {
+        fn scrollable(
+            &mut self,
+            id: Option<&widget::Id>,
+            bounds: Rectangle,
+            content_bounds: Rectangle,
+            translation: Vector,
+            _state: &mut dyn widget::operation::Scrollable,
+        ) {
+            if id == Some(&self.scrollable_id.clone().into()) {
+                self.scrollable = Some(Scrollable {
+                    viewport: bounds,
+                    content: content_bounds,
+                    translation,
+                });
+                self.active = true;
+            } else {
+                self.active = false;
+            }
+        }
+
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            operate_on_children: &mut dyn FnMut(&mut dyn Operation<Hit>),
+        ) {
+            operate_on_children(self)
+        }
+
+        fn custom(
+            &mut self,
+            _id: Option<&widget::Id>,
+            bounds: Rectangle,
+            state: &mut dyn std::any::Any,
+        ) {
+            if self.active {
+                if let Some(key) = state.downcast_ref::<Key>() {
+                    if self.key == *key {
+                        self.hit_bounds = Some(bounds);
+                    } else if self.hit_bounds.is_none() {
+                        self.prev_bounds = Some(bounds);
+                    }
+                }
+            }
+        }
+
+        fn finish(&self) -> widget::operation::Outcome<Hit> {
+            match self
+                .scrollable
+                .zip(self.hit_bounds)
+                .map(|(scrollable, hit_bounds)| Hit {
+                    key: self.key,
+                    scrollable,
                     hit_bounds,
-                    prev_bounds: state.prev_bounds,
-                })
-        })
-        .and_then(Task::done)
+                    prev_bounds: self.prev_bounds,
+                }) {
+                Some(hit) => widget::operation::Outcome::Some(hit),
+                None => widget::operation::Outcome::None,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct TopOfViewport {
+        pub active: bool,
+        pub scrollable_id: scrollable::Id,
+        pub scrollable: Option<Scrollable>,
+        pub hit_bounds: Option<(Key, Rectangle)>,
+    }
+
+    impl Operation<Hit> for TopOfViewport {
+        fn scrollable(
+            &mut self,
+            id: Option<&widget::Id>,
+            bounds: Rectangle,
+            content_bounds: Rectangle,
+            translation: Vector,
+            _state: &mut dyn widget::operation::Scrollable,
+        ) {
+            if id == Some(&self.scrollable_id.clone().into()) {
+                self.scrollable = Some(Scrollable {
+                    viewport: bounds,
+                    content: content_bounds,
+                    translation,
+                });
+                self.active = true;
+            } else {
+                self.active = false;
+            }
+        }
+
+        fn container(
+            &mut self,
+            _id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            operate_on_children: &mut dyn FnMut(&mut dyn Operation<Hit>),
+        ) {
+            operate_on_children(self)
+        }
+
+        fn custom(
+            &mut self,
+            _id: Option<&widget::Id>,
+            bounds: Rectangle,
+            state: &mut dyn std::any::Any,
+        ) {
+            if self.active {
+                if let Some(key) = state.downcast_ref::<Key>() {
+                    if self.hit_bounds.is_none()
+                        && self.scrollable.is_some_and(|scrollable| {
+                            scrollable
+                                .viewport
+                                .intersects(&(bounds - scrollable.translation))
+                        })
+                    {
+                        self.hit_bounds = Some((*key, bounds));
+                    }
+                }
+            }
+        }
+
+        fn finish(&self) -> widget::operation::Outcome<Hit> {
+            match self
+                .scrollable
+                .zip(self.hit_bounds)
+                .map(|(scrollable, (key, hit_bounds))| Hit {
+                    key,
+                    scrollable,
+                    hit_bounds,
+                    prev_bounds: None,
+                }) {
+                Some(hit) => widget::operation::Outcome::Some(hit),
+                None => widget::operation::Outcome::None,
+            }
+        }
+    }
+}
+
+mod correct_viewport {
+    use std::sync::{Arc, Mutex};
+
+    use iced::advanced::widget::operation::scrollable;
+    use iced::advanced::widget::Operation;
+    use iced::advanced::{self, widget};
+
+    use crate::widget::decorate;
+    use crate::widget::{Element, Renderer};
+
+    use super::keyed;
+    use super::Message;
+
+    pub fn correct_viewport<'a>(
+        inner: impl Into<Element<'a, Message>>,
+        scrollable: iced::widget::scrollable::Id,
+        enabled: bool,
+    ) -> Element<'a, Message> {
+        decorate(inner)
+            .update(
+                move |state: &mut Option<keyed::Hit>,
+                      inner: &mut Element<'a, Message>,
+                      tree: &mut advanced::widget::Tree,
+                      event: iced::Event,
+                      layout: advanced::Layout<'_>,
+                      cursor: advanced::mouse::Cursor,
+                      renderer: &Renderer,
+                      clipboard: &mut dyn advanced::Clipboard,
+                      shell: &mut advanced::Shell<'_, Message>,
+                      viewport: &iced::Rectangle| {
+                    let is_redraw = matches!(
+                        event,
+                        iced::Event::Window(iced::window::Event::RedrawRequested(_))
+                    );
+
+                    // Check if top-of-viewport element has shifted since we last scrolled and adjust
+                    if let (true, true, Some(old)) = (enabled, is_redraw, &state) {
+                        let hit = Arc::new(Mutex::new(None));
+
+                        let mut operation = widget::operation::map(
+                            keyed::Find {
+                                active: false,
+                                key: old.key,
+                                scrollable_id: scrollable.clone(),
+                                scrollable: None,
+                                hit_bounds: None,
+                                prev_bounds: None,
+                            },
+                            {
+                                let hit = hit.clone();
+                                move |result| {
+                                    *hit.lock().unwrap() = Some(result);
+                                }
+                            },
+                        );
+
+                        inner
+                            .as_widget()
+                            .operate(tree, layout, renderer, &mut operation);
+                        operation.finish();
+                        drop(operation);
+
+                        if let Some(new) = Arc::into_inner(hit)
+                            .and_then(|m| m.into_inner().ok())
+                            .flatten()
+                        {
+                            // Something shifted this, let's put it back to the
+                            // top of the viewport
+                            if new.hit_bounds.y != old.hit_bounds.y {
+                                let viewport_offset = old.scrollable.viewport.y
+                                    - (old.hit_bounds - old.scrollable.translation).y;
+
+                                // New offset needed to place same element back to same offset
+                                // from top of viewport
+                                let new_offset = f32::min(
+                                    (new.hit_bounds.y + viewport_offset)
+                                        - new.scrollable.viewport.y,
+                                    new.scrollable.content.height - new.scrollable.viewport.height,
+                                );
+
+                                let mut operation = scrollable::scroll_to(
+                                    scrollable.clone().into(),
+                                    scrollable::AbsoluteOffset {
+                                        x: 0.0,
+                                        y: new_offset,
+                                    },
+                                );
+                                inner
+                                    .as_widget()
+                                    .operate(tree, layout, renderer, &mut operation);
+                                operation.finish();
+                            }
+                        }
+                    }
+
+                    let mut messages = vec![];
+                    let mut local_shell = advanced::Shell::new(&mut messages);
+
+                    inner.as_widget_mut().update(
+                        tree,
+                        event,
+                        layout,
+                        cursor,
+                        renderer,
+                        clipboard,
+                        &mut local_shell,
+                        viewport,
+                    );
+
+                    // Merge shell (we can't use Shell::merge as we'd lose access to messages)
+                    {
+                        if let Some(new) = local_shell.redraw_request() {
+                            match new {
+                                iced::window::RedrawRequest::NextFrame => shell.request_redraw(),
+                                iced::window::RedrawRequest::At(instant) => {
+                                    shell.request_redraw_at(instant)
+                                }
+                            }
+                        }
+
+                        if local_shell.is_layout_invalid() {
+                            shell.invalidate_layout();
+                        }
+
+                        if local_shell.are_widgets_invalid() {
+                            shell.invalidate_widgets();
+                        }
+
+                        if local_shell.is_event_captured() {
+                            shell.capture_event();
+                        }
+                    }
+
+                    let is_scrolled = messages
+                        .clone()
+                        .iter()
+                        .any(|message| matches!(message, Message::Scrolled { .. }));
+
+                    for message in messages {
+                        shell.publish(message);
+                    }
+
+                    // Re-query top of viewport any-time we scroll
+                    if is_scrolled {
+                        let hit = Arc::new(Mutex::new(None));
+
+                        let mut operation = widget::operation::map(
+                            keyed::TopOfViewport {
+                                active: false,
+                                scrollable_id: scrollable.clone(),
+                                scrollable: None,
+                                hit_bounds: None,
+                            },
+                            {
+                                let hit = hit.clone();
+                                move |result| {
+                                    *hit.lock().unwrap() = Some(result);
+                                }
+                            },
+                        );
+
+                        inner
+                            .as_widget()
+                            .operate(tree, layout, renderer, &mut operation);
+                        operation.finish();
+                        drop(operation);
+
+                        *state = Arc::into_inner(hit)
+                            .and_then(|m| m.into_inner().ok())
+                            .flatten();
+                    }
+                },
+            )
+            .into()
     }
 }

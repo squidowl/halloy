@@ -1,4 +1,4 @@
-use data::{history, isupport, message, target, Config};
+use data::{client, history, isupport, message, target, Config};
 use iced::widget::container;
 use iced::{Length, Task};
 
@@ -28,6 +28,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Logs,
             history,
+            None,
             None,
             config,
             move |message, _, _| match message.target.source() {
@@ -66,16 +67,30 @@ impl Logs {
         Self::default()
     }
 
-    pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
+    pub fn update(
+        &mut self,
+        message: Message,
+        history: &history::Manager,
+        clients: &client::Map,
+        config: &Config,
+    ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let (command, event) = self.scroll_view.update(message, false);
+                let (command, event) = self.scroll_view.update(
+                    message,
+                    false,
+                    scroll_view::Kind::Logs,
+                    history,
+                    clients,
+                    config,
+                );
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
                     scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
+                    scroll_view::Event::PreviewChanged => None,
                 });
 
                 (command.map(Message::ScrollView), event)

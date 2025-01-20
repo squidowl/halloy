@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 
@@ -167,6 +168,7 @@ pub struct Message {
     pub content: Content,
     pub id: Option<String>,
     pub hash: Hash,
+    pub hidden_urls: HashSet<Url>,
 }
 
 impl Message {
@@ -255,6 +257,7 @@ impl Message {
             content,
             id,
             hash,
+            hidden_urls: HashSet::default(),
         })
     }
 
@@ -270,6 +273,7 @@ impl Message {
             content,
             id: None,
             hash,
+            hidden_urls: HashSet::default(),
         }
     }
 
@@ -293,6 +297,7 @@ impl Message {
             content,
             id: None,
             hash,
+            hidden_urls: HashSet::default(),
         }
     }
 
@@ -312,6 +317,7 @@ impl Message {
             content,
             id: None,
             hash,
+            hidden_urls: HashSet::default(),
         }
     }
 
@@ -341,6 +347,7 @@ impl Message {
             content,
             id: None,
             hash,
+            hidden_urls: HashSet::default(),
         }
     }
 
@@ -449,11 +456,12 @@ impl<'de> Deserialize<'de> for Message {
             content,
             id,
             hash,
+            hidden_urls: HashSet::default(),
         })
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Hash(u64);
 
 impl Hash {
@@ -652,6 +660,14 @@ pub enum Fragment {
 }
 
 impl Fragment {
+    pub fn url(&self) -> Option<&Url> {
+        if let Self::Url(url) = self {
+            Some(url)
+        } else {
+            None
+        }
+    }
+
     pub fn as_str(&self) -> &str {
         match self {
             Fragment::Text(s) => s,
