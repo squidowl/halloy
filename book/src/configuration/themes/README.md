@@ -21,7 +21,7 @@ When a dynamic theme is used, Halloy will match the appearance of the OS.
 - **values**: `"<string>"`, `{ light = "<string>", dark = "<string>" }`
 - **default**: `"ferra"`
   
-> 💡  See all community created themes [here](./community.md).
+> 💡  See all community created themes [here](./community.md) and base16 themes [here](./base16.md).
 
 ## Custom themes
 
