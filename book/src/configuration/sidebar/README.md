@@ -8,7 +8,7 @@ Customize the sidebar of Halloy.
 [sidebar]
 buffer_action = "replace-pane"
 buffer_focused_action = "close-pane"
-unread_indicators = "title"
+unread_indicator = "title"
 position = "top"
 ```
 
@@ -28,7 +28,7 @@ Action when pressing a focused buffer in the sidebar. `"close-pane"` will close 
 - **values**: `"close-pane"`
 - **default**: not set
 
-## `unread_indicators`
+## `unread_indicator`
 
 Unread buffer indicator style.
 
