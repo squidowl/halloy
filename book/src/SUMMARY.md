@@ -57,6 +57,7 @@
   - [Sidebar](configuration/sidebar/README.md)
   - [Themes](configuration/themes/README.md)
     - [Community](configuration/themes/community.md)
+    - [Base16](configuration/themes/base16.md)
   - [Tooltips](configuration/tooltips.md)
 - [URL Schemes](url-schemes.md)
 - [Commands](commands.md)
