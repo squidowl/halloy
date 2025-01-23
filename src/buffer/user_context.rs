@@ -1,10 +1,10 @@
 use data::user::Nick;
 use data::{isupport, target, Server, User};
-use iced::widget::{button, container, horizontal_rule, row, text, Space};
+use iced::widget::{button, column, container, horizontal_rule, row, text, Space};
 use iced::{padding, Length, Padding};
 
 use crate::widget::{context_menu, double_pass, Element};
-use crate::{icon, theme};
+use crate::theme;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Entry {
@@ -125,7 +125,7 @@ impl Entry {
                 Message::SendFile(server.clone(), nickname),
                 length,
             ),
-            Entry::UserInfo => user_info(current_user, length),
+            Entry::UserInfo => user_info(current_user, nickname, length),
             Entry::HorizontalRule => match length {
                 Length::Fill => container(horizontal_rule(1)).padding([0, 6]).into(),
                 _ => Space::new(length, 1).into(),
@@ -201,44 +201,28 @@ fn right_justified_padding() -> Padding {
     padding::all(5).right(5.0 + double_pass::horizontal_expansion())
 }
 
-fn user_info<'a>(current_user: Option<&User>, length: Length) -> Element<'a, Message> {
-    if let Some(current_user) = current_user {
-        if current_user.is_away() {
-            row![]
-                .push(text("Away").style(theme::text::secondary).width(length))
-                .push(
-                    icon::dot()
-                        .size(6)
-                        .style(theme::text::tertiary)
-                        .shaping(text::Shaping::Advanced),
-                )
-                .padding(right_justified_padding())
-                .align_y(iced::Alignment::Center)
-                .into()
-        } else {
-            row![]
-                .push(text("Online").style(theme::text::secondary).width(length))
-                .push(
-                    icon::dot()
-                        .size(6)
-                        .style(theme::text::success)
-                        .shaping(text::Shaping::Advanced),
-                )
-                .padding(right_justified_padding())
-                .align_y(iced::Alignment::Center)
-                .into()
+fn user_info<'a>(
+    current_user: Option<&User>,
+    nickname: Nick,
+    length: Length,
+) -> Element<'a, Message> {
+    let state = match current_user {
+        Some(user) => {
+            if user.is_away() {
+                Some(text("Away").style(theme::text::secondary).width(length))
+            } else {
+                None
+            }
         }
-    } else {
-        row![]
-            .push(text("Offline").style(theme::text::secondary).width(length))
-            .push(
-                icon::dot()
-                    .size(6)
-                    .style(theme::text::error)
-                    .shaping(text::Shaping::Advanced),
-            )
-            .padding(right_justified_padding())
-            .align_y(iced::Alignment::Center)
-            .into()
-    }
+        None => Some(text("Offline").style(theme::text::secondary).width(length)),
+    };
+
+    column![container(
+        text(nickname.to_string())
+            .style(theme::text::secondary)
+            .width(length)
+    )
+    .padding(right_justified_padding()),]
+    .push_maybe(state.map(|s| container(s).padding(right_justified_padding())))
+    .into()
 }
