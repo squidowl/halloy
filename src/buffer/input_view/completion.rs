@@ -73,8 +73,8 @@ impl Completion {
         }
     }
 
-    pub fn view<'a, Message: 'a>(&self, input: &str) -> Option<Element<'a, Message>> {
-        self.commands.view(input)
+    pub fn view<'a, Message: 'a>(&self, input: &str, config: &Config) -> Option<Element<'a, Message>> {
+        self.commands.view(input, config)
     }
 }
 
@@ -396,7 +396,7 @@ impl Commands {
         }
     }
 
-    fn view<'a, Message: 'a>(&self, input: &str) -> Option<Element<'a, Message>> {
+    fn view<'a, Message: 'a>(&self, input: &str, config: &Config) -> Option<Element<'a, Message>> {
         match self {
             Self::Idle => None,
             Self::Selecting {
@@ -455,10 +455,13 @@ impl Commands {
                 command,
                 subcommand,
             } => {
-                if let Some(subcommand) = subcommand {
-                    Some(subcommand.view(input))
+                if config.buffer.commands.show_description {
+                    subcommand
+                        .as_ref()
+                        .map(|sub| sub.view(input))
+                        .or_else(|| Some(command.view(input)))
                 } else {
-                    Some(command.view(input))
+                    None
                 }
             }
         }

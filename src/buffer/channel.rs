@@ -305,6 +305,7 @@ pub fn view<'a>(
             input,
             is_focused,
             !is_connected_to_channel,
+            config
         )
         .map(Message::InputView)
     });

@@ -219,7 +219,7 @@ pub fn view<'a>(
     let text_input = show_text_input.then(|| {
         column![
             vertical_space().height(4),
-            input_view::view(&state.input_view, input, is_focused, !status.connected())
+            input_view::view(&state.input_view, input, is_focused, !status.connected(), config)
                 .map(Message::InputView)
         ]
         .width(Length::Fill)
