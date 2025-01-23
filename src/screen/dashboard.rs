@@ -1504,11 +1504,6 @@ impl Dashboard {
             .history
             .first_can_reference(server.clone(), target.clone())
         {
-            log::debug!(
-                "[{server}] {target} - first_can_reference {:?}",
-                first_can_reference
-            );
-
             for message_reference_type in message_reference_types {
                 match message_reference_type {
                     isupport::MessageReferenceType::MessageId => {
@@ -1539,6 +1534,10 @@ impl Dashboard {
 
         if clients.get_server_supports_chathistory(server) {
             if let Some(target) = upstream.target() {
+                if clients.get_chathistory_exhausted(server, &target) {
+                    return;
+                }
+
                 let message_reference_types =
                     clients.get_server_chathistory_message_reference_types(server);
 
