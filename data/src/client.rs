@@ -1474,7 +1474,7 @@ impl Client {
                         .iter()
                         .position(|who_poll| who_poll.channel == target_channel);
 
-                    let user_request = pos.map_or(false, |pos| {
+                    let user_request = pos.is_some_and(|pos| {
                         matches!(
                             self.who_polls[pos].status,
                             WhoStatus::Requested(WhoSource::User, _, _)
