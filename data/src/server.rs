@@ -8,6 +8,9 @@ use futures::channel::mpsc::Sender;
 use irc::proto;
 use serde::{Deserialize, Serialize};
 
+use anyhow::{bail, Result};
+
+use crate::bouncer::BouncerNetwork;
 use crate::config;
 use crate::config::server::Sasl;
 use crate::config::Error;
@@ -18,32 +21,44 @@ pub type Handle = Sender<proto::Message>;
 #[serde(transparent)]
 pub struct Server {
     name: Arc<str>,
+    #[serde(skip)]
+    bouncer_netid: Option<Arc<str>>,
 }
 
 impl Server {
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn bouncer_id(&self) -> Option<&str> {
+        self.bouncer_netid.as_deref()
     }
 
+    pub fn is_bouncer_network(&self) -> bool {
+        self.bouncer_netid.is_some()
+    }
+
+    pub fn bouncer_server(&self, network: &BouncerNetwork) -> Self {
+        Self {
+            name: self.name.clone(),
+            bouncer_netid: Some(network.id.as_str().into()),
+        }
+    }
 }
 
 impl From<&str> for Server {
     fn from(value: &str) -> Self {
         Server {
             name: Arc::from(value),
+            bouncer_netid: None,
         }
     }
 }
 
+// TODO this should be removed
 impl fmt::Display for Server {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.name.fmt(f)
-    }
-}
-
-impl AsRef<str> for Server {
-    fn as_ref(&self) -> &str {
-        self.name()
+        if let Some(netid) = &self.bouncer_netid {
+            write!(f, "{}::{}", self.name, netid)
+        } else {
+            self.name.fmt(f)
+        }
     }
 }
 
@@ -53,17 +68,35 @@ pub struct Entry {
     pub config: config::Server,
 }
 
-impl<'a> From<(&'a Server, &'a config::Server)> for Entry {
-    fn from((server, config): (&'a Server, &'a config::Server)) -> Self {
+impl<'a> From<(&'a Server, &'a MapVal)> for Entry {
+    fn from((server, val): (&'a Server, &'a MapVal)) -> Self {
         Self {
             server: server.clone(),
-            config: config.clone(),
+            config: val.config.clone(),
         }
     }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct Map(BTreeMap<Server, config::Server>);
+#[serde(transparent)]
+struct MapVal {
+    config: config::Server,
+    #[serde(skip)]
+    bouncer_config: Option<BouncerNetwork>,
+}
+
+impl From<config::Server> for MapVal {
+    fn from(config: config::Server) -> Self {
+        Self {
+            config,
+            bouncer_config: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(transparent)]
+pub struct Map(BTreeMap<Server, MapVal>);
 
 async fn read_from_command(pass_command: &str) -> Result<String, Error> {
     let output = if cfg!(target_os = "windows") {
@@ -92,7 +125,23 @@ async fn read_from_command(pass_command: &str) -> Result<String, Error> {
 
 impl Map {
     pub fn insert(&mut self, name: Server, server: config::Server) {
-        self.0.insert(name, server);
+        self.0.insert(name, server.into());
+    }
+
+    pub fn name_for<'a>(&'a self, server: &Server) -> &'a str {
+        // We want to return a lifetime aliasing _only_ that of the configuration mapping, which
+        // should live longer than that of the individiual server struct. Unfortunately, this means
+        // that we cannot handle the case where the server isn't in the mapping (which shouldn't
+        // happen during runtime).
+        let Some((key, val)) = self.0.get_key_value(server) else {
+            panic!("Server was not in the config mapping");
+        };
+        if let Some(bouncer_network) = &val.bouncer_config {
+            &bouncer_network.name
+        } else {
+            // key and self are identical
+            &key.name
+        }
     }
 
     pub fn remove(&mut self, server: &Server) {
@@ -111,8 +160,13 @@ impl Map {
         self.0.iter().map(Entry::from)
     }
 
+    pub fn bouncer_network(&self, server: &Server) -> Option<&BouncerNetwork> {
+        self.0.get(server).and_then(|val| val.bouncer_config.as_ref())
+    }
+
     pub async fn read_passwords(&mut self) -> Result<(), Error> {
-        for (_, config) in self.0.iter_mut() {
+        for (_, val) in self.0.iter_mut() {
+            let config = &mut val.config;
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some() || config.password_command.is_some() {
                     return Err(Error::DuplicatePassword);
@@ -176,4 +230,17 @@ impl Map {
         }
         Ok(())
     }
+
+    pub fn insert_bounced_server(&mut self, server: &Server, bouncer_network: BouncerNetwork) -> Result<()> {
+        let Some(val) = self.0.get(server) else {
+            bail!("Unable to insert bouncer network {:?} because server {:?} does not exist",
+                bouncer_network,
+                server,
+            );
+        };
+        let bouncer_server = server.bouncer_server(&bouncer_network);
+        let bouncer_config = val.config.bouncer_server(&bouncer_network);
+        self.0.insert(bouncer_server.clone(), MapVal{ config: bouncer_config, bouncer_config: Some(bouncer_network) });
+        Ok(())
+}
 }

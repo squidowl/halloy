@@ -75,7 +75,7 @@ impl Pane {
 
                 format!("{channel} @ {server} - {users} users")
             }
-            Buffer::Server(state) => state.server.to_string(),
+            Buffer::Server(server) => config.servers.name_for(&server.server).to_string(),
             Buffer::Query(state) => {
                 let nick = state.target.as_str();
                 let server = &state.server;

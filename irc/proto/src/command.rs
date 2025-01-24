@@ -118,6 +118,11 @@ pub enum Command {
     /// <nickname>
     USERIP(String),
 
+    /* Bouncer commands */
+    /// <subcommand> <params>...
+    BOUNCER(String, Vec<String>),
+
+    /* Misc */
     Numeric(Numeric, Vec<String>),
     Unknown(String, Vec<String>),
     Raw(String),
@@ -217,6 +222,7 @@ impl Command {
             "MONITOR" if len > 0 => MONITOR(req!(), opt!()),
             "TAGMSG" if len > 0 => TAGMSG(req!()),
             "USERIP" if len > 0 => USERIP(req!()),
+            "BOUNCER" => BOUNCER(req!(), remaining!()),
             _ => Self::Unknown(tag, remaining!()),
         }
     }
@@ -279,6 +285,7 @@ impl Command {
             Command::MONITOR(a, b) => std::iter::once(a).chain(b).collect(),
             Command::TAGMSG(a) => vec![a],
             Command::USERIP(a) => vec![a],
+            Command::BOUNCER(command, params) => std::iter::once(command).chain(params).collect(),
             Command::Numeric(_, params) => params,
             Command::Unknown(_, params) => params,
             Command::Raw(_) => vec![],
@@ -340,6 +347,7 @@ impl Command {
             MONITOR(_, _) => "MONITOR".to_string(),
             TAGMSG(_) => "TAGMSG".to_string(),
             USERIP(_) => "USERIP".to_string(),
+            BOUNCER(..) => "BOUNCER".to_string(),
             Numeric(numeric, _) => format!("{:03}", *numeric as u16),
             Unknown(tag, _) => tag.clone(),
             Raw(_) => "".to_string(),

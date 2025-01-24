@@ -1,4 +1,5 @@
 use data::config::{self, sidebar, Config};
+use data::server;
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{buffer, file_transfer, history, Version};
 use iced::widget::{
@@ -242,6 +243,7 @@ impl Sidebar {
         panes: &'a Panes,
         focus: Option<(window::Id, pane_grid::Pane)>,
         config: data::config::Sidebar,
+        server_configs: &'a server::Map,
         keyboard: &'a data::config::Keyboard,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
@@ -271,6 +273,7 @@ impl Sidebar {
                         config.position,
                         config.unread_indicator,
                         history.has_unread(&history::Kind::Server(server.clone())),
+                        server_configs,
                     ));
                 }
                 data::client::State::Ready(connection) => {
@@ -285,6 +288,7 @@ impl Sidebar {
                         config.position,
                         config.unread_indicator,
                         history.has_unread(&history::Kind::Server(server.clone())),
+                        server_configs,
                     ));
 
                     for channel in connection.channels() {
@@ -302,6 +306,7 @@ impl Sidebar {
                                 server.clone(),
                                 channel.clone(),
                             )),
+                            server_configs,
                         ));
                     }
 
@@ -321,6 +326,7 @@ impl Sidebar {
                             config.unread_indicator,
                             history
                                 .has_unread(&history::Kind::Query(server.clone(), query.clone())),
+                            server_configs,
                         ));
                     }
 
@@ -467,9 +473,9 @@ impl Entry {
     }
 }
 
-fn upstream_buffer_button(
+fn upstream_buffer_button<'a>(
     main_window: window::Id,
-    panes: &Panes,
+    panes: &'_ Panes,
     focus: Option<(window::Id, pane_grid::Pane)>,
     buffer: buffer::Upstream,
     connected: bool,
@@ -478,7 +484,8 @@ fn upstream_buffer_button(
     position: sidebar::Position,
     unread_indicator: sidebar::UnreadIndicator,
     has_unread: bool,
-) -> Element<Message> {
+    server_configs: &'a server::Map,
+) -> Element<'a, Message> {
     let open = panes
         .iter(main_window)
         .find_map(|(window_id, pane, state)| {
@@ -529,7 +536,7 @@ fn upstream_buffer_button(
             } else {
                 theme::text::error
             }),
-            text(server.to_string())
+            text(server_configs.name_for(server))
                 .style(buffer_title_style)
                 .shaping(text::Shaping::Advanced)
         ]

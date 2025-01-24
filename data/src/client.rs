@@ -12,6 +12,7 @@ use tokio::fs;
 
 use anyhow::{anyhow, bail, Context as ErrorContext, Result};
 
+use crate::bouncer::BouncerNetwork;
 use crate::history::ReadMarker;
 use crate::isupport::{ChatHistoryState, ChatHistorySubcommand, MessageReference};
 use crate::message::{message_id, server_time, source};
@@ -114,6 +115,7 @@ pub enum Event {
     ChatHistoryAcknowledged(DateTime<Utc>),
     ChatHistoryTargetReceived(Target, DateTime<Utc>),
     ChatHistoryTargetsReceived(DateTime<Utc>),
+    NewBouncerNetwork(Server, BouncerNetwork),
 }
 
 struct ChatHistoryRequest {
@@ -142,6 +144,7 @@ pub struct Client {
     supports_extended_join: bool,
     supports_read_marker: bool,
     supports_chathistory: bool,
+    supports_bouncer_networks: bool,
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
     chathistory_targets_request: Option<ChatHistoryRequest>,
@@ -197,6 +200,7 @@ impl Client {
             supports_extended_join: false,
             supports_read_marker: false,
             supports_chathistory: false,
+            supports_bouncer_networks: false,
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
             chathistory_targets_request: None,
@@ -222,6 +226,10 @@ impl Client {
         self.handle.try_send(command!("USER", user, real))?;
         self.registration_step = RegistrationStep::List;
         Ok(())
+    }
+
+    fn is_primary(&self) -> bool {
+        !self.server.is_bouncer_network()
     }
 
     fn quit(&mut self, reason: Option<String>) {
@@ -660,6 +668,17 @@ impl Client {
                     )]);
                 }
             }
+            Command::BOUNCER(subcommand, params) if subcommand == "NETWORK" => {
+                let [netid, network] = params.as_slice() else {
+                    bail!("Invalid BOUNCER NEWORKS message {:?}", &message.command);
+                };
+                return Ok(vec![Event::NewBouncerNetwork(
+                        self.server.clone(),
+                        ok!(BouncerNetwork::parse(
+                            netid,
+                            network,
+                    )))]);
+            }
             Command::CAP(_, sub, Some(_asterisk), Some(caps)) if sub == "LS" => {
                 self.listed_caps.extend(caps.split(' ').map(String::from));
             }
@@ -694,6 +713,9 @@ impl Client {
                     requested.push("sasl");
                 }
 
+                if contains("soju.im/bouncer-networks") && self.is_primary() {
+                    requested.push("soju.im/bouncer-networks-notify");
+                }
 
                 if !requested.is_empty() {
                     // Request
@@ -730,6 +752,9 @@ impl Client {
                 }
                 if caps.contains(&"draft/read-marker") {
                     self.supports_read_marker = true;
+                }
+                if caps.contains(&"soju.im/bouncer-networks") {
+                    self.supports_bouncer_networks = true;
                 }
 
                 let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
@@ -850,6 +875,14 @@ impl Client {
 
                     for param in sasl.params() {
                         self.handle.try_send(command!("AUTHENTICATE", param))?;
+                    }
+                    // now that we are authenticated, we can connect to our desired network
+                    if let Some(id) = &self.server.bouncer_id() {
+                        self.handle.try_send(command!(
+                                "BOUNCER",
+                                "BIND",
+                                *id
+                        ))?
                     }
                 }
             }
@@ -1157,6 +1190,11 @@ impl Client {
                         .ok()
                     })
                     .collect::<Vec<_>>();
+
+                // Check for bouncer network info
+                if self.is_primary() && self.supports_bouncer_networks {
+                    self.handle.try_send(command!("BOUNCER", "LISTNETWORKS"))?;
+                }
 
                 // Send JOIN
                 for message in group_joins(&channels, &self.config.channel_keys) {

@@ -833,6 +833,11 @@ impl Halloy {
                                             commands.push(command);
                                         }
                                     }
+                                    Event::NewBouncerNetwork(ref server, network) => {
+                                        if let Err(e) = self.config.servers.insert_bounced_server(server, network) {
+                                            handle_irc_error(e);
+                                        };
+                                    }
                                 }
                             }
 

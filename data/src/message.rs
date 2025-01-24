@@ -896,6 +896,7 @@ fn target(
         | Command::USERIP(_)
         | Command::HELP(_)
         | Command::Numeric(_, _)
+        | Command::BOUNCER(..)
         | Command::Unknown(_, _)
         | Command::Raw(_) => Some(Target::Server {
             source: Source::Server(None),

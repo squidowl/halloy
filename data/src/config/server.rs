@@ -5,7 +5,7 @@ use std::time::Duration;
 use irc::connection;
 use serde::{Deserialize, Deserializer};
 
-use crate::config;
+use crate::{bouncer::BouncerNetwork, config};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Server {
@@ -140,6 +140,25 @@ impl Server {
             port: self.port,
             security,
             proxy: proxy.map(From::from),
+        }
+    }
+
+    pub fn bouncer_server(&self, _network: &BouncerNetwork) -> Self {
+        Self {
+            // nickserv info not relevant to the bounced network
+            nick_password_file: Default::default(),
+            nick_password_command: Default::default(),
+            nick_identify_syntax: Default::default(),
+
+            // channels not relevant
+            channels: Default::default(),
+            channel_keys: Default::default(),
+
+            // ghost sequence not relevant
+            should_ghost: Default::default(),
+            ghost_sequence: default_ghost_sequence(),
+
+            ..self.clone()
         }
     }
 }
