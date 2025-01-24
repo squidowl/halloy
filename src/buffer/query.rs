@@ -1,4 +1,4 @@
-use data::{buffer, history, message, target, Config, Server};
+use data::{buffer, history, message, preview, target, Config, Server};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{alignment, Length, Task};
 
@@ -17,12 +17,14 @@ pub enum Event {
     OpenChannel(target::Channel),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
+    PreviewChanged,
 }
 
 pub fn view<'a>(
     state: &'a Query,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
+    previews: &'a preview::Collection,
     config: &'a Config,
     theme: &'a Theme,
     is_focused: bool,
@@ -42,6 +44,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Query(server, query),
             history,
+            Some(previews),
             chathistory_state,
             config,
             move |message, max_nick_width, _| {
@@ -109,12 +112,18 @@ pub fn view<'a>(
                         });
 
                         match &config.buffer.nickname.alignment {
-                            data::buffer::Alignment::Left | data::buffer::Alignment::Right => {
-                                Some(row![].push(timestamp_nickname_row).push(text_container).into())
-                            }
-                            data::buffer::Alignment::Top => {
-                                Some(column![].push(timestamp_nickname_row).push(text_container).into())
-                            }
+                            data::buffer::Alignment::Left | data::buffer::Alignment::Right => Some(
+                                row![]
+                                    .push(timestamp_nickname_row)
+                                    .push(text_container)
+                                    .into(),
+                            ),
+                            data::buffer::Alignment::Top => Some(
+                                column![]
+                                    .push(timestamp_nickname_row)
+                                    .push(text_container)
+                                    .into(),
+                            ),
                         }
                     }
                     message::Source::Server(server) => {
@@ -265,9 +274,14 @@ impl Query {
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let (command, event) = self
-                    .scroll_view
-                    .update(message, config.buffer.chathistory.infinite_scroll);
+                let (command, event) = self.scroll_view.update(
+                    message,
+                    config.buffer.chathistory.infinite_scroll,
+                    scroll_view::Kind::Query(&self.server, &self.target),
+                    history,
+                    clients,
+                    config,
+                );
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
@@ -276,6 +290,7 @@ impl Query {
                     scroll_view::Event::RequestOlderChatHistory => {
                         Some(Event::RequestOlderChatHistory)
                     }
+                    scroll_view::Event::PreviewChanged => Some(Event::PreviewChanged),
                 });
 
                 (command.map(Message::ScrollView), event)
