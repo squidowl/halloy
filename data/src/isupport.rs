@@ -879,9 +879,30 @@ impl FromStr for WhoToken {
     }
 }
 
-pub const WHO_POLL_TOKEN: WhoToken = WhoToken {
-    digits: ['9', '\0', '\0'],
-};
+pub enum WhoXPollParameters {
+    Default,
+    WithAccountName,
+}
+
+impl WhoXPollParameters {
+    pub fn fields(&self) -> &'static str {
+        match self {
+            WhoXPollParameters::Default => "tcnf",
+            WhoXPollParameters::WithAccountName => "tcnfa",
+        }
+    }
+
+    pub fn token(&self) -> WhoToken {
+        match self {
+            WhoXPollParameters::Default => WhoToken {
+                digits: ['9', '\0', '\0'],
+            },
+            WhoXPollParameters::WithAccountName => WhoToken {
+                digits: ['9', '9', '\0'],
+            },
+        }
+    }
+}
 
 fn parse_optional_letters(value: &str) -> Result<Option<String>, &'static str> {
     if value.is_empty() {

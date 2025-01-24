@@ -87,12 +87,6 @@ pub struct Server {
         deserialize_with = "deserialize_duration_from_u64"
     )]
     pub who_poll_interval: Duration,
-    /// WHO retry interval for servers without away-notify.
-    #[serde(
-        default = "default_who_retry_interval",
-        deserialize_with = "deserialize_duration_from_u64"
-    )]
-    pub who_retry_interval: Duration,
     /// A list of nicknames to monitor (if MONITOR is supported by the server).
     #[serde(default)]
     pub monitor: Vec<String>,
@@ -175,7 +169,6 @@ impl Default for Server {
             on_connect: Default::default(),
             who_poll_enabled: default_who_poll_enabled(),
             who_poll_interval: default_who_poll_interval(),
-            who_retry_interval: default_who_retry_interval(),
             monitor: Default::default(),
             chathistory: default_chathistory(),
         }
@@ -285,7 +278,7 @@ where
     D: Deserializer<'de>,
 {
     let seconds: u64 = Deserialize::deserialize(deserializer)?;
-    Ok(Duration::from_secs(seconds.clamp(5, 3600)))
+    Ok(Duration::from_secs(seconds.clamp(1, 3600)))
 }
 
 fn default_use_tls() -> bool {
@@ -321,11 +314,7 @@ fn default_who_poll_enabled() -> bool {
 }
 
 fn default_who_poll_interval() -> Duration {
-    Duration::from_secs(180)
-}
-
-fn default_who_retry_interval() -> Duration {
-    Duration::from_secs(10)
+    Duration::from_secs(2)
 }
 
 fn default_chathistory() -> bool {
