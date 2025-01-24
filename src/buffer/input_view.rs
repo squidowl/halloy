@@ -30,6 +30,7 @@ pub fn view<'a>(
     cache: Cache<'a>,
     buffer_focused: bool,
     disabled: bool,
+    config: &Config,
 ) -> Element<'a, Message> {
     let style = if state.error.is_some() {
         theme::text_input::error
@@ -79,7 +80,7 @@ pub fn view<'a>(
         .error
         .as_deref()
         .map(error)
-        .or_else(|| state.completion.view(cache.draft))
+        .or_else(|| state.completion.view(cache.draft, config))
         .unwrap_or_else(|| row![].into());
 
     anchored_overlay(input, overlay, anchored_overlay::Anchor::AboveTop, 4.0)

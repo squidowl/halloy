@@ -29,6 +29,22 @@ pub struct Buffer {
     pub chathistory: ChatHistory,
     #[serde(default)]
     pub date_separators: DateSeparators,
+    #[serde(default)]
+    pub commands: Commands,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Commands {
+    #[serde(default = "default_bool_true")]
+    pub show_description: bool,
+}
+
+impl Default for Commands {
+    fn default() -> Self {
+        Self {
+            show_description: default_bool_true(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
