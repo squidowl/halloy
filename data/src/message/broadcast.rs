@@ -27,7 +27,7 @@ fn expand(
         Message {
             received_at,
             server_time: sent_time,
-            direction: Direction::Received,
+            direction: Direction::Received(false),
             target,
             content,
             id: None,
