@@ -25,6 +25,7 @@
       - [Nicklist](configuration/buffer/channel/nicklist.md)
       - [Message](configuration/buffer/channel/message.md)
       - [Topic](configuration/buffer/channel/topic.md)
+    - [Commands](configuration/buffer/commands.md)
     - [Internal Messages](configuration/buffer/internal_messages/README.md)
         - [Success](configuration/buffer/internal_messages/success.md)
         - [Error](configuration/buffer/internal_messages/error.md)
