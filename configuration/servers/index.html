@@ -390,18 +390,11 @@ Example. <code>["/msg NickServ IDENTIFY foo bar"]</code>.</p>
 <li><strong>default</strong>: <code>true</code></li>
 </ul>
 <h2 id="who_poll_interval"><a class="header" href="#who_poll_interval"><code>who_poll_interval</code></a></h2>
-<p>WHO poll interval (in seconds) for servers without away-notify.</p>
+<p>WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests.  Will be increased automatically if the server sends a rate-limiting message.</p>
 <ul>
 <li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: <code>5</code> .. <code>3600</code></li>
-<li><strong>default</strong>: <code>180</code></li>
-</ul>
-<h2 id="who_retry_interval"><a class="header" href="#who_retry_interval"><code>who_retry_interval</code></a></h2>
-<p>WHO retry interval (in seconds) for servers without away-notify.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: <code>5</code> .. <code>3600</code></li>
-<li><strong>default</strong>: <code>10</code></li>
+<li><strong>values</strong>: <code>1</code> .. <code>3600</code></li>
+<li><strong>default</strong>: <code>2</code></li>
 </ul>
 <h2 id="monitor"><a class="header" href="#monitor"><code>monitor</code></a></h2>
 <p>A list of nicknames to <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> (if IRCv3 Monitor is supported by the server).
