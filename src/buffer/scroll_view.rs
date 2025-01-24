@@ -4,7 +4,7 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
-use data::{client, history, preview, target, Config};
+use data::{client, history, preview, target, Config, Preview};
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, image, row, scrollable, text,
     Scrollable,
@@ -14,7 +14,7 @@ use iced::{padding, ContentFit, Length, Task};
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::user_context;
-use crate::widget::{notify_visibility, Element, MESSAGE_MARKER_TEXT};
+use crate::widget::{notify_visibility, selectable_text, Element, MESSAGE_MARKER_TEXT};
 use crate::{font, theme};
 
 #[derive(Debug, Clone)]
@@ -199,23 +199,14 @@ pub fn view<'a>(
                             if let (true, Some(preview::State::Loaded(preview))) =
                                 (is_message_visible, previews.get(&url))
                             {
-                                let content = match preview {
-                                    data::Preview::Card(preview::Card {
-                                        image: preview::Image { path, .. },
-                                        ..
-                                    }) => keyed(
-                                        keyed::Key::Image(message.hash, idx),
-                                        container(image(path).content_fit(ContentFit::ScaleDown))
-                                            .max_height(200),
-                                    ),
-                                    data::Preview::Image(preview::Image { path, .. }) => keyed(
-                                        keyed::Key::Image(message.hash, idx),
-                                        container(image(path).content_fit(ContentFit::ScaleDown))
-                                            .max_height(200),
-                                    ),
-                                };
-
-                                column = column.push(content);
+                                column = column.push(preview_row(
+                                    message,
+                                    preview,
+                                    idx,
+                                    max_nick_width,
+                                    max_prefix_width,
+                                    config,
+                                ));
                             }
                         }
 
@@ -689,7 +680,7 @@ mod keyed {
     pub enum Key {
         Divider,
         Message(message::Hash),
-        Image(message::Hash, usize),
+        Preview(message::Hash, usize),
     }
 
     impl Key {
@@ -919,6 +910,132 @@ mod keyed {
                 None => widget::operation::Outcome::None,
             }
         }
+    }
+}
+
+fn preview_row<'a>(
+    message: &'a data::Message,
+    preview: &'a Preview,
+    idx: usize,
+    max_nick_width: Option<f32>,
+    max_prefix_width: Option<f32>,
+    config: &'a Config,
+) -> Element<'a, Message> {
+    let content =
+        match preview {
+            data::Preview::Card(preview::Card {
+                image: preview::Image { path, .. },
+                title,
+                description,
+                canonical_url,
+                ..
+            }) => {
+                let title_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) * 1.2;
+
+                keyed(
+                    keyed::Key::Preview(message.hash, idx),
+                    button(
+                        container(
+                            // TODO: Custom colors for card title & description?
+                            column![text(title).size(title_size).style(theme::text::tertiary)]
+                                .push_maybe(description.as_ref().map(|description| {
+                                    text(description).style(theme::text::timestamp)
+                                }))
+                                .push(
+                                    container(image(path).content_fit(ContentFit::ScaleDown))
+                                        .max_width(300)
+                                        .max_height(157),
+                                )
+                                .spacing(4),
+                        )
+                        .padding(4)
+                        .style(theme::container::tooltip)
+                        .max_width(300),
+                    )
+                    .on_press(Message::Link(message::Link::Url(canonical_url.to_string())))
+                    .padding(0)
+                    .style(theme::button::bare),
+                )
+            }
+            data::Preview::Image(preview::Image { path, url, .. }) => keyed(
+                keyed::Key::Preview(message.hash, idx),
+                button(
+                    container(image(path).content_fit(ContentFit::ScaleDown))
+                        .max_width(600)
+                        .max_height(315),
+                )
+                .on_press(Message::Link(message::Link::Url(url.to_string())))
+                .padding(0)
+                .style(theme::button::bare),
+            ),
+        };
+
+    let timestamp_gap = config
+        .buffer
+        .format_timestamp(&message.server_time)
+        .map(|timestamp| selectable_text(" ".repeat(timestamp.chars().count())));
+
+    match &config.buffer.nickname.alignment {
+        data::buffer::Alignment::Left => row![].push_maybe(timestamp_gap).push(content).into(),
+        data::buffer::Alignment::Right => {
+            let prefixes = message.target.prefixes().map_or(
+                max_nick_width
+                    .and_then(|_| max_prefix_width.map(|width| selectable_text("").width(width))),
+                |prefixes| {
+                    let text = selectable_text(
+                        " ".repeat(
+                            config
+                                .buffer
+                                .status_message_prefix
+                                .brackets
+                                .format(String::from_iter(prefixes))
+                                .chars()
+                                .count()
+                                + 1,
+                        ),
+                    );
+
+                    if let Some(width) = max_prefix_width {
+                        Some(text.width(width))
+                    } else {
+                        Some(text)
+                    }
+                },
+            );
+
+            let space = selectable_text(" ");
+
+            let nick = if let message::Source::User(user) = message.target.source() {
+                let mut nick = selectable_text(
+                    " ".repeat(
+                        config
+                            .buffer
+                            .nickname
+                            .brackets
+                            .format(user.display(config.buffer.nickname.show_access_levels))
+                            .chars()
+                            .count(),
+                    ),
+                );
+
+                if let Some(width) = max_nick_width {
+                    nick = nick.width(width);
+                }
+
+                Some(nick)
+            } else {
+                None
+            };
+
+            let timestamp_nickname_row = row![]
+                .push_maybe(timestamp_gap)
+                .push_maybe(prefixes)
+                .push_maybe(nick)
+                .push(space);
+
+            row![timestamp_nickname_row, content].into()
+        }
+        data::buffer::Alignment::Top => content,
     }
 }
 
