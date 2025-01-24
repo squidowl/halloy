@@ -23,11 +23,10 @@ fn expand(
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let message = |target, content| -> Message {
-        let received_at = Posix::now();
-        let hash = message::Hash::new(&received_at, &content);
+        let hash = message::Hash::new(&sent_time, &content);
 
         Message {
-            received_at,
+            received_at: Posix::now(),
             server_time: sent_time,
             direction: Direction::Received,
             target,
