@@ -118,6 +118,11 @@ pub enum Command {
     /// <nickname>
     USERIP(String),
 
+    /* Bouncer commands */
+    /// <subcommand> <params>...
+    BOUNCER(String, Vec<String>),
+
+    /* Misc */
     Numeric(Numeric, Vec<String>),
     Unknown(String, Vec<String>),
     Raw(String),
@@ -148,6 +153,9 @@ impl Command {
             () => {
                 params.next()
             };
+        }
+        macro_rules! remaining {
+            () => { params.collect() };
         }
 
         match tag.as_str() {
@@ -183,7 +191,7 @@ impl Command {
             "STATS" if len > 0 => STATS(req!(), opt!()),
             "HELP" => HELP(opt!()),
             "INFO" => INFO,
-            "MODE" if len > 0 => MODE(req!(), opt!(), Some(params.collect())),
+            "MODE" if len > 0 => MODE(req!(), opt!(), Some(remaining!())),
             "PRIVMSG" if len > 1 => PRIVMSG(req!(), req!()),
             "NOTICE" if len > 1 => NOTICE(req!(), req!()),
             "WHO" if len > 0 => WHO(req!(), opt!(), opt!()),
@@ -201,11 +209,11 @@ impl Command {
             "SQUIT" if len > 1 => SQUIT(req!(), req!()),
             "AWAY" => AWAY(opt!()),
             "LINKS" => LINKS,
-            "USERHOST" => USERHOST(params.collect()),
+            "USERHOST" => USERHOST(remaining!()),
             "WALLOPS" if len > 0 => WALLOPS(req!()),
             "ACCOUNT" if len > 0 => ACCOUNT(req!()),
-            "BATCH" if len > 0 => BATCH(req!(), params.collect()),
-            "CHATHISTORY" if len > 0 => CHATHISTORY(req!(), params.collect()),
+            "BATCH" if len > 0 => BATCH(req!(), remaining!()),
+            "CHATHISTORY" if len > 0 => CHATHISTORY(req!(), remaining!()),
             "CHGHOST" if len > 1 => CHGHOST(req!(), req!()),
             "CNOTICE" if len > 2 => CNOTICE(req!(), req!(), req!()),
             "CPRIVMSG" if len > 2 => CPRIVMSG(req!(), req!(), req!()),
@@ -214,7 +222,8 @@ impl Command {
             "MONITOR" if len > 0 => MONITOR(req!(), opt!()),
             "TAGMSG" if len > 0 => TAGMSG(req!()),
             "USERIP" if len > 0 => USERIP(req!()),
-            _ => Self::Unknown(tag, params.collect()),
+            "BOUNCER" => BOUNCER(req!(), remaining!()),
+            _ => Self::Unknown(tag, remaining!()),
         }
     }
 
@@ -276,6 +285,7 @@ impl Command {
             Command::MONITOR(a, b) => std::iter::once(a).chain(b).collect(),
             Command::TAGMSG(a) => vec![a],
             Command::USERIP(a) => vec![a],
+            Command::BOUNCER(command, params) => std::iter::once(command).chain(params).collect(),
             Command::Numeric(_, params) => params,
             Command::Unknown(_, params) => params,
             Command::Raw(_) => vec![],
@@ -337,6 +347,7 @@ impl Command {
             MONITOR(_, _) => "MONITOR".to_string(),
             TAGMSG(_) => "TAGMSG".to_string(),
             USERIP(_) => "USERIP".to_string(),
+            BOUNCER(..) => "BOUNCER".to_string(),
             Numeric(numeric, _) => format!("{:03}", *numeric as u16),
             Unknown(tag, _) => tag.clone(),
             Raw(_) => "".to_string(),
