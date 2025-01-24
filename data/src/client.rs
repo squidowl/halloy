@@ -643,7 +643,29 @@ impl Client {
                                     // Ignore historical CTCP queries/responses except for ACTIONs
                                     vec![]
                                 } else {
-                                    vec![Event::Single(message, self.nickname().to_owned())]
+                                    let mut events = vec![];
+
+                                    if let Some(user) = message.user() {
+                                        if message::references_user_text(
+                                            user.nickname(),
+                                            self.nickname(),
+                                            text,
+                                        ) {
+                                            events.push(Event::Notification(
+                                                message.clone(),
+                                                self.nickname().to_owned(),
+                                                Notification::Highlight {
+                                                    enabled: false,
+                                                    user,
+                                                    target,
+                                                },
+                                            ));
+                                        }
+                                    }
+
+                                    events.push(Event::Single(message, self.nickname().to_owned()));
+
+                                    events
                                 }
                             }
                             _ => vec![Event::Single(message, self.nickname().to_owned())],
