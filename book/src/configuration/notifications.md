@@ -1,4 +1,4 @@
-# [notifications]
+# Notifications
 
 Customize and enable notifications.
 
