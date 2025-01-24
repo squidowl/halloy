@@ -149,6 +149,9 @@ impl Command {
                 params.next()
             };
         }
+        macro_rules! remaining {
+            () => { params.collect() };
+        }
 
         match tag.as_str() {
             "CAP" if len > 0 => {
@@ -183,7 +186,7 @@ impl Command {
             "STATS" if len > 0 => STATS(req!(), opt!()),
             "HELP" => HELP(opt!()),
             "INFO" => INFO,
-            "MODE" if len > 0 => MODE(req!(), opt!(), Some(params.collect())),
+            "MODE" if len > 0 => MODE(req!(), opt!(), Some(remaining!())),
             "PRIVMSG" if len > 1 => PRIVMSG(req!(), req!()),
             "NOTICE" if len > 1 => NOTICE(req!(), req!()),
             "WHO" if len > 0 => WHO(req!(), opt!(), opt!()),
@@ -201,11 +204,11 @@ impl Command {
             "SQUIT" if len > 1 => SQUIT(req!(), req!()),
             "AWAY" => AWAY(opt!()),
             "LINKS" => LINKS,
-            "USERHOST" => USERHOST(params.collect()),
+            "USERHOST" => USERHOST(remaining!()),
             "WALLOPS" if len > 0 => WALLOPS(req!()),
             "ACCOUNT" if len > 0 => ACCOUNT(req!()),
-            "BATCH" if len > 0 => BATCH(req!(), params.collect()),
-            "CHATHISTORY" if len > 0 => CHATHISTORY(req!(), params.collect()),
+            "BATCH" if len > 0 => BATCH(req!(), remaining!()),
+            "CHATHISTORY" if len > 0 => CHATHISTORY(req!(), remaining!()),
             "CHGHOST" if len > 1 => CHGHOST(req!(), req!()),
             "CNOTICE" if len > 2 => CNOTICE(req!(), req!(), req!()),
             "CPRIVMSG" if len > 2 => CPRIVMSG(req!(), req!(), req!()),
@@ -214,7 +217,7 @@ impl Command {
             "MONITOR" if len > 0 => MONITOR(req!(), opt!()),
             "TAGMSG" if len > 0 => TAGMSG(req!()),
             "USERIP" if len > 0 => USERIP(req!()),
-            _ => Self::Unknown(tag, params.collect()),
+            _ => Self::Unknown(tag, remaining!()),
         }
     }
 
