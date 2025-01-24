@@ -155,8 +155,7 @@ impl Target {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Direction {
     Sent,
-    /// is_echo
-    Received(bool),
+    Received,
 }
 
 #[derive(Debug, Clone)]
@@ -172,7 +171,7 @@ pub struct Message {
 
 impl Message {
     pub fn triggers_unread(&self) -> bool {
-        matches!(self.direction, Direction::Received(false))
+        matches!(self.direction, Direction::Received)
             && match self.target.source() {
                 Source::User(_) => true,
                 Source::Action(_) => true,
@@ -227,11 +226,6 @@ impl Message {
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
         let id = message_id(&encoded);
-        let direction = Direction::Received(
-            encoded
-                .user()
-                .is_some_and(|user| user.nickname() == our_nick),
-        );
         let content = content(
             &encoded,
             &our_nick,
@@ -256,7 +250,7 @@ impl Message {
         Some(Message {
             received_at,
             server_time,
-            direction,
+            direction: Direction::Received,
             target,
             content,
             id,
@@ -291,7 +285,7 @@ impl Message {
         Message {
             received_at,
             server_time: Utc::now(),
-            direction: Direction::Received(false),
+            direction: Direction::Received,
             target: Target::Query {
                 query: query.clone(),
                 source: Source::Action(None),
@@ -342,7 +336,7 @@ impl Message {
         Self {
             received_at,
             server_time,
-            direction: Direction::Received(false),
+            direction: Direction::Received,
             target: Target::Logs,
             content,
             id: None,
