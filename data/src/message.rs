@@ -152,10 +152,49 @@ impl Target {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub enum Direction {
     Sent,
-    Received,
+    Received { is_echo: bool },
+}
+
+impl Serialize for Direction {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        enum Data {
+            Sent,
+            Received,
+        }
+
+        match self {
+            Direction::Sent => Data::Sent,
+            Direction::Received { .. } => Data::Received,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Direction {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        enum Data {
+            Sent,
+            Received,
+        }
+
+        let data = Data::deserialize(deserializer)?;
+
+        Ok(match data {
+            Data::Sent => Direction::Sent,
+            Data::Received => Direction::Received { is_echo: false },
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -171,7 +210,7 @@ pub struct Message {
 
 impl Message {
     pub fn triggers_unread(&self) -> bool {
-        matches!(self.direction, Direction::Received)
+        matches!(self.direction, Direction::Received { is_echo: false })
             && match self.target.source() {
                 Source::User(_) => true,
                 Source::Action(_) => true,
@@ -226,6 +265,11 @@ impl Message {
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
         let id = message_id(&encoded);
+        let direction = Direction::Received {
+            is_echo: encoded
+                .user()
+                .is_some_and(|user| user.nickname() == our_nick),
+        };
         let content = content(
             &encoded,
             &our_nick,
@@ -250,7 +294,7 @@ impl Message {
         Some(Message {
             received_at,
             server_time,
-            direction: Direction::Received,
+            direction,
             target,
             content,
             id,
@@ -285,7 +329,7 @@ impl Message {
         Message {
             received_at,
             server_time: Utc::now(),
-            direction: Direction::Received,
+            direction: Direction::Received { is_echo: false },
             target: Target::Query {
                 query: query.clone(),
                 source: Source::Action(None),
@@ -336,7 +380,7 @@ impl Message {
         Self {
             received_at,
             server_time,
-            direction: Direction::Received,
+            direction: Direction::Received { is_echo: false },
             target: Target::Logs,
             content,
             id: None,
