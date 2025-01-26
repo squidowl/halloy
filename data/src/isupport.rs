@@ -24,6 +24,7 @@ pub enum Kind {
     KNOCK,
     MONITOR,
     MSGREFTYPES,
+    NAMELEN,
     NICKLEN,
     SAFELIST,
     STATUSMSG,
@@ -325,6 +326,9 @@ impl FromStr for Operation {
                                 message_reference_types,
                             )))
                         }
+                        "NAMELEN" => Ok(Operation::Add(Parameter::NAMELEN(
+                            parse_required_positive_integer(value)?,
+                        ))),
                         "NAMESX" => Ok(Operation::Add(Parameter::NAMESX)),
                         "NETWORK" => Ok(Operation::Add(Parameter::NETWORK(value.to_string()))),
                         "NICKLEN" | "MAXNICKLEN" => Ok(Operation::Add(Parameter::NICKLEN(
@@ -447,6 +451,7 @@ impl FromStr for Operation {
                         "MONITOR" => Ok(Operation::Add(Parameter::MONITOR(None))),
                         "MSGREFTYPES" => Ok(Operation::Add(Parameter::MSGREFTYPES(vec![]))),
                         "NAMESX" => Ok(Operation::Add(Parameter::NAMESX)),
+                        "NAMELEN" => Err("value required"),
                         "NETWORK" => Err("value required"),
                         "NICKLEN" | "MAXNICKLEN" => Err("value required"),
                         "OVERRIDE" => Ok(Operation::Add(Parameter::OVERRIDE)),
@@ -491,6 +496,7 @@ impl Operation {
                 "KNOCK" => Some(Kind::KNOCK),
                 "MONITOR" => Some(Kind::MONITOR),
                 "MSGREFTYPES" => Some(Kind::MSGREFTYPES),
+                "NAMELEN" => Some(Kind::NAMELEN),
                 "NICKLEN" => Some(Kind::NICKLEN),
                 "SAFELIST" => Some(Kind::SAFELIST),
                 "STATUSMSG" => Some(Kind::STATUSMSG),
@@ -554,6 +560,7 @@ pub enum Parameter {
     MODES(Option<u16>),
     MONITOR(Option<u16>),
     MSGREFTYPES(Vec<MessageReferenceType>),
+    NAMELEN(u16),
     NAMESX,
     NETWORK(String),
     NICKLEN(u16),
@@ -591,6 +598,7 @@ impl Parameter {
             Parameter::KNOCK => Some(Kind::KNOCK),
             Parameter::MONITOR(_) => Some(Kind::MONITOR),
             Parameter::MSGREFTYPES(_) => Some(Kind::MSGREFTYPES),
+            Parameter::NAMELEN(_) => Some(Kind::NAMELEN),
             Parameter::NICKLEN(_) => Some(Kind::NICKLEN),
             Parameter::SAFELIST => Some(Kind::SAFELIST),
             Parameter::STATUSMSG(_) => Some(Kind::STATUSMSG),

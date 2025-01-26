@@ -98,6 +98,7 @@ pub enum Command {
     /// <accountname>
     ACCOUNT(String),
     /* IRC extensions */
+    /// <type> [<params>]
     BATCH(String, Vec<String>),
     /// <subcommand> [<params>]
     CHATHISTORY(String, Vec<String>),
@@ -113,10 +114,20 @@ pub enum Command {
     MARKREAD(String, Option<String>),
     /// <subcommand> [<targets>]
     MONITOR(String, Option<String>),
+    /// <realname>
+    SETNAME(String),
     /// <msgtarget>
     TAGMSG(String),
     /// <nickname>
     USERIP(String),
+
+    /* Standard Replies */
+    /// <command> <code> [<context>] <description>
+    FAIL(String, String, Option<Vec<String>>, String),
+    /// <command> <code> [<context>] <description>
+    WARN(String, String, Option<Vec<String>>, String),
+    /// <command> <code> [<context>] <description>
+    NOTE(String, String, Option<Vec<String>>, String),
 
     Numeric(Numeric, Vec<String>),
     Unknown(String, Vec<String>),
@@ -212,8 +223,42 @@ impl Command {
             "KNOCK" if len > 0 => KNOCK(req!(), opt!()),
             "MARKREAD" if len > 0 => MARKREAD(req!(), opt!()),
             "MONITOR" if len > 0 => MONITOR(req!(), opt!()),
+            "SETNAME" if len > 0 => SETNAME(req!()),
             "TAGMSG" if len > 0 => TAGMSG(req!()),
             "USERIP" if len > 0 => USERIP(req!()),
+            "FAIL" if len > 2 => {
+                let a = req!();
+                let b = req!();
+                let mut c: Vec<String> = params.collect();
+                let d = c.pop().unwrap();
+                if !c.is_empty() {
+                    FAIL(a, b, Some(c), d)
+                } else {
+                    FAIL(a, b, None, d)
+                }
+            }
+            "WARN" if len > 2 => {
+                let a = req!();
+                let b = req!();
+                let mut c: Vec<String> = params.collect();
+                let d = c.pop().unwrap();
+                if !c.is_empty() {
+                    WARN(a, b, Some(c), d)
+                } else {
+                    WARN(a, b, None, d)
+                }
+            }
+            "NOTE" if len > 2 => {
+                let a = req!();
+                let b = req!();
+                let mut c: Vec<String> = params.collect();
+                let d = c.pop().unwrap();
+                if !c.is_empty() {
+                    NOTE(a, b, Some(c), d)
+                } else {
+                    NOTE(a, b, None, d)
+                }
+            }
             _ => Self::Unknown(tag, params.collect()),
         }
     }
@@ -274,8 +319,24 @@ impl Command {
             Command::KNOCK(a, b) => std::iter::once(a).chain(b).collect(),
             Command::MARKREAD(a, b) => std::iter::once(a).chain(b).collect(),
             Command::MONITOR(a, b) => std::iter::once(a).chain(b).collect(),
+            Command::SETNAME(a) => vec![a],
             Command::TAGMSG(a) => vec![a],
             Command::USERIP(a) => vec![a],
+            Command::FAIL(a, b, c, d) => std::iter::once(a)
+                .chain(Some(b))
+                .chain(c.into_iter().flatten())
+                .chain(Some(d))
+                .collect(),
+            Command::WARN(a, b, c, d) => std::iter::once(a)
+                .chain(Some(b))
+                .chain(c.into_iter().flatten())
+                .chain(Some(d))
+                .collect(),
+            Command::NOTE(a, b, c, d) => std::iter::once(a)
+                .chain(Some(b))
+                .chain(c.into_iter().flatten())
+                .chain(Some(d))
+                .collect(),
             Command::Numeric(_, params) => params,
             Command::Unknown(_, params) => params,
             Command::Raw(_) => vec![],
@@ -335,8 +396,12 @@ impl Command {
             KNOCK(_, _) => "KNOCK".to_string(),
             MARKREAD(_, _) => "MARKREAD".to_string(),
             MONITOR(_, _) => "MONITOR".to_string(),
+            SETNAME(_) => "SETNAME".to_string(),
             TAGMSG(_) => "TAGMSG".to_string(),
             USERIP(_) => "USERIP".to_string(),
+            FAIL(_, _, _, _) => "FAIL".to_string(),
+            WARN(_, _, _, _) => "WARN".to_string(),
+            NOTE(_, _, _, _) => "NOTE".to_string(),
             Numeric(numeric, _) => format!("{:03}", *numeric as u16),
             Unknown(tag, _) => tag.clone(),
             Raw(_) => "".to_string(),
