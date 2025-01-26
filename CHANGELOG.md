@@ -5,7 +5,7 @@ Added:
   - Ability to disable dimming of away usernames. See [configuartion](https://halloy.squidowl.org/configuration/buffer/away.html).
   - Autocomplete. See [configuration](https://halloy.squidowl.org/configuration/buffer/text_input/autocomplete.html).
   - Ability to hide command descriptions. See [configuration](https://halloy.squidowl.org/configuration/buffer/commands.html).
-- Enable support for IRCv3 `chathistory`
+- Enable support for IRCv3 `chathistory` and Standard Replies
 - Highlight notifications for `/me` actions
 - Timeout delay for notifications
 - Case mapping support via `ISUPPORT`

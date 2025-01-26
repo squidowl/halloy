@@ -1,4 +1,8 @@
-use data::{message, Config, User};
+use data::message::{
+    self,
+    source::server::{Kind, StandardReply},
+};
+use data::{Config, User};
 
 use crate::widget::{
     selectable_rich_text,
@@ -66,13 +70,16 @@ pub fn server(theme: &Theme, server: Option<&message::source::Server>) -> Style 
     let colors = theme.colors().buffer.server_messages;
     let color = server
         .and_then(|server| match server.kind() {
-            message::source::server::Kind::Join => colors.join,
-            message::source::server::Kind::Part => colors.part,
-            message::source::server::Kind::Quit => colors.quit,
-            message::source::server::Kind::ReplyTopic => colors.reply_topic,
-            message::source::server::Kind::ChangeHost => colors.change_host,
-            message::source::server::Kind::MonitoredOnline => colors.monitored_online,
-            message::source::server::Kind::MonitoredOffline => colors.monitored_offline,
+            Kind::Join => colors.join,
+            Kind::Part => colors.part,
+            Kind::Quit => colors.quit,
+            Kind::ReplyTopic => colors.reply_topic,
+            Kind::ChangeHost => colors.change_host,
+            Kind::MonitoredOnline => colors.monitored_online,
+            Kind::MonitoredOffline => colors.monitored_offline,
+            Kind::StandardReply(StandardReply::Fail) => colors.standard_reply_fail,
+            Kind::StandardReply(StandardReply::Warn) => colors.standard_reply_warn,
+            Kind::StandardReply(StandardReply::Note) => colors.standard_reply_note,
         })
         .or(Some(colors.default));
 

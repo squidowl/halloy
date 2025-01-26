@@ -63,6 +63,12 @@ pub struct ServerMessages {
     pub monitored_online: ServerMessage,
     #[serde(default)]
     pub monitored_offline: ServerMessage,
+    #[serde(default)]
+    pub standard_reply_fail: ServerMessage,
+    #[serde(default)]
+    pub standard_reply_warn: ServerMessage,
+    #[serde(default)]
+    pub standard_reply_note: ServerMessage,
 }
 
 impl ServerMessages {
@@ -75,6 +81,15 @@ impl ServerMessages {
             source::server::Kind::ChangeHost => Some(&self.change_host),
             source::server::Kind::MonitoredOnline => Some(&self.monitored_online),
             source::server::Kind::MonitoredOffline => Some(&self.monitored_offline),
+            source::server::Kind::StandardReply(source::server::StandardReply::Fail) => {
+                Some(&self.standard_reply_fail)
+            }
+            source::server::Kind::StandardReply(source::server::StandardReply::Warn) => {
+                Some(&self.standard_reply_warn)
+            }
+            source::server::Kind::StandardReply(source::server::StandardReply::Note) => {
+                Some(&self.standard_reply_note)
+            }
         }
     }
 }
