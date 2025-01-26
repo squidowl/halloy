@@ -73,7 +73,11 @@ impl Completion {
         }
     }
 
-    pub fn view<'a, Message: 'a>(&self, input: &str, config: &Config) -> Option<Element<'a, Message>> {
+    pub fn view<'a, Message: 'a>(
+        &self,
+        input: &str,
+        config: &Config,
+    ) -> Option<Element<'a, Message>> {
         self.commands.view(input, config)
     }
 }
@@ -283,6 +287,7 @@ impl Commands {
                                 Some(LIST_COMMAND.clone())
                             }
                         }
+                        isupport::Parameter::NAMELEN(max_len) => Some(setname_command(max_len)),
                         _ => isupport_parameter_to_command(isupport_parameter),
                     }),
             )
@@ -681,10 +686,12 @@ impl Text {
         self.prompt = format!("#{rest}");
         self.filtered = channels
             .iter()
-            .sorted_by(|a, b: &&target::Channel| match autocomplete.sort_direction {
-                SortDirection::Asc => a.as_normalized_str().cmp(b.as_normalized_str()),
-                SortDirection::Desc => b.as_normalized_str().cmp(a.as_normalized_str()),
-            })
+            .sorted_by(
+                |a, b: &&target::Channel| match autocomplete.sort_direction {
+                    SortDirection::Asc => a.as_normalized_str().cmp(b.as_normalized_str()),
+                    SortDirection::Desc => b.as_normalized_str().cmp(a.as_normalized_str()),
+                },
+            )
             .filter(|&channel| channel.as_str().starts_with(input_channel.as_str()))
             .map(|channel| channel.to_string())
             .collect();
@@ -1555,6 +1562,18 @@ fn part_command(max_len: &u16) -> Command {
                 tooltip: None,
             },
         ],
+        subcommands: None,
+    }
+}
+
+fn setname_command(max_len: &u16) -> Command {
+    Command {
+        title: "SETNAME",
+        args: vec![Arg {
+            text: "real name",
+            optional: false,
+            tooltip: Some(format!("maximum length: {}", max_len)),
+        }],
         subcommands: None,
     }
 }
