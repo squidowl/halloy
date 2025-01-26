@@ -534,6 +534,9 @@ pub enum ServerMessages {
     ChangeHost,
     MonitoredOnline,
     MonitoredOffline,
+    StandardReplyFail,
+    StandardReplyWarn,
+    StandardReplyNote,
     Default,
 }
 
@@ -547,6 +550,9 @@ impl ServerMessages {
             ServerMessages::ChangeHost => colors.change_host,
             ServerMessages::MonitoredOnline => colors.monitored_online,
             ServerMessages::MonitoredOffline => colors.monitored_offline,
+            ServerMessages::StandardReplyFail => colors.standard_reply_fail,
+            ServerMessages::StandardReplyWarn => colors.standard_reply_warn,
+            ServerMessages::StandardReplyNote => colors.standard_reply_note,
             ServerMessages::Default => Some(colors.default),
         }
     }
@@ -560,6 +566,9 @@ impl ServerMessages {
             ServerMessages::ChangeHost => colors.change_host = color,
             ServerMessages::MonitoredOnline => colors.monitored_online = color,
             ServerMessages::MonitoredOffline => colors.monitored_offline = color,
+            ServerMessages::StandardReplyFail => colors.standard_reply_fail = color,
+            ServerMessages::StandardReplyWarn => colors.standard_reply_warn = color,
+            ServerMessages::StandardReplyNote => colors.standard_reply_note = color,
             ServerMessages::Default => colors.default = color.unwrap_or(Color::TRANSPARENT),
         }
     }

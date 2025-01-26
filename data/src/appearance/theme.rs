@@ -160,6 +160,12 @@ pub struct ServerMessages {
     pub monitored_online: Option<Color>,
     #[serde(default, with = "color_serde_maybe")]
     pub monitored_offline: Option<Color>,
+    #[serde(default, with = "color_serde_maybe")]
+    pub standard_reply_fail: Option<Color>,
+    #[serde(default, with = "color_serde_maybe")]
+    pub standard_reply_warn: Option<Color>,
+    #[serde(default, with = "color_serde_maybe")]
+    pub standard_reply_note: Option<Color>,
     #[serde(default = "default_transparent", with = "color_serde")]
     pub default: Color,
 }
@@ -418,6 +424,9 @@ mod binary {
         ButtonsSecondaryBackgroundHover = 35,
         ButtonsSecondaryBackgroundSelected = 36,
         ButtonsSecondaryBackgroundSelectedHover = 37,
+        BufferServerMessagesStandardReplyFail = 38,
+        BufferServerMessagesStandardReplyWarn = 39,
+        BufferServerMessagesStandardReplyNote = 40,
     }
 
     impl Tag {
@@ -455,6 +464,15 @@ mod binary {
                 }
                 Tag::BufferServerMessagesMonitoredOffline => {
                     colors.buffer.server_messages.monitored_offline?
+                }
+                Tag::BufferServerMessagesStandardReplyFail => {
+                    colors.buffer.server_messages.standard_reply_fail?
+                }
+                Tag::BufferServerMessagesStandardReplyWarn => {
+                    colors.buffer.server_messages.standard_reply_warn?
+                }
+                Tag::BufferServerMessagesStandardReplyNote => {
+                    colors.buffer.server_messages.standard_reply_note?
                 }
                 Tag::BufferServerMessagesDefault => colors.buffer.server_messages.default,
                 Tag::ButtonsPrimaryBackground => colors.buttons.primary.background,
@@ -514,6 +532,15 @@ mod binary {
                 }
                 Tag::BufferServerMessagesMonitoredOffline => {
                     colors.buffer.server_messages.monitored_offline = Some(color);
+                }
+                Tag::BufferServerMessagesStandardReplyFail => {
+                    colors.buffer.server_messages.standard_reply_fail = Some(color);
+                }
+                Tag::BufferServerMessagesStandardReplyWarn => {
+                    colors.buffer.server_messages.standard_reply_warn = Some(color);
+                }
+                Tag::BufferServerMessagesStandardReplyNote => {
+                    colors.buffer.server_messages.standard_reply_note = Some(color);
                 }
                 Tag::BufferServerMessagesDefault => colors.buffer.server_messages.default = color,
                 Tag::ButtonsPrimaryBackground => colors.buttons.primary.background = color,
