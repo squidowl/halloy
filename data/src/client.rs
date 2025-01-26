@@ -765,6 +765,9 @@ impl Client {
                     if contains("draft/read-marker") {
                         requested.push("draft/read-marker");
                     }
+                    if contains("setname") {
+                        requested.push("setname");
+                    }
 
                     if !requested.is_empty() {
                         // Request
@@ -902,6 +905,9 @@ impl Client {
                 }
                 if newly_contains("draft/read-marker") {
                     requested.push("draft/read-marker");
+                }
+                if newly_contains("setname") {
+                    requested.push("setname");
                 }
 
                 if !requested.is_empty() {

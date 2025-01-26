@@ -903,6 +903,7 @@ fn target(
         | Command::KNOCK(_, _)
         | Command::MARKREAD(_, _)
         | Command::MONITOR(_, _)
+        | Command::SETNAME(_)
         | Command::TAGMSG(_)
         | Command::USERIP(_)
         | Command::HELP(_)
