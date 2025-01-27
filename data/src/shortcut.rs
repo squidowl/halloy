@@ -36,6 +36,7 @@ pub enum Command {
     ToggleNicklist,
     ToggleTopic,
     ToggleSidebar,
+    ToggleFullscreen,
     CommandBar,
     ReloadConfiguration,
     FileTransfers,
@@ -126,6 +127,7 @@ impl KeyBind {
     default!(toggle_nick_list, "m", COMMAND | ALT);
     default!(toggle_sidebar, "b", COMMAND | ALT);
     default!(toggle_topic, "t", COMMAND | ALT);
+    default!(toggle_fullscreen, "f", CTRL | SHIFT);
     default!(command_bar, "k", COMMAND);
     default!(reload_configuration, "r", COMMAND);
     default!(file_transfers, "j", COMMAND);

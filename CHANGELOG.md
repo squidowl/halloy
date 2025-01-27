@@ -11,6 +11,7 @@ Added:
 - Case mapping support via `ISUPPORT`
 - Restore last known window position and size at launch
 - Date separators in buffers when day changes
+- Toggle fullscreen (<kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>f</kbd> (macOS: <kbd>ctrl</kbd> + <kbd>⌥</kbd> + <kbd>f</kbd>))
 
 Fixed:
 - Long username & password combinations could cause SASL authentication to fail
@@ -19,7 +20,7 @@ Fixed:
 - Append .toml filename when saving themes on macOS
 
 Changed:
-- Changed focus buffer shortcuts to include `Ctrl` (`⌘` on macOS) to avoid interfering with default text input shortcuts for word navigation (`⌥ + ←`, `⌥ + →`)
+- Changed focus buffer shortcuts to include <kbd>ctrl</kbd> (<kbd>⌘</kbd> on macOS) to avoid interfering with default text input shortcuts for word navigation (<kbd>⌘</kbd> + <kbd>←</kbd>, <kbd>⌘</kbd> + <kbd>→</kbd>)
 
 # 2024.14 (2024-10-29)
 
