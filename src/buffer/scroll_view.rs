@@ -921,53 +921,50 @@ fn preview_row<'a>(
     max_prefix_width: Option<f32>,
     config: &'a Config,
 ) -> Element<'a, Message> {
-    let content =
-        match preview {
-            data::Preview::Card(preview::Card {
-                image: preview::Image { path, .. },
-                title,
-                description,
-                canonical_url,
-                ..
-            }) => {
-                let title_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) * 1.2;
-
-                keyed(
-                    keyed::Key::Preview(message.hash, idx),
-                    button(
-                        container(
-                            // TODO: Custom colors for card title & description?
-                            column![text(title).size(title_size).style(theme::text::tertiary)]
-                                .push_maybe(description.as_ref().map(|description| {
-                                    text(description).style(theme::text::timestamp)
-                                }))
-                                .push(
-                                    container(image(path).content_fit(ContentFit::ScaleDown))
-                                        .max_height(200),
-                                )
-                                .max_width(400)
-                                .spacing(4),
-                        )
-                        .padding(4)
-                        .style(theme::container::tooltip),
-                    )
-                    .on_press(Message::Link(message::Link::Url(canonical_url.to_string())))
-                    .padding(0)
-                    .style(theme::button::bare),
-                )
-            }
-            data::Preview::Image(preview::Image { path, url, .. }) => keyed(
+    let content = match preview {
+        data::Preview::Card(preview::Card {
+            image: preview::Image { path, .. },
+            title,
+            description,
+            canonical_url,
+            ..
+        }) => {
+            keyed(
                 keyed::Key::Preview(message.hash, idx),
                 button(
-                    container(image(path).content_fit(ContentFit::ScaleDown))
-                        .max_width(550)
-                        .max_height(350),
+                    container(
+                        column![
+                            column![text(title).style(theme::text::url)].push_maybe(
+                                description.as_ref().map(|description| {
+                                    text(description).style(theme::text::primary)
+                                })
+                            ),
+                            container(image(path).content_fit(ContentFit::ScaleDown))
+                                .max_height(200)
+                        ]
+                        .max_width(400)
+                        .spacing(4),
+                    )
+                    .padding(4)
+                    .style(theme::container::image_card),
                 )
-                .on_press(Message::Link(message::Link::Url(url.to_string())))
+                .on_press(Message::Link(message::Link::Url(canonical_url.to_string())))
                 .padding(0)
                 .style(theme::button::bare),
-            ),
-        };
+            )
+        }
+        data::Preview::Image(preview::Image { path, url, .. }) => keyed(
+            keyed::Key::Preview(message.hash, idx),
+            button(
+                container(image(path).content_fit(ContentFit::ScaleDown))
+                    .max_width(550)
+                    .max_height(350),
+            )
+            .on_press(Message::Link(message::Link::Url(url.to_string())))
+            .padding(0)
+            .style(theme::button::bare),
+        ),
+    };
 
     let timestamp_gap = config
         .buffer
