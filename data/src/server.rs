@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use std::{fmt, str};
 use tokio::fs;
 use tokio::process::Command;
@@ -14,23 +15,35 @@ use crate::config::Error;
 pub type Handle = Sender<proto::Message>;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Server(String);
+#[serde(transparent)]
+pub struct Server {
+    name: Arc<str>,
+}
+
+impl Server {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+}
 
 impl From<&str> for Server {
     fn from(value: &str) -> Self {
-        Server(value.to_string())
+        Server {
+            name: Arc::from(value),
+        }
     }
 }
 
 impl fmt::Display for Server {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        self.name.fmt(f)
     }
 }
 
 impl AsRef<str> for Server {
     fn as_ref(&self) -> &str {
-        &self.0
+        self.name()
     }
 }
 
