@@ -27,7 +27,9 @@ const RATE_LIMIT_DELAY: Duration = Duration::from_millis(100);
 static RATE_LIMIT: Semaphore = Semaphore::const_new(4);
 static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::Client::builder()
-        .user_agent("halloy")
+        // Spoof user agent for more reliable
+        // opengraph results
+        .user_agent("WhatsApp/2")
         .timeout(TIMEOUT)
         .build()
         .expect("build client")
