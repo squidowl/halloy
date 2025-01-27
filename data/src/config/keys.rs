@@ -30,6 +30,8 @@ pub struct Keyboard {
     pub toggle_topic: KeyBind,
     #[serde(default = "KeyBind::toggle_sidebar")]
     pub toggle_sidebar: KeyBind,
+    #[serde(default = "KeyBind::toggle_fullscreen")]
+    pub toggle_fullscreen: KeyBind,
     #[serde(default = "KeyBind::command_bar")]
     pub command_bar: KeyBind,
     #[serde(default = "KeyBind::reload_configuration")]
@@ -60,6 +62,7 @@ impl Default for Keyboard {
             toggle_nick_list: KeyBind::toggle_nick_list(),
             toggle_sidebar: KeyBind::toggle_sidebar(),
             toggle_topic: KeyBind::toggle_topic(),
+            toggle_fullscreen: KeyBind::toggle_fullscreen(),
             command_bar: KeyBind::command_bar(),
             reload_configuration: KeyBind::reload_configuration(),
             file_transfers: KeyBind::file_transfers(),
@@ -88,6 +91,7 @@ impl Keyboard {
             shortcut(self.toggle_nick_list.clone(), ToggleNicklist),
             shortcut(self.toggle_topic.clone(), ToggleTopic),
             shortcut(self.toggle_sidebar.clone(), ToggleSidebar),
+            shortcut(self.toggle_fullscreen.clone(), ToggleFullscreen),
             shortcut(self.command_bar.clone(), CommandBar),
             shortcut(self.reload_configuration.clone(), ReloadConfiguration),
             shortcut(self.file_transfers.clone(), FileTransfers),

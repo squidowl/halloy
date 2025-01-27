@@ -27,6 +27,7 @@ move_right = "alt+l"
 | `toggle_nick_list`      | Toggle nick list             | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd>     |
 | `toggle_topic`          | Toggle topic                 | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>t</kbd>     |
 | `toggle_sidebar`        | Toggle sidebar               | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>b</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>b</kbd>     |
+| `toggle_fullscreen`     | Toggle fullscreen            | <kbd>ctrl</kbd> + <kbd>⌥</kbd> + <kbd>f</kbd>       | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>f</kbd>   |
 | `command_bar`           | Toggle command bar           | <kbd>⌘</kbd> + <kbd>k</kbd>                         | <kbd>ctrl</kbd> + <kbd>k</kbd>                      |
 | `reload_configuration`  | Refresh configuration file   | <kbd>⌘</kbd> + <kbd>r</kbd>                         | <kbd>ctrl</kbd> + <kbd>r</kbd>                      |
 | `file_transfers`        | Toggle File Transfers Buffer | <kbd>⌘</kbd> + <kbd>j</kbd>                         | <kbd>ctrl</kbd> + <kbd>j</kbd>                      |
