@@ -1,22 +1,23 @@
-use chrono::{DateTime, Utc};
-use data::dashboard::BufferAction;
-use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
-use data::history::ReadMarker;
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
 
-use data::config;
+use chrono::{DateTime, Utc};
+use data::dashboard::BufferAction;
+use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::file_transfer;
 use data::history::manager::Broadcast;
+use data::history::ReadMarker;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{client, environment, history, Config, Server, Version};
+use data::{config, preview};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, Length, Task, Vector};
+use log::{debug, error};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -46,6 +47,7 @@ pub struct Dashboard {
     file_transfers: file_transfer::Manager,
     theme_editor: Option<ThemeEditor>,
     notifications: notification::Notifications,
+    previews: preview::Collection,
 }
 
 #[derive(Debug)]
@@ -63,6 +65,7 @@ pub enum Message {
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
     Client(client::Message),
+    LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
 }
 
 #[derive(Debug)]
@@ -91,6 +94,7 @@ impl Dashboard {
             file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
             theme_editor: None,
             notifications: notification::Notifications::new(),
+            previews: preview::Collection::default(),
         };
 
         let command = dashboard.track();
@@ -397,6 +401,34 @@ impl Dashboard {
                                     if let Some(buffer) = pane.buffer.data() {
                                         self.request_older_chathistory(clients, &buffer);
                                     }
+                                }
+                                buffer::Event::PreviewChanged => {
+                                    let visible = self.panes.visible_urls();
+                                    let tracking =
+                                        self.previews.keys().cloned().collect::<HashSet<_>>();
+                                    let missing =
+                                        visible.difference(&tracking).cloned().collect::<Vec<_>>();
+                                    let removed = tracking.difference(&visible);
+
+                                    for url in &missing {
+                                        self.previews.insert(url.clone(), preview::State::Loading);
+                                    }
+
+                                    for url in removed {
+                                        self.previews.remove(url);
+                                    }
+
+                                    return (
+                                        Task::batch(missing.into_iter().map(|url| {
+                                            Task::perform(
+                                                data::preview::load(url.clone()),
+                                                move |result| {
+                                                    Message::LoadPreview((url.clone(), result))
+                                                },
+                                            )
+                                        })),
+                                        None,
+                                    );
                                 }
                             }
 
@@ -1027,6 +1059,18 @@ impl Dashboard {
                     );
                 }
             },
+            Message::LoadPreview((url, Ok(preview))) => {
+                debug!("Preview loaded for {url}");
+                if let hash_map::Entry::Occupied(mut entry) = self.previews.entry(url) {
+                    *entry.get_mut() = preview::State::Loaded(preview);
+                }
+            }
+            Message::LoadPreview((url, Err(error))) => {
+                error!("Failed to load preview for {url}: {error}");
+                if self.previews.contains_key(&url) {
+                    self.previews.insert(url, preview::State::Error(error));
+                }
+            }
         }
 
         (Task::none(), None)
@@ -1053,6 +1097,7 @@ impl Dashboard {
                         clients,
                         &self.file_transfers,
                         &self.history,
+                        &self.previews,
                         &self.side_menu,
                         config,
                         theme,
@@ -1098,6 +1143,7 @@ impl Dashboard {
                 clients,
                 &self.file_transfers,
                 &self.history,
+                &self.previews,
                 &self.side_menu,
                 config,
                 theme,
@@ -1968,6 +2014,7 @@ impl Dashboard {
             file_transfers: file_transfer::Manager::new(config.file_transfer.clone()),
             theme_editor: None,
             notifications: notification::Notifications::new(),
+            previews: preview::Collection::default(),
         };
 
         let mut tasks = vec![];
@@ -2253,6 +2300,20 @@ impl Panes {
                 .values()
                 .flat_map(|state| state.panes.values().filter_map(Pane::resource)),
         )
+    }
+
+    fn visible_urls(&self) -> HashSet<url::Url> {
+        self.main
+            .panes
+            .values()
+            .flat_map(Pane::visible_urls)
+            .chain(
+                self.popout
+                    .values()
+                    .flat_map(|state| state.panes.values().flat_map(Pane::visible_urls)),
+            )
+            .cloned()
+            .collect()
     }
 }
 

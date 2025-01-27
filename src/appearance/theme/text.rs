@@ -64,6 +64,12 @@ pub fn timestamp(theme: &Theme) -> Style {
     }
 }
 
+pub fn url(theme: &Theme) -> Style {
+    Style {
+        color: Some(theme.colors().buffer.url),
+    }
+}
+
 pub fn topic(theme: &Theme) -> Style {
     Style {
         color: Some(theme.colors().buffer.topic),
