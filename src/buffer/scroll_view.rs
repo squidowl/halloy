@@ -943,14 +943,13 @@ fn preview_row<'a>(
                                 }))
                                 .push(
                                     container(image(path).content_fit(ContentFit::ScaleDown))
-                                        .max_width(300)
-                                        .max_height(157),
+                                        .max_height(200),
                                 )
+                                .max_width(400)
                                 .spacing(4),
                         )
                         .padding(4)
-                        .style(theme::container::tooltip)
-                        .max_width(300),
+                        .style(theme::container::tooltip),
                     )
                     .on_press(Message::Link(message::Link::Url(canonical_url.to_string())))
                     .padding(0)
@@ -961,8 +960,8 @@ fn preview_row<'a>(
                 keyed::Key::Preview(message.hash, idx),
                 button(
                     container(image(path).content_fit(ContentFit::ScaleDown))
-                        .max_width(600)
-                        .max_height(315),
+                        .max_width(550)
+                        .max_height(350),
                 )
                 .on_press(Message::Link(message::Link::Url(url.to_string())))
                 .padding(0)
