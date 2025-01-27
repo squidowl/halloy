@@ -159,6 +159,20 @@ impl fmt::Debug for Client {
         f.debug_struct("Client").finish()
     }
 }
+const UNCONDITIONAL_CAPS: &[&str] = &[
+    "account-notify",
+    "away-notify",
+    "batch",
+    "chghost",
+    "draft/read-marker",
+    "extended-monitor",
+    "invite-notify",
+    "labeled-response",
+    "message-tags",
+    "multi-prefix",
+    "server-time",
+    "userhost-in-names",
+];
 
 impl Client {
     pub fn new(
@@ -692,92 +706,52 @@ impl Client {
                     )]);
                 }
             }
-            Command::CAP(_, sub, a, b) if sub == "LS" => {
-                let (caps, asterisk) = match (a, b) {
-                    (Some(caps), None) => (caps, None),
-                    (Some(asterisk), Some(caps)) => (caps, Some(asterisk)),
-                    // Unreachable
-                    (None, None) | (None, Some(_)) => return Ok(vec![]),
-                };
-
+            Command::CAP(_, sub, Some(_asterisk), Some(caps)) if sub == "LS" => {
+                self.listed_caps.extend(caps.split(' ').map(String::from));
+            }
+            // Finished with LS
+            Command::CAP(_, sub, Some(caps), None) if sub == "LS" => {
                 self.listed_caps.extend(caps.split(' ').map(String::from));
 
-                // Finished
-                if asterisk.is_none() {
-                    let mut requested = vec![];
+                let contains = |s : &str| self.listed_caps.iter().any(|cap| cap == s);
 
-                    let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
+                let mut requested: Vec<&str> = UNCONDITIONAL_CAPS
+                    .iter()
+                    .copied()
+                    .filter(|c| contains(c))
+                    .collect();
 
-                    if contains("invite-notify") {
-                        requested.push("invite-notify");
-                    }
-                    if contains("userhost-in-names") {
-                        requested.push("userhost-in-names");
-                    }
-                    if contains("away-notify") {
-                        requested.push("away-notify");
-                    }
-                    if contains("message-tags") {
-                        requested.push("message-tags");
-                    }
-                    if contains("server-time") {
-                        requested.push("server-time");
-                    }
-                    if contains("chghost") {
-                        requested.push("chghost");
-                    }
-                    if contains("extended-monitor") {
-                        requested.push("extended-monitor");
-                    }
-                    if contains("account-notify") {
-                        requested.push("account-notify");
+                if contains("account-notify") && contains("extended-join") {
+                    requested.push("extended-join");
+                }
+                if contains("batch") && contains("draft/chathistory") {
+                    // We require batch for our chathistory support
+                    requested.push("draft/chathistory");
 
-                        if contains("extended-join") {
-                            requested.push("extended-join");
-                        }
+                    if contains("draft/event-playback") {
+                        requested.push("draft/event-playback");
                     }
-                    if contains("batch") {
-                        requested.push("batch");
+                }
+                // We require labeled-response so we can properly tag echo-messages
+                if contains("labeled-response") && contains("echo-message") {
+                    requested.push("echo-message");
+                }
+                if self.listed_caps.iter().any(|cap| cap.starts_with("sasl")) {
+                    requested.push("sasl");
+                }
 
-                        // We require batch for our chathistory support
-                        if contains("draft/chathistory") {
-                            requested.push("draft/chathistory");
 
-                            if contains("draft/event-playback") {
-                                requested.push("draft/event-playback");
-                            }
-                        }
-                    }
-                    if contains("labeled-response") {
-                        requested.push("labeled-response");
+                if !requested.is_empty() {
+                    // Request
+                    self.registration_step = RegistrationStep::Req;
 
-                        // We require labeled-response so we can properly tag echo-messages
-                        if contains("echo-message") {
-                            requested.push("echo-message");
-                        }
+                    for message in group_capability_requests(&requested) {
+                        self.handle.try_send(message)?;
                     }
-                    if self.listed_caps.iter().any(|cap| cap.starts_with("sasl")) {
-                        requested.push("sasl");
-                    }
-                    if contains("multi-prefix") {
-                        requested.push("multi-prefix");
-                    }
-                    if contains("draft/read-marker") {
-                        requested.push("draft/read-marker");
-                    }
-
-                    if !requested.is_empty() {
-                        // Request
-                        self.registration_step = RegistrationStep::Req;
-
-                        for message in group_capability_requests(&requested) {
-                            self.handle.try_send(message)?;
-                        }
-                    } else {
-                        // If none requested, end negotiation
-                        self.registration_step = RegistrationStep::End;
-                        self.handle.try_send(command!("CAP", "END"))?;
-                    }
+                } else {
+                    // If none requested, end negotiation
+                    self.registration_step = RegistrationStep::End;
+                    self.handle.try_send(command!("CAP", "END"))?;
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "ACK" => {
@@ -837,71 +811,32 @@ impl Client {
 
                 let new_caps = caps.split(' ').map(String::from).collect::<Vec<String>>();
 
-                let mut requested = vec![];
+                let newly_contains = |s: &str| new_caps.iter().any(|cap| cap == s);
 
-                let newly_contains = |s| new_caps.iter().any(|cap| cap == s);
+                let mut requested: Vec<&str> = UNCONDITIONAL_CAPS
+                    .iter()
+                    .copied()
+                    .filter(|c| newly_contains(c))
+                    .collect();
 
-                let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
+                let contains = |s: &str| self.listed_caps.iter().any(|cap| cap == s);
 
-                if newly_contains("invite-notify") {
-                    requested.push("invite-notify");
-                }
-                if newly_contains("userhost-in-names") {
-                    requested.push("userhost-in-names");
-                }
-                if newly_contains("away-notify") {
-                    requested.push("away-notify");
-                }
-                if newly_contains("message-tags") {
-                    requested.push("message-tags");
-                }
-                if newly_contains("server-time") {
-                    requested.push("server-time");
-                }
-                if newly_contains("chghost") {
-                    requested.push("chghost");
-                }
-                if newly_contains("extended-monitor") {
-                    requested.push("extended-monitor");
-                }
-                if contains("account-notify") || newly_contains("account-notify") {
-                    if newly_contains("account-notify") {
-                        requested.push("account-notify");
-                    }
+                let either_contains = |s: &str| contains(s) || newly_contains(s);
 
-                    if newly_contains("extended-join") {
-                        requested.push("extended-join");
+                if either_contains("account-notify") && newly_contains("extended-join") {
+                    requested.push("extended-join");
+                }
+                // We require batch for our chathistory support
+                if either_contains("batch") && newly_contains("draft/chathistory") && self.config.chathistory {
+                    requested.push("draft/chathistory");
+
+                    if newly_contains("draft/event-playback") {
+                        requested.push("draft/event-playback");
                     }
                 }
-                if contains("batch") || newly_contains("batch") {
-                    if newly_contains("batch") {
-                        requested.push("batch");
-                    }
-
-                    // We require batch for our chathistory support
-                    if newly_contains("draft/chathistory") && self.config.chathistory {
-                        requested.push("draft/chathistory");
-
-                        if newly_contains("draft/event-playback") {
-                            requested.push("draft/event-playback");
-                        }
-                    }
-                }
-                if contains("labeled-response") || newly_contains("labeled-response") {
-                    if newly_contains("labeled-response") {
-                        requested.push("labeled-response");
-                    }
-
-                    // We require labeled-response so we can properly tag echo-messages
-                    if newly_contains("echo-message") {
-                        requested.push("echo-message");
-                    }
-                }
-                if newly_contains("multi-prefix") {
-                    requested.push("multi-prefix");
-                }
-                if newly_contains("draft/read-marker") {
-                    requested.push("draft/read-marker");
+                // We require labeled-response so we can properly tag echo-messages
+                if either_contains("labeled-response") && newly_contains("echo-message") {
+                    requested.push("echo-message");
                 }
 
                 if !requested.is_empty() {
@@ -1003,7 +938,7 @@ impl Client {
                                 )]);
                             }
                             dcc::Command::Unsupported(command) => {
-                                bail!("Unsupported DCC command: {command}",);
+                                bail!("Unsupported DCC command: {command}");
                             }
                         }
                     } else {
@@ -1168,11 +1103,18 @@ impl Client {
                 // Updated actual nick
                 let nick = ok!(args.first());
                 self.resolved_nick = Some(nick.to_string());
+            }
+            // end of registration (including ISUPPORT) is indicated by either RPL_ENDOFMOTD or
+            // ERR_NOMOTD:  https://modern.ircdocs.horse/#connection-registration
+            Command::Numeric(RPL_ENDOFMOTD, _args) | Command::Numeric(ERR_NOMOTD, _args) => {
+                let Some(nick) = self.resolved_nick.as_deref() else {
+                    bail!("Error, registration completed without RPL_WELCOME completed");
+                };
 
                 // Send nick password & ghost
                 if let Some(nick_pass) = self.config.nick_password.as_ref() {
                     // Try ghost recovery if we couldn't claim our nick
-                    if self.config.should_ghost && nick != &self.config.nickname {
+                    if self.config.should_ghost && nick != self.config.nickname {
                         for sequence in &self.config.ghost_sequence {
                             self.handle.try_send(command!(
                                 "PRIVMSG",
