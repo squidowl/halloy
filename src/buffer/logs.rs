@@ -91,6 +91,7 @@ impl Logs {
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
+                    scroll_view::Event::HidePreview(..) => None,
                 });
 
                 (command.map(Message::ScrollView), event)

@@ -15,6 +15,7 @@ pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
 pub use self::keys::Keyboard;
 pub use self::notification::Notifications;
+pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
@@ -31,6 +32,7 @@ pub mod channel;
 pub mod file_transfer;
 pub mod keys;
 pub mod notification;
+pub mod preview;
 pub mod proxy;
 pub mod server;
 pub mod sidebar;
@@ -51,6 +53,7 @@ pub struct Config {
     pub notifications: Notifications<Sound>,
     pub file_transfer: FileTransfer,
     pub tooltips: bool,
+    pub preview: Preview,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -165,6 +168,8 @@ impl Config {
             pub file_transfer: FileTransfer,
             #[serde(default = "default_tooltip")]
             pub tooltips: bool,
+            #[serde(default)]
+            pub preview: Preview,
         }
 
         let path = Self::path();
@@ -189,6 +194,7 @@ impl Config {
             notifications,
             file_transfer,
             tooltips,
+            preview,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_passwords().await?;
@@ -211,6 +217,7 @@ impl Config {
             notifications: loaded_notifications,
             file_transfer,
             tooltips,
+            preview,
         })
     }
 

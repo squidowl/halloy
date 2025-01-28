@@ -52,6 +52,7 @@ pub enum Event {
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
+    HidePreview(history::Kind, message::Hash, url::Url),
 }
 
 impl Buffer {
@@ -111,6 +112,9 @@ impl Buffer {
                     channel::Event::History(task) => Event::History(task),
                     channel::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                     channel::Event::PreviewChanged => Event::PreviewChanged,
+                    channel::Event::HidePreview(kind, hash, url) => {
+                        Event::HidePreview(kind, hash, url)
+                    }
                 });
 
                 (command.map(Message::Channel), event)
@@ -135,6 +139,9 @@ impl Buffer {
                     query::Event::History(task) => Event::History(task),
                     query::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                     query::Event::PreviewChanged => Event::PreviewChanged,
+                    query::Event::HidePreview(kind, hash, url) => {
+                        Event::HidePreview(kind, hash, url)
+                    }
                 });
 
                 (command.map(Message::Query), event)

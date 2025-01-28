@@ -438,6 +438,15 @@ impl Manager {
     pub fn input<'a>(&'a self, buffer: &buffer::Upstream) -> input::Cache<'a> {
         self.data.input.get(buffer)
     }
+
+    pub fn hide_preview(
+        &mut self,
+        kind: impl Into<history::Kind>,
+        message: message::Hash,
+        url: url::Url,
+    ) {
+        self.data.hide_preview(&kind.into(), message, url);
+    }
 }
 
 fn with_limit<'a>(
@@ -830,6 +839,12 @@ impl Data {
                 })
             })
             .collect()
+    }
+
+    fn hide_preview(&mut self, kind: &history::Kind, message: message::Hash, url: url::Url) {
+        if let Some(history) = self.map.get_mut(kind) {
+            history.hide_preview(message, url);
+        }
     }
 }
 

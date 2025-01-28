@@ -6,16 +6,16 @@ use data::message::{self, Limit};
 use data::server::Server;
 use data::{client, history, preview, target, Config, Preview};
 use iced::widget::{
-    button, column, container, horizontal_rule, horizontal_space, image, row, scrollable, text,
-    Scrollable,
+    button, center, column, container, horizontal_rule, horizontal_space, image, mouse_area, row,
+    scrollable, text, Scrollable,
 };
-use iced::{padding, ContentFit, Length, Task};
+use iced::{alignment, padding, ContentFit, Length, Task};
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::user_context;
 use crate::widget::{notify_visibility, selectable_text, Element, MESSAGE_MARKER_TEXT};
-use crate::{font, theme};
+use crate::{font, icon, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -33,6 +33,9 @@ pub enum Message {
     RequestOlderChatHistory,
     EnteringViewport(message::Hash, Vec<url::Url>),
     ExitingViewport(message::Hash),
+    PreviewHovered(message::Hash, usize),
+    PreviewUnhovered(message::Hash, usize),
+    HidePreview(message::Hash, url::Url),
 }
 
 #[derive(Debug, Clone)]
@@ -42,6 +45,7 @@ pub enum Event {
     GoToMessage(Server, target::Channel, message::Hash),
     RequestOlderChatHistory,
     PreviewChanged,
+    HidePreview(history::Kind, message::Hash, url::Url),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -199,12 +203,18 @@ pub fn view<'a>(
                             if let (true, Some(preview::State::Loaded(preview))) =
                                 (is_message_visible, previews.get(&url))
                             {
-                                column = column.push(preview_row(
+                                let is_hovered = state
+                                    .hovered_preview
+                                    .is_some_and(|(a, b)| a == message.hash && b == idx);
+
+                                column = column.push_maybe(preview_row(
                                     message,
                                     preview,
+                                    &url,
                                     idx,
                                     max_nick_width,
                                     max_prefix_width,
+                                    is_hovered,
                                     config,
                                 ));
                             }
@@ -313,6 +323,7 @@ pub struct State {
     status: Status,
     pending_scroll_to: Option<message::Hash>,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
+    hovered_preview: Option<(message::Hash, usize)>,
 }
 
 impl Default for State {
@@ -323,6 +334,7 @@ impl Default for State {
             status: Status::default(),
             pending_scroll_to: None,
             visible_url_messages: HashMap::new(),
+            hovered_preview: None,
         }
     }
 }
@@ -512,6 +524,24 @@ impl State {
             Message::ExitingViewport(hash) => {
                 self.visible_url_messages.remove(&hash);
                 return (Task::none(), Some(Event::PreviewChanged));
+            }
+            Message::PreviewHovered(hash, idx) => {
+                self.hovered_preview = Some((hash, idx));
+            }
+            Message::PreviewUnhovered(hash, idx) => {
+                // Remove if its the one currently hovered
+                if self
+                    .hovered_preview
+                    .is_some_and(|(a, b)| a == hash && b == idx)
+                {
+                    self.hovered_preview = None;
+                }
+            }
+            Message::HidePreview(message, url) => {
+                return (
+                    Task::none(),
+                    Some(Event::HidePreview(kind.into(), message, url)),
+                );
             }
         }
 
@@ -916,11 +946,21 @@ mod keyed {
 fn preview_row<'a>(
     message: &'a data::Message,
     preview: &'a Preview,
+    url: &url::Url,
     idx: usize,
     max_nick_width: Option<f32>,
     max_prefix_width: Option<f32>,
+    is_hovered: bool,
     config: &'a Config,
-) -> Element<'a, Message> {
+) -> Option<Element<'a, Message>> {
+    let target = match &message.target {
+        message::Target::Channel { channel, .. } => channel.to_target(),
+        message::Target::Query { query, .. } => query.to_target(),
+        message::Target::Server { .. }
+        | message::Target::Logs
+        | message::Target::Highlights { .. } => return None,
+    };
+
     let content = match preview {
         data::Preview::Card(preview::Card {
             image: preview::Image { path, .. },
@@ -929,6 +969,10 @@ fn preview_row<'a>(
             canonical_url,
             ..
         }) => {
+            if !config.preview.card.enabled(&target) {
+                return None;
+            }
+
             keyed(
                 keyed::Key::Preview(message.hash, idx),
                 button(
@@ -953,17 +997,23 @@ fn preview_row<'a>(
                 .style(theme::button::bare),
             )
         }
-        data::Preview::Image(preview::Image { path, url, .. }) => keyed(
-            keyed::Key::Preview(message.hash, idx),
-            button(
-                container(image(path).content_fit(ContentFit::ScaleDown))
-                    .max_width(550)
-                    .max_height(350),
+        data::Preview::Image(preview::Image { path, url, .. }) => {
+            if !config.preview.image.enabled(&target) {
+                return None;
+            }
+
+            keyed(
+                keyed::Key::Preview(message.hash, idx),
+                button(
+                    container(image(path).content_fit(ContentFit::ScaleDown))
+                        .max_width(550)
+                        .max_height(350),
+                )
+                .on_press(Message::Link(message::Link::Url(url.to_string())))
+                .padding(0)
+                .style(theme::button::bare),
             )
-            .on_press(Message::Link(message::Link::Url(url.to_string())))
-            .padding(0)
-            .style(theme::button::bare),
-        ),
+        }
     };
 
     let timestamp_gap = config
@@ -971,7 +1021,7 @@ fn preview_row<'a>(
         .format_timestamp(&message.server_time)
         .map(|timestamp| selectable_text(" ".repeat(timestamp.chars().count())));
 
-    match &config.buffer.nickname.alignment {
+    let aligned_content = match &config.buffer.nickname.alignment {
         data::buffer::Alignment::Left => row![].push_maybe(timestamp_gap).push(content).into(),
         data::buffer::Alignment::Right => {
             let prefixes = message.target.prefixes().map_or(
@@ -1032,7 +1082,33 @@ fn preview_row<'a>(
             row![timestamp_nickname_row, content].into()
         }
         data::buffer::Alignment::Top => content,
-    }
+    };
+
+    let hide_button = if is_hovered {
+        Some(
+            button(center(icon::cancel()))
+                .padding(5)
+                .width(22)
+                .height(22)
+                .on_press(Message::HidePreview(message.hash, url.clone()))
+                .style(|theme, status| theme::button::secondary(theme, status, false)),
+        )
+    } else {
+        None
+    };
+
+    Some(
+        mouse_area(
+            row![aligned_content]
+                .push_maybe(hide_button)
+                .align_y(alignment::Vertical::Top)
+                .width(Length::Fill)
+                .spacing(4),
+        )
+        .on_enter(Message::PreviewHovered(message.hash, idx))
+        .on_exit(Message::PreviewUnhovered(message.hash, idx))
+        .into(),
+    )
 }
 
 mod correct_viewport {

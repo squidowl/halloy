@@ -25,6 +25,7 @@ pub enum Event {
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
+    HidePreview(history::Kind, message::Hash, url::Url),
 }
 
 pub fn view<'a>(
@@ -308,7 +309,7 @@ pub fn view<'a>(
             input,
             is_focused,
             !is_connected_to_channel,
-            config
+            config,
         )
         .map(Message::InputView)
     });
@@ -384,6 +385,9 @@ impl Channel {
                         Some(Event::RequestOlderChatHistory)
                     }
                     scroll_view::Event::PreviewChanged => Some(Event::PreviewChanged),
+                    scroll_view::Event::HidePreview(kind, hash, url) => {
+                        Some(Event::HidePreview(kind, hash, url))
+                    }
                 });
 
                 (command.map(Message::ScrollView), event)

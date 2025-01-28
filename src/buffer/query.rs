@@ -18,6 +18,7 @@ pub enum Event {
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
+    HidePreview(history::Kind, message::Hash, url::Url),
 }
 
 pub fn view<'a>(
@@ -228,8 +229,14 @@ pub fn view<'a>(
     let text_input = show_text_input.then(|| {
         column![
             vertical_space().height(4),
-            input_view::view(&state.input_view, input, is_focused, !status.connected(), config)
-                .map(Message::InputView)
+            input_view::view(
+                &state.input_view,
+                input,
+                is_focused,
+                !status.connected(),
+                config
+            )
+            .map(Message::InputView)
         ]
         .width(Length::Fill)
     });
@@ -291,6 +298,9 @@ impl Query {
                         Some(Event::RequestOlderChatHistory)
                     }
                     scroll_view::Event::PreviewChanged => Some(Event::PreviewChanged),
+                    scroll_view::Event::HidePreview(kind, hash, url) => {
+                        Some(Event::HidePreview(kind, hash, url))
+                    }
                 });
 
                 (command.map(Message::ScrollView), event)

@@ -89,8 +89,14 @@ pub fn view<'a>(
     let text_input = show_text_input.then(|| {
         column![
             vertical_space().height(4),
-            input_view::view(&state.input_view, input, is_focused, !status.connected(), config)
-                .map(Message::InputView)
+            input_view::view(
+                &state.input_view,
+                input,
+                is_focused,
+                !status.connected(),
+                config
+            )
+            .map(Message::InputView)
         ]
         .width(Length::Fill)
     });
@@ -148,6 +154,7 @@ impl Server {
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
+                    scroll_view::Event::HidePreview(..) => None,
                 });
 
                 (command.map(Message::ScrollView), event)

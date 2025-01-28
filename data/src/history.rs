@@ -482,6 +482,21 @@ impl History {
             }
         }
     }
+
+    pub fn hide_preview(&mut self, message: message::Hash, url: url::Url) {
+        if let Self::Full {
+            messages,
+            last_updated_at,
+            ..
+        } = self
+        {
+            if let Some(message) = messages.iter_mut().find(|m| m.hash == message) {
+                message.hidden_urls.insert(url);
+
+                *last_updated_at = Some(Instant::now());
+            }
+        }
+    }
 }
 
 /// Insert the incoming message into the provided vector, sorted

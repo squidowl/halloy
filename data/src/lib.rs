@@ -12,6 +12,7 @@ pub use self::pane::Pane;
 pub use self::preview::Preview;
 pub use self::server::Server;
 pub use self::shortcut::Shortcut;
+pub use self::target::Target;
 pub use self::url::Url;
 pub use self::user::User;
 pub use self::version::Version;
