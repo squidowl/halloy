@@ -921,6 +921,8 @@ impl Client {
             Command::CAP(_, sub, a, b) if sub == "DEL" => {
                 let caps = ok!(b.as_ref().or(a.as_ref()));
 
+                log::info!("[{}] capabilities no longer supported: {caps}", self.server);
+
                 let del_caps = caps.split(' ').collect::<Vec<_>>();
 
                 if del_caps.contains(&"labeled-response") {
