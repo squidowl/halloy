@@ -5,14 +5,27 @@ use crate::Target;
 pub type Card = Entry;
 pub type Image = Entry;
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Preview {
+    #[serde(default = "default_bool_true")]
+    pub enabled: bool,
     #[serde(default)]
     pub request: Request,
     #[serde(default)]
     pub card: Card,
     #[serde(default)]
     pub image: Image,
+}
+
+impl Default for Preview {
+    fn default() -> Self {
+        Self {
+            enabled: default_bool_true(),
+            request: Request::default(),
+            card: Card::default(),
+            image: Image::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -62,32 +75,16 @@ impl Default for Request {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct Entry {
-    #[serde(default = "default_bool_true")]
-    pub enabled: bool,
     #[serde(default)]
     pub exclude: Vec<String>,
     #[serde(default)]
     pub include: Vec<String>,
 }
 
-impl Default for Entry {
-    fn default() -> Self {
-        Self {
-            enabled: default_bool_true(),
-            exclude: vec![],
-            include: vec![],
-        }
-    }
-}
-
 impl Entry {
-    pub fn enabled(&self, target: &Target) -> bool {
-        if !self.enabled {
-            return false;
-        }
-
+    pub fn visible(&self, target: &Target) -> bool {
         match target {
             Target::Query(_) => true,
             Target::Channel(channel) => {

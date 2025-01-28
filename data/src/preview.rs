@@ -55,6 +55,10 @@ pub enum State {
 }
 
 pub async fn load(url: Url, config: config::Preview) -> Result<Preview, LoadError> {
+    if !config.enabled {
+        return Err(LoadError::Disabled);
+    }
+
     if let Some(state) = cache::load(&url, &config).await {
         match state {
             cache::State::Ok(preview) => return Ok(preview),
@@ -235,6 +239,8 @@ fn decode_html_string(s: &str) -> String {
 
 #[derive(Debug, thiserror::Error)]
 pub enum LoadError {
+    #[error("previews disabled in config")]
+    Disabled,
     #[error("cached failed attempt")]
     CachedFailed,
     #[error("url doesn't contain open graph data")]
