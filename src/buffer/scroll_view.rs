@@ -979,11 +979,14 @@ fn preview_row<'a>(
                 button(
                     container(
                         column![
-                            column![text(title).style(theme::text::url)].push_maybe(
-                                description.as_ref().map(|description| {
-                                    text(description).style(theme::text::primary)
-                                })
-                            ),
+                            column![text(title)
+                                .shaping(text::Shaping::Advanced)
+                                .style(theme::text::url)]
+                            .push_maybe(description.as_ref().map(|description| {
+                                text(description)
+                                    .shaping(text::Shaping::Advanced)
+                                    .style(theme::text::primary)
+                            })),
                             container(image(path).content_fit(ContentFit::ScaleDown))
                                 .max_height(200)
                         ]
