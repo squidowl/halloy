@@ -1,7 +1,13 @@
-use std::{collections::HashMap, io, sync::LazyLock, time::Duration};
+use std::{
+    collections::HashMap,
+    io,
+    sync::{LazyLock, OnceLock},
+    time::Duration,
+};
 
 use log::debug;
 use regex::Regex;
+use reqwest::header::{self, HeaderValue};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::{
@@ -12,6 +18,8 @@ use tokio::{
 };
 use url::Url;
 
+use crate::config;
+
 pub use self::card::Card;
 pub use self::image::Image;
 
@@ -19,21 +27,10 @@ mod cache;
 pub mod card;
 pub mod image;
 
-// TODO: Make these configurable at request level
-const TIMEOUT: Duration = Duration::from_secs(10);
-const RATE_LIMIT_DELAY: Duration = Duration::from_millis(100);
-
 // Prevent us from rate limiting ourselves
-static RATE_LIMIT: Semaphore = Semaphore::const_new(4);
-static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
-    reqwest::Client::builder()
-        // Spoof user agent for more reliable
-        // opengraph results
-        .user_agent("WhatsApp/2")
-        .timeout(TIMEOUT)
-        .build()
-        .expect("build client")
-});
+static RATE_LIMIT: OnceLock<Semaphore> = OnceLock::new();
+static CLIENT: LazyLock<reqwest::Client> =
+    LazyLock::new(|| reqwest::Client::builder().build().expect("build client"));
 static OPENGRAPH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"(?m)<meta[^>]+(name|property|content)=("[^"]+"|'[^']+')[^>]+(name|property|content)=("[^"]+"|'[^']+')[^>]*\/?>"#,
@@ -57,15 +54,15 @@ pub enum State {
     Error(LoadError),
 }
 
-pub async fn load(url: Url) -> Result<Preview, LoadError> {
-    if let Some(state) = cache::load(&url).await {
+pub async fn load(url: Url, config: config::Preview) -> Result<Preview, LoadError> {
+    if let Some(state) = cache::load(&url, &config).await {
         match state {
             cache::State::Ok(preview) => return Ok(preview),
             cache::State::Error => return Err(LoadError::CachedFailed),
         }
     }
 
-    match load_uncached(url.clone()).await {
+    match load_uncached(url.clone(), &config).await {
         Ok(preview) => {
             cache::save(&url, cache::State::Ok(preview.clone())).await;
 
@@ -79,10 +76,10 @@ pub async fn load(url: Url) -> Result<Preview, LoadError> {
     }
 }
 
-async fn load_uncached(url: Url) -> Result<Preview, LoadError> {
+async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, LoadError> {
     debug!("Loading preview for {url}");
 
-    match fetch(url.clone()).await? {
+    match fetch(url.clone(), config).await? {
         Fetched::Image(image) => Ok(Preview::Image(image)),
         Fetched::Other(bytes) => {
             let mut canonical_url = None;
@@ -125,7 +122,7 @@ async fn load_uncached(url: Url) -> Result<Preview, LoadError> {
 
             let image_url = image_url.ok_or(LoadError::MissingProperty("image"))?;
 
-            let Fetched::Image(image) = fetch(image_url).await? else {
+            let Fetched::Image(image) = fetch(image_url, config).await? else {
                 return Err(LoadError::NotImage);
             };
 
@@ -145,16 +142,22 @@ enum Fetched {
     Other(Vec<u8>),
 }
 
-async fn fetch(url: Url) -> Result<Fetched, LoadError> {
-    // TODO: Make these configurable
-    // 10 mb
-    const MAX_IMAGE_SIZE: usize = 10 * 1024 * 1024;
-    // 500 kb
-    const MAX_OTHER_SIZE: usize = 500 * 1024;
+async fn fetch(url: Url, config: &config::Preview) -> Result<Fetched, LoadError> {
+    // WARN: `concurrency` changes aren't picked up until app is relaunchd
+    let _permit = RATE_LIMIT
+        .get_or_init(|| Semaphore::new(config.request.concurrency))
+        .acquire()
+        .await;
 
-    let _permit = RATE_LIMIT.acquire().await;
+    let mut req = CLIENT
+        .get(url.clone())
+        .timeout(Duration::from_millis(config.request.timeout_ms));
 
-    let mut resp = CLIENT.get(url.clone()).send().await?.error_for_status()?;
+    if let Ok(user_agent) = HeaderValue::from_str(&config.request.user_agent) {
+        req = req.header(header::USER_AGENT, user_agent);
+    }
+
+    let mut resp = req.send().await?.error_for_status()?;
 
     let Some(first_chunk) = resp.chunk().await? else {
         return Err(LoadError::EmptyBody);
@@ -180,7 +183,7 @@ async fn fetch(url: Url) -> Result<Fetched, LoadError> {
             let mut written = first_chunk.len();
 
             while let Some(chunk) = resp.chunk().await? {
-                if written + chunk.len() > MAX_IMAGE_SIZE {
+                if written + chunk.len() > config.request.max_image_size {
                     return Err(LoadError::ImageTooLarge);
                 }
 
@@ -202,12 +205,14 @@ async fn fetch(url: Url) -> Result<Fetched, LoadError> {
             Fetched::Image(Image::new(format, url, digest))
         }
         None => {
-            let mut buffer = Vec::with_capacity(MAX_OTHER_SIZE);
+            let max_scrape_size = config.request.max_scrape_size;
+
+            let mut buffer = Vec::with_capacity(max_scrape_size);
             buffer.extend(first_chunk);
 
             while let Some(mut chunk) = resp.chunk().await? {
-                if buffer.len() + chunk.len() > MAX_OTHER_SIZE {
-                    buffer.extend(chunk.split_to(MAX_OTHER_SIZE.saturating_sub(buffer.len())));
+                if buffer.len() + chunk.len() > max_scrape_size {
+                    buffer.extend(chunk.split_to(max_scrape_size.saturating_sub(buffer.len())));
                     break;
                 } else {
                     buffer.extend(chunk);
@@ -218,9 +223,8 @@ async fn fetch(url: Url) -> Result<Fetched, LoadError> {
         }
     };
 
-    // Artifically wait before releasing this
-    // RATE_LIMIT permit
-    time::sleep(RATE_LIMIT_DELAY).await;
+    // Artifically wait before releasing this permit for rate limiting
+    time::sleep(Duration::from_millis(config.request.delay_ms)).await;
 
     Ok(fetched)
 }

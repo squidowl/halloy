@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use url::Url;
 
-use crate::environment;
+use crate::{config, environment};
 
 use super::{image, Preview};
 
@@ -16,7 +16,7 @@ pub enum State {
     Error,
 }
 
-pub async fn load(url: &Url) -> Option<State> {
+pub async fn load(url: &Url, config: &config::Preview) -> Option<State> {
     let path = state_path(url);
 
     if !path.exists() {
@@ -29,12 +29,12 @@ pub async fn load(url: &Url) -> Option<State> {
     match &state {
         State::Ok(Preview::Card(card)) => {
             if !card.image.path.exists() {
-                super::fetch(card.image.url.clone()).await.ok()?;
+                super::fetch(card.image.url.clone(), config).await.ok()?;
             }
         }
         State::Ok(Preview::Image(image)) => {
             if !image.path.exists() {
-                super::fetch(image.url.clone()).await.ok()?;
+                super::fetch(image.url.clone(), config).await.ok()?;
             }
         }
         State::Error => {}

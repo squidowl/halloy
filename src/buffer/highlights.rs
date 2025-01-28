@@ -216,6 +216,7 @@ impl Highlights {
                     }
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
+                    scroll_view::Event::HidePreview(..) => None,
                 });
 
                 (command.map(Message::ScrollView), event)

@@ -899,8 +899,9 @@ impl Halloy {
             Message::Tick(now) => {
                 if let Err(e) = self.clients.tick(now) {
                     handle_irc_error(e);
-                    Task::none()
-                } else if let Screen::Dashboard(dashboard) = &mut self.screen {
+                }
+
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.tick(now).map(Message::Dashboard)
                 } else {
                     Task::none()

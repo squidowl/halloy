@@ -396,6 +396,7 @@ impl Serialize for Message {
             // Old field before we had fragments,
             // added for downgrade compatability
             text: Cow<'a, str>,
+            hidden_urls: &'a HashSet<url::Url>,
         }
 
         Data {
@@ -405,6 +406,7 @@ impl Serialize for Message {
             target: &self.target,
             content: &self.content,
             text: self.content.text(),
+            hidden_urls: &self.hidden_urls,
         }
         .serialize(serializer)
     }
@@ -427,6 +429,8 @@ impl<'de> Deserialize<'de> for Message {
             // Old field before we had fragments
             text: Option<String>,
             id: Option<String>,
+            #[serde(default)]
+            hidden_urls: HashSet<url::Url>,
         }
 
         let Data {
@@ -437,6 +441,7 @@ impl<'de> Deserialize<'de> for Message {
             content,
             text,
             id,
+            hidden_urls,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -459,7 +464,7 @@ impl<'de> Deserialize<'de> for Message {
             content,
             id,
             hash,
-            hidden_urls: HashSet::default(),
+            hidden_urls,
         })
     }
 }

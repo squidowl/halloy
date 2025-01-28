@@ -421,7 +421,10 @@ impl Dashboard {
                                     return (
                                         Task::batch(missing.into_iter().map(|url| {
                                             Task::perform(
-                                                data::preview::load(url.clone()),
+                                                data::preview::load(
+                                                    url.clone(),
+                                                    config.preview.clone(),
+                                                ),
                                                 move |result| {
                                                     Message::LoadPreview((url.clone(), result))
                                                 },
@@ -429,6 +432,9 @@ impl Dashboard {
                                         })),
                                         None,
                                     );
+                                }
+                                buffer::Event::HidePreview(kind, hash, url) => {
+                                    self.history.hide_preview(kind, hash, url);
                                 }
                             }
 
