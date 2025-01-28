@@ -91,12 +91,12 @@ async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, Lo
                 .captures_iter(&String::from_utf8_lossy(&bytes))
                 .map(|c| c.extract())
             {
-                let value_1 = unescape(
+                let value_1 = decode_html_string(
                     value_1
                         .trim_start_matches(['\'', '"'])
                         .trim_end_matches(['\'', '"']),
                 );
-                let value_2 = unescape(
+                let value_2 = decode_html_string(
                     value_2
                         .trim_start_matches(['\'', '"'])
                         .trim_end_matches(['\'', '"']),
@@ -229,14 +229,8 @@ async fn fetch(url: Url, config: &config::Preview) -> Result<Fetched, LoadError>
     Ok(fetched)
 }
 
-fn unescape(s: &str) -> String {
-    s.replace("&quot;", "\"")
-        .replace("&#x27", "'")
-        .replace("&#39;", "'")
-        .replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
+fn decode_html_string(s: &str) -> String {
+    html_escape::decode_html_entities(s).to_string()
 }
 
 #[derive(Debug, thiserror::Error)]
