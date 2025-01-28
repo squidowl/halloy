@@ -77,8 +77,12 @@ pub fn server(theme: &Theme, server: Option<&message::source::Server>) -> Style 
             Kind::ChangeHost => colors.change_host,
             Kind::MonitoredOnline => colors.monitored_online,
             Kind::MonitoredOffline => colors.monitored_offline,
-            Kind::StandardReply(StandardReply::Fail) => colors.standard_reply_fail,
-            Kind::StandardReply(StandardReply::Warn) => colors.standard_reply_warn,
+            Kind::StandardReply(StandardReply::Fail) => colors
+                .standard_reply_fail
+                .or(Some(theme.colors().text.error)),
+            Kind::StandardReply(StandardReply::Warn) => colors
+                .standard_reply_warn
+                .or(Some(theme.colors().text.error)),
             Kind::StandardReply(StandardReply::Note) => colors.standard_reply_note,
         })
         .or(Some(colors.default));
