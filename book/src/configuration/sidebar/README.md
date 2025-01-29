@@ -1,61 +1,82 @@
 # `[sidebar]`
 
-Customize the sidebar of Halloy.
-
-**Example**
-
-```toml
-[sidebar]
-buffer_action = "replace-pane"
-buffer_focused_action = "close-pane"
-unread_indicator = "title"
-position = "top"
-```
+Sidebar settings for Halloy.
 
 ## `buffer_action`
 
 Action when pressing buffers in the sidebar. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the pressed buffer. `"new-window"` opens a new window each time.
 
-- **type**: string
-- **values**: `"new-pane"`, `"replace-pane"`, `"new-window"`
-- **default**: `"new-pane"`
+```toml
+# Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+buffer_action = "replace-pane"
+```
+
 
 ## `buffer_focused_action`
 
 Action when pressing a focused buffer in the sidebar. `"close-pane"` will close the focused pane.
 
-- **type**: string
-- **values**: `"close-pane"`
-- **default**: not set
+```toml
+# Type: string
+# Values: "close-pane"
+# Default: not set
+
+[sidebar]
+buffer_focused_action = "close-pane"
+```
 
 ## `unread_indicator`
 
 Unread buffer indicator style.
 
-- **type**: string
-- **values**: `"dot"`, `"title"`, `"none"`
-- **default**: `"dot"`
+```toml
+# Type: string
+# Values: "dot", "title", "none"
+# Default: "dot"
+
+[sidebar]
+unread_indicator = "dot"
+```
 
 ## `position`
 
 Sidebar position within the application window.
 
-- **type**: string
-- **values**: `"left"`, `"top"`, `"right"`, `"bottom"`
-- **default**: `"left"`
+```toml
+# Type: string
+# Values: "left", "top", "right", "bottom"
+# Default: "left"
+
+[sidebar]
+position = "left"
+```
 
 ## `width`
 
-Specify sidebar width in pixels. Only used if `position` is `"left"` or `"right"`
+Specify sidebar width in pixels. Only used if `position` is `"left"` or `"right"`.
 
-- **type**: integer
-- **values**: any positive integer
-- **default**: `120`
+```toml
+# Type: integer
+# Values: any positive integer
+# Default: 120
+
+[sidebar]
+width = 120
+```
 
 ## `show_menu_button`
 
 Show or hide the user menu button in the sidemenu.
 
-- **type**: bool
-- **values**: `true`, `false`
-- **default**: `true`
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[sidebar]
+show_menu_button = true
+```
