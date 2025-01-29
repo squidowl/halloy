@@ -30,6 +30,12 @@ pub fn data_dir() -> PathBuf {
     })
 }
 
+pub fn cache_dir() -> PathBuf {
+    dirs_next::cache_dir()
+        .expect("expected valid cache dir")
+        .join("halloy")
+}
+
 /// Checks if a config file exists in the same directory as the executable.
 /// If so, it'll use that directory for both config & data dirs.
 fn portable_dir() -> Option<PathBuf> {
