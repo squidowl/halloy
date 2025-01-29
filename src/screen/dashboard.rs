@@ -1182,6 +1182,7 @@ impl Dashboard {
                 &self.panes,
                 self.focus,
                 config.sidebar,
+                &config.servers,
                 &config.keyboard,
                 &self.file_transfers,
                 version,
