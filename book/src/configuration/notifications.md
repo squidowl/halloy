@@ -29,23 +29,37 @@ Following notifications are available:
 Notification sound.
 Supports both built-in sounds, and external sound files (`mp3`, `ogg`, `flac` or `wav` placed inside the `sounds` folder within the configuration directory).
 
-- **type**: string
-- **values**: `"dong"`, `"peck"`, `"ring"`, `"squeak"`, `"whistle"`, `"bonk"`, `"sing"` or external sound.
-- **default**: not set
+```toml
+# Type: string
+# Values: "dong", "peck", "ring", "squeak", "whistle", "bonk", "sing" or external sound.
+# Default: not set
 
+[notifications.<notification>]
+sound = "dong"
+```
 
 ## `show_toast`
 
 Notification should trigger a OS toast.
 
-- **type**: boolean
-- **values**: `true`, `false`
-- **default**: `false`
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[notifications.<notification>]
+show_toast = true
+```
 
 ## `delay`
 
 Delay in milliseconds before triggering the next notification.
 
-- **type**: integer
-- **values**: `0` or greater
-- **default**: `500`
+```toml
+# Type: integer
+# Values: any positive integer
+# Default: 500
+
+[notifications.<notification>]
+delay = 250
+```
