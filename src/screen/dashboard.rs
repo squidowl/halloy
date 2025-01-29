@@ -765,6 +765,9 @@ impl Dashboard {
                                     }
                                 }
                             },
+                            command_bar::Command::Window(command) => match command {
+                                command_bar::Window::ToggleFullscreen => (window::toggle_fullscreen(), None),
+                            },
                         };
 
                         return (
@@ -940,6 +943,9 @@ impl Dashboard {
                             None,
                         );
                     }
+                    ToggleFullscreen => {
+                        return (window::toggle_fullscreen(), None)
+                    },
                 }
             }
             Message::FileTransfer(update) => {
