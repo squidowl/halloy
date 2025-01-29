@@ -1,6 +1,6 @@
 pub use data::buffer::{Internal, Settings, Upstream};
 use data::user::Nick;
-use data::{buffer, file_transfer, history, message, target, Config};
+use data::{buffer, file_transfer, history, message, preview, target, Config};
 use iced::Task;
 
 pub use self::channel::Channel;
@@ -51,6 +51,8 @@ pub enum Event {
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
+    PreviewChanged,
+    HidePreview(history::Kind, message::Hash, url::Url),
 }
 
 impl Buffer {
@@ -109,6 +111,10 @@ impl Buffer {
                     channel::Event::OpenChannel(channel) => Event::OpenChannel(channel),
                     channel::Event::History(task) => Event::History(task),
                     channel::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
+                    channel::Event::PreviewChanged => Event::PreviewChanged,
+                    channel::Event::HidePreview(kind, hash, url) => {
+                        Event::HidePreview(kind, hash, url)
+                    }
                 });
 
                 (command.map(Message::Channel), event)
@@ -132,6 +138,10 @@ impl Buffer {
                     query::Event::OpenChannel(channel) => Event::OpenChannel(channel),
                     query::Event::History(task) => Event::History(task),
                     query::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
+                    query::Event::PreviewChanged => Event::PreviewChanged,
+                    query::Event::HidePreview(kind, hash, url) => {
+                        Event::HidePreview(kind, hash, url)
+                    }
                 });
 
                 (command.map(Message::Query), event)
@@ -142,7 +152,7 @@ impl Buffer {
                 (command.map(Message::FileTransfers), None)
             }
             (Buffer::Logs(state), Message::Logs(message)) => {
-                let (command, event) = state.update(message);
+                let (command, event) = state.update(message, history, clients, config);
 
                 let event = event.map(|event| match event {
                     logs::Event::UserContext(event) => Event::UserContext(event),
@@ -153,7 +163,7 @@ impl Buffer {
                 (command.map(Message::Logs), event)
             }
             (Buffer::Highlights(state), Message::Highlights(message)) => {
-                let (command, event) = state.update(message);
+                let (command, event) = state.update(message, history, clients, config);
 
                 let event = event.map(|event| match event {
                     highlights::Event::UserContext(event) => Event::UserContext(event),
@@ -175,6 +185,7 @@ impl Buffer {
         clients: &'a data::client::Map,
         file_transfers: &'a file_transfer::Manager,
         history: &'a history::Manager,
+        previews: &'a preview::Collection,
         settings: &'a buffer::Settings,
         config: &'a Config,
         theme: &'a Theme,
@@ -187,6 +198,7 @@ impl Buffer {
                 state,
                 clients,
                 history,
+                previews,
                 &settings.channel,
                 config,
                 theme,
@@ -198,7 +210,8 @@ impl Buffer {
                     .map(Message::Server)
             }
             Buffer::Query(state) => {
-                query::view(state, clients, history, config, theme, is_focused).map(Message::Query)
+                query::view(state, clients, history, previews, config, theme, is_focused)
+                    .map(Message::Query)
             }
             Buffer::FileTransfers(state) => {
                 file_transfers::view(state, file_transfers).map(Message::FileTransfers)

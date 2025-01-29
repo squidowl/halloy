@@ -482,6 +482,21 @@ impl History {
             }
         }
     }
+
+    pub fn hide_preview(&mut self, message: message::Hash, url: url::Url) {
+        if let Self::Full {
+            messages,
+            last_updated_at,
+            ..
+        } = self
+        {
+            if let Some(message) = messages.iter_mut().find(|m| m.hash == message) {
+                message.hidden_urls.insert(url);
+
+                *last_updated_at = Some(Instant::now());
+            }
+        }
+    }
 }
 
 /// Insert the incoming message into the provided vector, sorted
@@ -573,6 +588,8 @@ fn has_matching_content(message: &Message, other: &Message) -> bool {
 #[derive(Debug)]
 pub struct View<'a> {
     pub total: usize,
+    pub has_more_older_messages: bool,
+    pub has_more_newer_messages: bool,
     pub old_messages: Vec<&'a Message>,
     pub new_messages: Vec<&'a Message>,
     pub max_nick_chars: Option<usize>,

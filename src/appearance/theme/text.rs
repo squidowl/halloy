@@ -64,6 +64,12 @@ pub fn timestamp(theme: &Theme) -> Style {
     }
 }
 
+pub fn url(theme: &Theme) -> Style {
+    Style {
+        color: Some(theme.colors().buffer.url),
+    }
+}
+
 pub fn topic(theme: &Theme) -> Style {
     Style {
         color: Some(theme.colors().buffer.topic),
@@ -82,7 +88,7 @@ pub fn unread_indicator(theme: &Theme) -> Style {
     }
 }
 
-pub fn nickname(theme: &Theme, seed: Option<&str>, should_dim_nickname: bool) -> Style {
+pub fn nickname<T: AsRef<str>>(theme: &Theme, seed: Option<T>, should_dim_nickname: bool) -> Style {
     let color = theme.colors().buffer.nickname;
     let calculate_alpha_color = |color: Color| -> Color {
         alpha_color(0.15, 0.61, theme.colors().buffer.background, color)
@@ -98,7 +104,7 @@ pub fn nickname(theme: &Theme, seed: Option<&str>, should_dim_nickname: bool) ->
         return Style { color: Some(color) };
     };
 
-    let randomized_color = randomize_color(color, seed);
+    let randomized_color = randomize_color(color, seed.as_ref());
     let color = if should_dim_nickname {
         calculate_alpha_color(randomized_color)
     } else {

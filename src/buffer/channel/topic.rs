@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use data::user::Nick;
 use data::{isupport, message, target, Config, Server, User};
 use iced::widget::{column, container, horizontal_rule, row, scrollable, Scrollable};
 use iced::Length;
@@ -48,36 +47,45 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
-    let set_by = who.and_then(|who| {
-        let nick = Nick::from(who.split('!').next()?);
-
-        let user = if let Some(user) = users.iter().find(|user| user.nickname() == nick) {
-            user_context::view(
-                selectable_text(user.display(config.buffer.channel.nicklist.show_access_levels))
+    let set_by = who
+        .and_then(|who| User::try_from(who).ok())
+        .and_then(|user| {
+            let channel_user = users.iter().find(|u| **u == user);
+            
+            // If user is in channel, we return user_context component.
+            // Otherwise selectable_text component.
+            let content = if let Some(user) = channel_user {
+                user_context::view(
+                    selectable_text(
+                        user.display(config.buffer.channel.nicklist.show_access_levels),
+                    )
                     .style(|theme| theme::selectable_text::topic_nickname(theme, config, user)),
-                server,
-                casemapping,
-                Some(channel),
-                user,
-                Some(user),
-                our_user,
-            )
-        } else {
-            selectable_text(who)
-                .style(theme::selectable_text::tertiary)
-                .into()
-        };
+                    server,
+                    casemapping,
+                    Some(channel),
+                    user,
+                    Some(user),
+                    our_user,
+                    config,
+                )
+            } else {
+                selectable_text(user.display(false))
+                    .style(move |theme| {
+                        theme::selectable_text::topic_nickname(theme, config, &user)
+                    })
+                    .into()
+            };
 
-        Some(
-            Element::new(row![
-                selectable_text("set by ").style(theme::selectable_text::topic),
-                user,
-                selectable_text(format!(" at {}", time?.to_rfc2822()))
-                    .style(theme::selectable_text::topic),
-            ])
-            .map(Message::UserContext),
-        )
-    });
+            Some(
+                Element::new(row![
+                    selectable_text("set by ").style(theme::selectable_text::topic),
+                    content,
+                    selectable_text(format!(" at {}", time?.to_rfc2822()))
+                        .style(theme::selectable_text::topic),
+                ])
+                .map(Message::UserContext),
+            )
+        });
 
     let content = column![message_content(
         content,

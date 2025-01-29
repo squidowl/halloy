@@ -1,4 +1,6 @@
 //! Generate messages that can be broadcast into every buffer
+use std::collections::HashSet;
+
 use chrono::{DateTime, Utc};
 
 use super::{parse_fragments, plain, source, Content, Direction, Message, Source, Target};
@@ -21,17 +23,17 @@ fn expand(
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let message = |target, content| -> Message {
-        let received_at = Posix::now();
-        let hash = message::Hash::new(&received_at, &content);
+        let hash = message::Hash::new(&sent_time, &content);
 
         Message {
-            received_at,
+            received_at: Posix::now(),
             server_time: sent_time,
             direction: Direction::Received,
             target,
             content,
             id: None,
             hash,
+            hidden_urls: HashSet::default(),
         }
     };
 
