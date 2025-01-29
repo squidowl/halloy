@@ -48,8 +48,7 @@ pub fn view<'a>(
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let set_by = who
-        .map(|who| User::try_from(who).ok())
-        .flatten()
+        .and_then(|who| User::try_from(who).ok())
         .and_then(|user| {
             let channel_user = users.iter().find(|u| **u == user);
             
