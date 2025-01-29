@@ -1,10 +1,10 @@
 use data::user::Nick;
-use data::{isupport, target, Server, User};
+use data::{isupport, target, Config, Server, User};
 use iced::widget::{button, column, container, horizontal_rule, row, text, Space};
 use iced::{padding, Length, Padding};
 
-use crate::widget::{context_menu, double_pass, Element};
 use crate::theme;
+use crate::widget::{context_menu, double_pass, Element};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Entry {
@@ -52,6 +52,7 @@ impl Entry {
         user: &User,
         current_user: Option<&User>,
         length: Length,
+        config: &Config,
     ) -> Element<'a, Message> {
         let nickname = user.nickname().to_owned();
 
@@ -125,7 +126,7 @@ impl Entry {
                 Message::SendFile(server.clone(), nickname),
                 length,
             ),
-            Entry::UserInfo => user_info(current_user, nickname, length),
+            Entry::UserInfo => user_info(current_user, nickname, length, config),
             Entry::HorizontalRule => match length {
                 Length::Fill => container(horizontal_rule(1)).padding([0, 6]).into(),
                 _ => Space::new(length, 1).into(),
@@ -172,6 +173,7 @@ pub fn view<'a>(
     user: &'a User,
     current_user: Option<&'a User>,
     our_user: Option<&'a User>,
+    config: &'a Config,
 ) -> Element<'a, Message> {
     let entries = Entry::list(channel.is_some(), our_user);
 
@@ -184,7 +186,17 @@ pub fn view<'a>(
         Default::default(),
         content,
         entries,
-        move |entry, length| entry.view(server, casemapping, channel, user, current_user, length),
+        move |entry, length| {
+            entry.view(
+                server,
+                casemapping,
+                channel,
+                user,
+                current_user,
+                length,
+                config,
+            )
+        },
     )
     .into()
 }
@@ -205,6 +217,7 @@ fn user_info<'a>(
     current_user: Option<&User>,
     nickname: Nick,
     length: Length,
+    config: &Config,
 ) -> Element<'a, Message> {
     let state = match current_user {
         Some(user) => {
@@ -217,9 +230,16 @@ fn user_info<'a>(
         None => Some(text("Offline").style(theme::text::secondary).width(length)),
     };
 
+    // Dimmed if away or offline.
+    let user_is_dimmed = current_user.map(|u| u.is_away()).unwrap_or(true);
+    let seed = match config.buffer.nickname.color {
+        data::buffer::Color::Solid => None,
+        data::buffer::Color::Unique => Some(nickname.to_string()),
+    };
+
     column![container(
         text(nickname.to_string())
-            .style(theme::text::secondary)
+            .style(move |theme| theme::text::nickname(theme, seed.clone(), user_is_dimmed))
             .width(length)
     )
     .padding(right_justified_padding()),]

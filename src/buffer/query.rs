@@ -78,7 +78,7 @@ pub fn view<'a>(
                         }
 
                         let nick =
-                            user_context::view(text, server, casemapping, None, user, None, None)
+                            user_context::view(text, server, casemapping, None, user, None, None, config)
                                 .map(scroll_view::Message::UserContext);
 
                         let message_content = message_content::with_context(
@@ -93,7 +93,7 @@ pub fn view<'a>(
                             },
                             move |link, entry, length| match link {
                                 message::Link::User(user) => entry
-                                    .view(server, casemapping, None, user, None, length)
+                                    .view(server, casemapping, None, user, None, length, config)
                                     .map(scroll_view::Message::UserContext),
                                 _ => row![].into(),
                             },

@@ -61,6 +61,7 @@ pub fn view<'a>(
                 user,
                 Some(user),
                 our_user,
+                config,
             )
         } else {
             selectable_text(who)
