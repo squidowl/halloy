@@ -126,6 +126,7 @@ pub fn view<'a>(
                             user,
                             current_user,
                             our_user,
+                            config,
                         )
                         .map(scroll_view::Message::UserContext);
 
@@ -148,6 +149,7 @@ pub fn view<'a>(
                                         user,
                                         current_user,
                                         length,
+                                        config,
                                     )
                                     .map(scroll_view::Message::UserContext),
                                 _ => row![].into(),
@@ -509,6 +511,7 @@ mod nick_list {
                 user,
                 Some(user),
                 our_user,
+                config,
             )
         }));
 
