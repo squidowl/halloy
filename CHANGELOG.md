@@ -1,6 +1,7 @@
 # Unreleased
 
 Added:
+- Image and card previews for url links. (See [configuration](https://halloy.squidowl.org/configuration/preview.html))
 - New configuration options
   - Ability to disable dimming of away usernames. See [configuartion](https://halloy.squidowl.org/configuration/buffer/away.html).
   - Autocomplete. See [configuration](https://halloy.squidowl.org/configuration/buffer/text_input/autocomplete.html).
@@ -12,6 +13,7 @@ Added:
 - Restore last known window position and size at launch
 - Date separators in buffers when day changes
 - Toggle fullscreen (<kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>f</kbd> (macOS: <kbd>ctrl</kbd> + <kbd>⌥</kbd> + <kbd>f</kbd>))
+- Show nickname in user-context menu
 
 Fixed:
 - Long username & password combinations could cause SASL authentication to fail

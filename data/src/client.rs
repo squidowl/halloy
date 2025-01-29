@@ -642,6 +642,22 @@ impl Client {
                                 if ctcp::is_query(text) && !message::is_action(text) {
                                     // Ignore historical CTCP queries/responses except for ACTIONs
                                     vec![]
+                                } else if let Some(user) = message.user().filter(|user| {
+                                    message::references_user_text(
+                                        user.nickname(),
+                                        self.nickname(),
+                                        text,
+                                    )
+                                }) {
+                                    vec![Event::Notification(
+                                        message,
+                                        self.nickname().to_owned(),
+                                        Notification::Highlight {
+                                            enabled: false,
+                                            user,
+                                            target,
+                                        },
+                                    )]
                                 } else {
                                     vec![Event::Single(message, self.nickname().to_owned())]
                                 }

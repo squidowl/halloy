@@ -31,6 +31,7 @@ pub fn view<'a>(
             scroll_view::Kind::Highlights,
             history,
             None,
+            None,
             config,
             move |message, _, _| match &message.target {
                 message::Target::Highlights {
@@ -83,6 +84,7 @@ pub fn view<'a>(
                         user,
                         current_user,
                         None,
+                        config,
                     )
                     .map(scroll_view::Message::UserContext);
 
@@ -105,6 +107,7 @@ pub fn view<'a>(
                                     user,
                                     current_user,
                                     length,
+                                    config
                                 )
                                 .map(scroll_view::Message::UserContext),
                             _ => row![].into(),
@@ -189,10 +192,23 @@ impl Highlights {
         Self::default()
     }
 
-    pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
+    pub fn update(
+        &mut self,
+        message: Message,
+        history: &history::Manager,
+        clients: &data::client::Map,
+        config: &Config,
+    ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
-                let (command, event) = self.scroll_view.update(message, false);
+                let (command, event) = self.scroll_view.update(
+                    message,
+                    false,
+                    scroll_view::Kind::Highlights,
+                    history,
+                    clients,
+                    config,
+                );
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
@@ -201,6 +217,8 @@ impl Highlights {
                         Some(Event::GoToMessage(server, channel, message))
                     }
                     scroll_view::Event::RequestOlderChatHistory => None,
+                    scroll_view::Event::PreviewChanged => None,
+                    scroll_view::Event::HidePreview(..) => None,
                 });
 
                 (command.map(Message::ScrollView), event)
