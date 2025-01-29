@@ -1,7 +1,7 @@
 # Unreleased
 
 Added:
-- Previews for links. (See [configuration](https://halloy.squidowl.org/configuration/preview.html))
+- Image and card previews for url links. (See [configuration](https://halloy.squidowl.org/configuration/preview.html))
 - New configuration options
   - Ability to disable dimming of away usernames. See [configuartion](https://halloy.squidowl.org/configuration/buffer/away.html).
   - Autocomplete. See [configuration](https://halloy.squidowl.org/configuration/buffer/text_input/autocomplete.html).

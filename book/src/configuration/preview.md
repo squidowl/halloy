@@ -94,7 +94,7 @@ Numer of milliseconds to wait before requesting another preview when number of r
 # Default: 500
 
 [preview.request]
-concurrency = 500
+delay_ms = 500
 ```
 
 
@@ -167,7 +167,7 @@ If you pass `["#halloy"]`, the channel `#halloy` will not show image previews. Y
 # Values: array of any strings
 # Default: []
 
-[preview.exclude]
+[preview.card]
 exclude = []
 ```
 ### Example 
