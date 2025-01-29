@@ -50,6 +50,7 @@
   - [Notifications](configuration/notifications.md)
   - [Pane](configuration/pane/README.md)
   - [Proxy](configuration/proxy.md)
+  - [Preview](configuration/preview.md)
   - [Scale factor](configuration/scale-factor.md)
   - [Servers](configuration/servers/README.md)
     - [SASL](configuration/servers/sasl/README.md)

@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 
@@ -16,7 +17,7 @@ pub use self::formatting::Formatting;
 pub use self::source::Source;
 
 use crate::config::buffer::UsernameFormat;
-use crate::time::{self, Posix};
+use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, isupport, target, Config, Server, User};
 
@@ -167,6 +168,7 @@ pub struct Message {
     pub content: Content,
     pub id: Option<String>,
     pub hash: Hash,
+    pub hidden_urls: HashSet<Url>,
 }
 
 impl Message {
@@ -245,7 +247,7 @@ impl Message {
             casemapping,
         )?;
         let received_at = Posix::now();
-        let hash = Hash::new(&received_at, &content);
+        let hash = Hash::new(&server_time, &content);
 
         Some(Message {
             received_at,
@@ -255,21 +257,24 @@ impl Message {
             content,
             id,
             hash,
+            hidden_urls: HashSet::default(),
         })
     }
 
     pub fn sent(target: Target, content: Content) -> Self {
         let received_at = Posix::now();
-        let hash = Hash::new(&received_at, &content);
+        let server_time = Utc::now();
+        let hash = Hash::new(&server_time, &content);
 
         Message {
             received_at,
-            server_time: Utc::now(),
+            server_time,
             direction: Direction::Sent,
             target,
             content,
             id: None,
             hash,
+            hidden_urls: HashSet::default(),
         }
     }
 
@@ -279,12 +284,13 @@ impl Message {
         filename: &str,
     ) -> Message {
         let received_at = Posix::now();
+        let server_time = Utc::now();
         let content = plain(format!("{from} wants to send you \"{filename}\""));
-        let hash = Hash::new(&received_at, &content);
+        let hash = Hash::new(&server_time, &content);
 
         Message {
             received_at,
-            server_time: Utc::now(),
+            server_time,
             direction: Direction::Received,
             target: Target::Query {
                 query: query.clone(),
@@ -293,17 +299,19 @@ impl Message {
             content,
             id: None,
             hash,
+            hidden_urls: HashSet::default(),
         }
     }
 
     pub fn file_transfer_request_sent(to: &Nick, query: &target::Query, filename: &str) -> Message {
         let received_at = Posix::now();
+        let server_time = Utc::now();
         let content = plain(format!("offering to send {to} \"{filename}\""));
-        let hash = Hash::new(&received_at, &content);
+        let hash = Hash::new(&server_time, &content);
 
         Message {
             received_at,
-            server_time: Utc::now(),
+            server_time,
             direction: Direction::Sent,
             target: Target::Query {
                 query: query.clone(),
@@ -312,6 +320,7 @@ impl Message {
             content,
             id: None,
             hash,
+            hidden_urls: HashSet::default(),
         }
     }
 
@@ -331,7 +340,7 @@ impl Message {
         let received_at = Posix::now();
         let server_time = record.timestamp;
         let content = Content::Log(record);
-        let hash = Hash::new(&received_at, &content);
+        let hash = Hash::new(&server_time, &content);
 
         Self {
             received_at,
@@ -341,6 +350,7 @@ impl Message {
             content,
             id: None,
             hash,
+            hidden_urls: HashSet::default(),
         }
     }
 
@@ -386,6 +396,7 @@ impl Serialize for Message {
             // Old field before we had fragments,
             // added for downgrade compatability
             text: Cow<'a, str>,
+            hidden_urls: &'a HashSet<url::Url>,
         }
 
         Data {
@@ -395,6 +406,7 @@ impl Serialize for Message {
             target: &self.target,
             content: &self.content,
             text: self.content.text(),
+            hidden_urls: &self.hidden_urls,
         }
         .serialize(serializer)
     }
@@ -417,6 +429,8 @@ impl<'de> Deserialize<'de> for Message {
             // Old field before we had fragments
             text: Option<String>,
             id: Option<String>,
+            #[serde(default)]
+            hidden_urls: HashSet<url::Url>,
         }
 
         let Data {
@@ -427,6 +441,7 @@ impl<'de> Deserialize<'de> for Message {
             content,
             text,
             id,
+            hidden_urls,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -439,7 +454,7 @@ impl<'de> Deserialize<'de> for Message {
             Content::Plain("".to_string())
         };
 
-        let hash = Hash::new(&received_at, &content);
+        let hash = Hash::new(&server_time, &content);
 
         Ok(Message {
             received_at,
@@ -449,17 +464,18 @@ impl<'de> Deserialize<'de> for Message {
             content,
             id,
             hash,
+            hidden_urls,
         })
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Hash(u64);
 
 impl Hash {
-    pub fn new(received_at: &time::Posix, content: &Content) -> Self {
+    pub fn new(server_time: &DateTime<Utc>, content: &Content) -> Self {
         let mut hasher = DefaultHasher::new();
-        received_at.hash(&mut hasher);
+        server_time.hash(&mut hasher);
         content.hash(&mut hasher);
         Self(hasher.finish())
     }
@@ -652,6 +668,14 @@ pub enum Fragment {
 }
 
 impl Fragment {
+    pub fn url(&self) -> Option<&Url> {
+        if let Self::Url(url) = self {
+            Some(url)
+        } else {
+            None
+        }
+    }
+
     pub fn as_str(&self) -> &str {
         match self {
             Fragment::Text(s) => s,

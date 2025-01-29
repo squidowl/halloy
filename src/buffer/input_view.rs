@@ -139,7 +139,8 @@ impl State {
                 let channels = clients.get_channels(buffer.server());
                 let isupport = clients.get_isupport(buffer.server());
 
-                self.completion.process(&input, users, channels, &isupport, config);
+                self.completion
+                    .process(&input, users, channels, &isupport, config);
 
                 history.record_draft(Draft {
                     buffer: buffer.clone(),

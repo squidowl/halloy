@@ -71,7 +71,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             .enable_all()
             .build()?;
 
-        rt.block_on(async { 
+        rt.block_on(async {
             let config = Config::load().await;
             let window = data::Window::load().await;
 
@@ -237,7 +237,7 @@ impl Halloy {
         url_received: Option<data::Url>,
         log_stream: ReceiverStream<Vec<logger::Record>>,
     ) -> (Halloy, Task<Message>) {
-        let data::Window { size, position} = window_load.unwrap_or_default();
+        let data::Window { size, position } = window_load.unwrap_or_default();
         let position = position.map(window::Position::Specific).unwrap_or_default();
 
         let (main_window, open_main_window) = window::open(window::Settings {
@@ -899,8 +899,9 @@ impl Halloy {
             Message::Tick(now) => {
                 if let Err(e) = self.clients.tick(now) {
                     handle_irc_error(e);
-                    Task::none()
-                } else if let Screen::Dashboard(dashboard) = &mut self.screen {
+                }
+
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.tick(now).map(Message::Dashboard)
                 } else {
                     Task::none()
