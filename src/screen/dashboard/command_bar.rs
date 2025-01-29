@@ -113,6 +113,7 @@ pub enum Command {
     Configuration(Configuration),
     UI(Ui),
     Theme(Theme),
+    Window(Window),
 }
 
 #[derive(Debug, Clone)]
@@ -144,6 +145,12 @@ pub enum Ui {
 }
 
 #[derive(Debug, Clone)]
+pub enum Window {
+    ToggleFullscreen,
+}
+
+
+#[derive(Debug, Clone)]
 pub enum Theme {
     Switch(data::Theme),
     OpenEditor,
@@ -168,6 +175,8 @@ impl Command {
 
         let uis = Ui::list().into_iter().map(Command::UI);
 
+        let windows = Window::list().into_iter().map(Command::Window);
+
         let themes = Theme::list(config).into_iter().map(Command::Theme);
 
         let version = Version::list(version).into_iter().map(Command::Version);
@@ -177,6 +186,7 @@ impl Command {
             .chain(configs)
             .chain(themes)
             .chain(uis)
+            .chain(windows)
             .collect()
     }
 }
@@ -189,6 +199,7 @@ impl std::fmt::Display for Command {
             Command::UI(ui) => write!(f, "UI: {}", ui),
             Command::Theme(theme) => write!(f, "Theme: {}", theme),
             Command::Version(application) => write!(f, "Version: {}", application),
+            Command::Window(window) => write!(f, "Window: {}", window),
         }
     }
 }
@@ -252,6 +263,12 @@ impl Ui {
     }
 }
 
+impl Window {
+    fn list() -> Vec<Self> {
+        vec![Window::ToggleFullscreen]
+    }
+}
+
 impl Theme {
     fn list(config: &Config) -> Vec<Self> {
         Some(Self::OpenEditor)
@@ -260,6 +277,15 @@ impl Theme {
             .collect()
     }
 }
+
+impl std::fmt::Display for Window {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Window::ToggleFullscreen => write!(f, "Toggle Fullscreen"),
+        }
+    }
+}
+
 
 impl std::fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

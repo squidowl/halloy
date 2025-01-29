@@ -1,8 +1,10 @@
 use futures::{stream::BoxStream, Stream, StreamExt};
-use iced::{advanced::graphics::futures::subscription, Point, Size, Subscription};
+use iced::{
+    advanced::graphics::futures::subscription, Point, Size, Subscription, Task,
+};
 
 pub use data::window::{Error, MIN_SIZE};
-pub use iced::window::{close, gain_focus, open, Id, Position, Settings};
+pub use iced::window::{close, gain_focus, get_latest, open, Id, Position, Settings};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Window {
@@ -36,6 +38,22 @@ impl From<Window> for data::Window {
             size: window.size,
         }
     }
+}
+
+pub fn toggle_fullscreen<Message: 'static + Send>() -> Task<Message> {
+    get_latest().and_then(move |window| {
+        iced::window::get_mode(window).then(move |mode| {
+            iced::window::set_mode(
+                window,
+                match mode {
+                    iced::window::Mode::Windowed => iced::window::Mode::Fullscreen,
+                    iced::window::Mode::Fullscreen => iced::window::Mode::Windowed,
+                    // Do nothing.
+                    iced::window::Mode::Hidden => iced::window::Mode::Hidden,
+                },
+            )
+        })
+    })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -201,8 +219,14 @@ impl subscription::Recipe for Events {
                         if move_events.should_process() {
                             let clamped_x = point.x.max(0.0);
                             let clamped_y = point.y.max(0.0);
-                        
-                            Some((id, Event::Moved(Point { x: clamped_x, y: clamped_y })))
+
+                            Some((
+                                id,
+                                Event::Moved(Point {
+                                    x: clamped_x,
+                                    y: clamped_y,
+                                }),
+                            ))
                         } else {
                             move_events.skip();
                             None
@@ -210,7 +234,7 @@ impl subscription::Recipe for Events {
                     }
                     iced::window::Event::Resized(size) => {
                         if resize_events.should_process() {
-                             Some((id, Event::Resized(size.max(MIN_SIZE))))
+                            Some((id, Event::Resized(size.max(MIN_SIZE))))
                         } else {
                             resize_events.skip();
                             None
