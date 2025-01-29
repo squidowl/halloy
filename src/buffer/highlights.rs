@@ -84,6 +84,7 @@ pub fn view<'a>(
                         user,
                         current_user,
                         None,
+                        config,
                     )
                     .map(scroll_view::Message::UserContext);
 
@@ -106,6 +107,7 @@ pub fn view<'a>(
                                     user,
                                     current_user,
                                     length,
+                                    config
                                 )
                                 .map(scroll_view::Message::UserContext),
                             _ => row![].into(),
