@@ -4,7 +4,7 @@
 <head>
     <!-- Book generated using mdBook -->
     <meta charset="UTF-8">
-    <title>Multiple servers</title>
+    <title>Preview</title>
 
 
     <!-- Custom HTML head -->
@@ -159,7 +159,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/guides/multiple-servers.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/preview.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -189,30 +189,138 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="multiple-servers"><a class="header" href="#multiple-servers">Multiple servers</a></h1>
-<p>Creating multiple <code>[servers]</code> sections lets you connect to multiple servers.<br />
-All configuration options can be found <a href="../configuration/servers/index.html">here</a>.</p>
-<pre><code class="language-toml">[servers.liberachat]
-nickname = "halloy-user"
-server = "irc.libera.chat"
-channels = ["#halloy"]
+                        <h1 id="preview"><a class="header" href="#preview"><code>[preview]</code></a></h1>
+<p>URL preview settings for Halloy.</p>
+<h2 id="enabled"><a class="header" href="#enabled"><code>enabled</code></a></h2>
+<p>Enable or disable previews globally</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
 
-[servers.oftc]
-nickname = "halloy-user"
-server = "irc.oftc.net"
-channels = ["#asahi-dev"]
+[preview]
+enabled = true
+</code></pre>
+<h2 id="request"><a class="header" href="#request"><code>request</code></a></h2>
+<p>Request settings for previews.</p>
+<h3 id="user_agent"><a class="header" href="#user_agent"><code>user_agent</code></a></h3>
+<p>Some servers will only send opengraph metadata to browser-like user agents. We default to <code>WhatsApp/2</code> for wide compatability.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: "WhatsApp/2"
+
+[preview.request]
+user_agent = "WhatsApp/2"
+</code></pre>
+<h3 id="timeout_ms"><a class="header" href="#timeout_ms"><code>timeout_ms</code></a></h3>
+<p>Request timeout in millisceonds. Defaults is 10s.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 10000
+
+[preview.request]
+timeout_ms = 10000
+</code></pre>
+<h3 id="max_image_size"><a class="header" href="#max_image_size"><code>max_image_size</code></a></h3>
+<p>Max image size in bytes. This prevents downloading responses that are too big. Default is 10mb.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 10485760
+
+[preview.request]
+max_image_size = 10485760
+</code></pre>
+<h3 id="max_scrape_size"><a class="header" href="#max_scrape_size"><code>max_scrape_size</code></a></h3>
+<p>Max bytes streamed when scraping for opengraph metadata before cancelling the request. This prevents downloading responses that are too big. Default is 500kb.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 512000
+
+[preview.request]
+max_scrape_size = 512000
+</code></pre>
+<h3 id="concurrency"><a class="header" href="#concurrency"><code>concurrency</code></a></h3>
+<p>Number of allowed concurrent requests for fetching previews. Reduce this to prevent rate-limiting.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 4
+
+[preview.request]
+concurrency = 4
+</code></pre>
+<h3 id="delay_ms"><a class="header" href="#delay_ms"><code>delay_ms</code></a></h3>
+<p>Numer of milliseconds to wait before requesting another preview when number of requested previews &gt; <code>concurrency</code>.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 500
+
+[preview.request]
+delay_ms = 500
+</code></pre>
+<h2 id="image"><a class="header" href="#image"><code>image</code></a></h2>
+<p>Specific image preview settings.</p>
+<h3 id="include"><a class="header" href="#include"><code>include</code></a></h3>
+<p>Include image previews from channels.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[preview.image]
+include = []
+</code></pre>
+<h3 id="exclude"><a class="header" href="#exclude"><code>exclude</code></a></h3>
+<p>Exclude image previews from channels.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[preview.image]
+exclude = []
+</code></pre>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
+<pre><code class="language-toml">[preview.image]
+exclude = ["*"] # hide image previews in all channels
+include = ["#halloy"] # show image previews in #halloy
+</code></pre>
+<h2 id="card"><a class="header" href="#card"><code>card</code></a></h2>
+<p>Specific card preview settings.</p>
+<h3 id="include-1"><a class="header" href="#include-1"><code>include</code></a></h3>
+<p>Include card previews from channels.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[preview.card]
+include = []
+</code></pre>
+<h3 id="exclude-1"><a class="header" href="#exclude-1"><code>exclude</code></a></h3>
+<p>Exclude card previews from channels.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[preview.card]
+exclude = []
+</code></pre>
+<h3 id="example-1"><a class="header" href="#example-1">Example</a></h3>
+<pre><code class="language-toml">[preview.card]
+exclude = ["*"] # hide card previews in all channels
+include = ["#halloy"] # show card previews in #halloy
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                        <a rel="prev" href="../guides/portable-mode.html" class="mobile-nav-chapters previous"
+                        <a rel="prev" href="../configuration/proxy.html" class="mobile-nav-chapters previous"
                             title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                             <i class="fa fa-angle-left"></i>
                         </a>
 
-                        <a rel="next prefetch" href="../guides/password-file.html" class="mobile-nav-chapters next"
+                        <a rel="next prefetch" href="../configuration/scale-factor.html" class="mobile-nav-chapters next"
                             title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                             <i class="fa fa-angle-right"></i>
                         </a>
@@ -223,12 +331,12 @@ channels = ["#asahi-dev"]
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                <a rel="prev" href="../guides/portable-mode.html" class="nav-chapters previous" title="Previous chapter"
+                <a rel="prev" href="../configuration/proxy.html" class="nav-chapters previous" title="Previous chapter"
                     aria-label="Previous chapter" aria-keyshortcuts="Left">
                     <i class="fa fa-angle-left"></i>
                 </a>
 
-                <a rel="next prefetch" href="../guides/password-file.html" class="nav-chapters next" title="Next chapter"
+                <a rel="next prefetch" href="../configuration/scale-factor.html" class="nav-chapters next" title="Next chapter"
                     aria-label="Next chapter" aria-keyshortcuts="Right">
                     <i class="fa fa-angle-right"></i>
                 </a>
