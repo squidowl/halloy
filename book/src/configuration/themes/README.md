@@ -84,6 +84,9 @@ url = "<string>"
 # reply_topic = "<string>"
 # monitored_online = "<string>"
 # monitored_offline = "<string>"
+# standard_reply_fail = "<string>"
+# standard_reply_warn = "<string>"
+# standard_reply_note = "<string>"
 default = "<string>"
 ```
 > 💡  The default Ferra theme toml file can be viewed [here](https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml).

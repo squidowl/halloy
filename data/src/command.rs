@@ -21,6 +21,7 @@ pub enum Kind {
     Mode,
     Format,
     Away,
+    SetName,
     Raw,
 }
 
@@ -42,6 +43,7 @@ impl FromStr for Kind {
             "mode" | "m" => Ok(Kind::Mode),
             "format" | "f" => Ok(Kind::Format),
             "away" => Ok(Kind::Away),
+            "setname" => Ok(Kind::SetName),
             "raw" => Ok(Kind::Raw),
             _ => Err(()),
         }
@@ -62,6 +64,7 @@ pub enum Command {
     Kick(String, String, Option<String>),
     Mode(String, Option<String>, Option<Vec<String>>),
     Away(Option<String>),
+    SetName(String),
     Raw(String),
     Unknown(String, Vec<String>),
 }
@@ -145,6 +148,9 @@ pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Erro
                 }
             }
             Kind::Away => validated::<0, 1, true>(args, |_, [comment]| Command::Away(comment)),
+            Kind::SetName => {
+                validated::<1, 0, true>(args, |[realname], _| Command::SetName(realname))
+            }
             Kind::Raw => Ok(Command::Raw(raw.to_string())),
             Kind::Format => {
                 if let Some(target) = buffer.and_then(|b| b.target()) {
@@ -221,6 +227,7 @@ impl TryFrom<Command> for proto::Command {
                 proto::Command::MODE(target, modestring, modearguments)
             }
             Command::Away(comment) => proto::Command::AWAY(comment),
+            Command::SetName(realname) => proto::Command::SETNAME(realname),
             Command::Raw(raw) => proto::Command::Raw(raw),
             Command::Unknown(command, args) => proto::Command::new(&command, args),
         })

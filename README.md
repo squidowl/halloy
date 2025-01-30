@@ -40,6 +40,8 @@ Halloy is also available from [Flathub](https://flathub.org/apps/org.squidowl.ha
     * [read-marker](https://ircv3.net/specs/extensions/read-marker)
     * [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)
     * [server-time](https://ircv3.net/specs/extensions/server-time)
+    * [setname](https://ircv3.net/specs/extensions/setname.html)
+    * [Standard Replies](https://ircv3.net/specs/extensions/standard-replies)
     * [userhost-in-names](https://ircv3.net/specs/extensions/userhost-in-names)
     * [`UTF8ONLY`](https://ircv3.net/specs/extensions/utf8-only)
     * [`WHOX`](https://ircv3.net/specs/extensions/whox)

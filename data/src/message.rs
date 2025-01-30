@@ -14,7 +14,10 @@ use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
 pub use self::formatting::Formatting;
-pub use self::source::Source;
+pub use self::source::{
+    server::{Kind, StandardReply},
+    Source,
+};
 
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
@@ -180,8 +183,7 @@ impl Message {
                 Source::Server(Some(server)) => {
                     matches!(
                         server.kind(),
-                        source::server::Kind::MonitoredOnline
-                            | source::server::Kind::MonitoredOffline
+                        Kind::MonitoredOnline | Kind::MonitoredOffline | Kind::StandardReply(_)
                     )
                 }
                 Source::Internal(source::Internal::Logs) => true,
@@ -197,10 +199,10 @@ impl Message {
         } else if let Source::Server(Some(source)) = self.target.source() {
             if matches!(
                 source.kind(),
-                source::server::Kind::ReplyTopic
-                    | source::server::Kind::MonitoredOnline
-                    | source::server::Kind::MonitoredOffline
-                    | source::server::Kind::ChangeHost
+                Kind::ReplyTopic
+                    | Kind::MonitoredOnline
+                    | Kind::MonitoredOffline
+                    | Kind::ChangeHost
             ) {
                 return false;
             }
@@ -718,7 +720,7 @@ fn target(
 
             Some(Target::Channel {
                 channel,
-                source: source::Source::Server(None),
+                source: Source::Server(None),
             })
         }
         Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => {
@@ -727,7 +729,7 @@ fn target(
 
             Some(Target::Channel {
                 channel,
-                source: source::Source::Server(None),
+                source: Source::Server(None),
             })
         }
         Command::PART(channel, _) => {
@@ -736,8 +738,8 @@ fn target(
 
             Some(Target::Channel {
                 channel,
-                source: source::Source::Server(Some(source::Server::new(
-                    source::server::Kind::Part,
+                source: Source::Server(Some(source::Server::new(
+                    Kind::Part,
                     Some(user?.nickname().to_owned()),
                 ))),
             })
@@ -748,8 +750,8 @@ fn target(
 
             Some(Target::Channel {
                 channel,
-                source: source::Source::Server(Some(source::Server::new(
-                    source::server::Kind::Join,
+                source: Source::Server(Some(source::Server::new(
+                    Kind::Join,
                     Some(user?.nickname().to_owned()),
                 ))),
             })
@@ -759,10 +761,7 @@ fn target(
                 target::Channel::parse(params.get(1)?, chantypes, statusmsg, casemapping).ok()?;
             Some(Target::Channel {
                 channel,
-                source: source::Source::Server(Some(source::Server::new(
-                    source::server::Kind::ReplyTopic,
-                    None,
-                ))),
+                source: Source::Server(Some(source::Server::new(Kind::ReplyTopic, None))),
             })
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
@@ -770,7 +769,7 @@ fn target(
                 target::Channel::parse(params.get(1)?, chantypes, statusmsg, casemapping).ok()?;
             Some(Target::Channel {
                 channel,
-                source: source::Source::Server(None),
+                source: Source::Server(None),
             })
         }
         Command::Numeric(RPL_AWAY, params) => {
@@ -857,20 +856,32 @@ fn target(
             }
         }
         Command::CHGHOST(_, _) => Some(Target::Server {
-            source: source::Source::Server(Some(source::Server::new(
-                source::server::Kind::ChangeHost,
+            source: Source::Server(Some(source::Server::new(
+                Kind::ChangeHost,
                 user.map(|user| user.nickname().to_owned()),
             ))),
         }),
         Command::Numeric(RPL_MONONLINE, _) => Some(Target::Server {
-            source: source::Source::Server(Some(source::Server::new(
-                source::server::Kind::MonitoredOnline,
+            source: Source::Server(Some(source::Server::new(Kind::MonitoredOnline, None))),
+        }),
+        Command::Numeric(RPL_MONOFFLINE, _) => Some(Target::Server {
+            source: Source::Server(Some(source::Server::new(Kind::MonitoredOffline, None))),
+        }),
+        Command::FAIL(_, _, _, _) => Some(Target::Server {
+            source: Source::Server(Some(source::Server::new(
+                Kind::StandardReply(StandardReply::Fail),
                 None,
             ))),
         }),
-        Command::Numeric(RPL_MONOFFLINE, _) => Some(Target::Server {
-            source: source::Source::Server(Some(source::Server::new(
-                source::server::Kind::MonitoredOffline,
+        Command::WARN(_, _, _, _) => Some(Target::Server {
+            source: Source::Server(Some(source::Server::new(
+                Kind::StandardReply(StandardReply::Warn),
+                None,
+            ))),
+        }),
+        Command::NOTE(_, _, _, _) => Some(Target::Server {
+            source: Source::Server(Some(source::Server::new(
+                Kind::StandardReply(StandardReply::Note),
                 None,
             ))),
         }),
@@ -916,6 +927,7 @@ fn target(
         | Command::KNOCK(_, _)
         | Command::MARKREAD(_, _)
         | Command::MONITOR(_, _)
+        | Command::SETNAME(_)
         | Command::TAGMSG(_)
         | Command::USERIP(_)
         | Command::HELP(_)
@@ -1235,6 +1247,36 @@ fn content<'a>(
                 Some(plain(format!("Chat history for {target} at {timestamp}")))
             } else {
                 None
+            }
+        }
+        Command::FAIL(command, _, context, description) => {
+            if let Some(context) = context {
+                Some(plain(format!(
+                    "{command} ({}) failed: {description}",
+                    context.join(", ")
+                )))
+            } else {
+                Some(plain(format!("{command} failed: {description}")))
+            }
+        }
+        Command::WARN(command, _, context, description) => {
+            if let Some(context) = context {
+                Some(plain(format!(
+                    "{command} ({}) warning: {description}",
+                    context.join(", ")
+                )))
+            } else {
+                Some(plain(format!("{command} warning: {description}")))
+            }
+        }
+        Command::NOTE(command, _, context, description) => {
+            if let Some(context) = context {
+                Some(plain(format!(
+                    "{command} ({}) notice: {description}",
+                    context.join(", ")
+                )))
+            } else {
+                Some(plain(format!("{command} notice: {description}")))
             }
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => Some(parse_fragments(
