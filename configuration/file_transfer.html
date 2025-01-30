@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Tooltips</title>
+        <title>File Transfer</title>
 
 
         <!-- Custom HTML head -->
@@ -128,7 +128,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/tooltips.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/file_transfer.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -157,25 +157,84 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="tooltips"><a class="header" href="#tooltips"><code>[tooltips]</code></a></h1>
-<p>Control if tooltips are displayed or not.<br />
-Note: <code>tooltips</code> is a root key, so it must be placed before any section.</p>
+                        <h1 id="file_transfer"><a class="header" href="#file_transfer"><code>[file_transfer]</code></a></h1>
+<p>File transfer configuration options.</p>
+<h2 id="save_directory"><a class="header" href="#save_directory"><code>save_directory</code></a></h2>
+<p>Default directory to open when prompted to save a file.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: "$HOME/Downloads"
+
+[file_transfer]
+save_directory = "$HOME/Downloads"
+</code></pre>
+<h2 id="passive"><a class="header" href="#passive"><code>passive</code></a></h2>
+<p>If true, act as the "client" for the transfer. Requires the remote user act as the <a href="#file_transferserver-section">server</a>.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
 # Default: true
 
-tooltips = true
+[file_transfer]
+passive = true
+</code></pre>
+<h2 id="timeout"><a class="header" href="#timeout"><code>timeout</code></a></h2>
+<p>Time (in seconds) to wait before timing out a transfer waiting to be accepted.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 300
+
+[file_transfer]
+timeout = 300
+</code></pre>
+<h1 id="file_transferserver"><a class="header" href="#file_transferserver"><code>[file_transfer.server]</code></a></h1>
+<p>This section is <strong>required</strong> if <code>passive = false</code>. One side of the file transfer must
+operate as the "server", who the other user connects with to establish a connection.</p>
+<h2 id="public_address"><a class="header" href="#public_address"><code>public_address</code></a></h2>
+<p>Address advertised to the remote user to connect to.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[file_transfer.server]
+public_address = "&lt;some ip&gt;"
+</code></pre>
+<h2 id="bind_address"><a class="header" href="#bind_address"><code>bind_address</code></a></h2>
+<p>Address to bind to when accepting connections.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[file_transfer.server]
+bind_address = "&lt;some ip&gt;"
+</code></pre>
+<h2 id="bind_port_first"><a class="header" href="#bind_port_first"><code>bind_port_first</code></a></h2>
+<p>First port in port range to bind to.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[file_transfer.server]
+bind_port_first = "1024"
+</code></pre>
+<h2 id="bind_port_last"><a class="header" href="#bind_port_last"><code>bind_port_last</code></a></h2>
+<p>Last port in port range to bind to.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[file_transfer.server]
+bind_port_last = "5000"
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../configuration/themes/base16.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../configuration/buffer.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../url-schemes.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../configuration/font.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -185,11 +244,11 @@ tooltips = true
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../configuration/themes/base16.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../configuration/buffer.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../url-schemes.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../configuration/font.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

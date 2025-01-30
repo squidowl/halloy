@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Tooltips</title>
+        <title>Sidebar</title>
 
 
         <!-- Custom HTML head -->
@@ -128,7 +128,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/tooltips.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/sidebar.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -157,25 +157,72 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="tooltips"><a class="header" href="#tooltips"><code>[tooltips]</code></a></h1>
-<p>Control if tooltips are displayed or not.<br />
-Note: <code>tooltips</code> is a root key, so it must be placed before any section.</p>
-<pre><code class="language-toml"># Type: boolean
+                        <h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
+<p>Sidebar settings for Halloy.</p>
+<h2 id="buffer_action"><a class="header" href="#buffer_action"><code>buffer_action</code></a></h2>
+<p>Action when pressing buffers in the sidebar. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the pressed buffer. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+buffer_action = "replace-pane"
+</code></pre>
+<h2 id="buffer_focused_action"><a class="header" href="#buffer_focused_action"><code>buffer_focused_action</code></a></h2>
+<p>Action when pressing a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "close-pane"
+# Default: not set
+
+[sidebar]
+buffer_focused_action = "close-pane"
+</code></pre>
+<h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
+<p>Unread buffer indicator style.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "dot", "title", "none"
+# Default: "dot"
+
+[sidebar]
+unread_indicator = "dot"
+</code></pre>
+<h2 id="position"><a class="header" href="#position"><code>position</code></a></h2>
+<p>Sidebar position within the application window.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "left", "top", "right", "bottom"
+# Default: "left"
+
+[sidebar]
+position = "left"
+</code></pre>
+<h2 id="width"><a class="header" href="#width"><code>width</code></a></h2>
+<p>Specify sidebar width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 120
+
+[sidebar]
+width = 120
+</code></pre>
+<h2 id="show_menu_button"><a class="header" href="#show_menu_button"><code>show_menu_button</code></a></h2>
+<p>Show or hide the user menu button in the sidemenu.</p>
+<pre><code class="language-toml"># Type: bool
 # Values: true, false
 # Default: true
 
-tooltips = true
+[sidebar]
+show_menu_button = true
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../configuration/themes/base16.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../configuration/servers.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../url-schemes.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../configuration/themes/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -185,11 +232,11 @@ tooltips = true
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../configuration/themes/base16.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../configuration/servers.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../url-schemes.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../configuration/themes/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

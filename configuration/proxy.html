@@ -1,46 +1,45 @@
 <!DOCTYPE HTML>
-<html lang="en" class="ferra" dir="ltr">
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Proxy</title>
 
-<head>
-    <!-- Book generated using mdBook -->
-    <meta charset="UTF-8">
-    <title>Proxy</title>
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
 
 
-    <!-- Custom HTML head -->
-
-    <meta name="description" content="">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#ffffff">
-
-    <link rel="shortcut icon" href="../favicon.png">
-    <link rel="stylesheet" href="../css/variables.css">
-    <link rel="stylesheet" href="../css/general.css">
-    <link rel="stylesheet" href="../css/chrome.css">
-    <link rel="stylesheet" href="../css/print.css" media="print">
-
-    <!-- Fonts -->
-    <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-    <link rel="stylesheet" href="../fonts/fonts.css">
-
-    <!-- Highlight.js Stylesheets -->
-    <link rel="stylesheet" href="../highlight.css">
-    <link rel="stylesheet" href="../tomorrow-night.css">
-    <link rel="stylesheet" href="../ayu-highlight.css">
-
-    <!-- Custom theme stylesheets -->
-    <link rel="stylesheet" href="../custom.css">
-
-</head>
-
-<body class="sidebar-visible no-js">
-    <div id="body-container">
         <!-- Provide site root to javascript -->
         <script>
             var path_to_root = "../";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ferra" : "ferra";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
-
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
@@ -60,64 +59,41 @@
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script>
             var theme;
-            try { theme = localStorage.getItem('mdbook-theme'); } catch (e) { }
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
             if (theme === null || theme === undefined) { theme = default_theme; }
-            var html = document.querySelector('html');
-            html.classList.remove('ferra')
+            const html = document.documentElement;
+            html.classList.remove('light')
             html.classList.add(theme);
-            var body = document.querySelector('body');
-            body.classList.remove('no-js')
-            body.classList.add('js');
+            html.classList.add("js");
         </script>
 
         <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
-            var body = document.querySelector('body');
             var sidebar = null;
             var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
-                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch (e) { }
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
             } else {
                 sidebar = 'hidden';
             }
             sidebar_toggle.checked = sidebar === 'visible';
-            body.classList.remove('sidebar-visible');
-            body.classList.add("sidebar-" + sidebar);
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Halloy</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="guides/getting-started.html"><strong aria-hidden="true">2.</strong> Getting started</a></li><li class="chapter-item expanded "><a href="get-in-touch.html"><strong aria-hidden="true">3.</strong> Get in touch</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="guides/connect-with-soju.html"><strong aria-hidden="true">4.</strong> Connect with soju</a></li><li class="chapter-item expanded "><a href="guides/connect-with-znc.html"><strong aria-hidden="true">5.</strong> Connect with ZNC</a></li><li class="chapter-item expanded "><a href="guides/portable-mode.html"><strong aria-hidden="true">6.</strong> Portable mode</a></li><li class="chapter-item expanded "><a href="guides/multiple-servers.html"><strong aria-hidden="true">7.</strong> Multiple servers</a></li><li class="chapter-item expanded "><a href="guides/password-file.html"><strong aria-hidden="true">8.</strong> Storing passwords in a File</a></li><li class="chapter-item expanded "><a href="guides/text-formatting.html"><strong aria-hidden="true">9.</strong> Text Formatting</a></li><li class="chapter-item expanded "><a href="guides/monitor-users.html"><strong aria-hidden="true">10.</strong> Monitor users</a></li><li class="chapter-item expanded affix "><li class="part-title">Configuration</li><li class="chapter-item expanded "><a href="configuration/index.html"><strong aria-hidden="true">11.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/index.html"><strong aria-hidden="true">11.1.</strong> Buffer</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/away.html"><strong aria-hidden="true">11.1.1.</strong> Away</a></li><li class="chapter-item expanded "><a href="configuration/buffer/channel/index.html"><strong aria-hidden="true">11.1.2.</strong> Channel</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/channel/nicklist.html"><strong aria-hidden="true">11.1.2.1.</strong> Nicklist</a></li><li class="chapter-item expanded "><a href="configuration/buffer/channel/message.html"><strong aria-hidden="true">11.1.2.2.</strong> Message</a></li><li class="chapter-item expanded "><a href="configuration/buffer/channel/topic.html"><strong aria-hidden="true">11.1.2.3.</strong> Topic</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/buffer/commands.html"><strong aria-hidden="true">11.1.3.</strong> Commands</a></li><li class="chapter-item expanded "><a href="configuration/buffer/internal_messages/index.html"><strong aria-hidden="true">11.1.4.</strong> Internal Messages</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/internal_messages/success.html"><strong aria-hidden="true">11.1.4.1.</strong> Success</a></li><li class="chapter-item expanded "><a href="configuration/buffer/internal_messages/error.html"><strong aria-hidden="true">11.1.4.2.</strong> Error</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/buffer/nickname.html"><strong aria-hidden="true">11.1.5.</strong> Nickname</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/index.html"><strong aria-hidden="true">11.1.6.</strong> Server Messages</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/change_host.html"><strong aria-hidden="true">11.1.6.1.</strong> Change Host</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/join.html"><strong aria-hidden="true">11.1.6.2.</strong> Join</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/monitored_offline.html"><strong aria-hidden="true">11.1.6.3.</strong> Monitored Offline</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/monitored_online.html"><strong aria-hidden="true">11.1.6.4.</strong> Monitored Online</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/part.html"><strong aria-hidden="true">11.1.6.5.</strong> Part</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/quit.html"><strong aria-hidden="true">11.1.6.6.</strong> Quit</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/standard_reply_fail.html"><strong aria-hidden="true">11.1.6.7.</strong> Standard Reply: Fail</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/standard_reply_note.html"><strong aria-hidden="true">11.1.6.8.</strong> Standard Reply: Note</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/standard_reply_warn.html"><strong aria-hidden="true">11.1.6.9.</strong> Standard Reply: Warn</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/topic.html"><strong aria-hidden="true">11.1.6.10.</strong> Topic</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/buffer/text_input/index.html"><strong aria-hidden="true">11.1.7.</strong> Text Input</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/text_input/autocomplete.html"><strong aria-hidden="true">11.1.7.1.</strong> Autocomplete</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/buffer/timestamp.html"><strong aria-hidden="true">11.1.8.</strong> Timestamp</a></li><li class="chapter-item expanded "><a href="configuration/buffer/date_separators.html"><strong aria-hidden="true">11.1.9.</strong> Date Separators</a></li><li class="chapter-item expanded "><a href="configuration/buffer/chat_history.html"><strong aria-hidden="true">11.1.10.</strong> Chat History</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/file_transfer/index.html"><strong aria-hidden="true">11.2.</strong> File Transfer</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/file_transfer/server.html"><strong aria-hidden="true">11.2.1.</strong> Server</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/font.html"><strong aria-hidden="true">11.3.</strong> Font</a></li><li class="chapter-item expanded "><a href="configuration/keyboard.html"><strong aria-hidden="true">11.4.</strong> Keyboard</a></li><li class="chapter-item expanded "><a href="configuration/notifications.html"><strong aria-hidden="true">11.5.</strong> Notifications</a></li><li class="chapter-item expanded "><a href="configuration/pane/index.html"><strong aria-hidden="true">11.6.</strong> Pane</a></li><li class="chapter-item expanded "><a href="configuration/proxy.html"><strong aria-hidden="true">11.7.</strong> Proxy</a></li><li class="chapter-item expanded "><a href="configuration/preview.html"><strong aria-hidden="true">11.8.</strong> Preview</a></li><li class="chapter-item expanded "><a href="configuration/scale-factor.html"><strong aria-hidden="true">11.9.</strong> Scale factor</a></li><li class="chapter-item expanded "><a href="configuration/servers/index.html"><strong aria-hidden="true">11.10.</strong> Servers</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/servers/sasl/index.html"><strong aria-hidden="true">11.10.1.</strong> SASL</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/servers/sasl/plain.html"><strong aria-hidden="true">11.10.1.1.</strong> Plain</a></li><li class="chapter-item expanded "><a href="configuration/servers/sasl/external.html"><strong aria-hidden="true">11.10.1.2.</strong> External</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="configuration/sidebar/index.html"><strong aria-hidden="true">11.11.</strong> Sidebar</a></li><li class="chapter-item expanded "><a href="configuration/themes/index.html"><strong aria-hidden="true">11.12.</strong> Themes</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/themes/community.html"><strong aria-hidden="true">11.12.1.</strong> Community</a></li><li class="chapter-item expanded "><a href="configuration/themes/base16.html"><strong aria-hidden="true">11.12.2.</strong> Base16</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/tooltips.html"><strong aria-hidden="true">11.13.</strong> Tooltips</a></li></ol></li><li class="chapter-item expanded "><a href="url-schemes.html"><strong aria-hidden="true">12.</strong> URL Schemes</a></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">13.</strong> Commands</a></li></ol>
-            </div>
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
             </div>
         </nav>
-
-        <!-- Track and set sidebar scroll position -->
-        <script>
-            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
-            sidebarScrollbox.addEventListener('click', function (e) {
-                if (e.target.tagName === 'A') {
-                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
-                }
-            }, { passive: true });
-            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
-            sessionStorage.removeItem('sidebar-scroll');
-            if (sidebarScrollTop) {
-                // preserve sidebar scroll position when navigating via links within sidebar
-                sidebarScrollbox.scrollTop = sidebarScrollTop;
-            } else {
-                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
-                var activeSection = document.querySelector('#sidebar .active');
-                if (activeSection) {
-                    activeSection.scrollIntoView({ block: 'center' });
-                }
-            }
-        </script>
 
         <div id="page-wrapper" class="page-wrapper">
 
@@ -125,14 +101,10 @@
                 <div id="menu-bar-hover-placeholder"></div>
                 <div id="menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
-                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor"
-                            title="Toggle Table of Contents" aria-label="Toggle Table of Contents"
-                            aria-controls="sidebar">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
                             <i class="fa fa-bars"></i>
                         </label>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme"
-                            aria-label="Change theme" aria-haspopup="true" aria-expanded="false"
-                            aria-controls="theme-list">
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
                             <i class="fa fa-paint-brush"></i>
                         </button>
                         <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
@@ -141,11 +113,8 @@
                             <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ferra">Ferra</button></li>
                         </ul>
-                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)"
-                            aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S"
-                            aria-controls="searchbar">
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
                             <i class="fa fa-search"></i>
                         </button>
                     </div>
@@ -168,8 +137,7 @@
 
                 <div id="search-wrapper" class="hidden">
                     <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..."
-                            aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
                     </form>
                     <div id="searchresults-outer" class="searchresults-outer hidden">
                         <div id="searchresults-header" class="searchresults-header"></div>
@@ -182,7 +150,7 @@
                 <script>
                     document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
                     document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
-                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function (link) {
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
                         link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
                     });
                 </script>
@@ -191,62 +159,63 @@
                     <main>
                         <h1 id="proxy"><a class="header" href="#proxy"><code>[proxy]</code></a></h1>
 <p>Proxy settings for Halloy.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[proxy]
-type = "socks5"
-host = "192.168.1.100"
-port = 1080
-</code></pre>
 <h2 id="type"><a class="header" href="#type"><code>type</code></a></h2>
-<p>Proxy type.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>http</code>, <code>socks5</code></li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<p>Proxy type to use.</p>
+<pre><code class="language-toml"># Type: string
+# Values: http, socks5
+# Default: not set
+
+[proxy]
+type = "socks5"
+</code></pre>
 <h2 id="host"><a class="header" href="#host"><code>host</code></a></h2>
-<p>Proxy host to connect to .</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<p>Proxy host to connect to.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[proxy]
+host = "192.168.1.100"
+</code></pre>
 <h2 id="port"><a class="header" href="#port"><code>port</code></a></h2>
 <p>Proxy port to connect on.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-<li></li>
-</ul>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[proxy]
+port = 1080
+</code></pre>
 <h2 id="username"><a class="header" href="#username"><code>username</code></a></h2>
 <p>Proxy username (optional).</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[proxy]
+username = "username"
+</code></pre>
 <h2 id="password"><a class="header" href="#password"><code>password</code></a></h2>
 <p>Proxy password (optional).</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[proxy]
+password = "password"
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                        <a rel="prev" href="../configuration/pane/index.html" class="mobile-nav-chapters previous"
-                            title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                            <i class="fa fa-angle-left"></i>
-                        </a>
+                            <a rel="prev" href="../configuration/notifications.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
 
-                        <a rel="next prefetch" href="../configuration/preview.html" class="mobile-nav-chapters next"
-                            title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                            <i class="fa fa-angle-right"></i>
-                        </a>
+                            <a rel="next prefetch" href="../configuration/preview.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -254,15 +223,13 @@ port = 1080
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                <a rel="prev" href="../configuration/pane/index.html" class="nav-chapters previous" title="Previous chapter"
-                    aria-label="Previous chapter" aria-keyshortcuts="Left">
-                    <i class="fa fa-angle-left"></i>
-                </a>
+                    <a rel="prev" href="../configuration/notifications.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
 
-                <a rel="next prefetch" href="../configuration/preview.html" class="nav-chapters next" title="Next chapter"
-                    aria-label="Next chapter" aria-keyshortcuts="Right">
-                    <i class="fa fa-angle-right"></i>
-                </a>
+                    <a rel="next prefetch" href="../configuration/preview.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
             </nav>
 
         </div>
@@ -287,6 +254,5 @@ port = 1080
 
 
     </div>
-</body>
-
+    </body>
 </html>
