@@ -9,7 +9,7 @@ The format is based on the [URI Syntax](https://en.wikipedia.org/wiki/Uniform_Re
 
 ## Format
 
-```
+```url
 <scheme>://<server>:<port>/[#channel[,#channel]]
 ```
 
@@ -20,12 +20,9 @@ The format is based on the [URI Syntax](https://en.wikipedia.org/wiki/Uniform_Re
 | `port`    | Optional. Defaults to `6667` (if `irc`) or `6697` (if `ircs`). |
 | `channel` | Optional. List of channels, separated by a comma.              |
 
-
 ### Examples
 
 Below is a few URL examples.
-
-### Examples
 
 - **Connect to Libera:**  
   [ircs://irc.libera.chat](ircs://irc.libera.chat)

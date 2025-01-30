@@ -1,29 +1,31 @@
 # `[font]`
 
- Application wide font settings.
-
-**Example**
-
-```toml
-[font]
-family = "Comic Mono"
-size = 13
-```
+Application wide font settings.
 
 ## `family`
 
 Monospaced font family to use.
 
-- **type**: string
-- **values**: any string
-- **default**: not set [^1]
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+#
+# Note: Iosevka Term is provided by the application, and used by default.
+
+[font]
+family = "Comic Mono"
+```
 
 ## `size`
 
 Font size.
 
-- **type**: integer
-- **values**: any positive integer
-- **default**: 13
+```toml
+# Type: integer
+# Values: any positive integer
+# Default: 13
 
-[^1]: Iosevka Term is provided by the application, and used by default.
+[font]
+size = 13
+```
