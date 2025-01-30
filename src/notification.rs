@@ -89,10 +89,9 @@ impl Notifications {
             }
             Notification::FileTransferRequest(nick) => {
                 if let Some(server) = server {
-                    if !config
+                    if config
                         .file_transfer_request
-                        .exclude
-                        .contains(&nick.to_string())
+                        .should_notify(vec![nick.to_string()])
                     {
                         self.execute(
                             &config.file_transfer_request,
@@ -104,10 +103,9 @@ impl Notifications {
                 }
             }
             Notification::DirectMessage(user) => {
-                if !config
+                if config
                     .direct_message
-                    .exclude
-                    .contains(&user.nickname().to_string())
+                    .should_notify(vec![user.nickname().to_string()])
                 {
                     self.execute(
                         &config.direct_message,
@@ -122,14 +120,9 @@ impl Notifications {
                 user,
                 target,
             } => {
-                if !config
+                if config
                     .highlight
-                    .exclude
-                    .contains(&target.to_string())
-                    && !config
-                        .highlight
-                        .exclude
-                        .contains(&user.nickname().to_string())
+                    .should_notify(vec![target.to_string(), user.nickname().to_string()])
                     && *enabled
                 {
                     self.execute(

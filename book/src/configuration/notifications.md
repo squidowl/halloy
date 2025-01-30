@@ -66,3 +66,48 @@ Delay in milliseconds before triggering the next notification.
 [notifications.<notification>]
 delay = 250
 ```
+
+## `exclude`
+
+Exclude notifications for nicks (and/or channels in `highlight`'s case).
+
+Only available for `direct_message`, `highlight` and `file_transfer_request`
+notifications.
+
+You can also exclude all nicks/channels by using a wildcard: `["*"]` or `["all"]`.
+
+```toml
+# Type: array of strings
+# Values: array of strings
+# Default: []
+
+[notifications.<direct_mesage|file_transfer_request>]
+exclude = ["HalloyUser1"]
+
+[notifications.highlight]
+exclude = ["HalloyUser1", "#halloy"]
+```
+
+## `include`
+
+Include notifications for nicks (and/or channels in `highlight`'s case).
+
+Only available for `direct_message`, `highlight` and `file_transfer_request`
+notifications.
+
+The include rule takes priority over exclude, so you can use both together.
+For example, you can exclude all nicks with `["*"]` for `direct_message` and
+then only include a few specific nicks to receive `direct_message` notifications
+from.
+
+```toml
+# Type: array of strings
+# Values: array of strings
+# Default: []
+
+[notifications.<direct_mesage|file_transfer_request>]
+include = ["HalloyUser1"]
+
+[notifications.highlight]
+include = ["HalloyUser1", "#halloy"]
+```

@@ -11,7 +11,9 @@ pub struct Notification<T = String> {
     pub sound: Option<T>,
     pub delay: Option<u64>,
     #[serde(default)]
-    pub exclude: Vec<String>
+    pub exclude: Vec<String>,
+    #[serde(default)]
+    pub include: Vec<String>,
 }
 
 impl<T> Default for Notification<T> {
@@ -20,8 +22,24 @@ impl<T> Default for Notification<T> {
             show_toast: false,
             sound: None,
             delay: Some(500),
-            exclude: vec![],
+            exclude: Default::default(),
+            include: Default::default(),
         }
+    }
+}
+
+impl<T> Notification<T> {
+    pub fn should_notify(&self, targets: Vec<String>) -> bool {
+        let is_target_filtered = |list: &Vec<String>, targets: &Vec<String>| -> bool {
+            let wildcards = ["*", "all"];
+
+            list.iter()
+                .any(|item| wildcards.contains(&item.as_str()) || targets.contains(item))
+        };
+        let target_included = is_target_filtered(&self.include, &targets);
+        let target_excluded = is_target_filtered(&self.exclude, &targets);
+
+        target_included || !target_excluded
     }
 }
 
@@ -68,6 +86,7 @@ impl Notifications {
                 sound: notification.sound.as_deref().map(Sound::load).transpose()?,
                 delay: notification.delay,
                 exclude: notification.exclude.to_owned(),
+                include: notification.include.to_owned(),
             })
         };
 
