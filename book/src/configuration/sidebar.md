@@ -15,7 +15,6 @@ Action when pressing buffers in the sidebar. `"new-pane"` opens a new pane each 
 buffer_action = "replace-pane"
 ```
 
-
 ## `buffer_focused_action`
 
 Action when pressing a focused buffer in the sidebar. `"close-pane"` will close the focused pane.

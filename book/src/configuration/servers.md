@@ -2,7 +2,12 @@
 
 You can define multiple server sections in the configuration file. Each server section must have a unique name, which is used as the identifier in the `[servers.<name>]` format.
 
-Below we simply use `[servers.liberachat]` as an example.
+Eg: 
+
+```toml
+[servers.quakenet]
+# ...
+```
 
 > 💡 For a multiple server example see [here](../../guides/multiple-servers.html)
 
@@ -15,7 +20,7 @@ The client's nickname.
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 nickname = ""
 ```
 
@@ -28,7 +33,7 @@ The client's NICKSERV password.
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 nick_password = ""
 ```
 
@@ -41,7 +46,7 @@ Read nick_password from the file at the given path.[^1] [^2]
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 nick_password_file = ""
 ```
 
@@ -54,7 +59,7 @@ Executes the command with `sh` (or equivalent) and reads `nick_password` as the 
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 nick_password_command = ""
 ```
 
@@ -67,7 +72,7 @@ The server's NICKSERV IDENTIFY syntax.
 # Values: "nick-password", "password-nick"
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 nick_identify_syntax = ""
 ```
 
@@ -80,7 +85,7 @@ Alternative nicknames for the client, if the default is taken.
 # Values: array of any strings
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 alt_nicks = ["Foo", "Bar"]
 ```
 
@@ -93,7 +98,7 @@ The client's username.
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 username = ""
 ```
 
@@ -107,7 +112,7 @@ The client's real name.
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 realname = ""
 ```
 
@@ -120,7 +125,7 @@ The server to connect to.
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 server = "irc.libera.chat"
 ```
 
@@ -133,7 +138,7 @@ The port to connect on.
 # Values: any positive integer
 # Default: 6697
 
-[servers.liberachat]
+[servers.<name>]
 port = 6697
 ```
 
@@ -146,7 +151,7 @@ The password to connect to the server.
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 password = ""
 ```
 
@@ -159,7 +164,7 @@ Read password from the file at the given path.[^1] [^2]
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 password_file = ""
 ```
 
@@ -172,7 +177,7 @@ Executes the command with `sh` (or equivalent) and reads `password` as the outpu
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 password_command = ""
 ```
 
@@ -185,7 +190,7 @@ A list of channels to join on connection.
 # Values: array of any strings
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 channels = ["#foo", "#bar"]
 ```
 
@@ -198,7 +203,7 @@ A mapping of channel names to keys for join-on-connect.
 # Values: map with string key value
 # Default: {}
 
-[servers.liberachat]
+[servers.<name>]
 channel_keys = { channel1 = "key1" }
 ```
 
@@ -211,7 +216,7 @@ The amount of inactivity in seconds before the client will ping the server.
 # Values: any positive integer
 # Default: 180
 
-[servers.liberachat]
+[servers.<name>]
 ping_time = 180
 ```
 
@@ -224,7 +229,7 @@ The amount of time in seconds for a client to reconnect due to no ping response.
 # Values: any positive integer
 # Default: 20
 
-[servers.liberachat]
+[servers.<name>]
 ping_timeout = 20
 ```
 
@@ -237,7 +242,7 @@ The amount of time in seconds before attempting to reconnect to the server when 
 # Values: any positive integer
 # Default: 10
 
-[servers.liberachat]
+[servers.<name>]
 reconnect_delay = 10
 ```
 
@@ -250,7 +255,7 @@ Whether the client should use NickServ GHOST to reclaim its primary nickname if 
 # Values: true, false
 # Default: false
 
-[servers.liberachat]
+[servers.<name>]
 should_ghost = false
 ```
 
@@ -263,7 +268,7 @@ The command(s) that should be sent to NickServ to recover a nickname.
 # Values: array of any strings
 # Default: ["REGAIN"]
 
-[servers.liberachat]
+[servers.<name>]
 ghost_sequence = ["REGAIN"]
 ```
 
@@ -276,7 +281,7 @@ User modestring to set on connect.
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 umodes = "+RB-x"
 ```
 
@@ -289,7 +294,7 @@ Whether or not to use TLS. Clients will automatically panic if this is enabled w
 # Values: true, false
 # Default: false
 
-[servers.liberachat]
+[servers.<name>]
 use_tls = false
 ```
 
@@ -302,7 +307,7 @@ When `true`, all certificate validations are skipped.
 # Values: true, false
 # Default: false
 
-[servers.liberachat]
+[servers.<name>]
 dangerously_accept_invalid_certs = false
 ```
 
@@ -315,7 +320,7 @@ The path to the root TLS certificate for this server in PEM format.[^1] [^2]
 # Values: any string
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 root_cert_path = ""
 ```
 
@@ -328,7 +333,7 @@ Commands which are executed once connected.
 # Values: array of any strings
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 on_connect = ["/msg NickServ IDENTIFY foo bar"]
 ```
   
@@ -341,7 +346,7 @@ Whether or not to WHO polling is enabled.
 # Values: true, false
 # Default: true
 
-[servers.liberachat]
+[servers.<name>]
 who_poll_enabled = true
 ```
 
@@ -354,7 +359,7 @@ WHO poll interval (in seconds) for servers without away-notify.  Specifically, t
 # Values: 1 .. 3600
 # Default: 2
 
-[servers.liberachat]
+[servers.<name>]
 who_poll_interval = 2
 ```
 
@@ -370,7 +375,7 @@ A list of nicknames to [monitor](https://ircv3.net/specs/extensions/monitor) (if
 # Values: array of any strings
 # Default: not set
 
-[servers.liberachat]
+[servers.<name>]
 monitor = ["Foo", "Bar"]
 ```
 
@@ -383,15 +388,15 @@ Whether or not to enable [IRCv3 Chat History](https://ircv3.net/specs/extensions
 # Values: true, false
 # Default: true
 
-[servers.liberachat]
+[servers.<name>]
 chathistory = true
 ```
 
-# `[servers.<name>.sasl.plain]`
+## `sasl.plain`
 
 Plain SASL auth using a username and password 
 
-## `username`
+### `username`
 
 The account name used for authentication.
 
@@ -400,11 +405,11 @@ The account name used for authentication.
 # Values: any string
 # Default: not set
 
-[servers.liberachat.sasl.plain]
+[servers.<name>.sasl.plain]
 username = "username"
 ```
 
-## `password`
+### `password`
 
 The password associated with the account used for authentication.
 
@@ -413,11 +418,11 @@ The password associated with the account used for authentication.
 # Values: any string
 # Default: not set
 
-[servers.liberachat.sasl.plain]
+[servers.<name>.sasl.plain]
 password = "password"
 ```
 
-## `password_file`
+### `password_file`
 
 Read `password` from the file at the given path.[^1] [^2]
 
@@ -426,11 +431,11 @@ Read `password` from the file at the given path.[^1] [^2]
 # Values: any string
 # Default: not set
 
-[servers.liberachat.sasl.plain]
+[servers.<name>.sasl.plain]
 password_file = ""
 ```
 
-## `password_command`
+### `password_command`
 
 Executes the command with `sh` (or equivalent) and reads `password` as the output.
 
@@ -439,15 +444,15 @@ Executes the command with `sh` (or equivalent) and reads `password` as the outpu
 # Values: any string
 # Default: not set
 
-[servers.liberachat.sasl.plain]
+[servers.<name>.sasl.plain]
 password_command = ""
 ```
 
-# `[servers.<name>.sasl.external]`
+## `sasl.external`
 
 External SASL auth uses a PEM encoded X509 certificate. [Reference](https://libera.chat/guides/certfp).
 
-## `cert`
+### `cert`
 
 The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
 
@@ -456,11 +461,11 @@ The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
 # Values: any string
 # Default: not set
 
-[servers.liberachat.sasl.external]
+[servers.<name>.sasl.external]
 cert = "/path/to/your/certificate.pem"
 ```
 
-## `key`
+### `key`
 
 The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2]
 
@@ -469,7 +474,7 @@ The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2
 # Values: any string
 # Default: not set
 
-[servers.liberachat.sasl.external]
+[servers.<name>.sasl.external]
 key = "/path/to/your/private_key.pem"
 ```
 

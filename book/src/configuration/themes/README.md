@@ -1,6 +1,6 @@
 # Themes
 
-**Example**
+## Example
 
 ```toml
 # Static
@@ -10,6 +10,7 @@ theme = "ferra"
 theme = { light = "ferra-light", dark = "ferra" }
 ```
 
+Note: `theme` is a root key, so it must be placed before any section.
 
 ## `theme`
 
@@ -25,10 +26,17 @@ When a dynamic theme is used, Halloy will match the appearance of the OS.
 
 ## Custom themes
 
-To create a custom theme for Halloy, simply place a theme file (with a `.toml` extension) inside the themes folder within the configuration directory.
+To create a custom theme for Halloy, simply place a theme file (with a `.toml` extension) inside the `themes` folder within the configuration directory.
+
+```toml
+# Consider we have a theme called "foobar.toml" inside the themes folder.
+# Theme is a root key, so it has to be placed before any sections in your config file.
+
+theme = "foobar"
+# .. rest of the configuration file.
+```
 
 > 💡  Halloy has a built in theme editor which makes theme creation easier
-
 
  Each `"<string>"` is expected to be a valid hex color. If invalid, or if the key is removed, the color will fallback to transparent. A custom theme is structured as follows:
 
