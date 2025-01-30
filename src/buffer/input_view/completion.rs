@@ -287,6 +287,7 @@ impl Commands {
                                 Some(LIST_COMMAND.clone())
                             }
                         }
+                        isupport::Parameter::NAMELEN(max_len) => Some(setname_command(max_len)),
                         _ => isupport_parameter_to_command(isupport_parameter),
                     }),
             )
@@ -1561,6 +1562,18 @@ fn part_command(max_len: &u16) -> Command {
                 tooltip: None,
             },
         ],
+        subcommands: None,
+    }
+}
+
+fn setname_command(max_len: &u16) -> Command {
+    Command {
+        title: "SETNAME",
+        args: vec![Arg {
+            text: "real name",
+            optional: false,
+            tooltip: Some(format!("maximum length: {}", max_len)),
+        }],
         subcommands: None,
     }
 }

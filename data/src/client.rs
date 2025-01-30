@@ -781,6 +781,9 @@ impl Client {
                     if contains("draft/read-marker") {
                         requested.push("draft/read-marker");
                     }
+                    if contains("setname") {
+                        requested.push("setname");
+                    }
 
                     if !requested.is_empty() {
                         // Request
@@ -919,6 +922,9 @@ impl Client {
                 if newly_contains("draft/read-marker") {
                     requested.push("draft/read-marker");
                 }
+                if newly_contains("setname") {
+                    requested.push("setname");
+                }
 
                 if !requested.is_empty() {
                     for message in group_capability_requests(&requested) {
@@ -930,6 +936,8 @@ impl Client {
             }
             Command::CAP(_, sub, a, b) if sub == "DEL" => {
                 let caps = ok!(b.as_ref().or(a.as_ref()));
+
+                log::info!("[{}] capabilities no longer supported: {caps}", self.server);
 
                 let del_caps = caps.split(' ').collect::<Vec<_>>();
 

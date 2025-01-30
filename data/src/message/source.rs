@@ -68,6 +68,14 @@ pub mod server {
         ChangeHost,
         MonitoredOnline,
         MonitoredOffline,
+        StandardReply(StandardReply),
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum StandardReply {
+        Fail,
+        Warn,
+        Note,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
