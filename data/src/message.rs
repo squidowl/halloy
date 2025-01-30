@@ -172,11 +172,13 @@ pub struct Message {
     pub id: Option<String>,
     pub hash: Hash,
     pub hidden_urls: HashSet<Url>,
+    pub is_echo: bool,
 }
 
 impl Message {
     pub fn triggers_unread(&self) -> bool {
         matches!(self.direction, Direction::Received)
+            && !self.is_echo
             && match self.target.source() {
                 Source::User(_) => true,
                 Source::Action(_) => true,
@@ -230,6 +232,9 @@ impl Message {
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
         let id = message_id(&encoded);
+        let is_echo = encoded
+            .user()
+            .is_some_and(|user| user.nickname() == our_nick);
         let content = content(
             &encoded,
             &our_nick,
@@ -260,6 +265,7 @@ impl Message {
             id,
             hash,
             hidden_urls: HashSet::default(),
+            is_echo,
         })
     }
 
@@ -277,6 +283,7 @@ impl Message {
             id: None,
             hash,
             hidden_urls: HashSet::default(),
+            is_echo: false,
         }
     }
 
@@ -292,7 +299,7 @@ impl Message {
 
         Message {
             received_at,
-            server_time,
+            server_time: Utc::now(),
             direction: Direction::Received,
             target: Target::Query {
                 query: query.clone(),
@@ -302,6 +309,7 @@ impl Message {
             id: None,
             hash,
             hidden_urls: HashSet::default(),
+            is_echo: false,
         }
     }
 
@@ -323,6 +331,7 @@ impl Message {
             id: None,
             hash,
             hidden_urls: HashSet::default(),
+            is_echo: false,
         }
     }
 
@@ -353,6 +362,7 @@ impl Message {
             id: None,
             hash,
             hidden_urls: HashSet::default(),
+            is_echo: false,
         }
     }
 
@@ -399,6 +409,7 @@ impl Serialize for Message {
             // added for downgrade compatability
             text: Cow<'a, str>,
             hidden_urls: &'a HashSet<url::Url>,
+            is_echo: &'a bool,
         }
 
         Data {
@@ -409,6 +420,7 @@ impl Serialize for Message {
             content: &self.content,
             text: self.content.text(),
             hidden_urls: &self.hidden_urls,
+            is_echo: &self.is_echo,
         }
         .serialize(serializer)
     }
@@ -433,6 +445,9 @@ impl<'de> Deserialize<'de> for Message {
             id: Option<String>,
             #[serde(default)]
             hidden_urls: HashSet<url::Url>,
+            // New field, optional for upgrade compatability
+            #[serde(default, deserialize_with = "fail_as_none")]
+            is_echo: Option<bool>,
         }
 
         let Data {
@@ -444,6 +459,7 @@ impl<'de> Deserialize<'de> for Message {
             text,
             id,
             hidden_urls,
+            is_echo,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -456,6 +472,8 @@ impl<'de> Deserialize<'de> for Message {
             Content::Plain("".to_string())
         };
 
+        let is_echo = is_echo.unwrap_or(false);
+
         let hash = Hash::new(&server_time, &content);
 
         Ok(Message {
@@ -467,6 +485,7 @@ impl<'de> Deserialize<'de> for Message {
             id,
             hash,
             hidden_urls,
+            is_echo,
         })
     }
 }
