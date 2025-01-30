@@ -506,7 +506,12 @@ impl History {
 /// of the incoming message. Either message IDs match, or server times
 /// have an exact match + target & content.
 pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
-    const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(1);
+    let fuzz_seconds =
+        if matches!(message.direction, message::Direction::Received) && message.is_echo {
+            chrono::Duration::seconds(120)
+        } else {
+            chrono::Duration::seconds(1)
+        };
 
     if messages.is_empty() {
         messages.push(message);
@@ -514,8 +519,8 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
         return;
     }
 
-    let start = message.server_time - FUZZ_SECONDS;
-    let end = message.server_time + FUZZ_SECONDS;
+    let start = message.server_time - fuzz_seconds;
+    let end = message.server_time + fuzz_seconds;
 
     let start_index = match messages.binary_search_by(|stored| stored.server_time.cmp(&start)) {
         Ok(match_index) => match_index,
@@ -534,7 +539,8 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
         if (message.id.is_some() && stored.id == message.id)
             || ((stored.server_time == message.server_time
                 || (matches!(stored.direction, message::Direction::Sent)
-                    && matches!(message.direction, message::Direction::Received)))
+                    && matches!(message.direction, message::Direction::Received)
+                    && message.is_echo))
                 && has_matching_content(stored, &message))
         {
             replace_at = Some(current_index);

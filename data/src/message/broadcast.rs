@@ -34,6 +34,7 @@ fn expand(
             id: None,
             hash,
             hidden_urls: HashSet::default(),
+            is_echo: false,
         }
     };
 
