@@ -89,28 +89,48 @@ impl Notifications {
             }
             Notification::FileTransferRequest(nick) => {
                 if let Some(server) = server {
-                    self.execute(
-                        &config.file_transfer_request,
-                        notification,
-                        &format!("File transfer from {}", nick),
-                        server.to_string(),
-                    );
+                    if !config
+                        .file_transfer_request
+                        .exclude
+                        .as_ref()
+                        .map_or(false, |exclude| exclude.contains(&nick.to_string()))
+                    {
+                        self.execute(
+                            &config.file_transfer_request,
+                            notification,
+                            &format!("File transfer from {}", nick),
+                            server.to_string(),
+                        );
+                    }
                 }
             }
             Notification::DirectMessage(user) => {
-                self.execute(
-                    &config.direct_message,
-                    notification,
-                    "Direct message",
-                    format!("{} sent you a direct message", user.nickname()),
-                );
+                if !config
+                    .direct_message
+                    .exclude
+                    .as_ref()
+                    .map_or(false, |exclude| {
+                        exclude.contains(&user.nickname().to_string())
+                    })
+                {
+                    self.execute(
+                        &config.direct_message,
+                        notification,
+                        "Direct message",
+                        format!("{} sent you a direct message", user.nickname()),
+                    );
+                }
             }
             Notification::Highlight {
                 enabled,
                 user,
                 target,
             } => {
-                if *enabled {
+                if !config.highlight.exclude.as_ref().map_or(false, |exclude| {
+                    exclude.contains(&target.to_string())
+                        || exclude.contains(&user.nickname().to_string())
+                }) && *enabled
+                {
                     self.execute(
                         &config.highlight,
                         notification,
