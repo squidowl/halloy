@@ -92,8 +92,7 @@ impl Notifications {
                     if !config
                         .file_transfer_request
                         .exclude
-                        .as_ref()
-                        .is_some_and(|exclude| exclude.contains(&nick.to_string()))
+                        .contains(&nick.to_string())
                     {
                         self.execute(
                             &config.file_transfer_request,
@@ -108,8 +107,7 @@ impl Notifications {
                 if !config
                     .direct_message
                     .exclude
-                    .as_ref()
-                    .is_some_and(|exclude| exclude.contains(&user.nickname().to_string()))
+                    .contains(&user.nickname().to_string())
                 {
                     self.execute(
                         &config.direct_message,
@@ -124,10 +122,15 @@ impl Notifications {
                 user,
                 target,
             } => {
-                if !config.highlight.exclude.as_ref().is_some_and(|exclude| {
-                    exclude.contains(&target.to_string())
-                        || exclude.contains(&user.nickname().to_string())
-                }) && *enabled
+                if !config
+                    .highlight
+                    .exclude
+                    .contains(&target.to_string())
+                    && !config
+                        .highlight
+                        .exclude
+                        .contains(&user.nickname().to_string())
+                    && *enabled
                 {
                     self.execute(
                         &config.highlight,
