@@ -299,7 +299,7 @@ impl Message {
 
         Message {
             received_at,
-            server_time: Utc::now(),
+            server_time,
             direction: Direction::Received,
             target: Target::Query {
                 query: query.clone(),
@@ -472,7 +472,7 @@ impl<'de> Deserialize<'de> for Message {
             Content::Plain("".to_string())
         };
 
-        let is_echo = is_echo.unwrap_or(false);
+        let is_echo = is_echo.unwrap_or_default();
 
         let hash = Hash::new(&server_time, &content);
 
