@@ -1,11 +1,12 @@
 # Unreleased
 
 Added:
+
 - Image and card previews for url links. (See [configuration](https://halloy.squidowl.org/configuration/preview.html))
 - New configuration options
-  - Ability to disable dimming of away usernames. See [configuartion](https://halloy.squidowl.org/configuration/buffer/away.html).
-  - Autocomplete. See [configuration](https://halloy.squidowl.org/configuration/buffer/text_input/autocomplete.html).
-  - Ability to hide command descriptions. See [configuration](https://halloy.squidowl.org/configuration/buffer/commands.html).
+  - Ability to disable dimming of away usernames. See [configuartion](https://halloy.squidowl.org/configuration/buffer.html#bufferaway).
+  - Autocomplete. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#auto_format).
+  - Ability to hide command descriptions. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#buffercommands).
 - Enable support for IRCv3 `chathistory`, Standard Replies, and `setname`
 - Highlight notifications for `/me` actions
 - Timeout delay for notifications
@@ -16,12 +17,14 @@ Added:
 - Show nickname in user-context menu
 
 Fixed:
+
 - Long username & password combinations could cause SASL authentication to fail
 - `nick_password_command` is now working as intended
 - Don't add suffix (`: `) to prompt if there is no valid nick to autocomplete
 - Append .toml filename when saving themes on macOS
 
 Changed:
+
 - Changed focus buffer shortcuts to include <kbd>ctrl</kbd> (<kbd>⌘</kbd> on macOS) to avoid interfering with default text input shortcuts for word navigation (<kbd>⌘</kbd> + <kbd>←</kbd>, <kbd>⌘</kbd> + <kbd>→</kbd>)
 
 # 2024.14 (2024-10-29)
