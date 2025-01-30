@@ -10,7 +10,8 @@ pub struct Notification<T = String> {
     pub show_toast: bool,
     pub sound: Option<T>,
     pub delay: Option<u64>,
-    pub exclude: Option<Vec<String>>
+    #[serde(default)]
+    pub exclude: Vec<String>
 }
 
 impl<T> Default for Notification<T> {
@@ -19,7 +20,7 @@ impl<T> Default for Notification<T> {
             show_toast: false,
             sound: None,
             delay: Some(500),
-            exclude: None
+            exclude: vec![],
         }
     }
 }
