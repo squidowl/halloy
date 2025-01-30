@@ -730,10 +730,18 @@ impl Dashboard {
                                 ),
                             },
                             command_bar::Command::Configuration(command) => match command {
-                                command_bar::Configuration::OpenDirectory => {
+                                command_bar::Configuration::OpenConfigDirectory => {
                                     let _ = open::that_detached(Config::config_dir());
                                     (Task::none(), None)
                                 }
+                                command_bar::Configuration::OpenCacheDirectory => {
+                                    let _ = open::that_detached(environment::cache_dir());
+                                    (Task::none(), None)
+                                },
+                                command_bar::Configuration::OpenDataDirectory => {
+                                    let _ = open::that_detached(environment::data_dir());
+                                    (Task::none(), None)
+                                },
                                 command_bar::Configuration::OpenWebsite => {
                                     let _ = open::that_detached(environment::WIKI_WEBSITE);
                                     (Task::none(), None)
