@@ -161,7 +161,10 @@
 <p>Customize and enable notifications.</p>
 <p><strong>Example</strong></p>
 <pre><code class="language-toml">[notifications]
-highlight = { sound = "dong" }
+highlight = {
+    sound = "dong"
+    exclude = ["NickServ", "#halloy"]
+}
 direct_message = { sound = "peck", show_toast = true }
 </code></pre>
 <p>Following notifications are available:</p>
@@ -203,6 +206,39 @@ show_toast = true
 
 [notifications.&lt;notification&gt;]
 delay = 250
+</code></pre>
+<h2 id="exclude"><a class="header" href="#exclude"><code>exclude</code></a></h2>
+<p>Exclude notifications for nicks (and/or channels in <code>highlight</code>'s case).</p>
+<p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
+notifications.</p>
+<p>You can also exclude all nicks/channels by using a wildcard: <code>["*"]</code> or <code>["all"]</code>.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of strings
+# Default: []
+
+[notifications.&lt;direct_mesage|file_transfer_request&gt;]
+exclude = ["HalloyUser1"]
+
+[notifications.highlight]
+exclude = ["HalloyUser1", "#halloy"]
+</code></pre>
+<h2 id="include"><a class="header" href="#include"><code>include</code></a></h2>
+<p>Include notifications for nicks (and/or channels in <code>highlight</code>'s case).</p>
+<p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
+notifications.</p>
+<p>The include rule takes priority over exclude, so you can use both together.
+For example, you can exclude all nicks with <code>["*"]</code> for <code>direct_message</code> and
+then only include a few specific nicks to receive <code>direct_message</code> notifications
+from.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of strings
+# Default: []
+
+[notifications.&lt;direct_mesage|file_transfer_request&gt;]
+include = ["HalloyUser1"]
+
+[notifications.highlight]
+include = ["HalloyUser1", "#halloy"]
 </code></pre>
 
                     </main>
