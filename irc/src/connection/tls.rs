@@ -12,16 +12,16 @@ use tokio_rustls::{
     TlsConnector,
 };
 
-use super::IRCStream;
+use super::IrcStream;
 
 pub async fn connect<'a>(
-    stream: IRCStream,
+    stream: IrcStream,
     server: &str,
     accept_invalid_certs: bool,
     root_cert_path: Option<&'a PathBuf>,
     client_cert_path: Option<&'a PathBuf>,
     client_key_path: Option<&'a PathBuf>,
-) -> Result<TlsStream<IRCStream>, Error> {
+) -> Result<TlsStream<IrcStream>, Error> {
     let builder = if accept_invalid_certs {
         rustls::ClientConfig::builder()
             .dangerous()
