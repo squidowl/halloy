@@ -159,50 +159,122 @@
                     <main>
                         <h1 id="proxy"><a class="header" href="#proxy"><code>[proxy]</code></a></h1>
 <p>Proxy settings for Halloy.</p>
-<h2 id="type"><a class="header" href="#type"><code>type</code></a></h2>
-<p>Proxy type to use.</p>
-<pre><code class="language-toml"># Type: string
-# Values: http, socks5
-# Default: not set
-
-[proxy]
-type = "socks5"
-</code></pre>
-<h2 id="host"><a class="header" href="#host"><code>host</code></a></h2>
+<ol>
+<li><a href="#proxyhttp">http</a></li>
+<li><a href="#proxysocks5">socks5</a></li>
+<li><a href="#proxytor">tor</a></li>
+</ol>
+<h2 id="proxyhttp"><a class="header" href="#proxyhttp"><code>[proxy.http]</code></a></h2>
+<p>Http proxy settings.</p>
+<h3 id="host"><a class="header" href="#host"><code>host</code></a></h3>
 <p>Proxy host to connect to.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
 
-[proxy]
+# Required
+
+[proxy.http]
 host = "192.168.1.100"
 </code></pre>
-<h2 id="port"><a class="header" href="#port"><code>port</code></a></h2>
+<h3 id="port"><a class="header" href="#port"><code>port</code></a></h3>
 <p>Proxy port to connect on.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer
 # Default: not set
 
-[proxy]
-port = 1080
+# Required
+
+[proxy.http]
+port = "1080"
 </code></pre>
-<h2 id="username"><a class="header" href="#username"><code>username</code></a></h2>
-<p>Proxy username (optional).</p>
+<h3 id="username"><a class="header" href="#username"><code>username</code></a></h3>
+<p>Proxy username.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
 
-[proxy]
+# Optional
+
+[proxy.http]
 username = "username"
 </code></pre>
-<h2 id="password"><a class="header" href="#password"><code>password</code></a></h2>
-<p>Proxy password (optional).</p>
+<h3 id="password"><a class="header" href="#password"><code>password</code></a></h3>
+<p>Proxy password.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
 
-[proxy]
+# Optional
+
+[proxy.http]
 password = "password"
+</code></pre>
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
+<pre><code class="language-toml">[proxy.http]
+host = "192.168.1.100"
+port = "1080"
+username = "username"
+password = "password"
+</code></pre>
+<h2 id="proxysocks5"><a class="header" href="#proxysocks5"><code>[proxy.socks5]</code></a></h2>
+<p>Socks5 proxy settings.</p>
+<h3 id="host-1"><a class="header" href="#host-1"><code>host</code></a></h3>
+<p>Proxy host to connect to.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Required
+
+[proxy.socks5]
+host = "192.168.1.100"
+</code></pre>
+<h3 id="port-1"><a class="header" href="#port-1"><code>port</code></a></h3>
+<p>Proxy port to connect on.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+# Required
+
+[proxy.socks5]
+port = "1080"
+</code></pre>
+<h3 id="username-1"><a class="header" href="#username-1"><code>username</code></a></h3>
+<p>Proxy username.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Optional
+
+[proxy.socks5]
+username = "username"
+</code></pre>
+<h3 id="password-1"><a class="header" href="#password-1"><code>password</code></a></h3>
+<p>Proxy password.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Optional
+
+[proxy.socks5]
+password = "password"
+</code></pre>
+<h2 id="example-1"><a class="header" href="#example-1">Example</a></h2>
+<pre><code class="language-toml">[proxy.socks5]
+host = "192.168.1.100"
+port = "1080"
+username = "username"
+password = "password"
+</code></pre>
+<h2 id="proxytor"><a class="header" href="#proxytor"><code>[proxy.tor]</code></a></h2>
+<p>Tor proxy settings. Utilizes the <a href="https://arti.torproject.org/">arti</a> to integrate Tor natively.
+It accepts no further configuration.</p>
+<h2 id="example-2"><a class="header" href="#example-2">Example</a></h2>
+<pre><code class="language-toml">[proxy.tor]
 </code></pre>
 
                     </main>

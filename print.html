@@ -1049,50 +1049,122 @@ include = ["HalloyUser1", "#halloy"]
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="proxy"><a class="header" href="#proxy"><code>[proxy]</code></a></h1>
 <p>Proxy settings for Halloy.</p>
-<h2 id="type"><a class="header" href="#type"><code>type</code></a></h2>
-<p>Proxy type to use.</p>
-<pre><code class="language-toml"># Type: string
-# Values: http, socks5
-# Default: not set
-
-[proxy]
-type = "socks5"
-</code></pre>
-<h2 id="host"><a class="header" href="#host"><code>host</code></a></h2>
+<ol>
+<li><a href="configuration/proxy.html#proxyhttp">http</a></li>
+<li><a href="configuration/proxy.html#proxysocks5">socks5</a></li>
+<li><a href="configuration/proxy.html#proxytor">tor</a></li>
+</ol>
+<h2 id="proxyhttp"><a class="header" href="#proxyhttp"><code>[proxy.http]</code></a></h2>
+<p>Http proxy settings.</p>
+<h3 id="host"><a class="header" href="#host"><code>host</code></a></h3>
 <p>Proxy host to connect to.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
 
-[proxy]
+# Required
+
+[proxy.http]
 host = "192.168.1.100"
 </code></pre>
-<h2 id="port"><a class="header" href="#port"><code>port</code></a></h2>
+<h3 id="port"><a class="header" href="#port"><code>port</code></a></h3>
 <p>Proxy port to connect on.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer
 # Default: not set
 
-[proxy]
-port = 1080
+# Required
+
+[proxy.http]
+port = "1080"
 </code></pre>
-<h2 id="username"><a class="header" href="#username"><code>username</code></a></h2>
-<p>Proxy username (optional).</p>
+<h3 id="username"><a class="header" href="#username"><code>username</code></a></h3>
+<p>Proxy username.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
 
-[proxy]
+# Optional
+
+[proxy.http]
 username = "username"
 </code></pre>
-<h2 id="password"><a class="header" href="#password"><code>password</code></a></h2>
-<p>Proxy password (optional).</p>
+<h3 id="password"><a class="header" href="#password"><code>password</code></a></h3>
+<p>Proxy password.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
 
-[proxy]
+# Optional
+
+[proxy.http]
 password = "password"
+</code></pre>
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
+<pre><code class="language-toml">[proxy.http]
+host = "192.168.1.100"
+port = "1080"
+username = "username"
+password = "password"
+</code></pre>
+<h2 id="proxysocks5"><a class="header" href="#proxysocks5"><code>[proxy.socks5]</code></a></h2>
+<p>Socks5 proxy settings.</p>
+<h3 id="host-1"><a class="header" href="#host-1"><code>host</code></a></h3>
+<p>Proxy host to connect to.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Required
+
+[proxy.socks5]
+host = "192.168.1.100"
+</code></pre>
+<h3 id="port-1"><a class="header" href="#port-1"><code>port</code></a></h3>
+<p>Proxy port to connect on.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+# Required
+
+[proxy.socks5]
+port = "1080"
+</code></pre>
+<h3 id="username-1"><a class="header" href="#username-1"><code>username</code></a></h3>
+<p>Proxy username.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Optional
+
+[proxy.socks5]
+username = "username"
+</code></pre>
+<h3 id="password-1"><a class="header" href="#password-1"><code>password</code></a></h3>
+<p>Proxy password.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Optional
+
+[proxy.socks5]
+password = "password"
+</code></pre>
+<h2 id="example-1"><a class="header" href="#example-1">Example</a></h2>
+<pre><code class="language-toml">[proxy.socks5]
+host = "192.168.1.100"
+port = "1080"
+username = "username"
+password = "password"
+</code></pre>
+<h2 id="proxytor"><a class="header" href="#proxytor"><code>[proxy.tor]</code></a></h2>
+<p>Tor proxy settings. Utilizes the <a href="https://arti.torproject.org/">arti</a> to integrate Tor natively.
+It accepts no further configuration.</p>
+<h2 id="example-2"><a class="header" href="#example-2">Example</a></h2>
+<pre><code class="language-toml">[proxy.tor]
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="preview"><a class="header" href="#preview"><code>[preview]</code></a></h1>
 <p>URL preview settings for Halloy.</p>
@@ -1183,7 +1255,7 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not 
 [preview.image]
 exclude = []
 </code></pre>
-<h3 id="example"><a class="header" href="#example">Example</a></h3>
+<h3 id="example-3"><a class="header" href="#example-3">Example</a></h3>
 <pre><code class="language-toml">[preview.image]
 exclude = ["*"] # hide image previews in all channels
 include = ["#halloy"] # show image previews in #halloy
@@ -1210,7 +1282,7 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not 
 [preview.card]
 exclude = []
 </code></pre>
-<h3 id="example-1"><a class="header" href="#example-1">Example</a></h3>
+<h3 id="example-4"><a class="header" href="#example-4">Example</a></h3>
 <pre><code class="language-toml">[preview.card]
 exclude = ["*"] # hide card previews in all channels
 include = ["#halloy"] # show card previews in #halloy
@@ -1287,7 +1359,7 @@ nick_identify_syntax = ""
 [servers.&lt;name&gt;]
 alt_nicks = ["Foo", "Bar"]
 </code></pre>
-<h2 id="username-1"><a class="header" href="#username-1"><code>username</code></a></h2>
+<h2 id="username-2"><a class="header" href="#username-2"><code>username</code></a></h2>
 <p>The client's username.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
@@ -1314,7 +1386,7 @@ realname = ""
 [servers.&lt;name&gt;]
 server = "irc.libera.chat"
 </code></pre>
-<h2 id="port-1"><a class="header" href="#port-1"><code>port</code></a></h2>
+<h2 id="port-2"><a class="header" href="#port-2"><code>port</code></a></h2>
 <p>The port to connect on.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer
@@ -1323,7 +1395,7 @@ server = "irc.libera.chat"
 [servers.&lt;name&gt;]
 port = 6697
 </code></pre>
-<h2 id="password-1"><a class="header" href="#password-1"><code>password</code></a></h2>
+<h2 id="password-2"><a class="header" href="#password-2"><code>password</code></a></h2>
 <p>The password to connect to the server.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
@@ -1499,7 +1571,7 @@ chathistory = true
 </code></pre>
 <h2 id="saslplain"><a class="header" href="#saslplain"><code>sasl.plain</code></a></h2>
 <p>Plain SASL auth using a username and password</p>
-<h3 id="username-2"><a class="header" href="#username-2"><code>username</code></a></h3>
+<h3 id="username-3"><a class="header" href="#username-3"><code>username</code></a></h3>
 <p>The account name used for authentication.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
@@ -1508,7 +1580,7 @@ chathistory = true
 [servers.&lt;name&gt;.sasl.plain]
 username = "username"
 </code></pre>
-<h3 id="password-2"><a class="header" href="#password-2"><code>password</code></a></h3>
+<h3 id="password-3"><a class="header" href="#password-3"><code>password</code></a></h3>
 <p>The password associated with the account used for authentication.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
@@ -1618,7 +1690,7 @@ width = 120
 show_menu_button = true
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
-<h2 id="example-2"><a class="header" href="#example-2">Example</a></h2>
+<h2 id="example-5"><a class="header" href="#example-5">Example</a></h2>
 <pre><code class="language-toml"># Static
 theme = "ferra"
 
