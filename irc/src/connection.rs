@@ -15,14 +15,14 @@ pub use self::proxy::Proxy;
 mod proxy;
 mod tls;
 
-pub enum IRCStream {
+pub enum IrcStream {
     Tcp(TcpStream),
     Tor(TorStream),
 }
 
 pub enum Connection<Codec> {
-    Tls(Framed<TlsStream<IRCStream>, Codec>),
-    Unsecured(Framed<IRCStream, Codec>),
+    Tls(Framed<TlsStream<IrcStream>, Codec>),
+    Unsecured(Framed<IrcStream, Codec>),
 }
 
 #[derive(Debug, Clone)]
@@ -46,8 +46,8 @@ pub struct Config<'a> {
 
 impl<Codec> Connection<Codec> {
     pub async fn new(config: Config<'_>, codec: Codec) -> Result<Self, Error> {
-        let stream: IRCStream = match config.proxy {
-            None => IRCStream::Tcp(TcpStream::connect((config.server, config.port)).await?),
+        let stream = match config.proxy {
+            None => IrcStream::Tcp(TcpStream::connect((config.server, config.port)).await?),
             Some(proxy) => proxy.connect(config.server, config.port).await?,
         };
 
@@ -85,7 +85,7 @@ impl<Codec> Connection<Codec> {
         let listener = TcpListener::bind((address, port)).await?;
 
         let (tcp, _remote) = listener.accept().await?;
-        let stream = IRCStream::Tcp(tcp);
+        let stream = IrcStream::Tcp(tcp);
 
         match security {
             Security::Unsecured => Ok(Self::Unsecured(Framed::new(stream, codec))),
@@ -173,24 +173,24 @@ where
     }
 }
 
-impl AsyncRead for IRCStream {
+impl AsyncRead for IrcStream {
     fn poll_read(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> std::task::Poll<std::io::Result<()>> {
         match self.get_mut() {
-            IRCStream::Tcp(s) => Pin::new(s).poll_read(cx, buf),
-            IRCStream::Tor(s) => Pin::new(s).poll_read(cx, buf),
+            IrcStream::Tcp(s) => Pin::new(s).poll_read(cx, buf),
+            IrcStream::Tor(s) => Pin::new(s).poll_read(cx, buf),
         }
     }
 }
 
-impl AsyncWrite for IRCStream {
+impl AsyncWrite for IrcStream {
     fn is_write_vectored(&self) -> bool {
         match self {
-            IRCStream::Tcp(s) => s.is_write_vectored(),
-            IRCStream::Tor(s) => s.is_write_vectored(),
+            IrcStream::Tcp(s) => s.is_write_vectored(),
+            IrcStream::Tor(s) => s.is_write_vectored(),
         }
     }
     fn poll_flush(
@@ -198,8 +198,8 @@ impl AsyncWrite for IRCStream {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), std::io::Error>> {
         match self.get_mut() {
-            IRCStream::Tcp(s) => Pin::new(s).poll_flush(cx),
-            IRCStream::Tor(s) => Pin::new(s).poll_flush(cx),
+            IrcStream::Tcp(s) => Pin::new(s).poll_flush(cx),
+            IrcStream::Tor(s) => Pin::new(s).poll_flush(cx),
         }
     }
     fn poll_shutdown(
@@ -207,8 +207,8 @@ impl AsyncWrite for IRCStream {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), std::io::Error>> {
         match self.get_mut() {
-            IRCStream::Tcp(s) => Pin::new(s).poll_shutdown(cx),
-            IRCStream::Tor(s) => Pin::new(s).poll_shutdown(cx),
+            IrcStream::Tcp(s) => Pin::new(s).poll_shutdown(cx),
+            IrcStream::Tor(s) => Pin::new(s).poll_shutdown(cx),
         }
     }
     fn poll_write(
@@ -217,8 +217,8 @@ impl AsyncWrite for IRCStream {
         buf: &[u8],
     ) -> std::task::Poll<Result<usize, std::io::Error>> {
         match self.get_mut() {
-            IRCStream::Tcp(s) => Pin::new(s).poll_write(cx, buf),
-            IRCStream::Tor(s) => Pin::new(s).poll_write(cx, buf),
+            IrcStream::Tcp(s) => Pin::new(s).poll_write(cx, buf),
+            IrcStream::Tor(s) => Pin::new(s).poll_write(cx, buf),
         }
     }
     fn poll_write_vectored(
@@ -227,8 +227,8 @@ impl AsyncWrite for IRCStream {
         bufs: &[std::io::IoSlice<'_>],
     ) -> std::task::Poll<Result<usize, std::io::Error>> {
         match self.get_mut() {
-            IRCStream::Tcp(s) => Pin::new(s).poll_write_vectored(cx, bufs),
-            IRCStream::Tor(s) => Pin::new(s).poll_write_vectored(cx, bufs),
+            IrcStream::Tcp(s) => Pin::new(s).poll_write_vectored(cx, bufs),
+            IrcStream::Tor(s) => Pin::new(s).poll_write_vectored(cx, bufs),
         }
     }
 }

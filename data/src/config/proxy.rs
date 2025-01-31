@@ -27,10 +27,10 @@ impl From<Proxy> for irc::connection::Proxy {
                 username,
                 password,
             } => irc::connection::Proxy::Http {
-                host: host,
-                port: port,
-                username: username,
-                password: password,
+                host,
+                port,
+                username,
+                password,
             },
             Proxy::Socks5 {
                 host,
@@ -38,10 +38,10 @@ impl From<Proxy> for irc::connection::Proxy {
                 username,
                 password,
             } => irc::connection::Proxy::Socks5 {
-                host: host,
-                port: port,
-                username: username,
-                password: password,
+                host,
+                port,
+                username,
+                password,
             },
             Proxy::Tor => irc::connection::Proxy::Tor,
         }

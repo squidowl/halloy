@@ -4,7 +4,7 @@ use fast_socks5::client::{Config as Socks5Config, Socks5Stream};
 use thiserror::Error;
 use tokio::net::TcpStream;
 
-use super::IRCStream;
+use super::IrcStream;
 
 #[derive(Debug, Clone)]
 pub enum Proxy {
@@ -24,7 +24,7 @@ pub enum Proxy {
 }
 
 impl Proxy {
-    pub async fn connect(&self, target_server: &str, target_port: u16) -> Result<IRCStream, Error> {
+    pub async fn connect(&self, target_server: &str, target_port: u16) -> Result<IrcStream, Error> {
         match self {
             Proxy::Http {
                 host,
@@ -70,7 +70,7 @@ pub async fn connect_http(
     target_port: u16,
     username: Option<String>,
     password: Option<String>,
-) -> Result<IRCStream, Error> {
+) -> Result<IrcStream, Error> {
     let mut stream = TcpStream::connect((proxy_server, proxy_port)).await?;
     if let Some((username, password)) = username.zip(password) {
         http_connect_tokio_with_basic_auth(
@@ -84,7 +84,7 @@ pub async fn connect_http(
     } else {
         http_connect_tokio(&mut stream, target_server, target_port).await?;
     }
-    Ok(IRCStream::Tcp(stream))
+    Ok(IrcStream::Tcp(stream))
 }
 
 pub async fn connect_socks5(
@@ -94,7 +94,7 @@ pub async fn connect_socks5(
     target_port: u16,
     username: Option<String>,
     password: Option<String>,
-) -> Result<IRCStream, Error> {
+) -> Result<IrcStream, Error> {
     let stream = if let Some((username, password)) = username.zip(password) {
         Socks5Stream::connect_with_password(
             (proxy_server, proxy_port),
@@ -117,16 +117,16 @@ pub async fn connect_socks5(
         .get_socket()
     };
 
-    Ok(IRCStream::Tcp(stream))
+    Ok(IrcStream::Tcp(stream))
 }
 
-pub async fn connect_tor(target_server: String, target_port: u16) -> Result<IRCStream, Error> {
+pub async fn connect_tor(target_server: String, target_port: u16) -> Result<IrcStream, Error> {
     let config = TorClientConfig::default();
     let tor_client = TorClient::create_bootstrapped(config).await?;
 
     let stream = tor_client.connect((target_server, target_port)).await?;
 
-    Ok(IRCStream::Tor(stream))
+    Ok(IrcStream::Tor(stream))
 }
 
 #[derive(Debug, Error)]
