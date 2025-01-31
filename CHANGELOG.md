@@ -16,6 +16,7 @@ Added:
 - Toggle fullscreen (<kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>f</kbd> (macOS: <kbd>ctrl</kbd> + <kbd>⌥</kbd> + <kbd>f</kbd>))
 - Show nickname in user-context menu
 - Optionally exclude `direct_message`, `file_transfer_request` and `highlight` notifications. See [configuration](https://halloy.squidowl.org/configuration/notifications.html#exclude).
+- Tor support. See [configuartion](https://halloy.squidowl.org/configuration/proxy.html#proxytor).
 
 Fixed:
 
