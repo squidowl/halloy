@@ -267,11 +267,16 @@ pub fn view<'a>(
         &new_messages,
     );
 
-    // TODO: Any reason we need to hide it?
-    let show_divider = true;
-    // !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom) | Status::ScrollTo);
+    let show_backlog_divier = if old.is_empty() {
+        // If all newer messages in viewport, only show backlog divider at the top
+        // if we don't have any older messages at all (we're scrolled all the way up)
+        !has_more_older_messages
+    } else {
+        // Always show backlog divider after any visible older messages
+        true
+    };
 
-    let divider = if show_divider {
+    let divider = if show_backlog_divier {
         row![
             container(horizontal_rule(1))
                 .width(Length::Fill)
