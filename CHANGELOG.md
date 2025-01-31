@@ -2,28 +2,30 @@
 
 Added:
 
-- Image and card previews for url links. (See [configuration](https://halloy.squidowl.org/configuration/preview.html))
-- New configuration options
-  - Ability to disable dimming of away usernames. See [configuartion](https://halloy.squidowl.org/configuration/buffer.html#bufferaway).
-  - Autocomplete. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#auto_format).
-  - Ability to hide command descriptions. See [configuration](https://halloy.squidowl.org/configuration/buffer.html#buffercommands).
-- Enable support for IRCv3 `chathistory`, Standard Replies, and `setname`
-- Highlight notifications for `/me` actions
-- Timeout delay for notifications
+- Image and card previews for url links
+- Ability to disable dimming of usernames when away
+- Ability to customize autocomplete sorting direction and completion suffixes
+- Ability to hide command descriptions
+- Ability to set delay before triggering notifications
+- Ability to toggle fullscreen
+- Ability to exclude and include notifications.
+- New IRCv3 extensions support
+  - `chathistory`
+  - `setname`
+  - Standard Replies
 - Case mapping support via `ISUPPORT`
 - Restore last known window position and size at launch
 - Date separators in buffers when day changes
-- Toggle fullscreen (<kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>f</kbd> (macOS: <kbd>ctrl</kbd> + <kbd>⌥</kbd> + <kbd>f</kbd>))
 - Show nickname in user-context menu
-- Optionally exclude `direct_message`, `file_transfer_request` and `highlight` notifications. See [configuration](https://halloy.squidowl.org/configuration/notifications.html#exclude).
-- Tor support. See [configuartion](https://halloy.squidowl.org/configuration/proxy.html#proxytor).
+- Tor support as a proxy option
 
 Fixed:
 
 - Long username & password combinations could cause SASL authentication to fail
 - `nick_password_command` is now working as intended
 - Don't add suffix (`: `) to prompt if there is no valid nick to autocomplete
-- Append .toml filename when saving themes on macOS
+- Append `.toml` filename when saving themes on macOS
+- Highlight notifications are correctly triggered for `/me` actions
 
 Changed:
 
