@@ -267,11 +267,16 @@ pub fn view<'a>(
         &new_messages,
     );
 
-    // TODO: Any reason we need to hide it?
-    let show_divider = true;
-    // !new.is_empty() || matches!(status, Status::Idle(Anchor::Bottom) | Status::ScrollTo);
+    let show_backlog_divier = if old.is_empty() {
+        // If all newer messages in viewport, only show backlog divider at the top
+        // if we don't have any older messages at all (we're scrolled all the way up)
+        !has_more_older_messages
+    } else {
+        // Always show backlog divider after any visible older messages
+        true
+    };
 
-    let divider = if show_divider {
+    let divider = if show_backlog_divier {
         row![
             container(horizontal_rule(1))
                 .width(Length::Fill)
@@ -394,7 +399,10 @@ impl State {
                     // Hit bottom, anchor it
                     _ if old_status.is_bottom(relative_offset) => {
                         self.status = Status::Bottom;
-                        self.limit = Limit::bottom();
+
+                        if !matches!(self.limit, Limit::Bottom(_)) {
+                            self.limit = Limit::bottom();
+                        }
                     }
                     // Hit top
                     _ if old_status.is_top(relative_offset) => {
@@ -427,6 +435,7 @@ impl State {
                     // Normal scrolling, always unlocked
                     _ => {
                         self.status = Status::Unlocked;
+                        self.limit = Limit::Since(oldest);
                     }
                 }
 
@@ -487,6 +496,10 @@ impl State {
                 // Did this cause us to hit the bottom? If so, anchor it
                 if (offset - max_offset).abs() <= f32::EPSILON {
                     self.status = Status::Bottom;
+
+                    if !matches!(self.limit, Limit::Bottom(_)) {
+                        self.limit = Limit::bottom();
+                    }
 
                     return (
                         correct_viewport::scroll_to(
