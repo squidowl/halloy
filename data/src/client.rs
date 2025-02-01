@@ -572,7 +572,7 @@ impl Client {
                 return Ok(vec![]);
             }
             _ if batch_tag.is_some() => {
-                let events = if let Some(target) = batch_tag
+                let events = if let Some(batch_target) = batch_tag
                     .as_ref()
                     .and_then(|batch| {
                         self.batches.get(&Target::parse(
@@ -603,7 +603,7 @@ impl Client {
                         vec![]
                     } else {
                         match &message.command {
-                            Command::NICK(_) => target
+                            Command::NICK(_) => batch_target
                                 .as_channel()
                                 .map(|channel| {
                                     let target = message::Target::Channel {
@@ -618,7 +618,7 @@ impl Client {
                                     )]
                                 })
                                 .unwrap_or_default(),
-                            Command::QUIT(_) => target
+                            Command::QUIT(_) => batch_target
                                 .as_channel()
                                 .map(|channel| {
                                     let target = message::Target::Channel {
@@ -638,26 +638,36 @@ impl Client {
                                     )]
                                 })
                                 .unwrap_or_default(),
-                            Command::PRIVMSG(_, text) | Command::NOTICE(_, text) => {
+                            Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
                                 if ctcp::is_query(text) && !message::is_action(text) {
                                     // Ignore historical CTCP queries/responses except for ACTIONs
                                     vec![]
-                                } else if let Some(user) = message.user().filter(|user| {
-                                    message::references_user_text(
+                                } else if let Some(user) = message.user() {
+                                    // If direct message, update resolved queries with user
+                                    if target == &self.nickname().to_string() {
+                                        self.resolved_queries.replace(target::Query::from_user(
+                                            &user,
+                                            self.casemapping(),
+                                        ));
+                                    }
+
+                                    if message::references_user_text(
                                         user.nickname(),
                                         self.nickname(),
                                         text,
-                                    )
-                                }) {
-                                    vec![Event::Notification(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        Notification::Highlight {
-                                            enabled: false,
-                                            user,
-                                            target,
-                                        },
-                                    )]
+                                    ) {
+                                        vec![Event::Notification(
+                                            message,
+                                            self.nickname().to_owned(),
+                                            Notification::Highlight {
+                                                enabled: false,
+                                                user,
+                                                target: batch_target,
+                                            },
+                                        )]
+                                    } else {
+                                        vec![Event::Single(message, self.nickname().to_owned())]
+                                    }
                                 } else {
                                     vec![Event::Single(message, self.nickname().to_owned())]
                                 }
@@ -1084,6 +1094,14 @@ impl Client {
                             }
                         }
 
+                        // use `target` to confirm the direct message
+                        let direct_message = target == &self.nickname().to_string();
+
+                        if direct_message {
+                            self.resolved_queries
+                                .replace(target::Query::from_user(&user, self.casemapping()));
+                        }
+
                         // Highlight notification
                         if message::references_user_text(user.nickname(), self.nickname(), text) {
                             return Ok(vec![Event::Notification(
@@ -1110,11 +1128,7 @@ impl Client {
                             return Ok(vec![]);
                         }
 
-                        // use `target` to confirm the direct message, then send notification
-                        if target == &self.nickname().to_string() {
-                            self.resolved_queries
-                                .replace(target::Query::from_user(&user, self.casemapping()));
-
+                        if direct_message {
                             return Ok(vec![Event::Notification(
                                 message.clone(),
                                 self.nickname().to_owned(),
