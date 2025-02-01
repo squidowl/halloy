@@ -399,7 +399,10 @@ impl State {
                     // Hit bottom, anchor it
                     _ if old_status.is_bottom(relative_offset) => {
                         self.status = Status::Bottom;
-                        self.limit = Limit::bottom();
+
+                        if !matches!(self.limit, Limit::Bottom(_)) {
+                            self.limit = Limit::bottom();
+                        }
                     }
                     // Hit top
                     _ if old_status.is_top(relative_offset) => {
@@ -432,6 +435,7 @@ impl State {
                     // Normal scrolling, always unlocked
                     _ => {
                         self.status = Status::Unlocked;
+                        self.limit = Limit::Since(oldest);
                     }
                 }
 
@@ -492,6 +496,10 @@ impl State {
                 // Did this cause us to hit the bottom? If so, anchor it
                 if (offset - max_offset).abs() <= f32::EPSILON {
                     self.status = Status::Bottom;
+
+                    if !matches!(self.limit, Limit::Bottom(_)) {
+                        self.limit = Limit::bottom();
+                    }
 
                     return (
                         correct_viewport::scroll_to(
