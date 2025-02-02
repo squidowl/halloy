@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.1 (2025-02-02)
+
 Added:
 
 - Image and card previews for url links
