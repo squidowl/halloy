@@ -1,0 +1,548 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Servers</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title"></h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/servers.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="servers"><a class="header" href="#servers"><code>[servers]</code></a></h1>
+<p>You can define multiple server sections in the configuration file. Each server section must have a unique name, which is used as the identifier in the <code>[servers.&lt;name&gt;]</code> format.</p>
+<p>Eg:</p>
+<pre><code class="language-toml">[servers.quakenet]
+# ...
+</code></pre>
+<blockquote>
+<p>💡 For a multiple server example see <a href="../../guides/multiple-servers.html">here</a></p>
+</blockquote>
+<h2 id="nickname"><a class="header" href="#nickname"><code>nickname</code></a></h2>
+<p>The client's nickname.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+nickname = ""
+</code></pre>
+<h2 id="nick_password"><a class="header" href="#nick_password"><code>nick_password</code></a></h2>
+<p>The client's NICKSERV password.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+nick_password = ""
+</code></pre>
+<h2 id="nick_password_file"><a class="header" href="#nick_password_file"><code>nick_password_file</code></a></h2>
+<p>Read nick_password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+nick_password_file = ""
+</code></pre>
+<h2 id="nick_password_command"><a class="header" href="#nick_password_command"><code>nick_password_command</code></a></h2>
+<p>Executes the command with <code>sh</code> (or equivalent) and reads <code>nick_password</code> as the output.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+nick_password_command = ""
+</code></pre>
+<h2 id="nick_identify_syntax"><a class="header" href="#nick_identify_syntax"><code>nick_identify_syntax</code></a></h2>
+<p>The server's NICKSERV IDENTIFY syntax.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "nick-password", "password-nick"
+# Default: not set
+
+[servers.&lt;name&gt;]
+nick_identify_syntax = ""
+</code></pre>
+<h2 id="alt_nicks"><a class="header" href="#alt_nicks"><code>alt_nicks</code></a></h2>
+<p>Alternative nicknames for the client, if the default is taken.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+alt_nicks = ["Foo", "Bar"]
+</code></pre>
+<h2 id="username"><a class="header" href="#username"><code>username</code></a></h2>
+<p>The client's username.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+username = ""
+</code></pre>
+<h2 id="realname"><a class="header" href="#realname"><code>realname</code></a></h2>
+<p>The client's real name.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+realname = ""
+</code></pre>
+<h2 id="server"><a class="header" href="#server"><code>server</code></a></h2>
+<p>The server to connect to.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+server = "irc.libera.chat"
+</code></pre>
+<h2 id="port"><a class="header" href="#port"><code>port</code></a></h2>
+<p>The port to connect on.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 6697
+
+[servers.&lt;name&gt;]
+port = 6697
+</code></pre>
+<h2 id="password"><a class="header" href="#password"><code>password</code></a></h2>
+<p>The password to connect to the server.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+password = ""
+</code></pre>
+<h2 id="password_file"><a class="header" href="#password_file"><code>password_file</code></a></h2>
+<p>Read password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+password_file = ""
+</code></pre>
+<h2 id="password_command"><a class="header" href="#password_command"><code>password_command</code></a></h2>
+<p>Executes the command with <code>sh</code> (or equivalent) and reads <code>password</code> as the output.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+password_command = ""
+</code></pre>
+<h2 id="channels"><a class="header" href="#channels"><code>channels</code></a></h2>
+<p>A list of channels to join on connection.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+channels = ["#foo", "#bar"]
+</code></pre>
+<h2 id="channel_keys"><a class="header" href="#channel_keys"><code>channel_keys</code></a></h2>
+<p>A mapping of channel names to keys for join-on-connect.</p>
+<pre><code class="language-toml"># Type: map
+# Values: map with string key value
+# Default: {}
+
+[servers.&lt;name&gt;]
+channel_keys = { channel1 = "key1" }
+</code></pre>
+<h2 id="ping_time"><a class="header" href="#ping_time"><code>ping_time</code></a></h2>
+<p>The amount of inactivity in seconds before the client will ping the server.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 180
+
+[servers.&lt;name&gt;]
+ping_time = 180
+</code></pre>
+<h2 id="ping_timeout"><a class="header" href="#ping_timeout"><code>ping_timeout</code></a></h2>
+<p>The amount of time in seconds for a client to reconnect due to no ping response.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 20
+
+[servers.&lt;name&gt;]
+ping_timeout = 20
+</code></pre>
+<h2 id="reconnect_delay"><a class="header" href="#reconnect_delay"><code>reconnect_delay</code></a></h2>
+<p>The amount of time in seconds before attempting to reconnect to the server when disconnected.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 10
+
+[servers.&lt;name&gt;]
+reconnect_delay = 10
+</code></pre>
+<h2 id="should_ghost"><a class="header" href="#should_ghost"><code>should_ghost</code></a></h2>
+<p>Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in use.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.&lt;name&gt;]
+should_ghost = false
+</code></pre>
+<h2 id="ghost_sequence"><a class="header" href="#ghost_sequence"><code>ghost_sequence</code></a></h2>
+<p>The command(s) that should be sent to NickServ to recover a nickname.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: ["REGAIN"]
+
+[servers.&lt;name&gt;]
+ghost_sequence = ["REGAIN"]
+</code></pre>
+<h2 id="umodes"><a class="header" href="#umodes"><code>umodes</code></a></h2>
+<p>User modestring to set on connect.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+umodes = "+RB-x"
+</code></pre>
+<h2 id="use_tls"><a class="header" href="#use_tls"><code>use_tls</code></a></h2>
+<p>Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.&lt;name&gt;]
+use_tls = false
+</code></pre>
+<h2 id="dangerously_accept_invalid_certs"><a class="header" href="#dangerously_accept_invalid_certs"><code>dangerously_accept_invalid_certs</code></a></h2>
+<p>When <code>true</code>, all certificate validations are skipped.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.&lt;name&gt;]
+dangerously_accept_invalid_certs = false
+</code></pre>
+<h2 id="root_cert_path"><a class="header" href="#root_cert_path"><code>root_cert_path</code></a></h2>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+root_cert_path = ""
+</code></pre>
+<h2 id="on_connect"><a class="header" href="#on_connect"><code>on_connect</code></a></h2>
+<p>Commands which are executed once connected.</p>
+<pre><code class="language-toml"># Type: array of string
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+on_connect = ["/msg NickServ IDENTIFY foo bar"]
+</code></pre>
+<h2 id="who_poll_enabled"><a class="header" href="#who_poll_enabled"><code>who_poll_enabled</code></a></h2>
+<p>Whether or not to WHO polling is enabled.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;]
+who_poll_enabled = true
+</code></pre>
+<h2 id="who_poll_interval"><a class="header" href="#who_poll_interval"><code>who_poll_interval</code></a></h2>
+<p>WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: 1 .. 3600
+# Default: 2
+
+[servers.&lt;name&gt;]
+who_poll_interval = 2
+</code></pre>
+<h2 id="monitor"><a class="header" href="#monitor"><code>monitor</code></a></h2>
+<p>A list of nicknames to <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> (if IRCv3 Monitor is supported by the server).</p>
+<blockquote>
+<p>💡 Read more about <a href="../../guides/monitor-users.html">monitoring users</a>.</p>
+</blockquote>
+<pre><code class="language-toml"># Type: array of string
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+monitor = ["Foo", "Bar"]
+</code></pre>
+<h2 id="chathistory"><a class="header" href="#chathistory"><code>chathistory</code></a></h2>
+<p>Whether or not to enable <a href="https://ircv3.net/specs/extensions/chathistory">IRCv3 Chat History</a> (if it is supported by the server).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;]
+chathistory = true
+</code></pre>
+<h2 id="saslplain"><a class="header" href="#saslplain"><code>sasl.plain</code></a></h2>
+<p>Plain SASL auth using a username and password</p>
+<h3 id="username-1"><a class="header" href="#username-1"><code>username</code></a></h3>
+<p>The account name used for authentication.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.plain]
+username = "username"
+</code></pre>
+<h3 id="password-1"><a class="header" href="#password-1"><code>password</code></a></h3>
+<p>The password associated with the account used for authentication.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.plain]
+password = "password"
+</code></pre>
+<h3 id="password_file-1"><a class="header" href="#password_file-1"><code>password_file</code></a></h3>
+<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.plain]
+password_file = ""
+</code></pre>
+<h3 id="password_command-1"><a class="header" href="#password_command-1"><code>password_command</code></a></h3>
+<p>Executes the command with <code>sh</code> (or equivalent) and reads <code>password</code> as the output.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.plain]
+password_command = ""
+</code></pre>
+<h2 id="saslexternal"><a class="header" href="#saslexternal"><code>sasl.external</code></a></h2>
+<p>External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
+<h3 id="cert"><a class="header" href="#cert"><code>cert</code></a></h3>
+<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.external]
+cert = "/path/to/your/certificate.pem"
+</code></pre>
+<h3 id="key"><a class="header" href="#key"><code>key</code></a></h3>
+<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.external]
+key = "/path/to/your/private_key.pem"
+</code></pre>
+<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
+<p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
+</div>
+<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../configuration/scale-factor.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../configuration/sidebar.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../configuration/scale-factor.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../configuration/sidebar.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

@@ -1,47 +1,46 @@
 <!DOCTYPE HTML>
-<html lang="en" class="ferra" dir="ltr">
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title></title>
+        <meta name="robots" content="noindex">
 
-<head>
-    <!-- Book generated using mdBook -->
-    <meta charset="UTF-8">
-    <title></title>
-    <meta name="robots" content="noindex">
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
 
 
-    <!-- Custom HTML head -->
-    
-    <meta name="description" content="">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#ffffff">
-
-    <link rel="shortcut icon" href="favicon.png">
-    <link rel="stylesheet" href="css/variables.css">
-    <link rel="stylesheet" href="css/general.css">
-    <link rel="stylesheet" href="css/chrome.css">
-    <link rel="stylesheet" href="css/print.css" media="print">
-
-    <!-- Fonts -->
-    <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-    <link rel="stylesheet" href="fonts/fonts.css">
-
-    <!-- Highlight.js Stylesheets -->
-    <link rel="stylesheet" href="highlight.css">
-    <link rel="stylesheet" href="tomorrow-night.css">
-    <link rel="stylesheet" href="ayu-highlight.css">
-
-    <!-- Custom theme stylesheets -->
-    <link rel="stylesheet" href="custom.css">
-
-</head>
-
-<body class="sidebar-visible no-js">
-    <div id="body-container">
         <!-- Provide site root to javascript -->
         <script>
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ferra" : "ferra";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
-
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
@@ -61,79 +60,52 @@
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script>
             var theme;
-            try { theme = localStorage.getItem('mdbook-theme'); } catch (e) { }
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
             if (theme === null || theme === undefined) { theme = default_theme; }
-            var html = document.querySelector('html');
-            html.classList.remove('ferra')
+            const html = document.documentElement;
+            html.classList.remove('light')
             html.classList.add(theme);
-            var body = document.querySelector('body');
-            body.classList.remove('no-js')
-            body.classList.add('js');
+            html.classList.add("js");
         </script>
 
         <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
-            var body = document.querySelector('body');
             var sidebar = null;
             var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
-                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch (e) { }
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
             } else {
                 sidebar = 'hidden';
             }
             sidebar_toggle.checked = sidebar === 'visible';
-            body.classList.remove('sidebar-visible');
-            body.classList.add("sidebar-" + sidebar);
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Halloy</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="guides/getting-started.html"><strong aria-hidden="true">2.</strong> Getting started</a></li><li class="chapter-item expanded "><a href="get-in-touch.html"><strong aria-hidden="true">3.</strong> Get in touch</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="guides/connect-with-soju.html"><strong aria-hidden="true">4.</strong> Connect with soju</a></li><li class="chapter-item expanded "><a href="guides/connect-with-znc.html"><strong aria-hidden="true">5.</strong> Connect with ZNC</a></li><li class="chapter-item expanded "><a href="guides/portable-mode.html"><strong aria-hidden="true">6.</strong> Portable mode</a></li><li class="chapter-item expanded "><a href="guides/multiple-servers.html"><strong aria-hidden="true">7.</strong> Multiple servers</a></li><li class="chapter-item expanded "><a href="guides/password-file.html"><strong aria-hidden="true">8.</strong> Storing passwords in a File</a></li><li class="chapter-item expanded "><a href="guides/text-formatting.html"><strong aria-hidden="true">9.</strong> Text Formatting</a></li><li class="chapter-item expanded "><a href="guides/monitor-users.html"><strong aria-hidden="true">10.</strong> Monitor users</a></li><li class="chapter-item expanded affix "><li class="part-title">Configuration</li><li class="chapter-item expanded "><a href="configuration/index.html"><strong aria-hidden="true">11.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/index.html"><strong aria-hidden="true">11.1.</strong> Buffer</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/channel/index.html"><strong aria-hidden="true">11.1.1.</strong> Channel</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/channel/nicklist.html"><strong aria-hidden="true">11.1.1.1.</strong> Nicklist</a></li><li class="chapter-item expanded "><a href="configuration/buffer/channel/message.html"><strong aria-hidden="true">11.1.1.2.</strong> Message</a></li><li class="chapter-item expanded "><a href="configuration/buffer/channel/topic.html"><strong aria-hidden="true">11.1.1.3.</strong> Topic</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/buffer/internal_messages/index.html"><strong aria-hidden="true">11.1.2.</strong> Internal Messages</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/internal_messages/success.html"><strong aria-hidden="true">11.1.2.1.</strong> Success</a></li><li class="chapter-item expanded "><a href="configuration/buffer/internal_messages/error.html"><strong aria-hidden="true">11.1.2.2.</strong> Error</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/buffer/nickname.html"><strong aria-hidden="true">11.1.3.</strong> Nickname</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/index.html"><strong aria-hidden="true">11.1.4.</strong> Server Messages</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/change_host.html"><strong aria-hidden="true">11.1.4.1.</strong> Change Host</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/join.html"><strong aria-hidden="true">11.1.4.2.</strong> Join</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/monitored_offline.html"><strong aria-hidden="true">11.1.4.3.</strong> Monitored Offline</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/monitored_online.html"><strong aria-hidden="true">11.1.4.4.</strong> Monitored_Online</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/part.html"><strong aria-hidden="true">11.1.4.5.</strong> Part</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/quit.html"><strong aria-hidden="true">11.1.4.6.</strong> Quit</a></li><li class="chapter-item expanded "><a href="configuration/buffer/server_messages/topic.html"><strong aria-hidden="true">11.1.4.7.</strong> Topic</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/buffer/text_input.html"><strong aria-hidden="true">11.1.5.</strong> Text Input</a></li><li class="chapter-item expanded "><a href="configuration/buffer/timestamp.html"><strong aria-hidden="true">11.1.6.</strong> Timestamp</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/file_transfer/index.html"><strong aria-hidden="true">11.2.</strong> File Transfer</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/file_transfer/server.html"><strong aria-hidden="true">11.2.1.</strong> Server</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/font.html"><strong aria-hidden="true">11.3.</strong> Font</a></li><li class="chapter-item expanded "><a href="configuration/keyboard.html"><strong aria-hidden="true">11.4.</strong> Keyboard</a></li><li class="chapter-item expanded "><a href="configuration/notifications.html"><strong aria-hidden="true">11.5.</strong> Notifications</a></li><li class="chapter-item expanded "><a href="configuration/pane/index.html"><strong aria-hidden="true">11.6.</strong> Pane</a></li><li class="chapter-item expanded "><a href="configuration/proxy.html"><strong aria-hidden="true">11.7.</strong> Proxy</a></li><li class="chapter-item expanded "><a href="configuration/scale-factor.html"><strong aria-hidden="true">11.8.</strong> Scale factor</a></li><li class="chapter-item expanded "><a href="configuration/servers/index.html"><strong aria-hidden="true">11.9.</strong> Servers</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/servers/sasl/index.html"><strong aria-hidden="true">11.9.1.</strong> SASL</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/servers/sasl/plain.html"><strong aria-hidden="true">11.9.1.1.</strong> Plain</a></li><li class="chapter-item expanded "><a href="configuration/servers/sasl/external.html"><strong aria-hidden="true">11.9.1.2.</strong> External</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="configuration/sidebar/index.html"><strong aria-hidden="true">11.10.</strong> Sidebar</a></li><li class="chapter-item expanded "><a href="configuration/themes/index.html"><strong aria-hidden="true">11.11.</strong> Themes</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="configuration/themes/community.html"><strong aria-hidden="true">11.11.1.</strong> Community</a></li></ol></li><li class="chapter-item expanded "><a href="configuration/tooltips.html"><strong aria-hidden="true">11.12.</strong> Tooltips</a></li></ol></li><li class="chapter-item expanded "><a href="url-schemes.html"><strong aria-hidden="true">12.</strong> URL Schemes</a></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">13.</strong> Commands</a></li></ol>
-            </div>
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
             </div>
         </nav>
 
-        <!-- Track and set sidebar scroll position -->
-        <script>
-            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
-            sidebarScrollbox.addEventListener('click', function (e) {
-                if (e.target.tagName === 'A') {
-                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
-                }
-            }, { passive: true });
-            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
-            sessionStorage.removeItem('sidebar-scroll');
-            if (sidebarScrollTop) {
-                // preserve sidebar scroll position when navigating via links within sidebar
-                sidebarScrollbox.scrollTop = sidebarScrollTop;
-            } else {
-                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
-                var activeSection = document.querySelector('#sidebar .active');
-                if (activeSection) {
-                    activeSection.scrollIntoView({ block: 'center' });
-                }
-            }
-        </script>
-
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
-                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar-hover-placeholder"></div>
                 <div id="menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
-                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor"
-                            title="Toggle Table of Contents" aria-label="Toggle Table of Contents"
-                            aria-controls="sidebar">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
                             <i class="fa fa-bars"></i>
                         </label>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme"
-                            aria-label="Change theme" aria-haspopup="true" aria-expanded="false"
-                            aria-controls="theme-list">
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
                             <i class="fa fa-paint-brush"></i>
                         </button>
                         <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
@@ -142,11 +114,8 @@
                             <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ferra">Ferra</button></li>
                         </ul>
-                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)"
-                            aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S"
-                            aria-controls="searchbar">
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
                             <i class="fa fa-search"></i>
                         </button>
                     </div>
@@ -166,8 +135,7 @@
 
                 <div id="search-wrapper" class="hidden">
                     <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..."
-                            aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
                     </form>
                     <div id="searchresults-outer" class="searchresults-outer hidden">
                         <div id="searchresults-header" class="searchresults-header"></div>
@@ -180,7 +148,7 @@
                 <script>
                     document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
                     document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
-                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function (link) {
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
                         link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
                     });
                 </script>
@@ -198,6 +166,7 @@
 <li><a href="https://ircv3.net/specs/extensions/away-notify">away-notify</a></li>
 <li><a href="https://ircv3.net/specs/extensions/batch">batch</a></li>
 <li><a href="https://ircv3.net/specs/extensions/capability-negotiation.html#cap-notify">cap-notify</a></li>
+<li><a href="https://ircv3.net/specs/extensions/chathistory">chathistory</a></li>
 <li><a href="https://ircv3.net/specs/extensions/chghost">chghost</a></li>
 <li><a href="https://ircv3.net/specs/extensions/echo-message">echo-message</a></li>
 <li><a href="https://ircv3.net/specs/extensions/extended-join">extended-join</a></li>
@@ -210,6 +179,8 @@
 <li><a href="https://ircv3.net/specs/extensions/read-marker">read-marker</a></li>
 <li><a href="https://ircv3.net/specs/extensions/sasl-3.1">sasl-3.1</a></li>
 <li><a href="https://ircv3.net/specs/extensions/server-time">server-time</a></li>
+<li><a href="https://ircv3.net/specs/extensions/setname.html">setname</a></li>
+<li><a href="https://ircv3.net/specs/extensions/standard-replies">Standard Replies</a></li>
 <li><a href="https://ircv3.net/specs/extensions/userhost-in-names">userhost-in-names</a></li>
 <li><a href="https://ircv3.net/specs/extensions/utf8-only"><code>UTF8ONLY</code></a></li>
 <li><a href="https://ircv3.net/specs/extensions/whox"><code>WHOX</code></a></li>
@@ -336,6 +307,15 @@ password = "&lt;your-password&gt;"
 nickname = "&lt;znc-user&gt;/&lt;znc-network&gt;"
 server = "znc.example.com"
 password = "&lt;your-password&gt;"
+
+# Depending on your ZNC setup you may need to apply these extra settings:
+
+# Does your znc use a self-signed or expired certificate? See: 
+# https://halloy.squidowl.org/configuration/servers/index.html#dangerously_accept_invalid_certs
+
+# Does your znc listen on a different port? See: 
+# https://halloy.squidowl.org/configuration/servers/index.html#port
+
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="portable-mode"><a class="header" href="#portable-mode">Portable mode</a></h1>
 <p>To enable portable mode for Halloy, simply place the <code>config.toml</code> file in the same directory as the running executable.</p>
@@ -363,6 +343,9 @@ channels = ["#asahi-dev"]
 </blockquote>
 <blockquote>
 <p>💡 Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
+</blockquote>
+<blockquote>
+<p>💡 Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
 </blockquote>
 <pre><code class="language-toml">[servers.liberachat]
 nickname = "foobar"
@@ -451,11 +434,12 @@ auto_format = "disabled" | "markdown" | "all"
 <ul>
 <li>Windows: <code>%AppData%\halloy</code></li>
 <li>Mac: <code>~/Library/Application Support/halloy</code> or <code>$HOME/.config/halloy</code></li>
-<li>Linux: <code>$XDG_CONFIG_HOME</code> or <code>$HOME/.config</code></li>
+<li>Linux: <code>$XDG_CONFIG_HOME/halloy</code> or <code>$HOME/.config/halloy</code></li>
 </ul>
 <blockquote>
 <p>💡 You can easily open the config file directory from command bar in Halloy</p>
 </blockquote>
+<p>The specification for the configuration file format (<a href="https://toml.io/">TOML</a>) can be found at <a href="https://toml.io/">https://toml.io/</a>.</p>
 <p>Example config for connecting to <a href="https://libera.chat/">Libera</a>:</p>
 <pre><code class="language-toml">[servers.liberachat]
 nickname = "halloy-user"
@@ -466,596 +450,490 @@ channels = ["#halloy"]
 enabled = true
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="buffer"><a class="header" href="#buffer"><code>[buffer]</code></a></h1>
-<p>A <em>buffer</em> displays messages within a specific context.</p>
-<p>Examples of buffers:</p>
-<ul>
-<li>Channel</li>
-<li>Server</li>
-<li>Private Query</li>
-<li>File transfer</li>
-</ul>
-<p>Each buffer is shown inside a <a href="configuration/buffer/../pane/index.html">pane</a>.</p>
-<h2 id="configuration-2"><a class="header" href="#configuration-2">Configuration</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td><a href="configuration/buffer/./channel/index.html">Channel</a></td><td>Channel settings for when buffer context is a channel</td></tr>
-<tr><td><a href="configuration/buffer/./internal_messages/index.html">Internal Messages</a></td><td>Halloy specific status messages</td></tr>
-<tr><td><a href="configuration/buffer/./nickname.html">Nickname</a></td><td>Customize how nicknames are displayed within a buffer</td></tr>
-<tr><td><a href="configuration/buffer/./server_messages/index.html">Server Messages</a></td><td>Settings for server messages such as <code>join</code>, <code>part</code>, <code>quit</code> etc</td></tr>
-<tr><td><a href="configuration/buffer/./text_input.html">Text Input</a></td><td>Customize the text input for a buffer</td></tr>
-<tr><td><a href="configuration/buffer/./timestamp.html">Timestamp</a></td><td>Customize how timestamps are displayed within a buffer</td></tr>
-</tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="bufferchannel"><a class="header" href="#bufferchannel"><code>[buffer.channel]</code></a></h1>
-<p>A <em>channel</em> represents a IRC channel.</p>
-<p>Each channel is shown inside a <a href="configuration/buffer/channel/../index.html">buffer</a>.</p>
-<h2 id="configuration-3"><a class="header" href="#configuration-3">Configuration</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td><a href="configuration/buffer/channel/./nicklist.html">Nicklist</a></td><td>Customize the nicklist whitin a channel buffer</td></tr>
-<tr><td><a href="configuration/buffer/channel/./message.html">Message</a></td><td>Customize the messages whitin a channel buffer</td></tr>
-<tr><td><a href="configuration/buffer/channel/./topic.html">Topic</a></td><td>Customize the topic banner within a channel buffer</td></tr>
-</tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="bufferchannelnicklist"><a class="header" href="#bufferchannelnicklist"><code>[buffer.channel.nicklist]</code></a></h1>
-<p>Customize the nicklist within a channel buffer.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.channel.nicklist]
-color = "unique"
-show_access_levels = true
+<p>Buffer settings for Halloy.</p>
+<ol>
+<li><a href="configuration/buffer.html#bufferaway">Away</a> - Controls the appearance of away nicknames</li>
+<li><a href="configuration/buffer.html#bufferchannel">Channel</a> - Channel specific settings
+<ol>
+<li><a href="configuration/buffer.html#bufferchannelmessage">Message</a> - Message settings within a channel buffer</li>
+<li><a href="configuration/buffer.html#bufferchannelnicklist">Nicklist</a> - Nicklist settings within a channel buffer</li>
+<li><a href="configuration/buffer.html#bufferchanneltopic">Topic</a> - Topic settings within a channel buffer</li>
+</ol>
+</li>
+<li><a href="configuration/buffer.html#bufferchathistory">Chathistory</a> - IRCv3 Chat History extension settings</li>
+<li><a href="configuration/buffer.html#buffercommands">Commands</a> - Commands settings</li>
+<li><a href="configuration/buffer.html#bufferdate_separators">Date Separators</a> - Customize how date separators are displayed within a buffer</li>
+<li><a href="configuration/buffer.html#bufferinternal_messages">Internal Messages</a> - Internal messages are messages sent from Halloy itself</li>
+<li><a href="configuration/buffer.html#buffernickname">Nickname</a> - Customize how nicknames are displayed within a buffer</li>
+<li><a href="configuration/buffer.html#bufferserver_messages">Server Messages</a> - Server messages are messages sent from a irc server.</li>
+<li><a href="configuration/buffer.html#bufferstatus_message_prefix">Status Message Prefix</a> - Status message prefix settings</li>
+<li><a href="configuration/buffer.html#buffertext_input">Text Input</a> - Customize the text input for in buffers</li>
+<li><a href="configuration/buffer.html#buffertimestamp">Timestamp</a> - Customize how timestamps are displayed within a buffer</li>
+</ol>
+<h2 id="bufferaway"><a class="header" href="#bufferaway"><code>[buffer.away]</code></a></h2>
+<p>Controls the appearance of away nicknames.</p>
+<h3 id="appearance"><a class="header" href="#appearance"><code>appearance</code></a></h3>
+<p>Controls the appearance of away nicknames in buffers.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "dimmed", "solid"
+# Default: "dimmed"
+
+[buffer.away]
+appearance = "dimmed"
 </code></pre>
-<h2 id="alignment"><a class="header" href="#alignment"><code>alignment</code></a></h2>
-<p>Horizontal alignment of nicknames.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"left"</code>, <code>"right"</code></li>
-<li><strong>default</strong>: <code>"left"</code></li>
-</ul>
-<h2 id="color-1"><a class="header" href="#color-1"><code>color</code></a></h2>
-<p>Nickname colors in the nicklist. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"solid"</code>, <code>"unique"</code></li>
-<li><strong>default</strong>: <code>"unique"</code></li>
-</ul>
-<h2 id="enabled"><a class="header" href="#enabled"><code>enabled</code></a></h2>
-<p>Control if nicklist should be shown or not by default.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="position"><a class="header" href="#position"><code>position</code></a></h2>
-<p>Nicklist position in the pane.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"left"</code>, <code>"right"</code></li>
-<li><strong>default</strong>: <code>"right"</code></li>
-</ul>
-<h2 id="show_access_levels"><a class="header" href="#show_access_levels"><code>show_access_levels</code></a></h2>
-<p>Show access levels in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="width"><a class="header" href="#width"><code>width</code></a></h2>
-<p>Overwrite nicklist width in pixels.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferchannelmessage"><a class="header" href="#bufferchannelmessage"><code>[buffer.channel.message]</code></a></h1>
-<p>Customize the message within a channel buffer.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.channel.message]
+<h2 id="bufferchannel"><a class="header" href="#bufferchannel"><code>[buffer.channel]</code></a></h2>
+<p>Channel specific settings</p>
+<h3 id="bufferchannelmessage"><a class="header" href="#bufferchannelmessage"><code>[buffer.channel.message]</code></a></h3>
+<p>Message settings within a channel buffer.</p>
+<h4 id="nickname_color"><a class="header" href="#nickname_color"><code>nickname_color</code></a></h4>
+<p>Nickname colors in the message. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "solid", "unique"
+# Default: "unique"
+
+[buffer.channel.message]
 nickname_color = "unique"
 </code></pre>
-<h2 id="nickname_color"><a class="header" href="#nickname_color"><code>nickname_color</code></a></h2>
-<p>Nickname colors in the message. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"solid"</code>, <code>"unique"</code></li>
-<li><strong>default</strong>: <code>"unique"</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferchanneltopic"><a class="header" href="#bufferchanneltopic"><code>[buffer.channel.topic]</code></a></h1>
-<p>Customize the topic banner within a channel buffer.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.channel.topic]
-enabled = true
-max_lines = 2
+<h3 id="bufferchannelnicklist"><a class="header" href="#bufferchannelnicklist"><code>[buffer.channel.nicklist]</code></a></h3>
+<p>Nicklist settings within a channel buffer.</p>
+<h4 id="alignment"><a class="header" href="#alignment"><code>alignment</code></a></h4>
+<p>Horizontal alignment of nicknames.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "left", "right"
+# Default: "left"
+
+[buffer.channel.nicklist]
+alignment = "left"
 </code></pre>
-<h2 id="enabled-1"><a class="header" href="#enabled-1"><code>enabled</code></a></h2>
-<p>Control if topic should be shown or not by default.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>false</code></li>
-</ul>
-<h2 id="max_lines"><a class="header" href="#max_lines"><code>max_lines</code></a></h2>
-<p>Amount of visible lines before you have to scroll in topic banner.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: <code>2</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferinternal_messages"><a class="header" href="#bufferinternal_messages"><code>[buffer.internal_messages]</code></a></h1>
-<p>Internal messages are messages sent from Halloy itself.</p>
-<h2 id="configuration-4"><a class="header" href="#configuration-4">Configuration</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td><a href="configuration/buffer/internal_messages/./success.html">Success</a></td><td>Internal messages which is considered a success</td></tr>
-<tr><td><a href="configuration/buffer/internal_messages/./error.html">Error</a></td><td>Internal messages which is considered a error</td></tr>
-</tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="bufferinternal_messagessuccess"><a class="header" href="#bufferinternal_messagessuccess"><code>[buffer.internal_messages.success]</code></a></h1>
-<p>A internal messages which is considered a "success" such as when a connection was restored, or when connected succesfully to a server.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.internal_messages.success]
-enabled = true
-smart = 180
-</code></pre>
-<h2 id="enabled-2"><a class="header" href="#enabled-2"><code>enabled</code></a></h2>
-<p>Control if internal message type is enabled.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="smart"><a class="header" href="#smart"><code>smart</code></a></h2>
-<p>Only show internal message if received within the given time duration (seconds).</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferinternal_messageserror"><a class="header" href="#bufferinternal_messageserror"><code>[buffer.internal_messages.error]</code></a></h1>
-<p>A internal messages which is considered a "error" such as when a connection was lost, or when connection to server failed.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.internal_messages.error]
-enabled = true
-smart = 180
-</code></pre>
-<h2 id="enabled-3"><a class="header" href="#enabled-3"><code>enabled</code></a></h2>
-<p>Control if internal message type is enabled.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="smart-1"><a class="header" href="#smart-1"><code>smart</code></a></h2>
-<p>Only show internal message if received within the given time duration (seconds).</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="buffernickname"><a class="header" href="#buffernickname"><code>[buffer.nickname]</code></a></h1>
-<p>Customize how nicknames are displayed within a buffer.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.nickname]
-alignment = "right" 
-brackets = { left = "&lt;", right = "&gt;" }
+<h4 id="color-1"><a class="header" href="#color-1"><code>color</code></a></h4>
+<p>Nickname colors in the nicklist. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "solid", "unique"
+# Default: "unique"
+
+[buffer.channel.nicklist]
 color = "unique"
+</code></pre>
+<h4 id="enabled"><a class="header" href="#enabled"><code>enabled</code></a></h4>
+<p>Control if nicklist should be shown or not by default.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.channel.nicklist]
+enabled = true
+</code></pre>
+<h4 id="position"><a class="header" href="#position"><code>position</code></a></h4>
+<p>Nicklist position in the pane.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "left", "right"
+# Default: "left"
+
+[buffer.channel.nicklist]
+position = "right"
+</code></pre>
+<h4 id="show_access_levels"><a class="header" href="#show_access_levels"><code>show_access_levels</code></a></h4>
+<p>Show access levels in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.channel.nicklist]
 show_access_levels = true
 </code></pre>
-<h2 id="alignment-1"><a class="header" href="#alignment-1"><code>alignment</code></a></h2>
+<h4 id="width"><a class="header" href="#width"><code>width</code></a></h4>
+<p>Overwrite nicklist width in pixels.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[buffer.channel.nicklist]
+width = 150
+</code></pre>
+<h3 id="bufferchanneltopic"><a class="header" href="#bufferchanneltopic"><code>[buffer.channel.topic]</code></a></h3>
+<p>Topic settings within a channel buffer.</p>
+<h4 id="enabled-1"><a class="header" href="#enabled-1"><code>enabled</code></a></h4>
+<p>Control if topic should be shown or not by default.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.channel.topic]
+enabled = true
+</code></pre>
+<h4 id="max_lines"><a class="header" href="#max_lines"><code>max_lines</code></a></h4>
+<p>Amount of visible lines before you have to scroll in topic banner.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 2z
+
+[buffer.channel.topic]
+max_lines = 2
+</code></pre>
+<h2 id="bufferchathistory"><a class="header" href="#bufferchathistory"><code>[buffer.chathistory]</code></a></h2>
+<p>IRCv3 Chat History extension settings</p>
+<h3 id="infinite_scroll"><a class="header" href="#infinite_scroll"><code>infinite_scroll</code></a></h3>
+<p>Automatically request older history when scrolling to the top of a channel/query buffer</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.chathistory]
+infinite_scroll = true
+</code></pre>
+<h2 id="buffercommands"><a class="header" href="#buffercommands"><code>[buffer.commands]</code></a></h2>
+<p>Commands settings.</p>
+<pre><code class="language-toml">[buffer.commands]
+show_description = false
+</code></pre>
+<h3 id="show_description"><a class="header" href="#show_description"><code>show_description</code></a></h3>
+<p>Show or hide the description for a command</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.commands]
+show_description = true
+</code></pre>
+<h2 id="bufferdate_separators"><a class="header" href="#bufferdate_separators"><code>[buffer.date_separators]</code></a></h2>
+<p>Customize how date separators are displayed within a buffer</p>
+<h3 id="format"><a class="header" href="#format"><code>format</code></a></h3>
+<p>Controls the date format. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.<br />
+NOTE: The application will panic if a invalid format is provided.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any valid strftime string
+# Default: "%A, %B %-d"
+
+[buffer.date_separators]
+format = "%A, %B %-d"
+</code></pre>
+<h3 id="show"><a class="header" href="#show"><code>show</code></a></h3>
+<p>Show date separators.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.date_separators]
+show = true
+</code></pre>
+<h2 id="bufferinternal_messages"><a class="header" href="#bufferinternal_messages"><code>[buffer.internal_messages]</code></a></h2>
+<p>Internal messages are messages sent from Halloy itself.</p>
+<h3 id="bufferinternal_messagessuccess"><a class="header" href="#bufferinternal_messagessuccess"><code>[buffer.internal_messages.success]</code></a></h3>
+<p>A internal messages which is considered a "success" such as when a connection was restored, or when connected succesfully to a server.</p>
+<h4 id="enabled-2"><a class="header" href="#enabled-2"><code>enabled</code></a></h4>
+<p>Control if internal message type is enabled.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.internal_messages.success]
+enabled = true
+</code></pre>
+<h4 id="smart"><a class="header" href="#smart"><code>smart</code></a></h4>
+<p>Only show internal message if received within the given time duration (seconds).</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[buffer.internal_messages.success]
+smart = 180
+</code></pre>
+<h3 id="bufferinternal_messageserror"><a class="header" href="#bufferinternal_messageserror"><code>[buffer.internal_messages.error]</code></a></h3>
+<p>A internal messages which is considered a "error" such as when a connection was lost, or when connection to server failed.</p>
+<h4 id="enabled-3"><a class="header" href="#enabled-3"><code>enabled</code></a></h4>
+<p>Control if internal message type is enabled.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.internal_messages.error]
+enabled = true
+</code></pre>
+<h4 id="smart-1"><a class="header" href="#smart-1"><code>smart</code></a></h4>
+<p>Only show internal message if received within the given time duration (seconds).</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[buffer.internal_messages.error]
+smart = 180
+</code></pre>
+<h2 id="buffernickname"><a class="header" href="#buffernickname"><code>[buffer.nickname]</code></a></h2>
+<p>Customize how nicknames are displayed within a buffer.</p>
+<h3 id="alignment-1"><a class="header" href="#alignment-1"><code>alignment</code></a></h3>
 <p>Horizontal alignment of nicknames.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"left"</code>, <code>"right"</code>, <code>"top"</code></li>
-<li><strong>default</strong>: <code>"left"</code></li>
-</ul>
-<h2 id="brackets"><a class="header" href="#brackets"><code>brackets</code></a></h2>
+<pre><code class="language-toml"># Type: string
+# Values: "left", "right", "top"
+# Default: "left"
+
+[buffer.nickname]
+alignment = "right"
+</code></pre>
+<h3 id="brackets"><a class="header" href="#brackets"><code>brackets</code></a></h3>
 <p>Brackets around nicknames.</p>
-<ul>
-<li><strong>type</strong>: object</li>
-<li><strong>values</strong>: <code>{ left = "&lt;any string&gt;", right = "&lt;any string&gt;" }</code></li>
-<li><strong>default</strong>: <code>{ left = "", right = "" }</code></li>
-</ul>
-<h2 id="color-2"><a class="header" href="#color-2"><code>color</code></a></h2>
+<pre><code class="language-toml"># Type: string
+# Values: { left = "&lt;any string&gt;", right = "&lt;any string&gt;" }
+# Default: { left = "", right = "" }
+
+[buffer.nickname]
+brackets = { left = "&lt;", right = "&gt;" }
+</code></pre>
+<h3 id="color-2"><a class="header" href="#color-2"><code>color</code></a></h3>
 <p>Nickname colors in a channel buffer. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"solid"</code>, <code>"unique"</code></li>
-<li><strong>default</strong>: <code>"unique"</code></li>
-</ul>
-<h2 id="show_access_levels-1"><a class="header" href="#show_access_levels-1"><code>show_access_levels</code></a></h2>
+<pre><code class="language-toml"># Type: string
+# Values: "solid", "unique"
+# Default: "unique"
+
+[buffer.nickname]
+color = "unique"
+</code></pre>
+<h3 id="show_access_levels-1"><a class="header" href="#show_access_levels-1"><code>show_access_levels</code></a></h3>
 <p>Show access levels in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messages"><a class="header" href="#bufferserver_messages"><code>[buffer.server_messages]</code></a></h1>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.nickname]
+show_access_levels = true
+</code></pre>
+<h2 id="bufferserver_messages"><a class="header" href="#bufferserver_messages"><code>[buffer.server_messages]</code></a></h2>
 <p>Server messages are messages sent from a irc server.</p>
-<h2 id="configuration-5"><a class="header" href="#configuration-5">Configuration</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td><a href="configuration/buffer/server_messages/./change_host.html">Change Host</a></td><td>Message is sent when a user changes host</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./join.html">Join</a></td><td>Message is sent when a user joins a channel</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./monitored_offline.html">Monitored Offline</a></td><td>Message is sent when a monitored user goes offline</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./monitored_online.html">Monitored Online</a></td><td>Message is sent when a monitored user goes online</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./part.html">Part</a></td><td>Message is sent when a user leaves a channel</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./quit.html">Quit</a></td><td>Message is sent when a user closes the connection to a channel or server</td></tr>
-<tr><td><a href="configuration/buffer/server_messages/./topic.html">Topic</a></td><td>Message is sent when a user changes channel topic</td></tr>
-</tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messageschange_host"><a class="header" href="#bufferserver_messageschange_host"><code>[buffer.server_messages.change_host]</code></a></h1>
-<p>Server message is sent when a user's host changes.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.server_messages.change_host]
-enabled = true
-smart = 180
-</code></pre>
-<h2 id="enabled-4"><a class="header" href="#enabled-4"><code>enabled</code></a></h2>
-<p>Control if internal message type is enabled.</p>
 <ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
+<li><strong>change_host</strong> - Message is sent when a user changes host</li>
+<li><strong>join</strong> - Message is sent when a user joins a channel</li>
+<li><strong>monitored_offline</strong> - Message is sent when a monitored user goes offline</li>
+<li><strong>monitored_online</strong> - Message is sent when a monitored user goes online</li>
+<li><strong>part</strong> - Message is sent when a user leaves a channel</li>
+<li><strong>quit</strong> - Message is sent when a user closes the connection to a channel or server</li>
+<li><strong>standard_reply_fail</strong> - Message is sent when a command/function fails or an error with the session</li>
+<li><strong>standard_reply_note</strong> - Message is sent when there is information about a command/function or session</li>
+<li><strong>standard_reply_warn</strong> - Message is sent when there is feedback about a command/function or session</li>
+<li><strong>topic</strong> - Message is sent when a user changes channel topic</li>
 </ul>
-<h2 id="smart-2"><a class="header" href="#smart-2"><code>smart</code></a></h2>
-<p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="exclude"><a class="header" href="#exclude"><code>exclude</code></a></h2>
-<p>Exclude channels from receiving the server messag.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not receive the server message. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>[]</code></li>
-</ul>
-<h2 id="include"><a class="header" href="#include"><code>include</code></a></h2>
-<p>Include channels to receive the server message.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will receive the server message. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>[]</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messagesjoin"><a class="header" href="#bufferserver_messagesjoin"><code>[buffer.server_messages.join]</code></a></h1>
-<p>Server message is sent when a user joins a channel.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.server_messages.join]
-enabled = true
-smart = 180
-username_format = "full"
-</code></pre>
-<h2 id="enabled-5"><a class="header" href="#enabled-5"><code>enabled</code></a></h2>
-<p>Control if internal message type is enabled.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="smart-3"><a class="header" href="#smart-3"><code>smart</code></a></h2>
-<p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="username_format"><a class="header" href="#username_format"><code>username_format</code></a></h2>
-<p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"full"</code>, <code>"short"</code></li>
-<li><strong>default</strong>: <code>"full"</code></li>
-</ul>
-<h2 id="exclude-1"><a class="header" href="#exclude-1"><code>exclude</code></a></h2>
-<p>Exclude channels from receiving the server messag.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not receive the server message. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>[]</code></li>
-</ul>
-<h2 id="include-1"><a class="header" href="#include-1"><code>include</code></a></h2>
-<p>Include channels to receive the server message.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will receive the server message. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>[]</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messagesmonitored_offline"><a class="header" href="#bufferserver_messagesmonitored_offline"><code>[buffer.server_messages.monitored_offline]</code></a></h1>
-<p>Server message is sent if a monitored user goes offline.</p>
-<blockquote>
-<p>💡 Read more about <a href="configuration/buffer/server_messages/../../../guides/monitor-users.html">monitoring users</a>.</p>
-</blockquote>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.server_messages.monitored_offline]
-enabled = true
-smart = 180
-</code></pre>
-<h2 id="enabled-6"><a class="header" href="#enabled-6"><code>enabled</code></a></h2>
-<p>Control if internal message type is enabled.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="smart-4"><a class="header" href="#smart-4"><code>smart</code></a></h2>
-<p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messagesmonitored_online"><a class="header" href="#bufferserver_messagesmonitored_online"><code>[buffer.server_messages.monitored_online]</code></a></h1>
-<p>Server message is sent if a monitored user goes online.</p>
-<blockquote>
-<p>💡 Read more about <a href="configuration/buffer/server_messages/../../../guides/monitor-users.html">monitoring users</a>.</p>
-</blockquote>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.server_messages.monitored_online]
-enabled = true
-smart = 180
-</code></pre>
-<h2 id="enabled-7"><a class="header" href="#enabled-7"><code>enabled</code></a></h2>
-<p>Control if internal message type is enabled.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="smart-5"><a class="header" href="#smart-5"><code>smart</code></a></h2>
-<p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messagespart"><a class="header" href="#bufferserver_messagespart"><code>[buffer.server_messages.part]</code></a></h1>
-<p>Server message is sent when a user leaves a channel.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.server_messages.part]
-smart = 180
-</code></pre>
-<h2 id="enabled-8"><a class="header" href="#enabled-8"><code>enabled</code></a></h2>
-<p>Control if internal message type is enabled.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="smart-6"><a class="header" href="#smart-6"><code>smart</code></a></h2>
-<p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="username_format-1"><a class="header" href="#username_format-1"><code>username_format</code></a></h2>
-<p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"full"</code>, <code>"short"</code></li>
-<li><strong>default</strong>: <code>"full"</code></li>
-</ul>
-<h2 id="exclude-2"><a class="header" href="#exclude-2"><code>exclude</code></a></h2>
-<p>Exclude channels from receiving the server messag.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not receive the server message. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>[]</code></li>
-</ul>
-<h2 id="include-2"><a class="header" href="#include-2"><code>include</code></a></h2>
-<p>Include channels to receive the server message.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will receive the server message. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>[]</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messagesquit"><a class="header" href="#bufferserver_messagesquit"><code>[buffer.server_messages.quit]</code></a></h1>
-<p>Server message is sent when a user closes the connection to a channel or server.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.server_messages.quit]
+<p>Example</p>
+<pre><code class="language-toml"># Hide all join messages except for `#halloy` channel:
+
+[buffer.server_messages.join]
 exclude = ["*"]
 include = ["#halloy"]
+
+# Disable all part messages
+
+[buffer.server_messages.part]
+enable = false
 </code></pre>
-<h2 id="enabled-9"><a class="header" href="#enabled-9"><code>enabled</code></a></h2>
+<h3 id="enabled-4"><a class="header" href="#enabled-4"><code>enabled</code></a></h3>
 <p>Control if internal message type is enabled.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="smart-7"><a class="header" href="#smart-7"><code>smart</code></a></h2>
-<p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="username_format-2"><a class="header" href="#username_format-2"><code>username_format</code></a></h2>
-<p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"full"</code>, <code>"short"</code></li>
-<li><strong>default</strong>: <code>"full"</code></li>
-</ul>
-<h2 id="exclude-3"><a class="header" href="#exclude-3"><code>exclude</code></a></h2>
-<p>Exclude channels from receiving the server messag.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not receive the server message. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>[]</code></li>
-</ul>
-<h2 id="include-3"><a class="header" href="#include-3"><code>include</code></a></h2>
-<p>Include channels to receive the server message.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will receive the server message. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>[]</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="bufferserver_messagestopic"><a class="header" href="#bufferserver_messagestopic"><code>[buffer.server_messages.topic]</code></a></h1>
-<p>Server message is sent when a (op) user changes channel topic.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.server_messages.topic]
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.server_messages.&lt;server_message&gt;]
 enabled = true
 </code></pre>
-<h2 id="enabled-10"><a class="header" href="#enabled-10"><code>enabled</code></a></h2>
-<p>Control if internal message type is enabled.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="exclude-4"><a class="header" href="#exclude-4"><code>exclude</code></a></h2>
+<h3 id="smart-2"><a class="header" href="#smart-2"><code>smart</code></a></h3>
+<p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[buffer.server_messages.&lt;server_message&gt;]
+smart = 180
+</code></pre>
+<h3 id="exclude"><a class="header" href="#exclude"><code>exclude</code></a></h3>
 <p>Exclude channels from receiving the server messag.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not receive the server message. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>[]</code></li>
-</ul>
-<h2 id="include-4"><a class="header" href="#include-4"><code>include</code></a></h2>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[buffer.server_messages.&lt;server_message&gt;]
+exclude = ["*"]
+</code></pre>
+<h3 id="include"><a class="header" href="#include"><code>include</code></a></h3>
 <p>Include channels to receive the server message.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will receive the server message. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>[]</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="buffertext_input"><a class="header" href="#buffertext_input"><code>[buffer.text_input]</code></a></h1>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[buffer.server_messages.&lt;server_message&gt;]
+include = ["#halloy"]
+</code></pre>
+<h3 id="username_format"><a class="header" href="#username_format"><code>username_format</code></a></h3>
+<p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
+<p>Note: Not all server messages uses this setting.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "full", "short
+# Default: "full"
+
+[buffer.server_messages.&lt;server_message&gt;]
+username_format = "full"
+</code></pre>
+<h2 id="bufferstatus_message_prefix"><a class="header" href="#bufferstatus_message_prefix"><code>[buffer.status_message_prefix]</code></a></h2>
+<p>Status message prefix settings.</p>
+<h3 id="brackets-1"><a class="header" href="#brackets-1"><code>brackets</code></a></h3>
+<p>Brackets around status message prefix.</p>
+<pre><code class="language-toml"># Type: string
+# Values: { left = "&lt;any string&gt;", right = "&lt;any string&gt;" }
+# Default: { left = "", right = "" }
+
+[buffer.status_message_prefix]
+brackets = { left = "&lt;", right = "&gt;" }
+</code></pre>
+<h2 id="buffertext_input"><a class="header" href="#buffertext_input"><code>[buffer.text_input]</code></a></h2>
 <p>Customize the text input for in buffers.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.text_input]
+<h3 id="visibility"><a class="header" href="#visibility"><code>visibility</code></a></h3>
+<p>Text input visibility. When set to <code>"focused"</code> it will only be visible when the buffer is focused.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "always", "focused"
+# Default: "always"
+
+[buffer.text_input]
 visibility = "always"
+</code></pre>
+<h3 id="auto_format"><a class="header" href="#auto_format"><code>auto_format</code></a></h3>
+<p>Control if the text input should auto format the input. By default text is only formatted when using the <code>/format</code> command.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "disabled", "markdown", "all"
+# Default: "disabled"
+
+[buffer.text_input]
 auto_format = "markdown"
 </code></pre>
-<h2 id="visibility"><a class="header" href="#visibility"><code>visibility</code></a></h2>
-<p>Text input visibility. When set to <code>"focused"</code> it will only be visible when the buffer is focused.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"always"</code>, <code>"focused"</code></li>
-<li><strong>default</strong>: <code>"always"</code></li>
-</ul>
-<h2 id="auto_format"><a class="header" href="#auto_format"><code>auto_format</code></a></h2>
-<p>Control if the text input should auto format the input. By default text is only formatted when using the <code>/format</code> command.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"disabled"</code>, <code>"markdown"</code>, <code>"all"</code></li>
-<li><strong>default</strong>: <code>"disabled"</code></li>
-</ul>
 <blockquote>
-<p>💡 Read more about <a href="configuration/buffer/../../guides/text-formatting.html">text formatting</a>.</p>
+<p>💡 Read more about <a href="configuration/../../guides/text-formatting.html">text formatting</a>.</p>
 </blockquote>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="buffertimestamp"><a class="header" href="#buffertimestamp"><code>[buffer.timestamp]</code></a></h1>
+<h3 id="buffertext_inputautocomplete"><a class="header" href="#buffertext_inputautocomplete"><code>[buffer.text_input.autocomplete]</code></a></h3>
+<p>Customize autocomplete.</p>
+<h4 id="sort_direction"><a class="header" href="#sort_direction"><code>sort_direction</code></a></h4>
+<p>Sort direction when autocompleting.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "asc", "desc"
+# Default: "asc"
+
+[buffer.text_input.autocomplete]
+sort_direction = "asc"
+</code></pre>
+<h4 id="completion_suffixes"><a class="header" href="#completion_suffixes"><code>completion_suffixes</code></a></h4>
+<p>Sets what suffix is added after autocompleting. The first option is for when a nickname is autocompleted at the beginning of a sentence. The second is for when it's autocompleted in the middle of a sentence.</p>
+<pre><code class="language-toml"># Type: array of 2 strings
+# Values: array of 2 strings
+# Default: [": ", " "]
+
+[buffer.text_input.autocomplete]
+completion_suffixes = [": ", " "]
+</code></pre>
+<h2 id="buffertimestamp"><a class="header" href="#buffertimestamp"><code>[buffer.timestamp]</code></a></h2>
 <p>Customize how timestamps are displayed within a buffer.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[buffer.timestamp]
+<h3 id="format-1"><a class="header" href="#format-1"><code>format</code></a></h3>
+<p>Controls the timestamp format. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any valid strftime string
+# Default: "%R"
+
+[buffer.timestamp]
 format = "%R"
+</code></pre>
+<h3 id="brackets-2"><a class="header" href="#brackets-2"><code>brackets</code></a></h3>
+<p>Brackets around timestamps.</p>
+<pre><code class="language-toml"># Type: string
+# Values: { left = "&lt;any string&gt;", right = "&lt;any string&gt;" }
+# Default: { left = "", right = "" }
+
+[buffer.timestamp]
 brackets = { left = "[", right = "]" }
 </code></pre>
-<h2 id="format"><a class="header" href="#format"><code>format</code></a></h2>
-<p>Controls the timestamp format. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: <code>"%R"</code></li>
-</ul>
-<h2 id="brackets-1"><a class="header" href="#brackets-1"><code>brackets</code></a></h2>
-<p>Brackets around timestamps.</p>
-<ul>
-<li><strong>type</strong>: object</li>
-<li><strong>values</strong>: <code>{ left = "&lt;any string&gt;", right = "&lt;any string&gt;" }</code></li>
-<li><strong>default</strong>: <code>{ left = "", right = "" }</code></li>
-</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="file_transfer"><a class="header" href="#file_transfer"><code>[file_transfer]</code></a></h1>
 <p>File transfer configuration options.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[file_transfer]
-save_directory = "$HOME/Downloads"
-passive = true
-timeout = 180
-</code></pre>
 <h2 id="save_directory"><a class="header" href="#save_directory"><code>save_directory</code></a></h2>
 <p>Default directory to open when prompted to save a file.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: <code>"$HOME/Downloads"</code></li>
-</ul>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: "$HOME/Downloads"
+
+[file_transfer]
+save_directory = "$HOME/Downloads"
+</code></pre>
 <h2 id="passive"><a class="header" href="#passive"><code>passive</code></a></h2>
-<p>If true, act as the "client" for the transfer. Requires the remote user act as the <a href="configuration/file_transfer/index.html#file_transferserver-section">server</a>.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
+<p>If true, act as the "client" for the transfer. Requires the remote user act as the <a href="configuration/file_transfer.html#file_transferserver-section">server</a>.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[file_transfer]
+passive = true
+</code></pre>
 <h2 id="timeout"><a class="header" href="#timeout"><code>timeout</code></a></h2>
 <p>Time (in seconds) to wait before timing out a transfer waiting to be accepted.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: <code>300</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="file_transferserver"><a class="header" href="#file_transferserver"><code>[file_transfer.server]</code></a></h1>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 300
+
+[file_transfer]
+timeout = 300
+</code></pre>
+<h1 id="file_transferserver"><a class="header" href="#file_transferserver"><code>[file_transfer.server]</code></a></h1>
 <p>This section is <strong>required</strong> if <code>passive = false</code>. One side of the file transfer must
 operate as the "server", who the other user connects with to establish a connection.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[file_transfer.server]
-public_address = "&lt;some ip&gt;"
-bind_address = "&lt;some ip&gt;"
-bind_port_first = 1024
-bind_port_last = 5000
-</code></pre>
 <h2 id="public_address"><a class="header" href="#public_address"><code>public_address</code></a></h2>
 <p>Address advertised to the remote user to connect to.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="public_address-1"><a class="header" href="#public_address-1"><code>public_address</code></a></h2>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[file_transfer.server]
+public_address = "&lt;some ip&gt;"
+</code></pre>
+<h2 id="bind_address"><a class="header" href="#bind_address"><code>bind_address</code></a></h2>
 <p>Address to bind to when accepting connections.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[file_transfer.server]
+bind_address = "&lt;some ip&gt;"
+</code></pre>
 <h2 id="bind_port_first"><a class="header" href="#bind_port_first"><code>bind_port_first</code></a></h2>
 <p>First port in port range to bind to.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[file_transfer.server]
+bind_port_first = "1024"
+</code></pre>
 <h2 id="bind_port_last"><a class="header" href="#bind_port_last"><code>bind_port_last</code></a></h2>
 <p>Last port in port range to bind to.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[file_transfer.server]
+bind_port_last = "5000"
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="font"><a class="header" href="#font"><code>[font]</code></a></h1>
 <p>Application wide font settings.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[font]
-family = "Comic Mono"
-size = 13
-</code></pre>
 <h2 id="family"><a class="header" href="#family"><code>family</code></a></h2>
 <p>Monospaced font family to use.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set <sup class="footnote-reference"><a href="#1">1</a></sup></li>
-</ul>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+#
+# Note: Iosevka Term is provided by the application, and used by default.
+
+[font]
+family = "Comic Mono"
+</code></pre>
 <h2 id="size"><a class="header" href="#size"><code>size</code></a></h2>
 <p>Font size.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: 13</li>
-</ul>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Iosevka Term is provided by the application, and used by default.</p>
-</div>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 13
+
+[font]
+size = 13
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="keyboard"><a class="header" href="#keyboard"><code>[keyboard]</code></a></h1>
 <p>Customize keyboard shortcuts. Below is a list of all actions which can be mapped.</p>
 <p><strong>Example</strong></p>
@@ -1066,10 +944,10 @@ move_left = "alt+h"
 move_right = "alt+l"
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default MacOS</th><th>Default Other</th></tr></thead><tbody>
-<tr><td><code>move_up</code></td><td>Moves focus up</td><td><kbd>⌥</kbd> + <kbd>↑</kbd></td><td><kbd>alt</kbd> + <kbd>↑</kbd></td></tr>
-<tr><td><code>move_down</code></td><td>Moves focus down</td><td><kbd>⌥</kbd> + <kbd>↓</kbd></td><td><kbd>alt</kbd> + <kbd>↓</kbd></td></tr>
-<tr><td><code>move_left</code></td><td>Moves focus left</td><td><kbd>⌥</kbd> + <kbd>←</kbd></td><td><kbd>alt</kbd> + <kbd>←</kbd></td></tr>
-<tr><td><code>move_right</code></td><td>Moves focus right</td><td><kbd>⌥</kbd> + <kbd>→</kbd></td><td><kbd>alt</kbd> + <kbd>→</kbd></td></tr>
+<tr><td><code>move_up</code></td><td>Moves focus up</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↑</kbd></td></tr>
+<tr><td><code>move_down</code></td><td>Moves focus down</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↓</kbd></td></tr>
+<tr><td><code>move_left</code></td><td>Moves focus left</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd></td></tr>
+<tr><td><code>move_right</code></td><td>Moves focus right</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd></td></tr>
 <tr><td><code>close_buffer</code></td><td>Close focused buffer</td><td><kbd>⌘</kbd> + <kbd>w</kbd></td><td><kbd>ctrl</kbd> + <kbd>w</kbd></td></tr>
 <tr><td><code>maximize_buffer</code></td><td>Maximize focused buffer</td><td><kbd>⌘</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>↑</kbd></td></tr>
 <tr><td><code>restore_buffer</code></td><td>Restore focused buffer</td><td><kbd>⌘</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>↓</kbd></td></tr>
@@ -1079,17 +957,21 @@ move_right = "alt+l"
 <tr><td><code>toggle_nick_list</code></td><td>Toggle nick list</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd></td></tr>
 <tr><td><code>toggle_topic</code></td><td>Toggle topic</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>t</kbd></td></tr>
 <tr><td><code>toggle_sidebar</code></td><td>Toggle sidebar</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>b</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>b</kbd></td></tr>
+<tr><td><code>toggle_fullscreen</code></td><td>Toggle fullscreen</td><td><kbd>ctrl</kbd> + <kbd>⌥</kbd> + <kbd>f</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>f</kbd></td></tr>
 <tr><td><code>command_bar</code></td><td>Toggle command bar</td><td><kbd>⌘</kbd> + <kbd>k</kbd></td><td><kbd>ctrl</kbd> + <kbd>k</kbd></td></tr>
 <tr><td><code>reload_configuration</code></td><td>Refresh configuration file</td><td><kbd>⌘</kbd> + <kbd>r</kbd></td><td><kbd>ctrl</kbd> + <kbd>r</kbd></td></tr>
 <tr><td><code>file_transfers</code></td><td>Toggle File Transfers Buffer</td><td><kbd>⌘</kbd> + <kbd>j</kbd></td><td><kbd>ctrl</kbd> + <kbd>j</kbd></td></tr>
 <tr><td><code>logs</code></td><td>Toggle Logs Buffer</td><td><kbd>⌘</kbd> + <kbd>l</kbd></td><td><kbd>ctrl</kbd> + <kbd>l</kbd></td></tr>
 <tr><td><code>theme_editor</code></td><td>Toggle Theme Editor Window</td><td><kbd>⌘</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>t</kbd></td></tr>
 </tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="notifications"><a class="header" href="#notifications">[notifications]</a></h1>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="notifications"><a class="header" href="#notifications"><code>[notifications]</code></a></h1>
 <p>Customize and enable notifications.</p>
 <p><strong>Example</strong></p>
 <pre><code class="language-toml">[notifications]
-highlight = { sound = "dong" }
+highlight = {
+    sound = "dong"
+    exclude = ["NickServ", "#halloy"]
+}
 direct_message = { sound = "peck", show_toast = true }
 </code></pre>
 <p>Following notifications are available:</p>
@@ -1099,440 +981,723 @@ direct_message = { sound = "peck", show_toast = true }
 <tr><td><code>disconnected</code></td><td>Triggered when a server disconnects</td></tr>
 <tr><td><code>file_transfer_request</code></td><td>Triggered when a file transfer request is received</td></tr>
 <tr><td><code>highlight</code></td><td>Triggered when you were highlighted in a buffer</td></tr>
+<tr><td><code>monitored_online</code></td><td>Triggered when a user you're monitoring is online</td></tr>
+<tr><td><code>monitored_offline</code></td><td>Triggered when a user you're monitoring is offline</td></tr>
 <tr><td><code>reconnected</code></td><td>Triggered when a server reconnects</td></tr>
 </tbody></table>
 </div>
 <h2 id="sound"><a class="header" href="#sound"><code>sound</code></a></h2>
 <p>Notification sound.
 Supports both built-in sounds, and external sound files (<code>mp3</code>, <code>ogg</code>, <code>flac</code> or <code>wav</code> placed inside the <code>sounds</code> folder within the configuration directory).</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"dong"</code>, <code>"peck"</code>, <code>"ring"</code>, <code>"squeak"</code>, <code>"whistle"</code>, <code>"bonk"</code>, <code>"sing"</code> or external sound.</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "dong", "peck", "ring", "squeak", "whistle", "bonk", "sing" or external sound.
+# Default: not set
+
+[notifications.&lt;notification&gt;]
+sound = "dong"
+</code></pre>
 <h2 id="show_toast"><a class="header" href="#show_toast"><code>show_toast</code></a></h2>
 <p>Notification should trigger a OS toast.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>false</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="pane"><a class="header" href="#pane"><code>[pane]</code></a></h1>
-<p>A <em>pane</em> is composed by a single <a href="configuration/pane/../buffer/index.html">buffer</a>. You can have multiple panes within Halloy. Each pane can be moved around by dragging it at the pane header.</p>
-<h2 id="configuration-6"><a class="header" href="#configuration-6">Configuration</a></h2>
-<p>None</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[notifications.&lt;notification&gt;]
+show_toast = true
+</code></pre>
+<h2 id="delay"><a class="header" href="#delay"><code>delay</code></a></h2>
+<p>Delay in milliseconds before triggering the next notification.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 500
+
+[notifications.&lt;notification&gt;]
+delay = 250
+</code></pre>
+<h2 id="exclude-1"><a class="header" href="#exclude-1"><code>exclude</code></a></h2>
+<p>Exclude notifications for nicks (and/or channels in <code>highlight</code>'s case).</p>
+<p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
+notifications.</p>
+<p>You can also exclude all nicks/channels by using a wildcard: <code>["*"]</code> or <code>["all"]</code>.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of strings
+# Default: []
+
+[notifications.&lt;direct_mesage|file_transfer_request&gt;]
+exclude = ["HalloyUser1"]
+
+[notifications.highlight]
+exclude = ["HalloyUser1", "#halloy"]
+</code></pre>
+<h2 id="include-1"><a class="header" href="#include-1"><code>include</code></a></h2>
+<p>Include notifications for nicks (and/or channels in <code>highlight</code>'s case).</p>
+<p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
+notifications.</p>
+<p>The include rule takes priority over exclude, so you can use both together.
+For example, you can exclude all nicks with <code>["*"]</code> for <code>direct_message</code> and
+then only include a few specific nicks to receive <code>direct_message</code> notifications
+from.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of strings
+# Default: []
+
+[notifications.&lt;direct_mesage|file_transfer_request&gt;]
+include = ["HalloyUser1"]
+
+[notifications.highlight]
+include = ["HalloyUser1", "#halloy"]
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="proxy"><a class="header" href="#proxy"><code>[proxy]</code></a></h1>
 <p>Proxy settings for Halloy.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[proxy]
-type = "socks5"
-host = "192.168.1.100"
-port = 1080
-</code></pre>
-<h2 id="type"><a class="header" href="#type"><code>type</code></a></h2>
-<p>Proxy type.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>http</code>, <code>socks5</code></li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="host"><a class="header" href="#host"><code>host</code></a></h2>
-<p>Proxy host to connect to .</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="port"><a class="header" href="#port"><code>port</code></a></h2>
-<p>Proxy port to connect on.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: not set</li>
-<li></li>
-</ul>
-<h2 id="username"><a class="header" href="#username"><code>username</code></a></h2>
-<p>Proxy username (optional).</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="password"><a class="header" href="#password"><code>password</code></a></h2>
-<p>Proxy password (optional).</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="scale-factor"><a class="header" href="#scale-factor">Scale factor</a></h1>
-<p>Application wide scale factor.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">scale_factor = 1.1
-</code></pre>
-<h2 id="scale_factor"><a class="header" href="#scale_factor"><code>scale_factor</code></a></h2>
-<p>Control the scale factor in Halloy.<br />
-Note: <code>scale_factor</code> is a root key, so it must be placed before any section.</p>
-<ul>
-<li><strong>type</strong>: float</li>
-<li><strong>values</strong>: <code>0.1</code> .. <code>3.0</code></li>
-<li><strong>default</strong>: <code>1.0</code></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="servers"><a class="header" href="#servers"><code>[servers]</code></a></h1>
-<p>Server configuration.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[servers.liberachat]
-nickname = "halloy-user"
-server = "irc.libera.chat"
-channels = ["#halloy", "##rust"]
+<ol>
+<li><a href="configuration/proxy.html#proxyhttp">http</a></li>
+<li><a href="configuration/proxy.html#proxysocks5">socks5</a></li>
+<li><a href="configuration/proxy.html#proxytor">tor</a></li>
+</ol>
+<h2 id="proxyhttp"><a class="header" href="#proxyhttp"><code>[proxy.http]</code></a></h2>
+<p>Http proxy settings.</p>
+<h3 id="host"><a class="header" href="#host"><code>host</code></a></h3>
+<p>Proxy host to connect to.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
 
-[servers.oftc]
-nickname = "halloy-user"
-server = "irc.oftc.net"
-channels = ["#asahi-dev"]
+# Required
+
+[proxy.http]
+host = "192.168.1.100"
 </code></pre>
+<h3 id="port"><a class="header" href="#port"><code>port</code></a></h3>
+<p>Proxy port to connect on.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+# Required
+
+[proxy.http]
+port = "1080"
+</code></pre>
+<h3 id="username"><a class="header" href="#username"><code>username</code></a></h3>
+<p>Proxy username.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Optional
+
+[proxy.http]
+username = "username"
+</code></pre>
+<h3 id="password"><a class="header" href="#password"><code>password</code></a></h3>
+<p>Proxy password.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Optional
+
+[proxy.http]
+password = "password"
+</code></pre>
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
+<pre><code class="language-toml">[proxy.http]
+host = "192.168.1.100"
+port = "1080"
+username = "username"
+password = "password"
+</code></pre>
+<h2 id="proxysocks5"><a class="header" href="#proxysocks5"><code>[proxy.socks5]</code></a></h2>
+<p>Socks5 proxy settings.</p>
+<h3 id="host-1"><a class="header" href="#host-1"><code>host</code></a></h3>
+<p>Proxy host to connect to.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Required
+
+[proxy.socks5]
+host = "192.168.1.100"
+</code></pre>
+<h3 id="port-1"><a class="header" href="#port-1"><code>port</code></a></h3>
+<p>Proxy port to connect on.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+# Required
+
+[proxy.socks5]
+port = "1080"
+</code></pre>
+<h3 id="username-1"><a class="header" href="#username-1"><code>username</code></a></h3>
+<p>Proxy username.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Optional
+
+[proxy.socks5]
+username = "username"
+</code></pre>
+<h3 id="password-1"><a class="header" href="#password-1"><code>password</code></a></h3>
+<p>Proxy password.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Optional
+
+[proxy.socks5]
+password = "password"
+</code></pre>
+<h2 id="example-1"><a class="header" href="#example-1">Example</a></h2>
+<pre><code class="language-toml">[proxy.socks5]
+host = "192.168.1.100"
+port = "1080"
+username = "username"
+password = "password"
+</code></pre>
+<h2 id="proxytor"><a class="header" href="#proxytor"><code>[proxy.tor]</code></a></h2>
+<p>Tor proxy settings. Utilizes the <a href="https://arti.torproject.org/">arti</a> to integrate Tor natively.
+It accepts no further configuration.</p>
+<h2 id="example-2"><a class="header" href="#example-2">Example</a></h2>
+<pre><code class="language-toml">[proxy.tor]
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="preview"><a class="header" href="#preview"><code>[preview]</code></a></h1>
+<p>URL preview settings for Halloy.</p>
+<h2 id="enabled-5"><a class="header" href="#enabled-5"><code>enabled</code></a></h2>
+<p>Enable or disable previews globally</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[preview]
+enabled = true
+</code></pre>
+<h2 id="request"><a class="header" href="#request"><code>request</code></a></h2>
+<p>Request settings for previews.</p>
+<h3 id="user_agent"><a class="header" href="#user_agent"><code>user_agent</code></a></h3>
+<p>Some servers will only send opengraph metadata to browser-like user agents. We default to <code>WhatsApp/2</code> for wide compatability.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: "WhatsApp/2"
+
+[preview.request]
+user_agent = "WhatsApp/2"
+</code></pre>
+<h3 id="timeout_ms"><a class="header" href="#timeout_ms"><code>timeout_ms</code></a></h3>
+<p>Request timeout in millisceonds. Defaults is 10s.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 10000
+
+[preview.request]
+timeout_ms = 10000
+</code></pre>
+<h3 id="max_image_size"><a class="header" href="#max_image_size"><code>max_image_size</code></a></h3>
+<p>Max image size in bytes. This prevents downloading responses that are too big. Default is 10mb.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 10485760
+
+[preview.request]
+max_image_size = 10485760
+</code></pre>
+<h3 id="max_scrape_size"><a class="header" href="#max_scrape_size"><code>max_scrape_size</code></a></h3>
+<p>Max bytes streamed when scraping for opengraph metadata before cancelling the request. This prevents downloading responses that are too big. Default is 500kb.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 512000
+
+[preview.request]
+max_scrape_size = 512000
+</code></pre>
+<h3 id="concurrency"><a class="header" href="#concurrency"><code>concurrency</code></a></h3>
+<p>Number of allowed concurrent requests for fetching previews. Reduce this to prevent rate-limiting.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 4
+
+[preview.request]
+concurrency = 4
+</code></pre>
+<h3 id="delay_ms"><a class="header" href="#delay_ms"><code>delay_ms</code></a></h3>
+<p>Numer of milliseconds to wait before requesting another preview when number of requested previews &gt; <code>concurrency</code>.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 500
+
+[preview.request]
+delay_ms = 500
+</code></pre>
+<h2 id="image"><a class="header" href="#image"><code>image</code></a></h2>
+<p>Specific image preview settings.</p>
+<h3 id="include-2"><a class="header" href="#include-2"><code>include</code></a></h3>
+<p>Include image previews from channels.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[preview.image]
+include = []
+</code></pre>
+<h3 id="exclude-2"><a class="header" href="#exclude-2"><code>exclude</code></a></h3>
+<p>Exclude image previews from channels.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[preview.image]
+exclude = []
+</code></pre>
+<h3 id="example-3"><a class="header" href="#example-3">Example</a></h3>
+<pre><code class="language-toml">[preview.image]
+exclude = ["*"] # hide image previews in all channels
+include = ["#halloy"] # show image previews in #halloy
+</code></pre>
+<h2 id="card"><a class="header" href="#card"><code>card</code></a></h2>
+<p>Specific card preview settings.</p>
+<h3 id="include-3"><a class="header" href="#include-3"><code>include</code></a></h3>
+<p>Include card previews from channels.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[preview.card]
+include = []
+</code></pre>
+<h3 id="exclude-3"><a class="header" href="#exclude-3"><code>exclude</code></a></h3>
+<p>Exclude card previews from channels.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[preview.card]
+exclude = []
+</code></pre>
+<h3 id="example-4"><a class="header" href="#example-4">Example</a></h3>
+<pre><code class="language-toml">[preview.card]
+exclude = ["*"] # hide card previews in all channels
+include = ["#halloy"] # show card previews in #halloy
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="scale_factor"><a class="header" href="#scale_factor"><code>[scale_factor]</code></a></h1>
+<p>Application wide scale factor.<br />
+Note: <code>scale_factor</code> is a root key, so it must be placed before any section.</p>
+<pre><code class="language-toml"># Type: float
+# Values: 0.1 .. 3.0
+# Default: 1.0
+
+scale_factor = 1.0
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="servers"><a class="header" href="#servers"><code>[servers]</code></a></h1>
+<p>You can define multiple server sections in the configuration file. Each server section must have a unique name, which is used as the identifier in the <code>[servers.&lt;name&gt;]</code> format.</p>
+<p>Eg:</p>
+<pre><code class="language-toml">[servers.quakenet]
+# ...
+</code></pre>
+<blockquote>
+<p>💡 For a multiple server example see <a href="configuration/../../guides/multiple-servers.html">here</a></p>
+</blockquote>
 <h2 id="nickname"><a class="header" href="#nickname"><code>nickname</code></a></h2>
 <p>The client's nickname.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="nickname_password"><a class="header" href="#nickname_password"><code>nickname_password</code></a></h2>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+nickname = ""
+</code></pre>
+<h2 id="nick_password"><a class="header" href="#nick_password"><code>nick_password</code></a></h2>
 <p>The client's NICKSERV password.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+nick_password = ""
+</code></pre>
 <h2 id="nick_password_file"><a class="header" href="#nick_password_file"><code>nick_password_file</code></a></h2>
-<p>Read nick_password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<p>Read nick_password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+nick_password_file = ""
+</code></pre>
 <h2 id="nick_password_command"><a class="header" href="#nick_password_command"><code>nick_password_command</code></a></h2>
-<p>Executes the command with <code>sh</code> (or equivalent) and reads <code>nickname_password</code> as the output.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<p>Executes the command with <code>sh</code> (or equivalent) and reads <code>nick_password</code> as the output.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+nick_password_command = ""
+</code></pre>
 <h2 id="nick_identify_syntax"><a class="header" href="#nick_identify_syntax"><code>nick_identify_syntax</code></a></h2>
 <p>The server's NICKSERV IDENTIFY syntax.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"nick-password"</code>, <code>"password-nick"</code></li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "nick-password", "password-nick"
+# Default: not set
+
+[servers.&lt;name&gt;]
+nick_identify_syntax = ""
+</code></pre>
 <h2 id="alt_nicks"><a class="header" href="#alt_nicks"><code>alt_nicks</code></a></h2>
-<p>Alternative nicknames for the client, if the default is taken.<br />
-Example: <code>["Foo", "Bar"]</code>.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="username-1"><a class="header" href="#username-1"><code>username</code></a></h2>
-<p>The client's username.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="realname"><a class="header" href="#realname"><code>realname</code></a></h2>
-<p>The client's real name.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="server"><a class="header" href="#server"><code>server</code></a></h2>
-<p>The server to connect to.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="port-1"><a class="header" href="#port-1"><code>port</code></a></h2>
-<p>The port to connect on.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong> any positive integer</li>
-<li><strong>default</strong>: <code>6697</code></li>
-</ul>
-<h2 id="password-1"><a class="header" href="#password-1"><code>password</code></a></h2>
-<p>The password to connect to the server.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="password_file"><a class="header" href="#password_file"><code>password_file</code></a></h2>
-<p>Read password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="password_command"><a class="header" href="#password_command"><code>password_command</code></a></h2>
-<p>Executes the command with <code>sh</code> (or equivalent) and reads <code>password</code> as the output.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="channels"><a class="header" href="#channels"><code>channels</code></a></h2>
-<p>A list of channels to join on connection.
-Example: <code>["#Foo", "#Bar"]</code>.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="channel_keys"><a class="header" href="#channel_keys"><code>channel_keys</code></a></h2>
-<p>A mapping of channel names to keys for join-on-connect.<br />
-Example: <code>channel_keys = { channel1 = "key1" }</code></p>
-<ul>
-<li><strong>type</strong>: map</li>
-<li><strong>values</strong>: map with string key value</li>
-<li><strong>default</strong>: <code>{}</code></li>
-</ul>
-<h2 id="ping_time"><a class="header" href="#ping_time"><code>ping_time</code></a></h2>
-<p>The amount of inactivity in seconds before the client will ping the server.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: <code>180</code></li>
-</ul>
-<h2 id="ping_timeout"><a class="header" href="#ping_timeout"><code>ping_timeout</code></a></h2>
-<p>The amount of time in seconds for a client to reconnect due to no ping response.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: <code>20</code></li>
-</ul>
-<h2 id="reconnect_delay"><a class="header" href="#reconnect_delay"><code>reconnect_delay</code></a></h2>
-<p>The amount of time in seconds before attempting to reconnect to the server when disconnected.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: <code>10</code></li>
-</ul>
-<h2 id="should_ghost"><a class="header" href="#should_ghost"><code>should_ghost</code></a></h2>
-<p>Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in use.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>false</code></li>
-</ul>
-<h2 id="ghost_sequence"><a class="header" href="#ghost_sequence"><code>ghost_sequence</code></a></h2>
-<p>The command(s) that should be sent to NickServ to recover a nickname.</p>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: <code>["REGAIN"]</code></li>
-</ul>
-<h2 id="umodes"><a class="header" href="#umodes"><code>umodes</code></a></h2>
-<p>User modestring to set on connect.<br />
-Example: <code>"+RB-x"</code>.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="use_tls"><a class="header" href="#use_tls"><code>use_tls</code></a></h2>
-<p>Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="dangerously_accept_invalid_certs"><a class="header" href="#dangerously_accept_invalid_certs"><code>dangerously_accept_invalid_certs</code></a></h2>
-<p>When <code>true</code>, all certificate validations are skipped.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>false</code></li>
-</ul>
-<h2 id="root_cert_path"><a class="header" href="#root_cert_path"><code>root_cert_path</code></a></h2>
-<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="on_connect"><a class="header" href="#on_connect"><code>on_connect</code></a></h2>
-<p>Commands which are executed once connected.<br />
-Example. <code>["/msg NickServ IDENTIFY foo bar"]</code>.</p>
-<ul>
-<li><strong>type</strong>: array of string</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="who_poll_enabled"><a class="header" href="#who_poll_enabled"><code>who_poll_enabled</code></a></h2>
-<p>Whether or not to WHO polling is enabled.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
-<h2 id="who_poll_interval"><a class="header" href="#who_poll_interval"><code>who_poll_interval</code></a></h2>
-<p>WHO poll interval (in seconds) for servers without away-notify.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: <code>5</code> .. <code>3600</code></li>
-<li><strong>default</strong>: <code>180</code></li>
-</ul>
-<h2 id="who_retry_interval"><a class="header" href="#who_retry_interval"><code>who_retry_interval</code></a></h2>
-<p>WHO retry interval (in seconds) for servers without away-notify.</p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: <code>5</code> .. <code>3600</code></li>
-<li><strong>default</strong>: <code>10</code></li>
-</ul>
-<h2 id="monitor"><a class="header" href="#monitor"><code>monitor</code></a></h2>
-<p>A list of nicknames to <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> (if IRCv3 Monitor is supported by the server).
-Example: <code>["Foo", "Bar"]</code></p>
-<blockquote>
-<p>💡 Read more about <a href="configuration/servers/../../guides/monitor-users.html">monitoring users</a>.</p>
-</blockquote>
-<ul>
-<li><strong>type</strong>: array of strings</li>
-<li><strong>values</strong>: array of any strings</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
-</div>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="serverssasl"><a class="header" href="#serverssasl"><code>[servers.*.sasl]</code></a></h1>
-<p>SASL configuration for a given server</p>
-<h2 id="configuration-7"><a class="header" href="#configuration-7">Configuration</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td><a href="configuration/servers/sasl/./plain.html">Plain</a></td><td>Plain SASL auth using a username and password</td></tr>
-<tr><td><a href="configuration/servers/sasl/./external.html">External</a></td><td>External SASL auth using a PEM encoded X509 certificate</td></tr>
-</tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h2 id="saslplain"><a class="header" href="#saslplain"><code>[sasl.plain]</code></a></h2>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[servers.liberachat.sasl.plain]
-username = "foobar"
-password = "barbaz"
+<p>Alternative nicknames for the client, if the default is taken.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+alt_nicks = ["Foo", "Bar"]
 </code></pre>
 <h2 id="username-2"><a class="header" href="#username-2"><code>username</code></a></h2>
-<p>The account name used for authentication.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
+<p>The client's username.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+username = ""
+</code></pre>
+<h2 id="realname"><a class="header" href="#realname"><code>realname</code></a></h2>
+<p>The client's real name.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+realname = ""
+</code></pre>
+<h2 id="server"><a class="header" href="#server"><code>server</code></a></h2>
+<p>The server to connect to.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+server = "irc.libera.chat"
+</code></pre>
+<h2 id="port-2"><a class="header" href="#port-2"><code>port</code></a></h2>
+<p>The port to connect on.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 6697
+
+[servers.&lt;name&gt;]
+port = 6697
+</code></pre>
 <h2 id="password-2"><a class="header" href="#password-2"><code>password</code></a></h2>
-<p>The password associated with the account used for authentication.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="password_file-1"><a class="header" href="#password_file-1"><code>password_file</code></a></h2>
-<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="password_command-1"><a class="header" href="#password_command-1"><code>password_command</code></a></h2>
+<p>The password to connect to the server.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+password = ""
+</code></pre>
+<h2 id="password_file"><a class="header" href="#password_file"><code>password_file</code></a></h2>
+<p>Read password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+password_file = ""
+</code></pre>
+<h2 id="password_command"><a class="header" href="#password_command"><code>password_command</code></a></h2>
 <p>Executes the command with <code>sh</code> (or equivalent) and reads <code>password</code> as the output.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
-</div>
-<div style="break-before: page; page-break-before: always;"></div><h2 id="saslexternal"><a class="header" href="#saslexternal"><code>[sasl.external]</code></a></h2>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+password_command = ""
+</code></pre>
+<h2 id="channels"><a class="header" href="#channels"><code>channels</code></a></h2>
+<p>A list of channels to join on connection.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+channels = ["#foo", "#bar"]
+</code></pre>
+<h2 id="channel_keys"><a class="header" href="#channel_keys"><code>channel_keys</code></a></h2>
+<p>A mapping of channel names to keys for join-on-connect.</p>
+<pre><code class="language-toml"># Type: map
+# Values: map with string key value
+# Default: {}
+
+[servers.&lt;name&gt;]
+channel_keys = { channel1 = "key1" }
+</code></pre>
+<h2 id="ping_time"><a class="header" href="#ping_time"><code>ping_time</code></a></h2>
+<p>The amount of inactivity in seconds before the client will ping the server.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 180
+
+[servers.&lt;name&gt;]
+ping_time = 180
+</code></pre>
+<h2 id="ping_timeout"><a class="header" href="#ping_timeout"><code>ping_timeout</code></a></h2>
+<p>The amount of time in seconds for a client to reconnect due to no ping response.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 20
+
+[servers.&lt;name&gt;]
+ping_timeout = 20
+</code></pre>
+<h2 id="reconnect_delay"><a class="header" href="#reconnect_delay"><code>reconnect_delay</code></a></h2>
+<p>The amount of time in seconds before attempting to reconnect to the server when disconnected.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 10
+
+[servers.&lt;name&gt;]
+reconnect_delay = 10
+</code></pre>
+<h2 id="should_ghost"><a class="header" href="#should_ghost"><code>should_ghost</code></a></h2>
+<p>Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in use.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.&lt;name&gt;]
+should_ghost = false
+</code></pre>
+<h2 id="ghost_sequence"><a class="header" href="#ghost_sequence"><code>ghost_sequence</code></a></h2>
+<p>The command(s) that should be sent to NickServ to recover a nickname.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: ["REGAIN"]
+
+[servers.&lt;name&gt;]
+ghost_sequence = ["REGAIN"]
+</code></pre>
+<h2 id="umodes"><a class="header" href="#umodes"><code>umodes</code></a></h2>
+<p>User modestring to set on connect.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+umodes = "+RB-x"
+</code></pre>
+<h2 id="use_tls"><a class="header" href="#use_tls"><code>use_tls</code></a></h2>
+<p>Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.&lt;name&gt;]
+use_tls = false
+</code></pre>
+<h2 id="dangerously_accept_invalid_certs"><a class="header" href="#dangerously_accept_invalid_certs"><code>dangerously_accept_invalid_certs</code></a></h2>
+<p>When <code>true</code>, all certificate validations are skipped.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.&lt;name&gt;]
+dangerously_accept_invalid_certs = false
+</code></pre>
+<h2 id="root_cert_path"><a class="header" href="#root_cert_path"><code>root_cert_path</code></a></h2>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;]
+root_cert_path = ""
+</code></pre>
+<h2 id="on_connect"><a class="header" href="#on_connect"><code>on_connect</code></a></h2>
+<p>Commands which are executed once connected.</p>
+<pre><code class="language-toml"># Type: array of string
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+on_connect = ["/msg NickServ IDENTIFY foo bar"]
+</code></pre>
+<h2 id="who_poll_enabled"><a class="header" href="#who_poll_enabled"><code>who_poll_enabled</code></a></h2>
+<p>Whether or not to WHO polling is enabled.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;]
+who_poll_enabled = true
+</code></pre>
+<h2 id="who_poll_interval"><a class="header" href="#who_poll_interval"><code>who_poll_interval</code></a></h2>
+<p>WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: 1 .. 3600
+# Default: 2
+
+[servers.&lt;name&gt;]
+who_poll_interval = 2
+</code></pre>
+<h2 id="monitor"><a class="header" href="#monitor"><code>monitor</code></a></h2>
+<p>A list of nicknames to <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> (if IRCv3 Monitor is supported by the server).</p>
+<blockquote>
+<p>💡 Read more about <a href="configuration/../../guides/monitor-users.html">monitoring users</a>.</p>
+</blockquote>
+<pre><code class="language-toml"># Type: array of string
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+monitor = ["Foo", "Bar"]
+</code></pre>
+<h2 id="chathistory"><a class="header" href="#chathistory"><code>chathistory</code></a></h2>
+<p>Whether or not to enable <a href="https://ircv3.net/specs/extensions/chathistory">IRCv3 Chat History</a> (if it is supported by the server).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;]
+chathistory = true
+</code></pre>
+<h2 id="saslplain"><a class="header" href="#saslplain"><code>sasl.plain</code></a></h2>
+<p>Plain SASL auth using a username and password</p>
+<h3 id="username-3"><a class="header" href="#username-3"><code>username</code></a></h3>
+<p>The account name used for authentication.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.plain]
+username = "username"
+</code></pre>
+<h3 id="password-3"><a class="header" href="#password-3"><code>password</code></a></h3>
+<p>The password associated with the account used for authentication.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.plain]
+password = "password"
+</code></pre>
+<h3 id="password_file-1"><a class="header" href="#password_file-1"><code>password_file</code></a></h3>
+<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.plain]
+password_file = ""
+</code></pre>
+<h3 id="password_command-1"><a class="header" href="#password_command-1"><code>password_command</code></a></h3>
+<p>Executes the command with <code>sh</code> (or equivalent) and reads <code>password</code> as the output.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.plain]
+password_command = ""
+</code></pre>
+<h2 id="saslexternal"><a class="header" href="#saslexternal"><code>sasl.external</code></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[servers.liberachat.sasl.external]
+<h3 id="cert"><a class="header" href="#cert"><code>cert</code></a></h3>
+<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.external]
 cert = "/path/to/your/certificate.pem"
+</code></pre>
+<h3 id="key"><a class="header" href="#key"><code>key</code></a></h3>
+<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[servers.&lt;name&gt;.sasl.external]
 key = "/path/to/your/private_key.pem"
 </code></pre>
-<h2 id="cert"><a class="header" href="#cert"><code>cert</code></a></h2>
-<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference"><a href="#1">1</a></sup></p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="key"><a class="header" href="#key"><code>key</code></a></h2>
-<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference"><a href="#1">1</a></sup></p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: any string</li>
-<li><strong>default</strong>: not set</li>
-</ul>
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
 <p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
 </div>
+<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
+</div>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
-<p>Customize the sidebar of Halloy.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[sidebar]
-buffer_action = "replace-pane"
-buffer_focused_action = "close-pane"
-unread_indicators = "title"
-position = "top"
-</code></pre>
+<p>Sidebar settings for Halloy.</p>
 <h2 id="buffer_action"><a class="header" href="#buffer_action"><code>buffer_action</code></a></h2>
-<p>Action when pressing buffers in the sidebar. <code>"new-pane"</code> opens a new pane each time. <code>"repace-pane"</code> replaces the focused pane with the pressed buffer. <code>"new-window"</code> opens a new window each time.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"new-pane"</code>, <code>"replace-pane"</code>, <code>"new-window"</code></li>
-<li><strong>default</strong>: <code>"new-pane"</code></li>
-</ul>
+<p>Action when pressing buffers in the sidebar. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the pressed buffer. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+buffer_action = "replace-pane"
+</code></pre>
 <h2 id="buffer_focused_action"><a class="header" href="#buffer_focused_action"><code>buffer_focused_action</code></a></h2>
 <p>Action when pressing a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"close-pane"</code></li>
-<li><strong>default</strong>: not set</li>
-</ul>
-<h2 id="unread_indicators"><a class="header" href="#unread_indicators"><code>unread_indicators</code></a></h2>
+<pre><code class="language-toml"># Type: string
+# Values: "close-pane"
+# Default: not set
+
+[sidebar]
+buffer_focused_action = "close-pane"
+</code></pre>
+<h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
 <p>Unread buffer indicator style.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"dot"</code>, <code>"title"</code>, <code>"none"</code></li>
-<li><strong>default</strong>: <code>"dot"</code></li>
-</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "dot", "title", "none"
+# Default: "dot"
+
+[sidebar]
+unread_indicator = "dot"
+</code></pre>
 <h2 id="position-1"><a class="header" href="#position-1"><code>position</code></a></h2>
 <p>Sidebar position within the application window.</p>
-<ul>
-<li><strong>type</strong>: string</li>
-<li><strong>values</strong>: <code>"left"</code>, <code>"top"</code>, <code>"right"</code>, <code>"bottom"</code></li>
-<li><strong>default</strong>: <code>"left"</code></li>
-</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "left", "top", "right", "bottom"
+# Default: "left"
+
+[sidebar]
+position = "left"
+</code></pre>
 <h2 id="width-1"><a class="header" href="#width-1"><code>width</code></a></h2>
-<p>Specify sidebar width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code></p>
-<ul>
-<li><strong>type</strong>: integer</li>
-<li><strong>values</strong>: any positive integer</li>
-<li><strong>default</strong>: <code>120</code></li>
-</ul>
+<p>Specify sidebar width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 120
+
+[sidebar]
+width = 120
+</code></pre>
 <h2 id="show_menu_button"><a class="header" href="#show_menu_button"><code>show_menu_button</code></a></h2>
 <p>Show or hide the user menu button in the sidemenu.</p>
-<ul>
-<li><strong>type</strong>: bool</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
+<pre><code class="language-toml"># Type: bool
+# Values: true, false
+# Default: true
+
+[sidebar]
+show_menu_button = true
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
-<p><strong>Example</strong></p>
+<h2 id="example-5"><a class="header" href="#example-5">Example</a></h2>
 <pre><code class="language-toml"># Static
 theme = "ferra"
 
 # Dynamic
 theme = { light = "ferra-light", dark = "ferra" }
 </code></pre>
+<p>Note: <code>theme</code> is a root key, so it must be placed before any section.</p>
 <h2 id="theme"><a class="header" href="#theme"><code>theme</code></a></h2>
 <p>Specify the theme name(s) to use. The theme must correspond to a file located in the <code>themes</code> folder, which can be found in the Halloy configuration directory. The default theme in Halloy is <a href="https://github.com/casperstorm/ferra/">Ferra</a>.</p>
 <p>When a dynamic theme is used, Halloy will match the appearance of the OS.</p>
@@ -1542,10 +1707,16 @@ theme = { light = "ferra-light", dark = "ferra" }
 <li><strong>default</strong>: <code>"ferra"</code></li>
 </ul>
 <blockquote>
-<p>💡  See all community created themes <a href="configuration/themes/./community.html">here</a>.</p>
+<p>💡  See all community created themes <a href="configuration/themes/./community.html">here</a> and base16 themes <a href="configuration/themes/./base16.html">here</a>.</p>
 </blockquote>
 <h2 id="custom-themes"><a class="header" href="#custom-themes">Custom themes</a></h2>
-<p>To create a custom theme for Halloy, simply place a theme file (with a <code>.toml</code> extension) inside the themes folder within the configuration directory.</p>
+<p>To create a custom theme for Halloy, simply place a theme file (with a <code>.toml</code> extension) inside the <code>themes</code> folder within the configuration directory.</p>
+<pre><code class="language-toml"># Consider we have a theme called "foobar.toml" inside the themes folder.
+# Theme is a root key, so it has to be placed before any sections in your config file.
+
+theme = "foobar"
+# .. rest of the configuration file.
+</code></pre>
 <blockquote>
 <p>💡  Halloy has a built in theme editor which makes theme creation easier</p>
 </blockquote>
@@ -1601,6 +1772,9 @@ url = "&lt;string&gt;"
 # reply_topic = "&lt;string&gt;"
 # monitored_online = "&lt;string&gt;"
 # monitored_offline = "&lt;string&gt;"
+# standard_reply_fail = "&lt;string&gt;"
+# standard_reply_warn = "&lt;string&gt;"
+# standard_reply_note = "&lt;string&gt;"
 default = "&lt;string&gt;"
 </code></pre>
 <blockquote>
@@ -1653,26 +1827,38 @@ default = "&lt;string&gt;"
 <h2 id="solarized-dark"><a class="header" href="#solarized-dark">Solarized Dark</a></h2>
 <p><a href="halloy:///theme?e=AAArNv8Bk6Gh_wKToaH_A5Ohof8Eg5SW_wVYbnX_BpOhof8HhZkA_wjcMi__CctLFv8KACs2_wsHNkL_DAc2Qv8Ng5SW_w6ToaH_D9M2gv8QBzZC_xEmi9L_EgArNv8TWG51_xSDlJb_FSqhmP8dWG51_x4AKzb_Hwc2Qv8gBzZC_yEHNkL_IgArNv8jBzZC_yQHNkL_JQc2Qv8">Open in Halloy</a></p>
 <img src="configuration/themes/solarized-dark.png">
-<div style="break-before: page; page-break-before: always;"></div><h1 id="tooltips"><a class="header" href="#tooltips">Tooltips</a></h1>
-<p>Control tooltips in Halloy.</p>
+<h2 id="cyberpunk"><a class="header" href="#cyberpunk">Cyberpunk</a></h2>
+<p><a href="halloy:///theme?e=AAoOFP8BLjxJ_wIbHyf_AwD_2f8EOf8U_wUAv___Bv8A__8HAP-d_wj_TEz_CQD_mf8KDQ8U_wsRFRz_DBsfJ_8NAAAAAA4A_9n_Dzn_FP8QiwCL_xH_AP__EhoeJf8TYHCL_xQAv___FQC___8d_9cA_x4KDhT_Hx0jL_8gDRIY_yEUGiH_IhsfJ_8jJCoz_yQuPEn_JTlFVP8">Open in Halloy</a></p>
+<img src="configuration/themes/cyberpunk.png"><div style="break-before: page; page-break-before: always;"></div><h1 id="base16"><a class="header" href="#base16">Base16</a></h1>
+<p>The <a href="https://github.com/chriskempson/base16">base16</a> color scheme framework
+includes hundreds of colorschemes build using 16 colors. These colorschemes have
+are compiled for Halloy in the
+<a href="https://github.com/4e554c4c/base16-halloy"><code>4e554c4c/base16-halloy</code></a>
+repository.</p>
+<p>To use these themes, download <code>themes.tar.gz</code> from the
+<a href="https://github.com/4e554c4c/base16-halloy/releases/latest">latest release</a>
+and unpack it to the <code>themes</code> folder in the Halloy configuration directory. Then
+you can enable themes individually in <code>config.toml</code>.</p>
 <p><strong>Example</strong></p>
-<pre><code class="language-toml">tooltips = true
+<pre><code class="language-toml"># Static
+theme = "base16-gruvbox-dark-hard"
 </code></pre>
-<h2 id="tooltips-1"><a class="header" href="#tooltips-1"><code>tooltips</code></a></h2>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="tooltips"><a class="header" href="#tooltips"><code>[tooltips]</code></a></h1>
 <p>Control if tooltips are displayed or not.<br />
 Note: <code>tooltips</code> is a root key, so it must be placed before any section.</p>
-<ul>
-<li><strong>type</strong>: boolean</li>
-<li><strong>values</strong>: <code>true</code>, <code>false</code></li>
-<li><strong>default</strong>: <code>true</code></li>
-</ul>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+tooltips = true
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="url-schemes"><a class="header" href="#url-schemes">URL Schemes</a></h1>
 <p>Halloy is able to recongize different URL schemes.</p>
 <h2 id="irc-and-ircs"><a class="header" href="#irc-and-ircs">IRC and IRCS</a></h2>
 <p>The IRC URL scheme is used to create a new connection to a server.<br />
 The format is based on the <a href="https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax">URI Syntax</a>.</p>
-<h2 id="format-1"><a class="header" href="#format-1">Format</a></h2>
-<pre><code>&lt;scheme&gt;://&lt;server&gt;:&lt;port&gt;/[#channel[,#channel]]
+<h2 id="format-2"><a class="header" href="#format-2">Format</a></h2>
+<pre><code class="language-url">&lt;scheme&gt;://&lt;server&gt;:&lt;port&gt;/[#channel[,#channel]]
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>scheme</code></td><td>Can be <code>irc</code> or <code>ircs</code>. TLS is enabled if is <code>ircs</code>.</td></tr>
@@ -1683,7 +1869,6 @@ The format is based on the <a href="https://en.wikipedia.org/wiki/Uniform_Resour
 </div>
 <h3 id="examples"><a class="header" href="#examples">Examples</a></h3>
 <p>Below is a few URL examples.</p>
-<h3 id="examples-1"><a class="header" href="#examples-1">Examples</a></h3>
 <ul>
 <li>
 <p><strong>Connect to Libera:</strong><br />
@@ -1698,6 +1883,10 @@ The format is based on the <a href="https://en.wikipedia.org/wiki/Uniform_Resour
 <a href="ircs://irc.oftc.net:9999/#oftc,#asahi-dev">ircs://irc.oftc.net:9999/#oftc,#asahi-dev</a></p>
 </li>
 </ul>
+<h2 id="halloy-1"><a class="header" href="#halloy-1">Halloy</a></h2>
+<p>The <code>halloy://</code> scheme is used to import themes.
+The syntax for that is <code>halloy:///theme?e=base64EncodedThemeData</code>.
+A list of community created themes can be found <a href="./configuration/themes/community.html">here</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="commands"><a class="header" href="#commands">Commands</a></h1>
 <p>Commands in Halloy are prefixed with <code>/</code>.</p>
 <p>Example</p>
@@ -1755,12 +1944,11 @@ The format is based on the <a href="https://en.wikipedia.org/wiki/Uniform_Resour
         <!-- Custom JS scripts -->
 
         <script>
-            window.addEventListener('load', function () {
-                window.setTimeout(window.print, 100);
-            });
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
         </script>
 
     </div>
-</body>
-
+    </body>
 </html>
