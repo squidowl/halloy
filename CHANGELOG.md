@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- [`infinite_scroll`](https://halloy.squidowl.org/configuration/buffer.html?highlight=infinite#infinite_scroll) was defaulting to `false`, contrary to its documented default value.  Now defaults to `true`.
+
 # 2025.1 (2025-02-02)
 
 Added:
