@@ -176,10 +176,18 @@ impl Default for InternalMessage {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ChatHistory {
-    #[serde(default)]
+    #[serde(default = "default_bool_true")]
     pub infinite_scroll: bool,
+}
+
+impl Default for ChatHistory {
+    fn default() -> Self {
+        Self {
+            infinite_scroll: true,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Default, Deserialize)]
