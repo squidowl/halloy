@@ -10,12 +10,13 @@ Buffer settings for Halloy.
 3. [Chathistory](#bufferchathistory) - IRCv3 Chat History extension settings
 4. [Commands](#buffercommands) - Commands settings
 5. [Date Separators](#bufferdate_separators) - Customize how date separators are displayed within a buffer
-6. [Internal Messages](#bufferinternal_messages) - Internal messages are messages sent from Halloy itself
-7. [Nickname](#buffernickname) - Customize how nicknames are displayed within a buffer
-8. [Server Messages](#bufferserver_messages) - Server messages are messages sent from a irc server.
-9. [Status Message Prefix](#bufferstatus_message_prefix) - Status message prefix settings
-10. [Text Input](#buffertext_input) - Customize the text input for in buffers
-11. [Timestamp](#buffertimestamp) - Customize how timestamps are displayed within a buffer
+6. [Emojis](#bufferemojis) - Emojis settings
+7. [Internal Messages](#bufferinternal_messages) - Internal messages are messages sent from Halloy itself
+8. [Nickname](#buffernickname) - Customize how nicknames are displayed within a buffer
+9. [Server Messages](#bufferserver_messages) - Server messages are messages sent from a irc server.
+10. [Status Message Prefix](#bufferstatus_message_prefix) - Status message prefix settings
+11. [Text Input](#buffertext_input) - Customize the text input for in buffers
+12. [Timestamp](#buffertimestamp) - Customize how timestamps are displayed within a buffer
 
 ## `[buffer.away]`
 
@@ -235,6 +236,42 @@ Show date separators.
 
 [buffer.date_separators]
 show = true
+```
+
+## `[buffer.emojis]`
+
+Emojis settings.
+
+```toml
+[buffer.emojis]
+show_picker = true
+skin_tone = "default"
+```
+
+### `show_picker`
+
+Show the emoji picker when typing `:shortcode` in text input.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.emojis]
+show_picker = true
+```
+
+### `skin_tone`
+
+Skin tone selected when picking an emoji.
+
+```toml
+# Type: string
+# Values: "default", "light", "medium-light", "medium", "medium-dark", "dark"
+# Default: "default"
+
+[buffer.emojis]
+skin_tone = "default"
 ```
 
 ## `[buffer.internal_messages]`

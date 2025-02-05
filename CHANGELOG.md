@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Emoji picker accessible via `:` in text input.  See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferemojis)
+
 Fixed:
 
 - [`infinite_scroll`](https://halloy.squidowl.org/configuration/buffer.html?highlight=infinite#infinite_scroll) was defaulting to `false`, contrary to its documented default value.  Now defaults to `true`.
