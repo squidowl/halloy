@@ -61,8 +61,6 @@ static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     .unwrap()
 });
 
-pub type Channel = String;
-
 pub(crate) mod broadcast;
 pub mod formatting;
 pub mod source;
@@ -107,7 +105,7 @@ impl From<Encoded> for proto::Message {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Target {
     Server {
         source: Source,
@@ -126,6 +124,182 @@ pub enum Target {
         channel: target::Channel,
         source: Source,
     },
+}
+
+impl Serialize for Target {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        #[derive(Serialize)]
+        enum Data<'a> {
+            Server {
+                source: &'a Source,
+            },
+            Channel {
+                target_channel: &'a target::Channel,
+                source: &'a Source,
+                channel: &'a str,
+                prefix: Option<&'a char>,
+            },
+            Query {
+                target_query: &'a target::Query,
+                source: &'a Source,
+                nick: Cow<'a, Nick>,
+            },
+            Logs,
+            Highlights {
+                server: &'a Server,
+                target_channel: &'a target::Channel,
+                source: &'a Source,
+                channel: &'a str,
+            },
+        }
+
+        match &self {
+            Target::Server { source } => Data::Server { source },
+            Target::Channel { channel, source } => Data::Channel {
+                target_channel: channel,
+                source,
+                channel: channel.as_str(),
+                prefix: channel.prefixes().first(),
+            },
+            Target::Query { query, source } => Data::Query {
+                target_query: query,
+                source,
+                nick: Cow::Owned(Nick::from(query.as_str())),
+            },
+            Target::Logs => Data::Logs,
+            Target::Highlights {
+                server,
+                channel,
+                source,
+            } => Data::Highlights {
+                server,
+                target_channel: channel,
+                source,
+                channel: channel.as_str(),
+            },
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Target {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        enum Data {
+            Server {
+                source: Source,
+            },
+            Channel {
+                #[serde(default, deserialize_with = "fail_as_none")]
+                target_channel: Option<target::Channel>,
+                source: Source,
+                #[serde(default, deserialize_with = "fail_as_none")]
+                channel: Option<String>,
+                #[serde(default, deserialize_with = "fail_as_none")]
+                prefix: Option<char>,
+            },
+            Query {
+                #[serde(default, deserialize_with = "fail_as_none")]
+                target_query: Option<target::Query>,
+                source: Source,
+                #[serde(default, deserialize_with = "fail_as_none")]
+                nick: Option<Nick>,
+            },
+            Logs,
+            Highlights {
+                server: Server,
+                #[serde(default, deserialize_with = "fail_as_none")]
+                target_channel: Option<target::Channel>,
+                source: Source,
+                #[serde(default, deserialize_with = "fail_as_none")]
+                channel: Option<String>,
+            },
+        }
+
+        let data = Data::deserialize(deserializer)?;
+
+        let target = match data {
+            Data::Server { source } => Target::Server { source },
+            Data::Channel {
+                target_channel,
+                source,
+                channel,
+                prefix,
+            } => {
+                if let Some(target_channel) = target_channel {
+                    Target::Channel {
+                        channel: target_channel,
+                        source,
+                    }
+                } else {
+                    let channel = channel
+                        .ok_or(serde::de::Error::custom("unable to parse channel target"))?;
+
+                    let channel = if let Some(prefix) = prefix {
+                        let channel = String::from(prefix) + &channel;
+
+                        target::Channel::from_str(&channel, isupport::CaseMap::default())
+                    } else {
+                        target::Channel::from_str(&channel, isupport::CaseMap::default())
+                    };
+
+                    Target::Channel { channel, source }
+                }
+            }
+            Data::Query {
+                target_query,
+                source,
+                nick,
+            } => {
+                if let Some(target_query) = target_query {
+                    Target::Query {
+                        query: target_query,
+                        source,
+                    }
+                } else {
+                    let nick =
+                        nick.ok_or(serde::de::Error::custom("unable to parse query target"))?;
+                    let user = User::from(nick);
+                    Target::Query {
+                        query: target::Query::from_user(&user, isupport::CaseMap::default()),
+                        source,
+                    }
+                }
+            }
+            Data::Logs => Target::Logs,
+            Data::Highlights {
+                server,
+                target_channel,
+                source,
+                channel,
+            } => {
+                if let Some(target_channel) = target_channel {
+                    Target::Highlights {
+                        server,
+                        channel: target_channel,
+                        source,
+                    }
+                } else {
+                    let channel = channel.ok_or(serde::de::Error::custom(
+                        "unable to parse highlights target",
+                    ))?;
+                    Target::Highlights {
+                        server,
+                        channel: target::Channel::from_str(&channel, isupport::CaseMap::default()),
+                        source,
+                    }
+                }
+            }
+        };
+
+        Ok(target)
+    }
 }
 
 impl Target {
@@ -443,7 +617,7 @@ impl<'de> Deserialize<'de> for Message {
             // Old field before we had fragments
             text: Option<String>,
             id: Option<String>,
-            #[serde(default)]
+            #[serde(default, deserialize_with = "fail_as_empty_set")]
             hidden_urls: HashSet<url::Url>,
             // New field, optional for upgrade compatability
             #[serde(default, deserialize_with = "fail_as_none")]
@@ -1415,6 +1589,22 @@ where
     let intermediate = serde_json::Value::deserialize(deserializer)?;
 
     Ok(Option::<T>::deserialize(intermediate).unwrap_or_default())
+}
+
+fn fail_as_empty_set<'de, T, D>(deserializer: D) -> Result<HashSet<T>, D::Error>
+where
+    T: Deserialize<'de>,
+    T: std::cmp::Eq,
+    T: std::hash::Hash,
+    D: Deserializer<'de>,
+{
+    // We must fully consume valid json otherwise the error leaves the
+    // deserializer in an invalid state and it'll still fail
+    //
+    // This assumes we always use a json format
+    let intermediate = serde_json::Value::deserialize(deserializer)?;
+
+    Ok(HashSet::<T>::deserialize(intermediate).unwrap_or_default())
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
