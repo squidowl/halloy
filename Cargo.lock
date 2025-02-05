@@ -1457,6 +1457,7 @@ dependencies = [
  "const_format",
  "derive_more",
  "dirs-next",
+ "emojis",
  "flate2",
  "futures",
  "hex",

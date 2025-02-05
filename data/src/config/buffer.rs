@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use super::Channel;
 use crate::{
-    buffer::{Away, DateSeparators, Nickname, StatusMessagePrefix, TextInput, Timestamp},
+    buffer::{Away, DateSeparators, Nickname, SkinTone, StatusMessagePrefix, TextInput, Timestamp},
     message::source,
 };
 
@@ -31,6 +31,25 @@ pub struct Buffer {
     pub date_separators: DateSeparators,
     #[serde(default)]
     pub commands: Commands,
+    #[serde(default)]
+    pub emojis: Emojis,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Emojis {
+    #[serde(default = "default_bool_true")]
+    pub show_picker: bool,
+    #[serde(default)]
+    pub skin_tone: SkinTone,
+}
+
+impl Default for Emojis {
+    fn default() -> Self {
+        Self {
+            show_picker: default_bool_true(),
+            skin_tone: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use strsim::jaro_winkler;
 
-use data::buffer::SortDirection;
+use data::buffer::{SkinTone, SortDirection};
 use data::user::User;
 use data::{isupport, target, Config};
 use iced::widget::{column, container, row, text, tooltip};
@@ -59,33 +59,37 @@ impl Completion {
             }
 
             self.emojis = Emojis::default();
+        } else if let Some(shortcode) = config
+            .buffer
+            .emojis
+            .show_picker
+            .then(|| {
+                input
+                    .split(' ')
+                    .last()
+                    .filter(|last_word| last_word.starts_with(':'))
+            })
+            .flatten()
+        {
+            self.emojis.process(shortcode);
+
+            self.commands = Commands::default();
+            self.text = Text::default();
         } else {
-            let last_word = input.split_whitespace().last();
+            self.text
+                .process(input, casemapping, users, channels, config);
 
-            let is_emoji = last_word
-                .is_some_and(|last_word| last_word.starts_with(':') && input.ends_with(last_word));
+            self.commands = Commands::default();
 
-            if is_emoji {
-                self.emojis.process(last_word.unwrap());
-
-                self.commands = Commands::default();
-                self.text = Text::default();
-            } else {
-                self.text
-                    .process(input, casemapping, users, channels, config);
-
-                self.commands = Commands::default();
-
-                self.emojis = Emojis::default();
-            }
+            self.emojis = Emojis::default();
         }
     }
 
-    pub fn select(&mut self) -> Option<Entry> {
+    pub fn select(&mut self, config: &Config) -> Option<Entry> {
         self.commands
             .select()
             .map(Entry::Command)
-            .or(self.emojis.select().map(Entry::Emoji))
+            .or(self.emojis.select(config).map(Entry::Emoji))
     }
 
     pub fn tab(&mut self, reverse: bool) -> Option<Entry> {
@@ -105,7 +109,9 @@ impl Completion {
         input: &str,
         config: &Config,
     ) -> Option<Element<'a, Message>> {
-        self.commands.view(input, config).or(self.emojis.view())
+        self.commands
+            .view(input, config)
+            .or(self.emojis.view(config))
     }
 }
 
@@ -123,7 +129,7 @@ impl Entry {
             Entry::Text(next) => {
                 let autocomplete = &config.buffer.text_input.autocomplete;
                 let is_channel = next.starts_with(chantypes);
-                let mut words: Vec<_> = input.split_whitespace().collect();
+                let mut words: Vec<_> = input.split(' ').collect();
 
                 // Replace the last word with the next word
                 if let Some(last_word) = words.last_mut() {
@@ -147,11 +153,11 @@ impl Entry {
                 new_input
             }
             Entry::Emoji(emoji) => {
-                let mut words: Vec<_> = input.split_whitespace().collect();
+                let mut words: Vec<_> = input.split(' ').collect();
 
-                let last_word = words.last_mut().unwrap();
-
-                *last_word = emoji;
+                if let Some(last_word) = words.last_mut() {
+                    *last_word = emoji;
+                }
 
                 words.join(" ")
             }
@@ -1734,16 +1740,17 @@ impl Emojis {
         };
     }
 
-    fn select(&mut self) -> Option<String> {
+    fn select(&mut self, config: &Config) -> Option<String> {
         if let Self::Selecting {
             highlighted: Some(index),
             filtered,
         } = self
         {
-            if let Some(emoji) = filtered.get(*index).cloned() {
+            if let Some(shortcode) = filtered.get(*index).cloned() {
                 *self = Self::Idle;
 
-                return emojis::get_by_shortcode(emoji).map(|emoji| emoji.as_str().to_string());
+                return pick_emoji(shortcode, config.buffer.emojis.skin_tone)
+                    .map(|emoji| emoji.to_string());
             }
         }
 
@@ -1764,7 +1771,7 @@ impl Emojis {
         }
     }
 
-    fn view<'a, Message: 'a>(&self) -> Option<Element<'a, Message>> {
+    fn view<'a, Message: 'a>(&self, config: &Config) -> Option<Element<'a, Message>> {
         match self {
             Self::Idle => None,
             Self::Selecting {
@@ -1794,7 +1801,7 @@ impl Emojis {
                         let selected = Some(*index) == *highlighted;
                         let content = text(format!(
                             "{} :{}:",
-                            emojis::get_by_shortcode(shortcode).map_or(" ", |emoji| emoji.as_str()),
+                            pick_emoji(shortcode, config.buffer.emojis.skin_tone).unwrap_or(" "),
                             shortcode
                         ))
                         .shaping(text::Shaping::Advanced);
@@ -1831,6 +1838,17 @@ impl Emojis {
 struct FilteredShortcode {
     similarity: f64,
     shortcode: &'static str,
+}
+
+fn pick_emoji(shortcode: &str, skin_tone: SkinTone) -> Option<&'static str> {
+    emojis::get_by_shortcode(shortcode).map(|emoji| {
+        if let Some(emoji_with_skin_tone) = emoji.with_skin_tone(skin_tone.into()) {
+            emoji_with_skin_tone
+        } else {
+            emoji
+        }
+        .as_str()
+    })
 }
 
 fn selecting_tab<T>(highlighted: &mut Option<usize>, filtered: &[T], reverse: bool) {
