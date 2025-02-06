@@ -43,7 +43,7 @@
                 </File>
             </Component>
 
-            <Component>
+            <Component Id="FirewallRulesComponent" Guid="{3e2969ad-4782-4c85-9d77-37f8fd24bb01}" KeyPath="yes">
                 <util:PermissionEx Allow="everyone" GenericAll="yes" ObjectType="file" Object="[INSTALLFOLDER]halloy.exe" />
                 <util:FirewallException Id="FirewallRuleTCP" Name="Halloy TCP" Scope="any" Protocol="tcp" Program="[INSTALLFOLDER]halloy.exe" />
                 <util:FirewallException Id="FirewallRuleUDP" Name="Halloy UDP" Scope="any" Protocol="udp" Program="[INSTALLFOLDER]halloy.exe" />
