@@ -2,7 +2,8 @@
 
 <Wix
     xmlns="http://wixtoolset.org/schemas/v4/wxs"
-    xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+    xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+    xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 
     <Package
         Name="Halloy"
@@ -40,6 +41,12 @@
                         <ShortcutProperty Key="System.AppUserModel.ID" Value="org.squidowl.halloy" />
                     </Shortcut>
                 </File>
+            </Component>
+
+            <Component>
+                <util:PermissionEx Allow="everyone" GenericAll="yes" ObjectType="file" Object="[INSTALLFOLDER]halloy.exe" />
+                <util:FirewallException Id="FirewallRuleTCP" Name="Halloy TCP" Scope="any" Protocol="tcp" Program="[INSTALLFOLDER]halloy.exe" />
+                <util:FirewallException Id="FirewallRuleUDP" Name="Halloy UDP" Scope="any" Protocol="udp" Program="[INSTALLFOLDER]halloy.exe" />
             </Component>
 
             <Component>
