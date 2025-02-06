@@ -463,6 +463,7 @@ enabled = true
 <li><a href="configuration/buffer.html#bufferchathistory">Chathistory</a> - IRCv3 Chat History extension settings</li>
 <li><a href="configuration/buffer.html#buffercommands">Commands</a> - Commands settings</li>
 <li><a href="configuration/buffer.html#bufferdate_separators">Date Separators</a> - Customize how date separators are displayed within a buffer</li>
+<li><a href="configuration/buffer.html#bufferemojis">Emojis</a> - Emojis settings</li>
 <li><a href="configuration/buffer.html#bufferinternal_messages">Internal Messages</a> - Internal messages are messages sent from Halloy itself</li>
 <li><a href="configuration/buffer.html#buffernickname">Nickname</a> - Customize how nicknames are displayed within a buffer</li>
 <li><a href="configuration/buffer.html#bufferserver_messages">Server Messages</a> - Server messages are messages sent from a irc server.</li>
@@ -615,6 +616,30 @@ format = "%A, %B %-d"
 
 [buffer.date_separators]
 show = true
+</code></pre>
+<h2 id="bufferemojis"><a class="header" href="#bufferemojis"><code>[buffer.emojis]</code></a></h2>
+<p>Emojis settings.</p>
+<pre><code class="language-toml">[buffer.emojis]
+show_picker = true
+skin_tone = "default"
+</code></pre>
+<h3 id="show_picker"><a class="header" href="#show_picker"><code>show_picker</code></a></h3>
+<p>Show the emoji picker when typing <code>:shortcode</code> in text input.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.emojis]
+show_picker = true
+</code></pre>
+<h3 id="skin_tone"><a class="header" href="#skin_tone"><code>skin_tone</code></a></h3>
+<p>Skin tone selected when picking an emoji.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "default", "light", "medium-light", "medium", "medium-dark", "dark"
+# Default: "default"
+
+[buffer.emojis]
+skin_tone = "default"
 </code></pre>
 <h2 id="bufferinternal_messages"><a class="header" href="#bufferinternal_messages"><code>[buffer.internal_messages]</code></a></h2>
 <p>Internal messages are messages sent from Halloy itself.</p>
