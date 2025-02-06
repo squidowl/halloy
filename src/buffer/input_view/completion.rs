@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::fmt;
+use strsim::jaro_winkler;
 
-use data::buffer::SortDirection;
+use data::buffer::{SkinTone, SortDirection};
 use data::user::User;
 use data::{isupport, target, Config};
 use iced::widget::{column, container, row, text, tooltip};
@@ -12,12 +13,14 @@ use once_cell::sync::Lazy;
 use crate::theme;
 use crate::widget::{double_pass, Element};
 
-const MAX_SHOWN_ENTRIES: usize = 5;
+const MAX_SHOWN_COMMAND_ENTRIES: usize = 5;
+const MAX_SHOWN_EMOJI_ENTRIES: usize = 8;
 
 #[derive(Debug, Clone, Default)]
 pub struct Completion {
     commands: Commands,
     text: Text,
+    emojis: Emojis,
 }
 
 impl Completion {
@@ -54,23 +57,51 @@ impl Completion {
                 self.text
                     .process(input, casemapping, users, channels, config);
             }
+
+            self.emojis = Emojis::default();
+        } else if let Some(shortcode) = config
+            .buffer
+            .emojis
+            .show_picker
+            .then(|| {
+                input
+                    .split(' ')
+                    .last()
+                    .filter(|last_word| last_word.starts_with(':'))
+            })
+            .flatten()
+        {
+            self.emojis.process(shortcode);
+
+            self.commands = Commands::default();
+            self.text = Text::default();
         } else {
             self.text
                 .process(input, casemapping, users, channels, config);
+
             self.commands = Commands::default();
+
+            self.emojis = Emojis::default();
         }
     }
 
-    pub fn select(&mut self) -> Option<Entry> {
-        self.commands.select().map(Entry::Command)
+    pub fn select(&mut self, config: &Config) -> Option<Entry> {
+        self.commands
+            .select()
+            .map(Entry::Command)
+            .or(self.emojis.select(config).map(Entry::Emoji))
     }
 
     pub fn tab(&mut self, reverse: bool) -> Option<Entry> {
-        if !self.commands.tab(reverse) {
-            self.text.tab(reverse).map(Entry::Text)
-        } else {
-            None
+        if self.commands.tab(reverse) {
+            return None;
         }
+
+        if self.emojis.tab(reverse) {
+            return None;
+        }
+
+        self.text.tab(reverse).map(Entry::Text)
     }
 
     pub fn view<'a, Message: 'a>(
@@ -78,7 +109,9 @@ impl Completion {
         input: &str,
         config: &Config,
     ) -> Option<Element<'a, Message>> {
-        self.commands.view(input, config)
+        self.commands
+            .view(input, config)
+            .or(self.emojis.view(config))
     }
 }
 
@@ -86,6 +119,7 @@ impl Completion {
 pub enum Entry {
     Command(Command),
     Text(String),
+    Emoji(String),
 }
 
 impl Entry {
@@ -95,7 +129,7 @@ impl Entry {
             Entry::Text(next) => {
                 let autocomplete = &config.buffer.text_input.autocomplete;
                 let is_channel = next.starts_with(chantypes);
-                let mut words: Vec<_> = input.split_whitespace().collect();
+                let mut words: Vec<_> = input.split(' ').collect();
 
                 // Replace the last word with the next word
                 if let Some(last_word) = words.last_mut() {
@@ -117,6 +151,15 @@ impl Entry {
                 }
 
                 new_input
+            }
+            Entry::Emoji(emoji) => {
+                let mut words: Vec<_> = input.split(' ').collect();
+
+                if let Some(last_word) = words.last_mut() {
+                    *last_word = emoji;
+                }
+
+                words.join(" ")
             }
         }
     }
@@ -379,21 +422,7 @@ impl Commands {
             filtered,
         } = self
         {
-            if filtered.is_empty() {
-                *highlighted = None;
-            } else if let Some(index) = highlighted {
-                if reverse {
-                    if *index > 0 {
-                        *index -= 1;
-                    } else {
-                        *index = filtered.len() - 1;
-                    }
-                } else {
-                    *index = (*index + 1) % filtered.len();
-                }
-            } else {
-                *highlighted = Some(if reverse { filtered.len() - 1 } else { 0 });
-            }
+            selecting_tab(highlighted, filtered, reverse);
 
             true
         } else {
@@ -415,15 +444,15 @@ impl Commands {
                         0
                     };
 
-                    let to = index.max(MAX_SHOWN_ENTRIES - 1);
-                    to.saturating_sub(MAX_SHOWN_ENTRIES - 1)
+                    let to = index.max(MAX_SHOWN_COMMAND_ENTRIES - 1);
+                    to.saturating_sub(MAX_SHOWN_COMMAND_ENTRIES - 1)
                 };
 
                 let entries = filtered
                     .iter()
                     .enumerate()
                     .skip(skip)
-                    .take(MAX_SHOWN_ENTRIES)
+                    .take(MAX_SHOWN_COMMAND_ENTRIES)
                     .collect::<Vec<_>>();
 
                 let content = |width| {
@@ -1661,5 +1690,181 @@ fn whois_command(target_limit: &isupport::CommandTargetLimit) -> Command {
             tooltip: Some(nicks_tooltip),
         }],
         subcommands: None,
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Emojis {
+    Idle,
+    Selecting {
+        highlighted: Option<usize>,
+        filtered: Vec<&'static str>,
+    },
+}
+
+impl Default for Emojis {
+    fn default() -> Self {
+        Self::Idle
+    }
+}
+
+impl Emojis {
+    fn process(&mut self, last_word: &str) {
+        let last_word = last_word.strip_prefix(":").unwrap_or("");
+
+        if last_word.is_empty() {
+            *self = Self::default();
+            return;
+        }
+
+        let mut filtered = emojis::iter()
+            .flat_map(|emoji| {
+                emoji.shortcodes().filter_map(|shortcode| {
+                    if shortcode.contains(last_word) {
+                        Some(FilteredShortcode {
+                            similarity: jaro_winkler(last_word, shortcode),
+                            shortcode,
+                        })
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        filtered.sort_by(|a, b| b.similarity.total_cmp(&a.similarity));
+
+        *self = Emojis::Selecting {
+            highlighted: None,
+            filtered: filtered.into_iter().map(|f| f.shortcode).collect(),
+        };
+    }
+
+    fn select(&mut self, config: &Config) -> Option<String> {
+        if let Self::Selecting {
+            highlighted: Some(index),
+            filtered,
+        } = self
+        {
+            if let Some(shortcode) = filtered.get(*index).cloned() {
+                *self = Self::Idle;
+
+                return pick_emoji(shortcode, config.buffer.emojis.skin_tone)
+                    .map(|emoji| emoji.to_string());
+            }
+        }
+
+        None
+    }
+
+    fn tab(&mut self, reverse: bool) -> bool {
+        if let Self::Selecting {
+            highlighted,
+            filtered,
+        } = self
+        {
+            selecting_tab(highlighted, filtered, reverse);
+
+            true
+        } else {
+            false
+        }
+    }
+
+    fn view<'a, Message: 'a>(&self, config: &Config) -> Option<Element<'a, Message>> {
+        match self {
+            Self::Idle => None,
+            Self::Selecting {
+                highlighted,
+                filtered,
+            } => {
+                let skip = {
+                    let index = if let Some(index) = highlighted {
+                        *index
+                    } else {
+                        0
+                    };
+
+                    let to = index.max(MAX_SHOWN_EMOJI_ENTRIES - 1);
+                    to.saturating_sub(MAX_SHOWN_EMOJI_ENTRIES - 1)
+                };
+
+                let entries = filtered
+                    .iter()
+                    .enumerate()
+                    .skip(skip)
+                    .take(MAX_SHOWN_EMOJI_ENTRIES)
+                    .collect::<Vec<_>>();
+
+                let content = |width| {
+                    column(entries.iter().map(|(index, shortcode)| {
+                        let selected = Some(*index) == *highlighted;
+                        let content = text(format!(
+                            "{} :{}:",
+                            pick_emoji(shortcode, config.buffer.emojis.skin_tone).unwrap_or(" "),
+                            shortcode
+                        ))
+                        .shaping(text::Shaping::Advanced);
+
+                        Element::from(
+                            container(content)
+                                .width(width)
+                                .style(if selected {
+                                    theme::container::primary_background_hover
+                                } else {
+                                    theme::container::none
+                                })
+                                .padding(6)
+                                .center_y(Length::Shrink),
+                        )
+                    }))
+                };
+
+                (!entries.is_empty()).then(|| {
+                    let first_pass = content(Length::Shrink);
+                    let second_pass = content(Length::Fill);
+
+                    container(double_pass(first_pass, second_pass))
+                        .padding(4)
+                        .style(theme::container::tooltip)
+                        .width(Length::Shrink)
+                        .into()
+                })
+            }
+        }
+    }
+}
+
+struct FilteredShortcode {
+    similarity: f64,
+    shortcode: &'static str,
+}
+
+fn pick_emoji(shortcode: &str, skin_tone: SkinTone) -> Option<&'static str> {
+    emojis::get_by_shortcode(shortcode).map(|emoji| {
+        if let Some(emoji_with_skin_tone) = emoji.with_skin_tone(skin_tone.into()) {
+            emoji_with_skin_tone
+        } else {
+            emoji
+        }
+        .as_str()
+    })
+}
+
+fn selecting_tab<T>(highlighted: &mut Option<usize>, filtered: &[T], reverse: bool) {
+    if filtered.is_empty() {
+        *highlighted = None;
+    } else if let Some(index) = highlighted {
+        if reverse {
+            if *index > 0 {
+                *index -= 1;
+            } else {
+                *index = filtered.len() - 1;
+            }
+        } else {
+            *index = (*index + 1) % filtered.len();
+        }
+    } else {
+        *highlighted = Some(if reverse { filtered.len() - 1 } else { 0 });
     }
 }
