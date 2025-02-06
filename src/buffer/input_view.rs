@@ -157,7 +157,7 @@ impl State {
                 // Reset selected history
                 self.selected_history = None;
 
-                if let Some(entry) = self.completion.select() {
+                if let Some(entry) = self.completion.select(config) {
                     let chantypes = clients.get_chantypes(buffer.server());
                     let new_input = entry.complete_input(input, chantypes, config);
 

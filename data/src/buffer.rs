@@ -128,7 +128,7 @@ pub struct Autocomplete {
     #[serde(default)]
     pub sort_direction: SortDirection,
     #[serde(default = "default_completion_suffixes")]
-    pub completion_suffixes: [String; 2]
+    pub completion_suffixes: [String; 2],
 }
 
 impl Default for Autocomplete {
@@ -139,7 +139,6 @@ impl Default for Autocomplete {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -174,7 +173,6 @@ impl Default for Timestamp {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DateSeparators {
@@ -278,6 +276,31 @@ impl Resize {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SkinTone {
+    #[default]
+    Default,
+    Light,
+    MediumLight,
+    Medium,
+    MediumDark,
+    Dark,
+}
+
+impl From<SkinTone> for emojis::SkinTone {
+    fn from(skin_tone: SkinTone) -> Self {
+        match skin_tone {
+            SkinTone::Default => emojis::SkinTone::Default,
+            SkinTone::Light => emojis::SkinTone::Light,
+            SkinTone::MediumLight => emojis::SkinTone::MediumLight,
+            SkinTone::Medium => emojis::SkinTone::Medium,
+            SkinTone::MediumDark => emojis::SkinTone::MediumDark,
+            SkinTone::Dark => emojis::SkinTone::Dark,
+        }
+    }
+}
+
 fn default_timestamp() -> String {
     "%R".to_string()
 }
@@ -293,4 +316,3 @@ fn default_bool_true() -> bool {
 fn default_completion_suffixes() -> [String; 2] {
     [": ".to_string(), " ".to_string()]
 }
-
