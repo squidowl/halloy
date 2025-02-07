@@ -6,11 +6,11 @@ Customize and enable notifications.
 
 ```toml
 [notifications]
-highlight = {
-    sound = "dong"
-    exclude = ["NickServ", "#halloy"]
-}
 direct_message = { sound = "peck", show_toast = true }
+
+[notifications.highlight]
+sound = "dong"
+exclude = ["NickServ", "#halloy"]
 ```
 
 Following notifications are available:
