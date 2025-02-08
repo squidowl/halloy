@@ -311,10 +311,10 @@ password = "&lt;your-password&gt;"
 # Depending on your ZNC setup you may need to apply these extra settings:
 
 # Does your znc use a self-signed or expired certificate? See: 
-# https://halloy.squidowl.org/configuration/servers/index.html#dangerously_accept_invalid_certs
+# https://halloy.squidowl.org/configuration/servers.html#dangerously_accept_invalid_certs
 
 # Does your znc listen on a different port? See: 
-# https://halloy.squidowl.org/configuration/servers/index.html#port
+# https://halloy.squidowl.org/configuration/servers.html#port
 
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="portable-mode"><a class="header" href="#portable-mode">Portable mode</a></h1>
@@ -419,7 +419,7 @@ auto_format = "disabled" | "markdown" | "all"
 </blockquote>
 <p>To use the feature you need to add the user(s) you wish to monitor. This can be done in two ways:</p>
 <ul>
-<li>You can add a list of user directly to the configuration file. <a href="guides/../configuration/servers/index.html#monitor">See configuration option.</a></li>
+<li>You can add a list of user directly to the configuration file. <a href="guides/../configuration/servers.html#monitor">See configuration option.</a></li>
 <li>You can add users through <code>/monitor</code> directly in Halloy.</li>
 </ul>
 <p>Examples with the <code>/monitor</code> command:</p>
@@ -939,6 +939,9 @@ bind_port_last = "5000"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="font"><a class="header" href="#font"><code>[font]</code></a></h1>
 <p>Application wide font settings.</p>
+<blockquote>
+<p>⚠️  Changes to font settings require an application restart to take effect.</p>
+</blockquote>
 <h2 id="family"><a class="header" href="#family"><code>family</code></a></h2>
 <p>Monospaced font family to use.</p>
 <pre><code class="language-toml"># Type: string
@@ -993,11 +996,11 @@ move_right = "alt+l"
 <p>Customize and enable notifications.</p>
 <p><strong>Example</strong></p>
 <pre><code class="language-toml">[notifications]
-highlight = {
-    sound = "dong"
-    exclude = ["NickServ", "#halloy"]
-}
 direct_message = { sound = "peck", show_toast = true }
+
+[notifications.highlight]
+sound = "dong"
+exclude = ["NickServ", "#halloy"]
 </code></pre>
 <p>Following notifications are available:</p>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>

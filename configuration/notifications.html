@@ -161,11 +161,11 @@
 <p>Customize and enable notifications.</p>
 <p><strong>Example</strong></p>
 <pre><code class="language-toml">[notifications]
-highlight = {
-    sound = "dong"
-    exclude = ["NickServ", "#halloy"]
-}
 direct_message = { sound = "peck", show_toast = true }
+
+[notifications.highlight]
+sound = "dong"
+exclude = ["NickServ", "#halloy"]
 </code></pre>
 <p>Following notifications are available:</p>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
