@@ -348,7 +348,7 @@ Horizontal alignment of nicknames.
 
 ```toml
 # Type: string
-# Values: "left", "right"
+# Values: "left", "right", "top"
 # Default: "left"
 
 [buffer.nickname]
