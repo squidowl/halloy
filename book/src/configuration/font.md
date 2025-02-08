@@ -2,6 +2,8 @@
 
 Application wide font settings.
 
+> ⚠️  Changes to font settings require an application restart to take effect.
+
 ## `family`
 
 Monospaced font family to use.
