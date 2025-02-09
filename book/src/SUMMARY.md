@@ -15,6 +15,7 @@
 - [Storing passwords in a File](guides/password-file.md)
 - [Text Formatting](guides/text-formatting.md)
 - [Monitor users](guides/monitor-users.md)
+- [YAML migration](guides/migrating-from-yaml.md)
 
 # Configuration
 
