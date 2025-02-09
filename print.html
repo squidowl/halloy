@@ -429,6 +429,35 @@ auto_format = "disabled" | "markdown" | "all"
 /monitor l # Get list of users being monitored
 /monitor s # For each user in the list being monitored, get their current status
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="migrating-from-yaml"><a class="header" href="#migrating-from-yaml">Migrating from YAML</a></h1>
+<p>Halloy switched configuration file format from YAML to TOML (<a href="https://github.com/squidowl/halloy/pull/278">PR-278</a>)
+This page will help you migrate your old <code>config.yaml</code> to a new <code>config.toml</code> file.</p>
+<p>The basic structure of a TOML file consists of key-value pairs, where keys are strings. There are no nested indentations like YAML, which makes it easier to read and write. Consider the following old YAML config with of two servers in Halloy:</p>
+<pre><code class="language-yaml">servers:
+  libera:
+    nickname: foobar
+    server: irc.libera.chat
+  quakenet:
+    nickname: barbaz
+    server: underworld2.no.quakenet.org
+    port: 6667
+    use_tls: true
+</code></pre>
+<p>This now looks the following in TOML</p>
+<pre><code class="language-toml">[servers.libera]
+nickname = "foobar"
+server = "irc.libera.chat"
+
+[servers.quakenet]
+nickname = "barbaz"
+server = "underworld2.no.quakenet.org"
+port = 6667
+use_tls = true
+</code></pre>
+<blockquote>
+<p>💡 You can convert YAML to TOML using a converter tool like <a href="https://transform.tools/yaml-to-toml">this one</a>. Just note that a few keys and values have be renamed during the conversion process.</p>
+</blockquote>
+<p>To migrate, and ensure everything is working, make sure to read through the <a href="guides/../configuration">Configuration</a> section of this book. Here, every configuration option is documented using TOML.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h1>
 <p>To edit configuration parameters, create a <code>config.toml</code> file located in your configuration directory:</p>
 <ul>
