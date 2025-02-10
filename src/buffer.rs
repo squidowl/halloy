@@ -435,6 +435,17 @@ impl Buffer {
             Buffer::Highlights(highlights) => Some(highlights.scroll_view.is_scrolled_to_bottom()),
         }
     }
+
+    pub fn close_picker(&mut self) -> bool {
+        match self {
+            Buffer::Empty | Buffer::FileTransfers(_) | Buffer::Logs(_) | Buffer::Highlights(_) => {
+                false
+            }
+            Buffer::Server(state) => state.input_view.close_picker(),
+            Buffer::Channel(state) => state.input_view.close_picker(),
+            Buffer::Query(state) => state.input_view.close_picker(),
+        }
+    }
 }
 
 impl From<data::Buffer> for Buffer {

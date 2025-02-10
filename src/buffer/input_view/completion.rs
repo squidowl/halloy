@@ -130,6 +130,20 @@ impl Completion {
             .view(input, config)
             .or(self.emojis.view(config))
     }
+
+    pub fn close_picker(&mut self) -> bool {
+        if matches!(self.commands, Commands::Selecting { .. }) {
+            self.commands = Commands::Idle;
+
+            return true;
+        } else if matches!(self.emojis, Emojis::Selecting { .. }) {
+            self.emojis = Emojis::Idle;
+
+            return true;
+        }
+
+        false
+    }
 }
 
 #[derive(Debug, Clone)]
