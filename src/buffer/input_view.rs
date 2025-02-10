@@ -23,6 +23,7 @@ pub enum Message {
     Tab(bool),
     Up,
     Down,
+    Escape,
 }
 
 pub fn view<'a>(
@@ -65,14 +66,19 @@ pub fn view<'a>(
     if buffer_focused {
         input = key_press(
             key_press(
-                input,
-                key_press::Key::Named(key_press::Named::ArrowUp),
+                key_press(
+                    input,
+                    key_press::Key::Named(key_press::Named::ArrowUp),
+                    key_press::Modifiers::default(),
+                    Message::Up,
+                ),
+                key_press::Key::Named(key_press::Named::ArrowDown),
                 key_press::Modifiers::default(),
-                Message::Up,
+                Message::Down,
             ),
-            key_press::Key::Named(key_press::Named::ArrowDown),
+            key_press::Key::Named(key_press::Named::Escape),
             key_press::Modifiers::default(),
-            Message::Down,
+            Message::Escape,
         );
     }
 
@@ -297,6 +303,9 @@ impl State {
 
                 (Task::none(), None)
             }
+            // Capture escape so that closing context menu or commands/emojis picker
+            // does not defocus input
+            Message::Escape => (Task::none(), None),
         }
     }
 
