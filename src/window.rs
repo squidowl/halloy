@@ -183,15 +183,15 @@ impl subscription::Recipe for Events {
                     status: _,
                 } => match window_event {
                     iced::window::Event::Moved(point) => {
-                        if elapsed >= INITIAL_SKIP_THRESHOLD {
-                            let clamped_x = point.x.max(0.0);
-                            let clamped_y = point.y.max(0.0);
+                        let point_is_positive =
+                            point.x.is_sign_positive() && point.y.is_sign_positive();
 
+                        if point_is_positive && elapsed >= INITIAL_SKIP_THRESHOLD {
                             Some((
                                 id,
                                 Event::Moved(Point {
-                                    x: clamped_x,
-                                    y: clamped_y,
+                                    x: point.x.max(0.0),
+                                    y: point.y.max(0.0),
                                 }),
                             ))
                         } else {
@@ -199,7 +199,10 @@ impl subscription::Recipe for Events {
                         }
                     }
                     iced::window::Event::Resized(size) => {
-                        if elapsed >= INITIAL_SKIP_THRESHOLD {
+                        let is_bigger_than_min_allowed =
+                            size.width >= MIN_SIZE.width && size.height >= MIN_SIZE.height;
+                            
+                        if is_bigger_than_min_allowed && elapsed >= INITIAL_SKIP_THRESHOLD {
                             Some((id, Event::Resized(size.max(MIN_SIZE))))
                         } else {
                             None
