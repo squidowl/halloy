@@ -344,4 +344,8 @@ impl State {
 
         text_input::move_cursor_to_end(self.input_id.clone())
     }
+
+    pub fn close_picker(&mut self) -> bool {
+        self.completion.close_picker()
+    }
 }
