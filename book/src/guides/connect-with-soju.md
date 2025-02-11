@@ -7,5 +7,7 @@ To connect with a [**soju**](https://soju.im/) bouncer, the configuration below 
 nickname = "casperstorm"
 username = "<your-username>/irc.libera.chat@desktop"
 server = "irc.squidowl.org"
+port = 6697
 password = "<your-password>"
+chathistory = true
 ```
