@@ -61,8 +61,6 @@ static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     .unwrap()
 });
 
-pub type Channel = String;
-
 pub(crate) mod broadcast;
 pub mod formatting;
 pub mod source;
@@ -405,6 +403,7 @@ impl Serialize for Message {
             direction: &'a Direction,
             target: &'a Target,
             content: &'a Content,
+            id: &'a Option<String>,
             // Old field before we had fragments,
             // added for downgrade compatability
             text: Cow<'a, str>,
@@ -418,6 +417,7 @@ impl Serialize for Message {
             direction: &self.direction,
             target: &self.target,
             content: &self.content,
+            id: &self.id,
             text: self.content.text(),
             hidden_urls: &self.hidden_urls,
             is_echo: &self.is_echo,
