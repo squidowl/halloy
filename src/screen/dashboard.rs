@@ -988,6 +988,12 @@ impl Dashboard {
             }
             Message::CloseContextMenu(window, any_closed) => {
                 if !any_closed {
+                    if let Some((_, _, state)) = self.get_focused_mut(main_window) {
+                        if state.buffer.close_picker() {
+                            return (Task::none(), None);
+                        }
+                    }
+
                     if self.is_pane_maximized() && window == main_window.id {
                         self.panes.main.restore();
                     } else {
@@ -1273,6 +1279,7 @@ impl Dashboard {
                 //
                 // - Close command bar (if main window)
                 // - Close context menu
+                // - Close command/emoji picker
                 // - Restore maximized pane (if main window)
                 // - Unfocus
                 if self.command_bar.is_some() && window == main_window.id {
