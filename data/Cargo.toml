@@ -43,6 +43,8 @@ anyhow = "1.0.91"
 image = "0.24.9"
 html-escape = "0.2.13"
 emojis = "0.6.4"
+irc_2025_1 = { git = "https://github.com/squidowl/halloy.git", tag = "2025.1", package = "irc" }
+data_2025_1 = { git = "https://github.com/squidowl/halloy.git", tag = "2025.1", package = "data" }
 
 [dependencies.irc]
 path = "../irc"

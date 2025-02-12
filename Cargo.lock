@@ -1455,6 +1455,7 @@ dependencies = [
  "bytes",
  "chrono",
  "const_format",
+ "data 0.1.0 (git+https://github.com/squidowl/halloy.git?tag=2025.1)",
  "derive_more",
  "dirs-next",
  "emojis",
@@ -1464,7 +1465,51 @@ dependencies = [
  "html-escape",
  "iced_core",
  "image",
- "irc",
+ "irc 0.1.0",
+ "irc 0.1.0 (git+https://github.com/squidowl/halloy.git?tag=2025.1)",
+ "itertools 0.12.1",
+ "log",
+ "nom",
+ "once_cell",
+ "palette",
+ "rand",
+ "rand_chacha",
+ "regex",
+ "reqwest",
+ "seahash",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strum",
+ "thiserror 1.0.69",
+ "timeago",
+ "tokio",
+ "tokio-stream",
+ "toml",
+ "url",
+ "walkdir",
+ "xdg",
+]
+
+[[package]]
+name = "data"
+version = "0.1.0"
+source = "git+https://github.com/squidowl/halloy.git?tag=2025.1#a1b6dca61a6d74ab95551474d2e468f36bc96390"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "bytes",
+ "chrono",
+ "const_format",
+ "derive_more",
+ "dirs-next",
+ "flate2",
+ "futures",
+ "hex",
+ "html-escape",
+ "iced_core",
+ "image",
+ "irc 0.1.0 (git+https://github.com/squidowl/halloy.git?tag=2025.1)",
  "itertools 0.12.1",
  "log",
  "nom",
@@ -2566,7 +2611,7 @@ dependencies = [
  "bytesize",
  "chrono",
  "dark-light",
- "data",
+ "data 0.1.0",
  "embed-resource",
  "emojis",
  "fern",
@@ -3277,7 +3322,7 @@ dependencies = [
 name = "ipc"
 version = "0.1.0"
 dependencies = [
- "data",
+ "data 0.1.0",
  "futures",
  "interprocess",
  "rand",
@@ -3302,7 +3347,27 @@ dependencies = [
  "bytes",
  "fast-socks5",
  "futures",
- "irc_proto",
+ "irc_proto 0.1.0",
+ "rustls-native-certs",
+ "rustls-pemfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-rustls",
+ "tokio-util",
+ "xz2",
+]
+
+[[package]]
+name = "irc"
+version = "0.1.0"
+source = "git+https://github.com/squidowl/halloy.git?tag=2025.1#a1b6dca61a6d74ab95551474d2e468f36bc96390"
+dependencies = [
+ "arti-client",
+ "async-http-proxy",
+ "bytes",
+ "fast-socks5",
+ "futures",
+ "irc_proto 0.1.0 (git+https://github.com/squidowl/halloy.git?tag=2025.1)",
  "rustls-native-certs",
  "rustls-pemfile",
  "thiserror 1.0.69",
@@ -3315,6 +3380,16 @@ dependencies = [
 [[package]]
 name = "irc_proto"
 version = "0.1.0"
+dependencies = [
+ "itertools 0.12.1",
+ "nom",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "irc_proto"
+version = "0.1.0"
+source = "git+https://github.com/squidowl/halloy.git?tag=2025.1#a1b6dca61a6d74ab95551474d2e468f36bc96390"
 dependencies = [
  "itertools 0.12.1",
  "nom",

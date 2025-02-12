@@ -1558,4 +1558,83 @@ mod test {
             assert_eq!(Content::Fragments(expected), actual);
         }
     }
+
+    #[test]
+    fn backward_and_forward_compatibility() {
+        let tests = vec![
+            "@time=2023-07-20T21:19:11.000Z :chat!test@user/test/bot/chat PRIVMSG ##chat :\\_o< quack!\r\n",
+            "@id=234AB :dan!d@localhost PRIVMSG #chan :Hey what's up! \r\n",
+            "@time=2025-02-11T20:28:47.354Z :our_nick PRIVMSG #test-chan :\u{1}ACTION wants to generate an action message for testing XD\u{1}\r\n",
+            "@id=DTSA :our_nick PRIVMSG #halloy :check out https://unstable.halloy.squidowl.org/, when you're building from source\r\n",
+            ":dan!d@localhost PRIVMSG #chan-chan \u{1f}how\u{1f} \u{11}about\u{11} \u{2}\u{1d}some\u{1d}\u{2} \u{2}markdown\u{2} \u{1d}for\u{1d} \u{1e}testing\u{1e} \u{3}4too\u{3}? \r\n",
+        ];
+
+        // backward compatibility
+        for input in tests.clone() {
+            let encoded = proto::parse::message(input).unwrap();
+
+            let our_nick = Nick::from("our_nick");
+
+            let channel_users = [
+                User::from(Nick::from("chat")),
+                User::from(Nick::from("dan")),
+                User::from(our_nick.clone()),
+            ];
+
+            let message = Message::received(
+                Encoded::from(encoded),
+                our_nick,
+                &Config::default(),
+                |user: &User, _channel: &target::Channel| {
+                    channel_users
+                        .iter()
+                        .find(|channel_user| *channel_user == user)
+                        .cloned()
+                },
+                |_channel: &target::Channel| &channel_users,
+                proto::DEFAULT_CHANNEL_PREFIXES,
+                &[],
+                isupport::CaseMap::default(),
+            )
+            .unwrap();
+
+            let bytes = serde_json::to_vec(&message).unwrap();
+
+            let _message: data_2025_1::message::Message = serde_json::from_slice(&bytes).unwrap();
+        }
+
+        // forward compatibility
+        for input in tests {
+            let encoded = irc_2025_1::proto::parse::message(input).unwrap();
+
+            let our_nick = data_2025_1::user::Nick::from("our_nick");
+
+            let channel_users = [
+                data_2025_1::user::User::from(data_2025_1::user::Nick::from("chat")),
+                data_2025_1::user::User::from(data_2025_1::user::Nick::from("dan")),
+                data_2025_1::user::User::from(our_nick.clone()),
+            ];
+
+            let message = data_2025_1::message::Message::received(
+                data_2025_1::message::Encoded::from(encoded),
+                our_nick,
+                &data_2025_1::config::Config::default(),
+                |user: &data_2025_1::user::User, _channel: &data_2025_1::target::Channel| {
+                    channel_users
+                        .iter()
+                        .find(|channel_user| *channel_user == user)
+                        .cloned()
+                },
+                |_channel: &data_2025_1::target::Channel| &channel_users,
+                irc_2025_1::proto::DEFAULT_CHANNEL_PREFIXES,
+                &[],
+                data_2025_1::isupport::CaseMap::default(),
+            )
+            .unwrap();
+
+            let bytes = serde_json::to_vec(&message).unwrap();
+
+            let _message: Message = serde_json::from_slice(&bytes).unwrap();
+        }
+    }
 }
