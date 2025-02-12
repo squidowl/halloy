@@ -365,7 +365,7 @@ impl Sidebar {
                         .height(Length::Fill)
                         .center_x(Length::Shrink)
                         .padding(padding)
-                        .max_width(config.width)
+                        .max_width(f32::from(config.width))
                         .into(),
                 )
             }
