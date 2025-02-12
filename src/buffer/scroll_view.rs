@@ -1155,7 +1155,7 @@ mod correct_viewport {
                 move |state: &mut Option<keyed::Hit>,
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
-                      event: iced::Event,
+                      event: &iced::Event,
                       layout: advanced::Layout<'_>,
                       cursor: advanced::mouse::Cursor,
                       renderer: &Renderer,
@@ -1243,13 +1243,10 @@ mod correct_viewport {
 
                     // Merge shell (we can't use Shell::merge as we'd lose access to messages)
                     {
-                        if let Some(new) = local_shell.redraw_request() {
-                            match new {
-                                iced::window::RedrawRequest::NextFrame => shell.request_redraw(),
-                                iced::window::RedrawRequest::At(instant) => {
-                                    shell.request_redraw_at(instant)
-                                }
-                            }
+                        match local_shell.redraw_request() {
+                            iced::window::RedrawRequest::NextFrame => shell.request_redraw(),
+                            iced::window::RedrawRequest::At(at) => shell.request_redraw_at(at),
+                            iced::window::RedrawRequest::Wait => {}
                         }
 
                         if local_shell.is_layout_invalid() {

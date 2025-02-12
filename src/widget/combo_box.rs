@@ -406,7 +406,7 @@ where
     fn update(
         &mut self,
         tree: &mut widget::Tree,
-        event: Event,
+        event: &Event,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
@@ -429,7 +429,7 @@ where
         let mut tree = self.state.text_input_tree();
         self.text_input.update(
             &mut tree,
-            event.clone(),
+            event,
             layout,
             cursor,
             renderer,
@@ -443,15 +443,10 @@ where
             shell.capture_event();
         }
 
-        if let Some(redraw_request) = local_shell.redraw_request() {
-            match redraw_request {
-                window::RedrawRequest::NextFrame => {
-                    shell.request_redraw();
-                }
-                window::RedrawRequest::At(at) => {
-                    shell.request_redraw_at(at);
-                }
-            }
+        match local_shell.redraw_request() {
+            window::RedrawRequest::NextFrame => shell.request_redraw(),
+            window::RedrawRequest::At(at) => shell.request_redraw_at(at),
+            window::RedrawRequest::Wait => {}
         }
 
         // Then finally react to them here
@@ -583,7 +578,7 @@ where
                 let mut tree = state.text_input_tree();
                 self.text_input.update(
                     &mut tree,
-                    Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
+                    &Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
                     layout,
                     mouse::Cursor::Unavailable,
                     renderer,
