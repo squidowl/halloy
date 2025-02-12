@@ -101,7 +101,24 @@ impl Completion {
             return None;
         }
 
-        self.text.tab(reverse).map(Entry::Text)
+        self.text.tab(reverse).map_or(
+            {
+                if self.text.filtered.is_empty() {
+                    None
+                } else {
+                    Some(Entry::Text {
+                        next: self.text.prompt.clone(),
+                        append_suffix: false,
+                    })
+                }
+            },
+            |next| {
+                Some(Entry::Text {
+                    next,
+                    append_suffix: true,
+                })
+            },
+        )
     }
 
     pub fn view<'a, Message: 'a>(
@@ -113,12 +130,26 @@ impl Completion {
             .view(input, config)
             .or(self.emojis.view(config))
     }
+
+    pub fn close_picker(&mut self) -> bool {
+        if matches!(self.commands, Commands::Selecting { .. }) {
+            self.commands = Commands::Idle;
+
+            return true;
+        } else if matches!(self.emojis, Emojis::Selecting { .. }) {
+            self.emojis = Emojis::Idle;
+
+            return true;
+        }
+
+        false
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum Entry {
     Command(Command),
-    Text(String),
+    Text { next: String, append_suffix: bool },
     Emoji(String),
 }
 
@@ -126,10 +157,19 @@ impl Entry {
     pub fn complete_input(&self, input: &str, chantypes: &[char], config: &Config) -> String {
         match self {
             Entry::Command(command) => format!("/{}", command.title.to_lowercase()),
-            Entry::Text(next) => {
+            Entry::Text {
+                next,
+                append_suffix,
+            } => {
                 let autocomplete = &config.buffer.text_input.autocomplete;
                 let is_channel = next.starts_with(chantypes);
                 let mut words: Vec<_> = input.split(' ').collect();
+
+                if let Some(last_word_position) = words.iter().rposition(|word| !word.is_empty()) {
+                    words.truncate(last_word_position + 1);
+                } else {
+                    words.clear();
+                }
 
                 // Replace the last word with the next word
                 if let Some(last_word) = words.last_mut() {
@@ -140,14 +180,17 @@ impl Entry {
 
                 let mut new_input = words.join(" ");
 
-                if words.len() == 1 && !is_channel {
-                    // If completed at the beginning of the input line and not a channel.
-                    let suffix = &autocomplete.completion_suffixes[0];
-                    new_input.push_str(suffix);
-                } else {
-                    // Otherwise, use second suffix.
-                    let suffix = &autocomplete.completion_suffixes[1];
-                    new_input.push_str(suffix);
+                // If next is not the original prompt, then append the configured suffix
+                if *append_suffix {
+                    if words.len() == 1 && !is_channel {
+                        // If completed at the beginning of the input line and not a channel.
+                        let suffix = &autocomplete.completion_suffixes[0];
+                        new_input.push_str(suffix);
+                    } else {
+                        // Otherwise, use second suffix.
+                        let suffix = &autocomplete.completion_suffixes[1];
+                        new_input.push_str(suffix);
+                    }
                 }
 
                 new_input
@@ -350,7 +393,7 @@ impl Commands {
                     .collect();
 
                 *self = Self::Selecting {
-                    highlighted: None,
+                    highlighted: Some(0),
                     filtered,
                 };
             }
@@ -1735,7 +1778,7 @@ impl Emojis {
         filtered.sort_by(|a, b| b.similarity.total_cmp(&a.similarity));
 
         *self = Emojis::Selecting {
-            highlighted: None,
+            highlighted: Some(0),
             filtered: filtered.into_iter().map(|f| f.shortcode).collect(),
         };
     }
