@@ -1321,6 +1321,15 @@ include = ["#halloy"] # show image previews in #halloy
 </code></pre>
 <h2 id="card"><a class="header" href="#card"><code>card</code></a></h2>
 <p>Specific card preview settings.</p>
+<h3 id="show_image"><a class="header" href="#show_image"><code>show_image</code></a></h3>
+<p>Show image for card previews.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[preview.card]
+show_image = true
+</code></pre>
 <h3 id="include-3"><a class="header" href="#include-3"><code>include</code></a></h3>
 <p>Include card previews from channels.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
