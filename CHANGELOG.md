@@ -3,6 +3,7 @@
 Added:
 
 - Emoji picker accessible via `:` in text input.  See [configuration](https://halloy.squidowl.org/configuration/buffer.html#bufferemojis)
+- Added an option to show or hide images in preview cards by default
 
 Fixed:
 
