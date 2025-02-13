@@ -991,18 +991,20 @@ fn preview_row<'a>(
                 keyed::Key::Preview(message.hash, idx),
                 button(
                     container(
-                        column![
-                            column![text(title)
+                        column![column![text(title)
+                            .shaping(text::Shaping::Advanced)
+                            .style(theme::text::primary)]
+                        .push_maybe(description.as_ref().map(|description| {
+                            text(description)
                                 .shaping(text::Shaping::Advanced)
-                                .style(theme::text::url)]
-                            .push_maybe(description.as_ref().map(|description| {
-                                text(description)
-                                    .shaping(text::Shaping::Advanced)
-                                    .style(theme::text::primary)
-                            })),
-                            container(image(path).content_fit(ContentFit::ScaleDown))
-                                .max_height(200)
-                        ]
+                                .style(theme::text::secondary)
+                        }))
+                        .push_maybe(
+                            config.preview.card.show_image.then_some(
+                                container(image(path).content_fit(ContentFit::ScaleDown))
+                                    .max_height(200)
+                            )
+                        ),]
                         .max_width(400)
                         .spacing(4),
                     )

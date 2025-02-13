@@ -2,9 +2,6 @@ use serde::Deserialize;
 
 use crate::Target;
 
-pub type Card = Entry;
-pub type Image = Entry;
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct Preview {
     #[serde(default = "default_bool_true")]
@@ -75,32 +72,60 @@ impl Default for Request {
     }
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct Card {
+    #[serde(default)]
+    pub exclude: Vec<String>,
+    #[serde(default)]
+    pub include: Vec<String>,
+    #[serde(default = "default_bool_true")]
+    pub show_image: bool,
+}
+
+impl Default for Card {
+    fn default() -> Self {
+        Self {
+            exclude: Default::default(),
+            include: Default::default(),
+            show_image: true,
+        }
+    }
+}
+
+impl Card {
+    pub fn visible(&self, target: &Target) -> bool {
+        is_visible(&self.include, &self.exclude, target)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct Entry {
+pub struct Image {
     #[serde(default)]
     pub exclude: Vec<String>,
     #[serde(default)]
     pub include: Vec<String>,
 }
 
-impl Entry {
+impl Image {
     pub fn visible(&self, target: &Target) -> bool {
-        match target {
-            Target::Query(_) => true,
-            Target::Channel(channel) => {
-                let is_channel_filtered = |list: &[String], channel: &str| -> bool {
-                    let wildcards = ["*", "all"];
+        is_visible(&self.include, &self.exclude, target)
+    }
+}
 
-                    list.iter()
-                        .any(|item| wildcards.contains(&item.as_str()) || item == channel)
-                };
+fn is_visible(include: &[String], exclude: &[String], target: &Target) -> bool {
+    match target {
+        Target::Query(_) => true,
+        Target::Channel(channel) => {
+            let is_channel_filtered = |list: &[String], channel: &str| -> bool {
+                let wildcards = ["*", "all"];
+                list.iter()
+                    .any(|item| wildcards.contains(&item.as_str()) || item == channel)
+            };
 
-                let channel_included = is_channel_filtered(&self.include, channel.as_str());
-                let channel_excluded = is_channel_filtered(&self.exclude, channel.as_str());
+            let channel_included = is_channel_filtered(include, channel.as_str());
+            let channel_excluded = is_channel_filtered(exclude, channel.as_str());
 
-                // If the channel is included, it has precedence over excluded.
-                channel_included || !channel_excluded
-            }
+            channel_included || !channel_excluded
         }
     }
 }
