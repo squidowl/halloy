@@ -98,21 +98,12 @@ impl Card {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct Image {
     #[serde(default)]
     pub exclude: Vec<String>,
     #[serde(default)]
     pub include: Vec<String>,
-}
-
-impl Default for Image {
-    fn default() -> Self {
-        Self {
-            exclude: Default::default(),
-            include: Default::default(),
-        }
-    }
 }
 
 impl Image {
