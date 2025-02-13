@@ -18,7 +18,7 @@ where
             move |_state: &mut (),
                   inner: &mut Element<'a, Message>,
                   tree: &mut widget::Tree,
-                  event: Event,
+                  event: &Event,
                   layout: Layout<'_>,
                   cursor: mouse::Cursor,
                   renderer: &Renderer,

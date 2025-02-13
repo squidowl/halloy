@@ -306,7 +306,7 @@ fn picker<'a, Message: 'a>(
             move |state: &mut Option<Rectangle>,
                   _inner: &mut Element<'a, Message>,
                   _tree: &mut advanced::widget::Tree,
-                  event: iced::Event,
+                  event: &iced::Event,
                   layout: advanced::Layout<'_>,
                   cursor: advanced::mouse::Cursor,
                   _renderer: &Renderer,

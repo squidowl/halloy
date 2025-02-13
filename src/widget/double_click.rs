@@ -21,7 +21,7 @@ where
             move |state: &mut Internal,
                   inner: &mut Element<'a, Message>,
                   tree: &mut Tree,
-                  event: iced::Event,
+                  event: &iced::Event,
                   layout: Layout<'_>,
                   cursor: mouse::Cursor,
                   renderer: &Renderer,
@@ -30,7 +30,7 @@ where
                   viewport: &iced::Rectangle| {
                 inner.as_widget_mut().update(
                     tree,
-                    event.clone(),
+                    event,
                     layout,
                     cursor,
                     renderer,
