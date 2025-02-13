@@ -246,6 +246,7 @@ Emojis settings.
 [buffer.emojis]
 show_picker = true
 skin_tone = "default"
+auto_replace = true
 ```
 
 ### `show_picker`
@@ -272,6 +273,19 @@ Skin tone selected when picking an emoji.
 
 [buffer.emojis]
 skin_tone = "default"
+```
+
+### `auto_replace`
+
+Automatically replace `:shortcode:` in text input with the corresponding emoji.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.emojis]
+auto_replace = true
 ```
 
 ## `[buffer.internal_messages]`
