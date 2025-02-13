@@ -142,6 +142,19 @@ include = ["#halloy"] # show image previews in #halloy
 
 Specific card preview settings.
 
+### `show_image`
+
+Show image for card previews.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[preview.card]
+show_image = true
+```
+
 ### `include`
 
 Include card previews from channels.
