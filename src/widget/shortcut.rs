@@ -20,7 +20,7 @@ where
             move |modifiers: &mut shortcut::Modifiers,
                   inner: &mut Element<'a, Message>,
                   tree: &mut Tree,
-                  event: iced::Event,
+                  event: &iced::Event,
                   layout: Layout<'_>,
                   cursor: mouse::Cursor,
                   renderer: &Renderer,
