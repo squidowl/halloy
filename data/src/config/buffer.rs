@@ -41,6 +41,8 @@ pub struct Emojis {
     pub show_picker: bool,
     #[serde(default)]
     pub skin_tone: SkinTone,
+    #[serde(default = "default_bool_true")]
+    pub auto_replace: bool,
 }
 
 impl Default for Emojis {
@@ -48,6 +50,7 @@ impl Default for Emojis {
         Self {
             show_picker: default_bool_true(),
             skin_tone: Default::default(),
+            auto_replace: default_bool_true(),
         }
     }
 }

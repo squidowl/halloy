@@ -148,6 +148,8 @@ impl State {
                 self.completion
                     .process(&input, users, channels, &isupport, config);
 
+                let input = self.completion.complete_emoji(&input).unwrap_or(input);
+
                 history.record_draft(Draft {
                     buffer: buffer.clone(),
                     text: input,
