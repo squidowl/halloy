@@ -82,3 +82,5 @@ This is a list of community created themes for Halloy.
 
 ## Rose Pine
  [Open in Halloy](halloy:///theme?e=ACEgLv8BQD1S_wImIzr_A_bBd_8E67y6_wWQjKr_BsSn5_8HnM_Y_wjrb5L_CZzP2P8KISAu_wsZFyT_DB8dLv8NAAAAAA5uaob_D-tvkv8QQD1S_xHrvLr_EiYjOv8TUk9n_xSQjKr_FeDe9P8d9sF3_x4hIC7_HyEgLv8gGRck_yEfHS7_IiYjOv8jQD1S_yRST2f_JW5qhv8)
+
+<img src="rose-pine.png">
