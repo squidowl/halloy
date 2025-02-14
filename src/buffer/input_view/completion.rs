@@ -1778,6 +1778,8 @@ impl Emojis {
             return;
         }
 
+        let last_word = last_word.strip_suffix(":").unwrap_or(last_word);
+
         let mut filtered = emojis::iter()
             .flat_map(|emoji| {
                 emoji.shortcodes().filter_map(|shortcode| {
