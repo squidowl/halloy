@@ -30,7 +30,7 @@ pub async fn connect<'a>(
         let mut roots = rustls::RootCertStore::empty();
 
         for cert in rustls_native_certs::load_native_certs()? {
-            roots.add(cert).unwrap();
+            let _ = roots.add(cert);
         }
 
         if let Some(cert_path) = root_cert_path {
