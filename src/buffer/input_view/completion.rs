@@ -59,10 +59,8 @@ impl Completion {
             }
 
             self.emojis = Emojis::default();
-        } else if let Some(shortcode) = config
-            .buffer
-            .emojis
-            .show_picker
+        } else if let Some(shortcode) = (config.buffer.emojis.show_picker
+            || config.buffer.emojis.auto_replace)
             .then(|| {
                 input
                     .split(' ')
@@ -71,7 +69,7 @@ impl Completion {
             })
             .flatten()
         {
-            self.emojis.process(shortcode);
+            self.emojis.process(shortcode, config);
 
             self.commands = Commands::default();
             self.text = Text::default();
@@ -90,6 +88,14 @@ impl Completion {
             .select()
             .map(Entry::Command)
             .or(self.emojis.select(config).map(Entry::Emoji))
+    }
+
+    pub fn complete_emoji(&self, input: &str) -> Option<String> {
+        if let Emojis::Selected { emoji } = self.emojis {
+            Some(replace_last_word_with_emoji(input, emoji))
+        } else {
+            None
+        }
     }
 
     pub fn tab(&mut self, reverse: bool) -> Option<Entry> {
@@ -195,15 +201,7 @@ impl Entry {
 
                 new_input
             }
-            Entry::Emoji(emoji) => {
-                let mut words: Vec<_> = input.split(' ').collect();
-
-                if let Some(last_word) = words.last_mut() {
-                    *last_word = emoji;
-                }
-
-                words.join(" ")
-            }
+            Entry::Emoji(emoji) => replace_last_word_with_emoji(input, emoji),
         }
     }
 }
@@ -1743,6 +1741,9 @@ enum Emojis {
         highlighted: Option<usize>,
         filtered: Vec<&'static str>,
     },
+    Selected {
+        emoji: &'static str,
+    },
 }
 
 impl Default for Emojis {
@@ -1752,13 +1753,32 @@ impl Default for Emojis {
 }
 
 impl Emojis {
-    fn process(&mut self, last_word: &str) {
+    fn process(&mut self, last_word: &str, config: &Config) {
         let last_word = last_word.strip_prefix(":").unwrap_or("");
 
         if last_word.is_empty() {
             *self = Self::default();
             return;
         }
+
+        if let Some(shortcode) = config
+            .buffer
+            .emojis
+            .auto_replace
+            .then(|| last_word.strip_suffix(":"))
+            .flatten()
+        {
+            if let Some(emoji) = pick_emoji(shortcode, config.buffer.emojis.skin_tone) {
+                *self = Emojis::Selected { emoji };
+
+                return;
+            }
+        } else if !config.buffer.emojis.show_picker {
+            *self = Self::default();
+            return;
+        }
+
+        let last_word = last_word.strip_suffix(":").unwrap_or(last_word);
 
         let mut filtered = emojis::iter()
             .flat_map(|emoji| {
@@ -1816,7 +1836,7 @@ impl Emojis {
 
     fn view<'a, Message: 'a>(&self, config: &Config) -> Option<Element<'a, Message>> {
         match self {
-            Self::Idle => None,
+            Self::Idle | Self::Selected { .. } => None,
             Self::Selecting {
                 highlighted,
                 filtered,
@@ -1892,6 +1912,16 @@ fn pick_emoji(shortcode: &str, skin_tone: SkinTone) -> Option<&'static str> {
         }
         .as_str()
     })
+}
+
+fn replace_last_word_with_emoji(input: &str, emoji: &str) -> String {
+    let mut words: Vec<_> = input.split(' ').collect();
+
+    if let Some(last_word) = words.last_mut() {
+        *last_word = emoji;
+    }
+
+    words.join(" ")
 }
 
 fn selecting_tab<T>(highlighted: &mut Option<usize>, filtered: &[T], reverse: bool) {
