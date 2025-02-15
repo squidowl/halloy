@@ -653,9 +653,10 @@ show = true
 <pre><code class="language-toml">[buffer.emojis]
 show_picker = true
 skin_tone = "default"
+auto_replace = true
 </code></pre>
 <h3 id="show_picker"><a class="header" href="#show_picker"><code>show_picker</code></a></h3>
-<p>Show the emoji picker when typing <code>:shortcode</code> in text input.</p>
+<p>Show the emoji picker when typing <code>:shortcode:</code> in text input.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
 # Default: true
@@ -671,6 +672,15 @@ show_picker = true
 
 [buffer.emojis]
 skin_tone = "default"
+</code></pre>
+<h3 id="auto_replace"><a class="header" href="#auto_replace"><code>auto_replace</code></a></h3>
+<p>Automatically replace <code>:shortcode:</code> in text input with the corresponding emoji.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.emojis]
+auto_replace = true
 </code></pre>
 <h2 id="bufferinternal_messages"><a class="header" href="#bufferinternal_messages"><code>[buffer.internal_messages]</code></a></h2>
 <p>Internal messages are messages sent from Halloy itself.</p>
