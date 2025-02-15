@@ -251,7 +251,7 @@ auto_replace = true
 
 ### `show_picker`
 
-Show the emoji picker when typing `:shortcode` in text input.
+Show the emoji picker when typing `:shortcode:` in text input.
 
 ```toml
 # Type: boolean
