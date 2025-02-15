@@ -1,13 +1,17 @@
-use iced::widget::{button, center, column, container, row, scrollable, text, Scrollable};
-use iced::{Length, Task, Vector};
+use data::Config;
+use iced::{
+    padding,
+    widget::{button, container, row, scrollable, text, Column, Scrollable},
+    Length, Task, Vector,
+};
 
-use crate::widget::{Element, Text};
 use crate::window::{self, Window};
-use crate::{icon, theme};
+use crate::{appearance::theme, widget::Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Open(Section),
+    ScaleFactor(scale_factor::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -16,10 +20,11 @@ pub enum Event {}
 #[derive(Debug, Clone)]
 pub struct Settings {
     pub window: window::Id,
+    section: Section,
 }
 
-#[derive(Debug, Clone)]
-enum Section {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Section {
     Buffer,
     ScaleFactor,
 }
@@ -27,6 +32,19 @@ enum Section {
 impl Section {
     fn list() -> Vec<Self> {
         vec![Section::Buffer, Section::ScaleFactor]
+    }
+}
+
+impl std::fmt::Display for Section {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Section::Buffer => "Buffer",
+                Section::ScaleFactor => "Scale Factor",
+            }
+        )
     }
 }
 
@@ -43,21 +61,69 @@ impl Settings {
             ..window::settings()
         });
 
-        (Self { window }, task)
+        (
+            Self {
+                window,
+                section: Section::Buffer,
+            },
+            task,
+        )
     }
 
     pub fn update(&mut self, message: Message) -> Option<Event> {
         match message {
-            Message::Open(section) => None,
+            Message::Open(section) => {
+                self.section = section;
+            }
+            Message::ScaleFactor(message) => match message {
+                scale_factor::Message::Change(change) => println!("change {change}"),
+            },
         }
+
+        None
     }
 
-    pub fn view<'a>(&self) -> Element<'a, Message> {
-        container(row![sidebar::view(), content::view()])
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(8)
-            .into()
+    pub fn view<'a>(&self, config: &Config) -> Element<'a, Message> {
+        container(row![
+            sidebar::view(self.section),
+            content::view(config, self.section),
+        ])
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .padding(8)
+        .into()
+    }
+}
+
+mod content {
+    use data::Config;
+    use iced::{
+        padding,
+        widget::{button, container, scrollable, text, Column, Scrollable},
+        Length,
+    };
+
+    use super::{buffer, scale_factor, Message, Section};
+
+    use crate::{appearance::theme, widget::Element};
+
+    pub fn view<'a>(config: &Config, section: Section) -> Element<'a, Message> {
+        container(
+            Scrollable::new(container(match section {
+                Section::Buffer => buffer::view(),
+                Section::ScaleFactor => scale_factor::view(config).map(Message::ScaleFactor),
+            }))
+            .direction(scrollable::Direction::Vertical(
+                iced::widget::scrollable::Scrollbar::default()
+                    .width(0)
+                    .scroller_width(0),
+            )),
+        )
+        .style(|theme| theme::container::buffer(theme, false))
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .padding(8)
+        .into()
     }
 }
 
@@ -72,16 +138,16 @@ mod sidebar {
 
     use crate::{appearance::theme, widget::Element};
 
-    pub fn view<'a>() -> Element<'a, Message> {
+    pub fn view<'a>(selected: Section) -> Element<'a, Message> {
         let sections = Section::list()
             .into_iter()
             .map(|section| {
-                button(text("This is a long section"))
+                button(text(section.to_string()))
                     .width(Length::Fill)
                     .on_press(Message::Open(section))
-                    .padding(8)
+                    .padding(padding::left(8).right(8).top(4).bottom(4))
                     .style(move |theme, status| {
-                        theme::button::sidebar_buffer(theme, status, false, false)
+                        theme::button::sidebar_buffer(theme, status, false, section == selected)
                     })
                     .into()
             })
@@ -102,29 +168,41 @@ mod sidebar {
     }
 }
 
-mod content {
+mod scale_factor {
+    use data::Config;
     use iced::{
-        padding,
-        widget::{button, container, scrollable, text, Column, Scrollable},
+        widget::{column, container, scrollable, slider, text, Scrollable},
         Length,
     };
 
-    use super::{Message, Section};
+    use crate::{appearance::theme, widget::Element};
+
+    #[derive(Debug, Clone)]
+    pub enum Message {
+        Change(f64),
+    }
+
+    pub fn view<'a>(config: &Config) -> Element<'a, Message> {
+        container(column![slider(
+            1.0..=3.0,
+            config.scale_factor.into(),
+            Message::Change
+        )])
+        .into()
+    }
+}
+
+mod buffer {
+    use iced::{
+        widget::{container, scrollable, text, Scrollable},
+        Length,
+    };
+
+    use super::Message;
 
     use crate::{appearance::theme, widget::Element};
 
     pub fn view<'a>() -> Element<'a, Message> {
-        container(
-            Scrollable::new(text("all content")).direction(scrollable::Direction::Vertical(
-                iced::widget::scrollable::Scrollbar::default()
-                    .width(0)
-                    .scroller_width(0),
-            )),
-        )
-        .style(|theme| theme::container::buffer(theme, false))
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .padding(8)
-        .into()
+        container(text("tba")).into()
     }
 }

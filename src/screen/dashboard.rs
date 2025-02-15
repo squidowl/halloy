@@ -1049,7 +1049,11 @@ impl Dashboard {
                 return (Task::batch(tasks), event);
             }
             Message::Settings(message) => {
-                // TODO: Messages.
+                if let Some(settings) = self.settings.as_mut() {
+                    let _ = settings.update(message);
+                    // TODO: Handle events.
+                }
+
                 return (Task::none(), None);
             }
             Message::ConfigReloaded(config) => {
@@ -1168,7 +1172,7 @@ impl Dashboard {
             }
         } else if let Some(settings) = self.settings.as_ref() {
             if settings.window == window {
-                return settings.view().map(Message::Settings);
+                return settings.view(config).map(Message::Settings);
             }
         }
 
