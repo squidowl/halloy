@@ -84,3 +84,13 @@ This is a list of community created themes for Halloy.
  [Open in Halloy](halloy:///theme?e=ACEgLv8BQD1S_wImIzr_A_bBd_8E67y6_wWQjKr_BsSn5_8HnM_Y_wjrb5L_CZzP2P8KISAu_wsZFyT_DB8dLv8NAAAAAA5uaob_D-tvkv8QQD1S_xHrvLr_EiYjOv8TUk9n_xSQjKr_FeDe9P8d9sF3_x4hIC7_HyEgLv8gGRck_yEfHS7_IiYjOv8jQD1S_yRST2f_JW5qhv8)
 
 <img src="rose-pine.png">
+
+## Rose Pine Moon
+ [Open in Halloy](halloy:///theme?e=ACooPv8BREFa_wI5NVL_A_bBd_8E6pqX_wWQjKr_BsSn5_8HnM_Y_wjrb5L_CZzP2P8KKig-_wsjITb_DConP_8NAAAAAA5uaob_D-tvkv8QREFa_xHqmpf_Ejk1Uv8TVlJu_xSQjKr_FeDe9P8d9sF3_x4qKD7_HyooPv8gIyE2_yEqJz__Ijk1Uv8jREFa_yRWUm7_JW5qhv8)
+
+<img src="rose-pine-moon.png">
+
+## Rose Pine Dawn
+ [Open in Halloy](halloy:///theme?e=APTt6P8B39rZ_wLy6eH_A-qdNP8E14J-_wV5dZP_BpB6qf8HVpSf_wi0Y3r_CVaUn_8K9O3o_wv69O3_DP_68_8NAAAAAA6Yk6X_D7Rjev8Q39rZ_xHXgn7_EvLp4f8TzsrN_xR5dZP_FVdSef8d6p00_x707ej_H_Tt6P8g-vTt_yH_-vP_IvLp4f8j39rZ_yTOys3_JZiTpf8)
+
+<img src="rose-pine-dawn.png">
