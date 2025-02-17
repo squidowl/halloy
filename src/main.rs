@@ -514,7 +514,7 @@ impl Halloy {
                     let commands = messages
                         .into_iter()
                         .flat_map(|message| {
-                            let events = match self.clients.receive(&server, message) {
+                            let events = match self.clients.receive(&server, message, &self.config) {
                                 Ok(events) => events,
                                 Err(e) => {
                                     handle_irc_error(e);
