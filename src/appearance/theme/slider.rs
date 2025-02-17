@@ -1,9 +1,9 @@
 use iced::{
     widget::slider::{Catalog, Handle, HandleShape, Rail, Status, Style, StyleFn},
-    Background, Border, Color,
+    Border,
 };
 
-use super::{container::general, Theme};
+use super::Theme;
 
 impl Catalog for Theme {
     type Class<'a> = StyleFn<'a, Self>;
@@ -17,7 +17,7 @@ impl Catalog for Theme {
     }
 }
 
-pub fn primary(theme: &Theme, status: Status) -> Style {
+pub fn primary(theme: &Theme, _status: Status) -> Style {
     Style {
         rail: Rail {
             backgrounds: (
