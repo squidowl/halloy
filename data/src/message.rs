@@ -20,6 +20,7 @@ pub use self::source::{
 };
 
 use crate::config::buffer::UsernameFormat;
+use crate::config::highlights;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{ctcp, isupport, target, Config, Server, User};
@@ -569,26 +570,6 @@ fn parse_url_fragments(text: String) -> Vec<Fragment> {
     fragments
 }
 
-/// Checks if a given `text` contains or matches a user's nickname.
-fn text_references_nickname(text: &str, nickname: NickRef) -> Option<bool> {
-    // TODO: Consider server case-mapping settings vs just ascii lowercase
-    let nick = nickname.as_ref();
-    let nick_lower = nick.to_ascii_lowercase();
-    let lower = text.to_ascii_lowercase();
-    let trimmed = text.trim_matches(|c: char| c.is_ascii_punctuation());
-    let lower_trimmed = trimmed.to_ascii_lowercase();
-
-    if nick == text || nick_lower == lower {
-        // Contains the user's nickname without trimming.
-        Some(false)
-    } else if nick == trimmed || nick_lower == lower_trimmed {
-        // Contains the user's nickname with trimming.
-        Some(true)
-    } else {
-        // Doesn't contain the user's nickname.
-        None
-    }
-}
 
 fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<Fragment> {
     text.chars()
@@ -598,7 +579,7 @@ fn parse_user_and_channel_fragments(text: &str, channel_users: &[User]) -> Vec<F
             let text = chars.collect::<String>();
             if !is_whitespace {
                 if let Some((is_trimmed, user)) = channel_users.iter().find_map(|user| {
-                    text_references_nickname(text.as_str(), user.nickname())
+                    highlights::text_references_nickname(text.as_str(), user.nickname())
                         .map(|is_trimmed| (is_trimmed, user.clone()))
                 }) {
                     if is_trimmed {
@@ -1366,33 +1347,6 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
             targets.join(", ")
         ))
     }
-}
-
-pub fn references_user(sender: NickRef, own_nick: NickRef, message: &Message) -> bool {
-    match &message.content {
-        Content::Plain(text) => references_user_text(sender, own_nick, text),
-        Content::Fragments(fragments) => fragments
-            .iter()
-            .any(|f| references_user_text(sender, own_nick, f.as_str())),
-        Content::Log(_) => false,
-    }
-}
-
-pub fn references_user_text(sender: NickRef, own_nick: NickRef, text: &str) -> bool {
-    sender != own_nick
-        && text
-            .chars()
-            .filter(|&c| c != '\u{1}')
-            .group_by(|c| c.is_whitespace())
-            .into_iter()
-            .any(|(is_whitespace, chars)| {
-                if !is_whitespace {
-                    let text = chars.collect::<String>();
-                    text_references_nickname(&text, own_nick).is_some()
-                } else {
-                    false
-                }
-            })
 }
 
 #[derive(Debug, Clone)]

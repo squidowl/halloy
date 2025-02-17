@@ -169,7 +169,12 @@ pub fn view<'a>(
 
                         let text_container = container(message_content).style(move |theme| {
                             if let Some(nick) = our_nick {
-                                if message::references_user(user.nickname(), nick, message) {
+                                let should_highlight_message = config
+                                    .highlights
+                                    .should_highlight_message(message, user.nickname(), nick);
+
+                                
+                                if should_highlight_message {
                                     return theme::container::highlight(theme);
                                 }
                             }
@@ -233,7 +238,12 @@ pub fn view<'a>(
 
                         let text_container = container(message_content).style(move |theme| {
                             if let (Some(user), Some(nick)) = (user, our_nick) {
-                                if message::references_user(user.nickname(), nick, message) {
+                                let should_highlight_message = config
+                                    .highlights
+                                    .should_highlight_message(message, user.nickname(), nick);
+
+                                
+                                if should_highlight_message {
                                     return theme::container::highlight(theme);
                                 }
                             }
