@@ -148,6 +148,16 @@ pub fn error_tooltip(theme: &Theme) -> Style {
     }
 }
 
+pub fn disabled_setting(theme: &Theme) -> Style {
+    Style {
+        background: Some(Background::Color(Color {
+            a: 0.7,
+            ..theme.colors().buffer.background
+        })),
+        ..Default::default()
+    }
+}
+
 pub fn transparent_overlay(theme: &Theme) -> Style {
     let general = theme.colors().general;
 

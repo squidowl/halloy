@@ -1,12 +1,11 @@
 use data::Config;
 use iced::{
-    padding,
-    widget::{button, container, row, scrollable, text, Column, Scrollable},
+    widget::{container, row},
     Length, Task, Vector,
 };
 
+use crate::widget::Element;
 use crate::window::{self, Window};
-use crate::{appearance::theme, widget::Element};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -51,8 +50,8 @@ impl std::fmt::Display for Section {
 impl Settings {
     pub fn open(main_window: &Window) -> (Self, Task<window::Id>) {
         let (window, task) = window::open(window::Settings {
-            size: iced::Size::new(470.0, 300.0),
-            resizable: true,
+            size: iced::Size::new(625.0, 700.0),
+            resizable: false,
             position: main_window
                 .position
                 .map(|point| window::Position::Specific(point + Vector::new(20.0, 20.0)))
@@ -98,8 +97,7 @@ impl Settings {
 mod content {
     use data::Config;
     use iced::{
-        padding,
-        widget::{button, container, scrollable, text, Column, Scrollable},
+        widget::{container, scrollable, Scrollable},
         Length,
     };
 
@@ -109,10 +107,13 @@ mod content {
 
     pub fn view<'a>(config: &Config, section: Section) -> Element<'a, Message> {
         container(
-            Scrollable::new(container(match section {
-                Section::Buffer => buffer::view(),
-                Section::ScaleFactor => scale_factor::view(config).map(Message::ScaleFactor),
-            }))
+            Scrollable::new(
+                container(match section {
+                    Section::Buffer => buffer::view(),
+                    Section::ScaleFactor => scale_factor::view(config).map(Message::ScaleFactor),
+                })
+                .padding(8),
+            )
             .direction(scrollable::Direction::Vertical(
                 iced::widget::scrollable::Scrollbar::default()
                     .width(0)
@@ -171,11 +172,18 @@ mod sidebar {
 mod scale_factor {
     use data::Config;
     use iced::{
-        widget::{column, container, scrollable, slider, text, Scrollable},
+        alignment,
+        widget::{
+            column, container, horizontal_space, opaque, row, slider, stack, text, vertical_space,
+            Rule,
+        },
         Length,
     };
 
-    use crate::{appearance::theme, widget::Element};
+    use crate::{
+        appearance::theme,
+        widget::{tooltip, Element},
+    };
 
     #[derive(Debug, Clone)]
     pub enum Message {
@@ -183,24 +191,52 @@ mod scale_factor {
     }
 
     pub fn view<'a>(config: &Config) -> Element<'a, Message> {
-        container(column![slider(
-            1.0..=3.0,
-            config.scale_factor.into(),
-            Message::Change
-        )])
+        let disabled = tooltip(
+            opaque(
+                container(vertical_space())
+                    .style(theme::container::disabled_setting)
+                    .width(Length::Fill),
+            ),
+            Some("Disabled. Configuration is defined in local config."),
+            iced::widget::tooltip::Position::Left,
+        );
+        let content = container(column![
+            slider(1.0..=3.0, config.scale_factor.into(), Message::Change),
+            container(
+                text(format!("{:.1}", f64::from(config.scale_factor)))
+                    .style(theme::text::secondary)
+                    .size(theme::TEXT_SIZE - 1.0)
+            )
+            .center_x(Length::Fill)
+        ])
+        .width(120);
+
+        container(column![column![
+            row![
+                stack![],
+                column![
+                    text("Scale Factor"),
+                    text("Application wide scale factor.").style(theme::text::secondary),
+                ]
+                .max_width(200)
+                .spacing(2),
+                horizontal_space(),
+                stack![content, disabled]
+            ]
+            .align_y(alignment::Vertical::Center),
+            Rule::horizontal(1)
+        ]
+        .spacing(8)])
         .into()
     }
 }
 
 mod buffer {
-    use iced::{
-        widget::{container, scrollable, text, Scrollable},
-        Length,
-    };
+    use iced::widget::{container, text};
 
     use super::Message;
 
-    use crate::{appearance::theme, widget::Element};
+    use crate::widget::Element;
 
     pub fn view<'a>() -> Element<'a, Message> {
         container(text("tba")).into()
