@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::{str, string};
 
+use highlights::Highlight;
 use tokio_stream::wrappers::ReadDirStream;
 use tokio_stream::StreamExt;
 
@@ -13,6 +14,7 @@ use thiserror::Error;
 pub use self::buffer::Buffer;
 pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
+pub use self::highlights::Highlights;
 pub use self::keys::Keyboard;
 pub use self::notification::Notifications;
 pub use self::pane::Pane;
@@ -31,6 +33,7 @@ use crate::{environment, Theme};
 pub mod buffer;
 pub mod channel;
 pub mod file_transfer;
+pub mod highlights;
 pub mod keys;
 pub mod notification;
 pub mod pane;
@@ -57,6 +60,7 @@ pub struct Config {
     pub file_transfer: FileTransfer,
     pub tooltips: bool,
     pub preview: Preview,
+    pub highlights: Highlights,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -175,6 +179,8 @@ impl Config {
             pub tooltips: bool,
             #[serde(default)]
             pub preview: Preview,
+            #[serde(default)]
+            pub highlights: Highlights,
         }
 
         let path = Self::path();
@@ -201,6 +207,7 @@ impl Config {
             tooltips,
             preview,
             pane,
+            mut highlights,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_passwords().await?;
@@ -210,6 +217,13 @@ impl Config {
         let appearance = Self::load_appearance(theme.keys())
             .await
             .unwrap_or_default();
+
+        // Ensure we have have default highlights.
+        if !highlights.contains_nickname() {
+            highlights.with_default();
+        }
+
+        println!("Highlights {:?}", highlights);
 
         Ok(Config {
             appearance,
@@ -225,6 +239,7 @@ impl Config {
             tooltips,
             preview,
             pane,
+            highlights,
         })
     }
 
