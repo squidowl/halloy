@@ -1,14 +1,20 @@
 use data::Config;
 use iced::{
-    widget::{container, row},
-    Length, Task, Vector,
+    alignment,
+    widget::{
+        column, container, horizontal_space, opaque, row, stack, text, vertical_space, Rule
+    },
+    Length, Task, Vector
 };
 
-mod scale_factor;
 mod buffer;
+mod scale_factor;
 
-use crate::widget::Element;
 use crate::window::{self, Window};
+use crate::{
+    appearance::theme,
+    widget::{tooltip, Element},
+};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -113,7 +119,7 @@ mod content {
             Scrollable::new(
                 container(match section {
                     Section::Buffer => buffer::view(),
-                    Section::ScaleFactor => scale_factor::view(config, false).map(Message::ScaleFactor),
+                    Section::ScaleFactor => scale_factor::view(config).map(Message::ScaleFactor),
                 })
                 .padding(8),
             )
@@ -170,4 +176,51 @@ mod sidebar {
         .padding(padding::right(6).top(1))
         .into()
     }
+}
+
+fn wrap_with_disabled<'a, Message: 'a>(
+    content: impl Into<Element<'a, Message>>,
+    disabled: bool,
+) -> Element<'a, Message> {
+    if disabled {
+        stack![
+            content.into(),
+            tooltip(
+                opaque(
+                    container(vertical_space())
+                        .style(theme::container::disabled_setting)
+                        .width(Length::Fill),
+                ),
+                Some("Disabled. Configuration is defined in local config."),
+                iced::widget::tooltip::Position::Left,
+            )
+        ]
+        .into()
+    } else {
+        content.into()
+    }
+}
+
+pub fn setting_row<'a, Message: 'a>(
+    title: &'a str,
+    description: &'a str,
+    content: impl Into<Element<'a, Message>>,
+    is_disabled: bool,
+) -> Element<'a, Message> {
+    column![
+        row![
+            column![
+                text(title),
+                text(description).style(theme::text::secondary),
+            ]
+            .max_width(200)
+            .spacing(2),
+            horizontal_space(),
+            wrap_with_disabled(content.into(), is_disabled),
+        ]
+        .align_y(alignment::Vertical::Center),
+        Rule::horizontal(1)
+    ]
+    .spacing(8)
+    .into()
 }
