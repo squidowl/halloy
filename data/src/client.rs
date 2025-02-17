@@ -21,7 +21,8 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{
-    buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Server, User,
+    buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Config, Server,
+    User,
 };
 use crate::{file_transfer, server};
 
@@ -311,12 +312,12 @@ impl Client {
         }
     }
 
-    fn receive(&mut self, message: message::Encoded) -> Result<Vec<Event>> {
+    fn receive(&mut self, message: message::Encoded, config: &Config) -> Result<Vec<Event>> {
         log::trace!("Message received => {:?}", *message);
 
         let stop_reroute = stop_reroute(&message.command);
 
-        let events = self.handle(message, None)?;
+        let events = self.handle(message, None, config)?;
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -329,6 +330,7 @@ impl Client {
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
+        config: &Config,
     ) -> Result<Vec<Event>> {
         use irc::proto::command::Numeric::*;
 
@@ -651,11 +653,14 @@ impl Client {
                                         ));
                                     }
 
-                                    if message::references_user_text(
+                                    let should_highlight = config.highlights.should_highlight_text(
+                                        text,
+                                        target,
                                         user.nickname(),
                                         self.nickname(),
-                                        text,
-                                    ) {
+                                    );
+
+                                    if should_highlight {
                                         vec![Event::Notification(
                                             message,
                                             self.nickname().to_owned(),
@@ -676,7 +681,7 @@ impl Client {
                         }
                     }
                 } else {
-                    self.handle(message, context)?
+                    self.handle(message, context, config)?
                 };
 
                 if let Some(batch) = self.batches.get_mut(&Target::parse(
@@ -1102,8 +1107,14 @@ impl Client {
                                 .replace(target::Query::from_user(&user, self.casemapping()));
                         }
 
-                        // Highlight notification
-                        if message::references_user_text(user.nickname(), self.nickname(), text) {
+                        let should_highlight = config.highlights.should_highlight_text(
+                            text,
+                            target,
+                            user.nickname(),
+                            self.nickname(),
+                        );
+
+                        if should_highlight {
                             return Ok(vec![Event::Notification(
                                 message.clone(),
                                 self.nickname().to_owned(),
@@ -2600,9 +2611,14 @@ impl Map {
         self.client(server).map(Client::nickname)
     }
 
-    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Result<Vec<Event>> {
+    pub fn receive(
+        &mut self,
+        server: &Server,
+        message: message::Encoded,
+        config: &Config,
+    ) -> Result<Vec<Event>> {
         if let Some(client) = self.client_mut(server) {
-            client.receive(message)
+            client.receive(message, config)
         } else {
             Ok(Default::default())
         }
