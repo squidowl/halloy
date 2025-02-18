@@ -8,3 +8,5 @@ src = "src"
 cname = "halloy.squidowl.org"
 git-repository-url = "https://github.com/squidowl/halloy"
 edit-url-template = "https://github.com/squidowl/halloy/edit/main/book/{path}"
+
+[output.linkcheck]
