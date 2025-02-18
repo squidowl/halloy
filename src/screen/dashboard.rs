@@ -40,6 +40,7 @@ const SAVE_AFTER: Duration = Duration::from_secs(3);
 pub struct Dashboard {
     panes: Panes,
     focus: Option<(window::Id, pane_grid::Pane)>,
+    last_focused: HashMap<window::Id, pane_grid::Pane>,
     side_menu: Sidebar,
     history: history::Manager,
     last_changed: Option<Instant>,
@@ -87,6 +88,7 @@ impl Dashboard {
                 popout: HashMap::new(),
             },
             focus: None,
+            last_focused: HashMap::new(),
             side_menu: Sidebar::new(),
             history: history::Manager::default(),
             last_changed: None,
@@ -109,16 +111,12 @@ impl Dashboard {
     ) -> (Self, Task<Message>) {
         let (mut dashboard, task) = Dashboard::from_data(dashboard, config, main_window);
 
-        let command = if let Some((pane, _)) = dashboard.panes.main.panes.iter().next() {
-            Task::batch(vec![
-                dashboard.focus_pane(main_window, main_window.id, *pane),
-                dashboard.track(),
-            ])
-        } else {
-            dashboard.track()
-        };
+        let tasks = Task::batch(vec![
+            dashboard.focus_first_pane(main_window, main_window.id),
+            dashboard.track(),
+        ]);
 
-        (dashboard, Task::batch(vec![task, command]))
+        (dashboard, Task::batch(vec![task, tasks]))
     }
 
     pub fn update(
@@ -581,6 +579,9 @@ impl Dashboard {
                         let _ = open::that_detached(WIKI_WEBSITE);
                         (Task::none(), None)
                     }
+                    sidebar::Event::MaintainFocus => {
+                        (self.focus_focused_pane_buffer(main_window), None)
+                    }
                 };
 
                 return (
@@ -737,11 +738,11 @@ impl Dashboard {
                                 command_bar::Configuration::OpenCacheDirectory => {
                                     let _ = open::that_detached(environment::cache_dir());
                                     (Task::none(), None)
-                                },
+                                }
                                 command_bar::Configuration::OpenDataDirectory => {
                                     let _ = open::that_detached(environment::data_dir());
                                     (Task::none(), None)
-                                },
+                                }
                                 command_bar::Configuration::OpenWebsite => {
                                     let _ = open::that_detached(environment::WIKI_WEBSITE);
                                     (Task::none(), None)
@@ -774,7 +775,9 @@ impl Dashboard {
                                 }
                             },
                             command_bar::Command::Window(command) => match command {
-                                command_bar::Window::ToggleFullscreen => (window::toggle_fullscreen(), None),
+                                command_bar::Window::ToggleFullscreen => {
+                                    (window::toggle_fullscreen(), None)
+                                }
                             },
                         };
 
@@ -951,9 +954,7 @@ impl Dashboard {
                             None,
                         );
                     }
-                    ToggleFullscreen => {
-                        return (window::toggle_fullscreen(), None)
-                    },
+                    ToggleFullscreen => return (window::toggle_fullscreen(), None),
                 }
             }
             Message::FileTransfer(update) => {
@@ -1688,27 +1689,73 @@ impl Dashboard {
         self.history.get_unique_queries(server)
     }
 
-    fn focus_pane(
-        &mut self,
-        main_window: &Window,
-        window: window::Id,
-        pane: pane_grid::Pane,
-    ) -> Task<Message> {
-        if self.focus != Some((window, pane)) {
-            self.focus = Some((window, pane));
-
-            if let Some(task) = self.panes.iter(main_window.id).find_map(|(w, p, state)| {
+    pub fn focus_focused_pane_buffer(&mut self, main_window: &Window) -> Task<Message> {
+        if let Some((window, pane)) = self.focus {
+            if let Some(focus_buffer) = self.panes.iter(main_window.id).find_map(|(w, p, state)| {
                 (w == window && p == pane).then(|| {
                     state.buffer.focus().map(move |message| {
                         Message::Pane(window, pane::Message::Buffer(pane, message))
                     })
                 })
             }) {
-                return Task::batch(vec![task, window::gain_focus(window)]);
+                return focus_buffer;
             }
         }
 
         Task::none()
+    }
+
+    fn focus_pane(
+        &mut self,
+        main_window: &Window,
+        window: window::Id,
+        pane: pane_grid::Pane,
+    ) -> Task<Message> {
+        self.last_focused.insert(window, pane);
+
+        let mut tasks = vec![];
+
+        if self.focus != Some((window, pane)) {
+            self.focus = Some((window, pane));
+
+            tasks.push(window::gain_focus(window));
+        }
+
+        if let Some(focus_buffer) = self.panes.iter(main_window.id).find_map(|(w, p, state)| {
+            (w == window && p == pane).then(|| {
+                state
+                    .buffer
+                    .focus()
+                    .map(move |message| Message::Pane(window, pane::Message::Buffer(pane, message)))
+            })
+        }) {
+            tasks.push(focus_buffer);
+        }
+
+        Task::batch(tasks)
+    }
+
+    fn focus_first_pane(&mut self, main_window: &Window, window: window::Id) -> Task<Message> {
+        let pane = self
+            .panes
+            .iter(main_window.id)
+            .find_map(|(w, pane, _)| (w == window).then_some(pane));
+
+        pane.map_or(Task::none(), |pane| {
+            self.focus_pane(main_window, window, pane)
+        })
+    }
+
+    pub fn focus_last_focused_pane(
+        &mut self,
+        main_window: &Window,
+        window: window::Id,
+    ) -> Task<Message> {
+        if let Some(pane) = self.last_focused.get(&window) {
+            self.focus_pane(main_window, window, *pane)
+        } else {
+            self.focus_first_pane(main_window, window)
+        }
     }
 
     fn maximize_pane(&mut self) {
@@ -1804,6 +1851,10 @@ impl Dashboard {
     ) -> Task<Message> {
         self.last_changed = Some(Instant::now());
 
+        if self.last_focused.get(&window).is_some_and(|p| *p == pane) {
+            self.last_focused.remove(&window);
+        }
+
         if window == main_window.id {
             if let Some((_, sibling)) = self.panes.main.close(pane) {
                 return self.focus_pane(main_window, main_window.id, sibling);
@@ -1819,6 +1870,14 @@ impl Dashboard {
 
     fn popout_pane(&mut self, main_window: &Window) -> Task<Message> {
         if let Some((_, pane)) = self.focus.take() {
+            if self
+                .last_focused
+                .get(&main_window.id)
+                .is_some_and(|p| *p == pane)
+            {
+                self.last_focused.remove(&main_window.id);
+            }
+
             if let Some((pane, _)) = self.panes.main.close(pane) {
                 return self.open_popout_window(main_window, pane);
             }
@@ -2033,6 +2092,7 @@ impl Dashboard {
                 popout: HashMap::new(),
             },
             focus: None,
+            last_focused: HashMap::new(),
             side_menu: Sidebar::new(),
             history: history::Manager::default(),
             last_changed: None,
@@ -2063,6 +2123,7 @@ impl Dashboard {
 
     pub fn handle_window_event(
         &mut self,
+        main_window: &Window,
         id: window::Id,
         event: window::Event,
         theme: &mut Theme,
@@ -2073,9 +2134,11 @@ impl Dashboard {
                     self.panes.popout.remove(&id);
                     return window::close(id);
                 }
+                window::Event::Focused => {
+                    return self.focus_last_focused_pane(main_window, id);
+                }
                 window::Event::Moved(_)
                 | window::Event::Resized(_)
-                | window::Event::Focused
                 | window::Event::Unfocused
                 | window::Event::Opened { .. } => {}
             }

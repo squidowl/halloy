@@ -51,6 +51,7 @@ pub enum Event {
     OpenReleaseWebsite,
     OpenDocumentation,
     ConfigReloaded(Result<Config, config::Error>),
+    MaintainFocus,
 }
 
 #[derive(Clone)]
@@ -111,7 +112,7 @@ impl Sidebar {
                 self.reloading_config = false;
                 (Task::none(), None)
             }
-            Message::Noop => (Task::none(), None),
+            Message::Noop => (Task::none(), Some(Event::MaintainFocus)),
             Message::OpenDocumentation => (Task::none(), Some(Event::OpenDocumentation)),
         }
     }
@@ -585,7 +586,7 @@ fn upstream_buffer_button(
                             BufferFocusedAction::ClosePane => Some(Message::Close(window, pane)),
                         }
                     } else {
-                        None
+                        Some(Message::Focus(window, pane))
                     }
                 }
                 None => {
