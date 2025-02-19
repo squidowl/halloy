@@ -9,7 +9,7 @@ Eg:
 # ...
 ```
 
-> 💡 For a multiple server example see [here](../../guides/multiple-servers.html)
+> 💡 For a multiple server example see [here](../guides/multiple-servers.html)
 
 ## `nickname`
 
@@ -368,7 +368,7 @@ who_poll_interval = 2
 
 A list of nicknames to [monitor](https://ircv3.net/specs/extensions/monitor) (if IRCv3 Monitor is supported by the server).
 
-> 💡 Read more about [monitoring users](../../guides/monitor-users.html).
+> 💡 Read more about [monitoring users](../guides/monitor-users.html).
 
 ```toml
 # Type: array of string

@@ -17,10 +17,13 @@ jobs:
         with:
           mdbook-version: 'latest'
 
+      - name: Install mdbook plugins
+        run: cargo install mdbook-linkcheck
+
       - run: mdbook build book
 
       - name: Publish book
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./book/book
+          publish_dir: ./book/book/html
