@@ -268,7 +268,7 @@ cargo run --release
 <p>To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the <a href="https://libera.chat/">Libera</a> server. However, there are many other servers available: <a href="https://www.oftc.net/">OFTC</a>, <a href="https://www.undernet.org/">Undernet</a>, <a href="http://www.efnet.org">EFnet</a>, <a href="https://www.quakenet.org/">QuakeNet</a> and <a href="https://netsplit.de/networks/">many more</a>. Halloy can connect to multiple servers at the same time.</p>
 <p>Once connected to a server, you can join channels. This can be done automatically from the config file or manually using the join command: <code>/join #channel</code><sup class="footnote-reference"><a href="#1">1</a></sup>. To find channels, you can either use the list command: <code>/list</code>, or <a href="https://netsplit.de/channels/">browse for channels online</a>.</p>
 <blockquote>
-<p>💡 Configuration in Halloy happens through a <code>config.toml</code> file. See <a href="guides/../configuration/index.html">Configuration</a>.</p>
+<p>💡 Configuration in Halloy happens through a <code>config.toml</code> file. See <a href="guides/../configuration/">Configuration</a>.</p>
 </blockquote>
 <p>Here are a few useful IRC commands for a new user<sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <div class="table-wrapper"><table><thead><tr><th>Command</th><th>Example</th><th>Description</th></tr></thead><tbody>
@@ -868,7 +868,7 @@ visibility = "always"
 auto_format = "markdown"
 </code></pre>
 <blockquote>
-<p>💡 Read more about <a href="configuration/../../guides/text-formatting.html">text formatting</a>.</p>
+<p>💡 Read more about <a href="configuration/../guides/text-formatting.html">text formatting</a>.</p>
 </blockquote>
 <h3 id="buffertext_inputautocomplete"><a class="header" href="#buffertext_inputautocomplete"><code>[buffer.text_input.autocomplete]</code></a></h3>
 <p>Customize autocomplete.</p>
@@ -1381,7 +1381,7 @@ scale_factor = 1.0
 # ...
 </code></pre>
 <blockquote>
-<p>💡 For a multiple server example see <a href="configuration/../../guides/multiple-servers.html">here</a></p>
+<p>💡 For a multiple server example see <a href="configuration/../guides/multiple-servers.html">here</a></p>
 </blockquote>
 <h2 id="nickname"><a class="header" href="#nickname"><code>nickname</code></a></h2>
 <p>The client's nickname.</p>
@@ -1629,7 +1629,7 @@ who_poll_interval = 2
 <h2 id="monitor"><a class="header" href="#monitor"><code>monitor</code></a></h2>
 <p>A list of nicknames to <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> (if IRCv3 Monitor is supported by the server).</p>
 <blockquote>
-<p>💡 Read more about <a href="configuration/../../guides/monitor-users.html">monitoring users</a>.</p>
+<p>💡 Read more about <a href="configuration/../guides/monitor-users.html">monitoring users</a>.</p>
 </blockquote>
 <pre><code class="language-toml"># Type: array of string
 # Values: array of any strings
@@ -1911,12 +1911,6 @@ default = "&lt;string&gt;"
 <h2 id="rose-pine"><a class="header" href="#rose-pine">Rose Pine</a></h2>
 <p><a href="halloy:///theme?e=ACEgLv8BQD1S_wImIzr_A_bBd_8E67y6_wWQjKr_BsSn5_8HnM_Y_wjrb5L_CZzP2P8KISAu_wsZFyT_DB8dLv8NAAAAAA5uaob_D-tvkv8QQD1S_xHrvLr_EiYjOv8TUk9n_xSQjKr_FeDe9P8d9sF3_x4hIC7_HyEgLv8gGRck_yEfHS7_IiYjOv8jQD1S_yRST2f_JW5qhv8">Open in Halloy</a></p>
 <img src="configuration/themes/rose-pine.png">
-<h2 id="rose-pine-moon"><a class="header" href="#rose-pine-moon">Rose Pine Moon</a></h2>
-<p><a href="halloy:///theme?e=ACooPv8BREFa_wI5NVL_A_bBd_8E6pqX_wWQjKr_BsSn5_8HnM_Y_wjrb5L_CZzP2P8KKig-_wsjITb_DConP_8NAAAAAA5uaob_D-tvkv8QREFa_xHqmpf_Ejk1Uv8TVlJu_xSQjKr_FeDe9P8d9sF3_x4qKD7_HyooPv8gIyE2_yEqJz__Ijk1Uv8jREFa_yRWUm7_JW5qhv8">Open in Halloy</a></p>
-<img src="configuration/themes/rose-pine-moon.png">
-<h2 id="rose-pine-dawn"><a class="header" href="#rose-pine-dawn">Rose Pine Dawn</a></h2>
-<p><a href="halloy:///theme?e=APTt6P8B39rZ_wLy6eH_A-qdNP8E14J-_wV5dZP_BpB6qf8HVpSf_wi0Y3r_CVaUn_8K9O3o_wv69O3_DP_68_8NAAAAAA6Yk6X_D7Rjev8Q39rZ_xHXgn7_EvLp4f8TzsrN_xR5dZP_FVdSef8d6p00_x707ej_H_Tt6P8g-vTt_yH_-vP_IvLp4f8j39rZ_yTOys3_JZiTpf8">Open in Halloy</a></p>
-<img src="configuration/themes/rose-pine-dawn.png">
 <div style="break-before: page; page-break-before: always;"></div><h1 id="base16"><a class="header" href="#base16">Base16</a></h1>
 <p>The <a href="https://github.com/chriskempson/base16">base16</a> color scheme framework
 includes hundreds of colorschemes build using 16 colors. These colorschemes have
