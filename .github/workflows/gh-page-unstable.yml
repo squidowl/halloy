@@ -17,6 +17,9 @@ jobs:
         with:
           mdbook-version: 'latest'
 
+      - name: Install mdbook plugins
+        run: cargo install mdbook-linkcheck
+
       - run: mdbook build book
 
       - name: Publish book
