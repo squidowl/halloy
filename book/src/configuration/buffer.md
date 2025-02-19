@@ -554,7 +554,7 @@ Control if the text input should auto format the input. By default text is only 
 auto_format = "markdown"
 ```
 
-> 💡 Read more about [text formatting](../../guides/text-formatting.html).
+> 💡 Read more about [text formatting](../guides/text-formatting.html).
 
 ### `[buffer.text_input.autocomplete]`
 
