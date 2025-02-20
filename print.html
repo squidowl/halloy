@@ -268,7 +268,7 @@ cargo run --release
 <p>To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the <a href="https://libera.chat/">Libera</a> server. However, there are many other servers available: <a href="https://www.oftc.net/">OFTC</a>, <a href="https://www.undernet.org/">Undernet</a>, <a href="http://www.efnet.org">EFnet</a>, <a href="https://www.quakenet.org/">QuakeNet</a> and <a href="https://netsplit.de/networks/">many more</a>. Halloy can connect to multiple servers at the same time.</p>
 <p>Once connected to a server, you can join channels. This can be done automatically from the config file or manually using the join command: <code>/join #channel</code><sup class="footnote-reference"><a href="#1">1</a></sup>. To find channels, you can either use the list command: <code>/list</code>, or <a href="https://netsplit.de/channels/">browse for channels online</a>.</p>
 <blockquote>
-<p>💡 Configuration in Halloy happens through a <code>config.toml</code> file. See <a href="guides/../configuration/index.html">Configuration</a>.</p>
+<p>💡 Configuration in Halloy happens through a <code>config.toml</code> file. See <a href="guides/../configuration/">Configuration</a>.</p>
 </blockquote>
 <p>Here are a few useful IRC commands for a new user<sup class="footnote-reference"><a href="#2">2</a></sup></p>
 <div class="table-wrapper"><table><thead><tr><th>Command</th><th>Example</th><th>Description</th></tr></thead><tbody>
@@ -299,7 +299,9 @@ For feature requests or reporting issues, please open a ticket on <a href="https
 nickname = "casperstorm"
 username = "&lt;your-username&gt;/irc.libera.chat@desktop"
 server = "irc.squidowl.org"
+port = 6697
 password = "&lt;your-password&gt;"
+chathistory = true
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="connect-with-znc"><a class="header" href="#connect-with-znc">Connect with ZNC</a></h1>
 <p>To connect with a <a href="https://wiki.znc.in/ZNC"><strong>ZNC</strong></a> bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.</p>
@@ -311,10 +313,10 @@ password = "&lt;your-password&gt;"
 # Depending on your ZNC setup you may need to apply these extra settings:
 
 # Does your znc use a self-signed or expired certificate? See: 
-# https://halloy.squidowl.org/configuration/servers/index.html#dangerously_accept_invalid_certs
+# https://halloy.squidowl.org/configuration/servers.html#dangerously_accept_invalid_certs
 
 # Does your znc listen on a different port? See: 
-# https://halloy.squidowl.org/configuration/servers/index.html#port
+# https://halloy.squidowl.org/configuration/servers.html#port
 
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="portable-mode"><a class="header" href="#portable-mode">Portable mode</a></h1>
@@ -325,7 +327,7 @@ password = "&lt;your-password&gt;"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="multiple-servers"><a class="header" href="#multiple-servers">Multiple servers</a></h1>
 <p>Creating multiple <code>[servers]</code> sections lets you connect to multiple servers.<br />
-All configuration options can be found <a href="guides/../configuration/servers/index.html">here</a>.</p>
+All configuration options can be found <a href="guides/../configuration/servers.html">here</a>.</p>
 <pre><code class="language-toml">[servers.liberachat]
 nickname = "halloy-user"
 server = "irc.libera.chat"
@@ -419,7 +421,7 @@ auto_format = "disabled" | "markdown" | "all"
 </blockquote>
 <p>To use the feature you need to add the user(s) you wish to monitor. This can be done in two ways:</p>
 <ul>
-<li>You can add a list of user directly to the configuration file. <a href="guides/../configuration/servers/index.html#monitor">See configuration option.</a></li>
+<li>You can add a list of user directly to the configuration file. <a href="guides/../configuration/servers.html#monitor">See configuration option.</a></li>
 <li>You can add users through <code>/monitor</code> directly in Halloy.</li>
 </ul>
 <p>Examples with the <code>/monitor</code> command:</p>
@@ -429,6 +431,35 @@ auto_format = "disabled" | "markdown" | "all"
 /monitor l # Get list of users being monitored
 /monitor s # For each user in the list being monitored, get their current status
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="migrating-from-yaml"><a class="header" href="#migrating-from-yaml">Migrating from YAML</a></h1>
+<p>Halloy switched configuration file format from YAML to TOML (<a href="https://github.com/squidowl/halloy/pull/278">PR-278</a>)
+This page will help you migrate your old <code>config.yaml</code> to a new <code>config.toml</code> file.</p>
+<p>The basic structure of a TOML file consists of key-value pairs, where keys are strings. There are no nested indentations like YAML, which makes it easier to read and write. Consider the following old YAML config with of two servers in Halloy:</p>
+<pre><code class="language-yaml">servers:
+  libera:
+    nickname: foobar
+    server: irc.libera.chat
+  quakenet:
+    nickname: barbaz
+    server: underworld2.no.quakenet.org
+    port: 6667
+    use_tls: true
+</code></pre>
+<p>This now looks the following in TOML</p>
+<pre><code class="language-toml">[servers.libera]
+nickname = "foobar"
+server = "irc.libera.chat"
+
+[servers.quakenet]
+nickname = "barbaz"
+server = "underworld2.no.quakenet.org"
+port = 6667
+use_tls = true
+</code></pre>
+<blockquote>
+<p>💡 You can convert YAML to TOML using a converter tool like <a href="https://transform.tools/yaml-to-toml">this one</a>. Just note that a few keys and values have be renamed during the conversion process.</p>
+</blockquote>
+<p>To migrate, and ensure everything is working, make sure to read through the <a href="guides/../configuration">Configuration</a> section of this book. Here, every configuration option is documented using TOML.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h1>
 <p>To edit configuration parameters, create a <code>config.toml</code> file located in your configuration directory:</p>
 <ul>
@@ -463,6 +494,7 @@ enabled = true
 <li><a href="configuration/buffer.html#bufferchathistory">Chathistory</a> - IRCv3 Chat History extension settings</li>
 <li><a href="configuration/buffer.html#buffercommands">Commands</a> - Commands settings</li>
 <li><a href="configuration/buffer.html#bufferdate_separators">Date Separators</a> - Customize how date separators are displayed within a buffer</li>
+<li><a href="configuration/buffer.html#bufferemojis">Emojis</a> - Emojis settings</li>
 <li><a href="configuration/buffer.html#bufferinternal_messages">Internal Messages</a> - Internal messages are messages sent from Halloy itself</li>
 <li><a href="configuration/buffer.html#buffernickname">Nickname</a> - Customize how nicknames are displayed within a buffer</li>
 <li><a href="configuration/buffer.html#bufferserver_messages">Server Messages</a> - Server messages are messages sent from a irc server.</li>
@@ -615,6 +647,40 @@ format = "%A, %B %-d"
 
 [buffer.date_separators]
 show = true
+</code></pre>
+<h2 id="bufferemojis"><a class="header" href="#bufferemojis"><code>[buffer.emojis]</code></a></h2>
+<p>Emojis settings.</p>
+<pre><code class="language-toml">[buffer.emojis]
+show_picker = true
+skin_tone = "default"
+auto_replace = true
+</code></pre>
+<h3 id="show_picker"><a class="header" href="#show_picker"><code>show_picker</code></a></h3>
+<p>Show the emoji picker when typing <code>:shortcode:</code> in text input.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.emojis]
+show_picker = true
+</code></pre>
+<h3 id="skin_tone"><a class="header" href="#skin_tone"><code>skin_tone</code></a></h3>
+<p>Skin tone selected when picking an emoji.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "default", "light", "medium-light", "medium", "medium-dark", "dark"
+# Default: "default"
+
+[buffer.emojis]
+skin_tone = "default"
+</code></pre>
+<h3 id="auto_replace"><a class="header" href="#auto_replace"><code>auto_replace</code></a></h3>
+<p>Automatically replace <code>:shortcode:</code> in text input with the corresponding emoji.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.emojis]
+auto_replace = true
 </code></pre>
 <h2 id="bufferinternal_messages"><a class="header" href="#bufferinternal_messages"><code>[buffer.internal_messages]</code></a></h2>
 <p>Internal messages are messages sent from Halloy itself.</p>
@@ -802,7 +868,7 @@ visibility = "always"
 auto_format = "markdown"
 </code></pre>
 <blockquote>
-<p>💡 Read more about <a href="configuration/../../guides/text-formatting.html">text formatting</a>.</p>
+<p>💡 Read more about <a href="configuration/../guides/text-formatting.html">text formatting</a>.</p>
 </blockquote>
 <h3 id="buffertext_inputautocomplete"><a class="header" href="#buffertext_inputautocomplete"><code>[buffer.text_input.autocomplete]</code></a></h3>
 <p>Customize autocomplete.</p>
@@ -914,6 +980,9 @@ bind_port_last = "5000"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="font"><a class="header" href="#font"><code>[font]</code></a></h1>
 <p>Application wide font settings.</p>
+<blockquote>
+<p>⚠️  Changes to font settings require an application restart to take effect.</p>
+</blockquote>
 <h2 id="family"><a class="header" href="#family"><code>family</code></a></h2>
 <p>Monospaced font family to use.</p>
 <pre><code class="language-toml"># Type: string
@@ -968,11 +1037,11 @@ move_right = "alt+l"
 <p>Customize and enable notifications.</p>
 <p><strong>Example</strong></p>
 <pre><code class="language-toml">[notifications]
-highlight = {
-    sound = "dong"
-    exclude = ["NickServ", "#halloy"]
-}
 direct_message = { sound = "peck", show_toast = true }
+
+[notifications.highlight]
+sound = "dong"
+exclude = ["NickServ", "#halloy"]
 </code></pre>
 <p>Following notifications are available:</p>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
@@ -1262,6 +1331,15 @@ include = ["#halloy"] # show image previews in #halloy
 </code></pre>
 <h2 id="card"><a class="header" href="#card"><code>card</code></a></h2>
 <p>Specific card preview settings.</p>
+<h3 id="show_image"><a class="header" href="#show_image"><code>show_image</code></a></h3>
+<p>Show image for card previews.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[preview.card]
+show_image = true
+</code></pre>
 <h3 id="include-3"><a class="header" href="#include-3"><code>include</code></a></h3>
 <p>Include card previews from channels.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
@@ -1303,7 +1381,7 @@ scale_factor = 1.0
 # ...
 </code></pre>
 <blockquote>
-<p>💡 For a multiple server example see <a href="configuration/../../guides/multiple-servers.html">here</a></p>
+<p>💡 For a multiple server example see <a href="configuration/../guides/multiple-servers.html">here</a></p>
 </blockquote>
 <h2 id="nickname"><a class="header" href="#nickname"><code>nickname</code></a></h2>
 <p>The client's nickname.</p>
@@ -1551,7 +1629,7 @@ who_poll_interval = 2
 <h2 id="monitor"><a class="header" href="#monitor"><code>monitor</code></a></h2>
 <p>A list of nicknames to <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> (if IRCv3 Monitor is supported by the server).</p>
 <blockquote>
-<p>💡 Read more about <a href="configuration/../../guides/monitor-users.html">monitoring users</a>.</p>
+<p>💡 Read more about <a href="configuration/../guides/monitor-users.html">monitoring users</a>.</p>
 </blockquote>
 <pre><code class="language-toml"># Type: array of string
 # Values: array of any strings
@@ -1829,7 +1907,17 @@ default = "&lt;string&gt;"
 <img src="configuration/themes/solarized-dark.png">
 <h2 id="cyberpunk"><a class="header" href="#cyberpunk">Cyberpunk</a></h2>
 <p><a href="halloy:///theme?e=AAoOFP8BLjxJ_wIbHyf_AwD_2f8EOf8U_wUAv___Bv8A__8HAP-d_wj_TEz_CQD_mf8KDQ8U_wsRFRz_DBsfJ_8NAAAAAA4A_9n_Dzn_FP8QiwCL_xH_AP__EhoeJf8TYHCL_xQAv___FQC___8d_9cA_x4KDhT_Hx0jL_8gDRIY_yEUGiH_IhsfJ_8jJCoz_yQuPEn_JTlFVP8">Open in Halloy</a></p>
-<img src="configuration/themes/cyberpunk.png"><div style="break-before: page; page-break-before: always;"></div><h1 id="base16"><a class="header" href="#base16">Base16</a></h1>
+<img src="configuration/themes/cyberpunk.png">
+<h2 id="rose-pine"><a class="header" href="#rose-pine">Rose Pine</a></h2>
+<p><a href="halloy:///theme?e=ACEgLv8BQD1S_wImIzr_A_bBd_8E67y6_wWQjKr_BsSn5_8HnM_Y_wjrb5L_CZzP2P8KISAu_wsZFyT_DB8dLv8NAAAAAA5uaob_D-tvkv8QQD1S_xHrvLr_EiYjOv8TUk9n_xSQjKr_FeDe9P8d9sF3_x4hIC7_HyEgLv8gGRck_yEfHS7_IiYjOv8jQD1S_yRST2f_JW5qhv8">Open in Halloy</a></p>
+<img src="configuration/themes/rose-pine.png">
+<h2 id="rose-pine-moon"><a class="header" href="#rose-pine-moon">Rose Pine Moon</a></h2>
+<p><a href="halloy:///theme?e=ACooPv8BREFa_wI5NVL_A_bBd_8E6pqX_wWQjKr_BsSn5_8HnM_Y_wjrb5L_CZzP2P8KKig-_wsjITb_DConP_8NAAAAAA5uaob_D-tvkv8QREFa_xHqmpf_Ejk1Uv8TVlJu_xSQjKr_FeDe9P8d9sF3_x4qKD7_HyooPv8gIyE2_yEqJz__Ijk1Uv8jREFa_yRWUm7_JW5qhv8">Open in Halloy</a></p>
+<img src="configuration/themes/rose-pine-moon.png">
+<h2 id="rose-pine-dawn"><a class="header" href="#rose-pine-dawn">Rose Pine Dawn</a></h2>
+<p><a href="halloy:///theme?e=APTt6P8B39rZ_wLy6eH_A-qdNP8E14J-_wV5dZP_BpB6qf8HVpSf_wi0Y3r_CVaUn_8K9O3o_wv69O3_DP_68_8NAAAAAA6Yk6X_D7Rjev8Q39rZ_xHXgn7_EvLp4f8TzsrN_xR5dZP_FVdSef8d6p00_x707ej_H_Tt6P8g-vTt_yH_-vP_IvLp4f8j39rZ_yTOys3_JZiTpf8">Open in Halloy</a></p>
+<img src="configuration/themes/rose-pine-dawn.png">
+<div style="break-before: page; page-break-before: always;"></div><h1 id="base16"><a class="header" href="#base16">Base16</a></h1>
 <p>The <a href="https://github.com/chriskempson/base16">base16</a> color scheme framework
 includes hundreds of colorschemes build using 16 colors. These colorschemes have
 are compiled for Halloy in the
