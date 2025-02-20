@@ -25,7 +25,7 @@ use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
 use crate::widget::{
-    anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
+    anchored_overlay, context_menu, left_click, selectable_text, shortcut, Column, Element, Row,
 };
 use crate::window::Window;
 use crate::{event, notification, theme, window, Theme};
@@ -466,6 +466,9 @@ impl Dashboard {
                                 );
                             }
                         }
+                    }
+                    pane::Message::MaintainFocus => {
+                        return (self.focus_focused_pane_buffer(main_window), None);
                     }
                 }
             }
@@ -1110,7 +1113,7 @@ impl Dashboard {
         main_window: &'a Window,
     ) -> Element<'a, Message> {
         if let Some(state) = self.panes.popout.get(&window) {
-            let content = container(
+            let content = container(left_click(
                 PaneGrid::new(state, |id, pane, _maximized| {
                     let is_focused = self.focus == Some((window, id));
                     pane.view(
@@ -1131,7 +1134,8 @@ impl Dashboard {
                 })
                 .spacing(4)
                 .on_click(pane::Message::PaneClicked),
-            )
+                pane::Message::MaintainFocus,
+            ))
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(8);
@@ -1181,11 +1185,14 @@ impl Dashboard {
         .spacing(4)
         .into();
 
-        let pane_grid =
-            container(pane_grid.map(move |message| Message::Pane(main_window.id, message)))
+        let pane_grid = left_click(
+            container(pane_grid)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(8);
+                .padding(8),
+            pane::Message::MaintainFocus,
+        )
+        .map(move |message| Message::Pane(main_window.id, message));
 
         let side_menu = self
             .side_menu
@@ -1200,14 +1207,14 @@ impl Dashboard {
                 version,
                 main_window.id,
             )
-            .map(|e| e.map(Message::Sidebar));
+            .map(|e| left_click(e, sidebar::Message::MaintainFocus).map(Message::Sidebar));
 
         let content = match config.sidebar.position {
             data::config::sidebar::Position::Left | data::config::sidebar::Position::Top => {
-                vec![side_menu.unwrap_or_else(|| row![].into()), pane_grid.into()]
+                vec![side_menu.unwrap_or_else(|| row![].into()), pane_grid]
             }
             data::config::sidebar::Position::Right | data::config::sidebar::Position::Bottom => {
-                vec![pane_grid.into(), side_menu.unwrap_or_else(|| row![].into())]
+                vec![pane_grid, side_menu.unwrap_or_else(|| row![].into())]
             }
         };
 
