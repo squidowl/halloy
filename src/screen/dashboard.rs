@@ -1,4 +1,4 @@
-use std::collections::{hash_map, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque, hash_map};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
@@ -6,18 +6,18 @@ use std::{convert, slice};
 use chrono::{DateTime, Utc};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
-use data::history::manager::Broadcast;
 use data::history::ReadMarker;
+use data::history::manager::Broadcast;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{
-    client, command, config, environment, file_transfer, history, preview, Config, Notification,
-    Server, Version,
+    Config, Notification, Server, Version, client, command, config, environment, file_transfer,
+    history, preview,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{column, container, row, Space};
-use iced::{clipboard, Length, Task, Vector};
+use iced::widget::{Space, column, container, row};
+use iced::{Length, Task, Vector, clipboard};
 use log::{debug, error};
 
 use self::command_bar::CommandBar;
@@ -26,10 +26,10 @@ use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
 use crate::widget::{
-    anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
+    Column, Element, Row, anchored_overlay, context_menu, left_click, selectable_text, shortcut,
 };
 use crate::window::Window;
-use crate::{event, notification, theme, window, Theme};
+use crate::{Theme, event, notification, theme, window};
 
 mod command_bar;
 pub mod pane;
@@ -368,7 +368,7 @@ impl Dashboard {
                                     return (
                                         Task::batch(vec![task, history_task.map(Message::History)]),
                                         None,
-                                    )
+                                    );
                                 }
                                 buffer::Event::GoToMessage(server, channel, message) => {
                                     let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
@@ -491,6 +491,9 @@ impl Dashboard {
                                 );
                             }
                         }
+                    }
+                    pane::Message::MaintainFocus => {
+                        return (self.focus_focused_pane_buffer(main_window), None);
                     }
                 }
             }
@@ -1145,7 +1148,7 @@ impl Dashboard {
         main_window: &'a Window,
     ) -> Element<'a, Message> {
         if let Some(state) = self.panes.popout.get(&window) {
-            let content = container(
+            let content = container(left_click(
                 PaneGrid::new(state, |id, pane, _maximized| {
                     let is_focused = self.focus == Some((window, id));
                     let buffer = pane.buffer.data();
@@ -1170,7 +1173,8 @@ impl Dashboard {
                 })
                 .spacing(4)
                 .on_click(pane::Message::PaneClicked),
-            )
+                pane::Message::MaintainFocus,
+            ))
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(8);
@@ -1224,11 +1228,14 @@ impl Dashboard {
         .spacing(4)
         .into();
 
-        let pane_grid =
-            container(pane_grid.map(move |message| Message::Pane(main_window.id, message)))
+        let pane_grid = left_click(
+            container(pane_grid)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(8);
+                .padding(8),
+            pane::Message::MaintainFocus,
+        )
+        .map(move |message| Message::Pane(main_window.id, message));
 
         let side_menu = self
             .side_menu
@@ -1243,14 +1250,14 @@ impl Dashboard {
                 version,
                 main_window.id,
             )
-            .map(|e| e.map(Message::Sidebar));
+            .map(|e| left_click(e, sidebar::Message::MaintainFocus).map(Message::Sidebar));
 
         let content = match config.sidebar.position {
             data::config::sidebar::Position::Left | data::config::sidebar::Position::Top => {
-                vec![side_menu.unwrap_or_else(|| row![].into()), pane_grid.into()]
+                vec![side_menu.unwrap_or_else(|| row![].into()), pane_grid]
             }
             data::config::sidebar::Position::Right | data::config::sidebar::Position::Bottom => {
-                vec![pane_grid.into(), side_menu.unwrap_or_else(|| row![].into())]
+                vec![pane_grid, side_menu.unwrap_or_else(|| row![].into())]
             }
         };
 
