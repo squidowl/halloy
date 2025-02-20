@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.2 (2025-02-20)
+
 Added:
 
 - Emoji picker accessible via `:` in text input
