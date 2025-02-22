@@ -4,9 +4,9 @@ use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FileTransfer {
-    /// Directory opened when prompted to save a file
-    #[serde(default = "default_save_directory")]
-    pub save_directory: PathBuf,
+    /// Default directory to save files in. If not set, user will see a file dialog.
+    #[serde(default)]
+    pub save_directory: Option<PathBuf>,
     /// If true, act as the "client" for the transfer. Requires the remote user act as the server.
     #[serde(default = "default_passive")]
     pub passive: bool,
@@ -19,7 +19,7 @@ pub struct FileTransfer {
 impl Default for FileTransfer {
     fn default() -> Self {
         Self {
-            save_directory: default_save_directory(),
+            save_directory: None,
             passive: default_passive(),
             timeout: default_timeout(),
             server: None,
