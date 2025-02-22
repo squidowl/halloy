@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Customize default pane splitting direction (vertical or horizontal)
+
 # 2025.2 (2025-02-20)
 
 Added:
