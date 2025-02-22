@@ -35,10 +35,6 @@ fn default_timeout() -> u64 {
     60 * 5
 }
 
-fn default_save_directory() -> PathBuf {
-    dirs_next::download_dir().unwrap_or(PathBuf::from("/tmp/"))
-}
-
 #[derive(Debug, Clone)]
 pub struct Server {
     /// Address advertised to the remote user to connect to

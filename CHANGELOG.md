@@ -1,5 +1,13 @@
 # Unreleased
 
+Added:
+
+- Time remaining is now displayed during file transfers
+
+Changed:
+
+- [file_transfer.save_directory] is now default download path for transfers. If set, files will be downloaded there by default. Otherwise, you'll be prompted to choose a location.
+  
 # 2025.2 (2025-02-20)
 
 Added:
