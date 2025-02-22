@@ -302,16 +302,12 @@ impl Dashboard {
                                             );
                                         }
                                         buffer::user_context::Event::SendFile(server, nick) => {
-                                            let starting_directory =
-                                                config.file_transfer.save_directory.clone();
-
                                             return (
                                                 Task::batch(vec![
                                                     task,
                                                     Task::perform(
                                                         async move {
                                                             rfd::AsyncFileDialog::new()
-                                                                .set_directory(starting_directory)
                                                                 .pick_file()
                                                                 .await
                                                                 .map(|handle| {
@@ -737,11 +733,11 @@ impl Dashboard {
                                 command_bar::Configuration::OpenCacheDirectory => {
                                     let _ = open::that_detached(environment::cache_dir());
                                     (Task::none(), None)
-                                },
+                                }
                                 command_bar::Configuration::OpenDataDirectory => {
                                     let _ = open::that_detached(environment::data_dir());
                                     (Task::none(), None)
-                                },
+                                }
                                 command_bar::Configuration::OpenWebsite => {
                                     let _ = open::that_detached(environment::WIKI_WEBSITE);
                                     (Task::none(), None)
@@ -774,7 +770,9 @@ impl Dashboard {
                                 }
                             },
                             command_bar::Command::Window(command) => match command {
-                                command_bar::Window::ToggleFullscreen => (window::toggle_fullscreen(), None),
+                                command_bar::Window::ToggleFullscreen => {
+                                    (window::toggle_fullscreen(), None)
+                                }
                             },
                         };
 
@@ -951,9 +949,7 @@ impl Dashboard {
                             None,
                         );
                     }
-                    ToggleFullscreen => {
-                        return (window::toggle_fullscreen(), None)
-                    },
+                    ToggleFullscreen => return (window::toggle_fullscreen(), None),
                 }
             }
             Message::FileTransfer(update) => {

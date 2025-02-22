@@ -70,18 +70,27 @@ impl FileTransfers {
         match message {
             Message::Approve(id) => {
                 if let Some(transfer) = file_transfers.get(&id).cloned() {
-                    let save_directory = config.file_transfer.save_directory.clone();
-                    return Task::perform(
-                        async move {
-                            rfd::AsyncFileDialog::new()
-                                .set_directory(save_directory)
-                                .set_file_name(transfer.filename)
-                                .save_file()
-                                .await
-                                .map(|handle| handle.path().to_path_buf())
-                        },
-                        move |path| Message::SavePathSelected(id, path),
-                    );
+                    match &config.file_transfer.save_directory {
+                        Some(save_directory) => {
+                            let file_save_directory = save_directory.join(transfer.filename);
+                            return Task::done(Message::SavePathSelected(
+                                id,
+                                Some(file_save_directory),
+                            ));
+                        }
+                        None => {
+                            return Task::perform(
+                                async move {
+                                    rfd::AsyncFileDialog::new()
+                                        .set_file_name(transfer.filename)
+                                        .save_file()
+                                        .await
+                                        .map(|handle| handle.path().to_path_buf())
+                                },
+                                move |path| Message::SavePathSelected(id, path),
+                            )
+                        }
+                    }
                 }
             }
             Message::SavePathSelected(id, path) => {
@@ -99,6 +108,8 @@ impl FileTransfers {
 }
 
 mod transfer_row {
+    use std::time::Duration;
+
     use super::Message;
     use bytesize::ByteSize;
     use data::file_transfer::{self, FileTransfer};
@@ -160,13 +171,25 @@ mod transfer_row {
                 transferred,
                 elapsed,
             } => {
-                let transfer_speed = if elapsed.as_secs() == 0 {
+                let transfer_speed_and_remaining_time = if elapsed.as_secs() == 0 {
                     String::default()
                 } else {
                     let bytes_per_second = *transferred / elapsed.as_secs();
                     let transfer_speed = ByteSize::b(bytes_per_second);
 
-                    format!("({transfer_speed}/s)")
+                    let remaining_bytes = transfer.size.saturating_sub(*transferred);
+                    let remaining_time = if bytes_per_second > 0 {
+                        let estimated_seconds = remaining_bytes / bytes_per_second;
+                        let readable_time_left =
+                            humantime::format_duration(Duration::from_secs(estimated_seconds))
+                                .to_string();
+
+                        format!("| {readable_time_left}")
+                    } else {
+                        String::default()
+                    };
+
+                    format!("({transfer_speed}/s) {remaining_time}")
                 };
 
                 let transferred = ByteSize::b(*transferred);
@@ -178,8 +201,10 @@ mod transfer_row {
 
                 container(
                     column![
-                        text(format!("{transferred} of {file_size} {transfer_speed}"))
-                            .style(theme::text::secondary),
+                        text(format!(
+                            "{transferred} of {file_size} {transfer_speed_and_remaining_time}"
+                        ))
+                        .style(theme::text::secondary),
                         progress_bar
                     ]
                     .spacing(0),
