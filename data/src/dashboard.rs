@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::buffer::Buffer;
 use crate::pane::Pane;
 use crate::{buffer, compression, environment};
 
@@ -14,6 +15,7 @@ pub struct Dashboard {
     pub popout_panes: Vec<Pane>,
     #[serde(default)]
     pub buffer_settings: BufferSettings,
+    pub focus_buffer: Option<Buffer>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

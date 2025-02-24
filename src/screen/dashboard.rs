@@ -115,8 +115,7 @@ impl Dashboard {
     ) -> (Self, Task<Message>) {
         let (mut dashboard, task) = Dashboard::from_data(dashboard, config, main_window);
 
-        let tasks = Task::batch(vec![task, dashboard.track()])
-            .chain(dashboard.focus_first_pane(main_window, main_window.id));
+        let tasks = Task::batch(vec![task, dashboard.track()]);
 
         (dashboard, tasks)
     }
@@ -1761,6 +1760,8 @@ impl Dashboard {
         let task = if self.focus != Some((window, pane)) {
             self.focus = Some((window, pane));
 
+            self.last_changed = Some(Instant::now());
+
             if window == main_window.id {
                 self.focus_history.push_front(pane);
 
@@ -2144,7 +2145,20 @@ impl Dashboard {
             tasks.push(dashboard.open_popout_window(main_window, pane));
         }
 
-        (dashboard, Task::batch(tasks))
+        let focus = dashboard
+            .panes
+            .iter(main_window.id)
+            .find_map(|(window, pane, state)| {
+                (state.buffer.data() == data.focus_buffer).then_some((window, pane))
+            });
+
+        let tasks = if let Some((window, pane)) = focus {
+            Task::batch(tasks).chain(dashboard.focus_pane(main_window, window, pane))
+        } else {
+            Task::batch(tasks).chain(dashboard.focus_first_pane(main_window, main_window.id))
+        };
+
+        (dashboard, tasks)
     }
 
     pub fn history(&self) -> &history::Manager {
@@ -2332,6 +2346,22 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
                 .map(|state| from_layout(state, state.layout().clone()))
                 .collect(),
             buffer_settings: dashboard.buffer_settings.clone(),
+            focus_buffer: dashboard.focus.and_then(|(window, pane)| {
+                dashboard
+                    .panes
+                    .popout
+                    .iter()
+                    .find_map(|(w, panes)| {
+                        panes.iter().find_map(|(p, state)| {
+                            (*w == window && *p == pane)
+                                .then_some(state.buffer.data())
+                                .flatten()
+                        })
+                    })
+                    .or(dashboard.panes.main.iter().find_map(|(p, state)| {
+                        (*p == pane).then_some(state.buffer.data()).flatten()
+                    }))
+            }),
         }
     }
 }
