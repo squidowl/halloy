@@ -1,4 +1,4 @@
-use std::collections::{hash_map, HashMap, HashSet};
+use std::collections::{hash_map, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
@@ -36,11 +36,13 @@ pub mod pane;
 pub mod sidebar;
 mod theme_editor;
 
+const FOCUS_HISTORY_LEN: usize = 8;
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
 pub struct Dashboard {
     panes: Panes,
     focus: Option<(window::Id, pane_grid::Pane)>,
+    focus_history: VecDeque<pane_grid::Pane>,
     side_menu: Sidebar,
     history: history::Manager,
     last_changed: Option<Instant>,
@@ -89,6 +91,7 @@ impl Dashboard {
                 popout: HashMap::new(),
             },
             focus: None,
+            focus_history: VecDeque::new(),
             side_menu: Sidebar::new(),
             history: history::Manager::default(),
             last_changed: None,
@@ -112,16 +115,10 @@ impl Dashboard {
     ) -> (Self, Task<Message>) {
         let (mut dashboard, task) = Dashboard::from_data(dashboard, config, main_window);
 
-        let command = if let Some((pane, _)) = dashboard.panes.main.panes.iter().next() {
-            Task::batch(vec![
-                dashboard.focus_pane(main_window, main_window.id, *pane),
-                dashboard.track(),
-            ])
-        } else {
-            dashboard.track()
-        };
+        let tasks = Task::batch(vec![task, dashboard.track()])
+            .chain(dashboard.focus_first_pane(main_window, main_window.id));
 
-        (dashboard, Task::batch(vec![task, command]))
+        (dashboard, tasks)
     }
 
     pub fn update(
@@ -599,6 +596,9 @@ impl Dashboard {
                     sidebar::Event::OpenDocumentation => {
                         let _ = open::that_detached(WIKI_WEBSITE);
                         (Task::none(), None)
+                    }
+                    sidebar::Event::MaintainFocus => {
+                        (self.focus_focused_pane_buffer(main_window), None)
                     }
                 };
 
@@ -1729,27 +1729,70 @@ impl Dashboard {
         self.history.get_unique_queries(server)
     }
 
-    fn focus_pane(
-        &mut self,
-        main_window: &Window,
-        window: window::Id,
-        pane: pane_grid::Pane,
-    ) -> Task<Message> {
-        if self.focus != Some((window, pane)) {
-            self.focus = Some((window, pane));
-
-            if let Some(task) = self.panes.iter(main_window.id).find_map(|(w, p, state)| {
+    pub fn focus_focused_pane_buffer(&mut self, main_window: &Window) -> Task<Message> {
+        if let Some((window, pane)) = self.focus {
+            if let Some(focus_buffer) = self.panes.iter(main_window.id).find_map(|(w, p, state)| {
                 (w == window && p == pane).then(|| {
                     state.buffer.focus().map(move |message| {
                         Message::Pane(window, pane::Message::Buffer(pane, message))
                     })
                 })
             }) {
-                return Task::batch(vec![task, window::gain_focus(window)]);
+                return focus_buffer;
             }
         }
 
         Task::none()
+    }
+
+    fn focus_pane(
+        &mut self,
+        main_window: &Window,
+        window: window::Id,
+        pane: pane_grid::Pane,
+    ) -> Task<Message> {
+        let task = if self.focus != Some((window, pane)) {
+            self.focus = Some((window, pane));
+
+            if window == main_window.id {
+                self.focus_history.push_front(pane);
+
+                self.focus_history.truncate(FOCUS_HISTORY_LEN);
+            }
+
+            window::gain_focus(window)
+        } else {
+            Task::none()
+        };
+
+        task.chain(self.focus_focused_pane_buffer(main_window))
+    }
+
+    pub fn focus_first_pane(&mut self, main_window: &Window, window: window::Id) -> Task<Message> {
+        let pane = self
+            .panes
+            .iter(main_window.id)
+            .find_map(|(w, pane, _)| (w == window).then_some(pane));
+
+        pane.map_or(Task::none(), |pane| {
+            self.focus_pane(main_window, window, pane)
+        })
+    }
+
+    pub fn focus_last_focused_or_first_pane(
+        &mut self,
+        main_window: &Window,
+        window: window::Id,
+    ) -> Task<Message> {
+        if let Some(pane) = self
+            .focus_history
+            .front()
+            .filter(|_| window == main_window.id)
+        {
+            self.focus_pane(main_window, window, *pane)
+        } else {
+            self.focus_first_pane(main_window, window)
+        }
     }
 
     fn maximize_pane(&mut self) {
@@ -1830,6 +1873,15 @@ impl Dashboard {
         self.last_changed = Some(Instant::now());
 
         if window == main_window.id {
+            self.focus_history = self
+                .focus_history
+                .clone()
+                .into_iter()
+                .filter(|p| *p != pane)
+                .collect();
+        }
+
+        if window == main_window.id {
             if let Some((_, sibling)) = self.panes.main.close(pane) {
                 return self.focus_pane(main_window, main_window.id, sibling);
             } else if let Some(pane) = self.panes.main.get_mut(pane) {
@@ -1844,6 +1896,13 @@ impl Dashboard {
 
     fn popout_pane(&mut self, main_window: &Window) -> Task<Message> {
         if let Some((_, pane)) = self.focus.take() {
+            self.focus_history = self
+                .focus_history
+                .clone()
+                .into_iter()
+                .filter(|p| *p != pane)
+                .collect();
+
             if let Some((pane, _)) = self.panes.main.close(pane) {
                 return self.open_popout_window(main_window, pane);
             }
@@ -2055,6 +2114,7 @@ impl Dashboard {
                 popout: HashMap::new(),
             },
             focus: None,
+            focus_history: VecDeque::new(),
             side_menu: Sidebar::new(),
             history: history::Manager::default(),
             last_changed: None,
@@ -2086,6 +2146,7 @@ impl Dashboard {
 
     pub fn handle_window_event(
         &mut self,
+        main_window: &Window,
         id: window::Id,
         event: window::Event,
         theme: &mut Theme,
@@ -2096,9 +2157,11 @@ impl Dashboard {
                     self.panes.popout.remove(&id);
                     return window::close(id);
                 }
+                window::Event::Focused => {
+                    return self.focus_first_pane(main_window, id);
+                }
                 window::Event::Moved(_)
                 | window::Event::Resized(_)
-                | window::Event::Focused
                 | window::Event::Unfocused
                 | window::Event::Opened { .. } => {}
             }
