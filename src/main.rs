@@ -466,7 +466,7 @@ impl Halloy {
                         return Task::none();
                     };
 
-                    if is_initial {
+                    let broadcast = if is_initial {
                         self.notifications.notify(
                             &self.config.notifications,
                             &Notification::Connected,
@@ -486,7 +486,13 @@ impl Halloy {
                         dashboard
                             .broadcast(&server, &self.config, sent_time, Broadcast::Reconnected)
                             .map(Message::Dashboard)
-                    }
+                    };
+
+                    let focus_focused_pane_buffer = dashboard
+                        .focus_focused_pane_buffer(&self.main_window)
+                        .map(Message::Dashboard);
+
+                    Task::batch(vec![broadcast, focus_focused_pane_buffer])
                 }
                 stream::Update::ConnectionFailed {
                     server,
@@ -984,13 +990,28 @@ impl Halloy {
                         }
                     }
 
-                    Task::perform(
+                    let mut tasks = vec![Task::perform(
                         data::Window::from(self.main_window).save(),
                         Message::WindowSettingsSaved,
-                    )
+                    )];
+
+                    if let Some(Screen::Dashboard(dashboard)) =
+                        matches!(event, window::Event::Focused).then_some(&mut self.screen)
+                    {
+                        tasks.push(
+                            dashboard
+                                .focus_last_focused_or_first_pane(
+                                    &self.main_window,
+                                    self.main_window.id,
+                                )
+                                .map(Message::Dashboard),
+                        )
+                    }
+
+                    Task::batch(tasks)
                 } else if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
-                        .handle_window_event(id, event, &mut self.theme)
+                        .handle_window_event(&self.main_window, id, event, &mut self.theme)
                         .map(Message::Dashboard)
                 } else {
                     Task::none()

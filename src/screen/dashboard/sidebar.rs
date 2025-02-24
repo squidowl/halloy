@@ -33,7 +33,7 @@ pub enum Message {
     OpenReleaseWebsite,
     OpenDocumentation,
     ReloadComplete,
-    Noop,
+    MaintainFocus,
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +51,7 @@ pub enum Event {
     OpenReleaseWebsite,
     OpenDocumentation,
     ConfigReloaded(Result<Config, config::Error>),
+    MaintainFocus,
 }
 
 #[derive(Clone)]
@@ -111,7 +112,7 @@ impl Sidebar {
                 self.reloading_config = false;
                 (Task::none(), None)
             }
-            Message::Noop => (Task::none(), None),
+            Message::MaintainFocus => (Task::none(), Some(Event::MaintainFocus)),
             Message::OpenDocumentation => (Task::none(), Some(Event::OpenDocumentation)),
         }
     }
@@ -125,7 +126,7 @@ impl Sidebar {
         let base = button(icon::menu())
             .padding(5)
             .width(Length::Shrink)
-            .on_press(Message::Noop);
+            .on_press(Message::MaintainFocus);
 
         let menu = Menu::list();
 
@@ -576,7 +577,7 @@ fn upstream_buffer_button(
                             BufferFocusedAction::ClosePane => Some(Message::Close(window, pane)),
                         }
                     } else {
-                        None
+                        Some(Message::Focus(window, pane))
                     }
                 }
                 None => {
