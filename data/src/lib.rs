@@ -41,6 +41,7 @@ pub mod mode;
 pub mod notification;
 pub mod pane;
 pub mod preview;
+pub mod serde;
 pub mod server;
 pub mod shortcut;
 pub mod stream;
