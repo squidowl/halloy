@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::buffer::Buffer;
 use crate::pane::Pane;
+use crate::serde::fail_as_none;
 use crate::{compression, environment};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,7 +13,7 @@ pub struct Dashboard {
     pub pane: Pane,
     #[serde(default)]
     pub popout_panes: Vec<Pane>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "fail_as_none")]
     pub focus_buffer: Option<Buffer>,
 }
 
