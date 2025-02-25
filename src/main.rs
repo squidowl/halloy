@@ -146,7 +146,7 @@ impl Halloy {
             Err(error) => {
                 log::warn!("failed to load dashboard: {error}");
 
-                screen::Dashboard::empty(config)
+                screen::Dashboard::empty(config, &main_window)
             }
         };
 
@@ -489,7 +489,7 @@ impl Halloy {
                     };
 
                     let focus_focused_pane_buffer = dashboard
-                        .focus_focused_pane_buffer(&self.main_window)
+                        .focus_focused_pane_buffer()
                         .map(Message::Dashboard);
 
                     Task::batch(vec![broadcast, focus_focused_pane_buffer])
@@ -895,7 +895,6 @@ impl Halloy {
                             &self.version,
                             &self.config,
                             &mut self.theme,
-                            &self.main_window,
                         )
                         .map(Message::Dashboard);
                 }
@@ -1003,10 +1002,7 @@ impl Halloy {
                     {
                         tasks.push(
                             dashboard
-                                .focus_last_focused_or_first_pane(
-                                    &self.main_window,
-                                    self.main_window.id,
-                                )
+                                .focus_last_focused_or_first_pane(self.main_window.id)
                                 .map(Message::Dashboard),
                         )
                     }
@@ -1014,7 +1010,7 @@ impl Halloy {
                     Task::batch(tasks)
                 } else if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
-                        .handle_window_event(&self.main_window, id, event, &mut self.theme)
+                        .handle_window_event(id, event, &mut self.theme)
                         .map(Message::Dashboard)
                 } else {
                     Task::none()
@@ -1068,13 +1064,7 @@ impl Halloy {
         let content = if id == self.main_window.id {
             let screen = match &self.screen {
                 Screen::Dashboard(dashboard) => dashboard
-                    .view(
-                        &self.clients,
-                        &self.version,
-                        &self.config,
-                        &self.theme,
-                        &self.main_window,
-                    )
+                    .view(&self.clients, &self.version, &self.config, &self.theme)
                     .map(Message::Dashboard),
                 Screen::Help(help) => help.view().map(Message::Help),
                 Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
@@ -1098,13 +1088,7 @@ impl Halloy {
             }
         } else if let Screen::Dashboard(dashboard) = &self.screen {
             dashboard
-                .view_window(
-                    id,
-                    &self.clients,
-                    &self.config,
-                    &self.theme,
-                    &self.main_window,
-                )
+                .view_window(id, &self.clients, &self.config, &self.theme)
                 .map(Message::Dashboard)
         } else {
             column![].into()

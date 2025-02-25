@@ -246,7 +246,6 @@ impl Sidebar {
         keyboard: &'a data::config::Keyboard,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
-        main_window: window::Id,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -262,7 +261,6 @@ impl Sidebar {
             match state {
                 data::client::State::Disconnected => {
                     buffers.push(upstream_buffer_button(
-                        main_window,
                         panes,
                         focus,
                         buffer::Upstream::Server(server.clone()),
@@ -276,7 +274,6 @@ impl Sidebar {
                 }
                 data::client::State::Ready(connection) => {
                     buffers.push(upstream_buffer_button(
-                        main_window,
                         panes,
                         focus,
                         buffer::Upstream::Server(server.clone()),
@@ -290,7 +287,6 @@ impl Sidebar {
 
                     for channel in connection.channels() {
                         buffers.push(upstream_buffer_button(
-                            main_window,
                             panes,
                             focus,
                             buffer::Upstream::Channel(server.clone(), channel.clone()),
@@ -311,7 +307,6 @@ impl Sidebar {
                         let query = clients.resolve_query(server, query).unwrap_or(query);
 
                         buffers.push(upstream_buffer_button(
-                            main_window,
                             panes,
                             focus,
                             buffer::Upstream::Query(server.clone(), query.clone()),
@@ -469,7 +464,6 @@ impl Entry {
 }
 
 fn upstream_buffer_button(
-    main_window: window::Id,
     panes: &Panes,
     focus: Option<(window::Id, pane_grid::Pane)>,
     buffer: buffer::Upstream,
@@ -480,17 +474,13 @@ fn upstream_buffer_button(
     unread_indicator: sidebar::UnreadIndicator,
     has_unread: bool,
 ) -> Element<Message> {
-    let open = panes
-        .iter(main_window)
-        .find_map(|(window_id, pane, state)| {
-            (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
-        });
-    let is_focused = panes
-        .iter(main_window)
-        .find_map(|(window_id, pane, state)| {
-            (Some((window_id, pane)) == focus && state.buffer.upstream() == Some(&buffer))
-                .then_some((window_id, pane))
-        });
+    let open = panes.iter().find_map(|(window_id, pane, state)| {
+        (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
+    });
+    let is_focused = panes.iter().find_map(|(window_id, pane, state)| {
+        (Some((window_id, pane)) == focus && state.buffer.upstream() == Some(&buffer))
+            .then_some((window_id, pane))
+    });
 
     let show_unread_indicator =
         has_unread && matches!(unread_indicator, sidebar::UnreadIndicator::Dot);
