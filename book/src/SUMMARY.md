@@ -25,6 +25,7 @@
   - [Font](configuration/font.md)
   - [Keyboard](configuration/keyboard.md)
   - [Notifications](configuration/notifications.md)
+  - [Pane](configuration/pane.md)
   - [Proxy](configuration/proxy.md)
   - [Preview](configuration/preview.md)
   - [Scale factor](configuration/scale-factor.md)
