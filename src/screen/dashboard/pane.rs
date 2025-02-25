@@ -1,10 +1,9 @@
-use data::{file_transfer, history, preview, Config};
+use data::{Config, file_transfer, history, preview};
 use iced::widget::{button, center, container, pane_grid, row, text};
 
 use crate::buffer::{self, Buffer};
 use crate::widget::tooltip;
-use crate::window::{self, Window};
-use crate::{icon, theme, widget, Theme};
+use crate::{Theme, icon, theme, widget};
 
 use super::sidebar;
 
@@ -45,7 +44,6 @@ impl Pane {
     pub fn view<'a>(
         &'a self,
         id: pane_grid::Pane,
-        window: window::Id,
         panes: usize,
         is_focused: bool,
         maximized: bool,
@@ -56,11 +54,9 @@ impl Pane {
         sidebar: &'a sidebar::Sidebar,
         config: &'a Config,
         theme: &'a Theme,
-        main_window: &'a Window,
         settings: Option<&'a buffer::Settings>,
+        is_popout: bool,
     ) -> widget::Content<'a, Message> {
-        let is_popout = window != main_window.id;
-
         let title_bar_text = match &self.buffer {
             Buffer::Empty => "".to_string(),
             Buffer::Channel(state) => {
@@ -221,7 +217,9 @@ impl TitleBar {
                 .width(22)
                 .height(22)
                 .on_press(Message::ToggleShowUserList)
-                .style(move |theme, status| theme::button::secondary(theme, status, nicklist_enabled));
+                .style(move |theme, status| {
+                    theme::button::secondary(theme, status, nicklist_enabled)
+                });
 
             let nicklist_button_with_tooltip = tooltip(
                 nicklist_button,
@@ -247,13 +245,7 @@ impl TitleBar {
 
             let maximize_button_with_tooltip = tooltip(
                 maximize_button,
-                show_tooltips.then_some({
-                    if maximized {
-                        "Restore"
-                    } else {
-                        "Maximize"
-                    }
-                }),
+                show_tooltips.then_some(if maximized { "Restore" } else { "Maximize" }),
                 tooltip::Position::Bottom,
             );
 

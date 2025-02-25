@@ -246,7 +246,6 @@ impl Sidebar {
         keyboard: &'a data::config::Keyboard,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
-        main_window: window::Id,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -262,7 +261,6 @@ impl Sidebar {
             for (i, (server, state)) in clients.iter().enumerate() {
                 let button = |buffer: buffer::Upstream, connected: bool, has_unread: bool| {
                     upstream_buffer_button(
-                        main_window,
                         panes,
                         focus,
                         buffer,
@@ -466,7 +464,6 @@ impl Entry {
 }
 
 fn upstream_buffer_button(
-    main_window: window::Id,
     panes: &Panes,
     focus: Option<(window::Id, pane_grid::Pane)>,
     buffer: buffer::Upstream,
@@ -478,17 +475,13 @@ fn upstream_buffer_button(
     has_unread: bool,
     width: Length,
 ) -> Element<Message> {
-    let open = panes
-        .iter(main_window)
-        .find_map(|(window_id, pane, state)| {
-            (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
-        });
-    let is_focused = panes
-        .iter(main_window)
-        .find_map(|(window_id, pane, state)| {
-            (Some((window_id, pane)) == focus && state.buffer.upstream() == Some(&buffer))
-                .then_some((window_id, pane))
-        });
+    let open = panes.iter().find_map(|(window_id, pane, state)| {
+        (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
+    });
+    let is_focused = panes.iter().find_map(|(window_id, pane, state)| {
+        (Some((window_id, pane)) == focus && state.buffer.upstream() == Some(&buffer))
+            .then_some((window_id, pane))
+    });
 
     let show_unread_indicator =
         has_unread && matches!(unread_indicator, sidebar::UnreadIndicator::Dot);
