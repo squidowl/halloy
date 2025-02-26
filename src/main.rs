@@ -901,6 +901,18 @@ impl Halloy {
                     handle_irc_error(e);
                 }
 
+                // Detect apperance changes.
+                if let data::appearance::Selected::Dynamic { light, dark } =
+                    &self.config.appearance.selected
+                {
+                    if let Some(mode) = appearance::detect() {
+                        self.theme = match mode {
+                            appearance::Mode::Dark => dark.clone().into(),
+                            appearance::Mode::Light => light.clone().into(),
+                        }
+                    }
+                }
+
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.tick(now).map(Message::Dashboard)
                 } else {
@@ -1122,9 +1134,6 @@ impl Halloy {
             url::listen().map(Message::RouteReceived),
             events().map(|(window, event)| Message::Event(window, event)),
             window::events().map(|(window, event)| Message::Window(window, event)),
-            // Enable once dark_light has a proper way to detect appereance changes without spiking CPU.
-            // See: https://github.com/frewsxcv/rust-dark-light/issues/47
-            // appearance::subscription().map(Message::AppearanceChange),
             tick,
             streams,
         ])
