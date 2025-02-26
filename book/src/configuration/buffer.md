@@ -435,7 +435,7 @@ include = ["#halloy"]
 # Disable all part messages
 
 [buffer.server_messages.part]
-enable = false
+enabled = false
 ```
 
 ### `enabled`
