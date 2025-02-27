@@ -2619,6 +2619,7 @@ dependencies = [
  "emojis",
  "fern",
  "futures",
+ "humantime",
  "iced",
  "image 0.24.9",
  "ipc",

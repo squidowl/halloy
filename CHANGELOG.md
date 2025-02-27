@@ -2,6 +2,11 @@
 
 Added:
 
+- Time remaining is now displayed during file transfers
+
+Changed:
+
+- [file_transfer.save_directory] is now default download path for transfers. If set, files will be downloaded there by default. Otherwise, you'll be prompted to choose a location.
 - Customize default pane splitting direction (vertical or horizontal)
 
 # 2025.2 (2025-02-20)
