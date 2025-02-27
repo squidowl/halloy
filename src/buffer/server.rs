@@ -1,4 +1,5 @@
-use data::{buffer, history, message, target, Config};
+use data::target::Target;
+use data::{buffer, history, message, Config};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Length, Task};
 
@@ -14,7 +15,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(target::Channel),
+    OpenBuffer(Target, Option<Task<history::manager::Message>>),
     History(Task<history::manager::Message>),
 }
 
@@ -150,7 +151,9 @@ impl Server {
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
-                    scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
+                    scroll_view::Event::OpenChannel(channel) => {
+                        Some(Event::OpenBuffer(Target::Channel(channel), None))
+                    }
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
@@ -173,6 +176,10 @@ impl Server {
                         ]),
                         Some(Event::History(history_task)),
                     ),
+                    Some(input_view::Event::OpenBuffer {
+                        target,
+                        history_task,
+                    }) => (command, Some(Event::OpenBuffer(target, Some(history_task)))),
                     None => (command, None),
                 }
             }

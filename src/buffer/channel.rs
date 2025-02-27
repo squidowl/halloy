@@ -1,7 +1,8 @@
 use data::server::Server;
+use data::target::{self, Target};
 use data::user::Nick;
 use data::{buffer, preview, User};
-use data::{channel, history, message, target, Config};
+use data::{channel, history, message, Config};
 use iced::widget::{column, container, row};
 use iced::{alignment, padding, Length, Task};
 
@@ -21,7 +22,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(target::Channel),
+    OpenBuffer(Target, Option<Task<history::manager::Message>>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
@@ -381,7 +382,9 @@ impl Channel {
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
-                    scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
+                    scroll_view::Event::OpenChannel(channel) => {
+                        Some(Event::OpenBuffer(Target::Channel(channel), None))
+                    }
                     scroll_view::Event::GoToMessage(..) => None,
                     scroll_view::Event::RequestOlderChatHistory => {
                         Some(Event::RequestOlderChatHistory)
@@ -409,6 +412,10 @@ impl Channel {
 
                         (command, Some(Event::History(history_task)))
                     }
+                    Some(input_view::Event::OpenBuffer {
+                        target,
+                        history_task,
+                    }) => (command, Some(Event::OpenBuffer(target, Some(history_task)))),
                     None => (command, None),
                 }
             }
@@ -420,7 +427,9 @@ impl Channel {
                 Task::none(),
                 topic::update(message).map(|event| match event {
                     topic::Event::UserContext(event) => Event::UserContext(event),
-                    topic::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    topic::Event::OpenChannel(channel) => {
+                        Event::OpenBuffer(Target::Channel(channel), None)
+                    }
                 }),
             ),
         }
