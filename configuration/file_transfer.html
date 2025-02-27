@@ -160,13 +160,13 @@
                         <h1 id="file_transfer"><a class="header" href="#file_transfer"><code>[file_transfer]</code></a></h1>
 <p>File transfer configuration options.</p>
 <h2 id="save_directory"><a class="header" href="#save_directory"><code>save_directory</code></a></h2>
-<p>Default directory to open when prompted to save a file.</p>
+<p>Default directory to save files in. If not set, user will see a file dialog.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
-# Default: "$HOME/Downloads"
+# Default: not set
 
 [file_transfer]
-save_directory = "$HOME/Downloads"
+save_directory = "/Users/halloy/Downloads"
 </code></pre>
 <h2 id="passive"><a class="header" href="#passive"><code>passive</code></a></h2>
 <p>If true, act as the "client" for the transfer. Requires the remote user act as the <a href="#file_transferserver-section">server</a>.</p>
