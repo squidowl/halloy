@@ -1,6 +1,7 @@
 pub use data::buffer::{Internal, Settings, Upstream};
+use data::target::{self, Target};
 use data::user::Nick;
-use data::{buffer, file_transfer, history, message, preview, target, Config};
+use data::{buffer, file_transfer, history, message, preview, Config};
 use iced::Task;
 
 pub use self::channel::Channel;
@@ -47,7 +48,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(target::Channel),
+    OpenBuffer(Target, Option<Task<history::manager::Message>>),
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -108,7 +109,9 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     channel::Event::UserContext(event) => Event::UserContext(event),
-                    channel::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    channel::Event::OpenBuffer(target, history_task) => {
+                        Event::OpenBuffer(target, history_task)
+                    }
                     channel::Event::History(task) => Event::History(task),
                     channel::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                     channel::Event::PreviewChanged => Event::PreviewChanged,
@@ -124,7 +127,9 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     server::Event::UserContext(event) => Event::UserContext(event),
-                    server::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    server::Event::OpenBuffer(target, history_task) => {
+                        Event::OpenBuffer(target, history_task)
+                    }
                     server::Event::History(task) => Event::History(task),
                 });
 
@@ -135,7 +140,9 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     query::Event::UserContext(event) => Event::UserContext(event),
-                    query::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    query::Event::OpenBuffer(target, history_task) => {
+                        Event::OpenBuffer(target, history_task)
+                    }
                     query::Event::History(task) => Event::History(task),
                     query::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                     query::Event::PreviewChanged => Event::PreviewChanged,
@@ -156,7 +163,9 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     logs::Event::UserContext(event) => Event::UserContext(event),
-                    logs::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    logs::Event::OpenChannel(channel) => {
+                        Event::OpenBuffer(Target::Channel(channel), None)
+                    }
                     logs::Event::History(task) => Event::History(task),
                 });
 
@@ -167,7 +176,9 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     highlights::Event::UserContext(event) => Event::UserContext(event),
-                    highlights::Event::OpenChannel(channel) => Event::OpenChannel(channel),
+                    highlights::Event::OpenChannel(channel) => {
+                        Event::OpenBuffer(Target::Channel(channel), None)
+                    }
                     highlights::Event::GoToMessage(server, channel, message) => {
                         Event::GoToMessage(server, channel, message)
                     }
@@ -195,14 +206,7 @@ impl Buffer {
         match self {
             Buffer::Empty => empty::view(config, sidebar),
             Buffer::Channel(state) => channel::view(
-                state,
-                clients,
-                history,
-                previews,
-                settings,
-                config,
-                theme,
-                is_focused,
+                state, clients, history, previews, settings, config, theme, is_focused,
             )
             .map(Message::Channel),
             Buffer::Server(state) => {

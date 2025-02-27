@@ -1,4 +1,6 @@
+use data::command::Command;
 use data::input::{self, Cache, Draft};
+use data::target::Target;
 use data::user::Nick;
 use data::{buffer, client, history, Config};
 use iced::widget::{container, row, text, text_input};
@@ -12,6 +14,10 @@ mod completion;
 
 pub enum Event {
     InputSent {
+        history_task: Task<history::manager::Message>,
+    },
+    OpenBuffer {
+        target: Target,
         history_task: Task<history::manager::Message>,
     },
 }
@@ -186,9 +192,12 @@ impl State {
                         }
                     };
 
-                    if let Some(encoded) = input.encoded() {
+                    let internal_command = if let Some(encoded) = input.encoded() {
                         clients.send(buffer, encoded);
-                    }
+                        None
+                    } else {
+                        input.internal()
+                    };
 
                     let mut history_task = Task::none();
 
@@ -226,7 +235,22 @@ impl State {
                         );
                     }
 
-                    (Task::none(), Some(Event::InputSent { history_task }))
+                    if let Some(Command::OpenBuffer(target)) = internal_command {
+                        (
+                            Task::none(),
+                            Some(Event::OpenBuffer {
+                                target: Target::parse(
+                                    target.as_ref(),
+                                    clients.get_chantypes(buffer.server()),
+                                    clients.get_statusmsg(buffer.server()),
+                                    clients.get_casemapping(buffer.server()),
+                                ),
+                                history_task,
+                            }),
+                        )
+                    } else {
+                        (Task::none(), Some(Event::InputSent { history_task }))
+                    }
                 } else {
                     (Task::none(), None)
                 }
