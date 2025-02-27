@@ -4,15 +4,15 @@ File transfer configuration options.
 
 ## `save_directory`
 
-Default directory to open when prompted to save a file.
+Default directory to save files in. If not set, user will see a file dialog.
 
 ```toml
 # Type: string
 # Values: any string
-# Default: "$HOME/Downloads"
+# Default: not set
 
 [file_transfer]
-save_directory = "$HOME/Downloads"
+save_directory = "/Users/halloy/Downloads"
 ```
 
 ## `passive`

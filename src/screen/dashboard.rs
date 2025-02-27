@@ -303,16 +303,12 @@ impl Dashboard {
                                             );
                                         }
                                         buffer::user_context::Event::SendFile(server, nick) => {
-                                            let starting_directory =
-                                                config.file_transfer.save_directory.clone();
-
                                             return (
                                                 Task::batch(vec![
                                                     task,
                                                     Task::perform(
                                                         async move {
                                                             rfd::AsyncFileDialog::new()
-                                                                .set_directory(starting_directory)
                                                                 .pick_file()
                                                                 .await
                                                                 .map(|handle| {

@@ -627,9 +627,7 @@ where
         {
             let line_height = f32::from(
                 self.line_height.to_absolute(
-                    self.size
-                        .map(Pixels::from)
-                        .unwrap_or_else(|| renderer.default_size()),
+                    self.size.unwrap_or_else(|| renderer.default_size()),
                 ),
             );
 
