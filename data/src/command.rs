@@ -65,8 +65,32 @@ pub enum Command {
     Mode(String, Option<String>, Option<Vec<String>>),
     Away(Option<String>),
     SetName(String),
+    OpenBuffer(String),
     Raw(String),
     Unknown(String, Vec<String>),
+}
+
+impl Command {
+    pub fn is_internal(&self) -> bool {
+        match self {
+            Command::Join(_, _) => false,
+            Command::Motd(_) => false,
+            Command::Nick(_) => false,
+            Command::Quit(_) => false,
+            Command::Msg(_, _) => false,
+            Command::Me(_, _) => false,
+            Command::Whois(_, _) => false,
+            Command::Part(_, _) => false,
+            Command::Topic(_, _) => false,
+            Command::Kick(_, _, _) => false,
+            Command::Mode(_, _, _) => false,
+            Command::Away(_) => false,
+            Command::SetName(_) => false,
+            Command::OpenBuffer(_) => true,
+            Command::Raw(_) => false,
+            Command::Unknown(_, _) => false,
+        }
+    }
 }
 
 pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Error> {
@@ -102,9 +126,13 @@ pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Erro
             Kind::Motd => validated::<0, 1, false>(args, |_, [target]| Command::Motd(target)),
             Kind::Nick => validated::<1, 0, false>(args, |[nick], _| Command::Nick(nick)),
             Kind::Quit => validated::<0, 1, true>(args, |_, [comment]| Command::Quit(comment)),
-            Kind::Msg => {
-                validated::<2, 0, true>(args, |[target, msg], []| Command::Msg(target, msg))
-            }
+            Kind::Msg => validated::<1, 1, true>(args, |[target], [msg]| {
+                if let Some(msg) = msg {
+                    Command::Msg(target, msg)
+                } else {
+                    Command::OpenBuffer(target)
+                }
+            }),
             Kind::Me => {
                 if let Some(target) = buffer.and_then(|b| b.target()) {
                     validated::<1, 0, true>(args, |[text], _| Command::Me(target.to_string(), text))
@@ -210,27 +238,32 @@ impl TryFrom<Command> for proto::Command {
     type Error = ();
 
     fn try_from(command: Command) -> Result<Self, Self::Error> {
-        Ok(match command {
-            Command::Join(chanlist, chankeys) => proto::Command::JOIN(chanlist, chankeys),
-            Command::Motd(target) => proto::Command::MOTD(target),
-            Command::Nick(nick) => proto::Command::NICK(nick),
-            Command::Quit(comment) => proto::Command::QUIT(comment),
-            Command::Msg(target, msg) => proto::Command::PRIVMSG(target, msg),
-            Command::Me(target, text) => {
-                ctcp::query_command(&ctcp::Command::Action, target, Some(text))
+        match command {
+            Command::Join(chanlist, chankeys) => Ok(proto::Command::JOIN(chanlist, chankeys)),
+            Command::Motd(target) => Ok(proto::Command::MOTD(target)),
+            Command::Nick(nick) => Ok(proto::Command::NICK(nick)),
+            Command::Quit(comment) => Ok(proto::Command::QUIT(comment)),
+            Command::Msg(target, msg) => Ok(proto::Command::PRIVMSG(target, msg)),
+            Command::Me(target, text) => Ok(ctcp::query_command(
+                &ctcp::Command::Action,
+                target,
+                Some(text),
+            )),
+            Command::Whois(channel, user) => Ok(proto::Command::WHOIS(channel, user)),
+            Command::Part(chanlist, reason) => Ok(proto::Command::PART(chanlist, reason)),
+            Command::Topic(channel, topic) => Ok(proto::Command::TOPIC(channel, topic)),
+            Command::Kick(channel, user, comment) => {
+                Ok(proto::Command::KICK(channel, user, comment))
             }
-            Command::Whois(channel, user) => proto::Command::WHOIS(channel, user),
-            Command::Part(chanlist, reason) => proto::Command::PART(chanlist, reason),
-            Command::Topic(channel, topic) => proto::Command::TOPIC(channel, topic),
-            Command::Kick(channel, user, comment) => proto::Command::KICK(channel, user, comment),
             Command::Mode(target, modestring, modearguments) => {
-                proto::Command::MODE(target, modestring, modearguments)
+                Ok(proto::Command::MODE(target, modestring, modearguments))
             }
-            Command::Away(comment) => proto::Command::AWAY(comment),
-            Command::SetName(realname) => proto::Command::SETNAME(realname),
-            Command::Raw(raw) => proto::Command::Raw(raw),
-            Command::Unknown(command, args) => proto::Command::new(&command, args),
-        })
+            Command::Away(comment) => Ok(proto::Command::AWAY(comment)),
+            Command::SetName(realname) => Ok(proto::Command::SETNAME(realname)),
+            Command::OpenBuffer(_target) => Err(()),
+            Command::Raw(raw) => Ok(proto::Command::Raw(raw)),
+            Command::Unknown(command, args) => Ok(proto::Command::new(&command, args)),
+        }
     }
 }
 

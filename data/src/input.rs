@@ -114,6 +114,10 @@ impl Input {
     pub fn raw(&self) -> Option<&str> {
         self.raw.as_deref()
     }
+
+    pub fn internal(&self) -> Option<Command> {
+        self.content.internal(&self.buffer)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -137,6 +141,10 @@ impl Content {
         self.command(buffer)
             .and_then(|command| proto::Command::try_from(command).ok())
             .map(proto::Message::from)
+    }
+
+    fn internal(&self, buffer: &buffer::Upstream) -> Option<Command> {
+        self.command(buffer).filter(|command| command.is_internal())
     }
 }
 
