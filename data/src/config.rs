@@ -15,6 +15,7 @@ pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
 pub use self::keys::Keyboard;
 pub use self::notification::Notifications;
+pub use self::pane::Pane;
 pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
@@ -32,6 +33,7 @@ pub mod channel;
 pub mod file_transfer;
 pub mod keys;
 pub mod notification;
+pub mod pane;
 pub mod preview;
 pub mod proxy;
 pub mod server;
@@ -48,6 +50,7 @@ pub struct Config {
     pub font: Font,
     pub scale_factor: ScaleFactor,
     pub buffer: Buffer,
+    pub pane: Pane,
     pub sidebar: Sidebar,
     pub keyboard: Keyboard,
     pub notifications: Notifications<Sound>,
@@ -159,6 +162,8 @@ impl Config {
             #[serde(default)]
             pub buffer: Buffer,
             #[serde(default)]
+            pub pane: Pane,
+            #[serde(default)]
             pub sidebar: Sidebar,
             #[serde(default)]
             pub keyboard: Keyboard,
@@ -195,6 +200,7 @@ impl Config {
             file_transfer,
             tooltips,
             preview,
+            pane,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_passwords().await?;
@@ -218,6 +224,7 @@ impl Config {
             file_transfer,
             tooltips,
             preview,
+            pane,
         })
     }
 

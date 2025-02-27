@@ -274,6 +274,7 @@ impl Dashboard {
                                                         main_window,
                                                         data::Buffer::Upstream(buffer),
                                                         config.buffer.clone().into(),
+                                                        config,
                                                     ),
                                                 ]),
                                                 None,
@@ -372,6 +373,7 @@ impl Dashboard {
                                             main_window,
                                             buffer.clone(),
                                             config.buffer.clone().into(),
+                                            config,
                                         ));
                                     }
 
@@ -483,6 +485,7 @@ impl Dashboard {
                             main_window,
                             data::Buffer::Upstream(buffer),
                             config.buffer.clone().into(),
+                            config,
                         ),
                         None,
                     ),
@@ -1356,6 +1359,7 @@ impl Dashboard {
                     main_window,
                     data::Buffer::Internal(buffer),
                     config.buffer.clone().into(),
+                    config,
                 ),
                 BufferAction::NewWindow => self.open_popout_window(
                     main_window,
@@ -1370,6 +1374,7 @@ impl Dashboard {
         main_window: &Window,
         buffer: data::Buffer,
         settings: buffer::Settings,
+        config: &Config,
     ) -> Task<Message> {
         let panes = self.panes.clone();
 
@@ -1398,8 +1403,6 @@ impl Dashboard {
             }
         }
 
-        // Default split could be a config option.
-        let axis = pane_grid::Axis::Horizontal;
         let pane_to_split = {
             if let Some((_, pane)) = self.focus.filter(|(window, _)| *window == main_window.id) {
                 pane
@@ -1412,7 +1415,10 @@ impl Dashboard {
         };
 
         let result = self.panes.main.split(
-            axis,
+            match config.pane.split_axis {
+                config::pane::SplitAxis::Horizontal => pane_grid::Axis::Horizontal,
+                config::pane::SplitAxis::Vertical => pane_grid::Axis::Vertical,
+            },
             pane_to_split,
             Pane::with_settings(Buffer::from(buffer), settings),
         );
@@ -1832,7 +1838,7 @@ impl Dashboard {
                 .and_then(|panes| panes.get(pane).cloned())
             {
                 let task = match pane.buffer.data() {
-                    Some(buffer) => self.open_buffer(main_window, buffer, pane.settings),
+                    Some(buffer) => self.open_buffer(main_window, buffer, pane.settings, config),
                     None => self.new_pane(pane_grid::Axis::Horizontal, config, main_window),
                 };
 
@@ -2198,6 +2204,7 @@ impl Dashboard {
                 main_window,
                 data::Buffer::Upstream(buffer),
                 config.buffer.clone().into(),
+                config,
             )
         }
     }
