@@ -151,9 +151,7 @@ where
             let bounds = limits.max();
 
             let size = self
-                .size
-                .map(Pixels::from)
-                .unwrap_or_else(|| renderer.default_size());
+                .size.unwrap_or_else(|| renderer.default_size());
             let font = self.font.unwrap_or_else(|| renderer.default_font());
 
             state.paragraph.update(text::Text {
@@ -255,9 +253,7 @@ where
         {
             let line_height = f32::from(
                 self.line_height.to_absolute(
-                    self.size
-                        .map(Pixels::from)
-                        .unwrap_or_else(|| renderer.default_size()),
+                    self.size.unwrap_or_else(|| renderer.default_size()),
                 ),
             );
 
