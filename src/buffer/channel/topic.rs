@@ -67,6 +67,7 @@ pub fn view<'a>(
                     Some(user),
                     our_user,
                     config,
+                    &config.buffer.nickname.click,
                 )
             } else {
                 selectable_text(user.display(false))

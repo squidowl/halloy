@@ -1,5 +1,5 @@
 use data::user::Nick;
-use data::{isupport, target, Config, Server, User};
+use data::{config, isupport, target, Config, Server, User};
 use iced::widget::{button, column, container, horizontal_rule, row, text, Space};
 use iced::{padding, Length, Padding};
 
@@ -174,21 +174,26 @@ pub fn view<'a>(
     current_user: Option<&'a User>,
     our_user: Option<&'a User>,
     config: &'a Config,
+    click: &'a config::buffer::NicknameClick,
 ) -> Element<'a, Message> {
     let entries = Entry::list(channel.is_some(), our_user);
 
-    let message = match config.buffer.nickname.click.action {
-        data::buffer::NicknameClickAction::OpenQuery => {
+    let message = match click.action {
+        data::config::buffer::NicknameClickAction::OpenQuery => {
             Message::Query(server.clone(), target::Query::from_user(user, casemapping))
         }
-        data::buffer::NicknameClickAction::InsertNickname => {
+        data::config::buffer::NicknameClickAction::InsertNickname => {
             Message::InsertNickname(user.nickname().to_owned())
         }
     };
 
-    let content = match config.buffer.nickname.click.interaction {
-        data::buffer::NicknameClickInteraction::SingleClick => single_click(content, message),
-        data::buffer::NicknameClickInteraction::DoubleClick => double_click(content, message),
+    let content = match click.interaction {
+        data::config::buffer::NicknameClickInteraction::SingleClick => {
+            single_click(content, message)
+        }
+        data::config::buffer::NicknameClickInteraction::DoubleClick => {
+            double_click(content, message)
+        }
     };
 
     context_menu(
