@@ -465,7 +465,7 @@ impl State {
             Message::Link(message::Link::User(user)) => {
                 return (
                     Task::none(),
-                    Some(Event::UserContext(user_context::Event::SingleClick(
+                    Some(Event::UserContext(user_context::Event::InsertNickname(
                         user.nickname().to_owned(),
                     ))),
                 )

@@ -77,9 +77,18 @@ pub fn view<'a>(
                                 .horizontal_alignment(alignment::Horizontal::Right);
                         }
 
-                        let nick =
-                            user_context::view(text, server, casemapping, None, user, None, None, config)
-                                .map(scroll_view::Message::UserContext);
+                        let nick = user_context::view(
+                            text,
+                            server,
+                            casemapping,
+                            None,
+                            user,
+                            None,
+                            None,
+                            config,
+                            &config.buffer.nickname.click,
+                        )
+                        .map(scroll_view::Message::UserContext);
 
                         let message_content = message_content::with_context(
                             &message.content,
