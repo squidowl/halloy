@@ -1127,10 +1127,7 @@ impl Halloy {
         ];
 
         // We only want to listen for appearance changes if user has dynamic themes.
-        if matches!(
-            &self.config.appearance.selected,
-            data::appearance::Selected::Dynamic { .. }
-        ) {
+        if self.config.appearance.selected.is_dynamic() {
             subscriptions.push(appearance::subscription().map(Message::AppearanceChange));
         }
 
