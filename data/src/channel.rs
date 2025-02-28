@@ -8,8 +8,8 @@ pub struct Settings {
     pub topic: Topic,
 }
 
-impl From<config::Channel> for Settings {
-    fn from(config: config::Channel) -> Self {
+impl From<config::buffer::Channel> for Settings {
+    fn from(config: config::buffer::Channel) -> Self {
         Self {
             nicklist: Nicklist::from(config.nicklist),
             topic: Topic::from(config.topic),
@@ -30,8 +30,8 @@ pub struct Nicklist {
     pub enabled: bool,
 }
 
-impl From<config::channel::Nicklist> for Nicklist {
-    fn from(config: config::channel::Nicklist) -> Self {
+impl From<config::buffer::channel::Nicklist> for Nicklist {
+    fn from(config: config::buffer::channel::Nicklist) -> Self {
         Nicklist {
             enabled: config.enabled,
         }
@@ -55,8 +55,8 @@ pub struct Topic {
     pub enabled: bool,
 }
 
-impl From<config::channel::Topic> for Topic {
-    fn from(config: config::channel::Topic) -> Self {
+impl From<config::buffer::channel::Topic> for Topic {
+    fn from(config: config::buffer::channel::Topic) -> Self {
         Topic {
             enabled: config.enabled,
         }
