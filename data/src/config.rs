@@ -11,7 +11,6 @@ use serde::Deserialize;
 use thiserror::Error;
 
 pub use self::buffer::Buffer;
-pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
 pub use self::keys::Keyboard;
 pub use self::notification::Notifications;
@@ -29,7 +28,6 @@ use crate::server::Map as ServerMap;
 use crate::{environment, Theme};
 
 pub mod buffer;
-pub mod channel;
 pub mod file_transfer;
 pub mod keys;
 pub mod notification;

@@ -2,10 +2,6 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-pub use self::away::Away;
-
-pub mod away;
-
 use crate::config::buffer::NicknameClick;
 use crate::target::{self, Target};
 use crate::{channel, config, message, Server};
