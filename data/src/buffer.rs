@@ -6,6 +6,7 @@ pub use self::away::Away;
 
 pub mod away;
 
+use crate::config::buffer::NicknameClick;
 use crate::target::{self, Target};
 use crate::{channel, config, message, Server};
 
@@ -231,31 +232,6 @@ pub struct Nickname {
     pub show_access_levels: bool,
     #[serde(default)]
     pub click: NicknameClick,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub struct NicknameClick {
-    #[serde(default)]
-    pub action: NicknameClickAction,
-    #[serde(default)]
-    pub interaction: NicknameClickInteraction,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub enum NicknameClickAction {
-    #[default]
-    OpenQuery,
-    InsertNickname,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub enum NicknameClickInteraction {
-    SingleClick,
-    #[default]
-    DoubleClick,
 }
 
 impl Default for Nickname {

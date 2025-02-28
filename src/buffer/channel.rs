@@ -131,6 +131,7 @@ pub fn view<'a>(
                             current_user,
                             our_user,
                             config,
+                            &config.buffer.nickname.click,
                         )
                         .map(scroll_view::Message::UserContext);
 
@@ -516,6 +517,7 @@ mod nick_list {
                 Some(user),
                 our_user,
                 config,
+                &config.buffer.channel.nicklist.click,
             )
         }));
 
