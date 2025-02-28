@@ -13,6 +13,7 @@ debug = ["iced/debug"]
 dev = ["debug", "data/dev"]
 
 [dependencies]
+tray-icon = "0.20.0"
 data = { version = "0.1.0", path = "data" }
 ipc = { version = "0.1.0", path = "ipc" }
 
