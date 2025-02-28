@@ -282,7 +282,7 @@ impl Dashboard {
                                                 None,
                                             );
                                         }
-                                        buffer::user_context::Event::SingleClick(nick) => {
+                                        buffer::user_context::Event::InsertNickname(nick) => {
                                             let Some((_, pane, history)) =
                                                 self.get_focused_with_history_mut(main_window)
                                             else {
