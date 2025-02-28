@@ -4,7 +4,7 @@ use iced::widget::{button, column, container, horizontal_rule, row, text, Space}
 use iced::{padding, Length, Padding};
 
 use crate::theme;
-use crate::widget::{context_menu, double_pass, Element};
+use crate::widget::{context_menu, double_click, double_pass, single_click, Element};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Entry {
@@ -141,7 +141,7 @@ pub enum Message {
     Query(Server, target::Query),
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, Nick),
-    SingleClick(Nick),
+    InsertNickname(Nick),
 }
 
 #[derive(Debug, Clone)]
@@ -150,7 +150,7 @@ pub enum Event {
     OpenQuery(Server, target::Query),
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, Nick),
-    SingleClick(Nick),
+    InsertNickname(Nick),
 }
 
 pub fn update(message: Message) -> Option<Event> {
@@ -161,7 +161,7 @@ pub fn update(message: Message) -> Option<Event> {
             Some(Event::ToggleAccessLevel(server, target, nick, mode))
         }
         Message::SendFile(server, nick) => Some(Event::SendFile(server, nick)),
-        Message::SingleClick(nick) => Some(Event::SingleClick(nick)),
+        Message::InsertNickname(nick) => Some(Event::InsertNickname(nick)),
     }
 }
 
@@ -177,10 +177,19 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let entries = Entry::list(channel.is_some(), our_user);
 
-    let content = button(content)
-        .padding(0)
-        .style(theme::button::bare)
-        .on_press(Message::SingleClick(user.nickname().to_owned()));
+    let message = match config.buffer.nickname.click.action {
+        data::buffer::NicknameClickAction::OpenQuery => {
+            Message::Query(server.clone(), target::Query::from_user(user, casemapping))
+        }
+        data::buffer::NicknameClickAction::InsertNickname => {
+            Message::InsertNickname(user.nickname().to_owned())
+        }
+    };
+
+    let content = match config.buffer.nickname.click.interaction {
+        data::buffer::NicknameClickInteraction::SingleClick => single_click(content, message),
+        data::buffer::NicknameClickInteraction::DoubleClick => double_click(content, message),
+    };
 
     context_menu(
         Default::default(),

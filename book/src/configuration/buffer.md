@@ -408,6 +408,38 @@ Show access levels in front of nicknames (`@`, `+`, `~`, etc.).
 show_access_levels = true
 ```
 
+### `click`
+
+Click action for when interaction with nicknames.
+
+#### `action`
+
+The action to perform.  
+- `"open-query"`: Open a query with the User
+- `"insert-nickname"`: Inserts the nickname into text input
+
+```toml
+# Type: string
+# Values: "open-query", "insert-nickname"
+# Default: "open-query"
+
+[buffer.nickname.click]
+action = "open-query"
+```
+
+#### `interaction`
+
+The interaction to perform a action.  
+
+```toml
+# Type: string
+# Values: "single-click", "double-click"
+# Default: "double-click"
+
+[buffer.nickname.click]
+interaction = "double-click"
+```
+
 ## `[buffer.server_messages]`
 
 Server messages are messages sent from a irc server.
@@ -500,7 +532,7 @@ Note: Not all server messages uses this setting.
 
 ```toml
 # Type: string
-# Values: "full", "short
+# Values: "full", "short"
 # Default: "full"
 
 [buffer.server_messages.<server_message>]
