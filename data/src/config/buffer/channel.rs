@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::buffer::Color;
 use crate::channel::Position;
 
-use super::buffer::NicknameClick;
+use super::NicknameClick;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Channel {

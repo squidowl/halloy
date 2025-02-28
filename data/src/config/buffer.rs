@@ -1,9 +1,14 @@
 use chrono::{DateTime, Local, Utc};
 use serde::Deserialize;
 
-use super::Channel;
+pub use self::away::Away;
+pub use self::channel::Channel;
+
+pub mod away;
+pub mod channel;
+
 use crate::{
-    buffer::{Away, DateSeparators, Nickname, SkinTone, StatusMessagePrefix, TextInput, Timestamp},
+    buffer::{DateSeparators, Nickname, SkinTone, StatusMessagePrefix, TextInput, Timestamp},
     message::source,
 };
 
