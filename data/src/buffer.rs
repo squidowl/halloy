@@ -229,6 +229,33 @@ pub struct Nickname {
     pub alignment: Alignment,
     #[serde(default = "default_bool_true")]
     pub show_access_levels: bool,
+    #[serde(default)]
+    pub click: NicknameClick,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct NicknameClick {
+    #[serde(default)]
+    pub action: NicknameClickAction,
+    #[serde(default)]
+    pub interaction: NicknameClickInteraction,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum NicknameClickAction {
+    #[default]
+    OpenQuery,
+    InsertNickname,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum NicknameClickInteraction {
+    SingleClick,
+    #[default]
+    DoubleClick,
 }
 
 impl Default for Nickname {
@@ -238,6 +265,7 @@ impl Default for Nickname {
             brackets: Default::default(),
             alignment: Default::default(),
             show_access_levels: default_bool_true(),
+            click: Default::default(),
         }
     }
 }

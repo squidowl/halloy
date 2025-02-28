@@ -8,6 +8,7 @@ pub use self::color_picker::color_picker;
 pub use self::combo_box::combo_box;
 pub use self::context_menu::context_menu;
 pub use self::decorate::decorate;
+pub use self::double_click::double_click;
 pub use self::double_pass::double_pass;
 pub use self::key_press::key_press;
 pub use self::message_content::message_content;
@@ -16,6 +17,7 @@ pub use self::notify_visibility::notify_visibility;
 pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
+pub use self::single_click::single_click;
 pub use self::tooltip::tooltip;
 
 pub mod anchored_overlay;
@@ -33,6 +35,7 @@ pub mod notify_visibility;
 pub mod selectable_rich_text;
 pub mod selectable_text;
 pub mod shortcut;
+pub mod single_click;
 pub mod tooltip;
 
 pub type Renderer = iced::Renderer;

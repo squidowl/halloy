@@ -28,7 +28,7 @@ pub fn update(message: Message) -> Option<Event> {
             None
         }
         Message::Link(message::Link::User(user)) => Some(Event::UserContext(
-            user_context::Event::SingleClick(user.nickname().to_owned()),
+            user_context::Event::InsertNickname(user.nickname().to_owned()),
         )),
         Message::Link(message::Link::GoToMessage(..)) => None,
     }
@@ -51,7 +51,7 @@ pub fn view<'a>(
         .and_then(|who| User::try_from(who).ok())
         .and_then(|user| {
             let channel_user = users.iter().find(|u| **u == user);
-            
+
             // If user is in channel, we return user_context component.
             // Otherwise selectable_text component.
             let content = if let Some(user) = channel_user {
