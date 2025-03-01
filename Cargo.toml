@@ -45,7 +45,7 @@ tokio-stream = { version = "0.1.16", features = ["fs"] }
 url = "2.5.0"
 humantime = "2.1.0"
 
-dark-light = "2.0.0"
+dark-light = { git = "https://github.com/casperstorm/dark-light", rev = "ccdb87c962c8b37bfd63409a4791116935c67c7b" }
 anyhow = "1.0.91"
 emojis = "0.6.4"
 strsim = "0.11.1"
