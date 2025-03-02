@@ -14,6 +14,8 @@ Changed:
 - `[file_transfer.save_directory]` is now default download path for transfers. If set, files will be downloaded there by default. Otherwise, you'll be prompted to choose a location
 - Ability to dynamically select dark or light theme based on OS appearance.
 - `/msg <target>` (without any message text) will now open a pane for the target without sending a message
+- Text input of the active pane will remain focused after all actions
+- Focus last known active pane on launch
 
 # 2025.2 (2025-02-20)
 
