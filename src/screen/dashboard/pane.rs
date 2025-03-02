@@ -28,7 +28,7 @@ pub enum Message {
 pub struct Pane {
     pub buffer: Buffer,
     title_bar: TitleBar,
-    pub settings: buffer::Settings,
+    settings: buffer::Settings,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -151,8 +151,12 @@ impl Pane {
         }
     }
 
-    pub fn update_settings(&mut self, f: impl FnOnce(&mut buffer::Settings)) {
+    pub fn update_settings<F>(&mut self, f: F) -> &buffer::Settings
+    where
+        F: FnOnce(&mut buffer::Settings),
+    {
         f(&mut self.settings);
+        &self.settings
     }
 }
 
@@ -344,9 +348,6 @@ impl From<Pane> for data::Pane {
             Buffer::Highlights(_) => data::Buffer::Internal(buffer::Internal::Highlights),
         };
 
-        data::Pane::Buffer {
-            buffer,
-            settings: pane.settings,
-        }
+        data::Pane::Buffer { buffer }
     }
 }

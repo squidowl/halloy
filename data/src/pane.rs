@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{buffer, Buffer};
+use crate::Buffer;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Pane {
@@ -12,7 +12,6 @@ pub enum Pane {
     },
     Buffer {
         buffer: Buffer,
-        settings: buffer::Settings,
     },
     Empty,
 }
