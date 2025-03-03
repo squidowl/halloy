@@ -9,6 +9,8 @@ Changed:
 - [file_transfer.save_directory] is now default download path for transfers. If set, files will be downloaded there by default. Otherwise, you'll be prompted to choose a location.
 - Customize default pane splitting direction (vertical or horizontal)
 - Ability to dynamically select dark or light theme based on OS appearance.
+- Text input of the active pane will remain focused after all actions
+- Focus last known active pane on launch
 
 # 2025.2 (2025-02-20)
 
