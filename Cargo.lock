@@ -1457,7 +1457,7 @@ dependencies = [
 [[package]]
 name = "dark-light"
 version = "2.0.0"
-source = "git+https://github.com/casperstorm/dark-light?rev=ccdb87c962c8b37bfd63409a4791116935c67c7b#ccdb87c962c8b37bfd63409a4791116935c67c7b"
+source = "git+https://github.com/rust-dark-light/dark-light?rev=8e1f745f91e1e805fa772a83e4744afe95d70aa1#8e1f745f91e1e805fa772a83e4744afe95d70aa1"
 dependencies = [
  "ashpd 0.11.0",
  "async-std",
