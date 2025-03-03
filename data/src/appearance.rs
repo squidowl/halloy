@@ -30,6 +30,13 @@ impl Default for Selected {
 }
 
 impl Selected {
+    pub fn is_dynamic(&self) -> bool {
+        match self {
+            Selected::Static(_) => false,
+            Selected::Dynamic { .. } => true,
+        }
+    }
+
     pub fn dynamic(light: Theme, dark: Theme) -> Selected {
         Selected::Dynamic { light, dark }
     }
