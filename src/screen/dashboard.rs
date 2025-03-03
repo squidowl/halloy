@@ -329,27 +329,41 @@ impl Dashboard {
                                         }
                                     }
                                 }
-                                buffer::Event::OpenChannel(channel) => {
+                                buffer::Event::OpenBuffer(target, history_task) => {
+                                    let mut tasks = vec![task];
+
+                                    if let Some(history_task) = history_task {
+                                        tasks.push(history_task.map(Message::History))
+                                    }
+
                                     if let Some(server) = pane
                                         .buffer
                                         .upstream()
                                         .map(buffer::Upstream::server)
                                         .cloned()
                                     {
-                                        return (
-                                            Task::batch(vec![
-                                                task,
-                                                self.open_channel(
-                                                    server,
-                                                    channel,
-                                                    clients,
+                                        match target {
+                                            Target::Channel(channel) => {
+                                                tasks.push(self.open_channel(
+                                                    server, channel, clients, main_window, config,
+                                                ));
+                                            }
+                                            Target::Query(query) => {
+                                                let buffer = data::Buffer::Upstream(
+                                                    buffer::Upstream::Query(server, query),
+                                                );
+
+                                                tasks.push(self.open_buffer(
                                                     main_window,
+                                                    buffer.clone(),
+                                                    config.buffer.clone().into(),
                                                     config,
-                                                ),
-                                            ]),
-                                            None,
-                                        );
+                                                ));
+                                            }
+                                        }
                                     }
+
+                                    return (Task::batch(tasks), None);
                                 }
                                 buffer::Event::History(history_task) => {
                                     return (
