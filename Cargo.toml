@@ -44,9 +44,7 @@ strum = { version = "0.26.3", features = ["derive"] }
 tokio-stream = { version = "0.1.16", features = ["fs"] }
 url = "2.5.0"
 humantime = "2.1.0"
-
-# change to 1.2.0 when it is released https://github.com/frewsxcv/rust-dark-light/issues/38
-dark-light = { git = "https://github.com/frewsxcv/rust-dark-light", rev = "3eb3e93dd0fa30733c3e93082dd9517fb580ae95" }
+dark-light = { git = "https://github.com/rust-dark-light/dark-light", rev = "8e1f745f91e1e805fa772a83e4744afe95d70aa1" }
 anyhow = "1.0.91"
 emojis = "0.6.4"
 strsim = "0.11.1"
