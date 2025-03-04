@@ -378,20 +378,19 @@ impl Sidebar {
         };
 
         let content = if config.position.is_horizontal() {
-            content(Length::Shrink).into()
+            container(content(Length::Shrink).width(Length::Fill).padding(padding)).into()
         } else {
             let first_pass = content(Length::Shrink);
             let second_pass = content(Length::Fill);
 
-            double_pass(first_pass, second_pass)
-        };
-
-        Some(
-            container(content)
+            container(double_pass(first_pass, second_pass))
+                .max_width(config.max_width.map(f32::from).unwrap_or(f32::INFINITY))
                 .width(Length::Shrink)
                 .padding(padding)
-                .into(),
-        )
+                .into()
+        };
+
+        Some(content)
     }
 }
 
