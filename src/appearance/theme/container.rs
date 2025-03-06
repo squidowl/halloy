@@ -85,17 +85,6 @@ pub fn primary_background_hover(theme: &Theme) -> Style {
     }
 }
 
-pub fn highlight(theme: &Theme) -> Style {
-    Style {
-        background: Some(Background::Color(theme.colors().buffer.highlight)),
-        border: Border {
-            radius: 0.0.into(),
-            ..Default::default()
-        },
-        ..Default::default()
-    }
-}
-
 pub fn general(theme: &Theme) -> Style {
     Style {
         background: Some(Background::Color(theme.colors().general.background)),
@@ -117,7 +106,6 @@ pub fn image_card(theme: &Theme) -> Style {
         ..Default::default()
     }
 }
-
 
 pub fn tooltip(theme: &Theme) -> Style {
     let general = theme.colors().general;

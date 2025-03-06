@@ -1,16 +1,16 @@
-use chrono::{DateTime, Utc};
-use futures::{channel::mpsc, Future, FutureExt};
-use irc::proto::{self, command, Command};
-use itertools::{Either, Itertools};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fmt, io};
 
-use tokio::fs;
-
 use anyhow::{anyhow, bail, Context as ErrorContext, Result};
+use chrono::{DateTime, Utc};
+use futures::{channel::mpsc, Future, FutureExt};
+use irc::proto::{self, command, Command};
+use itertools::{Either, Itertools};
+use log::error;
+use tokio::fs;
 
 use crate::history::ReadMarker;
 use crate::isupport::{
@@ -21,8 +21,7 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{
-    buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Config, Server,
-    User,
+    buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Server, User,
 };
 use crate::{file_transfer, server};
 
@@ -48,22 +47,6 @@ impl Status {
 pub enum State {
     Disconnected,
     Ready(Client),
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub enum Notification {
-    Connected,
-    Disconnected,
-    Reconnected,
-    DirectMessage(User),
-    Highlight {
-        enabled: bool,
-        user: User,
-        target: Target,
-    },
-    FileTransferRequest(Nick),
-    MonitoredOnline(Vec<User>),
-    MonitoredOffline(Vec<Nick>),
 }
 
 #[derive(Debug)]
@@ -108,15 +91,18 @@ pub enum Message {
 #[derive(Debug)]
 pub enum Event {
     Single(message::Encoded, Nick),
+    PrivOrNotice(message::Encoded, Nick, bool),
     WithTarget(message::Encoded, Nick, message::Target),
     Broadcast(Broadcast),
-    Notification(message::Encoded, Nick, Notification),
     FileTransferRequest(file_transfer::ReceiveRequest),
     UpdateReadMarker(Target, ReadMarker),
     JoinedChannel(target::Channel, DateTime<Utc>),
     ChatHistoryAcknowledged(DateTime<Utc>),
     ChatHistoryTargetReceived(Target, DateTime<Utc>),
     ChatHistoryTargetsReceived(DateTime<Utc>),
+    DirectMessage(User),
+    MonitoredOnline(Vec<User>),
+    MonitoredOffline(Vec<Nick>),
 }
 
 struct ChatHistoryRequest {
@@ -148,7 +134,7 @@ pub struct Client {
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
     chathistory_targets_request: Option<ChatHistoryRequest>,
-    highlight_blackout: HighlightBlackout,
+    highlight_notification_blackout: HighlightNotificationBlackout,
     registration_required_channels: Vec<target::Channel>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
     who_polls: VecDeque<WhoPoll>,
@@ -190,7 +176,7 @@ impl Client {
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
             chathistory_targets_request: None,
-            highlight_blackout: HighlightBlackout::Blackout(Instant::now()),
+            highlight_notification_blackout: HighlightNotificationBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
             isupport: HashMap::new(),
             who_polls: VecDeque::new(),
@@ -312,12 +298,12 @@ impl Client {
         }
     }
 
-    fn receive(&mut self, message: message::Encoded, config: &Config) -> Result<Vec<Event>> {
+    fn receive(&mut self, message: message::Encoded) -> Result<Vec<Event>> {
         log::trace!("Message received => {:?}", *message);
 
         let stop_reroute = stop_reroute(&message.command);
 
-        let events = self.handle(message, None, config)?;
+        let events = self.handle(message, None)?;
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -330,7 +316,6 @@ impl Client {
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
-        config: &Config,
     ) -> Result<Vec<Event>> {
         use irc::proto::command::Numeric::*;
 
@@ -644,44 +629,29 @@ impl Client {
                                 if ctcp::is_query(text) && !message::is_action(text) {
                                     // Ignore historical CTCP queries/responses except for ACTIONs
                                     vec![]
-                                } else if let Some(user) = message.user() {
-                                    // If direct message, update resolved queries with user
-                                    if target == &self.nickname().to_string() {
-                                        self.resolved_queries.replace(target::Query::from_user(
-                                            &user,
-                                            self.casemapping(),
-                                        ));
-                                    }
-
-                                    let should_highlight = config.highlights.should_highlight_text(
-                                        text,
-                                        target,
-                                        user.nickname(),
-                                        self.nickname(),
-                                    );
-
-                                    if should_highlight {
-                                        vec![Event::Notification(
-                                            message,
-                                            self.nickname().to_owned(),
-                                            Notification::Highlight {
-                                                enabled: false,
-                                                user,
-                                                target: batch_target,
-                                            },
-                                        )]
-                                    } else {
-                                        vec![Event::Single(message, self.nickname().to_owned())]
-                                    }
                                 } else {
-                                    vec![Event::Single(message, self.nickname().to_owned())]
+                                    if let Some(user) = message.user() {
+                                        // If direct message, update resolved queries with user
+                                        if target == &self.nickname().to_string() {
+                                            self.resolved_queries.replace(
+                                                target::Query::from_user(&user, self.casemapping()),
+                                            );
+                                        }
+                                    }
+
+                                    vec![Event::PrivOrNotice(
+                                        message,
+                                        self.nickname().to_owned(),
+                                        // Don't allow highlight notifications from history
+                                        false,
+                                    )]
                                 }
                             }
                             _ => vec![Event::Single(message, self.nickname().to_owned())],
                         }
                     }
                 } else {
-                    self.handle(message, context, config)?
+                    self.handle(message, context)?
                 };
 
                 if let Some(batch) = self.batches.get_mut(&Target::parse(
@@ -1107,29 +1077,13 @@ impl Client {
                                 .replace(target::Query::from_user(&user, self.casemapping()));
                         }
 
-                        let should_highlight = config.highlights.should_highlight_text(
-                            text,
-                            target,
-                            user.nickname(),
-                            self.nickname(),
+                        let event = Event::PrivOrNotice(
+                            message.clone(),
+                            self.nickname().to_owned(),
+                            self.highlight_notification_blackout.allowed(),
                         );
 
-                        if should_highlight {
-                            return Ok(vec![Event::Notification(
-                                message.clone(),
-                                self.nickname().to_owned(),
-                                Notification::Highlight {
-                                    enabled: self.highlight_blackout.allow_highlights(),
-                                    user,
-                                    target: Target::parse(
-                                        target,
-                                        self.chantypes(),
-                                        self.statusmsg(),
-                                        self.casemapping(),
-                                    ),
-                                },
-                            )]);
-                        } else if user.nickname() == self.nickname()
+                        if user.nickname() == self.nickname()
                             && context.is_some()
                             && message_id(&message).is_none()
                         {
@@ -1137,14 +1091,10 @@ impl Client {
                             // then ignore unless it has a message id (in which case the local
                             // copy should be updated with the message id)
                             return Ok(vec![]);
-                        }
-
-                        if direct_message {
-                            return Ok(vec![Event::Notification(
-                                message.clone(),
-                                self.nickname().to_owned(),
-                                Notification::DirectMessage(user),
-                            )]);
+                        } else if direct_message {
+                            return Ok(vec![event, Event::DirectMessage(user)]);
+                        } else {
+                            return Ok(vec![event]);
                         }
                     }
                 }
@@ -1172,7 +1122,7 @@ impl Client {
                 let ourself = self.nickname() == old_user.nickname();
 
                 if ourself {
-                    self.resolved_nick = Some(nick.clone());
+                    self.resolved_nick = Some(nick.to_string());
                 }
 
                 let new_nick = Nick::from(nick.as_str());
@@ -1734,7 +1684,7 @@ impl Client {
                     self.casemapping(),
                 ))) {
                     if let Some(text) = topic {
-                        channel.topic.content = Some(message::parse_fragments(text.clone(), &[]));
+                        channel.topic.content = Some(message::parse_fragments(text.clone()));
                     }
 
                     channel.topic.who = message.user().map(|user| user.nickname().to_string());
@@ -1751,7 +1701,7 @@ impl Client {
                     self.casemapping(),
                 ))) {
                     channel.topic.content =
-                        Some(message::parse_fragments(ok!(args.get(2)).to_owned(), &[]));
+                        Some(message::parse_fragments(ok!(args.get(2)).to_owned()));
                 }
                 // Exclude topic message from history to prevent spam during dev
                 #[cfg(feature = "dev")]
@@ -1918,11 +1868,10 @@ impl Client {
                     .filter_map(|target| User::try_from(target).ok())
                     .collect::<Vec<_>>();
 
-                return Ok(vec![Event::Notification(
-                    message.clone(),
-                    self.nickname().to_owned(),
-                    Notification::MonitoredOnline(targets),
-                )]);
+                return Ok(vec![
+                    Event::Single(message.clone(), self.nickname().to_owned()),
+                    Event::MonitoredOnline(targets),
+                ]);
             }
             Command::Numeric(RPL_MONOFFLINE, args) => {
                 let targets = ok!(args.get(1))
@@ -1930,11 +1879,10 @@ impl Client {
                     .map(Nick::from)
                     .collect::<Vec<_>>();
 
-                return Ok(vec![Event::Notification(
-                    message.clone(),
-                    self.nickname().to_owned(),
-                    Notification::MonitoredOffline(targets),
-                )]);
+                return Ok(vec![
+                    Event::Single(message.clone(), self.nickname().to_owned()),
+                    Event::MonitoredOffline(targets),
+                ]);
             }
             Command::Numeric(RPL_ENDOFMONLIST, _) => {
                 return Ok(vec![]);
@@ -2354,13 +2302,13 @@ impl Client {
     }
 
     pub fn tick(&mut self, now: Instant) -> Result<()> {
-        match self.highlight_blackout {
-            HighlightBlackout::Blackout(instant) => {
+        match self.highlight_notification_blackout {
+            HighlightNotificationBlackout::Blackout(instant) => {
                 if now.duration_since(instant) >= HIGHLIGHT_BLACKOUT_INTERVAL {
-                    self.highlight_blackout = HighlightBlackout::Receiving;
+                    self.highlight_notification_blackout = HighlightNotificationBlackout::Receiving;
                 }
             }
-            HighlightBlackout::Receiving => {}
+            HighlightNotificationBlackout::Receiving => {}
         }
 
         if let Some(who_poll) = self.who_polls.front_mut() {
@@ -2550,16 +2498,16 @@ pub async fn overwrite_chathistory_targets_timestamp(
 }
 
 #[derive(Debug)]
-enum HighlightBlackout {
+enum HighlightNotificationBlackout {
     Blackout(Instant),
     Receiving,
 }
 
-impl HighlightBlackout {
-    fn allow_highlights(&self) -> bool {
+impl HighlightNotificationBlackout {
+    fn allowed(&self) -> bool {
         match self {
-            HighlightBlackout::Blackout(_) => false,
-            HighlightBlackout::Receiving => true,
+            HighlightNotificationBlackout::Blackout(_) => false,
+            HighlightNotificationBlackout::Receiving => true,
         }
     }
 }
@@ -2611,14 +2559,9 @@ impl Map {
         self.client(server).map(Client::nickname)
     }
 
-    pub fn receive(
-        &mut self,
-        server: &Server,
-        message: message::Encoded,
-        config: &Config,
-    ) -> Result<Vec<Event>> {
+    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Result<Vec<Event>> {
         if let Some(client) = self.client_mut(server) {
-            client.receive(message, config)
+            client.receive(message)
         } else {
             Ok(Default::default())
         }

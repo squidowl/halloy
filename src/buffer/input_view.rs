@@ -219,6 +219,7 @@ impl State {
                                     chantypes,
                                     statusmsg,
                                     casemapping,
+                                    config,
                                 )
                                 .into_iter()
                                 .map(Task::future),

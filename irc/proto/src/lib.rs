@@ -58,7 +58,7 @@ pub const DEFAULT_CHANNEL_PREFIXES: &[char] = &['#', '&'];
 /// the first character being a valid channel type prefix character; the only restriction on a channel name
 /// is that it may not contain any spaces (' ', 0x20), a control G / BELL ('^G', 0x07), or a comma (',', 0x2C)
 /// (which is used as a list item separator by the protocol).
-pub const CHANNEL_BLACKLIST_CHARS: &[char] = &[',', '\u{07}', ','];
+pub const CHANNEL_BLACKLIST_CHARS: &[char] = &[' ', '\u{07}', ','];
 
 pub fn is_channel(target: &str, chantypes: &[char]) -> bool {
     target.starts_with(chantypes) && !target.contains(CHANNEL_BLACKLIST_CHARS)
