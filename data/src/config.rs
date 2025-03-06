@@ -1,15 +1,19 @@
 use std::path::PathBuf;
 use std::{str, string};
 
-use highlights::Highlight;
+use rand::prelude::*;
+use rand_chacha::ChaCha8Rng;
+use serde::Deserialize;
+use thiserror::Error;
 use tokio_stream::wrappers::ReadDirStream;
 use tokio_stream::StreamExt;
 
-use rand::prelude::*;
-use rand_chacha::ChaCha8Rng;
-
-use serde::Deserialize;
-use thiserror::Error;
+use crate::appearance::theme::Colors;
+use crate::appearance::{self, Appearance};
+use crate::audio::{self, Sound};
+use crate::environment::config_dir;
+use crate::server::Map as ServerMap;
+use crate::{environment, Theme};
 
 pub use self::buffer::Buffer;
 pub use self::channel::Channel;
@@ -22,13 +26,6 @@ pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
-
-use crate::appearance::theme::Colors;
-use crate::appearance::{self, Appearance};
-use crate::audio::{self, Sound};
-use crate::environment::config_dir;
-use crate::server::Map as ServerMap;
-use crate::{environment, Theme};
 
 pub mod buffer;
 pub mod channel;
@@ -207,7 +204,7 @@ impl Config {
             tooltips,
             preview,
             pane,
-            mut highlights,
+            highlights,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_passwords().await?;
@@ -217,13 +214,6 @@ impl Config {
         let appearance = Self::load_appearance(theme.keys())
             .await
             .unwrap_or_default();
-
-        // Ensure we have have default highlights.
-        if !highlights.contains_nickname() {
-            highlights.with_default();
-        }
-
-        println!("Highlights {:?}", highlights);
 
         Ok(Config {
             appearance,

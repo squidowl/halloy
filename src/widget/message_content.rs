@@ -91,6 +91,26 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 .color(color)
                                 .link(message::Link::User(user.clone()))
                         }
+                        data::message::Fragment::HighlightNick(user, text) => {
+                            let color = theme.colors().buffer.nickname;
+                            let seed = match &config.buffer.channel.message.nickname_color {
+                                data::buffer::Color::Solid => None,
+                                data::buffer::Color::Unique => Some(user.seed()),
+                            };
+
+                            let color = match seed {
+                                Some(seed) => randomize_color(color, seed),
+                                None => theme.colors().text.primary,
+                            };
+
+                            span(text)
+                                .color(color)
+                                .background(theme.colors().buffer.highlight)
+                                .link(message::Link::User(user.clone()))
+                        }
+                        data::message::Fragment::HighlightMatch(text) => span(text.as_str())
+                            .color(theme.colors().text.primary)
+                            .background(theme.colors().buffer.highlight),
                         data::message::Fragment::Url(s) => span(s.as_str())
                             .color(theme.colors().buffer.url)
                             .link(message::Link::Url(s.as_str().to_string())),

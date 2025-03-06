@@ -26,7 +26,7 @@ use data::config::{self, Config};
 use data::history::{self, manager::Broadcast};
 use data::target::{self, Target};
 use data::version::Version;
-use data::{client::Notification, environment, server, version, Server, Url, User};
+use data::{environment, server, version, Notification, Server, Url, User};
 use iced::widget::{column, container};
 use iced::{padding, Length, Subscription, Task};
 use screen::{dashboard, help, migration, welcome};
@@ -514,7 +514,7 @@ impl Halloy {
                     let commands = messages
                         .into_iter()
                         .flat_map(|message| {
-                            let events = match self.clients.receive(&server, message, &self.config) {
+                            let events = match self.clients.receive(&server, message) {
                                 Ok(events) => events,
                                 Err(e) => {
                                     handle_irc_error(e);
@@ -553,6 +553,46 @@ impl Halloy {
                                             statusmsg,
                                             casemapping,
                                         ) {
+                                            commands.push(
+                                                dashboard
+                                                    .record_message(&server, message)
+                                                    .map(Message::Dashboard),
+                                            );
+                                        }
+                                    }
+                                    data::client::Event::PrivOrNotice(
+                                        encoded,
+                                        our_nick,
+                                        highlight_notification_enabled,
+                                    ) => {
+                                        if let Some(message) = data::Message::received(
+                                            encoded,
+                                            our_nick,
+                                            &self.config,
+                                            resolve_user_attributes,
+                                            channel_users,
+                                            chantypes,
+                                            statusmsg,
+                                            casemapping,
+                                        ) {
+                                            if let Some((message, channel, user)) =
+                                                message.into_highlight(server.clone())
+                                            {
+                                                commands.push(
+                                                    dashboard
+                                                        .record_highlight(message)
+                                                        .map(Message::Dashboard),
+                                                );
+
+                                                if highlight_notification_enabled {
+                                                    self.notifications.notify(
+                                                        &self.config.notifications,
+                                                        &Notification::Highlight { user, channel },
+                                                        Some(&server),
+                                                    );
+                                                }
+                                            }
+
                                             commands.push(
                                                 dashboard
                                                     .record_message(&server, message)
@@ -675,82 +715,6 @@ impl Halloy {
                                             );
                                         }
                                     },
-                                    data::client::Event::Notification(
-                                        encoded,
-                                        our_nick,
-                                        notification,
-                                    ) => {
-                                        if let Some(message) = data::Message::received(
-                                            encoded,
-                                            our_nick,
-                                            &self.config,
-                                            resolve_user_attributes,
-                                            channel_users,
-                                            chantypes,
-                                            statusmsg,
-                                            casemapping,
-                                        ) {
-                                            commands.push(
-                                                dashboard
-                                                    .record_message(&server, message.clone())
-                                                    .map(Message::Dashboard),
-                                            );
-
-                                            if matches!(
-                                                notification,
-                                                data::client::Notification::Highlight { .. }
-                                            ) {
-                                                commands.extend(
-                                                    message.into_highlight(server.clone()).map(
-                                                        |message| {
-                                                            dashboard
-                                                                .record_highlight(message)
-                                                                .map(Message::Dashboard)
-                                                        },
-                                                    ),
-                                                );
-                                            }
-                                        }
-
-                                        match &notification {
-                                            data::client::Notification::DirectMessage(user) => {
-                                                if let Ok(query) = target::Query::parse(
-                                                    user.as_str(),
-                                                    chantypes,
-                                                    statusmsg,
-                                                    casemapping,
-                                                ) {
-                                                    if dashboard.history().has_unread(
-                                                        &history::Kind::Query(
-                                                            server.clone(),
-                                                            query,
-                                                        ),
-                                                    ) || !self.main_window.focused
-                                                    {
-                                                        self.notifications.notify(
-                                                            &self.config.notifications,
-                                                            &notification,
-                                                            None::<Server>,
-                                                        );
-                                                    }
-                                                }
-                                            }
-                                            data::client::Notification::Highlight {
-                                                enabled: _,
-                                                user: _,
-                                                target: _,
-                                            }
-                                            | data::client::Notification::MonitoredOnline(_)
-                                            | data::client::Notification::MonitoredOffline(_) => {
-                                                self.notifications.notify(
-                                                    &self.config.notifications,
-                                                    &notification,
-                                                    Some(&server),
-                                                );
-                                            }
-                                            _ => {}
-                                        }
-                                    }
                                     data::client::Event::FileTransferRequest(request) => {
                                         if let Some(command) = dashboard.receive_file_transfer(
                                             &server,
@@ -828,6 +792,39 @@ impl Halloy {
                                         {
                                             commands.push(command);
                                         }
+                                    }
+                                    data::client::Event::DirectMessage(user) => {
+                                        if let Ok(query) = target::Query::parse(
+                                            user.as_str(),
+                                            chantypes,
+                                            statusmsg,
+                                            casemapping,
+                                        ) {
+                                            if dashboard.history().has_unread(
+                                                &history::Kind::Query(server.clone(), query),
+                                            ) || !self.main_window.focused
+                                            {
+                                                self.notifications.notify(
+                                                    &self.config.notifications,
+                                                    &Notification::DirectMessage(user),
+                                                    None::<Server>,
+                                                );
+                                            }
+                                        }
+                                    }
+                                    data::client::Event::MonitoredOnline(users) => {
+                                        self.notifications.notify(
+                                            &self.config.notifications,
+                                            &Notification::MonitoredOnline(users),
+                                            Some(&server),
+                                        );
+                                    }
+                                    data::client::Event::MonitoredOffline(users) => {
+                                        self.notifications.notify(
+                                            &self.config.notifications,
+                                            &Notification::MonitoredOffline(users),
+                                            Some(&server),
+                                        );
                                     }
                                 }
                             }

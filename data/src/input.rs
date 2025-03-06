@@ -6,7 +6,7 @@ use irc::proto::format;
 use crate::buffer::{self, AutoFormat};
 use crate::message::formatting;
 use crate::target::Target;
-use crate::{command, isupport, message, Command, Message, Server, User};
+use crate::{command, isupport, message, Command, Config, Message, Server, User};
 
 const INPUT_HISTORY_LENGTH: usize = 100;
 
@@ -71,6 +71,7 @@ impl Input {
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
+        config: &Config,
     ) -> Option<Vec<Message>> {
         let to_target =
             |target: &str, source| match Target::parse(target, chantypes, statusmsg, casemapping) {
@@ -87,7 +88,13 @@ impl Input {
                     .map(|target| {
                         Message::sent(
                             to_target(target, message::Source::User(user.clone())),
-                            message::parse_fragments(text.clone(), channel_users),
+                            message::parse_fragments_with_highlights(
+                                text.clone(),
+                                channel_users,
+                                target,
+                                None,
+                                &config.highlights,
+                            ),
                         )
                     })
                     .collect(),

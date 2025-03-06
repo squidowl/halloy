@@ -5,8 +5,8 @@ use chrono::{DateTime, Utc};
 
 use data::{
     audio::Sound,
-    client::Notification,
     config::{self, notification},
+    Notification,
 };
 
 use crate::audio;
@@ -115,21 +115,16 @@ impl Notifications {
                     );
                 }
             }
-            Notification::Highlight {
-                enabled,
-                user,
-                target,
-            } => {
+            Notification::Highlight { user, channel } => {
                 if config
                     .highlight
-                    .should_notify(vec![target.to_string(), user.nickname().to_string()])
-                    && *enabled
+                    .should_notify(vec![channel.to_string(), user.nickname().to_string()])
                 {
                     self.execute(
                         &config.highlight,
                         notification,
                         "Highlight",
-                        format!("{} highlighted you in {}", user.nickname(), target),
+                        format!("{} highlighted you in {}", user.nickname(), channel),
                     );
                 }
             }

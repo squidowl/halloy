@@ -36,7 +36,6 @@ pub fn view<'a>(
     let status = clients.status(server);
     let buffer = &state.buffer;
     let input = history.input(buffer);
-    let our_nick = clients.nickname(&state.server);
 
     let chathistory_state = clients.get_chathistory_state(server, &query.to_target());
 
@@ -77,9 +76,17 @@ pub fn view<'a>(
                                 .horizontal_alignment(alignment::Horizontal::Right);
                         }
 
-                        let nick =
-                            user_context::view(text, server, casemapping, None, user, None, None, config)
-                                .map(scroll_view::Message::UserContext);
+                        let nick = user_context::view(
+                            text,
+                            server,
+                            casemapping,
+                            None,
+                            user,
+                            None,
+                            None,
+                            config,
+                        )
+                        .map(scroll_view::Message::UserContext);
 
                         let message_content = message_content::with_context(
                             &message.content,
@@ -103,20 +110,7 @@ pub fn view<'a>(
                         let timestamp_nickname_row =
                             row![].push_maybe(timestamp).push(nick).push(space);
 
-                        let text_container = container(message_content).style(move |theme| {
-                            if let Some(nick) = our_nick {
-                                let should_highlight_message = config
-                                    .highlights
-                                    .should_highlight_message(message, user.nickname(), nick);
-
-                                
-                                if should_highlight_message {
-                                    return theme::container::highlight(theme);
-                                }
-
-                            }
-                            Default::default()
-                        });
+                        let text_container = container(message_content);
 
                         match &config.buffer.nickname.alignment {
                             data::buffer::Alignment::Left | data::buffer::Alignment::Right => Some(
@@ -160,7 +154,7 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Action(user) => {
+                    message::Source::Action(_) => {
                         let marker = message_marker(max_nick_width, theme::selectable_text::action);
 
                         let message_content = message_content(
@@ -172,19 +166,7 @@ pub fn view<'a>(
                             config,
                         );
 
-                        let text_container = container(message_content).style(move |theme| {
-                            if let (Some(user), Some(nick)) = (user, our_nick) {
-                                let should_highlight_message = config
-                                    .highlights
-                                    .should_highlight_message(message, user.nickname(), nick);
-
-                                
-                                if should_highlight_message {
-                                    return theme::container::highlight(theme);
-                                }
-                            }
-                            Default::default()
-                        });
+                        let text_container = container(message_content);
 
                         Some(
                             container(
