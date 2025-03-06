@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::time;
 
 use super::Panes;
-use crate::widget::{context_menu, Element, Text};
+use crate::widget::{context_menu, double_pass, Element, Text};
 use crate::{icon, theme, window};
 
 const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
@@ -251,149 +251,146 @@ impl Sidebar {
             return None;
         }
 
-        let user_menu_button = config
-            .show_user_menu
-            .then(|| self.user_menu_button(keyboard, file_transfers, version));
+        let content = |width| {
+            let user_menu_button = config
+                .show_user_menu
+                .then(|| self.user_menu_button(keyboard, file_transfers, version));
 
-        let mut buffers = vec![];
+            let mut buffers = vec![];
 
-        for (i, (server, state)) in clients.iter().enumerate() {
-            match state {
-                data::client::State::Disconnected => {
-                    buffers.push(upstream_buffer_button(
+            for (i, (server, state)) in clients.iter().enumerate() {
+                let button = |buffer: buffer::Upstream, connected: bool, has_unread: bool| {
+                    upstream_buffer_button(
                         main_window,
                         panes,
                         focus,
-                        buffer::Upstream::Server(server.clone()),
-                        false,
+                        buffer,
+                        connected,
                         config.buffer_action,
                         config.buffer_focused_action,
                         config.position,
                         config.unread_indicator,
-                        history.has_unread(&history::Kind::Server(server.clone())),
-                    ));
-                }
-                data::client::State::Ready(connection) => {
-                    buffers.push(upstream_buffer_button(
-                        main_window,
-                        panes,
-                        focus,
-                        buffer::Upstream::Server(server.clone()),
-                        true,
-                        config.buffer_action,
-                        config.buffer_focused_action,
-                        config.position,
-                        config.unread_indicator,
-                        history.has_unread(&history::Kind::Server(server.clone())),
-                    ));
+                        has_unread,
+                        width,
+                    )
+                };
 
-                    for channel in connection.channels() {
-                        buffers.push(upstream_buffer_button(
-                            main_window,
-                            panes,
-                            focus,
-                            buffer::Upstream::Channel(server.clone(), channel.clone()),
-                            true,
-                            config.buffer_action,
-                            config.buffer_focused_action,
-                            config.position,
-                            config.unread_indicator,
-                            history.has_unread(&history::Kind::Channel(
-                                server.clone(),
-                                channel.clone(),
-                            )),
+                match state {
+                    data::client::State::Disconnected => {
+                        // Disconnected server.
+                        buffers.push(button(
+                            buffer::Upstream::Server(server.clone()),
+                            false,
+                            history.has_unread(&history::Kind::Server(server.clone())),
                         ));
                     }
-
-                    let queries = history.get_unique_queries(server);
-                    for query in queries {
-                        let query = clients.resolve_query(server, query).unwrap_or(query);
-
-                        buffers.push(upstream_buffer_button(
-                            main_window,
-                            panes,
-                            focus,
-                            buffer::Upstream::Query(server.clone(), query.clone()),
+                    data::client::State::Ready(connection) => {
+                        // Connected server.
+                        buffers.push(button(
+                            buffer::Upstream::Server(server.clone()),
                             true,
-                            config.buffer_action,
-                            config.buffer_focused_action,
-                            config.position,
-                            config.unread_indicator,
-                            history
-                                .has_unread(&history::Kind::Query(server.clone(), query.clone())),
+                            history.has_unread(&history::Kind::Server(server.clone())),
                         ));
-                    }
 
-                    // Separator between servers.
-                    if config.position.is_horizontal() {
-                        if i + 1 < clients.len() {
-                            buffers.push(
-                                container(vertical_rule(1))
-                                    .padding(padding::top(6))
-                                    .height(20)
-                                    .width(12)
-                                    .align_x(Alignment::Center)
-                                    .into(),
-                            )
+                        // Channels from the connected server.
+                        for channel in connection.channels() {
+                            buffers.push(button(
+                                buffer::Upstream::Channel(server.clone(), channel.clone()),
+                                true,
+                                history.has_unread(&history::Kind::Channel(
+                                    server.clone(),
+                                    channel.clone(),
+                                )),
+                            ));
                         }
-                    } else {
-                        buffers.push(vertical_space().height(12).into());
+
+                        // Queries from the connected server.
+                        let queries = history.get_unique_queries(server);
+                        for query in queries {
+                            let query = clients.resolve_query(server, query).unwrap_or(query);
+
+                            buffers.push(button(
+                                buffer::Upstream::Query(server.clone(), query.clone()),
+                                true,
+                                history.has_unread(&history::Kind::Query(
+                                    server.clone(),
+                                    query.clone(),
+                                )),
+                            ));
+                        }
+
+                        // Separator between servers.
+                        if config.position.is_horizontal() {
+                            if i + 1 < clients.len() {
+                                buffers.push(
+                                    container(vertical_rule(1))
+                                        .padding(padding::top(6))
+                                        .height(20)
+                                        .width(12)
+                                        .align_x(Alignment::Center)
+                                        .into(),
+                                )
+                            }
+                        } else {
+                            buffers.push(vertical_space().height(12).into());
+                        }
                     }
                 }
             }
-        }
 
-        match config.position {
-            sidebar::Position::Left | sidebar::Position::Right => {
-                let content = column![Scrollable::new(Column::with_children(buffers).spacing(1))
-                    .direction(scrollable::Direction::Vertical(
-                        iced::widget::scrollable::Scrollbar::default()
-                            .width(0)
-                            .scroller_width(0),
-                    )),];
+            match config.position {
+                sidebar::Position::Left | sidebar::Position::Right => {
+                    // Add buffers to a column.
+                    let buffers =
+                        column![Scrollable::new(Column::with_children(buffers).spacing(1))
+                            .direction(scrollable::Direction::Vertical(
+                                scrollable::Scrollbar::default().width(2).scroller_width(2)
+                            ))];
 
-                let body =
-                    column![container(content).height(Length::Fill)].push_maybe(user_menu_button);
-                let padding = match config.position {
-                    sidebar::Position::Left => padding::top(8).bottom(6).left(6),
-                    sidebar::Position::Right => padding::top(8).bottom(6).right(6),
-                    _ => iced::Padding::default(),
-                };
+                    // Wrap buffers in a column with user_menu_button
+                    let content = column![container(buffers).height(Length::Fill)]
+                        .push_maybe(user_menu_button);
 
-                Some(
-                    container(body)
-                        .height(Length::Fill)
-                        .center_x(Length::Shrink)
-                        .padding(padding)
-                        .max_width(f32::from(config.width))
-                        .into(),
-                )
+                    container(content)
+                }
+                sidebar::Position::Top | sidebar::Position::Bottom => {
+                    // Add buffers to a row.
+                    let buffers = row![Scrollable::new(Row::with_children(buffers).spacing(2))
+                        .direction(scrollable::Direction::Horizontal(
+                            scrollable::Scrollbar::default().width(2).scroller_width(2)
+                        ))];
+
+                    // Wrap buffers in a row with user_menu_button
+                    let content = row![container(buffers).width(Length::Fill)]
+                        .push_maybe(user_menu_button)
+                        .align_y(Alignment::Center);
+
+                    container(content)
+                }
             }
-            sidebar::Position::Top | sidebar::Position::Bottom => {
-                let content = row![Scrollable::new(Row::with_children(buffers).spacing(2))
-                    .direction(scrollable::Direction::Horizontal(
-                        iced::widget::scrollable::Scrollbar::default()
-                            .width(0)
-                            .scroller_width(0),
-                    )),];
+        };
 
-                let body: Row<Message, theme::Theme> = row![container(content).width(Length::Fill)]
-                    .push_maybe(user_menu_button)
-                    .align_y(Alignment::Center);
-                let padding = match config.position {
-                    sidebar::Position::Top => padding::top(8).left(8).right(8),
-                    sidebar::Position::Bottom => padding::bottom(8).left(8).right(8),
-                    _ => iced::Padding::default(),
-                };
+        let padding = match config.position {
+            sidebar::Position::Left => padding::top(8).bottom(6).left(6),
+            sidebar::Position::Right => padding::top(8).bottom(6).right(6),
+            sidebar::Position::Top => padding::top(8).left(6).right(6),
+            sidebar::Position::Bottom => padding::bottom(8).left(6).right(6),
+        };
 
-                Some(
-                    container(body)
-                        .center_x(Length::Shrink)
-                        .padding(padding)
-                        .into(),
-                )
-            }
-        }
+        let content = if config.position.is_horizontal() {
+            container(content(Length::Shrink).width(Length::Fill).padding(padding)).into()
+        } else {
+            let first_pass = content(Length::Shrink);
+            let second_pass = content(Length::Fill);
+
+            container(double_pass(first_pass, second_pass))
+                .max_width(config.max_width.map(f32::from).unwrap_or(f32::INFINITY))
+                .width(Length::Shrink)
+                .padding(padding)
+                .into()
+        };
+
+        Some(content)
     }
 }
 
@@ -478,6 +475,7 @@ fn upstream_buffer_button(
     position: sidebar::Position,
     unread_indicator: sidebar::UnreadIndicator,
     has_unread: bool,
+    width: Length,
 ) -> Element<Message> {
     let open = panes
         .iter(main_window)
@@ -565,15 +563,8 @@ fn upstream_buffer_button(
             .align_y(iced::Alignment::Center),
     };
 
-    let width = if position.is_horizontal() {
-        Length::Shrink
-    } else {
-        Length::Fill
-    };
-
-    let base = button(row)
+    let base = button(row.width(width))
         .padding(5)
-        .width(width)
         .style(move |theme, status| {
             theme::button::sidebar_buffer(theme, status, is_focused.is_some(), open.is_some())
         })

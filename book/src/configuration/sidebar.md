@@ -54,17 +54,17 @@ Sidebar position within the application window.
 position = "left"
 ```
 
-## `width`
+## `max_width`
 
-Specify sidebar width in pixels. Only used if `position` is `"left"` or `"right"`.
+Specify sidebar max width in pixels. Only used if `position` is `"left"` or `"right"`.
 
 ```toml
 # Type: integer
 # Values: any positive integer
-# Default: 120
+# Default: not set
 
 [sidebar]
-width = 120
+max_width = 200
 ```
 
 ## `show_menu_button`

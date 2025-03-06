@@ -3,6 +3,7 @@
 Added:
 
 - Time remaining is now displayed during file transfers
+- Sidebar now automatically adjusts its width based on content
 
 Changed:
 

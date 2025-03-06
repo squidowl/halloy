@@ -25,7 +25,7 @@ use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
 use crate::widget::{
-    anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
+    anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row
 };
 use crate::window::Window;
 use crate::{event, notification, theme, window, Theme};
