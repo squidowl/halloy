@@ -2,6 +2,7 @@
 
 Added:
 
+- Highlights by regex and words
 - Time remaining is now displayed during file transfers
 - Sidebar now automatically adjusts its width based on content
 
