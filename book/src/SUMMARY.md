@@ -23,6 +23,7 @@
   - [Buffer](configuration/buffer.md)
   - [File Transfer](configuration/file_transfer.md)
   - [Font](configuration/font.md)
+  - [Highlights](configuration/highlights.md)
   - [Keyboard](configuration/keyboard.md)
   - [Notifications](configuration/notifications.md)
   - [Pane](configuration/pane.md)
