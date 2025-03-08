@@ -1,7 +1,7 @@
 use data::server::Server;
 use data::user::Nick;
 use data::{buffer, preview, User};
-use data::{channel, history, message, target, Config};
+use data::{history, message, target, Config};
 use iced::widget::{column, container, row};
 use iced::{alignment, padding, Length, Task};
 
@@ -33,7 +33,7 @@ pub fn view<'a>(
     clients: &'a data::client::Map,
     history: &'a history::Manager,
     previews: &'a preview::Collection,
-    settings: &'a channel::Settings,
+    settings: Option<&'a buffer::Settings>,
     config: &'a Config,
     theme: &'a Theme,
     is_focused: bool,
@@ -318,10 +318,11 @@ pub fn view<'a>(
 
     let content = column![topic, messages].spacing(4);
 
-    let content = match (
-        settings.nicklist.enabled,
-        config.buffer.channel.nicklist.position,
-    ) {
+    let nicklist_enabled = settings
+        .map(|settings| settings.channel.nicklist.enabled)
+        .unwrap_or(config.buffer.channel.nicklist.enabled);
+
+    let content = match (nicklist_enabled, config.buffer.channel.nicklist.position) {
         (true, data::channel::Position::Left) => row![nick_list, content],
         (true, data::channel::Position::Right) => row![content, nick_list],
         (false, _) => { row![content] }.height(Length::Fill),
@@ -440,11 +441,15 @@ fn topic<'a>(
     clients: &'a data::client::Map,
     users: &'a [User],
     our_user: Option<&'a User>,
-    settings: &'a channel::Settings,
+    settings: Option<&'a buffer::Settings>,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Option<Element<'a, Message>> {
-    if !settings.topic.enabled {
+    let topic_enabled = settings
+        .map(|settings| settings.channel.topic.enabled)
+        .unwrap_or(config.buffer.channel.topic.enabled);
+
+    if !topic_enabled {
         return None;
     }
 
