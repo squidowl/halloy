@@ -784,7 +784,7 @@ impl Dashboard {
                                 }
                             },
                             command_bar::Command::Application(application) => match application {
-                                command_bar::Application::Quit => (iced::exit(), None),
+                                command_bar::Application::Quit => (self.exit(), None),
                             },
                         };
 
@@ -973,7 +973,7 @@ impl Dashboard {
                         );
                     }
                     ToggleFullscreen => return (window::toggle_fullscreen(), None),
-                    QuitApplication => return (iced::exit(), None),
+                    QuitApplication => return (self.exit(), None),
                 }
             }
             Message::FileTransfer(update) => {
