@@ -48,7 +48,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenBuffer(Target, Option<Task<history::manager::Message>>),
+    OpenBuffer(Target),
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -109,9 +109,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     channel::Event::UserContext(event) => Event::UserContext(event),
-                    channel::Event::OpenBuffer(target, history_task) => {
-                        Event::OpenBuffer(target, history_task)
-                    }
+                    channel::Event::OpenBuffer(target) => Event::OpenBuffer(target),
                     channel::Event::History(task) => Event::History(task),
                     channel::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                     channel::Event::PreviewChanged => Event::PreviewChanged,
@@ -127,9 +125,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     server::Event::UserContext(event) => Event::UserContext(event),
-                    server::Event::OpenBuffer(target, history_task) => {
-                        Event::OpenBuffer(target, history_task)
-                    }
+                    server::Event::OpenBuffer(target) => Event::OpenBuffer(target),
                     server::Event::History(task) => Event::History(task),
                 });
 
@@ -140,9 +136,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     query::Event::UserContext(event) => Event::UserContext(event),
-                    query::Event::OpenBuffer(target, history_task) => {
-                        Event::OpenBuffer(target, history_task)
-                    }
+                    query::Event::OpenBuffer(target) => Event::OpenBuffer(target),
                     query::Event::History(task) => Event::History(task),
                     query::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                     query::Event::PreviewChanged => Event::PreviewChanged,
@@ -164,7 +158,7 @@ impl Buffer {
                 let event = event.map(|event| match event {
                     logs::Event::UserContext(event) => Event::UserContext(event),
                     logs::Event::OpenChannel(channel) => {
-                        Event::OpenBuffer(Target::Channel(channel), None)
+                        Event::OpenBuffer(Target::Channel(channel))
                     }
                     logs::Event::History(task) => Event::History(task),
                 });
@@ -177,7 +171,7 @@ impl Buffer {
                 let event = event.map(|event| match event {
                     highlights::Event::UserContext(event) => Event::UserContext(event),
                     highlights::Event::OpenChannel(channel) => {
-                        Event::OpenBuffer(Target::Channel(channel), None)
+                        Event::OpenBuffer(Target::Channel(channel))
                     }
                     highlights::Event::GoToMessage(server, channel, message) => {
                         Event::GoToMessage(server, channel, message)

@@ -14,9 +14,10 @@ pub fn parse(
     buffer: buffer::Upstream,
     auto_format: AutoFormat,
     input: &str,
-) -> Result<Input, Error> {
+) -> Result<Parsed, Error> {
     let content = match command::parse(input, Some(&buffer)) {
-        Ok(command) => Content::Command(command),
+        Ok(Command::Internal(command)) => return Ok(Parsed::Internal(command)),
+        Ok(Command::Irc(command)) => Content::Command(command),
         Err(command::Error::MissingSlash) => {
             let text = match auto_format {
                 AutoFormat::Disabled => input.to_string(),
@@ -37,11 +38,16 @@ pub fn parse(
         return Err(Error::ExceedsByteLimit);
     }
 
-    Ok(Input {
+    Ok(Parsed::Input(Input {
         buffer,
         content,
         raw: Some(input.to_string()),
-    })
+    }))
+}
+
+pub enum Parsed {
+    Input(Input),
+    Internal(command::Internal),
 }
 
 #[derive(Debug, Clone)]
@@ -52,7 +58,7 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn command(buffer: buffer::Upstream, command: Command) -> Self {
+    pub fn command(buffer: buffer::Upstream, command: command::Irc) -> Self {
         Self {
             buffer,
             content: Content::Command(command),
@@ -82,7 +88,7 @@ impl Input {
         let command = self.content.command(&self.buffer)?;
 
         match command {
-            Command::Msg(targets, text) => Some(
+            command::Irc::Msg(targets, text) => Some(
                 targets
                     .split(',')
                     .map(|target| {
@@ -99,7 +105,7 @@ impl Input {
                     })
                     .collect(),
             ),
-            Command::Me(target, action) => Some(vec![Message::sent(
+            command::Irc::Me(target, action) => Some(vec![Message::sent(
                 to_target(&target, message::Source::Action(Some(user.clone()))),
                 message::action_text(user.nickname(), Some(&action)),
             )]),
@@ -114,24 +120,20 @@ impl Input {
     pub fn raw(&self) -> Option<&str> {
         self.raw.as_deref()
     }
-
-    pub fn internal(&self) -> Option<Command> {
-        self.content.internal(&self.buffer)
-    }
 }
 
 #[derive(Debug, Clone)]
 enum Content {
     Text(String),
-    Command(Command),
+    Command(command::Irc),
 }
 
 impl Content {
-    fn command(&self, buffer: &buffer::Upstream) -> Option<Command> {
+    fn command(&self, buffer: &buffer::Upstream) -> Option<command::Irc> {
         match self {
             Self::Text(text) => {
                 let target = buffer.target()?;
-                Some(Command::Msg(target.to_string(), text.clone()))
+                Some(command::Irc::Msg(target.to_string(), text.clone()))
             }
             Self::Command(command) => Some(command.clone()),
         }
@@ -141,10 +143,6 @@ impl Content {
         self.command(buffer)
             .and_then(|command| proto::Command::try_from(command).ok())
             .map(proto::Message::from)
-    }
-
-    fn internal(&self, buffer: &buffer::Upstream) -> Option<Command> {
-        self.command(buffer).filter(|command| command.is_internal())
     }
 }
 
