@@ -43,6 +43,7 @@ pub enum Command {
     Logs,
     ThemeEditor,
     Highlight,
+    QuitApplication,
 }
 
 macro_rules! default {

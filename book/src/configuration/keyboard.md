@@ -33,3 +33,4 @@ move_right = "alt+l"
 | `file_transfers`        | Toggle File Transfers Buffer | <kbd>⌘</kbd> + <kbd>j</kbd>                         | <kbd>ctrl</kbd> + <kbd>j</kbd>                      |
 | `logs`                  | Toggle Logs Buffer           | <kbd>⌘</kbd> + <kbd>l</kbd>                         | <kbd>ctrl</kbd> + <kbd>l</kbd>                      |
 | `theme_editor`          | Toggle Theme Editor Window   | <kbd>⌘</kbd> + <kbd>t</kbd>                         | <kbd>ctrl</kbd> + <kbd>t</kbd>                      |
+| `quit_application`      | Quit Halloy                  | Not set                                             | Not set                                             |

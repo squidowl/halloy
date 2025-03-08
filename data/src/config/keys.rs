@@ -44,6 +44,8 @@ pub struct Keyboard {
     pub theme_editor: KeyBind,
     #[serde(default = "KeyBind::highlight")]
     pub highlight: KeyBind,
+    #[serde(default)]
+    pub quit_application: Option<KeyBind>,
 }
 
 impl Default for Keyboard {
@@ -69,6 +71,7 @@ impl Default for Keyboard {
             logs: KeyBind::logs(),
             theme_editor: KeyBind::theme_editor(),
             highlight: KeyBind::highlight(),
+            quit_application: None,
         }
     }
 }
@@ -77,7 +80,7 @@ impl Keyboard {
     pub fn shortcuts(&self) -> Vec<Shortcut> {
         use crate::shortcut::Command::*;
 
-        vec![
+        let mut shortcuts = vec![
             shortcut(self.move_up.clone(), MoveUp),
             shortcut(self.move_down.clone(), MoveDown),
             shortcut(self.move_left.clone(), MoveLeft),
@@ -98,6 +101,12 @@ impl Keyboard {
             shortcut(self.logs.clone(), Logs),
             shortcut(self.theme_editor.clone(), ThemeEditor),
             shortcut(self.highlight.clone(), Highlight),
-        ]
+        ];
+
+        if let Some(quit_application) = self.quit_application.clone() {
+            shortcuts.push(shortcut(quit_application, QuitApplication));
+        }
+
+        shortcuts
     }
 }
