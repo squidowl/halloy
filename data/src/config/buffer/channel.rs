@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::buffer::Color;
 use crate::channel::Position;
 
-use super::NicknameClick;
+use super::NicknameClickAction;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Channel {
@@ -36,7 +36,7 @@ pub struct Nicklist {
     #[serde(default = "default_bool_true")]
     pub show_access_levels: bool,
     #[serde(default)]
-    pub click: NicknameClick,
+    pub click: NicknameClickAction,
 }
 
 impl Default for Nicklist {

@@ -8,7 +8,6 @@ pub use self::color_picker::color_picker;
 pub use self::combo_box::combo_box;
 pub use self::context_menu::context_menu;
 pub use self::decorate::decorate;
-pub use self::double_click::double_click;
 pub use self::double_pass::double_pass;
 pub use self::key_press::key_press;
 pub use self::message_content::message_content;

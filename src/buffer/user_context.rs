@@ -4,7 +4,7 @@ use iced::widget::{button, column, container, horizontal_rule, row, text, Space}
 use iced::{padding, Length, Padding};
 
 use crate::theme;
-use crate::widget::{context_menu, double_click, double_pass, single_click, Element};
+use crate::widget::{context_menu, double_pass, single_click, Element};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Entry {
@@ -174,11 +174,11 @@ pub fn view<'a>(
     current_user: Option<&'a User>,
     our_user: Option<&'a User>,
     config: &'a Config,
-    click: &'a config::buffer::NicknameClick,
+    click: &'a config::buffer::NicknameClickAction,
 ) -> Element<'a, Message> {
     let entries = Entry::list(channel.is_some(), our_user);
 
-    let message = match click.action {
+    let message = match click {
         data::config::buffer::NicknameClickAction::OpenQuery => {
             Message::Query(server.clone(), target::Query::from_user(user, casemapping))
         }
@@ -187,18 +187,9 @@ pub fn view<'a>(
         }
     };
 
-    let content = match click.interaction {
-        data::config::buffer::NicknameClickInteraction::SingleClick => {
-            single_click(content, message)
-        }
-        data::config::buffer::NicknameClickInteraction::DoubleClick => {
-            double_click(content, message)
-        }
-    };
-
     context_menu(
         Default::default(),
-        content,
+        single_click(content, message),
         entries,
         move |entry, length| {
             entry.view(

@@ -463,12 +463,22 @@ impl State {
                 let _ = open::that_detached(url);
             }
             Message::Link(message::Link::User(user)) => {
-                return (
-                    Task::none(),
-                    Some(Event::UserContext(user_context::Event::InsertNickname(
-                        user.nickname().to_owned(),
-                    ))),
-                )
+                let event = match config.buffer.nickname.click {
+                    data::config::buffer::NicknameClickAction::OpenQuery => {
+                        kind.server().cloned().map(|server| {
+                            let query =
+                                target::Query::from_user(&user, clients.get_casemapping(&server));
+                            Event::UserContext(user_context::Event::OpenQuery(server, query))
+                        })
+                    }
+                    data::config::buffer::NicknameClickAction::InsertNickname => {
+                        Some(Event::UserContext(user_context::Event::InsertNickname(
+                            user.nickname().to_owned(),
+                        )))
+                    }
+                };
+
+                return (Task::none(), event);
             }
             Message::Link(message::Link::GoToMessage(server, channel, message)) => {
                 return (
