@@ -1,4 +1,4 @@
-use data::command::Command;
+use data::command;
 use data::input::{self, Cache, Draft};
 use data::target::Target;
 use data::user::Nick;
@@ -18,7 +18,6 @@ pub enum Event {
     },
     OpenBuffer {
         target: Target,
-        history_task: Task<history::manager::Message>,
     },
 }
 
@@ -185,19 +184,31 @@ impl State {
                         config.buffer.text_input.auto_format,
                         input,
                     ) {
-                        Ok(input) => input,
+                        Ok(input::Parsed::Internal(command)) => match command {
+                            command::Internal::OpenBuffer(target) => {
+                                return (
+                                    Task::none(),
+                                    Some(Event::OpenBuffer {
+                                        target: Target::parse(
+                                            target.as_ref(),
+                                            clients.get_chantypes(buffer.server()),
+                                            clients.get_statusmsg(buffer.server()),
+                                            clients.get_casemapping(buffer.server()),
+                                        ),
+                                    }),
+                                )
+                            }
+                        },
+                        Ok(input::Parsed::Input(input)) => input,
                         Err(error) => {
                             self.error = Some(error.to_string());
                             return (Task::none(), None);
                         }
                     };
 
-                    let internal_command = if let Some(encoded) = input.encoded() {
+                    if let Some(encoded) = input.encoded() {
                         clients.send(buffer, encoded);
-                        None
-                    } else {
-                        input.internal()
-                    };
+                    }
 
                     let mut history_task = Task::none();
 
@@ -235,22 +246,7 @@ impl State {
                         );
                     }
 
-                    if let Some(Command::OpenBuffer(target)) = internal_command {
-                        (
-                            Task::none(),
-                            Some(Event::OpenBuffer {
-                                target: Target::parse(
-                                    target.as_ref(),
-                                    clients.get_chantypes(buffer.server()),
-                                    clients.get_statusmsg(buffer.server()),
-                                    clients.get_casemapping(buffer.server()),
-                                ),
-                                history_task,
-                            }),
-                        )
-                    } else {
-                        (Task::none(), Some(Event::InputSent { history_task }))
-                    }
+                    (Task::none(), Some(Event::InputSent { history_task }))
                 } else {
                     (Task::none(), None)
                 }

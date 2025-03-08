@@ -1223,7 +1223,7 @@ impl Client {
 
                 // Loop on connect commands
                 for command in self.config.on_connect.iter() {
-                    if let Ok(cmd) = crate::command::parse(command, None) {
+                    if let Ok(crate::Command::Irc(cmd)) = crate::command::parse(command, None) {
                         if let Ok(command) = proto::Command::try_from(cmd) {
                             self.handle.try_send(command.into())?;
                         };

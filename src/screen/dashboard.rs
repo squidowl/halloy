@@ -11,9 +11,10 @@ use data::history::ReadMarker;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{client, environment, history, Config, Server, Version};
-use data::{config, preview};
-use data::{file_transfer, Notification};
+use data::{
+    client, command, config, environment, file_transfer, history, preview, Config, Notification,
+    Server, Version,
+};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, Length, Task, Vector};
@@ -189,7 +190,7 @@ impl Dashboard {
                                                 channel.clone(),
                                             );
 
-                                            let command = data::Command::Mode(
+                                            let command = command::Irc::Mode(
                                                 channel.to_string(),
                                                 Some(mode),
                                                 Some(vec![nick.to_string()]),
@@ -207,7 +208,7 @@ impl Dashboard {
                                                 );
 
                                             let command =
-                                                data::Command::Whois(None, nick.to_string());
+                                                command::Irc::Whois(None, nick.to_string());
 
                                             let input =
                                                 data::Input::command(buffer.clone(), command);
@@ -331,12 +332,8 @@ impl Dashboard {
                                         }
                                     }
                                 }
-                                buffer::Event::OpenBuffer(target, history_task) => {
-                                    let mut tasks = vec![task];
-
-                                    if let Some(history_task) = history_task {
-                                        tasks.push(history_task.map(Message::History))
-                                    }
+                                buffer::Event::OpenBuffer(target) => {
+                                    let mut tasks = vec![];
 
                                     if let Some(server) = pane
                                         .buffer
@@ -1505,7 +1502,7 @@ impl Dashboard {
             }
             buffer::Upstream::Channel(server, channel) => {
                 // Send part & close history file
-                let command = data::Command::Part(channel.to_string(), None);
+                let command = command::Irc::Part(channel.to_string(), None);
                 let input = data::Input::command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {

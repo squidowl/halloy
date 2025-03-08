@@ -21,7 +21,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenBuffer(Target, Option<Task<history::manager::Message>>),
+    OpenBuffer(Target),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
@@ -370,7 +370,7 @@ impl Channel {
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
                     scroll_view::Event::OpenChannel(channel) => {
-                        Some(Event::OpenBuffer(Target::Channel(channel), None))
+                        Some(Event::OpenBuffer(Target::Channel(channel)))
                     }
                     scroll_view::Event::GoToMessage(..) => None,
                     scroll_view::Event::RequestOlderChatHistory => {
@@ -399,10 +399,9 @@ impl Channel {
 
                         (command, Some(Event::History(history_task)))
                     }
-                    Some(input_view::Event::OpenBuffer {
-                        target,
-                        history_task,
-                    }) => (command, Some(Event::OpenBuffer(target, Some(history_task)))),
+                    Some(input_view::Event::OpenBuffer { target }) => {
+                        (command, Some(Event::OpenBuffer(target)))
+                    }
                     None => (command, None),
                 }
             }
@@ -415,7 +414,7 @@ impl Channel {
                 topic::update(message).map(|event| match event {
                     topic::Event::UserContext(event) => Event::UserContext(event),
                     topic::Event::OpenChannel(channel) => {
-                        Event::OpenBuffer(Target::Channel(channel), None)
+                        Event::OpenBuffer(Target::Channel(channel))
                     }
                 }),
             ),
