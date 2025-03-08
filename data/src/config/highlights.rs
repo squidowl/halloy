@@ -66,14 +66,13 @@ impl<'de> Deserialize<'de> for Match {
             } => {
                 let words = words.iter().map(|s| fancy_regex::escape(s)).join("|");
 
-                let regex = format!(r#"(?<!\w)({words})(?!\w)"#);
+                let flags = if case_insensitive { "(?i)" } else { "" };
 
-                let regex = RegexBuilder::new(&regex)
-                    .case_insensitive(case_insensitive)
-                    .build()
-                    .map_err(|err| {
-                        serde::de::Error::custom(format!("invalid regex '{regex}': {err}"))
-                    })?;
+                let regex = format!(r#"{flags}(?<!\w)({words})(?!\w)"#);
+
+                let regex = RegexBuilder::new(&regex).build().map_err(|err| {
+                    serde::de::Error::custom(format!("invalid regex '{regex}': {err}"))
+                })?;
 
                 Ok(Match {
                     regex,
