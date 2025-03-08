@@ -7,6 +7,7 @@ Added:
 - Sidebar now automatically adjusts its width based on content
 - Ability to customize default pane splitting direction (vertical or horizontal)
 - Clicking a nickname is now configurable. The default behavior has changed to open a query.
+- Ability to quit Halloy through commandbar and keyboard shortcut
 
 Changed:
 
