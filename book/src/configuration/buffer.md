@@ -142,9 +142,6 @@ width = 150
 
 Click action for when interaction with nicknames.
 
-##### `action`
-
-The action to perform.  
 - `"open-query"`: Open a query with the User
 - `"insert-nickname"`: Inserts the nickname into text input
 
@@ -153,21 +150,8 @@ The action to perform.
 # Values: "open-query", "insert-nickname"
 # Default: "open-query"
 
-[buffer.channel.nicklist.click]
-action = "open-query"
-```
-
-##### `interaction`
-
-The interaction to perform a action.  
-
-```toml
-# Type: string
-# Values: "single-click", "double-click"
-# Default: "double-click"
-
-[buffer.channel.nicklist.click]
-interaction = "double-click"
+[buffer.channel.nicklist]
+click = "open-query"
 ```
 
 ### `[buffer.channel.topic]`
@@ -444,9 +428,6 @@ show_access_levels = true
 
 Click action for when interaction with nicknames.
 
-#### `action`
-
-The action to perform.  
 - `"open-query"`: Open a query with the User
 - `"insert-nickname"`: Inserts the nickname into text input
 
@@ -455,21 +436,8 @@ The action to perform.
 # Values: "open-query", "insert-nickname"
 # Default: "open-query"
 
-[buffer.nickname.click]
-action = "open-query"
-```
-
-#### `interaction`
-
-The interaction to perform a action.  
-
-```toml
-# Type: string
-# Values: "single-click", "double-click"
-# Default: "double-click"
-
-[buffer.nickname.click]
-interaction = "double-click"
+[buffer.nickname]
+click = "open-query"
 ```
 
 ## `[buffer.server_messages]`

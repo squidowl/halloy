@@ -42,27 +42,10 @@ pub struct Buffer {
 
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
-pub struct NicknameClick {
-    #[serde(default)]
-    pub action: NicknameClickAction,
-    #[serde(default)]
-    pub interaction: NicknameClickInteraction,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
 pub enum NicknameClickAction {
     #[default]
     OpenQuery,
     InsertNickname,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub enum NicknameClickInteraction {
-    SingleClick,
-    #[default]
-    DoubleClick,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -2,7 +2,7 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::buffer::NicknameClick;
+use crate::config::buffer::NicknameClickAction;
 use crate::target::{self, Target};
 use crate::{channel, config, message, Server};
 
@@ -227,7 +227,7 @@ pub struct Nickname {
     #[serde(default = "default_bool_true")]
     pub show_access_levels: bool,
     #[serde(default)]
-    pub click: NicknameClick,
+    pub click: NicknameClickAction,
 }
 
 impl Default for Nickname {
