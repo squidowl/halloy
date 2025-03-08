@@ -5,7 +5,7 @@ Application wide highlights.
 **Example**
 
 ```toml
-# Enable nickname highlights in channel #halloy.
+# Enable nickname highlights only in channel #halloy.
 [highlights.nickname]
 exclude = ["*"]
 include = ["#halloy"]
@@ -15,9 +15,10 @@ include = ["#halloy"]
 words = ["boat", "car"]
 case_insensitive = true
 
-# Highlight when regex matches in any channel.
+# Highlight when regex matches in any channel except #noisy-channel.
 [[highlights.match]]
-regex = "(?i)\\bcasper\\b"
+regex = '''(?i)\bcasper\b'''
+exclude = ["#noisy-channel"]
 ```
 
 ## `[highlights.nickname]`
@@ -27,7 +28,7 @@ Nickname highlights.
 ### `exclude`
 
 Channels in which you won’t be highlighted.
-If you pass `["#halloy"]`, you won’t be highlighted by nickname in that channel. You can also exclude all channels by using a wildcard: `["*"]`.
+If you pass `["#halloy"]`, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: `["*"]`.
 
 ```toml
 # Type: array of strings
@@ -40,8 +41,8 @@ exclude = ["*"]
 
 ### `include`
 
-Channels in which you will be highlighted.
-If you pass `["#halloy"]`, you will be highlighted by nickname in that channel. You can also include all channels by using a wildcard: `["*"]`.
+Channels in which you will be highlighted, only useful when combined with `exclude = ["*"]`.
+If you pass `["#halloy"]`, you will only be highlighted in that channel.
 
 ```toml
 # Type: array of strings
@@ -49,7 +50,8 @@ If you pass `["#halloy"]`, you will be highlighted by nickname in that channel. 
 # Default: ["*"]
 
 [highlights.nickname]
-include = ["*"]
+exclude = ["*"]
+include = ["#halloy"]
 ```
 
 ## `[[highlights.match]]`
@@ -82,7 +84,7 @@ You can choose whether or not to trigger regardless of case.
 # Default: false
 
 [[highlights.match]]
-# words = ["word1", "word2", "word3"] - requires words
+words = ["word1", "word2", "word3"]
 case_insensitive = true
 ```
 
@@ -90,7 +92,16 @@ case_insensitive = true
 
 Match based on regex.
 
-Example shows a regex that matches the word "casper", regardless of case  and only when it appears as a whole word in any channel.
+<div class="warning">
+
+Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write write the regex without
+escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
+
+Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
+
+</div>
+
+Example shows a regex that matches the word "casper", regardless of case and only when it appears as a whole word in any channel.
 
 ```toml
 # Type: string
@@ -98,13 +109,13 @@ Example shows a regex that matches the word "casper", regardless of case  and on
 # Default: not set
 
 [[highlights.match]]
-regex = "(?i)\bcasper\b"
+regex = '''(?i)\bcasper\b'''
 ```
 
 ### `exclude`
 
 Channels in which you won’t be highlighted.
-If you pass `["#halloy"]`, you won’t be highlighted by nickname in that channel. You can also exclude all channels by using a wildcard: `["*"]`.
+If you pass `["#halloy"]`, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: `["*"]`.
 
 Example shows a regex match which will be excluded in from `#noisy-channel`
 
@@ -114,16 +125,16 @@ Example shows a regex match which will be excluded in from `#noisy-channel`
 # Default: []
 
 [[highlights.match]]
-# regex = "(?i)\bcasper\b"
+regex = '''(?i)\bcasper\b'''
 exclude = ["#noisy-channel"]
 ```
 
 ### `include`
 
-Channels in which you will be highlighted.
-If you pass `["#halloy"]`, you will be highlighted by nickname in that channel. You can also include all channels by using a wildcard: `["*"]`.
+Channels in which you will be highlighted, only useful when combined with `exclude = ["*"]`.
+If you pass `["#halloy"]`, you will only be highlighted in that channel.
 
-Example shows a regex match which will only try to match in `#halloy` channel.
+Example shows a words match which will only try to match in `#halloy` channel.
 
 ```toml
 # Type: array of strings
@@ -131,7 +142,7 @@ Example shows a regex match which will only try to match in `#halloy` channel.
 # Default: ["*"]
 
 [[highlights.match]]
-# regex = "(?i)\bcasper\b"
-# exclude = ["*"]
+words = ["word1", "word2", "word3"]
+exclude = ["*"]
 include = ["#halloy"]
 ```
