@@ -88,7 +88,7 @@ case_insensitive = true
 
 ### `regex`
 
-Match based on regex. Remember to escape it.
+Match based on regex.
 
 Example shows a regex that matches the word "casper", regardless of case  and only when it appears as a whole word in any channel.
 
@@ -98,7 +98,7 @@ Example shows a regex that matches the word "casper", regardless of case  and on
 # Default: not set
 
 [[highlights.match]]
-regex = "(?i)\\bcasper\\b"
+regex = "(?i)\bcasper\b"
 ```
 
 ### `exclude`
@@ -114,7 +114,7 @@ Example shows a regex match which will be excluded in from `#noisy-channel`
 # Default: []
 
 [[highlights.match]]
-# regex = "(?i)\\bcasper\\b"
+# regex = "(?i)\bcasper\b"
 exclude = ["#noisy-channel"]
 ```
 
@@ -131,7 +131,7 @@ Example shows a regex match which will only try to match in `#halloy` channel.
 # Default: ["*"]
 
 [[highlights.match]]
-# regex = "(?i)\\bcasper\\b"
+# regex = "(?i)\bcasper\b"
 # exclude = ["*"]
 include = ["#halloy"]
 ```
