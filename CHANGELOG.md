@@ -6,7 +6,7 @@ Added:
 - Time remaining is now displayed during file transfers
 - Sidebar now automatically adjusts its width based on content
 - Ability to customize default pane splitting direction (vertical or horizontal)
-- Clicking a nickname is now configurable. The default behavior has changed to double-clicking to open a query, instead of single-clicking to insert it into the text input
+- Clicking a nickname is now configurable. The default behavior has changed to open a query.
 
 Changed:
 
