@@ -16,7 +16,6 @@ pub use self::notify_visibility::notify_visibility;
 pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
-pub use self::single_click::single_click;
 pub use self::tooltip::tooltip;
 
 pub mod anchored_overlay;
@@ -34,7 +33,6 @@ pub mod notify_visibility;
 pub mod selectable_rich_text;
 pub mod selectable_text;
 pub mod shortcut;
-pub mod single_click;
 pub mod tooltip;
 
 pub type Renderer = iced::Renderer;
@@ -65,3 +63,25 @@ pub fn message_marker<'a, M: 'a>(
 }
 
 pub const MESSAGE_MARKER_TEXT: &str = " ∙";
+
+pub mod button {
+    use crate::appearance::theme;
+
+    use super::Element;
+
+    /// Transparent button which simply makes the given content
+    /// into a clickable button without additional styling.
+    pub fn transparent_button<'a, Message>(
+        content: impl Into<Element<'a, Message>>,
+        message: Message,
+    ) -> Element<'a, Message>
+    where
+        Message: Clone + 'a,
+    {
+        iced::widget::button(content)
+            .padding(0)
+            .style(theme::button::bare)
+            .on_press(message)
+            .into()
+    }
+}

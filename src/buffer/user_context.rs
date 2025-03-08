@@ -3,8 +3,8 @@ use data::{config, isupport, target, Config, Server, User};
 use iced::widget::{button, column, container, horizontal_rule, row, text, Space};
 use iced::{padding, Length, Padding};
 
-use crate::theme;
-use crate::widget::{context_menu, double_pass, single_click, Element};
+use crate::widget::{context_menu, double_pass, Element};
+use crate::{theme, widget};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Entry {
@@ -187,22 +187,19 @@ pub fn view<'a>(
         }
     };
 
-    context_menu(
-        Default::default(),
-        single_click(content, message),
-        entries,
-        move |entry, length| {
-            entry.view(
-                server,
-                casemapping,
-                channel,
-                user,
-                current_user,
-                length,
-                config,
-            )
-        },
-    )
+    let base = widget::button::transparent_button(content, message);
+
+    context_menu(Default::default(), base, entries, move |entry, length| {
+        entry.view(
+            server,
+            casemapping,
+            channel,
+            user,
+            current_user,
+            length,
+            config,
+        )
+    })
     .into()
 }
 
