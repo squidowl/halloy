@@ -46,7 +46,7 @@ If you pass `["#halloy"]`, you will be highlighted by nickname in that channel. 
 ```toml
 # Type: array of strings
 # Values: array of any strings
-# Default: []
+# Default: ["*"]
 
 [highlights.nickname]
 include = ["*"]
@@ -128,7 +128,7 @@ Example shows a regex match which will only try to match in `#halloy` channel.
 ```toml
 # Type: array of strings
 # Values: array of any strings
-# Default: []
+# Default: ["*"]
 
 [[highlights.match]]
 # regex = "(?i)\\bcasper\\b"
