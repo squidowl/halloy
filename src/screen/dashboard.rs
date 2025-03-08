@@ -80,7 +80,7 @@ pub enum Event {
 
 impl Dashboard {
     pub fn empty(config: &Config) -> (Self, Task<Message>) {
-        let (main_panes, _) = pane_grid::State::new(Pane::new(Buffer::Empty, config));
+        let (main_panes, _) = pane_grid::State::new(Pane::new(Buffer::Empty));
 
         let mut dashboard = Dashboard {
             panes: Panes {
@@ -155,7 +155,7 @@ impl Dashboard {
                         }
                     }
                     pane::Message::SplitPane(axis) => {
-                        return (self.split_pane(axis, config, main_window), None);
+                        return (self.split_pane(axis, main_window), None);
                     }
                     pane::Message::Buffer(id, message) => {
                         if let Some(pane) = self.panes.get_mut(main_window.id, window, id) {
@@ -440,39 +440,29 @@ impl Dashboard {
                         }
                     }
                     pane::Message::ToggleShowUserList => {
-                        if let Some((_, pane, buffer_settings)) =
-                            self.get_focused_with_buffer_settings_mut(main_window)
-                        {
-                            let buffer = pane.buffer.data();
-
-                            let settings = pane.update_settings(|settings| {
+                        if let Some((_, _, pane)) = self.get_focused(main_window) {
+                            if let Some(buffer) = pane.buffer.data() {
+                                let settings = self
+                                    .buffer_settings
+                                    .entry(&buffer, Some(config.buffer.clone().into()));
                                 settings.channel.nicklist.toggle_visibility()
-                            });
-
-                            if let Some(buffer) = buffer {
-                                buffer_settings.insert(buffer, settings);
                             }
 
                             self.last_changed = Some(Instant::now());
-                            return (self.save_dashboard(), None);
+                            return (Task::none(), None);
                         }
                     }
                     pane::Message::ToggleShowTopic => {
-                        if let Some((_, pane, buffer_settings)) =
-                            self.get_focused_with_buffer_settings_mut(main_window)
-                        {
-                            let buffer = pane.buffer.data();
-
-                            let settings = pane.update_settings(|settings| {
+                        if let Some((_, _, pane)) = self.get_focused(main_window) {
+                            if let Some(buffer) = pane.buffer.data() {
+                                let settings = self
+                                    .buffer_settings
+                                    .entry(&buffer, Some(config.buffer.clone().into()));
                                 settings.channel.topic.toggle_visibility()
-                            });
-
-                            if let Some(buffer) = buffer {
-                                buffer_settings.insert(buffer, settings);
                             }
 
                             self.last_changed = Some(Instant::now());
-                            return (self.save_dashboard(), None);
+                            return (Task::none(), None);
                         }
                     }
                     pane::Message::MaximizePane => self.maximize_pane(),
@@ -507,7 +497,7 @@ impl Dashboard {
                     sidebar::Event::Popout(buffer) => (
                         self.open_popout_window(
                             main_window,
-                            Pane::new(Buffer::from(data::Buffer::Upstream(buffer)), config),
+                            Pane::new(Buffer::from(data::Buffer::Upstream(buffer))),
                         ),
                         None,
                     ),
@@ -702,7 +692,7 @@ impl Dashboard {
                                     (Task::none(), None)
                                 }
                                 command_bar::Buffer::New => (
-                                    self.new_pane(pane_grid::Axis::Horizontal, config, main_window),
+                                    self.new_pane(pane_grid::Axis::Horizontal, main_window),
                                     None,
                                 ),
                                 command_bar::Buffer::Close => {
@@ -902,39 +892,29 @@ impl Dashboard {
                         }
                     }
                     ToggleNicklist => {
-                        if let Some((_, pane, buffer_settings)) =
-                            self.get_focused_with_buffer_settings_mut(main_window)
-                        {
-                            let buffer = pane.buffer.data();
-
-                            let settings = pane.update_settings(|settings| {
+                        if let Some((_, _, pane)) = self.get_focused(main_window) {
+                            if let Some(buffer) = pane.buffer.data() {
+                                let settings = self
+                                    .buffer_settings
+                                    .entry(&buffer, Some(config.buffer.clone().into()));
                                 settings.channel.nicklist.toggle_visibility()
-                            });
-
-                            if let Some(buffer) = buffer {
-                                buffer_settings.insert(buffer, settings);
                             }
 
                             self.last_changed = Some(Instant::now());
-                            return (self.save_dashboard(), None);
+                            return (Task::none(), None);
                         }
                     }
                     ToggleTopic => {
-                        if let Some((_, pane, buffer_settings)) =
-                            self.get_focused_with_buffer_settings_mut(main_window)
-                        {
-                            let buffer = pane.buffer.data();
-
-                            let settings = pane.update_settings(|settings| {
+                        if let Some((_, _, pane)) = self.get_focused(main_window) {
+                            if let Some(buffer) = pane.buffer.data() {
+                                let settings = self
+                                    .buffer_settings
+                                    .entry(&buffer, Some(config.buffer.clone().into()));
                                 settings.channel.topic.toggle_visibility()
-                            });
-
-                            if let Some(buffer) = buffer {
-                                buffer_settings.insert(buffer, settings);
                             }
 
                             self.last_changed = Some(Instant::now());
-                            return (self.save_dashboard(), None);
+                            return (Task::none(), None);
                         }
                     }
                     ToggleSidebar => {
@@ -1149,6 +1129,9 @@ impl Dashboard {
             let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
                     let is_focused = self.focus == Some((window, id));
+                    let buffer = pane.buffer.data();
+                    let settings = buffer.as_ref().and_then(|b| self.buffer_settings.get(b));
+
                     pane.view(
                         id,
                         window,
@@ -1163,6 +1146,7 @@ impl Dashboard {
                         config,
                         theme,
                         main_window,
+                        settings,
                     )
                 })
                 .spacing(4)
@@ -1195,6 +1179,9 @@ impl Dashboard {
         let pane_grid: Element<_> = PaneGrid::new(&self.panes.main, |id, pane, maximized| {
             let is_focused = focus == Some((main_window.id, id));
             let panes = self.panes.main.panes.len();
+            let buffer = pane.buffer.data();
+            let settings = buffer.as_ref().and_then(|b| self.buffer_settings.get(b));
+
             pane.view(
                 id,
                 main_window.id,
@@ -1209,6 +1196,7 @@ impl Dashboard {
                 config,
                 theme,
                 main_window,
+                settings,
             )
         })
         .on_click(pane::Message::PaneClicked)
@@ -1396,7 +1384,7 @@ impl Dashboard {
                 }
                 BufferAction::NewWindow => self.open_popout_window(
                     main_window,
-                    Pane::new(Buffer::from(data::Buffer::Internal(buffer)), config),
+                    Pane::new(Buffer::from(data::Buffer::Internal(buffer))),
                 ),
             }
         }
@@ -1409,13 +1397,6 @@ impl Dashboard {
         config: &Config,
     ) -> Task<Message> {
         let panes = self.panes.clone();
-
-        // Load buffer settings.
-        let settings = self
-            .buffer_settings
-            .get(&buffer)
-            .cloned()
-            .unwrap_or(config.buffer.clone().into());
 
         // If buffer already is open, we focus it.
         for (window, id, pane) in panes.iter(main_window.id) {
@@ -1434,7 +1415,7 @@ impl Dashboard {
                         .main
                         .panes
                         .entry(*id)
-                        .and_modify(|p| *p = Pane::with_settings(Buffer::from(buffer), settings));
+                        .and_modify(|p| *p = Pane::new(Buffer::from(buffer)));
                     self.last_changed = Some(Instant::now());
 
                     return self.focus_pane(main_window, main_window.id, *id);
@@ -1459,7 +1440,7 @@ impl Dashboard {
                 config::pane::SplitAxis::Vertical => pane_grid::Axis::Vertical,
             },
             pane_to_split,
-            Pane::with_settings(Buffer::from(buffer), settings),
+            Pane::new(Buffer::from(buffer)),
         );
         self.last_changed = Some(Instant::now());
 
@@ -1725,16 +1706,6 @@ impl Dashboard {
             .map(|state| (pane, state, &mut self.history))
     }
 
-    fn get_focused_with_buffer_settings_mut(
-        &mut self,
-        main_window: &Window,
-    ) -> Option<(pane_grid::Pane, &mut Pane, &mut dashboard::BufferSettings)> {
-        let (window, pane) = self.focus?;
-        self.panes
-            .get_mut(main_window.id, window, pane)
-            .map(|state| (pane, state, &mut self.buffer_settings))
-    }
-
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
         self.history.get_unique_queries(server)
     }
@@ -1774,35 +1745,27 @@ impl Dashboard {
         self.panes.main.maximized().is_some()
     }
 
-    fn new_pane(
-        &mut self,
-        axis: pane_grid::Axis,
-        config: &Config,
-        main_window: &Window,
-    ) -> Task<Message> {
+    fn new_pane(&mut self, axis: pane_grid::Axis, main_window: &Window) -> Task<Message> {
         if self
             .focus
             .filter(|(window, _)| *window == main_window.id)
             .is_some()
         {
             // If there is any focused pane on main window, split it
-            return self.split_pane(axis, config, main_window);
+            return self.split_pane(axis, main_window);
         } else {
             // If there is no focused pane, split the last pane or create a new empty grid
             let pane = self.panes.main.iter().last().map(|(pane, _)| pane).cloned();
 
             if let Some(pane) = pane {
-                let result = self
-                    .panes
-                    .main
-                    .split(axis, pane, Pane::new(Buffer::Empty, config));
+                let result = self.panes.main.split(axis, pane, Pane::new(Buffer::Empty));
                 self.last_changed = Some(Instant::now());
 
                 if let Some((pane, _)) = result {
                     return self.focus_pane(main_window, main_window.id, pane);
                 }
             } else {
-                let (state, pane) = pane_grid::State::new(Pane::new(Buffer::Empty, config));
+                let (state, pane) = pane_grid::State::new(Pane::new(Buffer::Empty));
                 self.panes.main = state;
                 self.last_changed = Some(Instant::now());
                 return self.focus_pane(main_window, main_window.id, pane);
@@ -1812,18 +1775,10 @@ impl Dashboard {
         Task::none()
     }
 
-    fn split_pane(
-        &mut self,
-        axis: pane_grid::Axis,
-        config: &Config,
-        main_window: &Window,
-    ) -> Task<Message> {
+    fn split_pane(&mut self, axis: pane_grid::Axis, main_window: &Window) -> Task<Message> {
         if let Some((window, pane)) = self.focus {
             if window == main_window.id {
-                let result = self
-                    .panes
-                    .main
-                    .split(axis, pane, Pane::new(Buffer::Empty, config));
+                let result = self.panes.main.split(axis, pane, Pane::new(Buffer::Empty));
                 self.last_changed = Some(Instant::now());
                 if let Some((pane, _)) = result {
                     return self.focus_pane(main_window, main_window.id, pane);
@@ -1888,7 +1843,7 @@ impl Dashboard {
             {
                 let task = match pane.buffer.data() {
                     Some(buffer) => self.open_buffer(main_window, buffer, config),
-                    None => self.new_pane(pane_grid::Axis::Horizontal, config, main_window),
+                    None => self.new_pane(pane_grid::Axis::Horizontal, main_window),
                 };
 
                 return Task::batch(vec![window::close(window), task]);
@@ -2057,11 +2012,7 @@ impl Dashboard {
     ) -> (Self, Task<Message>) {
         use pane_grid::Configuration;
 
-        fn configuration(
-            pane: data::Pane,
-            buffer_settings: &dashboard::BufferSettings,
-            config: &Config,
-        ) -> Configuration<Pane> {
+        fn configuration(pane: data::Pane) -> Configuration<Pane> {
             match pane {
                 data::Pane::Split { axis, ratio, a, b } => Configuration::Split {
                     axis: match axis {
@@ -2069,31 +2020,19 @@ impl Dashboard {
                         data::pane::Axis::Vertical => pane_grid::Axis::Vertical,
                     },
                     ratio,
-                    a: Box::new(configuration(*a, buffer_settings, config)),
-                    b: Box::new(configuration(*b, buffer_settings, config)),
+                    a: Box::new(configuration(*a)),
+                    b: Box::new(configuration(*b)),
                 },
-                data::Pane::Buffer { buffer, .. } => {
-                    let settings = buffer_settings
-                        .get(&buffer)
-                        .cloned()
-                        .unwrap_or(config.buffer.clone().into());
-
-                    Configuration::Pane(Pane::with_settings(Buffer::from(buffer), settings))
+                data::Pane::Buffer { buffer } => {
+                    Configuration::Pane(Pane::new(Buffer::from(buffer)))
                 }
-                data::Pane::Empty => Configuration::Pane(Pane::with_settings(
-                    Buffer::empty(),
-                    buffer::Settings::default(),
-                )),
+                data::Pane::Empty => Configuration::Pane(Pane::new(Buffer::empty())),
             }
         }
 
         let mut dashboard = Self {
             panes: Panes {
-                main: pane_grid::State::with_configuration(configuration(
-                    data.pane,
-                    &data.buffer_settings,
-                    config,
-                )),
+                main: pane_grid::State::with_configuration(configuration(data.pane)),
                 popout: HashMap::new(),
             },
             focus: None,
@@ -2112,7 +2051,7 @@ impl Dashboard {
 
         for pane in data.popout_panes {
             // Popouts are only a single pane
-            let Configuration::Pane(pane) = configuration(pane, &data.buffer_settings, config)
+            let Configuration::Pane(pane) = configuration(pane)
             else {
                 continue;
             };
@@ -2210,11 +2149,6 @@ impl Dashboard {
             },
             Message::History,
         )
-    }
-
-    fn save_dashboard(&mut self) -> Task<Message> {
-        let dashboard = data::Dashboard::from(&*self);
-        Task::perform(dashboard.save(), Message::DashboardSaved)
     }
 
     fn open_popout_window(&mut self, main_window: &Window, pane: Pane) -> Task<Message> {

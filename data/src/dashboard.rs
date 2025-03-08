@@ -24,8 +24,14 @@ impl BufferSettings {
         self.0.get(&buffer.key())
     }
 
-    pub fn insert(&mut self, buffer: buffer::Buffer, settings: &buffer::Settings) {
-        self.0.insert(buffer.key(), settings.clone());
+    pub fn entry(
+        &mut self,
+        buffer: &buffer::Buffer,
+        maybe_default: Option<buffer::Settings>,
+    ) -> &mut buffer::Settings {
+        self.0
+            .entry(buffer.key())
+            .or_insert_with(|| maybe_default.unwrap_or_default())
     }
 }
 
