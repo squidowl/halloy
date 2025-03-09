@@ -21,7 +21,6 @@ pub enum Message {
     Popout,
     Merge,
     ScrollToBottom,
-    MaintainFocus,
 }
 
 #[derive(Clone)]
