@@ -38,11 +38,7 @@ pub fn parse(
         return Err(Error::ExceedsByteLimit);
     }
 
-    Ok(Parsed::Input(Input {
-        buffer,
-        content,
-        raw: Some(input.to_string()),
-    }))
+    Ok(Parsed::Input(Input { buffer, content }))
 }
 
 pub enum Parsed {
@@ -54,7 +50,6 @@ pub enum Parsed {
 pub struct Input {
     pub buffer: buffer::Upstream,
     content: Content,
-    raw: Option<String>,
 }
 
 impl Input {
@@ -62,7 +57,6 @@ impl Input {
         Self {
             buffer,
             content: Content::Command(command),
-            raw: None,
         }
     }
 
@@ -115,10 +109,6 @@ impl Input {
 
     pub fn encoded(&self) -> Option<message::Encoded> {
         self.content.proto(&self.buffer).map(message::Encoded::from)
-    }
-
-    pub fn raw(&self) -> Option<&str> {
-        self.raw.as_deref()
     }
 }
 
