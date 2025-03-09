@@ -28,22 +28,16 @@ pub enum Message {
 pub struct Pane {
     pub buffer: Buffer,
     title_bar: TitleBar,
-    pub settings: buffer::Settings,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TitleBar {}
 
 impl Pane {
-    pub fn new(buffer: Buffer, config: &Config) -> Self {
-        Self::with_settings(buffer, buffer::Settings::from(config.buffer.clone()))
-    }
-
-    pub fn with_settings(buffer: Buffer, settings: buffer::Settings) -> Self {
+    pub fn new(buffer: Buffer) -> Self {
         Self {
             buffer,
             title_bar: TitleBar::default(),
-            settings,
         }
     }
 
@@ -62,6 +56,7 @@ impl Pane {
         config: &'a Config,
         theme: &'a Theme,
         main_window: &'a Window,
+        settings: Option<&'a buffer::Settings>,
     ) -> widget::Content<'a, Message> {
         let is_popout = window != main_window.id;
 
@@ -96,9 +91,10 @@ impl Pane {
             is_focused,
             maximized,
             clients,
-            &self.settings,
+            settings,
             config.tooltips,
             is_popout,
+            config,
         );
 
         let content = self
@@ -108,7 +104,7 @@ impl Pane {
                 file_transfers,
                 history,
                 previews,
-                &self.settings,
+                settings,
                 config,
                 theme,
                 is_focused,
@@ -150,10 +146,6 @@ impl Pane {
             | Buffer::Highlights(_) => vec![],
         }
     }
-
-    pub fn update_settings(&mut self, f: impl FnOnce(&mut buffer::Settings)) {
-        f(&mut self.settings);
-    }
 }
 
 impl TitleBar {
@@ -166,9 +158,10 @@ impl TitleBar {
         _is_focused: bool,
         maximized: bool,
         clients: &'a data::client::Map,
-        settings: &'a buffer::Settings,
+        settings: Option<&'a buffer::Settings>,
         show_tooltips: bool,
         is_popout: bool,
+        config: &'a Config,
     ) -> widget::TitleBar<'a, Message> {
         // Pane controls.
         let mut controls = row![].spacing(2);
@@ -195,13 +188,17 @@ impl TitleBar {
             // Show topic button only if there is a topic to show
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.target) {
                 if topic.content.is_some() {
+                    let topic_enabled = settings
+                        .map(|settings| settings.channel.topic.enabled)
+                        .unwrap_or(config.buffer.channel.topic.enabled);
+
                     let topic_button = button(center(icon::topic()))
                         .padding(5)
                         .width(22)
                         .height(22)
                         .on_press(Message::ToggleShowTopic)
-                        .style(|theme, status| {
-                            theme::button::secondary(theme, status, settings.channel.topic.enabled)
+                        .style(move |theme, status| {
+                            theme::button::secondary(theme, status, topic_enabled)
                         });
 
                     let topic_button_with_tooltip = tooltip(
@@ -214,14 +211,16 @@ impl TitleBar {
                 }
             }
 
+            let nicklist_enabled = settings
+                .map(|settings| settings.channel.nicklist.enabled)
+                .unwrap_or(config.buffer.channel.nicklist.enabled);
+
             let nicklist_button = button(center(icon::people()))
                 .padding(5)
                 .width(22)
                 .height(22)
                 .on_press(Message::ToggleShowUserList)
-                .style(|theme, status| {
-                    theme::button::secondary(theme, status, settings.channel.nicklist.enabled)
-                });
+                .style(move |theme, status| theme::button::secondary(theme, status, nicklist_enabled));
 
             let nicklist_button_with_tooltip = tooltip(
                 nicklist_button,
@@ -344,9 +343,6 @@ impl From<Pane> for data::Pane {
             Buffer::Highlights(_) => data::Buffer::Internal(buffer::Internal::Highlights),
         };
 
-        data::Pane::Buffer {
-            buffer,
-            settings: pane.settings,
-        }
+        data::Pane::Buffer { buffer }
     }
 }
