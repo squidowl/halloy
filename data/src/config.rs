@@ -325,12 +325,12 @@ impl Config {
 }
 
 pub fn random_nickname() -> String {
-    let mut rng = ChaCha8Rng::from_entropy();
+    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
     random_nickname_with_seed(&mut rng)
 }
 
 pub fn random_nickname_with_seed<R: Rng>(rng: &mut R) -> String {
-    let rand_digit: u16 = rng.gen_range(1000..=9999);
+    let rand_digit: u16 = rng.random_range(1000..=9999);
     let rand_nick = format!("halloy{rand_digit}");
 
     rand_nick
