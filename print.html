@@ -24,9 +24,9 @@
         <link rel="stylesheet" href="fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
@@ -1003,6 +1003,110 @@ family = "Comic Mono"
 [font]
 size = 13
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="highlights"><a class="header" href="#highlights"><code>[highlights]</code></a></h1>
+<p>Application wide highlights.</p>
+<p><strong>Example</strong></p>
+<pre><code class="language-toml"># Enable nickname highlights only in channel #halloy.
+[highlights.nickname]
+exclude = ["*"]
+include = ["#halloy"]
+
+# Highlight on 'boat' and 'car' in any channel.
+[[highlights.match]]
+words = ["boat", "car"]
+case_insensitive = true
+
+# Highlight when regex matches in any channel except #noisy-channel.
+[[highlights.match]]
+regex = '''(?i)\bcasper\b'''
+exclude = ["#noisy-channel"]
+</code></pre>
+<h2 id="highlightsnickname"><a class="header" href="#highlightsnickname"><code>[highlights.nickname]</code></a></h2>
+<p>Nickname highlights.</p>
+<h3 id="exclude-1"><a class="header" href="#exclude-1"><code>exclude</code></a></h3>
+<p>Channels in which you won’t be highlighted.
+If you pass <code>["#halloy"]</code>, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[highlights.nickname]
+exclude = ["*"]
+</code></pre>
+<h3 id="include-1"><a class="header" href="#include-1"><code>include</code></a></h3>
+<p>Channels in which you will be highlighted, only useful when combined with <code>exclude = ["*"]</code>.
+If you pass <code>["#halloy"]</code>, you will only be highlighted in that channel.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: ["*"]
+
+[highlights.nickname]
+exclude = ["*"]
+include = ["#halloy"]
+</code></pre>
+<h2 id="highlightsmatch"><a class="header" href="#highlightsmatch"><code>[[highlights.match]]</code></a></h2>
+<p>Highlight based on matches.</p>
+<h3 id="words"><a class="header" href="#words"><code>words</code></a></h3>
+<p>You can set words to be highlighted when they are written.</p>
+<p>Example shows word matches, which will trigger on <code>"word1"</code>, <code>"word2"</code> or <code>"word3"</code> in any channel.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+</code></pre>
+<h3 id="case_insensitive"><a class="header" href="#case_insensitive"><code>case_insensitive</code></a></h3>
+<p>This option is only available when using <code>words</code> as the match type.
+You can choose whether or not to trigger regardless of case.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+case_insensitive = true
+</code></pre>
+<h3 id="regex"><a class="header" href="#regex"><code>regex</code></a></h3>
+<p>Match based on regex.</p>
+<div class="warning">
+<p>Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write write the regex without
+escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can't use <code>'</code> inside the string.</p>
+<p>Without literal strings, you'd have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</div>
+<p>Example shows a regex that matches the word "casper", regardless of case and only when it appears as a whole word in any channel.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[[highlights.match]]
+regex = '''(?i)\bcasper\b'''
+</code></pre>
+<h3 id="exclude-2"><a class="header" href="#exclude-2"><code>exclude</code></a></h3>
+<p>Channels in which you won’t be highlighted.
+If you pass <code>["#halloy"]</code>, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<p>Example shows a regex match which will be excluded in from <code>#noisy-channel</code></p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[[highlights.match]]
+regex = '''(?i)\bcasper\b'''
+exclude = ["#noisy-channel"]
+</code></pre>
+<h3 id="include-2"><a class="header" href="#include-2"><code>include</code></a></h3>
+<p>Channels in which you will be highlighted, only useful when combined with <code>exclude = ["*"]</code>.
+If you pass <code>["#halloy"]</code>, you will only be highlighted in that channel.</p>
+<p>Example shows a words match which will only try to match in <code>#halloy</code> channel.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: ["*"]
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+exclude = ["*"]
+include = ["#halloy"]
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="keyboard"><a class="header" href="#keyboard"><code>[keyboard]</code></a></h1>
 <p>Customize keyboard shortcuts. Below is a list of all actions which can be mapped.</p>
 <p><strong>Example</strong></p>
@@ -1083,7 +1187,7 @@ show_toast = true
 [notifications.&lt;notification&gt;]
 delay = 250
 </code></pre>
-<h2 id="exclude-1"><a class="header" href="#exclude-1"><code>exclude</code></a></h2>
+<h2 id="exclude-3"><a class="header" href="#exclude-3"><code>exclude</code></a></h2>
 <p>Exclude notifications for nicks (and/or channels in <code>highlight</code>'s case).</p>
 <p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
 notifications.</p>
@@ -1098,7 +1202,7 @@ exclude = ["HalloyUser1"]
 [notifications.highlight]
 exclude = ["HalloyUser1", "#halloy"]
 </code></pre>
-<h2 id="include-1"><a class="header" href="#include-1"><code>include</code></a></h2>
+<h2 id="include-3"><a class="header" href="#include-3"><code>include</code></a></h2>
 <p>Include notifications for nicks (and/or channels in <code>highlight</code>'s case).</p>
 <p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
 notifications.</p>
@@ -1315,7 +1419,7 @@ delay_ms = 500
 </code></pre>
 <h2 id="image"><a class="header" href="#image"><code>image</code></a></h2>
 <p>Specific image preview settings.</p>
-<h3 id="include-2"><a class="header" href="#include-2"><code>include</code></a></h3>
+<h3 id="include-4"><a class="header" href="#include-4"><code>include</code></a></h3>
 <p>Include image previews from channels.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
 <pre><code class="language-toml"># Type: array of strings
@@ -1325,7 +1429,7 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show
 [preview.image]
 include = []
 </code></pre>
-<h3 id="exclude-2"><a class="header" href="#exclude-2"><code>exclude</code></a></h3>
+<h3 id="exclude-4"><a class="header" href="#exclude-4"><code>exclude</code></a></h3>
 <p>Exclude image previews from channels.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
 <pre><code class="language-toml"># Type: array of strings
@@ -1351,7 +1455,7 @@ include = ["#halloy"] # show image previews in #halloy
 [preview.card]
 show_image = true
 </code></pre>
-<h3 id="include-3"><a class="header" href="#include-3"><code>include</code></a></h3>
+<h3 id="include-5"><a class="header" href="#include-5"><code>include</code></a></h3>
 <p>Include card previews from channels.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
 <pre><code class="language-toml"># Type: array of strings
@@ -1361,7 +1465,7 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show
 [preview.card]
 include = []
 </code></pre>
-<h3 id="exclude-3"><a class="header" href="#exclude-3"><code>exclude</code></a></h3>
+<h3 id="exclude-5"><a class="header" href="#exclude-5"><code>exclude</code></a></h3>
 <p>Exclude card previews from channels.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
 <pre><code class="language-toml"># Type: array of strings

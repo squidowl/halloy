@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Tooltips</title>
+        <title>Highlights</title>
 
 
         <!-- Custom HTML head -->
@@ -128,7 +128,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/tooltips.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/highlights.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -157,25 +157,120 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="tooltips"><a class="header" href="#tooltips"><code>[tooltips]</code></a></h1>
-<p>Control if tooltips are displayed or not.<br />
-Note: <code>tooltips</code> is a root key, so it must be placed before any section.</p>
+                        <h1 id="highlights"><a class="header" href="#highlights"><code>[highlights]</code></a></h1>
+<p>Application wide highlights.</p>
+<p><strong>Example</strong></p>
+<pre><code class="language-toml"># Enable nickname highlights only in channel #halloy.
+[highlights.nickname]
+exclude = ["*"]
+include = ["#halloy"]
+
+# Highlight on 'boat' and 'car' in any channel.
+[[highlights.match]]
+words = ["boat", "car"]
+case_insensitive = true
+
+# Highlight when regex matches in any channel except #noisy-channel.
+[[highlights.match]]
+regex = '''(?i)\bcasper\b'''
+exclude = ["#noisy-channel"]
+</code></pre>
+<h2 id="highlightsnickname"><a class="header" href="#highlightsnickname"><code>[highlights.nickname]</code></a></h2>
+<p>Nickname highlights.</p>
+<h3 id="exclude"><a class="header" href="#exclude"><code>exclude</code></a></h3>
+<p>Channels in which you won’t be highlighted.
+If you pass <code>["#halloy"]</code>, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[highlights.nickname]
+exclude = ["*"]
+</code></pre>
+<h3 id="include"><a class="header" href="#include"><code>include</code></a></h3>
+<p>Channels in which you will be highlighted, only useful when combined with <code>exclude = ["*"]</code>.
+If you pass <code>["#halloy"]</code>, you will only be highlighted in that channel.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: ["*"]
+
+[highlights.nickname]
+exclude = ["*"]
+include = ["#halloy"]
+</code></pre>
+<h2 id="highlightsmatch"><a class="header" href="#highlightsmatch"><code>[[highlights.match]]</code></a></h2>
+<p>Highlight based on matches.</p>
+<h3 id="words"><a class="header" href="#words"><code>words</code></a></h3>
+<p>You can set words to be highlighted when they are written.</p>
+<p>Example shows word matches, which will trigger on <code>"word1"</code>, <code>"word2"</code> or <code>"word3"</code> in any channel.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+</code></pre>
+<h3 id="case_insensitive"><a class="header" href="#case_insensitive"><code>case_insensitive</code></a></h3>
+<p>This option is only available when using <code>words</code> as the match type.
+You can choose whether or not to trigger regardless of case.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
-# Default: true
+# Default: false
 
-tooltips = true
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+case_insensitive = true
+</code></pre>
+<h3 id="regex"><a class="header" href="#regex"><code>regex</code></a></h3>
+<p>Match based on regex.</p>
+<div class="warning">
+<p>Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write write the regex without
+escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can't use <code>'</code> inside the string.</p>
+<p>Without literal strings, you'd have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</div>
+<p>Example shows a regex that matches the word "casper", regardless of case and only when it appears as a whole word in any channel.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[[highlights.match]]
+regex = '''(?i)\bcasper\b'''
+</code></pre>
+<h3 id="exclude-1"><a class="header" href="#exclude-1"><code>exclude</code></a></h3>
+<p>Channels in which you won’t be highlighted.
+If you pass <code>["#halloy"]</code>, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<p>Example shows a regex match which will be excluded in from <code>#noisy-channel</code></p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[[highlights.match]]
+regex = '''(?i)\bcasper\b'''
+exclude = ["#noisy-channel"]
+</code></pre>
+<h3 id="include-1"><a class="header" href="#include-1"><code>include</code></a></h3>
+<p>Channels in which you will be highlighted, only useful when combined with <code>exclude = ["*"]</code>.
+If you pass <code>["#halloy"]</code>, you will only be highlighted in that channel.</p>
+<p>Example shows a words match which will only try to match in <code>#halloy</code> channel.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: ["*"]
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+exclude = ["*"]
+include = ["#halloy"]
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../configuration/themes/base16.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../configuration/font.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../url-schemes.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../configuration/keyboard.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -185,11 +280,11 @@ tooltips = true
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../configuration/themes/base16.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../configuration/font.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../url-schemes.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../configuration/keyboard.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
