@@ -167,14 +167,7 @@ pub fn view<'a>(
                             .push(nick)
                             .push(space);
 
-                        let text_container = container(message_content).style(move |theme| {
-                            if let Some(nick) = our_nick {
-                                if message::references_user(user.nickname(), nick, message) {
-                                    return theme::container::highlight(theme);
-                                }
-                            }
-                            Default::default()
-                        });
+                        let text_container = container(message_content);
 
                         match &config.buffer.nickname.alignment {
                             data::buffer::Alignment::Left | data::buffer::Alignment::Right => Some(
@@ -219,7 +212,7 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Action(user) => {
+                    message::Source::Action(_) => {
                         let marker = message_marker(max_nick_width, theme::selectable_text::action);
 
                         let message_content = message_content(
@@ -231,14 +224,7 @@ pub fn view<'a>(
                             config,
                         );
 
-                        let text_container = container(message_content).style(move |theme| {
-                            if let (Some(user), Some(nick)) = (user, our_nick) {
-                                if message::references_user(user.nickname(), nick, message) {
-                                    return theme::container::highlight(theme);
-                                }
-                            }
-                            Default::default()
-                        });
+                        let text_container = container(message_content);
 
                         Some(
                             container(

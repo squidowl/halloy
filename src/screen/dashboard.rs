@@ -6,7 +6,6 @@ use std::{convert, slice};
 use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
-use data::file_transfer;
 use data::history::manager::Broadcast;
 use data::history::ReadMarker;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
@@ -14,6 +13,7 @@ use data::target::{self, Target};
 use data::user::Nick;
 use data::{client, environment, history, Config, Server, Version};
 use data::{config, preview};
+use data::{file_transfer, Notification};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, Length, Task, Vector};
@@ -246,6 +246,7 @@ impl Dashboard {
                                                     chantypes,
                                                     statusmsg,
                                                     casemapping,
+                                                    config,
                                                 ) {
                                                     let mut tasks = vec![task];
 
@@ -1951,7 +1952,7 @@ impl Dashboard {
 
         self.notifications.notify(
             &config.notifications,
-            &client::Notification::FileTransferRequest(request.from.clone()),
+            &Notification::FileTransferRequest(request.from.clone()),
             Some(server),
         );
 

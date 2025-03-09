@@ -5,8 +5,8 @@ use std::{
     time::Duration,
 };
 
+use fancy_regex::Regex;
 use log::debug;
-use regex::Regex;
 use reqwest::header::{self, HeaderValue};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -91,10 +91,20 @@ async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, Lo
             let mut title = None;
             let mut description = None;
 
-            for (_, [key_1, value_1, key_2, value_2]) in OPENGRAPH_REGEX
+            for captures in OPENGRAPH_REGEX
                 .captures_iter(&String::from_utf8_lossy(&bytes))
-                .map(|c| c.extract())
+                .filter_map(|r| r.ok())
             {
+                let Some((((key_1, value_1), key_2), value_2)) = captures
+                    .get(1)
+                    .map(|r| r.as_str())
+                    .zip(captures.get(2).map(|r| r.as_str()))
+                    .zip(captures.get(3).map(|r| r.as_str()))
+                    .zip(captures.get(4).map(|r| r.as_str()))
+                else {
+                    continue;
+                };
+
                 let value_1 = decode_html_string(
                     value_1
                         .trim_start_matches(['\'', '"'])
