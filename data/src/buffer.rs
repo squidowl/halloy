@@ -32,6 +32,13 @@ pub enum Internal {
 }
 
 impl Buffer {
+    pub fn key(&self) -> String {
+        match self {
+            Buffer::Upstream(upstream) => upstream.key(),
+            Buffer::Internal(internal) => internal.key(),
+        }
+    }
+
     pub fn upstream(&self) -> Option<&Upstream> {
         if let Self::Upstream(upstream) = self {
             Some(upstream)
@@ -50,6 +57,18 @@ impl Buffer {
 }
 
 impl Upstream {
+    pub fn key(&self) -> String {
+        match self {
+            Upstream::Server(server) => format!("server:{}", server),
+            Upstream::Channel(server, channel) => {
+                format!("server:{}:{}", server, channel.as_str())
+            }
+            Upstream::Query(server, query) => {
+                format!("server:{}:{}", server, query.as_str())
+            }
+        }
+    }
+
     pub fn server(&self) -> &Server {
         match self {
             Self::Server(server) | Self::Channel(server, _) | Self::Query(server, _) => server,
@@ -90,6 +109,15 @@ impl Upstream {
 
 impl Internal {
     pub const ALL: &'static [Self] = &[Self::FileTransfers, Self::Logs, Self::Highlights];
+
+    pub fn key(&self) -> String {
+        match self {
+            Internal::FileTransfers => "file-transfers",
+            Internal::Logs => "logs",
+            Internal::Highlights => "highlights",
+        }
+        .to_string()
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
