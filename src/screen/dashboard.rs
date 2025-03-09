@@ -1797,9 +1797,9 @@ impl Dashboard {
         if window == self.main_window() {
             self.focus_history = self
                 .focus_history
-                .clone()
-                .into_iter()
-                .filter(|p| *p != pane)
+                .iter()
+                .filter(|p| **p != pane)
+                .cloned()
                 .collect();
 
             if let Some((_, sibling)) = self.panes.main.close(pane) {
