@@ -1672,15 +1672,17 @@ impl Dashboard {
 
     pub fn refocus_pane(&mut self) -> Task<Message> {
         if let Some((window, pane)) = self.focus {
-            if let Some(focus_buffer) = self.panes.iter().find_map(|(w, p, state)| {
-                (w == window && p == pane).then(|| {
-                    state.buffer.focus().map(move |message| {
-                        Message::Pane(window, pane::Message::Buffer(pane, message))
+            return self
+                .panes
+                .iter()
+                .find_map(|(w, p, state)| {
+                    (w == window && p == pane).then(|| {
+                        state.buffer.focus().map(move |message| {
+                            Message::Pane(window, pane::Message::Buffer(pane, message))
+                        })
                     })
                 })
-            }) {
-                return focus_buffer;
-            }
+                .unwrap_or_else(Task::none);
         }
 
         Task::none()
@@ -2086,7 +2088,7 @@ impl Dashboard {
                     return window::close(id);
                 }
                 window::Event::Focused => {
-                    return self.focus_first_pane(id);
+                    return self.focus_window(id);
                 }
                 window::Event::Moved(_)
                 | window::Event::Resized(_)
