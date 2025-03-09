@@ -29,7 +29,6 @@ pub enum Message {
     Up,
     Down,
     Escape,
-    Focus(bool),
 }
 
 pub fn view<'a>(
@@ -336,15 +335,6 @@ impl State {
             // Capture escape so that closing context menu or commands/emojis picker
             // does not defocus input
             Message::Escape => (Task::none(), None),
-            Message::Focus(is_focused) => {
-                let task = if is_focused {
-                    Task::none()
-                } else {
-                    text_input::focus(self.input_id.clone())
-                };
-
-                (task, None)
-            }
         }
     }
 
@@ -363,7 +353,15 @@ impl State {
     }
 
     pub fn focus(&self) -> Task<Message> {
-        text_input::is_focused(self.input_id.clone()).map(Message::Focus)
+        let input_id = self.input_id.clone();
+
+        text_input::is_focused(input_id.clone()).then(move |is_focused| {
+            if is_focused {
+                Task::none()
+            } else {
+                text_input::focus(input_id.clone())
+            }
+        })
     }
 
     pub fn reset(&mut self) {

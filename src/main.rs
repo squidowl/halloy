@@ -488,11 +488,9 @@ impl Halloy {
                             .map(Message::Dashboard)
                     };
 
-                    let focus_focused_pane_buffer = dashboard
-                        .focus_focused_pane_buffer()
-                        .map(Message::Dashboard);
+                    let refocus_pane = dashboard.refocus_pane().map(Message::Dashboard);
 
-                    Task::batch(vec![broadcast, focus_focused_pane_buffer])
+                    Task::batch(vec![broadcast, refocus_pane])
                 }
                 stream::Update::ConnectionFailed {
                     server,
@@ -999,7 +997,7 @@ impl Halloy {
                     {
                         tasks.push(
                             dashboard
-                                .focus_last_focused_or_first_pane(self.main_window.id)
+                                .focus_window(self.main_window.id)
                                 .map(Message::Dashboard),
                         )
                     }
