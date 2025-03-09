@@ -1,4 +1,4 @@
-use iced::{event, keyboard, window, Subscription};
+use iced::{event, keyboard, mouse, window, Subscription};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Event {
@@ -6,6 +6,7 @@ pub enum Event {
     Escape,
     Home,
     End,
+    LeftClick,
 }
 
 pub fn events() -> Subscription<(window::Id, Event)> {
@@ -37,6 +38,9 @@ fn filtered_events(
             key: keyboard::Key::Named(keyboard::key::Named::End),
             ..
         }) if ignored(status) => Some(Event::End),
+        iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) if ignored(status) => {
+            Some(Event::LeftClick)
+        }
         _ => None,
     };
 

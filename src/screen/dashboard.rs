@@ -26,7 +26,7 @@ use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
 use crate::widget::{
-    Column, Element, Row, anchored_overlay, context_menu, left_click, selectable_text, shortcut,
+    Column, Element, Row, anchored_overlay, context_menu, selectable_text, shortcut,
 };
 use crate::window::Window;
 use crate::{Theme, event, notification, theme, window};
@@ -476,9 +476,6 @@ impl Dashboard {
                             }
                         }
                     }
-                    pane::Message::MaintainFocus => {
-                        return (self.focus_focused_pane_buffer(), None);
-                    }
                 }
             }
             Message::Sidebar(message) => {
@@ -575,7 +572,6 @@ impl Dashboard {
                         let _ = open::that_detached(WIKI_WEBSITE);
                         (Task::none(), None)
                     }
-                    sidebar::Event::MaintainFocus => (self.focus_focused_pane_buffer(), None),
                 };
 
                 return (
@@ -1112,7 +1108,7 @@ impl Dashboard {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         if let Some(state) = self.panes.popout.get(&window) {
-            let content = container(left_click(
+            let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
                     let is_focused = self.focus == Some((window, id));
                     let buffer = pane.buffer.data();
@@ -1136,8 +1132,7 @@ impl Dashboard {
                 })
                 .spacing(4)
                 .on_click(pane::Message::PaneClicked),
-                pane::Message::MaintainFocus,
-            ))
+            )
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(8);
@@ -1189,14 +1184,11 @@ impl Dashboard {
         .spacing(4)
         .into();
 
-        let pane_grid = left_click(
-            container(pane_grid)
+        let pane_grid =
+            container(pane_grid.map(move |message| Message::Pane(self.main_window(), message)))
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(8),
-            pane::Message::MaintainFocus,
-        )
-        .map(move |message| Message::Pane(self.main_window(), message));
+                .padding(8);
 
         let side_menu = self
             .side_menu
@@ -1210,14 +1202,14 @@ impl Dashboard {
                 &self.file_transfers,
                 version,
             )
-            .map(|e| left_click(e, sidebar::Message::MaintainFocus).map(Message::Sidebar));
+            .map(|e| e.map(Message::Sidebar));
 
         let content = match config.sidebar.position {
             data::config::sidebar::Position::Left | data::config::sidebar::Position::Top => {
-                vec![side_menu.unwrap_or_else(|| row![].into()), pane_grid]
+                vec![side_menu.unwrap_or_else(|| row![].into()), pane_grid.into()]
             }
             data::config::sidebar::Position::Right | data::config::sidebar::Position::Bottom => {
-                vec![pane_grid, side_menu.unwrap_or_else(|| row![].into())]
+                vec![pane_grid.into(), side_menu.unwrap_or_else(|| row![].into())]
             }
         };
 
@@ -1323,6 +1315,7 @@ impl Dashboard {
                     })
                 })
                 .unwrap_or_else(Task::none),
+            LeftClick => self.refocus_pane(),
         }
     }
 
@@ -1677,7 +1670,7 @@ impl Dashboard {
         self.history.get_unique_queries(server)
     }
 
-    pub fn focus_focused_pane_buffer(&mut self) -> Task<Message> {
+    pub fn refocus_pane(&mut self) -> Task<Message> {
         if let Some((window, pane)) = self.focus {
             if let Some(focus_buffer) = self.panes.iter().find_map(|(w, p, state)| {
                 (w == window && p == pane).then(|| {
@@ -1710,7 +1703,7 @@ impl Dashboard {
             Task::none()
         };
 
-        task.chain(self.focus_focused_pane_buffer())
+        task.chain(self.refocus_pane())
     }
 
     pub fn focus_first_pane(&mut self, window: window::Id) -> Task<Message> {
@@ -1722,7 +1715,7 @@ impl Dashboard {
         pane.map_or(Task::none(), |pane| self.focus_pane(window, pane))
     }
 
-    pub fn focus_last_focused_or_first_pane(&mut self, window: window::Id) -> Task<Message> {
+    pub fn focus_window(&mut self, window: window::Id) -> Task<Message> {
         if let Some(pane) = self
             .focus_history
             .front()
@@ -1808,9 +1801,7 @@ impl Dashboard {
                 .into_iter()
                 .filter(|p| *p != pane)
                 .collect();
-        }
 
-        if window == self.main_window() {
             if let Some((_, sibling)) = self.panes.main.close(pane) {
                 return self.focus_pane(self.main_window(), sibling);
             } else if let Some(pane) = self.panes.main.get_mut(pane) {

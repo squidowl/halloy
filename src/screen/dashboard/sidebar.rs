@@ -33,7 +33,6 @@ pub enum Message {
     OpenReleaseWebsite,
     OpenDocumentation,
     ReloadComplete,
-    MaintainFocus,
 }
 
 #[derive(Debug, Clone)]
@@ -51,7 +50,6 @@ pub enum Event {
     OpenReleaseWebsite,
     OpenDocumentation,
     ConfigReloaded(Result<Config, config::Error>),
-    MaintainFocus,
 }
 
 #[derive(Clone)]
@@ -112,7 +110,6 @@ impl Sidebar {
                 self.reloading_config = false;
                 (Task::none(), None)
             }
-            Message::MaintainFocus => (Task::none(), Some(Event::MaintainFocus)),
             Message::OpenDocumentation => (Task::none(), Some(Event::OpenDocumentation)),
         }
     }
@@ -123,10 +120,7 @@ impl Sidebar {
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
     ) -> Element<'a, Message> {
-        let base = button(icon::menu())
-            .padding(5)
-            .width(Length::Shrink)
-            .on_press(Message::MaintainFocus);
+        let base = button(icon::menu()).padding(5).width(Length::Shrink);
 
         let menu = Menu::list();
 
