@@ -16,7 +16,6 @@ use crate::server::Map as ServerMap;
 use crate::{environment, Theme};
 
 pub use self::buffer::Buffer;
-pub use self::channel::Channel;
 pub use self::file_transfer::FileTransfer;
 pub use self::highlights::Highlights;
 pub use self::keys::Keyboard;
@@ -28,7 +27,6 @@ pub use self::server::Server;
 pub use self::sidebar::Sidebar;
 
 pub mod buffer;
-pub mod channel;
 pub mod file_transfer;
 pub mod highlights;
 pub mod keys;

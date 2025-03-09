@@ -2,10 +2,7 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-pub use self::away::Away;
-
-pub mod away;
-
+use crate::config::buffer::NicknameClickAction;
 use crate::target::{self, Target};
 use crate::{channel, config, message, Server};
 
@@ -229,6 +226,8 @@ pub struct Nickname {
     pub alignment: Alignment,
     #[serde(default = "default_bool_true")]
     pub show_access_levels: bool,
+    #[serde(default)]
+    pub click: NicknameClickAction,
 }
 
 impl Default for Nickname {
@@ -238,6 +237,7 @@ impl Default for Nickname {
             brackets: Default::default(),
             alignment: Default::default(),
             show_access_levels: default_bool_true(),
+            click: Default::default(),
         }
     }
 }

@@ -63,3 +63,25 @@ pub fn message_marker<'a, M: 'a>(
 }
 
 pub const MESSAGE_MARKER_TEXT: &str = " ∙";
+
+pub mod button {
+    use crate::appearance::theme;
+
+    use super::Element;
+
+    /// Transparent button which simply makes the given content
+    /// into a clickable button without additional styling.
+    pub fn transparent_button<'a, Message>(
+        content: impl Into<Element<'a, Message>>,
+        message: Message,
+    ) -> Element<'a, Message>
+    where
+        Message: Clone + 'a,
+    {
+        iced::widget::button(content)
+            .padding(0)
+            .style(theme::button::bare)
+            .on_press(message)
+            .into()
+    }
+}
