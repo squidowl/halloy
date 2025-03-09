@@ -131,6 +131,7 @@ pub fn view<'a>(
                             current_user,
                             our_user,
                             config,
+                            &config.buffer.nickname.click,
                         )
                         .map(scroll_view::Message::UserContext);
 
@@ -502,8 +503,8 @@ mod nick_list {
             let content = selectable_text(user.display(nicklist_config.show_access_levels))
                 .style(|theme| theme::selectable_text::nicklist_nickname(theme, config, user))
                 .horizontal_alignment(match nicklist_config.alignment {
-                    config::channel::Alignment::Left => alignment::Horizontal::Left,
-                    config::channel::Alignment::Right => alignment::Horizontal::Right,
+                    config::buffer::channel::Alignment::Left => alignment::Horizontal::Left,
+                    config::buffer::channel::Alignment::Right => alignment::Horizontal::Right,
                 })
                 .width(Length::Fixed(width));
 
@@ -516,6 +517,7 @@ mod nick_list {
                 Some(user),
                 our_user,
                 config,
+                &config.buffer.channel.nicklist.click,
             )
         }));
 

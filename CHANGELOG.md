@@ -5,11 +5,12 @@ Added:
 - Highlights by regex and words
 - Time remaining is now displayed during file transfers
 - Sidebar now automatically adjusts its width based on content
+- Ability to customize default pane splitting direction (vertical or horizontal)
+- Clicking a nickname is now configurable. The default behavior has changed to open a query.
 
 Changed:
 
-- [file_transfer.save_directory] is now default download path for transfers. If set, files will be downloaded there by default. Otherwise, you'll be prompted to choose a location.
-- Customize default pane splitting direction (vertical or horizontal)
+- `[file_transfer.save_directory]` is now default download path for transfers. If set, files will be downloaded there by default. Otherwise, you'll be prompted to choose a location
 - Ability to dynamically select dark or light theme based on OS appearance.
 
 # 2025.2 (2025-02-20)

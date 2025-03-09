@@ -138,6 +138,22 @@ Overwrite nicklist width in pixels.
 width = 150
 ```
 
+#### `click`
+
+Click action for when interaction with nicknames.
+
+- `"open-query"`: Open a query with the User
+- `"insert-nickname"`: Inserts the nickname into text input
+
+```toml
+# Type: string
+# Values: "open-query", "insert-nickname"
+# Default: "open-query"
+
+[buffer.channel.nicklist]
+click = "open-query"
+```
+
 ### `[buffer.channel.topic]`
 
 Topic settings within a channel buffer.
@@ -408,6 +424,22 @@ Show access levels in front of nicknames (`@`, `+`, `~`, etc.).
 show_access_levels = true
 ```
 
+### `click`
+
+Click action for when interaction with nicknames.
+
+- `"open-query"`: Open a query with the User
+- `"insert-nickname"`: Inserts the nickname into text input
+
+```toml
+# Type: string
+# Values: "open-query", "insert-nickname"
+# Default: "open-query"
+
+[buffer.nickname]
+click = "open-query"
+```
+
 ## `[buffer.server_messages]`
 
 Server messages are messages sent from a irc server.
@@ -500,7 +532,7 @@ Note: Not all server messages uses this setting.
 
 ```toml
 # Type: string
-# Values: "full", "short
+# Values: "full", "short"
 # Default: "full"
 
 [buffer.server_messages.<server_message>]

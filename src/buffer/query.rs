@@ -85,6 +85,7 @@ pub fn view<'a>(
                             None,
                             None,
                             config,
+                            &config.buffer.nickname.click,
                         )
                         .map(scroll_view::Message::UserContext);
 
