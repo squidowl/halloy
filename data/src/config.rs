@@ -1,25 +1,12 @@
 use std::path::PathBuf;
 use std::{str, string};
 
-use tokio_stream::wrappers::ReadDirStream;
-use tokio_stream::StreamExt;
-
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
-
 use serde::Deserialize;
 use thiserror::Error;
-
-pub use self::buffer::Buffer;
-pub use self::channel::Channel;
-pub use self::file_transfer::FileTransfer;
-pub use self::keys::Keyboard;
-pub use self::notification::Notifications;
-pub use self::pane::Pane;
-pub use self::preview::Preview;
-pub use self::proxy::Proxy;
-pub use self::server::Server;
-pub use self::sidebar::Sidebar;
+use tokio_stream::wrappers::ReadDirStream;
+use tokio_stream::StreamExt;
 
 use crate::appearance::theme::Colors;
 use crate::appearance::{self, Appearance};
@@ -28,9 +15,22 @@ use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
 use crate::{environment, Theme};
 
+pub use self::buffer::Buffer;
+pub use self::channel::Channel;
+pub use self::file_transfer::FileTransfer;
+pub use self::highlights::Highlights;
+pub use self::keys::Keyboard;
+pub use self::notification::Notifications;
+pub use self::pane::Pane;
+pub use self::preview::Preview;
+pub use self::proxy::Proxy;
+pub use self::server::Server;
+pub use self::sidebar::Sidebar;
+
 pub mod buffer;
 pub mod channel;
 pub mod file_transfer;
+pub mod highlights;
 pub mod keys;
 pub mod notification;
 pub mod pane;
@@ -57,6 +57,7 @@ pub struct Config {
     pub file_transfer: FileTransfer,
     pub tooltips: bool,
     pub preview: Preview,
+    pub highlights: Highlights,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -175,6 +176,8 @@ impl Config {
             pub tooltips: bool,
             #[serde(default)]
             pub preview: Preview,
+            #[serde(default)]
+            pub highlights: Highlights,
         }
 
         let path = Self::path();
@@ -201,6 +204,7 @@ impl Config {
             tooltips,
             preview,
             pane,
+            highlights,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_passwords().await?;
@@ -225,6 +229,7 @@ impl Config {
             tooltips,
             preview,
             pane,
+            highlights,
         })
     }
 

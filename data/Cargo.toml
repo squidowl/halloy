@@ -32,7 +32,7 @@ tokio-stream = { version = "0.1", features = ["time", "fs"] }
 itertools = "0.12.1"
 timeago = "0.4.2"
 url = { version = "2.5.0", features = ["serde"] }
-regex = "1.10.4"
+fancy-regex = "0.14"
 walkdir = "2.5.0"
 once_cell = "1.19.0"
 nom = "7.1"

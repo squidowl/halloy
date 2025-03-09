@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
+use fancy_regex::Regex;
 use irc::proto;
 use itertools::Itertools;
-use regex::Regex;
 
 use crate::{buffer, ctcp, message::formatting};
 
@@ -129,7 +129,7 @@ pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Erro
                 if let Some((target, rest)) = args.split_first() {
                     if let Some((mode_string, mode_arguments)) = rest.split_first() {
                         let mode_string_regex = Regex::new(r"^((\+|\-)[A-Za-z]*)+$").unwrap();
-                        if !mode_string_regex.is_match(mode_string) {
+                        if !mode_string_regex.is_match(mode_string).unwrap_or_default() {
                             Err(Error::InvalidModeString)
                         } else {
                             let mode_arguments: Vec<String> =

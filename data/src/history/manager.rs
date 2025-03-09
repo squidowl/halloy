@@ -188,12 +188,18 @@ impl Manager {
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
+        config: &Config,
     ) -> Vec<impl Future<Output = Message>> {
         let mut tasks = vec![];
 
-        if let Some(messages) =
-            input.messages(user, channel_users, chantypes, statusmsg, casemapping)
-        {
+        if let Some(messages) = input.messages(
+            user,
+            channel_users,
+            chantypes,
+            statusmsg,
+            casemapping,
+            config,
+        ) {
             for message in messages {
                 tasks.extend(self.record_message(input.server(), message));
             }
