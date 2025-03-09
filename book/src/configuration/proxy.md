@@ -37,7 +37,7 @@ Proxy port to connect on.
 # Required
 
 [proxy.http]
-port = "1080"
+port = 1080
 ```
  
 ### `username`
@@ -75,7 +75,7 @@ password = "password"
 ```toml
 [proxy.http]
 host = "192.168.1.100"
-port = "1080"
+port = 1080
 username = "username"
 password = "password"
 ```
@@ -111,7 +111,7 @@ Proxy port to connect on.
 # Required
 
 [proxy.socks5]
-port = "1080"
+port = 1080
 ```
  
 ### `username`
@@ -149,7 +149,7 @@ password = "password"
 ```toml
 [proxy.socks5]
 host = "192.168.1.100"
-port = "1080"
+port = 1080
 username = "username"
 password = "password"
 ```
