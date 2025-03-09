@@ -29,7 +29,7 @@ pub async fn connect<'a>(
     } else {
         let mut roots = rustls::RootCertStore::empty();
 
-        for cert in rustls_native_certs::load_native_certs()? {
+        for cert in rustls_native_certs::load_native_certs().certs {
             let _ = roots.add(cert);
         }
 
