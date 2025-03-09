@@ -783,6 +783,9 @@ impl Dashboard {
                                     (window::toggle_fullscreen(), None)
                                 }
                             },
+                            command_bar::Command::Application(application) => match application {
+                                command_bar::Application::Quit => (self.exit(), None),
+                            },
                         };
 
                         return (
@@ -970,6 +973,7 @@ impl Dashboard {
                         );
                     }
                     ToggleFullscreen => return (window::toggle_fullscreen(), None),
+                    QuitApplication => return (self.exit(), None),
                 }
             }
             Message::FileTransfer(update) => {
