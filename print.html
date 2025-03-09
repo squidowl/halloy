@@ -582,6 +582,19 @@ show_access_levels = true
 [buffer.channel.nicklist]
 width = 150
 </code></pre>
+<h4 id="click"><a class="header" href="#click"><code>click</code></a></h4>
+<p>Click action for when interaction with nicknames.</p>
+<ul>
+<li><code>"open-query"</code>: Open a query with the User</li>
+<li><code>"insert-nickname"</code>: Inserts the nickname into text input</li>
+</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "open-query", "insert-nickname"
+# Default: "open-query"
+
+[buffer.channel.nicklist]
+click = "open-query"
+</code></pre>
 <h3 id="bufferchanneltopic"><a class="header" href="#bufferchanneltopic"><code>[buffer.channel.topic]</code></a></h3>
 <p>Topic settings within a channel buffer.</p>
 <h4 id="enabled-1"><a class="header" href="#enabled-1"><code>enabled</code></a></h4>
@@ -762,6 +775,19 @@ color = "unique"
 [buffer.nickname]
 show_access_levels = true
 </code></pre>
+<h3 id="click-1"><a class="header" href="#click-1"><code>click</code></a></h3>
+<p>Click action for when interaction with nicknames.</p>
+<ul>
+<li><code>"open-query"</code>: Open a query with the User</li>
+<li><code>"insert-nickname"</code>: Inserts the nickname into text input</li>
+</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "open-query", "insert-nickname"
+# Default: "open-query"
+
+[buffer.nickname]
+click = "open-query"
+</code></pre>
 <h2 id="bufferserver_messages"><a class="header" href="#bufferserver_messages"><code>[buffer.server_messages]</code></a></h2>
 <p>Server messages are messages sent from a irc server.</p>
 <ul>
@@ -830,7 +856,7 @@ include = ["#halloy"]
 <p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
 <p>Note: Not all server messages uses this setting.</p>
 <pre><code class="language-toml"># Type: string
-# Values: "full", "short
+# Values: "full", "short"
 # Default: "full"
 
 [buffer.server_messages.&lt;server_message&gt;]
