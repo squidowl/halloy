@@ -11,9 +11,10 @@ use data::history::ReadMarker;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{client, environment, history, Config, Server, Version};
-use data::{config, preview};
-use data::{file_transfer, Notification};
+use data::{
+    client, command, config, environment, file_transfer, history, preview, Config, Notification,
+    Server, Version,
+};
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
 use iced::{clipboard, Length, Task, Vector};
@@ -25,7 +26,7 @@ use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
 use crate::widget::{
-    anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row
+    anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
 };
 use crate::window::Window;
 use crate::{event, notification, theme, window, Theme};
@@ -189,7 +190,7 @@ impl Dashboard {
                                                 channel.clone(),
                                             );
 
-                                            let command = data::Command::Mode(
+                                            let command = command::Irc::Mode(
                                                 channel.to_string(),
                                                 Some(mode),
                                                 Some(vec![nick.to_string()]),
@@ -207,7 +208,7 @@ impl Dashboard {
                                                 );
 
                                             let command =
-                                                data::Command::Whois(None, nick.to_string());
+                                                command::Irc::Whois(None, nick.to_string());
 
                                             let input =
                                                 data::Input::command(buffer.clone(), command);
@@ -331,27 +332,40 @@ impl Dashboard {
                                         }
                                     }
                                 }
-                                buffer::Event::OpenChannel(channel) => {
+                                buffer::Event::OpenBuffer(target) => {
+                                    let mut tasks = vec![];
+
                                     if let Some(server) = pane
                                         .buffer
                                         .upstream()
                                         .map(buffer::Upstream::server)
                                         .cloned()
                                     {
-                                        return (
-                                            Task::batch(vec![
-                                                task,
-                                                self.open_channel(
+                                        match target {
+                                            Target::Channel(channel) => {
+                                                tasks.push(self.open_channel(
                                                     server,
                                                     channel,
                                                     clients,
                                                     main_window,
                                                     config,
-                                                ),
-                                            ]),
-                                            None,
-                                        );
+                                                ));
+                                            }
+                                            Target::Query(query) => {
+                                                let buffer = data::Buffer::Upstream(
+                                                    buffer::Upstream::Query(server, query),
+                                                );
+
+                                                tasks.push(self.open_buffer(
+                                                    main_window,
+                                                    buffer.clone(),
+                                                    config,
+                                                ));
+                                            }
+                                        }
                                     }
+
+                                    return (Task::batch(tasks), None);
                                 }
                                 buffer::Event::History(history_task) => {
                                     return (
@@ -1488,7 +1502,7 @@ impl Dashboard {
             }
             buffer::Upstream::Channel(server, channel) => {
                 // Send part & close history file
-                let command = data::Command::Part(channel.to_string(), None);
+                let command = command::Irc::Part(channel.to_string(), None);
                 let input = data::Input::command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {
@@ -2056,8 +2070,7 @@ impl Dashboard {
 
         for pane in data.popout_panes {
             // Popouts are only a single pane
-            let Configuration::Pane(pane) = configuration(pane)
-            else {
+            let Configuration::Pane(pane) = configuration(pane) else {
                 continue;
             };
 
