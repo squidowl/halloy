@@ -564,7 +564,7 @@ fn upstream_buffer_button(
                             BufferFocusedAction::ClosePane => Some(Message::Close(window, pane)),
                         }
                     } else {
-                        Some(Message::Focus(window, pane))
+                        None
                     }
                 }
                 None => {
