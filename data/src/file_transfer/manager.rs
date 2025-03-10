@@ -60,10 +60,10 @@ impl Manager {
     }
 
     fn get_random_id(&self) -> Id {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         loop {
-            let id = Id(rng.gen());
+            let id = Id(rng.random());
 
             if !self.items.contains_key(&id) {
                 return id;
