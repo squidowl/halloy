@@ -77,9 +77,7 @@ fn markdown<'a>(
     // Prev char is whitespace or punctuation, not matching delimiter char
     let prev_is_ws_or_punc = move |d, i: &str| {
         // None == Start of input which is considered whitespace
-        prev(i).is_none_or(|c| {
-            c != d && (c.is_whitespace() || c.is_ascii_punctuation())
-        })
+        prev(i).is_none_or(|c| c != d && (c.is_whitespace() || c.is_ascii_punctuation()))
     };
     // Prev char is punctuation, not matching delimiter char
     let prev_is_punc =

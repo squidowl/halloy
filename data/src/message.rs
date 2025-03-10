@@ -15,17 +15,17 @@ use url::Url;
 
 pub use self::formatting::Formatting;
 pub use self::source::{
-    Source,
     server::{Kind, StandardReply},
+    Source,
 };
 
-use crate::config::Highlights;
 use crate::config::buffer::UsernameFormat;
+use crate::config::Highlights;
 use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{Config, Server, User, ctcp, isupport, target};
+use crate::{ctcp, isupport, target, Config, Server, User};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5

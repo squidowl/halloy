@@ -1,9 +1,9 @@
-use data::{Config, file_transfer, history, preview};
+use data::{file_transfer, history, preview, Config};
 use iced::widget::{button, center, container, pane_grid, row, text};
 
 use crate::buffer::{self, Buffer};
 use crate::widget::tooltip;
-use crate::{Theme, icon, theme, widget};
+use crate::{icon, theme, widget, Theme};
 
 use super::sidebar;
 
