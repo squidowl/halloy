@@ -1,4 +1,6 @@
+use data::command;
 use data::input::{self, Cache, Draft};
+use data::target::Target;
 use data::user::Nick;
 use data::{buffer, client, history, Config};
 use iced::widget::{container, row, text, text_input};
@@ -13,6 +15,9 @@ mod completion;
 pub enum Event {
     InputSent {
         history_task: Task<history::manager::Message>,
+    },
+    OpenBuffer {
+        target: Target,
     },
 }
 
@@ -158,7 +163,7 @@ impl State {
                 (Task::none(), None)
             }
             Message::Send => {
-                let input = history.input(buffer).draft;
+                let raw_input = history.input(buffer).draft;
 
                 // Reset error
                 self.error = None;
@@ -167,24 +172,45 @@ impl State {
 
                 if let Some(entry) = self.completion.select(config) {
                     let chantypes = clients.get_chantypes(buffer.server());
-                    let new_input = entry.complete_input(input, chantypes, config);
+                    let new_input = entry.complete_input(raw_input, chantypes, config);
 
                     self.on_completion(buffer, history, new_input)
-                } else if !input.is_empty() {
+                } else if !raw_input.is_empty() {
                     self.completion.reset();
 
                     // Parse input
                     let input = match input::parse(
                         buffer.clone(),
                         config.buffer.text_input.auto_format,
-                        input,
+                        raw_input,
                     ) {
-                        Ok(input) => input,
+                        Ok(input::Parsed::Internal(command)) => {
+                            history.record_input_history(buffer, raw_input.to_owned());
+
+                            match command {
+                                command::Internal::OpenBuffer(target) => {
+                                    return (
+                                        Task::none(),
+                                        Some(Event::OpenBuffer {
+                                            target: Target::parse(
+                                                target.as_ref(),
+                                                clients.get_chantypes(buffer.server()),
+                                                clients.get_statusmsg(buffer.server()),
+                                                clients.get_casemapping(buffer.server()),
+                                            ),
+                                        }),
+                                    )
+                                }
+                            }
+                        }
+                        Ok(input::Parsed::Input(input)) => input,
                         Err(error) => {
                             self.error = Some(error.to_string());
                             return (Task::none(), None);
                         }
                     };
+
+                    history.record_input_history(buffer, raw_input.to_owned());
 
                     if let Some(encoded) = input.encoded() {
                         clients.send(buffer, encoded);
@@ -212,7 +238,7 @@ impl State {
 
                         history_task = Task::batch(
                             history
-                                .record_input(
+                                .record_input_message(
                                     input,
                                     user,
                                     channel_users,

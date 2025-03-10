@@ -180,7 +180,7 @@ impl Manager {
         }
     }
 
-    pub fn record_input(
+    pub fn record_input_message(
         &mut self,
         input: Input,
         user: User,
@@ -205,11 +205,11 @@ impl Manager {
             }
         }
 
-        if let Some(text) = input.raw() {
-            self.data.input.record(&input.buffer, text.to_string());
-        }
-
         tasks
+    }
+
+    pub fn record_input_history(&mut self, buffer: &buffer::Upstream, text: String) {
+        self.data.input.record(buffer, text);
     }
 
     pub fn record_draft(&mut self, draft: input::Draft) {
