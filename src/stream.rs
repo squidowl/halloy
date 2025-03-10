@@ -12,7 +12,7 @@ pub fn run(entry: server::Entry, proxy: Option<config::Proxy>) -> Subscription<s
     }
 
     impl State {
-        fn run(&self) -> impl Stream<Item = stream::Update> {
+        fn run(&self) -> impl Stream<Item = stream::Update> + use<> {
             stream::run(self.entry.clone(), self.proxy.clone())
         }
     }

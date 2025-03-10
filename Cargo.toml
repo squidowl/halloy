@@ -1,11 +1,11 @@
 [package]
 name = "halloy"
-version = "0.1.0"
-authors = ["Casper Rogild Storm", "Cory Forsstrom"]
 description = "Halloy IRC Client"
 documentation = "https://halloy.squidowl.org/"
-license = "GPL-3.0-or-later"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
 
 [features]
 default = []
@@ -14,6 +14,12 @@ dev = ["debug", "data/dev"]
 
 [workspace]
 members = ["data", "ipc", "irc", "irc/proto"]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Casper Rogild Storm", "Cory Forsstrom"]
+license = "GPL-3.0-or-later"
+edition = "2024"
 
 [workspace.dependencies]
 tokio = { version = "1.44.0" }
