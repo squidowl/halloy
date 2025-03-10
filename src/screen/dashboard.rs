@@ -1708,7 +1708,7 @@ impl Dashboard {
         task.chain(self.refocus_pane())
     }
 
-    pub fn focus_first_pane(&mut self, window: window::Id) -> Task<Message> {
+    fn focus_first_pane(&mut self, window: window::Id) -> Task<Message> {
         let pane = self
             .panes
             .iter()

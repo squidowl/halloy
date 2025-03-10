@@ -75,7 +75,7 @@ impl subscription::Recipe for Appearance {
                 loop {
                     interval.tick().await;
                     let new_mode = detect().unwrap_or(Mode::Light);
-                    
+
                     if new_mode != old_mode {
                         return Some((new_mode, (interval, new_mode)));
                     }
