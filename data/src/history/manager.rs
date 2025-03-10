@@ -2,15 +2,15 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
-use futures::{future, Future, FutureExt};
+use futures::{Future, FutureExt, future};
 use tokio::time::Instant;
 
 use crate::history::{self, History, MessageReferences};
 use crate::message::{self, Limit};
 use crate::target::{self, Target};
 use crate::user::Nick;
+use crate::{Config, Input, Server, User, server};
 use crate::{buffer, config, input, isupport};
-use crate::{server, Config, Input, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -162,13 +162,13 @@ impl Manager {
         self.data.flush_all(now)
     }
 
-    pub fn close(&mut self, kind: history::Kind) -> Option<impl Future<Output = Message>> {
+    pub fn close(&mut self, kind: history::Kind) -> Option<impl Future<Output = Message> + use<>> {
         let history = self.data.map.remove(&kind)?;
 
         Some(history.close().map(|result| Message::Closed(kind, result)))
     }
 
-    pub fn exit(&mut self) -> impl Future<Output = Message> {
+    pub fn exit(&mut self) -> impl Future<Output = Message> + use<> {
         let map = std::mem::take(&mut self.data).map;
 
         async move {
@@ -189,7 +189,7 @@ impl Manager {
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         config: &Config,
-    ) -> Vec<impl Future<Output = Message>> {
+    ) -> Vec<impl Future<Output = Message> + use<>> {
         let mut tasks = vec![];
 
         if let Some(messages) = input.messages(
@@ -220,7 +220,7 @@ impl Manager {
         &mut self,
         server: &Server,
         message: crate::Message,
-    ) -> Option<impl Future<Output = Message>> {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         history::Kind::from_server_message(server.clone(), &message)
             .and_then(|kind| self.data.add_message(kind, message))
     }
@@ -228,7 +228,7 @@ impl Manager {
     pub fn record_log(
         &mut self,
         record: crate::log::Record,
-    ) -> Option<impl Future<Output = Message>> {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         self.data
             .add_message(history::Kind::Logs, crate::Message::log(record))
     }
@@ -236,15 +236,15 @@ impl Manager {
     pub fn record_highlight(
         &mut self,
         message: crate::Message,
-    ) -> Option<impl Future<Output = Message>> {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         self.data.add_message(history::Kind::Highlights, message)
     }
 
-    pub fn update_read_marker(
+    pub fn update_read_marker<T: Into<history::Kind>>(
         &mut self,
-        kind: impl Into<history::Kind>,
+        kind: T,
         read_marker: history::ReadMarker,
-    ) -> Option<impl Future<Output = Message>> {
+    ) -> Option<impl Future<Output = Message> + use<T>> {
         self.data.update_read_marker(kind, read_marker)
     }
 
@@ -252,7 +252,7 @@ impl Manager {
         &mut self,
         server: Server,
         target: Target,
-    ) -> Option<impl Future<Output = Message>> {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         self.data.load_metadata(server, target)
     }
 
@@ -315,7 +315,7 @@ impl Manager {
         broadcast: Broadcast,
         config: &Config,
         sent_time: DateTime<Utc>,
-    ) -> Vec<impl Future<Output = Message>> {
+    ) -> Vec<impl Future<Output = Message> + use<>> {
         let channels = self
             .data
             .map
@@ -683,11 +683,7 @@ impl Data {
                 .map_or_else(
                     || {
                         // Backlog is before this limit view of messages
-                        if has_read_messages {
-                            0
-                        } else {
-                            limited.len()
-                        }
+                        if has_read_messages { 0 } else { limited.len() }
                     },
                     |position| limited.len() - position,
                 )
@@ -723,7 +719,7 @@ impl Data {
         &mut self,
         kind: history::Kind,
         message: crate::Message,
-    ) -> Option<impl Future<Output = Message>> {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         use std::collections::hash_map;
 
         match self.map.entry(kind.clone()) {
@@ -749,11 +745,11 @@ impl Data {
         }
     }
 
-    fn update_read_marker(
+    fn update_read_marker<T: Into<history::Kind>>(
         &mut self,
-        kind: impl Into<history::Kind>,
+        kind: T,
         read_marker: history::ReadMarker,
-    ) -> Option<impl Future<Output = Message>> {
+    ) -> Option<impl Future<Output = Message> + use<T>> {
         use std::collections::hash_map;
 
         let kind = kind.into();
@@ -779,7 +775,7 @@ impl Data {
         &mut self,
         server: server::Server,
         target: Target,
-    ) -> Option<impl Future<Output = Message>> {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         use std::collections::hash_map;
 
         let kind = history::Kind::from_target(server, target);
@@ -829,7 +825,8 @@ impl Data {
     fn untrack(
         &mut self,
         kind: &history::Kind,
-    ) -> Option<impl Future<Output = Result<Option<history::ReadMarker>, history::Error>>> {
+    ) -> Option<impl Future<Output = Result<Option<history::ReadMarker>, history::Error>> + use<>>
+    {
         self.map.get_mut(kind).and_then(History::make_partial)
     }
 
