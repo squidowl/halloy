@@ -259,7 +259,7 @@ pub fn randomize_color(original_color: Color, seed: &str) -> Color {
     let original_hsl = to_hsl(original_color);
 
     // Randomize the hue value using the random number generator
-    let randomized_hue: f32 = rng.gen_range(0.0..=360.0);
+    let randomized_hue: f32 = rng.random_range(0.0..=360.0);
     let randomized_hsl = Okhsl::new(
         randomized_hue,
         original_hsl.saturation,

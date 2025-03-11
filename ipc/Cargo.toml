@@ -1,17 +1,19 @@
 [package]
 name = "ipc"
-authors = ["Casper Rogild Storm", "Cory Forsstrom"]
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
 
 [dependencies]
-tokio = { version = "1.0", features = ["rt", "fs", "process"] }
-futures = "0.3.28"
+url = { workspace = true }
+tokio = { workspace = true, features = ["rt", "fs", "process"] }
+futures = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+
 interprocess = { version = "1.2.1", features = ["tokio_support"] }
-thiserror = "1.0.30"
-url = "2.5.0"
-rand = "0.8.4"
-rand_chacha = "0.3.0"
 
 [dependencies.data]
 path = "../data"

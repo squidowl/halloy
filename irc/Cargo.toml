@@ -1,20 +1,22 @@
 [package]
 name = "irc"
-authors = ["Casper Rogild Storm", "Cory Forsstrom"]
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
 
 [dependencies]
+thiserror = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true,  features = ["full"] }
+bytes = { workspace = true }
+
 arti-client = { version = "0.26", default-features = false, features = ["rustls", "compression", "tokio", "static-sqlite"] }
 async-http-proxy = { version = "1.2.5", features = ["runtime-tokio", "basic-auth"] }
-bytes = "1.4.0"
-fast-socks5 = "0.9.6"
-futures = "0.3.28"
-thiserror = "1.0.30"
-tokio = { version = "1.29", features = ["net", "full"] }
+fast-socks5 = "0.10.0"
 tokio-rustls = { version = "0.26.0", default-features = false, features = ["tls12", "ring"] }
 tokio-util = { version = "0.7", features = ["codec"] }
-rustls-native-certs = "0.7.0"
+rustls-native-certs = "0.8.1"
 rustls-pemfile = "2.1.1"
 xz2 = { version = "0.1.7", features = ["static"] }
 
