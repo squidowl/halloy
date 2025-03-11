@@ -29,14 +29,7 @@ where
                   shell: &mut Shell<'_, Message>,
                   viewport: &iced::Rectangle| {
                 inner.as_widget_mut().update(
-                    tree,
-                    event,
-                    layout,
-                    cursor,
-                    renderer,
-                    clipboard,
-                    shell,
-                    viewport,
+                    tree, event, layout, cursor, renderer, clipboard, shell, viewport,
                 );
 
                 if shell.is_event_captured() {

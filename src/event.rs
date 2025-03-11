@@ -1,11 +1,10 @@
-use iced::{event, keyboard, window, Subscription};
+use iced::{Subscription, event, keyboard, mouse, window};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Event {
     Copy,
     Escape,
-    Home,
-    End,
+    LeftClick,
 }
 
 pub fn events() -> Subscription<(window::Id, Event)> {
@@ -29,14 +28,9 @@ fn filtered_events(
             modifiers,
             ..
         }) if c.as_str() == "c" && modifiers.command() => Some(Event::Copy),
-        iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key: keyboard::Key::Named(keyboard::key::Named::Home),
-            ..
-        }) if ignored(status) => Some(Event::Home),
-        iced::Event::Keyboard(keyboard::Event::KeyPressed {
-            key: keyboard::Key::Named(keyboard::key::Named::End),
-            ..
-        }) if ignored(status) => Some(Event::End),
+        iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) if ignored(status) => {
+            Some(Event::LeftClick)
+        }
         _ => None,
     };
 

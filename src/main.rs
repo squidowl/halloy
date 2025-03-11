@@ -146,7 +146,7 @@ impl Halloy {
             Err(error) => {
                 log::warn!("failed to load dashboard: {error}");
 
-                screen::Dashboard::empty(config)
+                screen::Dashboard::empty(config, &main_window)
             }
         };
 
@@ -466,7 +466,7 @@ impl Halloy {
                         return Task::none();
                     };
 
-                    if is_initial {
+                    let broadcast = if is_initial {
                         self.notifications.notify(
                             &self.config.notifications,
                             &Notification::Connected,
@@ -486,7 +486,11 @@ impl Halloy {
                         dashboard
                             .broadcast(&server, &self.config, sent_time, Broadcast::Reconnected)
                             .map(Message::Dashboard)
-                    }
+                    };
+
+                    let refocus_pane = dashboard.refocus_pane().map(Message::Dashboard);
+
+                    Task::batch(vec![broadcast, refocus_pane])
                 }
                 stream::Update::ConnectionFailed {
                     server,
@@ -886,7 +890,6 @@ impl Halloy {
                             &self.version,
                             &self.config,
                             &mut self.theme,
-                            &self.main_window,
                         )
                         .map(Message::Dashboard);
                 }
@@ -984,10 +987,22 @@ impl Halloy {
                         }
                     }
 
-                    Task::perform(
+                    let mut tasks = vec![Task::perform(
                         data::Window::from(self.main_window).save(),
                         Message::WindowSettingsSaved,
-                    )
+                    )];
+
+                    if let Some(Screen::Dashboard(dashboard)) =
+                        matches!(event, window::Event::Focused).then_some(&mut self.screen)
+                    {
+                        tasks.push(
+                            dashboard
+                                .focus_window(self.main_window.id)
+                                .map(Message::Dashboard),
+                        )
+                    }
+
+                    Task::batch(tasks)
                 } else if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
                         .handle_window_event(id, event, &mut self.theme)
@@ -1044,13 +1059,7 @@ impl Halloy {
         let content = if id == self.main_window.id {
             let screen = match &self.screen {
                 Screen::Dashboard(dashboard) => dashboard
-                    .view(
-                        &self.clients,
-                        &self.version,
-                        &self.config,
-                        &self.theme,
-                        &self.main_window,
-                    )
+                    .view(&self.clients, &self.version, &self.config, &self.theme)
                     .map(Message::Dashboard),
                 Screen::Help(help) => help.view().map(Message::Help),
                 Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
@@ -1074,13 +1083,7 @@ impl Halloy {
             }
         } else if let Screen::Dashboard(dashboard) = &self.screen {
             dashboard
-                .view_window(
-                    id,
-                    &self.clients,
-                    &self.config,
-                    &self.theme,
-                    &self.main_window,
-                )
+                .view_window(id, &self.clients, &self.config, &self.theme)
                 .map(Message::Dashboard)
         } else {
             column![].into()
