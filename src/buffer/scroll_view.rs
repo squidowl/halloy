@@ -4,17 +4,17 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
-use data::{client, history, preview, target, Config, Preview};
+use data::{Config, Preview, client, history, preview, target};
 use iced::widget::{
-    button, center, column, container, horizontal_rule, horizontal_space, image, mouse_area, row,
-    scrollable, text, Scrollable,
+    Scrollable, button, center, column, container, horizontal_rule, horizontal_space, image,
+    mouse_area, row, scrollable, text,
 };
-use iced::{alignment, padding, ContentFit, Length, Task};
+use iced::{ContentFit, Length, Task, alignment, padding};
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::user_context;
-use crate::widget::{notify_visibility, selectable_text, Element, MESSAGE_MARKER_TEXT};
+use crate::widget::{Element, MESSAGE_MARKER_TEXT, notify_visibility, selectable_text};
 use crate::{font, icon, theme};
 
 #[derive(Debug, Clone)]
@@ -457,7 +457,7 @@ impl State {
                 );
             }
             Message::Link(message::Link::Channel(channel)) => {
-                return (Task::none(), Some(Event::OpenChannel(channel)))
+                return (Task::none(), Some(Event::OpenChannel(channel)));
             }
             Message::Link(message::Link::Url(url)) => {
                 let _ = open::that_detached(url);
@@ -484,7 +484,7 @@ impl State {
                 return (
                     Task::none(),
                     Some(Event::GoToMessage(server, channel, message)),
-                )
+                );
             }
             Message::ScrollTo(keyed::Hit {
                 hit_bounds,
@@ -570,6 +570,24 @@ impl State {
         }
 
         (Task::none(), None)
+    }
+
+    pub fn scroll_up_page(&mut self) -> Task<Message> {
+        correct_viewport::scroll_by(self.scrollable.clone(), self.status.anchor(), |bounds| {
+            scrollable::AbsoluteOffset {
+                x: 0.0,
+                y: -(bounds.height - 20.0).max(0.0).min(bounds.height),
+            }
+        })
+    }
+
+    pub fn scroll_down_page(&mut self) -> Task<Message> {
+        correct_viewport::scroll_by(self.scrollable.clone(), self.status.anchor(), |bounds| {
+            scrollable::AbsoluteOffset {
+                x: 0.0,
+                y: (bounds.height - 20.0).max(0.0).min(bounds.height),
+            }
+        })
     }
 
     pub fn scroll_to_start(&mut self) -> Task<Message> {
@@ -725,10 +743,10 @@ mod keyed {
     use data::message;
     use iced::advanced::widget::{self, Operation};
     use iced::widget::scrollable::{self, AbsoluteOffset};
-    use iced::{advanced, Rectangle, Task, Vector};
+    use iced::{Rectangle, Task, Vector, advanced};
 
     use crate::widget::Element;
-    use crate::widget::{decorate, Renderer};
+    use crate::widget::{Renderer, decorate};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Key {
@@ -1001,20 +1019,24 @@ fn preview_row<'a>(
                 keyed::Key::Preview(message.hash, idx),
                 button(
                     container(
-                        column![column![text(title)
-                            .shaping(text::Shaping::Advanced)
-                            .style(theme::text::primary)]
-                        .push_maybe(description.as_ref().map(|description| {
-                            text(description)
-                                .shaping(text::Shaping::Advanced)
-                                .style(theme::text::secondary)
-                        }))
-                        .push_maybe(
-                            config.preview.card.show_image.then_some(
-                                container(image(path).content_fit(ContentFit::ScaleDown))
-                                    .max_height(200)
-                            )
-                        ),]
+                        column![
+                            column![
+                                text(title)
+                                    .shaping(text::Shaping::Advanced)
+                                    .style(theme::text::primary)
+                            ]
+                            .push_maybe(description.as_ref().map(|description| {
+                                text(description)
+                                    .shaping(text::Shaping::Advanced)
+                                    .style(theme::text::secondary)
+                            }))
+                            .push_maybe(
+                                config.preview.card.show_image.then_some(
+                                    container(image(path).content_fit(ContentFit::ScaleDown))
+                                        .max_height(200)
+                                )
+                            ),
+                        ]
                         .max_width(400)
                         .spacing(4),
                     )
@@ -1144,17 +1166,17 @@ mod correct_viewport {
     use std::any::Any;
     use std::sync::{Arc, Mutex};
 
-    use iced::advanced::widget::operation::{scrollable, Scrollable};
+    use iced::advanced::widget::operation::{Scrollable, scrollable};
     use iced::advanced::widget::{Id, Operation};
     use iced::advanced::{self, widget};
-    use iced::widget::scrollable::AbsoluteOffset;
+    use iced::widget::scrollable::{AbsoluteOffset, Anchor};
     use iced::{Rectangle, Task, Vector};
 
     use crate::widget::decorate;
     use crate::widget::{Element, Renderer};
 
-    use super::keyed;
     use super::Message;
+    use super::keyed;
 
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,
@@ -1405,6 +1427,69 @@ mod correct_viewport {
         widget::operate(ScrollTo {
             target: target.into(),
             offset,
+        })
+    }
+
+    pub fn scroll_by<T: Send + 'static>(
+        target: impl Into<Id>,
+        anchor: Anchor,
+        f: impl Fn(Rectangle) -> AbsoluteOffset + Send + 'static,
+    ) -> Task<T> {
+        struct ScrollBy {
+            target: Id,
+            anchor: Anchor,
+            f: Box<dyn Fn(Rectangle) -> AbsoluteOffset + Send>,
+        }
+
+        impl<T> Operation<T> for ScrollBy {
+            fn container(
+                &mut self,
+                _id: Option<&Id>,
+                _bounds: Rectangle,
+                operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
+            ) {
+                operate_on_children(self);
+            }
+
+            fn scrollable(
+                &mut self,
+                id: Option<&Id>,
+                bounds: Rectangle,
+                content_bounds: Rectangle,
+                translation: Vector,
+                state: &mut dyn Scrollable,
+            ) {
+                if Some(&self.target) == id {
+                    let mut offset = (self.f)(bounds);
+
+                    // Flip offset
+                    if matches!(self.anchor, Anchor::End) {
+                        offset.y =
+                            (offset.y * -1.0).clamp(0.0, content_bounds.height - bounds.height);
+                    } else {
+                        let min_offset = 0.0 - translation.y;
+                        let max_offset = (content_bounds.height - bounds.height) - translation.y;
+
+                        offset.y = offset.y.clamp(min_offset, max_offset);
+                    }
+
+                    state.scroll_by(offset, bounds, content_bounds);
+                }
+            }
+
+            fn custom(&mut self, id: Option<&Id>, _bounds: Rectangle, state: &mut dyn Any) {
+                if id.is_some_and(|id| *id == self.target) {
+                    if let Some(is_scroll_to) = state.downcast_mut::<bool>() {
+                        *is_scroll_to = true;
+                    }
+                }
+            }
+        }
+
+        widget::operate(ScrollBy {
+            target: target.into(),
+            anchor,
+            f: Box::new(f),
         })
     }
 }

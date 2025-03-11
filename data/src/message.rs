@@ -10,7 +10,7 @@ use irc::proto;
 use irc::proto::Command;
 use itertools::{Either, Itertools};
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 pub use self::formatting::Formatting;
@@ -21,6 +21,7 @@ pub use self::source::{
 
 use crate::config::buffer::UsernameFormat;
 use crate::config::Highlights;
+use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -1434,20 +1435,6 @@ pub enum Link {
     Url(String),
     User(User),
     GoToMessage(Server, target::Channel, Hash),
-}
-
-fn fail_as_none<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    T: Deserialize<'de>,
-    D: Deserializer<'de>,
-{
-    // We must fully consume valid json otherwise the error leaves the
-    // deserializer in an invalid state and it'll still fail
-    //
-    // This assumes we always use a json format
-    let intermediate = serde_json::Value::deserialize(deserializer)?;
-
-    Ok(Option::<T>::deserialize(intermediate).unwrap_or_default())
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]

@@ -1,7 +1,7 @@
 pub use data::buffer::{Internal, Settings, Upstream};
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{buffer, file_transfer, history, message, preview, Config};
+use data::{Config, buffer, file_transfer, history, message, preview};
 use iced::Task;
 
 pub use self::channel::Channel;
@@ -10,9 +10,9 @@ pub use self::highlights::Highlights;
 pub use self::logs::Logs;
 pub use self::query::Query;
 pub use self::server::Server;
+use crate::Theme;
 use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
-use crate::Theme;
 
 pub mod channel;
 pub mod empty;
@@ -284,6 +284,58 @@ impl Buffer {
                 .input_view
                 .insert_user(nick, state.buffer.clone(), history)
                 .map(|message| Message::Query(query::Message::InputView(message))),
+        }
+    }
+
+    pub fn scroll_up_page(&mut self) -> Task<Message> {
+        match self {
+            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Channel(channel) => channel
+                .scroll_view
+                .scroll_up_page()
+                .map(|message| Message::Channel(channel::Message::ScrollView(message))),
+            Buffer::Server(server) => server
+                .scroll_view
+                .scroll_up_page()
+                .map(|message| Message::Server(server::Message::ScrollView(message))),
+            Buffer::Query(query) => query
+                .scroll_view
+                .scroll_up_page()
+                .map(|message| Message::Query(query::Message::ScrollView(message))),
+            Buffer::Logs(log) => log
+                .scroll_view
+                .scroll_up_page()
+                .map(|message| Message::Logs(logs::Message::ScrollView(message))),
+            Buffer::Highlights(highlights) => highlights
+                .scroll_view
+                .scroll_up_page()
+                .map(|message| Message::Highlights(highlights::Message::ScrollView(message))),
+        }
+    }
+
+    pub fn scroll_down_page(&mut self) -> Task<Message> {
+        match self {
+            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Channel(channel) => channel
+                .scroll_view
+                .scroll_down_page()
+                .map(|message| Message::Channel(channel::Message::ScrollView(message))),
+            Buffer::Server(server) => server
+                .scroll_view
+                .scroll_down_page()
+                .map(|message| Message::Server(server::Message::ScrollView(message))),
+            Buffer::Query(query) => query
+                .scroll_view
+                .scroll_down_page()
+                .map(|message| Message::Query(query::Message::ScrollView(message))),
+            Buffer::Logs(log) => log
+                .scroll_view
+                .scroll_down_page()
+                .map(|message| Message::Logs(logs::Message::ScrollView(message))),
+            Buffer::Highlights(highlights) => highlights
+                .scroll_view
+                .scroll_down_page()
+                .map(|message| Message::Highlights(highlights::Message::ScrollView(message))),
         }
     }
 

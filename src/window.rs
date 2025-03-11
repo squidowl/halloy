@@ -201,7 +201,7 @@ impl subscription::Recipe for Events {
                     iced::window::Event::Resized(size) => {
                         let is_bigger_than_min_allowed =
                             size.width >= MIN_SIZE.width && size.height >= MIN_SIZE.height;
-                            
+
                         if is_bigger_than_min_allowed && elapsed >= INITIAL_SKIP_THRESHOLD {
                             Some((id, Event::Resized(size.max(MIN_SIZE))))
                         } else {

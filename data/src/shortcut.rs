@@ -44,6 +44,10 @@ pub enum Command {
     ThemeEditor,
     Highlight,
     QuitApplication,
+    ScrollUpPage,
+    ScrollDownPage,
+    ScrollToTop,
+    ScrollToBottom,
 }
 
 macro_rules! default {
@@ -120,8 +124,8 @@ impl KeyBind {
     default!(move_left, ArrowLeft, COMMAND | ALT);
     default!(move_right, ArrowRight, COMMAND | ALT);
     default!(close_buffer, "w", COMMAND);
-    default!(maximize_buffer, ArrowUp, COMMAND);
-    default!(restore_buffer, ArrowDown, COMMAND);
+    default!(maximize_buffer, ArrowUp, COMMAND | SHIFT);
+    default!(restore_buffer, ArrowDown, COMMAND | SHIFT);
     default!(cycle_next_buffer, Tab, CTRL);
     default!(cycle_previous_buffer, Tab, CTRL | SHIFT);
     default!(leave_buffer, "w", COMMAND | SHIFT);
@@ -135,6 +139,11 @@ impl KeyBind {
     default!(logs, "l", COMMAND);
     default!(theme_editor, "t", COMMAND);
     default!(highlight, "i", COMMAND);
+    default!(scroll_up_page, PageUp);
+    default!(scroll_down_page, PageDown);
+    // Don't use HOME / END since text input is always focused
+    default!(scroll_to_top, ArrowUp, COMMAND);
+    default!(scroll_to_bottom, ArrowDown, COMMAND);
 
     pub fn is_pressed(
         &self,

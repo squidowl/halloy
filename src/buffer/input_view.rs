@@ -353,7 +353,15 @@ impl State {
     }
 
     pub fn focus(&self) -> Task<Message> {
-        text_input::focus(self.input_id.clone())
+        let input_id = self.input_id.clone();
+
+        text_input::is_focused(input_id.clone()).then(move |is_focused| {
+            if is_focused {
+                Task::none()
+            } else {
+                text_input::focus(input_id.clone())
+            }
+        })
     }
 
     pub fn reset(&mut self) {
