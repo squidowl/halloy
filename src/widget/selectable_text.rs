@@ -33,8 +33,8 @@ where
     line_height: LineHeight,
     width: Length,
     height: Length,
-    horizontal_alignment: alignment::Horizontal,
-    vertical_alignment: alignment::Vertical,
+    align_x: text::Alignment,
+    align_y: alignment::Vertical,
     font: Option<Renderer::Font>,
     shaping: Shaping,
     wrapping: Wrapping,
@@ -54,8 +54,8 @@ where
             font: None,
             width: Length::Shrink,
             height: Length::Shrink,
-            horizontal_alignment: alignment::Horizontal::Left,
-            vertical_alignment: alignment::Vertical::Top,
+            align_x: text::Alignment::Left,
+            align_y: alignment::Vertical::Top,
             #[cfg(debug_assertions)]
             shaping: Shaping::Basic,
             #[cfg(not(debug_assertions))]
@@ -98,13 +98,13 @@ where
         self
     }
 
-    pub fn horizontal_alignment(mut self, alignment: alignment::Horizontal) -> Self {
-        self.horizontal_alignment = alignment;
+    pub fn align_x(mut self, alignment: text::Alignment) -> Self {
+        self.align_x = alignment;
         self
     }
 
-    pub fn vertical_alignment(mut self, alignment: alignment::Vertical) -> Self {
-        self.vertical_alignment = alignment;
+    pub fn align_y(mut self, alignment: alignment::Vertical) -> Self {
+        self.align_y = alignment;
         self
     }
 
@@ -159,8 +159,8 @@ where
                 line_height: self.line_height,
                 bounds,
                 font,
-                horizontal_alignment: self.horizontal_alignment,
-                vertical_alignment: self.vertical_alignment,
+                align_x: self.align_x,
+                align_y: self.align_y,
                 shaping: self.shaping,
                 wrapping: self.wrapping,
             });
@@ -416,13 +416,15 @@ fn draw<Renderer>(
     let State { paragraph, .. } = &state;
     let bounds = layout.bounds();
 
-    let x = match paragraph.horizontal_alignment() {
-        alignment::Horizontal::Left => bounds.x,
-        alignment::Horizontal::Center => bounds.center_x(),
-        alignment::Horizontal::Right => bounds.x + bounds.width,
+    let x = match paragraph.align_x() {
+        text::Alignment::Left => bounds.x,
+        text::Alignment::Center => bounds.center_x(),
+        text::Alignment::Right => bounds.x + bounds.width,
+        text::Alignment::Default => todo!(), // TODO: FIX
+        text::Alignment::Justified => todo!(), // TODO: FIX
     };
 
-    let y = match paragraph.vertical_alignment() {
+    let y = match paragraph.align_y() {
         alignment::Vertical::Top => bounds.y,
         alignment::Vertical::Center => bounds.center_y(),
         alignment::Vertical::Bottom => bounds.y + bounds.height,

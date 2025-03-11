@@ -53,7 +53,7 @@ where
     width: Length,
     height: Length,
     font: Option<Renderer::Font>,
-    align_x: alignment::Horizontal,
+    align_x: text::Alignment,
     align_y: alignment::Vertical,
     class: Theme::Class<'a>,
     on_link: Option<Box<dyn Fn(Link) -> Message + 'a>>,
@@ -82,7 +82,7 @@ where
             width: Length::Shrink,
             height: Length::Shrink,
             font: None,
-            align_x: alignment::Horizontal::Left,
+            align_x: text::Alignment::Left,
             align_y: alignment::Vertical::Top,
             class: Theme::default(),
             on_link: None,
@@ -138,7 +138,7 @@ where
     }
 
     /// Sets the [`alignment::Horizontal`] of the [`Rich`] text.
-    pub fn align_x(mut self, alignment: impl Into<alignment::Horizontal>) -> Self {
+    pub fn align_x(mut self, alignment: impl Into<text::Alignment>) -> Self {
         self.align_x = alignment.into();
         self
     }
@@ -428,8 +428,8 @@ where
                     size,
                     line_height: self.line_height,
                     font,
-                    horizontal_alignment: self.align_x,
-                    vertical_alignment: self.align_y,
+                    align_x: self.align_x,
+                    align_y: self.align_y,
                     shaping: Shaping::Advanced,
                     wrapping: Default::default(),
                 };
@@ -778,8 +778,8 @@ fn layout<Link, Renderer>(
     line_height: LineHeight,
     size: Option<Pixels>,
     font: Option<Renderer::Font>,
-    horizontal_alignment: alignment::Horizontal,
-    vertical_alignment: alignment::Vertical,
+    align_x: text::Alignment,
+    align_y: alignment::Vertical,
 ) -> layout::Node
 where
     Link: Clone,
@@ -797,8 +797,8 @@ where
             size,
             line_height,
             font,
-            horizontal_alignment,
-            vertical_alignment,
+            align_x,
+            align_y,
             shaping: Shaping::Advanced,
             wrapping: Default::default(),
         };
@@ -823,8 +823,8 @@ where
                 size,
                 line_height,
                 font,
-                horizontal_alignment,
-                vertical_alignment,
+                align_x,
+                align_y,
                 shaping: Shaping::Advanced,
                 wrapping: Default::default(),
             }) {
