@@ -41,7 +41,7 @@ const SAVE_AFTER: Duration = Duration::from_secs(3);
 
 pub struct Dashboard {
     panes: Panes,
-    focus: Option<(window::Id, pane_grid::Pane)>,
+    focus: Focus,
     focus_history: VecDeque<pane_grid::Pane>,
     side_menu: Sidebar,
     history: history::Manager,
@@ -83,7 +83,7 @@ pub enum Event {
 
 impl Dashboard {
     pub fn empty(config: &Config, main_window: &Window) -> (Self, Task<Message>) {
-        let (main_panes, _) = pane_grid::State::new(Pane::new(Buffer::Empty));
+        let (main_panes, pane) = pane_grid::State::new(Pane::new(Buffer::Empty));
 
         let mut dashboard = Dashboard {
             panes: Panes {
@@ -91,7 +91,10 @@ impl Dashboard {
                 main: main_panes,
                 popout: HashMap::new(),
             },
-            focus: None,
+            focus: Focus {
+                window: main_window.id,
+                pane,
+            },
             focus_history: VecDeque::new(),
             side_menu: Sidebar::new(),
             history: history::Manager::default(),
@@ -148,9 +151,7 @@ impl Dashboard {
                     }
                     pane::Message::PaneDragged(_) => {}
                     pane::Message::ClosePane => {
-                        if let Some((window, pane)) = self.focus.take() {
-                            return (self.close_pane(window, pane), None);
-                        }
+                        return (self.close_pane(self.focus.window, self.focus.pane), None);
                     }
                     pane::Message::SplitPane(axis) => {
                         return (self.split_pane(axis), None);
@@ -465,15 +466,15 @@ impl Dashboard {
                     pane::Message::Popout => return (self.popout_pane(main_window), None),
                     pane::Message::Merge => return (self.merge_pane(config), None),
                     pane::Message::ScrollToBottom => {
-                        if let Some((window, pane)) = self.focus {
-                            if let Some(state) = self.panes.get_mut(window, pane) {
-                                return (
-                                    state.buffer.scroll_to_end().map(move |message| {
-                                        Message::Pane(window, pane::Message::Buffer(pane, message))
-                                    }),
-                                    None,
-                                );
-                            }
+                        let Focus { window, pane } = self.focus;
+
+                        if let Some(state) = self.panes.get_mut(window, pane) {
+                            return (
+                                state.buffer.scroll_to_end().map(move |message| {
+                                    Message::Pane(window, pane::Message::Buffer(pane, message))
+                                }),
+                                None,
+                            );
                         }
                     }
                 }
@@ -498,11 +499,13 @@ impl Dashboard {
                         None,
                     ),
                     sidebar::Event::Focus(window, pane) => (self.focus_pane(window, pane), None),
-                    sidebar::Event::Replace(window, buffer, pane) => {
+                    sidebar::Event::Replace(buffer) => {
+                        let Focus { window, pane } = self.focus;
+
                         if let Some(state) = self.panes.get_mut(window, pane) {
                             state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
                             self.last_changed = Some(Instant::now());
-                            self.focus = None;
+
                             (
                                 Task::batch(vec![
                                     self.reset_pane(window, pane),
@@ -514,15 +517,14 @@ impl Dashboard {
                             (Task::none(), None)
                         }
                     }
-                    sidebar::Event::Close(window, pane) => {
-                        if self.focus == Some((window, pane)) {
-                            self.focus = None;
-                        }
-
-                        (self.close_pane(window, pane), None)
-                    }
-                    sidebar::Event::Swap(from_window, from_pane, to_window, to_pane) => {
+                    sidebar::Event::Close(window, pane) => (self.close_pane(window, pane), None),
+                    sidebar::Event::Swap(from_window, from_pane) => {
                         self.last_changed = Some(Instant::now());
+
+                        let Focus {
+                            window: to_window,
+                            pane: to_pane,
+                        } = self.focus;
 
                         if from_window == main_window.id && to_window == main_window.id {
                             self.panes.main.swap(from_pane, to_pane);
@@ -682,26 +684,22 @@ impl Dashboard {
                                     (self.new_pane(pane_grid::Axis::Horizontal), None)
                                 }
                                 command_bar::Buffer::Close => {
-                                    if let Some((window, pane)) = self.focus {
-                                        (self.close_pane(window, pane), None)
-                                    } else {
-                                        (Task::none(), None)
-                                    }
+                                    let Focus { window, pane } = self.focus;
+                                    (self.close_pane(window, pane), None)
                                 }
                                 command_bar::Buffer::Replace(buffer) => {
                                     let mut commands = vec![];
 
-                                    if let Some((window, pane)) = self.focus.take() {
-                                        if let Some(state) = self.panes.get_mut(window, pane) {
-                                            state.buffer =
-                                                Buffer::from(data::Buffer::Upstream(buffer));
-                                            self.last_changed = Some(Instant::now());
+                                    let Focus { window, pane } = self.focus;
 
-                                            commands.extend(vec![
-                                                self.reset_pane(window, pane),
-                                                self.focus_pane(window, pane),
-                                            ]);
-                                        }
+                                    if let Some(state) = self.panes.get_mut(window, pane) {
+                                        state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
+                                        self.last_changed = Some(Instant::now());
+
+                                        commands.extend(vec![
+                                            self.reset_pane(window, pane),
+                                            self.focus_pane(window, pane),
+                                        ]);
                                     }
 
                                     (Task::batch(commands), None)
@@ -801,14 +799,12 @@ impl Dashboard {
 
                 // Only works on main window / pane_grid
                 let mut move_focus = |direction: pane_grid::Direction| {
-                    if let Some((window, pane)) = self.focus.as_ref() {
-                        if *window == self.main_window() {
-                            if let Some(adjacent) = self.panes.main.adjacent(*pane, direction) {
-                                return self.focus_pane(*window, adjacent);
-                            }
+                    let Focus { window, pane } = self.focus;
+
+                    if window == self.main_window() {
+                        if let Some(adjacent) = self.panes.main.adjacent(pane, direction) {
+                            return self.focus_pane(window, adjacent);
                         }
-                    } else if let Some((pane, _)) = self.panes.main.panes.iter().next() {
-                        return self.focus_pane(self.main_window(), *pane);
                     }
 
                     Task::none()
@@ -820,16 +816,14 @@ impl Dashboard {
                     MoveLeft => return (move_focus(pane_grid::Direction::Left), None),
                     MoveRight => return (move_focus(pane_grid::Direction::Right), None),
                     CloseBuffer => {
-                        if let Some((window, pane)) = self.focus {
-                            return (self.close_pane(window, pane), None);
-                        }
+                        let Focus { window, pane } = self.focus;
+                        return (self.close_pane(window, pane), None);
                     }
                     MaximizeBuffer => {
-                        if let Some((window, pane)) = self.focus.as_ref() {
-                            // Only main window has >1 pane to maximize
-                            if *window == self.main_window() {
-                                self.panes.main.maximize(*pane);
-                            }
+                        let Focus { window, pane } = self.focus;
+                        // Only main window has >1 pane to maximize
+                        if window == self.main_window() {
+                            self.panes.main.maximize(pane);
                         }
                     }
                     RestoreBuffer => {
@@ -846,7 +840,6 @@ impl Dashboard {
                                 &open_buffers,
                             ) {
                                 state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
-                                self.focus = None;
                                 return (self.focus_pane(window, pane), None);
                             }
                         }
@@ -862,7 +855,6 @@ impl Dashboard {
                                 &open_buffers,
                             ) {
                                 state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
-                                self.focus = None;
                                 return (self.focus_pane(window, pane), None);
                             }
                         }
@@ -1050,8 +1042,6 @@ impl Dashboard {
 
                     if self.is_pane_maximized() && window == self.main_window() {
                         self.panes.main.restore();
-                    } else {
-                        self.focus = None;
                     }
                 }
             }
@@ -1166,7 +1156,7 @@ impl Dashboard {
         if let Some(state) = self.panes.popout.get(&window) {
             let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
-                    let is_focused = self.focus == Some((window, id));
+                    let is_focused = self.focus == Focus { window, pane: id };
                     let buffer = pane.buffer.data();
                     let settings = buffer.as_ref().and_then(|b| self.buffer_settings.get(b));
 
@@ -1210,10 +1200,12 @@ impl Dashboard {
         config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
-        let focus = self.focus;
-
         let pane_grid: Element<_> = PaneGrid::new(&self.panes.main, |id, pane, maximized| {
-            let is_focused = focus == Some((self.main_window(), id));
+            let is_focused = self.focus
+                == Focus {
+                    window: self.main_window(),
+                    pane: id,
+                };
             let panes = self.panes.main.panes.len();
             let buffer = pane.buffer.data();
             let settings = buffer.as_ref().and_then(|b| self.buffer_settings.get(b));
@@ -1337,7 +1329,6 @@ impl Dashboard {
                 // - Close context menu
                 // - Close command/emoji picker
                 // - Restore maximized pane (if main window)
-                // - Unfocus
                 if self.command_bar.is_some() && window == self.main_window() {
                     self.toggle_command_bar(&closed_buffers(self, clients), version, config, theme)
                 } else {
@@ -1397,7 +1388,7 @@ impl Dashboard {
         // If buffer already is open, we focus it.
         for (window, id, pane) in panes.iter() {
             if pane.buffer.data().as_ref() == Some(&buffer) {
-                self.focus = Some((window, id));
+                self.focus = Focus { window, pane: id };
 
                 return self.focus_pane(window, id);
             }
@@ -1420,11 +1411,8 @@ impl Dashboard {
         }
 
         let pane_to_split = {
-            if let Some((_, pane)) = self
-                .focus
-                .filter(|(window, _)| *window == self.main_window())
-            {
-                pane
+            if self.focus.window == self.main_window() {
+                self.focus.pane
             } else if let Some(pane) = self.panes.main.panes.keys().last() {
                 *pane
             } else {
@@ -1463,10 +1451,6 @@ impl Dashboard {
 
         // Close pane
         if let Some((window, pane)) = open {
-            if self.focus == Some((window, pane)) {
-                self.focus = None;
-            }
-
             tasks.push(self.close_pane(window, pane));
 
             self.last_changed = Some(Instant::now());
@@ -1675,14 +1659,14 @@ impl Dashboard {
     }
 
     fn get_focused(&self) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
-        let (window, pane) = self.focus?;
+        let Focus { window, pane } = self.focus;
         self.panes
             .get(window, pane)
             .map(|state| (window, pane, state))
     }
 
     fn get_focused_mut(&mut self) -> Option<(window::Id, pane_grid::Pane, &mut Pane)> {
-        let (window, pane) = self.focus?;
+        let Focus { window, pane } = self.focus;
         self.panes
             .get_mut(window, pane)
             .map(|state| (window, pane, state))
@@ -1691,7 +1675,7 @@ impl Dashboard {
     fn get_focused_with_history_mut(
         &mut self,
     ) -> Option<(pane_grid::Pane, &mut Pane, &mut history::Manager)> {
-        let (window, pane) = self.focus?;
+        let Focus { window, pane } = self.focus;
         self.panes
             .get_mut(window, pane)
             .map(|state| (pane, state, &mut self.history))
@@ -1702,26 +1686,24 @@ impl Dashboard {
     }
 
     pub fn refocus_pane(&mut self) -> Task<Message> {
-        if let Some((window, pane)) = self.focus {
-            return self
-                .panes
-                .iter()
-                .find_map(|(w, p, state)| {
-                    (w == window && p == pane).then(|| {
-                        state.buffer.focus().map(move |message| {
-                            Message::Pane(window, pane::Message::Buffer(pane, message))
-                        })
+        let Focus { window, pane } = self.focus;
+
+        return self
+            .panes
+            .iter()
+            .find_map(|(w, p, state)| {
+                (w == window && p == pane).then(|| {
+                    state.buffer.focus().map(move |message| {
+                        Message::Pane(window, pane::Message::Buffer(pane, message))
                     })
                 })
-                .unwrap_or_else(Task::none);
-        }
-
-        Task::none()
+            })
+            .unwrap_or_else(Task::none);
     }
 
     fn focus_pane(&mut self, window: window::Id, pane: pane_grid::Pane) -> Task<Message> {
-        let task = if self.focus != Some((window, pane)) {
-            self.focus = Some((window, pane));
+        if (self.focus != Focus { window, pane }) {
+            self.focus = Focus { window, pane };
 
             self.last_changed = Some(Instant::now());
 
@@ -1730,13 +1712,9 @@ impl Dashboard {
 
                 self.focus_history.truncate(FOCUS_HISTORY_LEN);
             }
+        }
 
-            window::gain_focus(window)
-        } else {
-            Task::none()
-        };
-
-        task.chain(self.refocus_pane())
+        self.refocus_pane()
     }
 
     fn focus_first_pane(&mut self, window: window::Id) -> Task<Message> {
@@ -1749,7 +1727,7 @@ impl Dashboard {
     }
 
     pub fn focus_window(&mut self, window: window::Id) -> Task<Message> {
-        if let Some(pane) = self
+        let task = if let Some(pane) = self
             .focus_history
             .front()
             .filter(|_| window == self.main_window())
@@ -1757,14 +1735,16 @@ impl Dashboard {
             self.focus_pane(window, *pane)
         } else {
             self.focus_first_pane(window)
-        }
+        };
+
+        window::gain_focus(window).chain(task)
     }
 
     fn maximize_pane(&mut self) {
         if self.is_pane_maximized() {
             self.panes.main.restore();
-        } else if let Some((_, pane)) = self.focus {
-            self.panes.main.maximize(pane);
+        } else if self.focus.window == self.main_window() {
+            self.panes.main.maximize(self.focus.pane);
         }
     }
 
@@ -1773,11 +1753,7 @@ impl Dashboard {
     }
 
     fn new_pane(&mut self, axis: pane_grid::Axis) -> Task<Message> {
-        if self
-            .focus
-            .filter(|(window, _)| *window == self.main_window())
-            .is_some()
-        {
+        if self.focus.window == self.main_window() {
             // If there is any focused pane on main window, split it
             return self.split_pane(axis);
         } else {
@@ -1803,13 +1779,14 @@ impl Dashboard {
     }
 
     fn split_pane(&mut self, axis: pane_grid::Axis) -> Task<Message> {
-        if let Some((window, pane)) = self.focus {
-            if window == self.main_window() {
-                let result = self.panes.main.split(axis, pane, Pane::new(Buffer::Empty));
-                self.last_changed = Some(Instant::now());
-                if let Some((pane, _)) = result {
-                    return self.focus_pane(window, pane);
-                }
+        if self.focus.window == self.main_window() {
+            let result = self
+                .panes
+                .main
+                .split(axis, self.focus.pane, Pane::new(Buffer::Empty));
+            self.last_changed = Some(Instant::now());
+            if let Some((pane, _)) = result {
+                return self.focus_pane(self.main_window(), pane);
             }
         }
 
@@ -1836,49 +1813,54 @@ impl Dashboard {
                 .collect();
 
             if let Some((_, sibling)) = self.panes.main.close(pane) {
-                return self.focus_pane(self.main_window(), sibling);
+                if (Focus { window, pane } == self.focus) {
+                    return self.focus_pane(self.main_window(), sibling);
+                }
             } else if let Some(pane) = self.panes.main.get_mut(pane) {
                 pane.buffer = Buffer::Empty;
             }
         } else if self.panes.popout.remove(&window).is_some() {
-            return window::close(window);
+            return window::close(window).chain(self.focus_window(self.main_window()));
         }
 
         Task::none()
     }
 
     fn popout_pane(&mut self, main_window: &Window) -> Task<Message> {
-        if let Some((_, pane)) = self.focus.take() {
-            self.focus_history = self
-                .focus_history
-                .clone()
-                .into_iter()
-                .filter(|p| *p != pane)
-                .collect();
+        let Focus { pane, .. } = self.focus;
 
-            if let Some((pane, _)) = self.panes.main.close(pane) {
-                return self.open_popout_window(main_window, pane);
-            }
+        self.focus_history = self
+            .focus_history
+            .clone()
+            .into_iter()
+            .filter(|p| *p != pane)
+            .collect();
+
+        if let Some((pane, _)) = self.panes.main.close(pane) {
+            return self.open_popout_window(main_window, pane);
         }
 
         Task::none()
     }
 
     fn merge_pane(&mut self, config: &Config) -> Task<Message> {
-        if let Some((window, pane)) = self.focus.take() {
-            if let Some(pane) = self
-                .panes
-                .popout
-                .remove(&window)
-                .and_then(|panes| panes.get(pane).cloned())
-            {
-                let task = match pane.buffer.data() {
-                    Some(buffer) => self.open_buffer(buffer, config),
-                    None => self.new_pane(pane_grid::Axis::Horizontal),
-                };
+        let Focus { window, pane } = self.focus;
 
-                return Task::batch(vec![window::close(window), task]);
-            }
+        if let Some(pane) = self
+            .panes
+            .popout
+            .remove(&window)
+            .and_then(|panes| panes.get(pane).cloned())
+        {
+            let task = match pane.buffer.data() {
+                Some(buffer) => self.open_buffer(buffer, config),
+                None => self.new_pane(pane_grid::Axis::Horizontal),
+            };
+
+            return Task::batch(vec![
+                window::close(window),
+                window::gain_focus(self.main_window()).chain(task),
+            ]);
         }
 
         Task::none()
@@ -1934,10 +1916,8 @@ impl Dashboard {
 
             self.close_command_bar();
             // Refocus the pane so text input gets refocused
-            self.focus
-                .take()
-                .map(|(window, pane)| self.focus_pane(window, pane))
-                .unwrap_or(Task::none())
+            let Focus { window, pane } = self.focus;
+            self.focus_pane(window, pane)
         } else {
             self.open_command_bar(buffers, version, config);
             Task::none()
@@ -1965,7 +1945,7 @@ impl Dashboard {
     }
 
     fn buffer_resize_action(&self) -> data::buffer::Resize {
-        let can_resize_buffer = self.focus.is_some() && self.panes.len() > 1;
+        let can_resize_buffer = self.focus.window == self.main_window() && self.panes.len() > 1;
         data::buffer::Resize::action(can_resize_buffer, self.is_pane_maximized())
     }
 
@@ -2059,13 +2039,31 @@ impl Dashboard {
             }
         }
 
+        let panes = Panes {
+            main_window: main_window.id,
+            main: pane_grid::State::with_configuration(configuration(data.pane)),
+            popout: HashMap::new(),
+        };
+
+        let focus = panes
+            .iter()
+            // This should never fail
+            .find_map(|(window, pane, state)| {
+                (state.buffer.data() == data.focus_buffer).then_some(Focus { window, pane })
+            })
+            // But if somehow it does, we just focus the "first" pane from the main window
+            .unwrap_or_else(|| {
+                let (_, pane) = pane_grid::State::new(());
+
+                Focus {
+                    window: main_window.id,
+                    pane,
+                }
+            });
+
         let mut dashboard = Self {
-            panes: Panes {
-                main_window: main_window.id,
-                main: pane_grid::State::with_configuration(configuration(data.pane)),
-                popout: HashMap::new(),
-            },
-            focus: None,
+            panes,
+            focus,
             focus_history: VecDeque::new(),
             side_menu: Sidebar::new(),
             history: history::Manager::default(),
@@ -2089,15 +2087,7 @@ impl Dashboard {
             tasks.push(dashboard.open_popout_window(main_window, pane));
         }
 
-        let focus = dashboard.panes.iter().find_map(|(window, pane, state)| {
-            (state.buffer.data() == data.focus_buffer).then_some((window, pane))
-        });
-
-        let tasks = if let Some((window, pane)) = focus {
-            Task::batch(tasks).chain(dashboard.focus_pane(window, pane))
-        } else {
-            Task::batch(tasks).chain(dashboard.focus_first_pane(main_window.id))
-        };
+        let tasks = Task::batch(tasks).chain(dashboard.focus_pane(focus.window, focus.pane));
 
         (dashboard, tasks)
     }
@@ -2250,6 +2240,12 @@ impl Dashboard {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Focus {
+    pub window: window::Id,
+    pub pane: pane_grid::Pane,
+}
+
 impl<'a> From<&'a Dashboard> for data::Dashboard {
     fn from(dashboard: &'a Dashboard) -> Self {
         use pane_grid::Node;
@@ -2276,6 +2272,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
         }
 
         let layout = dashboard.panes.main.layout().clone();
+        let focus = dashboard.focus;
 
         data::Dashboard {
             pane: from_layout(&dashboard.panes.main, layout),
@@ -2286,12 +2283,10 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
                 .map(|state| from_layout(state, state.layout().clone()))
                 .collect(),
             buffer_settings: dashboard.buffer_settings.clone(),
-            focus_buffer: dashboard.focus.and_then(|(window, pane)| {
-                dashboard.panes.iter().find_map(|(w, p, state)| {
-                    (w == window && p == pane)
-                        .then_some(state.buffer.data())
-                        .flatten()
-                })
+            focus_buffer: dashboard.panes.iter().find_map(|(w, p, state)| {
+                (w == focus.window && p == focus.pane)
+                    .then_some(state.buffer.data())
+                    .flatten()
             }),
         }
     }
