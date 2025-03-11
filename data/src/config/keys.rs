@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::shortcut::{shortcut, KeyBind, Shortcut};
+use crate::shortcut::{KeyBind, Shortcut, shortcut};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Keyboard {
@@ -44,6 +44,14 @@ pub struct Keyboard {
     pub theme_editor: KeyBind,
     #[serde(default = "KeyBind::highlight")]
     pub highlight: KeyBind,
+    #[serde(default = "KeyBind::scroll_up_page")]
+    pub scroll_up_page: KeyBind,
+    #[serde(default = "KeyBind::scroll_down_page")]
+    pub scroll_down_page: KeyBind,
+    #[serde(default = "KeyBind::scroll_to_top")]
+    pub scroll_to_top: KeyBind,
+    #[serde(default = "KeyBind::scroll_to_bottom")]
+    pub scroll_to_bottom: KeyBind,
     #[serde(default)]
     pub quit_application: Option<KeyBind>,
 }
@@ -71,6 +79,10 @@ impl Default for Keyboard {
             logs: KeyBind::logs(),
             theme_editor: KeyBind::theme_editor(),
             highlight: KeyBind::highlight(),
+            scroll_up_page: KeyBind::scroll_up_page(),
+            scroll_down_page: KeyBind::scroll_down_page(),
+            scroll_to_top: KeyBind::scroll_to_top(),
+            scroll_to_bottom: KeyBind::scroll_to_bottom(),
             quit_application: None,
         }
     }
@@ -100,6 +112,10 @@ impl Keyboard {
             shortcut(self.file_transfers.clone(), FileTransfers),
             shortcut(self.logs.clone(), Logs),
             shortcut(self.theme_editor.clone(), ThemeEditor),
+            shortcut(self.scroll_up_page.clone(), ScrollUpPage),
+            shortcut(self.scroll_down_page.clone(), ScrollDownPage),
+            shortcut(self.scroll_to_top.clone(), ScrollToTop),
+            shortcut(self.scroll_to_bottom.clone(), ScrollToBottom),
             shortcut(self.highlight.clone(), Highlight),
         ];
 

@@ -19,10 +19,14 @@ move_right = "alt+l"
 | `move_left`             | Moves focus left             | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd>     |
 | `move_right`            | Moves focus right            | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd>     |
 | `close_buffer`          | Close focused buffer         | <kbd>⌘</kbd> + <kbd>w</kbd>                         | <kbd>ctrl</kbd> + <kbd>w</kbd>                      |
-| `maximize_buffer`       | Maximize focused buffer      | <kbd>⌘</kbd> + <kbd>↑</kbd>                         | <kbd>ctrl</kbd> + <kbd>↑</kbd>                      |
-| `restore_buffer`        | Restore focused buffer       | <kbd>⌘</kbd> + <kbd>↓</kbd>                         | <kbd>ctrl</kbd> + <kbd>↓</kbd>                      |
+| `maximize_buffer`       | Maximize focused buffer      | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd>   |
+| `restore_buffer`        | Restore focused buffer       | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd>   |
 | `cycle_next_buffer`     | Cycle to next buffer         | <kbd>ctrl</kbd> + <kbd>tab</kbd>                    | <kbd>ctrl</kbd> + <kbd>tab</kbd>                    |
 | `cycle_previous_buffer` | Cycle to previous buffer     | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> |
+| `scroll_page_up`        | Scroll buffer up a page      | <kbd>Fn</kbd> + <kbd>↑</kbd>                        | <kbd>pageup</kbd>                                   |
+| `scroll_page_down`      | Scroll buffer down a page    | <kbd>Fn</kbd> + <kbd>↓</kbd>                        | <kbd>pagedown</kbd>                                 |
+| `scroll_to_top`         | Scroll to top of buffer      | <kbd>⌘</kbd> + <kbd>↑</kbd>                         | <kbd>ctrl</kbd> + <kbd>↑</kbd>                      |
+| `scroll_to_bottom`      | Scroll to bottom of buffer   | <kbd>⌘</kbd> + <kbd>↓</kbd>                         | <kbd>ctrl</kbd> + <kbd>↓</kbd>                      |
 | `leave_buffer`          | Leave channel or close query | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>w</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>w</kbd>   |
 | `toggle_nick_list`      | Toggle nick list             | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd>     |
 | `toggle_topic`          | Toggle topic                 | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>t</kbd>     |

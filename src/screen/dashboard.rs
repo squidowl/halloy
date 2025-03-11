@@ -952,6 +952,62 @@ impl Dashboard {
                     }
                     ToggleFullscreen => return (window::toggle_fullscreen(), None),
                     QuitApplication => return (self.exit(), None),
+                    ScrollUpPage => {
+                        return (
+                            self.get_focused_mut()
+                                .map(|(window, pane, state)| {
+                                    state.buffer.scroll_up_page().map(move |message| {
+                                        Message::Pane(window, pane::Message::Buffer(pane, message))
+                                    })
+                                })
+                                .unwrap_or_else(Task::none),
+                            None,
+                        );
+                    }
+                    ScrollDownPage => {
+                        return (
+                            self.get_focused_mut()
+                                .map(|(window, pane, state)| {
+                                    state.buffer.scroll_down_page().map(move |message| {
+                                        Message::Pane(window, pane::Message::Buffer(pane, message))
+                                    })
+                                })
+                                .unwrap_or_else(Task::none),
+                            None,
+                        );
+                    }
+                    ScrollToTop => {
+                        if config.buffer.chathistory.infinite_scroll {
+                            if let Some((_, _, state)) = self.get_focused() {
+                                if let Some(buffer) = state.buffer.data() {
+                                    self.request_older_chathistory(clients, &buffer);
+                                }
+                            }
+                        }
+
+                        return (
+                            self.get_focused_mut()
+                                .map(|(window, id, pane)| {
+                                    pane.buffer.scroll_to_start().map(move |message| {
+                                        Message::Pane(window, pane::Message::Buffer(id, message))
+                                    })
+                                })
+                                .unwrap_or_else(Task::none),
+                            None,
+                        );
+                    }
+                    ScrollToBottom => {
+                        return (
+                            self.get_focused_mut()
+                                .map(|(window, pane, state)| {
+                                    state.buffer.scroll_to_end().map(move |message| {
+                                        Message::Pane(window, pane::Message::Buffer(pane, message))
+                                    })
+                                })
+                                .unwrap_or_else(Task::none),
+                            None,
+                        );
+                    }
                 }
             }
             Message::FileTransfer(update) => {
@@ -1290,31 +1346,6 @@ impl Dashboard {
                 }
             }
             Copy => selectable_text::selected(Message::SelectedText),
-            Home => {
-                if config.buffer.chathistory.infinite_scroll {
-                    if let Some((_, _, state)) = self.get_focused() {
-                        if let Some(buffer) = state.buffer.data() {
-                            self.request_older_chathistory(clients, &buffer);
-                        }
-                    }
-                }
-
-                self.get_focused_mut()
-                    .map(|(window, id, pane)| {
-                        pane.buffer.scroll_to_start().map(move |message| {
-                            Message::Pane(window, pane::Message::Buffer(id, message))
-                        })
-                    })
-                    .unwrap_or_else(Task::none)
-            }
-            End => self
-                .get_focused_mut()
-                .map(|(window, pane, state)| {
-                    state.buffer.scroll_to_end().map(move |message| {
-                        Message::Pane(window, pane::Message::Buffer(pane, message))
-                    })
-                })
-                .unwrap_or_else(Task::none),
             LeftClick => self.refocus_pane(),
         }
     }

@@ -8,6 +8,11 @@ Added:
 - Ability to customize default pane splitting direction (vertical or horizontal)
 - Clicking a nickname is now configurable. The default behavior has changed to open a query.
 - Ability to quit Halloy through commandbar and keyboard shortcut
+- New shortcuts for scrolling a buffer:
+  - Scroll buffer up a page <kbd>pageup</kbd> (<kbd>Fn</kbd> + <kbd>↑</kbd> on macOS)
+  - Scroll buffer down a page <kbd>pagedown</kbd> (<kbd>Fn</kbd> + <kbd>↓</kbd> on macOS)
+  - Scroll to top of buffer <kbd>ctrl</kbd> + <kbd>↑</kbd> (<kbd>⌘</kbd> + <kbd>↑</kbd> on macOS)
+  - Scroll to bottom of buffer <kbd>ctrl</kbd> + <kbd>↓</kbd> (<kbd>⌘</kbd> + <kbd>↓</kbd> on macOS)
 
 Changed:
 
@@ -16,6 +21,7 @@ Changed:
 - `/msg <target>` (without any message text) will now open a pane for the target without sending a message
 - Text input of the active pane will remain focused after all actions
 - Focus last known active pane on launch
+- Changed maximize / restore buffer shortcuts to <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd> / <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd> (<kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd> / <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd> on macOS) to prevent collision with new scroll shortcuts
 
 # 2025.2 (2025-02-20)
 
