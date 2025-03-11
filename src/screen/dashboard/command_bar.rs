@@ -1,9 +1,11 @@
-use data::{buffer, Config};
-use iced::widget::{column, container, pane_grid, text};
+use data::{Config, buffer};
 use iced::Length;
+use iced::widget::{column, container, text};
 
-use crate::widget::{combo_box, double_pass, key_press, Element};
+use crate::widget::{Element, combo_box, double_pass, key_press};
 use crate::{theme, window};
+
+use super::Focus;
 
 #[derive(Debug, Clone)]
 pub struct CommandBar {
@@ -23,7 +25,7 @@ impl CommandBar {
         buffers: &[buffer::Upstream],
         version: &data::Version,
         config: &Config,
-        focus: Option<(window::Id, pane_grid::Pane)>,
+        focus: Focus,
         resize_buffer: data::buffer::Resize,
         main_window: window::Id,
     ) -> Self {
@@ -55,7 +57,7 @@ impl CommandBar {
     pub fn view<'a>(
         &'a self,
         buffers: &[buffer::Upstream],
-        focus: Option<(window::Id, pane_grid::Pane)>,
+        focus: Focus,
         resize_buffer: data::buffer::Resize,
         version: &data::Version,
         config: &'a Config,
@@ -167,7 +169,7 @@ impl Command {
     pub fn list(
         buffers: &[buffer::Upstream],
         config: &Config,
-        focus: Option<(window::Id, pane_grid::Pane)>,
+        focus: Focus,
         resize_buffer: data::buffer::Resize,
         version: &data::Version,
         main_window: window::Id,
@@ -218,7 +220,7 @@ impl std::fmt::Display for Command {
 impl Buffer {
     fn list(
         buffers: &[buffer::Upstream],
-        focus: Option<(window::Id, pane_grid::Pane)>,
+        focus: Focus,
         resize_buffer: data::buffer::Resize,
         main_window: window::Id,
     ) -> Vec<Self> {
@@ -230,23 +232,21 @@ impl Buffer {
                 .map(Buffer::ToggleInternal),
         );
 
-        if let Some((window, _)) = focus {
-            list.push(Buffer::Close);
+        list.push(Buffer::Close);
 
-            match resize_buffer {
-                data::buffer::Resize::Maximize => list.push(Buffer::Maximize(true)),
-                data::buffer::Resize::Restore => list.push(Buffer::Maximize(false)),
-                data::buffer::Resize::None => {}
-            }
-
-            if window == main_window {
-                list.push(Buffer::Popout);
-            } else {
-                list.push(Buffer::Merge);
-            }
-
-            list.extend(buffers.iter().cloned().map(Buffer::Replace));
+        match resize_buffer {
+            data::buffer::Resize::Maximize => list.push(Buffer::Maximize(true)),
+            data::buffer::Resize::Restore => list.push(Buffer::Maximize(false)),
+            data::buffer::Resize::None => {}
         }
+
+        if focus.window == main_window {
+            list.push(Buffer::Popout);
+        } else {
+            list.push(Buffer::Merge);
+        }
+
+        list.extend(buffers.iter().cloned().map(Buffer::Replace));
 
         list
     }
