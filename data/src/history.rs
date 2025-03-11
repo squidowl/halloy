@@ -10,7 +10,7 @@ use tokio::time::Instant;
 
 use crate::message::{self, MessageReferences};
 use crate::target::{self, Target};
-use crate::{buffer, compression, environment, isupport, Buffer, Message, Server};
+use crate::{Buffer, Message, Server, buffer, compression, environment, isupport};
 
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
@@ -363,7 +363,9 @@ impl History {
         }
     }
 
-    fn make_partial(&mut self) -> Option<impl Future<Output = Result<Option<ReadMarker>, Error>>> {
+    fn make_partial(
+        &mut self,
+    ) -> Option<impl Future<Output = Result<Option<ReadMarker>, Error>> + use<>> {
         match self {
             History::Partial { .. } => None,
             History::Full {

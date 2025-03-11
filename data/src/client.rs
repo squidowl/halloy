@@ -4,10 +4,10 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fmt, io};
 
-use anyhow::{anyhow, bail, Context as ErrorContext, Result};
+use anyhow::{Context as ErrorContext, Result, anyhow, bail};
 use chrono::{DateTime, Utc};
-use futures::{channel::mpsc, Future, FutureExt};
-use irc::proto::{self, command, Command};
+use futures::{Future, FutureExt, channel::mpsc};
+use irc::proto::{self, Command, command};
 use itertools::{Either, Itertools};
 use log::error;
 use tokio::fs;
@@ -21,7 +21,7 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{
-    buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Server, User,
+    Server, User, buffer, compression, config, ctcp, dcc, environment, isupport, message, mode,
 };
 use crate::{file_transfer, server};
 
@@ -2189,7 +2189,7 @@ impl Client {
     pub fn load_chathistory_targets_timestamp(
         &self,
         server_time: DateTime<Utc>,
-    ) -> impl Future<Output = Message> {
+    ) -> impl Future<Output = Message> + use<> {
         let server = self.server.clone();
 
         let limit = self.chathistory_limit();
@@ -2221,7 +2221,7 @@ impl Client {
     pub fn overwrite_chathistory_targets_timestamp(
         &self,
         timestamp: DateTime<Utc>,
-    ) -> impl Future<Output = Message> {
+    ) -> impl Future<Output = Message> + use<> {
         let server = self.server.clone();
 
         async move {
@@ -2764,7 +2764,7 @@ impl Map {
         &self,
         server: &Server,
         server_time: DateTime<Utc>,
-    ) -> Option<impl Future<Output = Message>> {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         self.client(server)
             .map(|client| client.load_chathistory_targets_timestamp(server_time))
     }
@@ -2773,7 +2773,7 @@ impl Map {
         &self,
         server: &Server,
         server_time: DateTime<Utc>,
-    ) -> Option<impl Future<Output = Message>> {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         self.client(server)
             .map(|client| client.overwrite_chathistory_targets_timestamp(server_time))
     }

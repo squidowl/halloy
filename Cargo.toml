@@ -1,24 +1,68 @@
 [package]
 name = "halloy"
-version = "0.1.0"
-authors = ["Casper Rogild Storm", "Cory Forsstrom"]
 description = "Halloy IRC Client"
 documentation = "https://halloy.squidowl.org/"
-license = "GPL-3.0-or-later"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
 
 [features]
 default = []
 debug = ["iced/debug"]
 dev = ["debug", "data/dev"]
 
+[workspace]
+members = ["data", "ipc", "irc", "irc/proto"]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Casper Rogild Storm", "Cory Forsstrom"]
+license = "GPL-3.0-or-later"
+edition = "2024"
+
+[workspace.dependencies]
+tokio = { version = "1.44.0" }
+futures = "0.3.30"
+thiserror = "2.0.12"
+chrono = { version = "0.4.40", features = ['serde'] }
+bytes = "1.10.1"
+strum = { version = "0.27.1", features = ["derive"] }
+anyhow = "1.0.97"
+url = { version = "2.5.0", features = ["serde"] }
+tokio-stream = { version = "0.1" }
+timeago = "0.4.2"
+itertools = "0.14.0"
+emojis = "0.6.4"
+rand = "0.9.0"
+rand_chacha = "0.9.0"
+palette = "0.7.4"
+log = { version = "0.4.26", features = ['std'] }
+once_cell = "1.20.3"
+
 [dependencies]
+tokio = { workspace = true, features = ["rt", "fs", "process"] }
+futures = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace =  true }
+strum = { workspace = true }
+anyhow = { workspace = true }
+url = { workspace = true }
+tokio-stream = { workspace = true, features = ["fs"] }
+timeago = { workspace = true }
+itertools = { workspace = true }
+emojis = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+palette = { workspace = true }
+log = { workspace = true }
+once_cell = { workspace = true }
+
 data = { version = "0.1.0", path = "data" }
 ipc = { version = "0.1.0", path = "ipc" }
 
-notify-rust = "4"
-chrono = { version = "0.4", features = ['serde'] }
-fern = "0.6.1"
+notify-rust = "4.11"
+fern = "0.7.1"
 iced = { version = "0.14.0-dev", default-features = false, features = [
     "wgpu",
     "tiny-skia",
@@ -28,46 +72,23 @@ iced = { version = "0.14.0-dev", default-features = false, features = [
     "advanced",
     "image",
 ] }
-log = "0.4.16"
-once_cell = "1.18"
-palette = "0.7.4"
-thiserror = "1.0.30"
-tokio = { version = "1.0", features = ["rt", "fs", "process"] }
 unicode-segmentation = "1.6"
 open = "5.0.1"
-bytesize = "1.3.0"
-timeago = "0.4.2"
-futures = "0.3.30"
-itertools = "0.13.0"
-rodio = "0.19.0"
-strum = { version = "0.26.3", features = ["derive"] }
-tokio-stream = { version = "0.1.16", features = ["fs"] }
-url = "2.5.0"
+bytesize = "2.0.1"
+rodio = "0.20.1"
 humantime = "2.1.0"
 dark-light = { git = "https://github.com/rust-dark-light/dark-light", rev = "8e1f745f91e1e805fa772a83e4744afe95d70aa1" }
-anyhow = "1.0.91"
-emojis = "0.6.4"
 strsim = "0.11.1"
-
-[dependencies.uuid]
-version = "1.0"
-features = ["v4"]
-
-[dependencies.rfd]
-version = "0.15.2"
-default-features = false
-features = ["xdg-portal", "tokio"]
+rfd = { version = "0.15.2", default-features = false, features = ["xdg-portal", "tokio"] }
+uuid = { version = "1.15", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
 image = "0.24.6"
 
 [target.'cfg(windows)'.build-dependencies]
-embed-resource = "2.1.1"
+embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
-[workspace]
-members = ["data", "ipc", "irc", "irc/proto"]
-
 [patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced", rev = "97f1db3783dca5a4f60a9f89668613de4dfe9edd" }
-iced_core = { git = "https://github.com/iced-rs/iced", rev = "97f1db3783dca5a4f60a9f89668613de4dfe9edd" }
+iced = { git = "https://github.com/iced-rs/iced", rev = "bae25b74f68078e5ff74cdae717273cf315d4e90" }
+iced_core = { git = "https://github.com/iced-rs/iced", rev = "bae25b74f68078e5ff74cdae717273cf315d4e90" }
