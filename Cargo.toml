@@ -92,3 +92,15 @@ windows_exe_info = "0.4"
 [patch.crates-io]
 iced = { git = "https://github.com/iced-rs/iced", rev = "bae25b74f68078e5ff74cdae717273cf315d4e90" }
 iced_core = { git = "https://github.com/iced-rs/iced", rev = "bae25b74f68078e5ff74cdae717273cf315d4e90" }
+
+[profile.ci]
+inherits = "dev"
+opt-level = 0
+
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
