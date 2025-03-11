@@ -53,8 +53,8 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Check
-      run: cargo check
+      run: cargo check --profile ci
     - name: Clippy
-      run: cargo clippy --workspace --all-targets -- -D warnings
+      run: cargo clippy --profile ci --workspace --all-targets -- -D warnings
     - name: Test
-      run: cargo test --workspace --all-targets
+      run: cargo test --profile ci --workspace --all-targets
