@@ -24,9 +24,9 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
+    env:
+      RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
     steps:
     - uses: actions/checkout@v3
     - name: Install deps
@@ -36,6 +36,8 @@ jobs:
           build-essential \
           git \
           pkg-config \
+          mold \
+          clang \
           libdbus-1-dev \
           libudev-dev \
           libxkbcommon-dev \
