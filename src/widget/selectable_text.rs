@@ -1,11 +1,11 @@
 use iced::advanced::renderer::Quad;
-use iced::advanced::text::{paragraph, Paragraph};
-use iced::advanced::widget::{operation, tree, Operation, Tree};
-use iced::advanced::{layout, mouse, renderer, text, widget, Layout, Widget};
+use iced::advanced::text::{Paragraph, paragraph};
+use iced::advanced::widget::{Operation, Tree, operation, tree};
+use iced::advanced::{Layout, Widget, layout, mouse, renderer, text, widget};
 use iced::widget::text::{Fragment, IntoFragment, Wrapping};
 use iced::widget::text_input::Value;
 use iced::{
-    alignment, touch, Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow, Size, Task,
+    Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow, Size, Task, alignment, touch,
 };
 
 pub use self::selection::selection;
@@ -417,11 +417,9 @@ fn draw<Renderer>(
     let bounds = layout.bounds();
 
     let x = match paragraph.align_x() {
-        text::Alignment::Left => bounds.x,
+        text::Alignment::Default | text::Alignment::Left | text::Alignment::Justified => bounds.x,
         text::Alignment::Center => bounds.center_x(),
         text::Alignment::Right => bounds.x + bounds.width,
-        text::Alignment::Default => todo!(), // TODO: FIX
-        text::Alignment::Justified => todo!(), // TODO: FIX
     };
 
     let y = match paragraph.align_y() {
