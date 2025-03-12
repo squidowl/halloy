@@ -1,7 +1,8 @@
 use data::target::{self, Target};
 use data::{buffer, history, message, preview, Config, Server};
+use iced::advanced::text;
 use iced::widget::{column, container, row, vertical_space};
-use iced::{alignment, Length, Task};
+use iced::{Length, Task};
 
 use super::{input_view, scroll_view, user_context};
 use crate::widget::{message_content, message_marker, selectable_text, Element};
@@ -74,7 +75,7 @@ pub fn view<'a>(
                         if let Some(width) = max_nick_width {
                             text = text
                                 .width(width)
-                                .horizontal_alignment(alignment::Horizontal::Right);
+                                .align_x(text::Alignment::Right);
                         }
 
                         let nick = user_context::view(

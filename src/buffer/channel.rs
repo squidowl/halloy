@@ -2,8 +2,9 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{buffer, history, message, preview, Config, User};
+use iced::advanced::text;
 use iced::widget::{column, container, row};
-use iced::{alignment, padding, Length, Task};
+use iced::{padding, Length, Task};
 
 use super::{input_view, scroll_view, user_context};
 use crate::widget::{message_content, message_marker, selectable_text, Element};
@@ -75,7 +76,7 @@ pub fn view<'a>(
                         max_prefix_width.map(|width| {
                             selectable_text("")
                                 .width(width)
-                                .horizontal_alignment(alignment::Horizontal::Right)
+                                .align_x(text::Alignment::Right)
                         })
                     }),
                     |prefixes| {
@@ -92,7 +93,7 @@ pub fn view<'a>(
                         if let Some(width) = max_prefix_width {
                             Some(
                                 text.width(width)
-                                    .horizontal_alignment(alignment::Horizontal::Right),
+                                    .align_x(text::Alignment::Right),
                             )
                         } else {
                             Some(text)
@@ -119,7 +120,7 @@ pub fn view<'a>(
                         if let Some(width) = max_nick_width {
                             text = text
                                 .width(width)
-                                .horizontal_alignment(alignment::Horizontal::Right);
+                                .align_x(text::Alignment::Right);
                         }
 
                         let nick = user_context::view(
@@ -471,8 +472,9 @@ fn topic<'a>(
 
 mod nick_list {
     use data::{config, isupport, target, Config, Server, User};
+    use iced::advanced::text;
     use iced::widget::{column, scrollable, Scrollable};
-    use iced::{alignment, Length};
+    use iced::Length;
     use user_context::Message;
 
     use crate::buffer::user_context;
@@ -509,9 +511,9 @@ mod nick_list {
         let content = column(users.iter().map(|user| {
             let content = selectable_text(user.display(nicklist_config.show_access_levels))
                 .style(|theme| theme::selectable_text::nicklist_nickname(theme, config, user))
-                .horizontal_alignment(match nicklist_config.alignment {
-                    config::buffer::channel::Alignment::Left => alignment::Horizontal::Left,
-                    config::buffer::channel::Alignment::Right => alignment::Horizontal::Right,
+                .align_x(match nicklist_config.alignment {
+                    config::buffer::channel::Alignment::Left => text::Alignment::Left,
+                    config::buffer::channel::Alignment::Right => text::Alignment::Right,
                 })
                 .width(Length::Fixed(width));
 
