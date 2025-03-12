@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use iced::alignment;
+use iced::advanced::text;
 
 use crate::Theme;
 
@@ -54,7 +54,7 @@ pub fn message_marker<'a, M: 'a>(
     if let Some(width) = width {
         marker
             .width(width)
-            .horizontal_alignment(alignment::Horizontal::Right)
+            .align_x(text::Alignment::Right)
     } else {
         marker
     }

@@ -98,8 +98,8 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
             .into(),
         line_height: Default::default(),
         font: MONO.clone().into(),
-        horizontal_alignment: alignment::Horizontal::Right,
-        vertical_alignment: alignment::Vertical::Top,
+        align_x: text::Alignment::Right,
+        align_y: alignment::Vertical::Top,
         shaping: text::Shaping::Basic,
         wrapping: Default::default(),
     })
