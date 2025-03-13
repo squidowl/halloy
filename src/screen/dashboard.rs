@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque, hash_map};
+use std::collections::{hash_map, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
@@ -6,18 +6,18 @@ use std::{convert, slice};
 use chrono::{DateTime, Utc};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
-use data::history::ReadMarker;
 use data::history::manager::Broadcast;
+use data::history::ReadMarker;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{
-    Config, Notification, Server, Version, client, command, config, environment, file_transfer,
-    history, preview,
+    client, command, config, environment, file_transfer, history, preview, Config, Notification,
+    Server, Version,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{Space, column, container, row};
-use iced::{Length, Task, Vector, clipboard};
+use iced::widget::{column, container, row, Space};
+use iced::{clipboard, Length, Task, Vector};
 use log::{debug, error};
 
 use self::command_bar::CommandBar;
@@ -26,10 +26,10 @@ use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
 use crate::widget::{
-    Column, Element, Row, anchored_overlay, context_menu, selectable_text, shortcut,
+    anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
 };
 use crate::window::Window;
-use crate::{Theme, event, notification, theme, window};
+use crate::{event, notification, theme, window, Theme};
 
 mod command_bar;
 pub mod pane;
@@ -999,6 +999,36 @@ impl Dashboard {
                                 .unwrap_or_else(Task::none),
                             None,
                         );
+                    }
+                    CycleNextUnreadBuffer => {
+                        let all_buffers = all_buffers_with_has_unread(clients, &self.history);
+                        let open_buffers = open_buffers(self);
+
+                        if let Some((window, pane, state)) = self.get_focused_mut() {
+                            if let Some(buffer) = cycle_next_unread_buffer(
+                                state.buffer.upstream(),
+                                all_buffers,
+                                &open_buffers,
+                            ) {
+                                state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
+                                return (self.focus_pane(window, pane), None);
+                            }
+                        }
+                    }
+                    CyclePreviousUnreadBuffer => {
+                        let all_buffers = all_buffers_with_has_unread(clients, &self.history);
+                        let open_buffers = open_buffers(self);
+
+                        if let Some((window, pane, state)) = self.get_focused_mut() {
+                            if let Some(buffer) = cycle_previous_unread_buffer(
+                                state.buffer.upstream(),
+                                all_buffers,
+                                &open_buffers,
+                            ) {
+                                state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
+                                return (self.focus_pane(window, pane), None);
+                            }
+                        }
                     }
                 }
             }
@@ -2396,6 +2426,33 @@ fn all_buffers(clients: &client::Map, history: &history::Manager) -> Vec<buffer:
         .collect()
 }
 
+fn all_buffers_with_has_unread(
+    clients: &client::Map,
+    history: &history::Manager,
+) -> Vec<(buffer::Upstream, bool)> {
+    clients
+        .connected_servers()
+        .flat_map(|server| {
+            std::iter::once((
+                buffer::Upstream::Server(server.clone()),
+                history.has_unread(&history::Kind::Server(server.clone())),
+            ))
+            .chain(clients.get_channels(server).iter().map(|channel| {
+                (
+                    buffer::Upstream::Channel(server.clone(), channel.clone()),
+                    history.has_unread(&history::Kind::Channel(server.clone(), channel.clone())),
+                )
+            }))
+            .chain(history.get_unique_queries(server).into_iter().map(|nick| {
+                (
+                    buffer::Upstream::Query(server.clone(), nick.clone()),
+                    history.has_unread(&history::Kind::Query(server.clone(), nick.clone())),
+                )
+            }))
+        })
+        .collect()
+}
+
 fn open_buffers(dashboard: &Dashboard) -> Vec<buffer::Upstream> {
     dashboard
         .panes
@@ -2445,4 +2502,60 @@ fn cycle_previous_buffer(
     };
 
     previous().or_else(|| all.last()).cloned()
+}
+
+fn cycle_next_unread_buffer(
+    current: Option<&buffer::Upstream>,
+    mut all: Vec<(buffer::Upstream, bool)>,
+    opened: &[buffer::Upstream],
+) -> Option<buffer::Upstream> {
+    all.retain(|(buffer, _)| Some(buffer) == current || !opened.contains(buffer));
+
+    let buffer = current?;
+
+    let index = all.iter().position(|(b, _)| b == buffer)?;
+
+    let next_after = || {
+        all.iter()
+            .skip(index + 1)
+            .find_map(|(b, has_unread)| has_unread.then_some(b))
+    };
+
+    let next_before = || {
+        all.iter()
+            .take(index)
+            .find_map(|(b, has_unread)| has_unread.then_some(b))
+    };
+
+    next_after().or_else(|| next_before().or(current)).cloned()
+}
+
+fn cycle_previous_unread_buffer(
+    current: Option<&buffer::Upstream>,
+    mut all: Vec<(buffer::Upstream, bool)>,
+    opened: &[buffer::Upstream],
+) -> Option<buffer::Upstream> {
+    all.retain(|(buffer, _)| Some(buffer) == current || !opened.contains(buffer));
+
+    let buffer = current?;
+
+    let index = all.iter().rev().position(|(b, _)| b == buffer)?;
+
+    let previous_before = || {
+        all.iter()
+            .rev()
+            .skip(index + 1)
+            .find_map(|(b, has_unread)| has_unread.then_some(b))
+    };
+
+    let previous_after = || {
+        all.iter()
+            .rev()
+            .take(index)
+            .find_map(|(b, has_unread)| has_unread.then_some(b))
+    };
+
+    previous_before()
+        .or_else(|| previous_after().or(current))
+        .cloned()
 }

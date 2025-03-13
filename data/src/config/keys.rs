@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::shortcut::{KeyBind, Shortcut, shortcut};
+use crate::shortcut::{shortcut, KeyBind, Shortcut};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Keyboard {
@@ -52,6 +52,10 @@ pub struct Keyboard {
     pub scroll_to_top: KeyBind,
     #[serde(default = "KeyBind::scroll_to_bottom")]
     pub scroll_to_bottom: KeyBind,
+    #[serde(default = "KeyBind::cycle_next_unread_buffer")]
+    pub cycle_next_unread_buffer: KeyBind,
+    #[serde(default = "KeyBind::cycle_previous_unread_buffer")]
+    pub cycle_previous_unread_buffer: KeyBind,
     #[serde(default)]
     pub quit_application: Option<KeyBind>,
 }
@@ -83,6 +87,8 @@ impl Default for Keyboard {
             scroll_down_page: KeyBind::scroll_down_page(),
             scroll_to_top: KeyBind::scroll_to_top(),
             scroll_to_bottom: KeyBind::scroll_to_bottom(),
+            cycle_next_unread_buffer: KeyBind::cycle_next_unread_buffer(),
+            cycle_previous_unread_buffer: KeyBind::cycle_previous_unread_buffer(),
             quit_application: None,
         }
     }
@@ -117,6 +123,11 @@ impl Keyboard {
             shortcut(self.scroll_to_top.clone(), ScrollToTop),
             shortcut(self.scroll_to_bottom.clone(), ScrollToBottom),
             shortcut(self.highlight.clone(), Highlight),
+            shortcut(self.cycle_next_unread_buffer.clone(), CycleNextUnreadBuffer),
+            shortcut(
+                self.cycle_previous_unread_buffer.clone(),
+                CyclePreviousUnreadBuffer,
+            ),
         ];
 
         if let Some(quit_application) = self.quit_application.clone() {
