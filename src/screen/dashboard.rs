@@ -2064,7 +2064,7 @@ impl Dashboard {
         let mut dashboard = Self {
             panes,
             focus,
-            focus_history: VecDeque::new(),
+            focus_history: VecDeque::from([focus.pane]),
             side_menu: Sidebar::new(),
             history: history::Manager::default(),
             last_changed: None,
