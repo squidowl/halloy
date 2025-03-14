@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.3 (2025-03-14)
+
 Added:
 
 - Highlights by regex and words
