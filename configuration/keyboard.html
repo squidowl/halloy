@@ -23,9 +23,9 @@
         <link rel="stylesheet" href="../fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="../highlight.css">
-        <link rel="stylesheet" href="../tomorrow-night.css">
-        <link rel="stylesheet" href="../ayu-highlight.css">
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
@@ -172,10 +172,14 @@ move_right = "alt+l"
 <tr><td><code>move_left</code></td><td>Moves focus left</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd></td></tr>
 <tr><td><code>move_right</code></td><td>Moves focus right</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd></td></tr>
 <tr><td><code>close_buffer</code></td><td>Close focused buffer</td><td><kbd>⌘</kbd> + <kbd>w</kbd></td><td><kbd>ctrl</kbd> + <kbd>w</kbd></td></tr>
-<tr><td><code>maximize_buffer</code></td><td>Maximize focused buffer</td><td><kbd>⌘</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>↑</kbd></td></tr>
-<tr><td><code>restore_buffer</code></td><td>Restore focused buffer</td><td><kbd>⌘</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>↓</kbd></td></tr>
+<tr><td><code>maximize_buffer</code></td><td>Maximize focused buffer</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd></td></tr>
+<tr><td><code>restore_buffer</code></td><td>Restore focused buffer</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd></td></tr>
 <tr><td><code>cycle_next_buffer</code></td><td>Cycle to next buffer</td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td></tr>
 <tr><td><code>cycle_previous_buffer</code></td><td>Cycle to previous buffer</td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td></tr>
+<tr><td><code>scroll_page_up</code></td><td>Scroll buffer up a page</td><td><kbd>Fn</kbd> + <kbd>↑</kbd></td><td><kbd>pageup</kbd></td></tr>
+<tr><td><code>scroll_page_down</code></td><td>Scroll buffer down a page</td><td><kbd>Fn</kbd> + <kbd>↓</kbd></td><td><kbd>pagedown</kbd></td></tr>
+<tr><td><code>scroll_to_top</code></td><td>Scroll to top of buffer</td><td><kbd>⌘</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>↑</kbd></td></tr>
+<tr><td><code>scroll_to_bottom</code></td><td>Scroll to bottom of buffer</td><td><kbd>⌘</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>↓</kbd></td></tr>
 <tr><td><code>leave_buffer</code></td><td>Leave channel or close query</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>w</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>w</kbd></td></tr>
 <tr><td><code>toggle_nick_list</code></td><td>Toggle nick list</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd></td></tr>
 <tr><td><code>toggle_topic</code></td><td>Toggle topic</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>t</kbd></td></tr>
@@ -186,13 +190,14 @@ move_right = "alt+l"
 <tr><td><code>file_transfers</code></td><td>Toggle File Transfers Buffer</td><td><kbd>⌘</kbd> + <kbd>j</kbd></td><td><kbd>ctrl</kbd> + <kbd>j</kbd></td></tr>
 <tr><td><code>logs</code></td><td>Toggle Logs Buffer</td><td><kbd>⌘</kbd> + <kbd>l</kbd></td><td><kbd>ctrl</kbd> + <kbd>l</kbd></td></tr>
 <tr><td><code>theme_editor</code></td><td>Toggle Theme Editor Window</td><td><kbd>⌘</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>t</kbd></td></tr>
+<tr><td><code>quit_application</code></td><td>Quit Halloy</td><td>Not set</td><td>Not set</td></tr>
 </tbody></table>
 </div>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../configuration/font.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../configuration/highlights.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -206,7 +211,7 @@ move_right = "alt+l"
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../configuration/font.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../configuration/highlights.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 

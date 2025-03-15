@@ -24,9 +24,9 @@
         <link rel="stylesheet" href="fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
@@ -582,6 +582,19 @@ show_access_levels = true
 [buffer.channel.nicklist]
 width = 150
 </code></pre>
+<h4 id="click"><a class="header" href="#click"><code>click</code></a></h4>
+<p>Click action for when interaction with nicknames.</p>
+<ul>
+<li><code>"open-query"</code>: Open a query with the User</li>
+<li><code>"insert-nickname"</code>: Inserts the nickname into text input</li>
+</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "open-query", "insert-nickname"
+# Default: "open-query"
+
+[buffer.channel.nicklist]
+click = "open-query"
+</code></pre>
 <h3 id="bufferchanneltopic"><a class="header" href="#bufferchanneltopic"><code>[buffer.channel.topic]</code></a></h3>
 <p>Topic settings within a channel buffer.</p>
 <h4 id="enabled-1"><a class="header" href="#enabled-1"><code>enabled</code></a></h4>
@@ -762,6 +775,19 @@ color = "unique"
 [buffer.nickname]
 show_access_levels = true
 </code></pre>
+<h3 id="click-1"><a class="header" href="#click-1"><code>click</code></a></h3>
+<p>Click action for when interaction with nicknames.</p>
+<ul>
+<li><code>"open-query"</code>: Open a query with the User</li>
+<li><code>"insert-nickname"</code>: Inserts the nickname into text input</li>
+</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "open-query", "insert-nickname"
+# Default: "open-query"
+
+[buffer.nickname]
+click = "open-query"
+</code></pre>
 <h2 id="bufferserver_messages"><a class="header" href="#bufferserver_messages"><code>[buffer.server_messages]</code></a></h2>
 <p>Server messages are messages sent from a irc server.</p>
 <ul>
@@ -786,7 +812,7 @@ include = ["#halloy"]
 # Disable all part messages
 
 [buffer.server_messages.part]
-enable = false
+enabled = false
 </code></pre>
 <h3 id="enabled-4"><a class="header" href="#enabled-4"><code>enabled</code></a></h3>
 <p>Control if internal message type is enabled.</p>
@@ -830,7 +856,7 @@ include = ["#halloy"]
 <p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
 <p>Note: Not all server messages uses this setting.</p>
 <pre><code class="language-toml"># Type: string
-# Values: "full", "short
+# Values: "full", "short"
 # Default: "full"
 
 [buffer.server_messages.&lt;server_message&gt;]
@@ -913,13 +939,13 @@ brackets = { left = "[", right = "]" }
 <div style="break-before: page; page-break-before: always;"></div><h1 id="file_transfer"><a class="header" href="#file_transfer"><code>[file_transfer]</code></a></h1>
 <p>File transfer configuration options.</p>
 <h2 id="save_directory"><a class="header" href="#save_directory"><code>save_directory</code></a></h2>
-<p>Default directory to open when prompted to save a file.</p>
+<p>Default directory to save files in. If not set, user will see a file dialog.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
-# Default: "$HOME/Downloads"
+# Default: not set
 
 [file_transfer]
-save_directory = "$HOME/Downloads"
+save_directory = "/Users/halloy/Downloads"
 </code></pre>
 <h2 id="passive"><a class="header" href="#passive"><code>passive</code></a></h2>
 <p>If true, act as the "client" for the transfer. Requires the remote user act as the <a href="configuration/file_transfer.html#file_transferserver-section">server</a>.</p>
@@ -1003,6 +1029,110 @@ family = "Comic Mono"
 [font]
 size = 13
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="highlights"><a class="header" href="#highlights"><code>[highlights]</code></a></h1>
+<p>Application wide highlights.</p>
+<p><strong>Example</strong></p>
+<pre><code class="language-toml"># Enable nickname highlights only in channel #halloy.
+[highlights.nickname]
+exclude = ["*"]
+include = ["#halloy"]
+
+# Highlight on 'boat' and 'car' in any channel.
+[[highlights.match]]
+words = ["boat", "car"]
+case_insensitive = true
+
+# Highlight when regex matches in any channel except #noisy-channel.
+[[highlights.match]]
+regex = '''(?i)\bcasper\b'''
+exclude = ["#noisy-channel"]
+</code></pre>
+<h2 id="highlightsnickname"><a class="header" href="#highlightsnickname"><code>[highlights.nickname]</code></a></h2>
+<p>Nickname highlights.</p>
+<h3 id="exclude-1"><a class="header" href="#exclude-1"><code>exclude</code></a></h3>
+<p>Channels in which you won’t be highlighted.
+If you pass <code>["#halloy"]</code>, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[highlights.nickname]
+exclude = ["*"]
+</code></pre>
+<h3 id="include-1"><a class="header" href="#include-1"><code>include</code></a></h3>
+<p>Channels in which you will be highlighted, only useful when combined with <code>exclude = ["*"]</code>.
+If you pass <code>["#halloy"]</code>, you will only be highlighted in that channel.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: ["*"]
+
+[highlights.nickname]
+exclude = ["*"]
+include = ["#halloy"]
+</code></pre>
+<h2 id="highlightsmatch"><a class="header" href="#highlightsmatch"><code>[[highlights.match]]</code></a></h2>
+<p>Highlight based on matches.</p>
+<h3 id="words"><a class="header" href="#words"><code>words</code></a></h3>
+<p>You can set words to be highlighted when they are written.</p>
+<p>Example shows word matches, which will trigger on <code>"word1"</code>, <code>"word2"</code> or <code>"word3"</code> in any channel.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+</code></pre>
+<h3 id="case_insensitive"><a class="header" href="#case_insensitive"><code>case_insensitive</code></a></h3>
+<p>This option is only available when using <code>words</code> as the match type.
+You can choose whether or not to trigger regardless of case.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+case_insensitive = true
+</code></pre>
+<h3 id="regex"><a class="header" href="#regex"><code>regex</code></a></h3>
+<p>Match based on regex.</p>
+<div class="warning">
+<p>Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write write the regex without
+escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can't use <code>'</code> inside the string.</p>
+<p>Without literal strings, you'd have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</div>
+<p>Example shows a regex that matches the word "casper", regardless of case and only when it appears as a whole word in any channel.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+[[highlights.match]]
+regex = '''(?i)\bcasper\b'''
+</code></pre>
+<h3 id="exclude-2"><a class="header" href="#exclude-2"><code>exclude</code></a></h3>
+<p>Channels in which you won’t be highlighted.
+If you pass <code>["#halloy"]</code>, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<p>Example shows a regex match which will be excluded in from <code>#noisy-channel</code></p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[[highlights.match]]
+regex = '''(?i)\bcasper\b'''
+exclude = ["#noisy-channel"]
+</code></pre>
+<h3 id="include-2"><a class="header" href="#include-2"><code>include</code></a></h3>
+<p>Channels in which you will be highlighted, only useful when combined with <code>exclude = ["*"]</code>.
+If you pass <code>["#halloy"]</code>, you will only be highlighted in that channel.</p>
+<p>Example shows a words match which will only try to match in <code>#halloy</code> channel.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: ["*"]
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+exclude = ["*"]
+include = ["#halloy"]
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="keyboard"><a class="header" href="#keyboard"><code>[keyboard]</code></a></h1>
 <p>Customize keyboard shortcuts. Below is a list of all actions which can be mapped.</p>
 <p><strong>Example</strong></p>
@@ -1018,10 +1148,14 @@ move_right = "alt+l"
 <tr><td><code>move_left</code></td><td>Moves focus left</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd></td></tr>
 <tr><td><code>move_right</code></td><td>Moves focus right</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd></td></tr>
 <tr><td><code>close_buffer</code></td><td>Close focused buffer</td><td><kbd>⌘</kbd> + <kbd>w</kbd></td><td><kbd>ctrl</kbd> + <kbd>w</kbd></td></tr>
-<tr><td><code>maximize_buffer</code></td><td>Maximize focused buffer</td><td><kbd>⌘</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>↑</kbd></td></tr>
-<tr><td><code>restore_buffer</code></td><td>Restore focused buffer</td><td><kbd>⌘</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>↓</kbd></td></tr>
+<tr><td><code>maximize_buffer</code></td><td>Maximize focused buffer</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd></td></tr>
+<tr><td><code>restore_buffer</code></td><td>Restore focused buffer</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd></td></tr>
 <tr><td><code>cycle_next_buffer</code></td><td>Cycle to next buffer</td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td></tr>
 <tr><td><code>cycle_previous_buffer</code></td><td>Cycle to previous buffer</td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td></tr>
+<tr><td><code>scroll_page_up</code></td><td>Scroll buffer up a page</td><td><kbd>Fn</kbd> + <kbd>↑</kbd></td><td><kbd>pageup</kbd></td></tr>
+<tr><td><code>scroll_page_down</code></td><td>Scroll buffer down a page</td><td><kbd>Fn</kbd> + <kbd>↓</kbd></td><td><kbd>pagedown</kbd></td></tr>
+<tr><td><code>scroll_to_top</code></td><td>Scroll to top of buffer</td><td><kbd>⌘</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>↑</kbd></td></tr>
+<tr><td><code>scroll_to_bottom</code></td><td>Scroll to bottom of buffer</td><td><kbd>⌘</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>↓</kbd></td></tr>
 <tr><td><code>leave_buffer</code></td><td>Leave channel or close query</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>w</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>w</kbd></td></tr>
 <tr><td><code>toggle_nick_list</code></td><td>Toggle nick list</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd></td></tr>
 <tr><td><code>toggle_topic</code></td><td>Toggle topic</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>t</kbd></td></tr>
@@ -1032,6 +1166,7 @@ move_right = "alt+l"
 <tr><td><code>file_transfers</code></td><td>Toggle File Transfers Buffer</td><td><kbd>⌘</kbd> + <kbd>j</kbd></td><td><kbd>ctrl</kbd> + <kbd>j</kbd></td></tr>
 <tr><td><code>logs</code></td><td>Toggle Logs Buffer</td><td><kbd>⌘</kbd> + <kbd>l</kbd></td><td><kbd>ctrl</kbd> + <kbd>l</kbd></td></tr>
 <tr><td><code>theme_editor</code></td><td>Toggle Theme Editor Window</td><td><kbd>⌘</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>t</kbd></td></tr>
+<tr><td><code>quit_application</code></td><td>Quit Halloy</td><td>Not set</td><td>Not set</td></tr>
 </tbody></table>
 </div><div style="break-before: page; page-break-before: always;"></div><h1 id="notifications"><a class="header" href="#notifications"><code>[notifications]</code></a></h1>
 <p>Customize and enable notifications.</p>
@@ -1083,7 +1218,7 @@ show_toast = true
 [notifications.&lt;notification&gt;]
 delay = 250
 </code></pre>
-<h2 id="exclude-1"><a class="header" href="#exclude-1"><code>exclude</code></a></h2>
+<h2 id="exclude-3"><a class="header" href="#exclude-3"><code>exclude</code></a></h2>
 <p>Exclude notifications for nicks (and/or channels in <code>highlight</code>'s case).</p>
 <p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
 notifications.</p>
@@ -1098,7 +1233,7 @@ exclude = ["HalloyUser1"]
 [notifications.highlight]
 exclude = ["HalloyUser1", "#halloy"]
 </code></pre>
-<h2 id="include-1"><a class="header" href="#include-1"><code>include</code></a></h2>
+<h2 id="include-3"><a class="header" href="#include-3"><code>include</code></a></h2>
 <p>Include notifications for nicks (and/or channels in <code>highlight</code>'s case).</p>
 <p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
 notifications.</p>
@@ -1115,6 +1250,17 @@ include = ["HalloyUser1"]
 
 [notifications.highlight]
 include = ["HalloyUser1", "#halloy"]
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="pane"><a class="header" href="#pane"><code>[pane]</code></a></h1>
+<p>Pane settings for Halloy. A pane contains a <a href="configuration/../configuration//buffer.html">buffer</a>.</p>
+<h2 id="split_axis"><a class="header" href="#split_axis"><code>split_axis</code></a></h2>
+<p>Default axis used when splitting a pane (i.e. default orientation of the divider between panes).</p>
+<pre><code class="language-toml"># Type: string
+# Values: "horizontal", "vertical"
+# Default: "horizontal"
+
+[pane]
+split_axis = "vertical"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="proxy"><a class="header" href="#proxy"><code>[proxy]</code></a></h1>
 <p>Proxy settings for Halloy.</p>
@@ -1145,7 +1291,7 @@ host = "192.168.1.100"
 # Required
 
 [proxy.http]
-port = "1080"
+port = 1080
 </code></pre>
 <h3 id="username"><a class="header" href="#username"><code>username</code></a></h3>
 <p>Proxy username.</p>
@@ -1172,7 +1318,7 @@ password = "password"
 <h2 id="example"><a class="header" href="#example">Example</a></h2>
 <pre><code class="language-toml">[proxy.http]
 host = "192.168.1.100"
-port = "1080"
+port = 1080
 username = "username"
 password = "password"
 </code></pre>
@@ -1198,7 +1344,7 @@ host = "192.168.1.100"
 # Required
 
 [proxy.socks5]
-port = "1080"
+port = 1080
 </code></pre>
 <h3 id="username-1"><a class="header" href="#username-1"><code>username</code></a></h3>
 <p>Proxy username.</p>
@@ -1225,7 +1371,7 @@ password = "password"
 <h2 id="example-1"><a class="header" href="#example-1">Example</a></h2>
 <pre><code class="language-toml">[proxy.socks5]
 host = "192.168.1.100"
-port = "1080"
+port = 1080
 username = "username"
 password = "password"
 </code></pre>
@@ -1304,7 +1450,7 @@ delay_ms = 500
 </code></pre>
 <h2 id="image"><a class="header" href="#image"><code>image</code></a></h2>
 <p>Specific image preview settings.</p>
-<h3 id="include-2"><a class="header" href="#include-2"><code>include</code></a></h3>
+<h3 id="include-4"><a class="header" href="#include-4"><code>include</code></a></h3>
 <p>Include image previews from channels.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
 <pre><code class="language-toml"># Type: array of strings
@@ -1314,7 +1460,7 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show
 [preview.image]
 include = []
 </code></pre>
-<h3 id="exclude-2"><a class="header" href="#exclude-2"><code>exclude</code></a></h3>
+<h3 id="exclude-4"><a class="header" href="#exclude-4"><code>exclude</code></a></h3>
 <p>Exclude image previews from channels.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
 <pre><code class="language-toml"># Type: array of strings
@@ -1340,7 +1486,7 @@ include = ["#halloy"] # show image previews in #halloy
 [preview.card]
 show_image = true
 </code></pre>
-<h3 id="include-3"><a class="header" href="#include-3"><code>include</code></a></h3>
+<h3 id="include-5"><a class="header" href="#include-5"><code>include</code></a></h3>
 <p>Include card previews from channels.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
 <pre><code class="language-toml"># Type: array of strings
@@ -1350,7 +1496,7 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show
 [preview.card]
 include = []
 </code></pre>
-<h3 id="exclude-3"><a class="header" href="#exclude-3"><code>exclude</code></a></h3>
+<h3 id="exclude-5"><a class="header" href="#exclude-5"><code>exclude</code></a></h3>
 <p>Exclude card previews from channels.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
 <pre><code class="language-toml"># Type: array of strings
@@ -1749,14 +1895,14 @@ unread_indicator = "dot"
 [sidebar]
 position = "left"
 </code></pre>
-<h2 id="width-1"><a class="header" href="#width-1"><code>width</code></a></h2>
-<p>Specify sidebar width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</p>
+<h2 id="max_width"><a class="header" href="#max_width"><code>max_width</code></a></h2>
+<p>Specify sidebar max width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer
-# Default: 120
+# Default: not set
 
 [sidebar]
-width = 120
+max_width = 200
 </code></pre>
 <h2 id="show_menu_button"><a class="header" href="#show_menu_button"><code>show_menu_button</code></a></h2>
 <p>Show or hide the user menu button in the sidemenu.</p>
@@ -1917,7 +2063,9 @@ default = "&lt;string&gt;"
 <h2 id="rose-pine-dawn"><a class="header" href="#rose-pine-dawn">Rose Pine Dawn</a></h2>
 <p><a href="halloy:///theme?e=APTt6P8B39rZ_wLy6eH_A-qdNP8E14J-_wV5dZP_BpB6qf8HVpSf_wi0Y3r_CVaUn_8K9O3o_wv69O3_DP_68_8NAAAAAA6Yk6X_D7Rjev8Q39rZ_xHXgn7_EvLp4f8TzsrN_xR5dZP_FVdSef8d6p00_x707ej_H_Tt6P8g-vTt_yH_-vP_IvLp4f8j39rZ_yTOys3_JZiTpf8">Open in Halloy</a></p>
 <img src="configuration/themes/rose-pine-dawn.png">
-<div style="break-before: page; page-break-before: always;"></div><h1 id="base16"><a class="header" href="#base16">Base16</a></h1>
+<h2 id="noctis-lilac"><a class="header" href="#noctis-lilac">Noctis Lilac</a></h2>
+<p><a href="halloy:///theme?e=AO3s-P8BnKCw_wLM0Nr_A4g57_8EDABr_wV1cY7_BlhC__8HALNo_wj_Uw__Cf5kC_8K8vH4_wvy8fj_DOLf9v8Nta3r_w5wYOv_D3KH_f8Q1cnv_xH_V5L_ErSt63cTmZW3_xR1cY7_FQDG4P8d9Jcl_x4AAAAAH3Bg6yIgcGDrZiFwYOtmIgAAAAAjpZn_dySlmf__JaWZ_90">Open in Halloy</a></p>
+<img src="configuration/themes/noctis-lilac.png"><div style="break-before: page; page-break-before: always;"></div><h1 id="base16"><a class="header" href="#base16">Base16</a></h1>
 <p>The <a href="https://github.com/chriskempson/base16">base16</a> color scheme framework
 includes hundreds of colorschemes build using 16 colors. These colorschemes have
 are compiled for Halloy in the
