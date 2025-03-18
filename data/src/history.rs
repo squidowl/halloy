@@ -16,6 +16,7 @@ use crate::{buffer, compression, environment, isupport, Buffer, Message, Server}
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 
+pub mod filter;
 pub mod manager;
 pub mod metadata;
 
