@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- No longer freezes under Wayland when window(s) are not visible
+
 # 2025.3 (2025-03-14)
 
 Added:
