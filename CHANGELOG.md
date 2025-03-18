@@ -1,5 +1,11 @@
 # Unreleased
 
+Added:
+
+- Shortcuts for cycling buffers with unread message(s)
+  - Cycle to next buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>`</kbd>
+  - Cycle to previous buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>~</kbd>
+
 # 2025.3 (2025-03-14)
 
 Added:
@@ -15,9 +21,6 @@ Added:
   - Scroll buffer down a page <kbd>pagedown</kbd> (<kbd>Fn</kbd> + <kbd>↓</kbd> on macOS)
   - Scroll to top of buffer <kbd>ctrl</kbd> + <kbd>↑</kbd> (<kbd>⌘</kbd> + <kbd>↑</kbd> on macOS)
   - Scroll to bottom of buffer <kbd>ctrl</kbd> + <kbd>↓</kbd> (<kbd>⌘</kbd> + <kbd>↓</kbd> on macOS)
-- Shortcuts for cycling buffers with unread message(s)
-  - Cycle to next buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>`</kbd>
-  - Cycle to previous buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>~</kbd>
 
 Changed:
 
