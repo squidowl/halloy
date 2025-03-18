@@ -6,11 +6,13 @@ use futures::{future, Future, FutureExt};
 use tokio::time::Instant;
 
 use crate::history::{self, History, MessageReferences, ReadMarker};
-use crate::message::{self, Limit};
+use crate::message::{self, Limit, Source};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{buffer, config, input, isupport};
 use crate::{server, Config, Input, Server, User};
+
+use super::filter::FilterChain;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -62,10 +64,42 @@ pub enum Event {
 #[derive(Debug, Default)]
 pub struct Manager {
     resources: HashSet<Resource>,
+    filters: HashMap<Server, FilterChain>,
     data: Data,
 }
 
 impl Manager {
+    pub fn new_with_config(config: &Config) -> Self {
+        log::debug!("Creating history from config");
+        let mut filters = HashMap::new();
+        for conf_entry in config.servers.entries() {
+            if conf_entry.config.ignored_nicks.len() > 0 {
+                log::debug!(
+                    "Loading config for server {:?} with nick list: {:?}",
+                    conf_entry.server,
+                    conf_entry.config.ignored_nicks
+                );
+                let source_list: Vec<Source> = conf_entry
+                    .config
+                    .ignored_nicks
+                    .into_iter()
+                    // Silently ignores invalid nicknames
+                    .filter_map(|nick| User::try_from(nick.clone()).ok())
+                    .map(|user| Source::User(user))
+                    .collect();
+
+                let server = conf_entry.server.clone();
+                let chain = FilterChain::new().add_source_list_filter(&source_list);
+                filters.insert(server, chain);
+            }
+        }
+        Self {
+            resources: HashSet::new(),
+            data: Data::default(),
+            filters,
+        }
+    }
+
     pub fn track(
         &mut self,
         new_resources: HashSet<Resource>,
@@ -304,7 +338,13 @@ impl Manager {
         limit: Option<Limit>,
         buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(kind, limit, buffer_config)
+        let filters = kind
+            .server()
+            .map(|server| self.filters.get(server))
+            .flatten();
+
+        let view = self.data.history_view(kind, limit, buffer_config, filters);
+        view
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
@@ -572,6 +612,7 @@ impl Data {
         kind: &history::Kind,
         limit: Option<Limit>,
         buffer_config: &config::Buffer,
+        filter_chain: Option<&FilterChain>,
     ) -> Option<history::View> {
         let History::Full {
             messages,
@@ -586,6 +627,7 @@ impl Data {
 
         let filtered = messages
             .iter()
+            .filter(|message| filter_chain.map_or(true, |f| f.test(message)))
             .filter(|message| match message.target.source() {
                 message::Source::Server(Some(source)) => {
                     if let Some(server_message) = buffer_config.server_messages.get(source) {

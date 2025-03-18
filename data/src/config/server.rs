@@ -37,6 +37,10 @@ pub struct Server {
     pub password_file: Option<String>,
     /// The command which outputs a password to connect to the server.
     pub password_command: Option<String>,
+    /// A list of nicknames to hide messages from - the messages are not
+    /// removed, and will be shown again when the nick is removed from the list
+    #[serde(default)]
+    pub ignored_nicks: Vec<String>,
     /// A list of channels to join on connection.
     #[serde(default)]
     pub channels: Vec<String>,
@@ -154,6 +158,7 @@ impl Default for Server {
             password: Option::default(),
             password_file: Option::default(),
             password_command: Option::default(),
+            ignored_nicks: Default::default(),
             channels: Vec::default(),
             channel_keys: HashMap::default(),
             ping_time: default_ping_time(),
