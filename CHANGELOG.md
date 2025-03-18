@@ -1,5 +1,11 @@
 # Unreleased
 
+Added:
+
+- Shortcuts for cycling buffers with unread message(s)
+  - Cycle to next buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>`</kbd>
+  - Cycle to previous buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>~</kbd>
+
 Fixed:
 
 - No longer freezes under Wayland when window(s) are not visible

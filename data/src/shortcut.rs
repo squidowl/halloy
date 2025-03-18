@@ -48,6 +48,8 @@ pub enum Command {
     ScrollDownPage,
     ScrollToTop,
     ScrollToBottom,
+    CycleNextUnreadBuffer,
+    CyclePreviousUnreadBuffer,
 }
 
 macro_rules! default {
@@ -144,6 +146,8 @@ impl KeyBind {
     // Don't use HOME / END since text input is always focused
     default!(scroll_to_top, ArrowUp, COMMAND);
     default!(scroll_to_bottom, ArrowDown, COMMAND);
+    default!(cycle_next_unread_buffer, "`", CTRL);
+    default!(cycle_previous_unread_buffer, "`", CTRL | SHIFT);
 
     pub fn is_pressed(
         &self,
