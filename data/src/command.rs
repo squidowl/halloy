@@ -32,6 +32,7 @@ pub enum Irc {
     Mode(String, Option<String>, Option<Vec<String>>),
     Away(Option<String>),
     SetName(String),
+    Notice(String, String),
     Raw(String),
     Unknown(String, Vec<String>),
 }
@@ -52,6 +53,7 @@ enum Kind {
     Format,
     Away,
     SetName,
+    Notice,
     Raw,
 }
 
@@ -74,6 +76,7 @@ impl FromStr for Kind {
             "format" | "f" => Ok(Kind::Format),
             "away" => Ok(Kind::Away),
             "setname" => Ok(Kind::SetName),
+            "notice" => Ok(Kind::Notice),
             "raw" => Ok(Kind::Raw),
             _ => Err(()),
         }
@@ -174,6 +177,13 @@ pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Erro
             Kind::SetName => {
                 validated::<1, 0, true>(args, |[realname], _| Command::Irc(Irc::SetName(realname)))
             }
+            Kind::Notice => validated::<1, 1, true>(args, |[target], [msg]| {
+                if let Some(msg) = msg {
+                    Ok(Command::Irc(Irc::Notice(target, msg)))
+                } else {
+                    Ok(Command::Internal(Internal::OpenBuffer(target)))
+                }
+            }),
             Kind::Raw => Ok(Command::Irc(Irc::Raw(raw.to_string()))),
             Kind::Format => {
                 if let Some(target) = buffer.and_then(|b| b.target()) {
@@ -251,6 +261,7 @@ impl TryFrom<Irc> for proto::Command {
             }
             Irc::Away(comment) => proto::Command::AWAY(comment),
             Irc::SetName(realname) => proto::Command::SETNAME(realname),
+            Irc::Notice(target, msg) => proto::Command::NOTICE(target, msg),
             Irc::Raw(raw) => proto::Command::Raw(raw),
             Irc::Unknown(command, args) => proto::Command::new(&command, args),
         })

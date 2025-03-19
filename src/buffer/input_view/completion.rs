@@ -331,6 +331,23 @@ impl Commands {
                             return nick_command(max_len);
                         }
                     }
+                    "NOTICE" => {
+                        let channel_membership_prefixes = if let Some(
+                            isupport::Parameter::STATUSMSG(channel_membership_prefixes),
+                        ) =
+                            isupport.get(&isupport::Kind::STATUSMSG)
+                        {
+                            channel_membership_prefixes.clone()
+                        } else {
+                            vec![]
+                        };
+
+                        let target_limit = find_target_limit(isupport, "NOTICE");
+
+                        if !channel_membership_prefixes.is_empty() || target_limit.is_some() {
+                            return notice_command(channel_membership_prefixes, target_limit);
+                        }
+                    }
                     "PART" => {
                         if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
                             isupport.get(&isupport::Kind::CHANNELLEN)
@@ -870,7 +887,25 @@ static COMMAND_LIST: LazyLock<Vec<Command>> = LazyLock::new(|| {
                 },
                 Arg {
                     text: "text",
+                    optional: true,
+                    tooltip: None,
+                },
+            ],
+            subcommands: None,
+        },
+        Command {
+            title: "NOTICE",
+            args: vec![
+                Arg {
+                    text: "targets",
                     optional: false,
+                    tooltip: Some(String::from(
+                        "comma-separated\n   {user}: user directly\n{channel}: all users in channel",
+                    )),
+                },
+                Arg {
+                    text: "text",
+                    optional: true,
                     tooltip: None,
                 },
             ],
@@ -1590,7 +1625,7 @@ fn msg_command(
             },
             Arg {
                 text: "text",
-                optional: false,
+                optional: true,
                 tooltip: None,
             },
         ],
@@ -1627,6 +1662,53 @@ fn nick_command(max_len: &u16) -> Command {
             optional: false,
             tooltip: Some(format!("maximum length: {}", max_len)),
         }],
+        subcommands: None,
+    }
+}
+
+fn notice_command(
+    channel_membership_prefixes: Vec<char>,
+    target_limit: Option<&isupport::CommandTargetLimit>,
+) -> Command {
+    let mut targets_tooltip = String::from(
+        "comma-separated\n    {user}: user directly\n {channel}: all users in channel",
+    );
+
+    for channel_membership_prefix in channel_membership_prefixes {
+        match channel_membership_prefix {
+            '~' => targets_tooltip.push_str("\n~{channel}: all founders in channel"),
+            '&' => targets_tooltip.push_str("\n&{channel}: all protected users in channel"),
+            '!' => targets_tooltip.push_str("\n!{channel}: all protected users in channel"),
+            '@' => targets_tooltip.push_str("\n@{channel}: all operators in channel"),
+            '%' => targets_tooltip.push_str("\n%{channel}: all half-operators in channel"),
+            '+' => targets_tooltip.push_str("\n+{channel}: all voiced users in channel"),
+            _ => (),
+        }
+    }
+
+    if let Some(target_limit) = target_limit {
+        if let Some(limit) = target_limit.limit {
+            targets_tooltip.push_str(format!("\nup to {} target", limit).as_str());
+            if limit != 1 {
+                targets_tooltip.push('s')
+            }
+        }
+    }
+
+    Command {
+        title: "NOTICE",
+        args: vec![
+            Arg {
+                text: "targets",
+                optional: false,
+                tooltip: Some(targets_tooltip),
+            },
+            Arg {
+                text: "text",
+                optional: true,
+                tooltip: None,
+            },
+        ],
         subcommands: None,
     }
 }

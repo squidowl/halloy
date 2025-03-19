@@ -82,7 +82,7 @@ impl Input {
         let command = self.content.command(&self.buffer)?;
 
         match command {
-            command::Irc::Msg(targets, text) => Some(
+            command::Irc::Msg(targets, text) | command::Irc::Notice(targets, text) => Some(
                 targets
                     .split(',')
                     .map(|target| {
