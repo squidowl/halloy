@@ -249,7 +249,7 @@ impl Commands {
             .map(|command| {
                 match command.title {
                     "AWAY" => {
-                        if let Some(isupport::Parameter::AWAYLEN(Some(max_len))) =
+                        if let Some(isupport::Parameter::AWAYLEN(max_len)) =
                             isupport.get(&isupport::Kind::AWAYLEN)
                         {
                             return away_command(max_len);
@@ -283,6 +283,13 @@ impl Commands {
 
                         if channel_len.is_some() || channel_limits.is_some() || key_len.is_some() {
                             return join_command(channel_len, channel_limits, key_len);
+                        }
+                    }
+                    "KICK" => {
+                        if let Some(isupport::Parameter::KICKLEN(max_len)) =
+                            isupport.get(&isupport::Kind::KICKLEN)
+                        {
+                            return kick_command(max_len);
                         }
                     }
                     "MSG" => {
@@ -1407,6 +1414,30 @@ fn join_command(
     }
 }
 
+fn kick_command(max_len: &u16) -> Command {
+    Command {
+        title: "KICK",
+        args: vec![
+            Arg {
+                text: "channel",
+                optional: false,
+                tooltip: None,
+            },
+            Arg {
+                text: "user",
+                optional: false,
+                tooltip: None,
+            },
+            Arg {
+                text: "comment",
+                optional: true,
+                tooltip: Some(format!("maximum length: {}", max_len)),
+            },
+        ],
+        subcommands: None,
+    }
+}
+
 static KNOCK_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     title: "KNOCK",
     args: vec![
@@ -1722,7 +1753,7 @@ fn setname_command(max_len: &u16) -> Command {
     Command {
         title: "SETNAME",
         args: vec![Arg {
-            text: "real name",
+            text: "realname",
             optional: false,
             tooltip: Some(format!("maximum length: {}", max_len)),
         }],

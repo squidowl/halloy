@@ -4,10 +4,10 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fmt, io};
 
-use anyhow::{Context as ErrorContext, Result, anyhow, bail};
+use anyhow::{anyhow, bail, Context as ErrorContext, Result};
 use chrono::{DateTime, Utc};
-use futures::{Future, FutureExt, channel::mpsc};
-use irc::proto::{self, Command, command};
+use futures::{channel::mpsc, Future, FutureExt};
+use irc::proto::{self, command, Command};
 use itertools::{Either, Itertools};
 use log::error;
 use tokio::fs;
@@ -21,7 +21,7 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{
-    Server, User, buffer, compression, config, ctcp, dcc, environment, isupport, message, mode,
+    buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Server, User,
 };
 use crate::{file_transfer, server};
 
@@ -1223,7 +1223,9 @@ impl Client {
 
                 // Loop on connect commands
                 for command in self.config.on_connect.iter() {
-                    if let Ok(crate::Command::Irc(cmd)) = crate::command::parse(command, None) {
+                    if let Ok(crate::Command::Irc(cmd)) =
+                        crate::command::parse(command, None, &self.isupport)
+                    {
                         if let Ok(command) = proto::Command::try_from(cmd) {
                             self.handle.try_send(command.into())?;
                         };
