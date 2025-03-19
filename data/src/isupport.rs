@@ -70,7 +70,7 @@ impl FromStr for Operation {
                             }
                         }
                         "AWAYLEN" => Ok(Operation::Add(Parameter::AWAYLEN(
-                            parse_optional_positive_integer(value)?,
+                            parse_required_positive_integer(value)?,
                         ))),
                         "BOT" => Ok(Operation::Add(Parameter::BOT(parse_required_letter(
                             value, None,
@@ -410,7 +410,7 @@ impl FromStr for Operation {
                     match token {
                         "ACCEPT" => Err("value required"),
                         "ACCOUNTEXTBAN" => Err("value(s) required"),
-                        "AWAYLEN" => Ok(Operation::Add(Parameter::AWAYLEN(None))),
+                        "AWAYLEN" => Err("value required"),
                         "BOT" => Err("value required"),
                         "CALLERID" => Ok(Operation::Add(Parameter::CALLERID(
                             DEFAULT_CALLER_ID_LETTER,
@@ -524,7 +524,7 @@ impl Operation {
 pub enum Parameter {
     ACCEPT(u16),
     ACCOUNTEXTBAN(Vec<String>),
-    AWAYLEN(Option<u16>),
+    AWAYLEN(u16),
     BOT(char),
     CALLERID(char),
     CASEMAPPING(CaseMap),

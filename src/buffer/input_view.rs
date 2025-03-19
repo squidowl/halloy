@@ -3,7 +3,7 @@ use data::input::{self, Cache, Draft};
 use data::target::Target;
 use data::user::Nick;
 use data::{buffer, client, history, Config};
-use iced::widget::{container, row, text, text_input};
+use iced::widget::{column, container, text, text_input};
 use iced::Task;
 
 use self::completion::Completion;
@@ -87,12 +87,10 @@ pub fn view<'a>(
         );
     }
 
-    let overlay = state
-        .error
-        .as_deref()
-        .map(error)
-        .or_else(|| state.completion.view(cache.draft, config))
-        .unwrap_or_else(|| row![].into());
+    let overlay = column![]
+        .spacing(4)
+        .push_maybe(state.completion.view(cache.draft, config))
+        .push_maybe(state.error.as_deref().map(error));
 
     anchored_overlay(input, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
 }
@@ -155,6 +153,28 @@ impl State {
 
                 let input = self.completion.complete_emoji(&input).unwrap_or(input);
 
+                if let Err(error) = input::parse(
+                    buffer.clone(),
+                    config.buffer.text_input.auto_format,
+                    &input,
+                    &clients.get_isupport(buffer.server()),
+                ) {
+                    if match error {
+                        input::Error::ExceedsByteLimit { .. } => true,
+                        input::Error::Command(command::Error::IncorrectArgCount {
+                            actual,
+                            max,
+                            ..
+                        }) => actual > max,
+                        input::Error::Command(command::Error::MissingSlash) => false,
+                        input::Error::Command(command::Error::MissingCommand) => false,
+                        input::Error::Command(command::Error::InvalidModeString) => true,
+                        input::Error::Command(command::Error::ArgTooLong { .. }) => true,
+                    } {
+                        self.error = Some(error.to_string());
+                    }
+                }
+
                 history.record_draft(Draft {
                     buffer: buffer.clone(),
                     text: input,
@@ -183,6 +203,7 @@ impl State {
                         buffer.clone(),
                         config.buffer.text_input.auto_format,
                         raw_input,
+                        &clients.get_isupport(buffer.server()),
                     ) {
                         Ok(input::Parsed::Internal(command)) => {
                             history.record_input_history(buffer, raw_input.to_owned());

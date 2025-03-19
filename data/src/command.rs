@@ -1,10 +1,11 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use fancy_regex::Regex;
 use irc::proto;
 use itertools::Itertools;
 
-use crate::{buffer, ctcp, message::formatting};
+use crate::{buffer, ctcp, isupport, message::formatting};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -83,7 +84,11 @@ impl FromStr for Kind {
     }
 }
 
-pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Error> {
+pub fn parse(
+    s: &str,
+    buffer: Option<&buffer::Upstream>,
+    isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+) -> Result<Command, Error> {
     let (head, rest) = s.split_once('/').ok_or(Error::MissingSlash)?;
     // Don't allow leading whitespace before slash
     if !head.is_empty() {
@@ -111,26 +116,78 @@ pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Erro
     match cmd.parse::<Kind>() {
         Ok(kind) => match kind {
             Kind::Join => validated::<1, 1, false>(args, |[chanlist], [chankeys]| {
-                Command::Irc(Irc::Join(chanlist, chankeys))
+                if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
+                    isupport.get(&isupport::Kind::CHANNELLEN)
+                {
+                    let max_len = *max_len as usize;
+
+                    let channels = chanlist.split(',').collect::<Vec<_>>();
+
+                    if let Some(channel) =
+                        channels.into_iter().find(|channel| channel.len() > max_len)
+                    {
+                        return Err(Error::ArgTooLong {
+                            name: "channel in chanlist",
+                            len: channel.len(),
+                            max_len,
+                        });
+                    }
+                }
+
+                if let Some(ref chankeys) = chankeys {
+                    if let Some(isupport::Parameter::KEYLEN(max_len)) =
+                        isupport.get(&isupport::Kind::KEYLEN)
+                    {
+                        let max_len = *max_len as usize;
+
+                        let keys = chankeys.split(',').collect::<Vec<_>>();
+
+                        if let Some(key) = keys.into_iter().find(|key| key.len() > max_len) {
+                            return Err(Error::ArgTooLong {
+                                name: "key in chankeys",
+                                len: key.len(),
+                                max_len,
+                            });
+                        }
+                    }
+                }
+
+                Ok(Command::Irc(Irc::Join(chanlist, chankeys)))
             }),
             Kind::Motd => {
-                validated::<0, 1, false>(args, |_, [target]| Command::Irc(Irc::Motd(target)))
+                validated::<0, 1, false>(args, |_, [target]| Ok(Command::Irc(Irc::Motd(target))))
             }
-            Kind::Nick => validated::<1, 0, false>(args, |[nick], _| Command::Irc(Irc::Nick(nick))),
+            Kind::Nick => validated::<1, 0, false>(args, |[nick], _| {
+                if let Some(isupport::Parameter::NICKLEN(max_len)) =
+                    isupport.get(&isupport::Kind::NICKLEN)
+                {
+                    let max_len = *max_len as usize;
+
+                    if nick.len() > max_len {
+                        return Err(Error::ArgTooLong {
+                            name: "nickname",
+                            len: nick.len(),
+                            max_len,
+                        });
+                    }
+                }
+
+                Ok(Command::Irc(Irc::Nick(nick)))
+            }),
             Kind::Quit => {
-                validated::<0, 1, true>(args, |_, [comment]| Command::Irc(Irc::Quit(comment)))
+                validated::<0, 1, true>(args, |_, [comment]| Ok(Command::Irc(Irc::Quit(comment))))
             }
             Kind::Msg => validated::<1, 1, true>(args, |[target], [msg]| {
                 if let Some(msg) = msg {
-                    Command::Irc(Irc::Msg(target, msg))
+                    Ok(Command::Irc(Irc::Msg(target, msg)))
                 } else {
-                    Command::Internal(Internal::OpenBuffer(target))
+                    Ok(Command::Internal(Internal::OpenBuffer(target)))
                 }
             }),
             Kind::Me => {
                 if let Some(target) = buffer.and_then(|b| b.target()) {
                     validated::<1, 0, true>(args, |[text], _| {
-                        Command::Irc(Irc::Me(target.to_string(), text))
+                        Ok(Command::Irc(Irc::Me(target.to_string(), text)))
                     })
                 } else {
                     Ok(unknown())
@@ -138,45 +195,129 @@ pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Erro
             }
             Kind::Whois => validated::<1, 0, false>(args, |[nick], _| {
                 // Leaving out optional [server] for now.
-                Command::Irc(Irc::Whois(None, nick))
+                Ok(Command::Irc(Irc::Whois(None, nick)))
             }),
             Kind::Part => validated::<1, 1, true>(args, |[chanlist], [reason]| {
-                Command::Irc(Irc::Part(chanlist, reason))
+                if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
+                    isupport.get(&isupport::Kind::CHANNELLEN)
+                {
+                    let max_len = *max_len as usize;
+
+                    let channels = chanlist.split(',').collect::<Vec<_>>();
+
+                    if let Some(channel) =
+                        channels.into_iter().find(|channel| channel.len() > max_len)
+                    {
+                        return Err(Error::ArgTooLong {
+                            name: "channel in chanlist",
+                            len: channel.len(),
+                            max_len,
+                        });
+                    }
+                }
+
+                Ok(Command::Irc(Irc::Part(chanlist, reason)))
             }),
             Kind::Topic => validated::<1, 1, true>(args, |[channel], [topic]| {
-                Command::Irc(Irc::Topic(channel, topic))
+                if let Some(ref topic) = topic {
+                    if let Some(isupport::Parameter::TOPICLEN(max_len)) =
+                        isupport.get(&isupport::Kind::TOPICLEN)
+                    {
+                        let max_len = *max_len as usize;
+
+                        if topic.len() > max_len {
+                            return Err(Error::ArgTooLong {
+                                name: "topic",
+                                len: topic.len(),
+                                max_len,
+                            });
+                        }
+                    }
+                }
+
+                Ok(Command::Irc(Irc::Topic(channel, topic)))
             }),
             Kind::Kick => validated::<2, 1, true>(args, |[channel, user], [comment]| {
-                Command::Irc(Irc::Kick(channel, user, comment))
+                if let Some(ref comment) = comment {
+                    if let Some(isupport::Parameter::KICKLEN(max_len)) =
+                        isupport.get(&isupport::Kind::KICKLEN)
+                    {
+                        let max_len = *max_len as usize;
+
+                        if comment.len() > max_len {
+                            return Err(Error::ArgTooLong {
+                                name: "comment",
+                                len: comment.len(),
+                                max_len,
+                            });
+                        }
+                    }
+                }
+
+                Ok(Command::Irc(Irc::Kick(channel, user, comment)))
             }),
             Kind::Mode => {
-                if let Some((target, rest)) = args.split_first() {
-                    if let Some((mode_string, mode_arguments)) = rest.split_first() {
+                validated::<1, 2, true>(args, |[target], [mode_string, mode_arguments]| {
+                    if let Some(mode_string) = mode_string {
                         let mode_string_regex = Regex::new(r"^((\+|\-)[A-Za-z]*)+$").unwrap();
-                        if !mode_string_regex.is_match(mode_string).unwrap_or_default() {
+
+                        if !mode_string_regex.is_match(&mode_string).unwrap_or_default() {
                             Err(Error::InvalidModeString)
                         } else {
-                            let mode_arguments: Vec<String> =
-                                mode_arguments.iter().map(|v| v.to_string()).collect();
+                            let mode_arguments = mode_arguments.map(|mode_arguments| {
+                                mode_arguments
+                                    .split_ascii_whitespace()
+                                    .map(String::from)
+                                    .collect()
+                            });
+
                             Ok(Command::Irc(Irc::Mode(
                                 target.to_string(),
                                 Some(mode_string.to_string()),
-                                (!mode_arguments.is_empty()).then_some(mode_arguments),
+                                mode_arguments,
                             )))
                         }
                     } else {
                         Ok(Command::Irc(Irc::Mode(target.to_string(), None, None)))
                     }
-                } else {
-                    Err(Error::MissingArgs)
+                })
+            }
+            Kind::Away => validated::<0, 1, true>(args, |_, [comment]| {
+                if let Some(ref comment) = comment {
+                    if let Some(isupport::Parameter::AWAYLEN(max_len)) =
+                        isupport.get(&isupport::Kind::AWAYLEN)
+                    {
+                        let max_len = *max_len as usize;
+
+                        if comment.len() > max_len {
+                            return Err(Error::ArgTooLong {
+                                name: "reason",
+                                len: comment.len(),
+                                max_len,
+                            });
+                        }
+                    }
                 }
-            }
-            Kind::Away => {
-                validated::<0, 1, true>(args, |_, [comment]| Command::Irc(Irc::Away(comment)))
-            }
-            Kind::SetName => {
-                validated::<1, 0, true>(args, |[realname], _| Command::Irc(Irc::SetName(realname)))
-            }
+
+                Ok(Command::Irc(Irc::Away(comment)))
+            }),
+            Kind::SetName => validated::<1, 0, true>(args, |[realname], _| {
+                if let Some(isupport::Parameter::NAMELEN(max_len)) =
+                    isupport.get(&isupport::Kind::NAMELEN)
+                {
+                    let max_len = *max_len as usize;
+
+                    if realname.len() > max_len {
+                        return Err(Error::ArgTooLong {
+                            name: "realname",
+                            len: realname.len(),
+                            max_len,
+                        });
+                    }
+                }
+
+                Ok(Command::Irc(Irc::SetName(realname)))
+            }),
             Kind::Notice => validated::<1, 1, true>(args, |[target], [msg]| {
                 if let Some(msg) = msg {
                     Ok(Command::Irc(Irc::Notice(target, msg)))
@@ -203,7 +344,7 @@ pub fn parse(s: &str, buffer: Option<&buffer::Upstream>) -> Result<Command, Erro
 // TODO: Expand `validated` so we can better indicate which parameters is optional.
 fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
     args: Vec<&str>,
-    f: impl FnOnce([String; EXACT], [Option<String>; OPT]) -> Command,
+    f: impl FnOnce([String; EXACT], [Option<String>; OPT]) -> Result<Command, Error>,
 ) -> Result<Command, Error> {
     let max = EXACT + OPT;
 
@@ -229,7 +370,7 @@ fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
             .try_into()
             .unwrap();
 
-        Ok((f)(exact, opt))
+        (f)(exact, opt)
     } else {
         Err(Error::IncorrectArgCount {
             min: EXACT,
@@ -280,18 +421,22 @@ pub enum Error {
     MissingSlash,
     #[error("missing command")]
     MissingCommand,
-    #[error("missing args")]
-    MissingArgs,
     #[error("invalid modestring")]
     InvalidModeString,
+    #[error("{name} is too long ({len}/{max_len} characters)")]
+    ArgTooLong {
+        name: &'static str,
+        len: usize,
+        max_len: usize,
+    },
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
-    if min == max {
-        let s = if min == 1 { "" } else { "s" };
+    let relational = if actual < min { "few" } else { "many" };
 
-        format!("expected {min} argument{s}, received {actual}")
+    if min == max {
+        format!("too {relational} arguments ({actual} provided, {min} expected)")
     } else {
-        format!("expected {min} to {max} arguments, received {actual}")
+        format!("too {relational} arguments ({actual} provided, {min} to {max} expected)")
     }
 }
