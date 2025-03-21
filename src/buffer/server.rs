@@ -15,7 +15,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenBuffer(Target),
+    OpenBuffers(Vec<Target>),
     History(Task<history::manager::Message>),
 }
 
@@ -152,7 +152,7 @@ impl Server {
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
                     scroll_view::Event::OpenChannel(channel) => {
-                        Some(Event::OpenBuffer(Target::Channel(channel)))
+                        Some(Event::OpenBuffers(vec![Target::Channel(channel)]))
                     }
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
@@ -176,8 +176,8 @@ impl Server {
                         ]),
                         Some(Event::History(history_task)),
                     ),
-                    Some(input_view::Event::OpenBuffer { target }) => {
-                        (command, Some(Event::OpenBuffer(target)))
+                    Some(input_view::Event::OpenBuffers { targets }) => {
+                        (command, Some(Event::OpenBuffers(targets)))
                     }
                     None => (command, None),
                 }
