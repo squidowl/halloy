@@ -5,7 +5,8 @@ use fancy_regex::Regex;
 use irc::proto;
 use itertools::Itertools;
 
-use crate::{buffer, ctcp, isupport, message::formatting};
+use crate::isupport::{self, find_target_limit};
+use crate::{buffer, ctcp, message::formatting};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -15,7 +16,7 @@ pub enum Command {
 
 #[derive(Debug, Clone)]
 pub enum Internal {
-    OpenBuffer(String),
+    OpenBuffers(String),
 }
 
 #[derive(Debug, Clone)]
@@ -116,21 +117,56 @@ pub fn parse(
     match cmd.parse::<Kind>() {
         Ok(kind) => match kind {
             Kind::Join => validated::<1, 1, false>(args, |[chanlist], [chankeys]| {
-                if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
+                let chan_limits = if let Some(isupport::Parameter::CHANLIMIT(limits)) =
+                    isupport.get(&isupport::Kind::CHANLIMIT)
+                {
+                    Some(limits)
+                } else {
+                    None
+                };
+
+                let channel_len = if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
                     isupport.get(&isupport::Kind::CHANNELLEN)
                 {
-                    let max_len = *max_len as usize;
+                    Some(*max_len as usize)
+                } else {
+                    None
+                };
 
+                if chan_limits.is_some() || channel_len.is_some() {
                     let channels = chanlist.split(',').collect::<Vec<_>>();
 
-                    if let Some(channel) =
-                        channels.into_iter().find(|channel| channel.len() > max_len)
-                    {
-                        return Err(Error::ArgTooLong {
-                            name: "channel in chanlist",
-                            len: channel.len(),
-                            max_len,
-                        });
+                    if let Some(chan_limits) = chan_limits {
+                        for chan_limit in chan_limits {
+                            if let Some(limit) = chan_limit.limit {
+                                let limit = limit as usize;
+
+                                if channels
+                                    .iter()
+                                    .filter(|channel| channel.starts_with(chan_limit.prefix))
+                                    .count()
+                                    > limit
+                                {
+                                    return Err(Error::TooManyTargets {
+                                        name: "channels",
+                                        number: channels.len(),
+                                        max_number: limit,
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    if let Some(max_len) = channel_len {
+                        if let Some(channel) =
+                            channels.into_iter().find(|channel| channel.len() > max_len)
+                        {
+                            return Err(Error::ArgTooLong {
+                                name: "channel in chanlist",
+                                len: channel.len(),
+                                max_len,
+                            });
+                        }
                     }
                 }
 
@@ -177,11 +213,26 @@ pub fn parse(
             Kind::Quit => {
                 validated::<0, 1, true>(args, |_, [comment]| Ok(Command::Irc(Irc::Quit(comment))))
             }
-            Kind::Msg => validated::<1, 1, true>(args, |[target], [msg]| {
+            Kind::Msg => validated::<1, 1, true>(args, |[targets], [msg]| {
+                let target_limit =
+                    find_target_limit(isupport, "PRIVMSG").map(|limit| limit as usize);
+
+                if let Some(target_limit) = target_limit {
+                    let targets = targets.split(',').collect::<Vec<_>>();
+
+                    if targets.len() > target_limit {
+                        return Err(Error::TooManyTargets {
+                            name: "targets",
+                            number: targets.len(),
+                            max_number: target_limit,
+                        });
+                    }
+                }
+
                 if let Some(msg) = msg {
-                    Ok(Command::Irc(Irc::Msg(target, msg)))
+                    Ok(Command::Irc(Irc::Msg(targets, msg)))
                 } else {
-                    Ok(Command::Internal(Internal::OpenBuffer(target)))
+                    Ok(Command::Internal(Internal::OpenBuffers(targets)))
                 }
             }),
             Kind::Me => {
@@ -193,9 +244,23 @@ pub fn parse(
                     Ok(unknown())
                 }
             }
-            Kind::Whois => validated::<1, 0, false>(args, |[nick], _| {
+            Kind::Whois => validated::<1, 0, false>(args, |[nicks], _| {
+                let target_limit = find_target_limit(isupport, "WHOIS").map(|limit| limit as usize);
+
+                if let Some(target_limit) = target_limit {
+                    let nicks = nicks.split(',').collect::<Vec<_>>();
+
+                    if nicks.len() > target_limit {
+                        return Err(Error::TooManyTargets {
+                            name: "nicks",
+                            number: nicks.len(),
+                            max_number: target_limit,
+                        });
+                    }
+                }
+
                 // Leaving out optional [server] for now.
-                Ok(Command::Irc(Irc::Whois(None, nick)))
+                Ok(Command::Irc(Irc::Whois(None, nicks)))
             }),
             Kind::Part => validated::<1, 1, true>(args, |[chanlist], [reason]| {
                 if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
@@ -237,7 +302,21 @@ pub fn parse(
 
                 Ok(Command::Irc(Irc::Topic(channel, topic)))
             }),
-            Kind::Kick => validated::<2, 1, true>(args, |[channel, user], [comment]| {
+            Kind::Kick => validated::<2, 1, true>(args, |[channel, users], [comment]| {
+                let target_limit = find_target_limit(isupport, "KICK").map(|limit| limit as usize);
+
+                if let Some(target_limit) = target_limit {
+                    let users = users.split(',').collect::<Vec<_>>();
+
+                    if users.len() > target_limit {
+                        return Err(Error::TooManyTargets {
+                            name: "users",
+                            number: users.len(),
+                            max_number: target_limit,
+                        });
+                    }
+                }
+
                 if let Some(ref comment) = comment {
                     if let Some(isupport::Parameter::KICKLEN(max_len)) =
                         isupport.get(&isupport::Kind::KICKLEN)
@@ -254,7 +333,7 @@ pub fn parse(
                     }
                 }
 
-                Ok(Command::Irc(Irc::Kick(channel, user, comment)))
+                Ok(Command::Irc(Irc::Kick(channel, users, comment)))
             }),
             Kind::Mode => {
                 validated::<1, 2, true>(args, |[target], [mode_string, mode_arguments]| {
@@ -318,11 +397,26 @@ pub fn parse(
 
                 Ok(Command::Irc(Irc::SetName(realname)))
             }),
-            Kind::Notice => validated::<1, 1, true>(args, |[target], [msg]| {
+            Kind::Notice => validated::<1, 1, true>(args, |[targets], [msg]| {
+                let target_limit =
+                    find_target_limit(isupport, "NOTICE").map(|limit| limit as usize);
+
+                if let Some(target_limit) = target_limit {
+                    let targets = targets.split(',').collect::<Vec<_>>();
+
+                    if targets.len() > target_limit {
+                        return Err(Error::TooManyTargets {
+                            name: "targets",
+                            number: targets.len(),
+                            max_number: target_limit,
+                        });
+                    }
+                }
+
                 if let Some(msg) = msg {
-                    Ok(Command::Irc(Irc::Notice(target, msg)))
+                    Ok(Command::Irc(Irc::Notice(targets, msg)))
                 } else {
-                    Ok(Command::Internal(Internal::OpenBuffer(target)))
+                    Ok(Command::Internal(Internal::OpenBuffers(targets)))
                 }
             }),
             Kind::Raw => Ok(Command::Irc(Irc::Raw(raw.to_string()))),
@@ -428,6 +522,12 @@ pub enum Error {
         name: &'static str,
         len: usize,
         max_len: usize,
+    },
+    #[error("too many {name} ({number}/{max_number} allowed)")]
+    TooManyTargets {
+        name: &'static str,
+        number: usize,
+        max_number: usize,
     },
 }
 

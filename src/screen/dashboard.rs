@@ -329,7 +329,7 @@ impl Dashboard {
                                         }
                                     }
                                 }
-                                buffer::Event::OpenBuffer(target) => {
+                                buffer::Event::OpenBuffers(targets) => {
                                     let mut tasks = vec![task];
 
                                     if let Some(server) = pane
@@ -338,19 +338,28 @@ impl Dashboard {
                                         .map(buffer::Upstream::server)
                                         .cloned()
                                     {
-                                        match target {
-                                            Target::Channel(channel) => {
-                                                tasks.push(self.open_channel(
-                                                    server, channel, clients, config,
-                                                ));
-                                            }
-                                            Target::Query(query) => {
-                                                let buffer = data::Buffer::Upstream(
-                                                    buffer::Upstream::Query(server, query),
-                                                );
+                                        for target in targets {
+                                            match target {
+                                                Target::Channel(channel) => {
+                                                    tasks.push(self.open_channel(
+                                                        server.clone(),
+                                                        channel,
+                                                        clients,
+                                                        config,
+                                                    ));
+                                                }
+                                                Target::Query(query) => {
+                                                    let buffer = data::Buffer::Upstream(
+                                                        buffer::Upstream::Query(
+                                                            server.clone(),
+                                                            query,
+                                                        ),
+                                                    );
 
-                                                tasks
-                                                    .push(self.open_buffer(buffer.clone(), config));
+                                                    tasks.push(
+                                                        self.open_buffer(buffer.clone(), config),
+                                                    );
+                                                }
                                             }
                                         }
                                     }
