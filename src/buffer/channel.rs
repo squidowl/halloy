@@ -22,7 +22,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenBuffer(Target),
+    OpenBuffers(Vec<Target>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
@@ -91,10 +91,7 @@ pub fn view<'a>(
                         .style(theme::selectable_text::tertiary);
 
                         if let Some(width) = max_prefix_width {
-                            Some(
-                                text.width(width)
-                                    .align_x(text::Alignment::Right),
-                            )
+                            Some(text.width(width).align_x(text::Alignment::Right))
                         } else {
                             Some(text)
                         }
@@ -118,9 +115,7 @@ pub fn view<'a>(
                         .style(|theme| theme::selectable_text::nickname(theme, config, user));
 
                         if let Some(width) = max_nick_width {
-                            text = text
-                                .width(width)
-                                .align_x(text::Alignment::Right);
+                            text = text.width(width).align_x(text::Alignment::Right);
                         }
 
                         let nick = user_context::view(
@@ -371,7 +366,7 @@ impl Channel {
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
                     scroll_view::Event::OpenChannel(channel) => {
-                        Some(Event::OpenBuffer(Target::Channel(channel)))
+                        Some(Event::OpenBuffers(vec![Target::Channel(channel)]))
                     }
                     scroll_view::Event::GoToMessage(..) => None,
                     scroll_view::Event::RequestOlderChatHistory => {
@@ -400,8 +395,8 @@ impl Channel {
 
                         (command, Some(Event::History(history_task)))
                     }
-                    Some(input_view::Event::OpenBuffer { target }) => {
-                        (command, Some(Event::OpenBuffer(target)))
+                    Some(input_view::Event::OpenBuffers { targets }) => {
+                        (command, Some(Event::OpenBuffers(targets)))
                     }
                     None => (command, None),
                 }
@@ -415,7 +410,7 @@ impl Channel {
                 topic::update(message).map(|event| match event {
                     topic::Event::UserContext(event) => Event::UserContext(event),
                     topic::Event::OpenChannel(channel) => {
-                        Event::OpenBuffer(Target::Channel(channel))
+                        Event::OpenBuffers(vec![Target::Channel(channel)])
                     }
                 }),
             ),

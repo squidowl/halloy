@@ -16,8 +16,8 @@ pub enum Event {
     InputSent {
         history_task: Task<history::manager::Message>,
     },
-    OpenBuffer {
-        target: Target,
+    OpenBuffers {
+        targets: Vec<Target>,
     },
 }
 
@@ -170,6 +170,7 @@ impl State {
                         input::Error::Command(command::Error::MissingCommand) => false,
                         input::Error::Command(command::Error::InvalidModeString) => true,
                         input::Error::Command(command::Error::ArgTooLong { .. }) => true,
+                        input::Error::Command(command::Error::TooManyTargets { .. }) => true,
                     } {
                         self.error = Some(error.to_string());
                     }
@@ -209,18 +210,27 @@ impl State {
                             history.record_input_history(buffer, raw_input.to_owned());
 
                             match command {
-                                command::Internal::OpenBuffer(target) => {
+                                command::Internal::OpenBuffers(targets) => {
+                                    let chantypes = clients.get_chantypes(buffer.server());
+                                    let statusmsg = clients.get_statusmsg(buffer.server());
+                                    let casemapping = clients.get_casemapping(buffer.server());
+
                                     return (
                                         Task::none(),
-                                        Some(Event::OpenBuffer {
-                                            target: Target::parse(
-                                                target.as_ref(),
-                                                clients.get_chantypes(buffer.server()),
-                                                clients.get_statusmsg(buffer.server()),
-                                                clients.get_casemapping(buffer.server()),
-                                            ),
+                                        Some(Event::OpenBuffers {
+                                            targets: targets
+                                                .split(",")
+                                                .map(|target| {
+                                                    Target::parse(
+                                                        target,
+                                                        chantypes,
+                                                        statusmsg,
+                                                        casemapping,
+                                                    )
+                                                })
+                                                .collect(),
                                         }),
-                                    )
+                                    );
                                 }
                             }
                         }

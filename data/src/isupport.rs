@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
@@ -961,5 +962,20 @@ fn parse_required_positive_integer(value: &str) -> Result<u16, &'static str> {
         Ok(value)
     } else {
         Err("value required to be a positive integer")
+    }
+}
+
+// Returns the limit directly if found, since we currently treat "no target limit specified"
+// the same as "specifying no limit to the number of targets".
+pub fn find_target_limit(isupport: &HashMap<Kind, Parameter>, command: &str) -> Option<u16> {
+    if let Some(Parameter::TARGMAX(target_limits)) = isupport.get(&Kind::TARGMAX) {
+        target_limits
+            .iter()
+            .find_map(|target_limit| {
+                (target_limit.command == command).then_some(target_limit.limit)
+            })
+            .flatten()
+    } else {
+        None
     }
 }
