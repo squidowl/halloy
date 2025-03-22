@@ -1,7 +1,7 @@
 pub use data::buffer::{Internal, Settings, Upstream};
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{Config, buffer, file_transfer, history, message, preview};
+use data::{buffer, file_transfer, history, message, preview, Config};
 use iced::Task;
 
 pub use self::channel::Channel;
@@ -10,9 +10,9 @@ pub use self::highlights::Highlights;
 pub use self::logs::Logs;
 pub use self::query::Query;
 pub use self::server::Server;
-use crate::Theme;
 use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
+use crate::Theme;
 
 pub mod channel;
 pub mod empty;
@@ -48,7 +48,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenBuffer(Target),
+    OpenBuffers(Vec<Target>),
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -109,7 +109,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     channel::Event::UserContext(event) => Event::UserContext(event),
-                    channel::Event::OpenBuffer(target) => Event::OpenBuffer(target),
+                    channel::Event::OpenBuffers(targets) => Event::OpenBuffers(targets),
                     channel::Event::History(task) => Event::History(task),
                     channel::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                     channel::Event::PreviewChanged => Event::PreviewChanged,
@@ -125,7 +125,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     server::Event::UserContext(event) => Event::UserContext(event),
-                    server::Event::OpenBuffer(target) => Event::OpenBuffer(target),
+                    server::Event::OpenBuffers(targets) => Event::OpenBuffers(targets),
                     server::Event::History(task) => Event::History(task),
                 });
 
@@ -136,7 +136,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     query::Event::UserContext(event) => Event::UserContext(event),
-                    query::Event::OpenBuffer(target) => Event::OpenBuffer(target),
+                    query::Event::OpenBuffers(targets) => Event::OpenBuffers(targets),
                     query::Event::History(task) => Event::History(task),
                     query::Event::RequestOlderChatHistory => Event::RequestOlderChatHistory,
                     query::Event::PreviewChanged => Event::PreviewChanged,
@@ -158,7 +158,7 @@ impl Buffer {
                 let event = event.map(|event| match event {
                     logs::Event::UserContext(event) => Event::UserContext(event),
                     logs::Event::OpenChannel(channel) => {
-                        Event::OpenBuffer(Target::Channel(channel))
+                        Event::OpenBuffers(vec![Target::Channel(channel)])
                     }
                     logs::Event::History(task) => Event::History(task),
                 });
@@ -171,7 +171,7 @@ impl Buffer {
                 let event = event.map(|event| match event {
                     highlights::Event::UserContext(event) => Event::UserContext(event),
                     highlights::Event::OpenChannel(channel) => {
-                        Event::OpenBuffer(Target::Channel(channel))
+                        Event::OpenBuffers(vec![Target::Channel(channel)])
                     }
                     highlights::Event::GoToMessage(server, channel, message) => {
                         Event::GoToMessage(server, channel, message)

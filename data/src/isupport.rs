@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
@@ -70,7 +71,7 @@ impl FromStr for Operation {
                             }
                         }
                         "AWAYLEN" => Ok(Operation::Add(Parameter::AWAYLEN(
-                            parse_optional_positive_integer(value)?,
+                            parse_required_positive_integer(value)?,
                         ))),
                         "BOT" => Ok(Operation::Add(Parameter::BOT(parse_required_letter(
                             value, None,
@@ -410,7 +411,7 @@ impl FromStr for Operation {
                     match token {
                         "ACCEPT" => Err("value required"),
                         "ACCOUNTEXTBAN" => Err("value(s) required"),
-                        "AWAYLEN" => Ok(Operation::Add(Parameter::AWAYLEN(None))),
+                        "AWAYLEN" => Err("value required"),
                         "BOT" => Err("value required"),
                         "CALLERID" => Ok(Operation::Add(Parameter::CALLERID(
                             DEFAULT_CALLER_ID_LETTER,
@@ -524,7 +525,7 @@ impl Operation {
 pub enum Parameter {
     ACCEPT(u16),
     ACCOUNTEXTBAN(Vec<String>),
-    AWAYLEN(Option<u16>),
+    AWAYLEN(u16),
     BOT(char),
     CALLERID(char),
     CASEMAPPING(CaseMap),
@@ -961,5 +962,20 @@ fn parse_required_positive_integer(value: &str) -> Result<u16, &'static str> {
         Ok(value)
     } else {
         Err("value required to be a positive integer")
+    }
+}
+
+// Returns the limit directly if found, since we currently treat "no target limit specified"
+// the same as "specifying no limit to the number of targets".
+pub fn find_target_limit(isupport: &HashMap<Kind, Parameter>, command: &str) -> Option<u16> {
+    if let Some(Parameter::TARGMAX(target_limits)) = isupport.get(&Kind::TARGMAX) {
+        target_limits
+            .iter()
+            .find_map(|target_limit| {
+                (target_limit.command == command).then_some(target_limit.limit)
+            })
+            .flatten()
+    } else {
+        None
     }
 }
