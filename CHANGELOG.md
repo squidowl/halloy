@@ -6,11 +6,17 @@ Added:
   - Cycle to next buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>`</kbd>
   - Cycle to previous buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>~</kbd>
 - Navigate commands & emoji picker with ↑ & ↓ (as well as Tab & Shift-Tab)
+- Expanded command completion and error checking/reporting
 
 Fixed:
 
 - No longer freezes under Wayland when window(s) are not visible
 - Emoji picker is no longer case sensitive (i.e. :thinking: and :THINKING: will both match 🤔)
+- Full support for the `/notice` command
+  - Message text will no longer be truncated to the first word
+  - Sent notices appear in message history
+  - `/notice <targets>` (without any message text) will open a pane for the target(s) without sending a message
+- `/msg <targets>` supports more than one target when opening pane(s) without sending a message
 
 # 2025.3 (2025-03-14)
 
