@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fmt;
-use strsim::jaro_winkler;
 
 use data::buffer::{SkinTone, SortDirection};
 use data::user::User;
@@ -9,6 +8,7 @@ use iced::widget::{column, container, row, text, tooltip};
 use iced::Length;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use strsim::jaro_winkler;
 
 use crate::theme;
 use crate::widget::{double_pass, Element};
@@ -1767,8 +1767,9 @@ impl Emojis {
             .auto_replace
             .then(|| last_word.strip_suffix(":"))
             .flatten()
+            .map(|last_word| last_word.to_lowercase())
         {
-            if let Some(emoji) = pick_emoji(shortcode, config.buffer.emojis.skin_tone) {
+            if let Some(emoji) = pick_emoji(&shortcode, config.buffer.emojis.skin_tone) {
                 *self = Emojis::Selected { emoji };
 
                 return;
@@ -1778,14 +1779,17 @@ impl Emojis {
             return;
         }
 
-        let last_word = last_word.strip_suffix(":").unwrap_or(last_word);
+        let last_word = last_word
+            .strip_suffix(":")
+            .unwrap_or(last_word)
+            .to_lowercase();
 
         let mut filtered = emojis::iter()
             .flat_map(|emoji| {
                 emoji.shortcodes().filter_map(|shortcode| {
-                    if shortcode.contains(last_word) {
+                    if shortcode.contains(&last_word) {
                         Some(FilteredShortcode {
-                            similarity: jaro_winkler(last_word, shortcode),
+                            similarity: jaro_winkler(&last_word, shortcode),
                             shortcode,
                         })
                     } else {

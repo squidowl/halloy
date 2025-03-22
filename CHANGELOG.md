@@ -9,6 +9,7 @@ Added:
 Fixed:
 
 - No longer freezes under Wayland when window(s) are not visible
+- Emoji picker is no longer case sensitive (i.e. :thinking: and :THINKING: will both match 🤔)
 
 # 2025.3 (2025-03-14)
 
