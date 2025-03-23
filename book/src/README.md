@@ -36,7 +36,7 @@
 * Notifications support
 * Multiple channels at the same time across servers
 * Commandbar for for quick actions
-* Custom themes
+* [Custom themes](https://themes.halloy.chat)
 * Portable mode
 
 ## Contributing
