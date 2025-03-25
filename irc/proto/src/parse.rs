@@ -3,7 +3,7 @@ use std::string::FromUtf8Error;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
-use nom::combinator::{cut, map, opt, peek, recognize, value, verify};
+use nom::combinator::{cut, map, opt, peek, recognize, value};
 use nom::multi::{many0, many0_count, many1, many1_count, many_m_n, separated_list1};
 use nom::sequence::{preceded, terminated, tuple};
 use nom::{Finish, IResult};
@@ -137,21 +137,18 @@ fn user(input: &str) -> IResult<&str, User> {
         satisfy(|c| c.is_ascii_alphanumeric()),
         special,
     ))));
-    // Used by things like matrix bridge
-    // Also includes `.` if `:` exists and terminated by `!`
+    // Used by things like matrix bridge & Apollo
+    // Also includes `.` and `:` if terminated by `!`
     // this enables us to use `:` and `.` without falsely matching
-    // and server IP or hostname
-    let expanded_nick = verify(
-        recognize(terminated(
-            many1_count(alt((
-                satisfy(|c| c.is_ascii_alphanumeric()),
-                special,
-                one_of(":."),
-            ))),
-            peek(char('!')),
-        )),
-        |s: &str| s.contains(':') && s.contains('.'),
-    );
+    // as server IP or hostname
+    let expanded_nick = recognize(terminated(
+        many1_count(alt((
+            satisfy(|c| c.is_ascii_alphanumeric()),
+            special,
+            one_of(":."),
+        ))),
+        peek(char('!')),
+    ));
     let nickname = alt((expanded_nick, strict_nick));
     // Parse remainder after @ as hostname
     let hostname = recognize(many1_count(none_of(" ")));
@@ -245,6 +242,15 @@ mod test {
             ),
             (":1.1.1.1 ", Source::Server("1.1.1.1".to_string())),
             (":1111:FFFF::1 ", Source::Server("1111:FFFF::1".to_string())),
+            // Format used by Apollo, with .'s in the nickname, with username & host, and :'s in the username
+            (
+                ":dan.bsky.social!d:first:second@remote.host ",
+                Source::User(User {
+                    nickname: "dan.bsky.social".into(),
+                    username: Some("d:first:second".into()),
+                    hostname: Some("remote.host".into()),
+                }),
+            ),
         ];
 
         for (test, expected) in tests {
