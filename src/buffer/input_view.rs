@@ -270,6 +270,10 @@ impl State {
                 }
             }
             Message::Up => {
+                if self.completion.arrow(completion::Arrow::Up) {
+                    return (Task::none(), None);
+                }
+
                 let cache = history.input(buffer);
 
                 self.completion.reset();
@@ -303,6 +307,10 @@ impl State {
                 (Task::none(), None)
             }
             Message::Down => {
+                if self.completion.arrow(completion::Arrow::Down) {
+                    return (Task::none(), None);
+                }
+
                 let cache = history.input(buffer);
 
                 self.completion.reset();
