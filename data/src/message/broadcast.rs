@@ -217,6 +217,7 @@ pub fn change_host(
     new_username: &str,
     new_hostname: &str,
     ourself: bool,
+    logged_in: bool,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let content = if ourself {
@@ -230,15 +231,29 @@ pub fn change_host(
         ))
     };
 
-    expand(
-        channels,
-        queries,
-        false,
-        Cause::Server(Some(source::Server::new(
-            source::server::Kind::ChangeHost,
-            Some(old_user.nickname().to_owned()),
-        ))),
-        content,
-        sent_time,
-    )
+    if ourself && !logged_in {
+        expand(
+            [],
+            [],
+            true,
+            Cause::Server(Some(source::Server::new(
+                source::server::Kind::ChangeHost,
+                Some(old_user.nickname().to_owned()),
+            ))),
+            content,
+            sent_time,
+        )
+    } else {
+        expand(
+            channels,
+            queries,
+            false,
+            Cause::Server(Some(source::Server::new(
+                source::server::Kind::ChangeHost,
+                Some(old_user.nickname().to_owned()),
+            ))),
+            content,
+            sent_time,
+        )
+    }
 }
