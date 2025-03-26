@@ -90,6 +90,10 @@ impl Map {
         self.0.contains_key(server)
     }
 
+    pub fn get(&self, server: &Server) -> Option<&config::Server> {
+        self.0.get(server)
+    }
+
     pub fn keys(&self) -> impl Iterator<Item = &Server> {
         self.0.keys()
     }
