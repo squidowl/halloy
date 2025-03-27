@@ -127,6 +127,23 @@ impl Completion {
         )
     }
 
+    pub fn arrow(&mut self, arrow: Arrow) -> bool {
+        let reverse = match arrow {
+            Arrow::Up => true,
+            Arrow::Down => false,
+        };
+
+        if self.commands.tab(reverse) {
+            return true;
+        }
+
+        if self.emojis.tab(reverse) {
+            return true;
+        }
+
+        false
+    }
+
     pub fn view<'a, Message: 'a>(
         &self,
         input: &str,
@@ -1944,4 +1961,9 @@ fn selecting_tab<T>(highlighted: &mut Option<usize>, filtered: &[T], reverse: bo
     } else {
         *highlighted = Some(if reverse { filtered.len() - 1 } else { 0 });
     }
+}
+
+pub enum Arrow {
+    Up,
+    Down,
 }
