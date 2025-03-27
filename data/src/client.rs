@@ -4,10 +4,10 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fmt, io};
 
-use anyhow::{Context as ErrorContext, Result, anyhow, bail};
+use anyhow::{anyhow, bail, Context as ErrorContext, Result};
 use chrono::{DateTime, Utc};
-use futures::{Future, FutureExt, channel::mpsc};
-use irc::proto::{self, Command, command};
+use futures::{channel::mpsc, Future, FutureExt};
+use irc::proto::{self, command, Command};
 use itertools::{Either, Itertools};
 use log::error;
 use tokio::fs;
@@ -21,7 +21,7 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{
-    Server, User, buffer, compression, config, ctcp, dcc, environment, isupport, message, mode,
+    buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Server, User,
 };
 use crate::{file_transfer, server};
 
@@ -75,6 +75,7 @@ pub enum Broadcast {
         new_username: String,
         new_hostname: String,
         ourself: bool,
+        logged_in: bool,
         channels: Vec<target::Channel>,
         sent_time: DateTime<Utc>,
     },
@@ -123,6 +124,7 @@ pub struct Client {
     labels: HashMap<String, Context>,
     batches: HashMap<Target, Batch>,
     reroute_responses_to: Option<buffer::Upstream>,
+    logged_in: bool,
     registration_step: RegistrationStep,
     listed_caps: Vec<String>,
     supports_labels: bool,
@@ -165,6 +167,7 @@ impl Client {
             labels: HashMap::new(),
             batches: HashMap::new(),
             reroute_responses_to: None,
+            logged_in: false,
             registration_step: RegistrationStep::Start,
             listed_caps: vec![],
             supports_labels: false,
@@ -960,6 +963,8 @@ impl Client {
             Command::Numeric(RPL_LOGGEDIN, args) => {
                 log::info!("[{}] logged in", self.server);
 
+                self.logged_in = true;
+
                 if !self.registration_required_channels.is_empty() {
                     for message in group_joins(
                         &self.registration_required_channels,
@@ -985,6 +990,8 @@ impl Client {
             }
             Command::Numeric(RPL_LOGGEDOUT, _) => {
                 log::info!("[{}] logged out", self.server);
+
+                self.logged_in = false;
 
                 if !self.supports_account_notify {
                     let old_user = User::from(self.nickname().to_owned());
@@ -1858,6 +1865,7 @@ impl Client {
                     new_username: new_username.clone(),
                     new_hostname: new_hostname.clone(),
                     ourself,
+                    logged_in: self.logged_in,
                     channels,
                     sent_time: server_time(&message),
                 })]);

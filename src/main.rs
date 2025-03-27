@@ -698,6 +698,7 @@ impl Halloy {
                                             new_username,
                                             new_hostname,
                                             ourself,
+                                            logged_in,
                                             channels,
                                             sent_time,
                                         } => {
@@ -712,6 +713,7 @@ impl Halloy {
                                                             new_username,
                                                             new_hostname,
                                                             ourself,
+                                                            logged_in,
                                                             user_channels: channels,
                                                         },
                                                     )
