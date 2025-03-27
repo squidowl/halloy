@@ -2,15 +2,15 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
-use futures::{Future, FutureExt, future};
+use futures::{future, Future, FutureExt};
 use tokio::time::Instant;
 
 use crate::history::{self, History, MessageReferences};
 use crate::message::{self, Limit};
 use crate::target::{self, Target};
 use crate::user::Nick;
-use crate::{Config, Input, Server, User, server};
 use crate::{buffer, config, input, isupport};
+use crate::{server, Config, Input, Server, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -406,6 +406,7 @@ impl Manager {
                 new_username,
                 new_hostname,
                 ourself,
+                logged_in,
                 user_channels,
             } => {
                 if ourself {
@@ -417,6 +418,7 @@ impl Manager {
                         &new_username,
                         &new_hostname,
                         ourself,
+                        logged_in,
                         sent_time,
                     )
                 } else {
@@ -429,6 +431,7 @@ impl Manager {
                         &new_username,
                         &new_hostname,
                         ourself,
+                        logged_in,
                         sent_time,
                     )
                 }
@@ -683,7 +686,11 @@ impl Data {
                 .map_or_else(
                     || {
                         // Backlog is before this limit view of messages
-                        if has_read_messages { 0 } else { limited.len() }
+                        if has_read_messages {
+                            0
+                        } else {
+                            limited.len()
+                        }
                     },
                     |position| limited.len() - position,
                 )
@@ -910,6 +917,7 @@ pub enum Broadcast {
         new_username: String,
         new_hostname: String,
         ourself: bool,
+        logged_in: bool,
         user_channels: Vec<target::Channel>,
     },
 }
