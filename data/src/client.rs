@@ -104,6 +104,7 @@ pub enum Event {
     DirectMessage(User),
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
+    OpenBuffers(Vec<Target>),
 }
 
 struct ChatHistoryRequest {
@@ -1228,15 +1229,35 @@ impl Client {
                     self.handle.try_send(command!("MODE", nick, modestring))?;
                 }
 
+                let mut events = vec![];
+
                 // Loop on connect commands
                 for command in self.config.on_connect.iter() {
-                    if let Ok(crate::Command::Irc(cmd)) =
-                        crate::command::parse(command, None, &self.isupport)
-                    {
-                        if let Ok(command) = proto::Command::try_from(cmd) {
-                            self.handle.try_send(command.into())?;
-                        };
-                    };
+                    match crate::command::parse(command, None, &self.isupport) {
+                        Ok(crate::Command::Irc(cmd)) => {
+                            if let Ok(command) = proto::Command::try_from(cmd) {
+                                self.handle.try_send(command.into())?;
+                            }
+                        }
+                        Ok(crate::Command::Internal(cmd)) => match cmd {
+                            crate::command::Internal::OpenBuffers(targets) => {
+                                events.push(Event::OpenBuffers(
+                                    targets
+                                        .split(",")
+                                        .map(|target| {
+                                            Target::parse(
+                                                target,
+                                                self.chantypes(),
+                                                self.statusmsg(),
+                                                self.casemapping(),
+                                            )
+                                        })
+                                        .collect(),
+                                ));
+                            }
+                        },
+                        Err(_) => (),
+                    }
                 }
 
                 let channels = self
@@ -1258,6 +1279,8 @@ impl Client {
                 for message in group_joins(&channels, &self.config.channel_keys) {
                     self.handle.try_send(message)?;
                 }
+
+                return Ok(events);
             }
             // QUIT
             Command::QUIT(comment) => {
