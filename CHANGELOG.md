@@ -5,6 +5,7 @@ Added:
 - Shortcuts for cycling buffers with unread message(s)
   - Cycle to next buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>`</kbd>
   - Cycle to previous buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>~</kbd>
+- Navigate commands & emoji picker with ↑ & ↓ (as well as Tab & Shift-Tab)
 
 Fixed:
 
