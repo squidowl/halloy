@@ -421,6 +421,7 @@ impl Manager {
                 new_username,
                 new_hostname,
                 ourself,
+                logged_in,
                 user_channels,
             } => {
                 if ourself {
@@ -432,6 +433,7 @@ impl Manager {
                         &new_username,
                         &new_hostname,
                         ourself,
+                        logged_in,
                         sent_time,
                     )
                 } else {
@@ -444,6 +446,7 @@ impl Manager {
                         &new_username,
                         &new_hostname,
                         ourself,
+                        logged_in,
                         sent_time,
                     )
                 }
@@ -931,6 +934,7 @@ pub enum Broadcast {
         new_username: String,
         new_hostname: String,
         ourself: bool,
+        logged_in: bool,
         user_channels: Vec<target::Channel>,
     },
 }
