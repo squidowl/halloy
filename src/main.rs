@@ -758,16 +758,18 @@ impl Halloy {
 
                                         commands.push(command);
                                     }
-                                    data::client::Event::ChatHistoryAcknowledged(server_time) => {
-                                        if let Some(command) = dashboard
-                                            .load_chathistory_targets_timestamp(
-                                                &self.clients,
-                                                &server,
-                                                server_time,
-                                            )
-                                            .map(|command| command.map(Message::Dashboard))
-                                        {
-                                            commands.push(command);
+                                    data::client::Event::LoggedIn(server_time) => {
+                                        if self.clients.get_server_supports_chathistory(&server) {
+                                            if let Some(command) = dashboard
+                                                .load_chathistory_targets_timestamp(
+                                                    &self.clients,
+                                                    &server,
+                                                    server_time,
+                                                )
+                                                .map(|command| command.map(Message::Dashboard))
+                                            {
+                                                commands.push(command);
+                                            }
                                         }
                                     }
                                     data::client::Event::ChatHistoryTargetReceived(
