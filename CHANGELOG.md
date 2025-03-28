@@ -8,6 +8,9 @@ Added:
   - Cycle to previous buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>~</kbd>
 - Navigate commands & emoji picker with ↑ & ↓ (as well as Tab & Shift-Tab)
 - Expanded command completion and error checking/reporting
+- Various shortcuts for https://themes.halloy.chat/
+  - The Command Bar now includes a "Discover More Themes" action, which opens the website
+  - The Theme Editor now has a "Share Theme with Community" option that opens the submit page with the theme payload pre-filled
 
 Fixed:
 

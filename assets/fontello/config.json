@@ -149,6 +149,12 @@
       "css": "down-open",
       "code": 59412,
       "src": "fontawesome"
+    },
+    {
+      "uid": "390d6d13398cbf8c8c3c5493f7d34088",
+      "css": "export",
+      "code": 59411,
+      "src": "entypo"
     }
   ]
 }
