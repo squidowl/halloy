@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::LazyLock;
 
 use data::buffer::{SkinTone, SortDirection};
 use data::user::User;
@@ -7,7 +8,6 @@ use data::{isupport, target, Config};
 use iced::widget::{column, container, row, text, tooltip};
 use iced::Length;
 use itertools::Itertools;
-use once_cell::sync::Lazy;
 use strsim::jaro_winkler;
 
 use crate::theme;
@@ -813,7 +813,7 @@ impl Text {
     }
 }
 
-static COMMAND_LIST: Lazy<Vec<Command>> = Lazy::new(|| {
+static COMMAND_LIST: LazyLock<Vec<Command>> = LazyLock::new(|| {
     vec![
         Command {
             title: "JOIN",
@@ -1292,7 +1292,7 @@ fn chathistory_targets_command(maximum_limit: &u16) -> Command {
     }
 }
 
-static CNOTICE_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+static CNOTICE_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "CNOTICE",
     args: vec![
         Arg {
@@ -1314,7 +1314,7 @@ static CNOTICE_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     subcommands: None,
 });
 
-static CPRIVMSG_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+static CPRIVMSG_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "CPRIVMSG",
     args: vec![
         Arg {
@@ -1389,7 +1389,7 @@ fn join_command(
     }
 }
 
-static KNOCK_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+static KNOCK_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "KNOCK",
     args: vec![
         Arg {
@@ -1406,7 +1406,7 @@ static KNOCK_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     subcommands: None,
 });
 
-static LIST_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+static LIST_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "LIST",
     args: vec![Arg {
         text: "channels",
@@ -1523,7 +1523,7 @@ fn monitor_add_command(target_limit: &Option<u16>) -> Command {
     }
 }
 
-static MONITOR_REMOVE_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+static MONITOR_REMOVE_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "MONITOR -",
     args: vec![Arg {
         text: "targets",
@@ -1533,19 +1533,19 @@ static MONITOR_REMOVE_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     subcommands: None,
 });
 
-static MONITOR_CLEAR_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+static MONITOR_CLEAR_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "MONITOR C",
     args: vec![],
     subcommands: None,
 });
 
-static MONITOR_LIST_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+static MONITOR_LIST_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "MONITOR L",
     args: vec![],
     subcommands: None,
 });
 
-static MONITOR_STATUS_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+static MONITOR_STATUS_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "MONITOR S",
     args: vec![],
     subcommands: None,
@@ -1684,7 +1684,7 @@ fn topic_command(max_len: &u16) -> Command {
     }
 }
 
-static USERIP_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+static USERIP_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "USERIP",
     args: vec![Arg {
         text: "nickname",
@@ -1694,7 +1694,7 @@ static USERIP_COMMAND: Lazy<Command> = Lazy::new(|| Command {
     subcommands: None,
 });
 
-static WHOX_COMMAND: Lazy<Command> = Lazy::new(|| Command {
+static WHOX_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "WHO",
     args: vec![
         Arg {
