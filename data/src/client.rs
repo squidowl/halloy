@@ -98,7 +98,7 @@ pub enum Event {
     FileTransferRequest(file_transfer::ReceiveRequest),
     UpdateReadMarker(Target, ReadMarker),
     JoinedChannel(target::Channel, DateTime<Utc>),
-    ChatHistoryAcknowledged(DateTime<Utc>),
+    LoggedIn(DateTime<Utc>),
     ChatHistoryTargetReceived(Target, DateTime<Utc>),
     ChatHistoryTargetsReceived(DateTime<Utc>),
     DirectMessage(User),
@@ -824,8 +824,6 @@ impl Client {
 
                 if caps.contains(&"draft/chathistory") && self.config.chathistory {
                     self.supports_chathistory = true;
-
-                    return Ok(vec![Event::ChatHistoryAcknowledged(server_time(&message))]);
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "NAK" => {
@@ -987,6 +985,8 @@ impl Client {
                         }
                     });
                 }
+
+                return Ok(vec![Event::LoggedIn(server_time(&message))]);
             }
             Command::Numeric(RPL_LOGGEDOUT, _) => {
                 log::info!("[{}] logged out", self.server);
