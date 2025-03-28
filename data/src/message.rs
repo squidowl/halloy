@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
+use std::sync::LazyLock;
 
 use chrono::{DateTime, Utc};
 use const_format::concatcp;
@@ -9,7 +10,6 @@ use fancy_regex::{Regex, RegexBuilder};
 use irc::proto;
 use irc::proto::Command;
 use itertools::{Either, Itertools};
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -48,7 +48,7 @@ const URL_PATH_EXC_PUNC: &str = concatcp!(
     r#"%\/#]"#
 );
 
-static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
+static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(concatcp!(
         r#"(?i)(((https?|ircs?):\/\/|www\.)[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}\.[\p{Letter}\p{Number}()]{1,63}\b"#,
         r#"("#,
@@ -64,13 +64,13 @@ static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     .unwrap()
 });
 
-static CHANNEL_REGEX: Lazy<Regex> = Lazy::new(|| {
+static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(r#"(?i)(?<!\w)(#[^ ,\x07]+)(?!\w)"#)
         .build()
         .unwrap()
 });
 
-static USER_REGEX: Lazy<Regex> = Lazy::new(|| {
+static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(r#"(?i)(?<!\w)([\w"\-\[\]\\`^{|}*\/\@]+)(?!\w)"#)
         .build()
         .unwrap()
