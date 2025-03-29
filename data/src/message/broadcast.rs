@@ -4,8 +4,7 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 
 use super::{
-    Content, Direction, Message, Source, Target, parse_fragments, parse_fragments_with_user, plain,
-    source,
+    Content, Direction, Message, Source, Target, parse_fragments_with_user, plain, source,
 };
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
