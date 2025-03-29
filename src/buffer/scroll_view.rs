@@ -4,17 +4,17 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
-use data::{Config, Preview, client, history, preview, target};
+use data::{client, history, preview, target, Config, Preview};
 use iced::widget::{
-    Scrollable, button, center, column, container, horizontal_rule, horizontal_space, image,
-    mouse_area, row, scrollable, text,
+    button, center, column, container, horizontal_rule, horizontal_space, image, mouse_area, row,
+    scrollable, text, Scrollable,
 };
-use iced::{ContentFit, Length, Task, alignment, padding};
+use iced::{alignment, padding, ContentFit, Length, Task};
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::user_context;
-use crate::widget::{Element, MESSAGE_MARKER_TEXT, notify_visibility, selectable_text};
+use crate::widget::{notify_visibility, selectable_text, Element, MESSAGE_MARKER_TEXT};
 use crate::{font, icon, theme};
 
 #[derive(Debug, Clone)]
@@ -101,7 +101,7 @@ pub fn view<'a>(
         max_nick_chars,
         max_prefix_chars,
         ..
-    }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
+    }) = history.get_messages(&kind.into(), Some(state.limit), config)
     else {
         return column![].into();
     };
@@ -389,7 +389,7 @@ impl State {
                             old_messages,
                             new_messages,
                             ..
-                        }) = history.get_messages(&kind.into(), Some(self.limit), &config.buffer)
+                        }) = history.get_messages(&kind.into(), Some(self.limit), config)
                         {
                             if let Some(oldest) = old_messages.iter().chain(&new_messages).next() {
                                 self.limit = Limit::Since(oldest.server_time);
@@ -624,7 +624,7 @@ impl State {
             old_messages,
             new_messages,
             ..
-        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        }) = history.get_messages(&kind.into(), None, config)
         else {
             // We're still loading history, which will trigger
             // scroll_to_backlog after loading. If this is set,
@@ -668,7 +668,7 @@ impl State {
             total,
             old_messages,
             ..
-        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        }) = history.get_messages(&kind.into(), None, config)
         else {
             return Task::none();
         };
@@ -743,10 +743,10 @@ mod keyed {
     use data::message;
     use iced::advanced::widget::{self, Operation};
     use iced::widget::scrollable::{self, AbsoluteOffset};
-    use iced::{Rectangle, Task, Vector, advanced};
+    use iced::{advanced, Rectangle, Task, Vector};
 
     use crate::widget::Element;
-    use crate::widget::{Renderer, decorate};
+    use crate::widget::{decorate, Renderer};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Key {
@@ -1019,24 +1019,20 @@ fn preview_row<'a>(
                 keyed::Key::Preview(message.hash, idx),
                 button(
                     container(
-                        column![
-                            column![
-                                text(title)
-                                    .shaping(text::Shaping::Advanced)
-                                    .style(theme::text::primary)
-                            ]
-                            .push_maybe(description.as_ref().map(|description| {
-                                text(description)
-                                    .shaping(text::Shaping::Advanced)
-                                    .style(theme::text::secondary)
-                            }))
-                            .push_maybe(
-                                config.preview.card.show_image.then_some(
-                                    container(image(path).content_fit(ContentFit::ScaleDown))
-                                        .max_height(200)
-                                )
-                            ),
-                        ]
+                        column![column![text(title)
+                            .shaping(text::Shaping::Advanced)
+                            .style(theme::text::primary)]
+                        .push_maybe(description.as_ref().map(|description| {
+                            text(description)
+                                .shaping(text::Shaping::Advanced)
+                                .style(theme::text::secondary)
+                        }))
+                        .push_maybe(
+                            config.preview.card.show_image.then_some(
+                                container(image(path).content_fit(ContentFit::ScaleDown))
+                                    .max_height(200)
+                            )
+                        ),]
                         .max_width(400)
                         .spacing(4),
                     )
@@ -1166,7 +1162,7 @@ mod correct_viewport {
     use std::any::Any;
     use std::sync::{Arc, Mutex};
 
-    use iced::advanced::widget::operation::{Scrollable, scrollable};
+    use iced::advanced::widget::operation::{scrollable, Scrollable};
     use iced::advanced::widget::{Id, Operation};
     use iced::advanced::{self, widget};
     use iced::widget::scrollable::{AbsoluteOffset, Anchor};
@@ -1175,8 +1171,8 @@ mod correct_viewport {
     use crate::widget::decorate;
     use crate::widget::{Element, Renderer};
 
-    use super::Message;
     use super::keyed;
+    use super::Message;
 
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,
