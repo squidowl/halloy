@@ -2,6 +2,7 @@
 
 Added:
 
+- Server messages (join, part, etc.) are now user-aware and will color nicknames accordingly
 - Shortcuts for cycling buffers with unread message(s)
   - Cycle to next buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>`</kbd>
   - Cycle to previous buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>~</kbd>
