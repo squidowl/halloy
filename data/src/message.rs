@@ -15,17 +15,17 @@ use url::Url;
 
 pub use self::formatting::Formatting;
 pub use self::source::{
-    server::{Kind, StandardReply},
     Source,
+    server::{Kind, StandardReply},
 };
 
-use crate::config::buffer::UsernameFormat;
 use crate::config::Highlights;
+use crate::config::buffer::UsernameFormat;
 use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{ctcp, isupport, target, Config, Server, User};
+use crate::{Config, Server, User, ctcp, isupport, target};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -1254,7 +1254,9 @@ fn content<'a>(
             Some(parse_fragments(format!("{nick} {status_text} {account}")))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
-            let nick = params.get(2)?;
+            let user = User::try_from(params.get(2)?.as_str()).ok()?;
+            let nickname = user.nickname();
+
             let datetime = params
                 .get(3)?
                 .parse::<u64>()
@@ -1265,7 +1267,7 @@ fn content<'a>(
                 .to_rfc2822();
 
             Some(parse_fragments(format!(
-                "topic set by {nick} at {datetime}"
+                "topic set by {nickname} at {datetime}"
             )))
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
