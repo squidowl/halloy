@@ -359,10 +359,10 @@ umodes = "+RB-x"
 <p>Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
-# Default: false
+# Default: true
 
 [servers.&lt;name&gt;]
-use_tls = false
+use_tls = true
 </code></pre>
 <h2 id="dangerously_accept_invalid_certs"><a class="header" href="#dangerously_accept_invalid_certs"><code>dangerously_accept_invalid_certs</code></a></h2>
 <p>When <code>true</code>, all certificate validations are skipped.</p>
