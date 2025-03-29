@@ -292,10 +292,10 @@ Whether or not to use TLS. Clients will automatically panic if this is enabled w
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: false
+# Default: true
 
 [servers.<name>]
-use_tls = false
+use_tls = true
 ```
 
 ## `dangerously_accept_invalid_certs`
