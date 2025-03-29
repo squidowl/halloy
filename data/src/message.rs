@@ -593,6 +593,11 @@ pub fn parse_fragments_with_highlights(
     }
 }
 
+pub fn parse_fragments_with_user(text: String, user: &User) -> Content {
+    let users: &[User] = std::slice::from_ref(user);
+    parse_fragments_with_users(text, users)
+}
+
 pub fn parse_fragments_with_users(text: String, channel_users: &[User]) -> Content {
     let fragments = parse_fragments_with_users_inner(text, channel_users).collect::<Vec<_>>();
 
@@ -1062,27 +1067,31 @@ fn content<'a>(
                 .unwrap_or(raw_user);
 
             let topic = topic.as_ref()?;
-            let with_access_levels = config.buffer.nickname.show_access_levels;
-            let user = user.display(with_access_levels);
 
-            Some(parse_fragments(format!("{user} changed topic to {topic}")))
+            Some(parse_fragments_with_user(
+                format!("{} changed topic to {topic}", user.nickname()),
+                &user,
+            ))
         }
         Command::PART(target, text) => {
             let raw_user = message.user()?;
             let user = target::Channel::parse(target, chantypes, statusmsg, casemapping)
                 .ok()
                 .and_then(|channel| resolve_attributes(&raw_user, &channel))
-                .unwrap_or(raw_user)
-                .formatted(config.buffer.server_messages.part.username_format);
+                .unwrap_or(raw_user);
 
             let text = text
                 .as_ref()
                 .map(|text| format!(" ({text})"))
                 .unwrap_or_default();
 
-            Some(parse_fragments(format!(
-                "⟵ {user} has left the channel{text}"
-            )))
+            Some(parse_fragments_with_user(
+                format!(
+                    "⟵ {} has left the channel{text}",
+                    user.formatted(config.buffer.server_messages.part.username_format)
+                ),
+                &user,
+            ))
         }
         Command::JOIN(target, _) => {
             let raw_user = message.user()?;
@@ -1092,34 +1101,43 @@ fn content<'a>(
                 .unwrap_or(raw_user);
 
             (user.nickname() != *our_nick).then(|| {
-                parse_fragments(format!(
-                    "⟶ {} has joined the channel",
-                    user.formatted(config.buffer.server_messages.join.username_format)
-                ))
+                parse_fragments_with_user(
+                    format!(
+                        "⟶ {} has joined the channel",
+                        user.formatted(config.buffer.server_messages.join.username_format)
+                    ),
+                    &user,
+                )
             })
         }
         Command::KICK(channel, victim, comment) => {
+            let raw_victim_user = User::try_from(victim.as_str()).ok()?;
+            let victim = target::Channel::parse(victim, chantypes, statusmsg, casemapping)
+                .ok()
+                .and_then(|channel| resolve_attributes(&raw_victim_user, &channel))
+                .unwrap_or(raw_victim_user);
+
             let raw_user = message.user()?;
-            let with_access_levels = config.buffer.nickname.show_access_levels;
             let user = target::Channel::parse(channel, chantypes, statusmsg, casemapping)
                 .ok()
                 .and_then(|channel| resolve_attributes(&raw_user, &channel))
-                .unwrap_or(raw_user)
-                .display(with_access_levels);
+                .unwrap_or(raw_user);
 
             let comment = comment
                 .as_ref()
                 .map(|comment| format!(" ({comment})"))
                 .unwrap_or_default();
-            let target = if victim == our_nick.as_ref() {
+
+            let target = if victim.as_str() == our_nick.as_ref() {
                 "you have".to_string()
             } else {
-                format!("{victim} has")
+                format!("{} has", victim.nickname())
             };
 
-            Some(parse_fragments(format!(
-                "⟵ {target} been kicked by {user}{comment}"
-            )))
+            Some(parse_fragments_with_users(
+                format!("⟵ {target} been kicked by {}{comment}", user.nickname()),
+                vec![user, victim].as_slice(),
+            ))
         }
         Command::MODE(target, modes, args) => {
             let raw_user = message.user()?;
@@ -1127,10 +1145,7 @@ fn content<'a>(
             target::Channel::parse(target, chantypes, statusmsg, casemapping)
                 .ok()
                 .map(|channel| {
-                    let with_access_levels = config.buffer.nickname.show_access_levels;
-                    let user = resolve_attributes(&raw_user, &channel)
-                        .unwrap_or(raw_user)
-                        .display(with_access_levels);
+                    let user = resolve_attributes(&raw_user, &channel).unwrap_or(raw_user);
 
                     let modes = modes
                         .iter()
@@ -1145,7 +1160,15 @@ fn content<'a>(
                         .collect::<Vec<_>>()
                         .join(" ");
 
-                    parse_fragments(format!("{user} sets mode {modes} {args}"))
+                    let channel_users =
+                        target::Channel::parse(target, chantypes, statusmsg, casemapping)
+                            .map(|channel| channel_users(&channel))
+                            .unwrap_or_default();
+
+                    parse_fragments_with_users(
+                        format!("{} sets mode {modes} {args}", user.nickname()),
+                        channel_users,
+                    )
                 })
         }
         Command::PRIVMSG(target, text) => {
@@ -1191,7 +1214,8 @@ fn content<'a>(
             None
         }
         Command::Numeric(RPL_WHOISIDLE, params) => {
-            let nick = params.get(1)?;
+            let user = User::try_from(params.get(1)?.as_str()).ok()?;
+
             let idle = params.get(2)?.parse::<u64>().ok()?;
             let sign_on = params.get(3)?.parse::<u64>().ok()?;
 
@@ -1205,57 +1229,79 @@ fn content<'a>(
             let duration = std::time::Duration::from_secs(idle);
             let idle_readable = formatter.convert(duration);
 
-            Some(parse_fragments(format!(
-                "{nick} signed on at {sign_on_datetime} and has been idle for {idle_readable}"
-            )))
+            Some(parse_fragments_with_user(
+                format!(
+                    "{} signed on at {sign_on_datetime} and has been idle for {idle_readable}",
+                    user.nickname()
+                ),
+                &user,
+            ))
         }
         Command::Numeric(RPL_WHOISSERVER, params) => {
-            let nick = params.get(1)?;
+            let user = User::try_from(params.get(1)?.as_str()).ok()?;
+
             let server = params.get(2)?;
             let region = params.get(3)?;
 
-            Some(parse_fragments(format!(
-                "{nick} is connected on {server} ({region})"
-            )))
+            Some(parse_fragments_with_user(
+                format!("{} is connected on {server} ({region})", user.nickname()),
+                &user,
+            ))
         }
         Command::Numeric(RPL_WHOISUSER, params) => {
-            let nick = params.get(1)?;
+            let user = User::try_from(params.get(1)?.as_str()).ok()?;
+
             let userhost = format!("{}@{}", params.get(2)?, params.get(3)?);
             let real_name = params.get(5)?;
 
-            Some(parse_fragments(format!(
-                "{nick} has userhost {userhost} and real name '{real_name}'"
-            )))
+            Some(parse_fragments_with_user(
+                format!(
+                    "{} has userhost {userhost} and real name '{real_name}'",
+                    user.nickname()
+                ),
+                &user,
+            ))
         }
         Command::Numeric(RPL_WHOISCHANNELS, params) => {
-            let nick = params.get(1)?;
+            let user = User::try_from(params.get(1)?.as_str()).ok()?;
             let channels = params.get(2)?;
 
-            Some(parse_fragments(format!("{nick} is in {channels}")))
+            Some(parse_fragments_with_user(
+                format!("{} is in {channels}", user.nickname()),
+                &user,
+            ))
         }
         Command::Numeric(RPL_WHOISACTUALLY, params) => {
-            let nick = params.get(1)?;
+            let user: User = User::try_from(params.get(1)?.as_str()).ok()?;
             let ip = params.get(2)?;
             let status_text = params.get(3)?;
 
-            Some(parse_fragments(format!("{nick} {status_text} {ip}")))
+            Some(parse_fragments_with_user(
+                format!("{} {status_text} {ip}", user.nickname()),
+                &user,
+            ))
         }
         Command::Numeric(RPL_WHOISSECURE, params) => {
-            let nick = params.get(1)?;
+            let user: User = User::try_from(params.get(1)?.as_str()).ok()?;
             let status_text = params.get(2)?;
 
-            Some(parse_fragments(format!("{nick} {status_text}")))
+            Some(parse_fragments_with_user(
+                format!("{} {status_text}", user.nickname()),
+                &user,
+            ))
         }
         Command::Numeric(RPL_WHOISACCOUNT, params) => {
-            let nick = params.get(1)?;
+            let user: User = User::try_from(params.get(1)?.as_str()).ok()?;
             let account = params.get(2)?;
             let status_text = params.get(3)?;
 
-            Some(parse_fragments(format!("{nick} {status_text} {account}")))
+            Some(parse_fragments_with_user(
+                format!("{} {status_text} {account}", user.nickname()),
+                &user,
+            ))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
             let user = User::try_from(params.get(2)?.as_str()).ok()?;
-            let nickname = user.nickname();
 
             let datetime = params
                 .get(3)?
@@ -1266,9 +1312,10 @@ fn content<'a>(
                 .and_then(Posix::datetime)?
                 .to_rfc2822();
 
-            Some(parse_fragments(format!(
-                "topic set by {nickname} at {datetime}"
-            )))
+            Some(parse_fragments_with_user(
+                format!("topic set by {} at {datetime}", user.nickname()),
+                &user,
+            ))
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
             let mode = params
@@ -1291,13 +1338,16 @@ fn content<'a>(
             Some(parse_fragments(format!("User mode is {mode}")))
         }
         Command::Numeric(RPL_AWAY, params) => {
-            let user = params.get(1)?;
+            let user = User::try_from(params.get(1)?.as_str()).ok()?;
             let away_message = params
                 .get(2)
                 .map(|away| format!(" ({away})"))
                 .unwrap_or_default();
 
-            Some(parse_fragments(format!("{user} is away{away_message}")))
+            Some(parse_fragments_with_user(
+                format!("{} is away{away_message}", user.nickname()),
+                &user,
+            ))
         }
         Command::Numeric(RPL_MONONLINE, params) => {
             let targets = params

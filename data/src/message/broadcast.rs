@@ -3,11 +3,14 @@ use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
 
-use super::{parse_fragments, plain, source, Content, Direction, Message, Source, Target};
+use super::{
+    Content, Direction, Message, Source, Target, parse_fragments, parse_fragments_with_user, plain,
+    source,
+};
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::{message, target, Config, User};
+use crate::{Config, User, message, target};
 
 enum Cause {
     Server(Option<source::Server>),
@@ -157,10 +160,13 @@ pub fn quit(
         .map(|comment| format!(" ({comment})"))
         .unwrap_or_default();
 
-    let content = parse_fragments(format!(
-        "⟵ {} has quit{comment}",
-        user.formatted(config.buffer.server_messages.quit.username_format)
-    ));
+    let content = parse_fragments_with_user(
+        format!(
+            "⟵ {} has quit{comment}",
+            user.formatted(config.buffer.server_messages.quit.username_format)
+        ),
+        user,
+    );
 
     expand(
         channels,
@@ -205,7 +211,11 @@ pub fn invite(
     channels: impl IntoIterator<Item = target::Channel>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let content = plain(format!("{inviter} invited you to join {channel}"));
+    let inviter = User::from(inviter);
+    let content = parse_fragments_with_user(
+        format!("{} invited you to join {channel}", inviter.nickname()),
+        &inviter,
+    );
 
     expand(channels, [], false, Cause::Server(None), content, sent_time)
 }
@@ -225,10 +235,13 @@ pub fn change_host(
             "You've changed host to {new_username}@{new_hostname}",
         ))
     } else {
-        plain(format!(
-            "{} changed host to {new_username}@{new_hostname}",
-            old_user.formatted(UsernameFormat::Full)
-        ))
+        parse_fragments_with_user(
+            format!(
+                "{} changed host to {new_username}@{new_hostname}",
+                old_user.formatted(UsernameFormat::Full)
+            ),
+            old_user,
+        )
     };
 
     if ourself && !logged_in {
