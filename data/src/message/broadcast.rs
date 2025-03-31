@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 
 use super::{
-    Content, Direction, Message, Source, Target, parse_fragments_with_user, plain, source,
+    parse_fragments_with_user, parse_fragments_with_users, plain, source, Content, Direction, Message, Source, Target
 };
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
@@ -188,10 +188,13 @@ pub fn nickname(
     ourself: bool,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
+    let old_user = User::from(old_nick.clone());
+    let new_user = User::from(new_nick.clone());
+
     let content = if ourself {
-        plain(format!("You're now known as {new_nick}"))
+        parse_fragments_with_user(format!("You're now known as {new_nick}"), &new_user)
     } else {
-        plain(format!("{old_nick} is now known as {new_nick}"))
+        parse_fragments_with_users(format!("{old_nick} is now known as {new_nick}"), &[old_user, new_user])
     };
 
     expand(
