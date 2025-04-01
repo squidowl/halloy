@@ -31,10 +31,11 @@
         <!-- Custom theme stylesheets -->
 
 
-        <!-- Provide site root to javascript -->
+        <!-- Provide site root and default themes to javascript -->
         <script>
-            var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc.js"></script>
@@ -44,8 +45,8 @@
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
-                var theme = localStorage.getItem('mdbook-theme');
-                var sidebar = localStorage.getItem('mdbook-sidebar');
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
 
                 if (theme.startsWith('"') && theme.endsWith('"')) {
                     localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
@@ -59,7 +60,8 @@
 
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script>
-            var theme;
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
             try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
             if (theme === null || theme === undefined) { theme = default_theme; }
             const html = document.documentElement;
@@ -72,8 +74,8 @@
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
-            var sidebar = null;
-            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
@@ -109,6 +111,7 @@
                             <i class="fa fa-paint-brush"></i>
                         </button>
                         <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
@@ -266,11 +269,11 @@ cargo run --release
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started"><a class="header" href="#getting-started">Getting started</a></h1>
 <p>To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the <a href="https://libera.chat/">Libera</a> server. However, there are many other servers available: <a href="https://www.oftc.net/">OFTC</a>, <a href="https://www.undernet.org/">Undernet</a>, <a href="http://www.efnet.org">EFnet</a>, <a href="https://www.quakenet.org/">QuakeNet</a> and <a href="https://netsplit.de/networks/">many more</a>. Halloy can connect to multiple servers at the same time.</p>
-<p>Once connected to a server, you can join channels. This can be done automatically from the config file or manually using the join command: <code>/join #channel</code><sup class="footnote-reference"><a href="#1">1</a></sup>. To find channels, you can either use the list command: <code>/list</code>, or <a href="https://netsplit.de/channels/">browse for channels online</a>.</p>
+<p>Once connected to a server, you can join channels. This can be done automatically from the config file or manually using the join command: <code>/join #channel</code><sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup>. To find channels, you can either use the list command: <code>/list</code>, or <a href="https://netsplit.de/channels/">browse for channels online</a>.</p>
 <blockquote>
 <p>💡 Configuration in Halloy happens through a <code>config.toml</code> file. See <a href="guides/../configuration/">Configuration</a>.</p>
 </blockquote>
-<p>Here are a few useful IRC commands for a new user<sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Here are a few useful IRC commands for a new user<sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
 <div class="table-wrapper"><table><thead><tr><th>Command</th><th>Example</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>/join</code></td><td><code>/join #halloy</code></td><td>Join a new channel</td></tr>
 <tr><td><code>/part</code></td><td><code>/part #halloy</code></td><td>Part a channel</td></tr>
@@ -278,14 +281,14 @@ cargo run --release
 <tr><td><code>/whois nickname</code></td><td><code>/whois halloyisgreat</code></td><td>Displays information of nickname requested</td></tr>
 <tr><td><code>/list *keyword*</code></td><td><code>/list *linux*</code></td><td>List channels. Keyword is optional</td></tr>
 </tbody></table>
-</div>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Channel names always start with a <code>#</code> symbol and do not contain spaces.</p>
-</div>
-<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
-<p>Find more commands <a href="https://en.wikipedia.org/wiki/List_of_Internet_Relay_Chat_commands">here</a>.</p>
-</div>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="get-in-touch"><a class="header" href="#get-in-touch">Get in touch</a></h1>
+</div><hr>
+<ol class="footnote-definition"><li id="footnote-1">
+<p>Channel names always start with a <code>#</code> symbol and do not contain spaces. <a href="#fr-1-1">↩</a></p>
+</li>
+<li id="footnote-2">
+<p>Find more commands <a href="https://en.wikipedia.org/wiki/List_of_Internet_Relay_Chat_commands">here</a>. <a href="#fr-2-1">↩</a></p>
+</li>
+</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="get-in-touch"><a class="header" href="#get-in-touch">Get in touch</a></h1>
 <p>Join <code>#halloy</code> on <code>libera.chat</code> (<a href="ircs://irc.libera.chat/#halloy">link</a>) if you have questions, looking for help or just want to say hello.
 For feature requests or reporting issues, please open a ticket on <a href="https://github.com/squidowl/halloy">GitHub</a>.</p>
 <h2 id="maintainers"><a class="header" href="#maintainers">Maintainers</a></h2>
@@ -1548,7 +1551,7 @@ nickname = ""
 nick_password = ""
 </code></pre>
 <h2 id="nick_password_file"><a class="header" href="#nick_password_file"><code>nick_password_file</code></a></h2>
-<p>Read nick_password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Read nick_password from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1629,7 +1632,7 @@ port = 6697
 password = ""
 </code></pre>
 <h2 id="password_file"><a class="header" href="#password_file"><code>password_file</code></a></h2>
-<p>Read password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Read password from the file at the given path.<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-2"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1737,7 +1740,7 @@ use_tls = true
 dangerously_accept_invalid_certs = false
 </code></pre>
 <h2 id="root_cert_path"><a class="header" href="#root_cert_path"><code>root_cert_path</code></a></h2>
-<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-3"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1814,7 +1817,7 @@ username = "username"
 password = "password"
 </code></pre>
 <h3 id="password_file-1"><a class="header" href="#password_file-1"><code>password_file</code></a></h3>
-<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-4"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-4"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1834,7 +1837,7 @@ password_command = ""
 <h2 id="saslexternal"><a class="header" href="#saslexternal"><code>sasl.external</code></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
 <h3 id="cert"><a class="header" href="#cert"><code>cert</code></a></h3>
-<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-5"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-5"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1843,7 +1846,7 @@ password_command = ""
 cert = "/path/to/your/certificate.pem"
 </code></pre>
 <h3 id="key"><a class="header" href="#key"><code>key</code></a></h3>
-<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference" id="fr-1-6"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-6"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1851,13 +1854,14 @@ cert = "/path/to/your/certificate.pem"
 [servers.&lt;name&gt;.sasl.external]
 key = "/path/to/your/private_key.pem"
 </code></pre>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
-</div>
-<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
-<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
-</div>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
+<hr>
+<ol class="footnote-definition"><li id="footnote-1">
+<p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings. <a href="#fr-1-1">↩</a> <a href="#fr-1-2">↩2</a> <a href="#fr-1-3">↩3</a> <a href="#fr-1-4">↩4</a> <a href="#fr-1-5">↩5</a> <a href="#fr-1-6">↩6</a></p>
+</li>
+<li id="footnote-2">
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-2-1">↩</a> <a href="#fr-2-2">↩2</a> <a href="#fr-2-3">↩3</a> <a href="#fr-2-4">↩4</a> <a href="#fr-2-5">↩5</a> <a href="#fr-2-6">↩6</a></p>
+</li>
+</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
 <p>Sidebar settings for Halloy.</p>
 <h2 id="buffer_action"><a class="header" href="#buffer_action"><code>buffer_action</code></a></h2>
 <p>Action when pressing buffers in the sidebar. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the pressed buffer. <code>"new-window"</code> opens a new window each time.</p>
