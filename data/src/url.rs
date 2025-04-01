@@ -35,6 +35,10 @@ pub fn theme(colors: &theme::Colors) -> String {
     format!("halloy:///theme?e={}", colors.encode_base64())
 }
 
+pub fn theme_submit(colors: &theme::Colors) -> String {
+    format!("https://themes.halloy.chat/submit?e={}", colors.encode_base64())
+}
+
 impl Url {
     pub fn find_in(mut args: impl Iterator<Item = String>) -> Option<Self> {
         args.find_map(|arg| arg.parse().ok())
