@@ -1,11 +1,11 @@
 use chrono::{DateTime, Utc};
-use data::{isupport, message, target, Config, Server, User};
-use iced::widget::{column, container, horizontal_rule, row, scrollable, Scrollable};
+use data::{Config, Server, User, isupport, message, target};
 use iced::Length;
+use iced::widget::{Scrollable, column, container, horizontal_rule, row, scrollable};
 
 use super::user_context;
-use crate::widget::{double_pass, message_content, selectable_text, Element};
-use crate::{theme, Theme};
+use crate::widget::{Element, double_pass, message_content, selectable_text};
+use crate::{Theme, theme};
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -56,10 +56,8 @@ pub fn view<'a>(
             // Otherwise selectable_text component.
             let content = if let Some(user) = channel_user {
                 user_context::view(
-                    selectable_text(
-                        user.display(config.buffer.channel.nicklist.show_access_levels),
-                    )
-                    .style(|theme| theme::selectable_text::topic_nickname(theme, config, user)),
+                    selectable_text(user.nickname().to_string())
+                        .style(|theme| theme::selectable_text::topic_nickname(theme, config, user)),
                     server,
                     casemapping,
                     Some(channel),
