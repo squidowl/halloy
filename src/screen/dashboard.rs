@@ -2004,7 +2004,7 @@ impl Dashboard {
         self.notifications.notify(
             &config.notifications,
             &Notification::FileTransferRequest(request.from.clone()),
-            Some(server),
+            server,
         );
 
         let query =

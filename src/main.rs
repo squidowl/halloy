@@ -441,7 +441,7 @@ impl Halloy {
                         self.notifications.notify(
                             &self.config.notifications,
                             &Notification::Disconnected,
-                            Some(&server),
+                            &server,
                         );
 
                         dashboard
@@ -470,7 +470,7 @@ impl Halloy {
                         self.notifications.notify(
                             &self.config.notifications,
                             &Notification::Connected,
-                            Some(&server),
+                            &server,
                         );
 
                         dashboard
@@ -480,7 +480,7 @@ impl Halloy {
                         self.notifications.notify(
                             &self.config.notifications,
                             &Notification::Reconnected,
-                            Some(&server),
+                            &server,
                         );
 
                         dashboard
@@ -592,7 +592,7 @@ impl Halloy {
                                                     self.notifications.notify(
                                                         &self.config.notifications,
                                                         &Notification::Highlight { user, channel },
-                                                        Some(&server),
+                                                        &server,
                                                     );
                                                 }
                                             }
@@ -815,7 +815,7 @@ impl Halloy {
                                                 self.notifications.notify(
                                                     &self.config.notifications,
                                                     &Notification::DirectMessage(user),
-                                                    None::<Server>,
+                                                    &server,
                                                 );
                                             }
                                         }
@@ -824,14 +824,14 @@ impl Halloy {
                                         self.notifications.notify(
                                             &self.config.notifications,
                                             &Notification::MonitoredOnline(users),
-                                            Some(&server),
+                                            &server,
                                         );
                                     }
                                     data::client::Event::MonitoredOffline(users) => {
                                         self.notifications.notify(
                                             &self.config.notifications,
                                             &Notification::MonitoredOffline(users),
-                                            Some(&server),
+                                            &server,
                                         );
                                     }
                                 }
