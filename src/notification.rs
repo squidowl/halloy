@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use data::{
     audio::Sound,
     config::{self, notification},
-    Notification,
+    Notification, Server,
 };
 
 use crate::audio;
@@ -30,76 +30,64 @@ impl Notifications {
         &mut self,
         config: &config::Notifications<Sound>,
         notification: &Notification,
-        server: Option<impl ToString>,
+        server: &Server,
     ) {
         match notification {
             Notification::Connected => {
-                if let Some(server) = server {
-                    self.execute(
-                        &config.connected,
-                        notification,
-                        "Connected",
-                        server.to_string(),
-                    );
-                }
+                self.execute(
+                    &config.connected,
+                    notification,
+                    "Connected",
+                    server,
+                );
             }
             Notification::Disconnected => {
-                if let Some(server) = server {
-                    self.execute(
-                        &config.disconnected,
-                        notification,
-                        "Disconnected",
-                        server.to_string(),
-                    );
-                }
+                self.execute(
+                    &config.disconnected,
+                    notification,
+                    "Disconnected",
+                    server,
+                );
             }
             Notification::Reconnected => {
-                if let Some(server) = server {
-                    self.execute(
-                        &config.reconnected,
-                        notification,
-                        "Reconnected",
-                        server.to_string(),
-                    );
-                }
+                self.execute(
+                    &config.reconnected,
+                    notification,
+                    "Reconnected",
+                    server,
+                );
             }
             Notification::MonitoredOnline(targets) => {
-                if let Some(server) = server {
-                    targets.iter().for_each(|target| {
-                        self.execute(
-                            &config.monitored_online,
-                            notification,
-                            &format!("{} is online", target.nickname()),
-                            server.to_string(),
-                        );
-                    });
-                }
+                targets.iter().for_each(|target| {
+                    self.execute(
+                        &config.monitored_online,
+                        notification,
+                        &format!("{} is online", target.nickname()),
+                        server,
+                    );
+                });
             }
             Notification::MonitoredOffline(targets) => {
-                if let Some(server) = server {
-                    targets.iter().for_each(|target| {
-                        self.execute(
-                            &config.monitored_offline,
-                            notification,
-                            &format!("{} is offline", target),
-                            server.to_string(),
-                        );
-                    });
-                }
+                targets.iter().for_each(|target| {
+                    self.execute(
+                        &config.monitored_offline,
+                        notification,
+                        &format!("{} is offline", target),
+                        server,
+                    );
+                });
             }
             Notification::FileTransferRequest(nick) => {
-                if let Some(server) = server {
-                    if config
-                        .file_transfer_request
-                        .should_notify(vec![nick.to_string()])
-                    {
-                        self.execute(
-                            &config.file_transfer_request,
-                            notification,
-                            &format!("File transfer from {}", nick),
-                            server.to_string(),
-                        );
-                    }
+                if config
+                    .file_transfer_request
+                    .should_notify(vec![nick.to_string()])
+                {
+                    self.execute(
+                        &config.file_transfer_request,
+                        notification,
+                        &format!("File transfer from {}", nick),
+                        server,
+                    );
                 }
             }
             Notification::DirectMessage(user) => {
@@ -111,7 +99,7 @@ impl Notifications {
                         &config.direct_message,
                         notification,
                         "Direct message",
-                        format!("{} sent you a direct message", user.nickname()),
+                        format!("{} sent you a direct message on {server}", user.nickname()),
                     );
                 }
             }
@@ -124,7 +112,7 @@ impl Notifications {
                         &config.highlight,
                         notification,
                         "Highlight",
-                        format!("{} highlighted you in {}", user.nickname(), channel),
+                        format!("{} highlighted you in {channel} on {server}", user.nickname()),
                     );
                 }
             }
