@@ -16,8 +16,9 @@ use data::{
     history, preview,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{Space, column, container, row};
-use iced::{Length, Task, Vector, clipboard};
+use iced::widget::{column, container, row, Space};
+use iced::window::get_position;
+use iced::{clipboard, Length, Task, Vector};
 use log::{debug, error};
 
 use self::command_bar::CommandBar;
@@ -70,6 +71,7 @@ pub enum Message {
     ConfigReloaded(Result<Config, config::Error>),
     Client(client::Message),
     LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
+    NewWindow(window::Id, Pane),
 }
 
 #[derive(Debug)]
@@ -274,6 +276,7 @@ impl Dashboard {
                                                     task,
                                                     self.open_buffer(
                                                         data::Buffer::Upstream(buffer),
+                                                        config.buffer_actions.message_user,
                                                         config,
                                                     ),
                                                 ]),
@@ -338,13 +341,32 @@ impl Dashboard {
                                         .map(buffer::Upstream::server)
                                         .cloned()
                                     {
-                                        for target in targets {
-                                            tasks.push(self.open_target(
-                                                server.clone(),
-                                                target,
-                                                clients,
-                                                config,
-                                            ));
+                                        for (target, buffer_action) in targets {
+                                            match target {
+                                                Target::Channel(channel) => {
+                                                    tasks.push(self.open_channel(
+                                                        server.clone(),
+                                                        channel,
+                                                        clients,
+                                                        buffer_action,
+                                                        config,
+                                                    ));
+                                                }
+                                                Target::Query(query) => {
+                                                    let buffer = data::Buffer::Upstream(
+                                                        buffer::Upstream::Query(
+                                                            server.clone(),
+                                                            query,
+                                                        ),
+                                                    );
+
+                                                    tasks.push(self.open_buffer(
+                                                        buffer.clone(),
+                                                        buffer_action,
+                                                        config,
+                                                    ));
+                                                }
+                                            }
                                         }
                                     }
 
@@ -364,7 +386,11 @@ impl Dashboard {
                                     let mut tasks = vec![];
 
                                     if self.panes.get_mut_by_buffer(&buffer).is_none() {
-                                        tasks.push(self.open_buffer(buffer.clone(), config));
+                                        tasks.push(self.open_buffer(
+                                            buffer.clone(),
+                                            config.buffer_actions.click_highlight,
+                                            config,
+                                        ));
                                     }
 
                                     if let Some((window, pane, state)) =
@@ -456,7 +482,7 @@ impl Dashboard {
                         }
                     }
                     pane::Message::MaximizePane => self.maximize_pane(),
-                    pane::Message::Popout => return (self.popout_pane(main_window), None),
+                    pane::Message::Popout => return (self.popout_pane(config), None),
                     pane::Message::Merge => return (self.merge_pane(config), None),
                     pane::Message::ScrollToBottom => {
                         let Focus { window, pane } = self.focus;
@@ -480,70 +506,39 @@ impl Dashboard {
                 };
 
                 let (event_task, event) = match event {
-                    sidebar::Event::Open(buffer) => (
-                        self.open_buffer(data::Buffer::Upstream(buffer), config),
+                    sidebar::Event::New(buffer) => (
+                        self.open_buffer(
+                            data::Buffer::Upstream(buffer),
+                            BufferAction::NewPane,
+                            config,
+                        ),
                         None,
                     ),
                     sidebar::Event::Popout(buffer) => (
-                        self.open_popout_window(
-                            main_window,
-                            Pane::new(Buffer::from(data::Buffer::Upstream(buffer))),
+                        self.open_buffer(
+                            data::Buffer::Upstream(buffer),
+                            BufferAction::NewWindow,
+                            config,
                         ),
                         None,
                     ),
                     sidebar::Event::Focus(window, pane) => (self.focus_pane(window, pane), None),
-                    sidebar::Event::Replace(buffer) => {
-                        let Focus { window, pane } = self.focus;
-
-                        if let Some(state) = self.panes.get_mut(window, pane) {
-                            state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
-                            self.last_changed = Some(Instant::now());
-
-                            (
-                                Task::batch(vec![
-                                    self.reset_pane(window, pane),
-                                    self.focus_pane(window, pane),
-                                ]),
-                                None,
-                            )
-                        } else {
-                            (Task::none(), None)
-                        }
-                    }
-                    sidebar::Event::Close(window, pane) => (self.close_pane(window, pane), None),
-                    sidebar::Event::Swap(from_window, from_pane) => {
-                        self.last_changed = Some(Instant::now());
-
-                        let Focus {
-                            window: to_window,
-                            pane: to_pane,
-                        } = self.focus;
-
-                        if from_window == main_window.id && to_window == main_window.id {
-                            self.panes.main.swap(from_pane, to_pane);
-                            (self.focus_pane(from_window, from_pane), None)
-                        } else {
-                            if let Some((from_state, to_state)) = self
-                                .panes
-                                .get(from_window, from_pane)
-                                .cloned()
-                                .zip(self.panes.get(to_window, to_pane).cloned())
-                            {
-                                if let Some(state) = self.panes.get_mut(from_window, from_pane) {
-                                    *state = to_state;
-                                }
-                                if let Some(state) = self.panes.get_mut(to_window, to_pane) {
-                                    *state = from_state;
-                                }
-                            }
-                            (Task::none(), None)
-                        }
-                    }
-                    sidebar::Event::Leave(buffer) => self.leave_buffer(clients, buffer),
-                    sidebar::Event::ToggleInternalBuffer(buffer) => (
-                        self.toggle_internal_buffer(config, main_window, buffer),
+                    sidebar::Event::Replace(buffer) => (
+                        self.open_buffer(
+                            data::Buffer::Upstream(buffer),
+                            BufferAction::ReplacePane,
+                            config,
+                        ),
                         None,
                     ),
+                    sidebar::Event::Close(window, pane) => (self.close_pane(window, pane), None),
+                    sidebar::Event::Swap(window, pane) => {
+                        (self.swap_pane_with_focus(window, pane), None)
+                    }
+                    sidebar::Event::Leave(buffer) => self.leave_buffer(clients, buffer),
+                    sidebar::Event::ToggleInternalBuffer(buffer) => {
+                        (self.toggle_internal_buffer(config, buffer), None)
+                    }
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
                             &closed_buffers(self, clients),
@@ -680,31 +675,19 @@ impl Dashboard {
                                     let Focus { window, pane } = self.focus;
                                     (self.close_pane(window, pane), None)
                                 }
-                                command_bar::Buffer::Replace(buffer) => {
-                                    let mut commands = vec![];
-
-                                    let Focus { window, pane } = self.focus;
-
-                                    if let Some(state) = self.panes.get_mut(window, pane) {
-                                        state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
-                                        self.last_changed = Some(Instant::now());
-
-                                        commands.extend(vec![
-                                            self.reset_pane(window, pane),
-                                            self.focus_pane(window, pane),
-                                        ]);
-                                    }
-
-                                    (Task::batch(commands), None)
-                                }
-                                command_bar::Buffer::Popout => {
-                                    (self.popout_pane(main_window), None)
-                                }
-                                command_bar::Buffer::Merge => (self.merge_pane(config), None),
-                                command_bar::Buffer::ToggleInternal(buffer) => (
-                                    self.toggle_internal_buffer(config, main_window, buffer),
+                                command_bar::Buffer::Replace(buffer) => (
+                                    self.open_buffer(
+                                        data::Buffer::Upstream(buffer),
+                                        BufferAction::ReplacePane,
+                                        config,
+                                    ),
                                     None,
                                 ),
+                                command_bar::Buffer::Popout => (self.popout_pane(config), None),
+                                command_bar::Buffer::Merge => (self.merge_pane(config), None),
+                                command_bar::Buffer::ToggleInternal(buffer) => {
+                                    (self.toggle_internal_buffer(config, buffer), None)
+                                }
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::OpenConfigDirectory => {
@@ -910,21 +893,13 @@ impl Dashboard {
                     }
                     FileTransfers => {
                         return (
-                            self.toggle_internal_buffer(
-                                config,
-                                main_window,
-                                buffer::Internal::FileTransfers,
-                            ),
+                            self.toggle_internal_buffer(config, buffer::Internal::FileTransfers),
                             None,
                         );
                     }
                     Logs => {
                         return (
-                            self.toggle_internal_buffer(
-                                config,
-                                main_window,
-                                buffer::Internal::Logs,
-                            ),
+                            self.toggle_internal_buffer(config, buffer::Internal::Logs),
                             None,
                         );
                     }
@@ -933,11 +908,7 @@ impl Dashboard {
                     }
                     Highlight => {
                         return (
-                            self.toggle_internal_buffer(
-                                config,
-                                main_window,
-                                buffer::Internal::Highlights,
-                            ),
+                            self.toggle_internal_buffer(config, buffer::Internal::Highlights),
                             None,
                         );
                     }
@@ -1168,6 +1139,12 @@ impl Dashboard {
                     self.previews.insert(url, preview::State::Error(error));
                 }
             }
+            Message::NewWindow(window, pane) => {
+                let (state, pane) = pane_grid::State::new(pane);
+                self.panes.popout.insert(window, state);
+
+                return (self.focus_pane(window, pane), None);
+            }
         }
 
         (Task::none(), None)
@@ -1272,8 +1249,7 @@ impl Dashboard {
                 &self.history,
                 &self.panes,
                 self.focus,
-                config.sidebar,
-                &config.keyboard,
+                config,
                 &self.file_transfers,
                 version,
             )
@@ -1364,7 +1340,10 @@ impl Dashboard {
                 }
             }
             Copy => selectable_text::selected(Message::SelectedText),
-            LeftClick => self.refocus_pane(),
+            LeftClick => {
+                log::debug!("here?");
+                self.refocus_pane()
+            }
         }
     }
 
@@ -1384,7 +1363,6 @@ impl Dashboard {
     fn toggle_internal_buffer(
         &mut self,
         config: &Config,
-        main_window: &Window,
         buffer: buffer::Internal,
     ) -> Task<Message> {
         let panes = self.panes.clone();
@@ -1396,73 +1374,124 @@ impl Dashboard {
         if let Some((window, pane)) = open {
             self.close_pane(window, pane)
         } else {
-            match config.sidebar.buffer_action {
-                // Don't replace for internal buffers
-                BufferAction::NewPane | BufferAction::ReplacePane => {
-                    self.open_buffer(data::Buffer::Internal(buffer), config)
-                }
-                BufferAction::NewWindow => self.open_popout_window(
-                    main_window,
-                    Pane::new(Buffer::from(data::Buffer::Internal(buffer))),
-                ),
-            }
+            self.open_buffer(
+                data::Buffer::Internal(buffer),
+                config.buffer_actions.local_buffer,
+                config,
+            )
         }
     }
 
-    fn open_buffer(&mut self, buffer: data::Buffer, config: &Config) -> Task<Message> {
+    fn open_buffer(
+        &mut self,
+        buffer: data::Buffer,
+        buffer_action: BufferAction,
+        config: &Config,
+    ) -> Task<Message> {
         let panes = self.panes.clone();
 
-        // If buffer already is open, we focus it.
-        for (window, id, pane) in panes.iter() {
-            if pane.buffer.data().as_ref() == Some(&buffer) {
-                self.focus = Focus { window, pane: id };
-
-                return self.focus_pane(window, id);
-            }
-        }
-
-        // If we only have one pane, and its empty, we replace it.
-        if self.panes.len() == 1 {
-            for (id, pane) in panes.main.iter() {
-                if matches!(pane.buffer, Buffer::Empty) {
-                    self.panes
-                        .main
-                        .panes
-                        .entry(*id)
-                        .and_modify(|p| *p = Pane::new(Buffer::from(buffer)));
-                    self.last_changed = Some(Instant::now());
-
-                    return self.focus_pane(self.main_window(), *id);
-                }
-            }
-        }
-
-        let pane_to_split = {
-            if self.focus.window == self.main_window() {
-                self.focus.pane
-            } else if let Some(pane) = self.panes.main.panes.keys().last() {
-                *pane
-            } else {
-                log::error!("Didn't find any panes");
-                return Task::none();
-            }
-        };
-
-        let result = self.panes.main.split(
-            match config.pane.split_axis {
-                config::pane::SplitAxis::Horizontal => pane_grid::Axis::Horizontal,
-                config::pane::SplitAxis::Vertical => pane_grid::Axis::Vertical,
-            },
-            pane_to_split,
-            Pane::new(Buffer::from(buffer)),
-        );
         self.last_changed = Some(Instant::now());
 
-        if let Some((pane, _)) = result {
-            return self.focus_pane(self.main_window(), pane);
-        }
+        match buffer_action {
+            BufferAction::ReplacePane => {
+                // If buffer already is open, we swap it with focused pane.
+                for (window, id, pane) in panes.iter() {
+                    if pane.buffer.data().as_ref() == Some(&buffer) {
+                        if window != self.focus.window || id != self.focus.pane {
+                            return self.swap_pane_with_focus(window, id);
+                        } else {
+                            return Task::none();
+                        }
+                    }
+                }
 
-        Task::none()
+                let Focus { window, pane } = self.focus;
+
+                if let Some(state) = self.panes.get_mut(window, pane) {
+                    state.buffer = Buffer::from(buffer);
+                    self.last_changed = Some(Instant::now());
+
+                    Task::batch(vec![
+                        self.reset_pane(window, pane),
+                        self.focus_pane(window, pane),
+                    ])
+                } else {
+                    log::error!("Didn't find any panes to replace");
+                    Task::none()
+                }
+            }
+            BufferAction::NewPane => {
+                // If buffer already is open, we focus it.
+                for (window, id, pane) in panes.iter() {
+                    if pane.buffer.data().as_ref() == Some(&buffer) {
+                        self.focus = Focus { window, pane: id };
+
+                        return self.focus_pane(window, id);
+                    }
+                }
+
+                // If we only have one pane, and its empty, we replace it.
+                if self.panes.len() == 1 {
+                    for (id, pane) in panes.main.iter() {
+                        if matches!(pane.buffer, Buffer::Empty) {
+                            self.panes
+                                .main
+                                .panes
+                                .entry(*id)
+                                .and_modify(|p| *p = Pane::new(Buffer::from(buffer)));
+                            self.last_changed = Some(Instant::now());
+
+                            return self.focus_pane(self.main_window(), *id);
+                        }
+                    }
+                }
+
+                let pane_to_split = {
+                    if self.focus.window == self.main_window() {
+                        self.focus.pane
+                    } else if let Some(pane) = self.panes.main.panes.keys().last() {
+                        *pane
+                    } else {
+                        log::error!("Didn't find any panes to split");
+                        return Task::none();
+                    }
+                };
+
+                let result = self.panes.main.split(
+                    match config.pane.split_axis {
+                        config::pane::SplitAxis::Horizontal => pane_grid::Axis::Horizontal,
+                        config::pane::SplitAxis::Vertical => pane_grid::Axis::Vertical,
+                    },
+                    pane_to_split,
+                    Pane::new(Buffer::from(buffer)),
+                );
+
+                if let Some((pane, _)) = result {
+                    return self.focus_pane(self.main_window(), pane);
+                }
+
+                Task::none()
+            }
+            BufferAction::NewWindow => {
+                get_position(self.main_window()).then(move |main_window_position| {
+                    let (_, task) = window::open(window::Settings {
+                        // Just big enough to show all components in combobox
+                        position: main_window_position
+                            .map(|point| {
+                                window::Position::Specific(point + Vector::new(20.0, 20.0))
+                            })
+                            .unwrap_or_default(),
+                        exit_on_close_request: false,
+                        ..window::settings()
+                    });
+
+                    task.map({
+                        let pane = Pane::new(Buffer::from(buffer.clone()));
+                        move |id| Message::NewWindow(id, pane.clone())
+                    })
+                })
+            }
+        }
     }
 
     pub fn leave_buffer(
@@ -1851,7 +1880,7 @@ impl Dashboard {
         Task::none()
     }
 
-    fn popout_pane(&mut self, main_window: &Window) -> Task<Message> {
+    fn popout_pane(&mut self, config: &Config) -> Task<Message> {
         let Focus { pane, .. } = self.focus;
 
         self.focus_history = self
@@ -1862,7 +1891,9 @@ impl Dashboard {
             .collect();
 
         if let Some((pane, _)) = self.panes.main.close(pane) {
-            return self.open_popout_window(main_window, pane);
+            if let Some(buffer) = pane.buffer.data() {
+                return self.open_buffer(buffer, BufferAction::NewWindow, config);
+            }
         }
 
         Task::none()
@@ -1878,7 +1909,7 @@ impl Dashboard {
             .and_then(|panes| panes.get(pane).cloned())
         {
             let task = match pane.buffer.data() {
-                Some(buffer) => self.open_buffer(buffer, config),
+                Some(buffer) => self.open_buffer(buffer, BufferAction::NewPane, config),
                 None => self.new_pane(pane_grid::Axis::Horizontal),
             };
 
@@ -1889,6 +1920,41 @@ impl Dashboard {
         }
 
         Task::none()
+    }
+
+    fn swap_pane_with_focus(
+        &mut self,
+        from_window: window::Id,
+        from_pane: pane_grid::Pane,
+    ) -> Task<Message> {
+        self.last_changed = Some(Instant::now());
+
+        let Focus {
+            window: to_window,
+            pane: to_pane,
+        } = self.focus;
+
+        if from_window == self.main_window() && to_window == self.main_window() {
+            self.panes.main.swap(from_pane, to_pane);
+
+            self.focus_pane(from_window, from_pane)
+        } else {
+            if let Some((from_state, to_state)) = self
+                .panes
+                .get(from_window, from_pane)
+                .cloned()
+                .zip(self.panes.get(to_window, to_pane).cloned())
+            {
+                if let Some(state) = self.panes.get_mut(from_window, from_pane) {
+                    *state = to_state;
+                }
+                if let Some(state) = self.panes.get_mut(to_window, to_pane) {
+                    *state = from_state;
+                }
+            }
+
+            Task::none()
+        }
     }
 
     pub fn track(&mut self) -> Task<Message> {
@@ -2109,7 +2175,9 @@ impl Dashboard {
                 continue;
             };
 
-            tasks.push(dashboard.open_popout_window(main_window, pane));
+            if let Some(buffer) = pane.buffer.data() {
+                tasks.push(dashboard.open_buffer(buffer, BufferAction::NewWindow, config));
+            }
         }
 
         let tasks = Task::batch(tasks).chain(dashboard.focus_pane(focus.window, focus.pane));
@@ -2208,33 +2276,12 @@ impl Dashboard {
         )
     }
 
-    fn open_popout_window(&mut self, main_window: &Window, pane: Pane) -> Task<Message> {
-        self.last_changed = Some(Instant::now());
-
-        let (window, task) = window::open(window::Settings {
-            // Just big enough to show all components in combobox
-            position: main_window
-                .position
-                .map(|point| window::Position::Specific(point + Vector::new(20.0, 20.0)))
-                .unwrap_or_default(),
-            exit_on_close_request: false,
-            ..window::settings()
-        });
-
-        let (state, pane) = pane_grid::State::new(pane);
-        self.panes.popout.insert(window, state);
-
-        Task::batch(vec![
-            task.then(|_| Task::none()),
-            self.focus_pane(window, pane),
-        ])
-    }
-
     fn open_channel(
         &mut self,
         server: Server,
         channel: target::Channel,
         clients: &mut data::client::Map,
+        buffer_action: BufferAction,
         config: &Config,
     ) -> Task<Message> {
         let buffer = buffer::Upstream::Channel(server.clone(), channel.clone());
@@ -2248,16 +2295,7 @@ impl Dashboard {
             clients.join(&server, slice::from_ref(&channel));
         }
 
-        // Check if pane is already open
-        let matching_pane = self.panes.iter().find_map(|(window, pane, state)| {
-            (state.buffer.upstream() == Some(&buffer)).then_some((window, pane))
-        });
-
-        if let Some((window, pane)) = matching_pane {
-            self.focus_pane(window, pane)
-        } else {
-            self.open_buffer(data::Buffer::Upstream(buffer), config)
-        }
+        self.open_buffer(data::Buffer::Upstream(buffer), buffer_action, config)
     }
 
     pub fn open_target(

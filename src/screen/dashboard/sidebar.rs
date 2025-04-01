@@ -1,24 +1,24 @@
-use data::config::{self, Config, sidebar};
+use data::config::{self, sidebar, Config};
 use data::dashboard::{BufferAction, BufferFocusedAction};
-use data::{Version, buffer, file_transfer, history};
+use data::{buffer, file_transfer, history, Version};
 use iced::widget::{
-    Column, Row, Scrollable, Space, button, column, container, horizontal_rule, horizontal_space,
-    pane_grid, row, scrollable, text, vertical_rule, vertical_space,
+    button, column, container, horizontal_rule, horizontal_space, pane_grid, row, scrollable, text,
+    vertical_rule, vertical_space, Column, Row, Scrollable, Space,
 };
-use iced::{Alignment, Length, Task, padding};
+use iced::{padding, Alignment, Length, Task};
 use std::time::Duration;
 
 use tokio::time;
 
 use super::{Focus, Panes};
-use crate::widget::{Element, Text, context_menu, double_pass};
+use crate::widget::{context_menu, double_pass, Element, Text};
 use crate::{icon, theme, window};
 
 const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Open(buffer::Upstream),
+    New(buffer::Upstream),
     Popout(buffer::Upstream),
     Focus(window::Id, pane_grid::Pane),
     Replace(buffer::Upstream),
@@ -37,7 +37,7 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Open(buffer::Upstream),
+    New(buffer::Upstream),
     Popout(buffer::Upstream),
     Focus(window::Id, pane_grid::Pane),
     Replace(buffer::Upstream),
@@ -78,7 +78,7 @@ impl Sidebar {
 
     pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
         match message {
-            Message::Open(source) => (Task::none(), Some(Event::Open(source))),
+            Message::New(source) => (Task::none(), Some(Event::New(source))),
             Message::Popout(source) => (Task::none(), Some(Event::Popout(source))),
             Message::Focus(window, pane) => (Task::none(), Some(Event::Focus(window, pane))),
             Message::Replace(source) => (Task::none(), Some(Event::Replace(source))),
@@ -231,8 +231,7 @@ impl Sidebar {
         history: &'a history::Manager,
         panes: &'a Panes,
         focus: Focus,
-        config: data::config::Sidebar,
-        keyboard: &'a data::config::Keyboard,
+        config: &'a Config,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
     ) -> Option<Element<'a, Message>> {
@@ -242,8 +241,9 @@ impl Sidebar {
 
         let content = |width| {
             let user_menu_button = config
+                .sidebar
                 .show_user_menu
-                .then(|| self.user_menu_button(keyboard, file_transfers, version));
+                .then(|| self.user_menu_button(&config.keyboard, file_transfers, version));
 
             let mut buffers = vec![];
 
@@ -254,10 +254,10 @@ impl Sidebar {
                         focus,
                         buffer,
                         connected,
-                        config.buffer_action,
-                        config.buffer_focused_action,
-                        config.position,
-                        config.unread_indicator,
+                        config.buffer_actions.click_buffer,
+                        config.buffer_actions.click_focused_buffer,
+                        config.sidebar.position,
+                        config.sidebar.unread_indicator,
                         has_unread,
                         width,
                     )
@@ -308,7 +308,7 @@ impl Sidebar {
                         }
 
                         // Separator between servers.
-                        if config.position.is_horizontal() {
+                        if config.sidebar.position.is_horizontal() {
                             if i + 1 < clients.len() {
                                 buffers.push(
                                     container(vertical_rule(1))
@@ -326,16 +326,14 @@ impl Sidebar {
                 }
             }
 
-            match config.position {
+            match config.sidebar.position {
                 sidebar::Position::Left | sidebar::Position::Right => {
                     // Add buffers to a column.
-                    let buffers = column![
-                        Scrollable::new(Column::with_children(buffers).spacing(1)).direction(
-                            scrollable::Direction::Vertical(
+                    let buffers =
+                        column![Scrollable::new(Column::with_children(buffers).spacing(1))
+                            .direction(scrollable::Direction::Vertical(
                                 scrollable::Scrollbar::default().width(2).scroller_width(2)
-                            )
-                        )
-                    ];
+                            ))];
 
                     // Wrap buffers in a column with user_menu_button
                     let content = column![container(buffers).height(Length::Fill)]
@@ -345,13 +343,10 @@ impl Sidebar {
                 }
                 sidebar::Position::Top | sidebar::Position::Bottom => {
                     // Add buffers to a row.
-                    let buffers = row![
-                        Scrollable::new(Row::with_children(buffers).spacing(2)).direction(
-                            scrollable::Direction::Horizontal(
-                                scrollable::Scrollbar::default().width(2).scroller_width(2)
-                            )
-                        )
-                    ];
+                    let buffers = row![Scrollable::new(Row::with_children(buffers).spacing(2))
+                        .direction(scrollable::Direction::Horizontal(
+                            scrollable::Scrollbar::default().width(2).scroller_width(2)
+                        ))];
 
                     // Wrap buffers in a row with user_menu_button
                     let content = row![container(buffers).width(Length::Fill)]
@@ -363,21 +358,27 @@ impl Sidebar {
             }
         };
 
-        let padding = match config.position {
+        let padding = match config.sidebar.position {
             sidebar::Position::Left => padding::top(8).bottom(6).left(6),
             sidebar::Position::Right => padding::top(8).bottom(6).right(6),
             sidebar::Position::Top => padding::top(8).left(6).right(6),
             sidebar::Position::Bottom => padding::bottom(8).left(6).right(6),
         };
 
-        let content = if config.position.is_horizontal() {
+        let content = if config.sidebar.position.is_horizontal() {
             container(content(Length::Shrink).width(Length::Fill).padding(padding)).into()
         } else {
             let first_pass = content(Length::Shrink);
             let second_pass = content(Length::Fill);
 
             container(double_pass(first_pass, second_pass))
-                .max_width(config.max_width.map_or(f32::INFINITY, f32::from))
+                .max_width(
+                    config
+                        .sidebar
+                        .max_width
+                        .map(f32::from)
+                        .unwrap_or(f32::INFINITY),
+                )
                 .width(Length::Shrink)
                 .padding(padding)
                 .into()
@@ -563,7 +564,7 @@ fn upstream_buffer_button(
                         Some(Message::Focus(window, pane))
                     } else {
                         match buffer_action {
-                            BufferAction::NewPane => Some(Message::Open(buffer.clone())),
+                            BufferAction::NewPane => Some(Message::New(buffer.clone())),
                             BufferAction::ReplacePane => Some(Message::Replace(buffer.clone())),
                             BufferAction::NewWindow => Some(Message::Popout(buffer.clone())),
                         }
@@ -579,7 +580,7 @@ fn upstream_buffer_button(
     } else {
         context_menu(context_menu::MouseButton::default(), base, entries, move |entry, length| {
             let (content, message) = match entry {
-                Entry::NewPane => ("Open in new pane", Message::Open(buffer.clone())),
+                Entry::NewPane => ("Open in new pane", Message::New(buffer.clone())),
                 Entry::Popout => ("Open in new window", Message::Popout(buffer.clone())),
                 Entry::Replace => ("Replace current pane", Message::Replace(buffer.clone())),
                 Entry::Close(window, pane) => ("Close pane", Message::Close(window, pane)),

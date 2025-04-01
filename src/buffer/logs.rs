@@ -1,4 +1,6 @@
-use data::{client, history, isupport, message, target, Config};
+use data::dashboard::BufferAction;
+use data::target::Target;
+use data::{client, history, isupport, message, Config};
 use iced::widget::container;
 use iced::{Length, Task};
 
@@ -13,7 +15,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(target::Channel),
+    OpenBuffer(Target, BufferAction),
     History(Task<history::manager::Message>),
 }
 
@@ -87,7 +89,9 @@ impl Logs {
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
-                    scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
+                    scroll_view::Event::OpenBuffer(target, buffer_action) => {
+                        Some(Event::OpenBuffer(target, buffer_action))
+                    }
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
