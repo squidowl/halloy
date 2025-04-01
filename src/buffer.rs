@@ -1,4 +1,5 @@
 pub use data::buffer::{Internal, Settings, Upstream};
+use data::dashboard::BufferAction;
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{buffer, file_transfer, history, message, preview, Config};
@@ -25,7 +26,7 @@ mod scroll_view;
 pub mod server;
 pub mod user_context;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Buffer {
     Empty,
     Channel(Channel),
@@ -48,7 +49,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenBuffers(Vec<Target>),
+    OpenBuffers(Vec<(Target, BufferAction)>),
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -157,8 +158,8 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     logs::Event::UserContext(event) => Event::UserContext(event),
-                    logs::Event::OpenChannel(channel) => {
-                        Event::OpenBuffers(vec![Target::Channel(channel)])
+                    logs::Event::OpenBuffer(target, buffer_action) => {
+                        Event::OpenBuffers(vec![(target, buffer_action)])
                     }
                     logs::Event::History(task) => Event::History(task),
                 });
@@ -170,8 +171,8 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     highlights::Event::UserContext(event) => Event::UserContext(event),
-                    highlights::Event::OpenChannel(channel) => {
-                        Event::OpenBuffers(vec![Target::Channel(channel)])
+                    highlights::Event::OpenBuffer(target, buffer_action) => {
+                        Event::OpenBuffers(vec![(target, buffer_action)])
                     }
                     highlights::Event::GoToMessage(server, channel, message) => {
                         Event::GoToMessage(server, channel, message)

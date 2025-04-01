@@ -1,3 +1,4 @@
+use data::dashboard::BufferAction;
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::Nick;
@@ -22,7 +23,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenBuffers(Vec<Target>),
+    OpenBuffers(Vec<(Target, BufferAction)>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
@@ -386,8 +387,8 @@ impl Channel {
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
-                    scroll_view::Event::OpenChannel(channel) => {
-                        Some(Event::OpenBuffers(vec![Target::Channel(channel)]))
+                    scroll_view::Event::OpenBuffer(target, buffer_action) => {
+                        Some(Event::OpenBuffers(vec![(target, buffer_action)]))
                     }
                     scroll_view::Event::GoToMessage(..) => None,
                     scroll_view::Event::RequestOlderChatHistory => {
@@ -430,9 +431,10 @@ impl Channel {
                 Task::none(),
                 topic::update(message).map(|event| match event {
                     topic::Event::UserContext(event) => Event::UserContext(event),
-                    topic::Event::OpenChannel(channel) => {
-                        Event::OpenBuffers(vec![Target::Channel(channel)])
-                    }
+                    topic::Event::OpenChannel(channel) => Event::OpenBuffers(vec![(
+                        Target::Channel(channel),
+                        config.buffer_actions.click_channel_name,
+                    )]),
                 }),
             ),
         }
