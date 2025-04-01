@@ -1,14 +1,14 @@
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{buffer, history, message, preview, Config, User};
+use data::{Config, User, buffer, history, message, preview};
 use iced::advanced::text;
 use iced::widget::{column, container, row};
-use iced::{padding, Length, Task};
+use iced::{Length, Task, padding};
 
 use super::{input_view, scroll_view, user_context};
-use crate::widget::{message_content, message_marker, selectable_text, Element};
-use crate::{theme, Theme};
+use crate::widget::{Element, message_content, message_marker, selectable_text};
+use crate::{Theme, theme};
 
 mod topic;
 
@@ -103,7 +103,8 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::User(user) => {
-                        let current_user = users.iter().find(|current_user| *current_user == user);
+                        let current_user: Option<&User> =
+                            users.iter().find(|current_user| *current_user == user);
 
                         let mut text = selectable_text(
                             config
@@ -181,21 +182,41 @@ pub fn view<'a>(
                             ),
                         }
                     }
-                    message::Source::Server(server) => {
+                    message::Source::Server(server_message) => {
                         let message_style = move |message_theme: &Theme| {
-                            theme::selectable_text::server(message_theme, server.as_ref())
+                            theme::selectable_text::server(message_theme, server_message.as_ref())
                         };
 
                         let marker = message_marker(max_nick_width, message_style);
 
-                        let message = message_content(
+                        let message_content = message_content::with_context(
                             &message.content,
                             casemapping,
                             theme,
                             scroll_view::Message::Link,
                             message_style,
+                            move |link| match link {
+                                message::Link::User(_) => user_context::Entry::list(true, our_user),
+                                _ => vec![],
+                            },
+                            move |link, entry, length| match link {
+                                message::Link::User(user) => entry
+                                    .view(
+                                        server,
+                                        casemapping,
+                                        Some(channel),
+                                        user,
+                                        users.iter().find(|current_user| *current_user == user),
+                                        length,
+                                        config,
+                                    )
+                                    .map(scroll_view::Message::UserContext),
+                                _ => row![].into(),
+                            },
                             config,
                         );
+
+                        let text_container = container(message_content);
 
                         Some(
                             container(
@@ -204,7 +225,7 @@ pub fn view<'a>(
                                     .push_maybe(prefixes)
                                     .push(marker)
                                     .push(space)
-                                    .push(message),
+                                    .push(text_container),
                             )
                             .into(),
                         )
@@ -466,14 +487,14 @@ fn topic<'a>(
 }
 
 mod nick_list {
-    use data::{config, isupport, target, Config, Server, User};
-    use iced::advanced::text;
-    use iced::widget::{column, scrollable, Scrollable};
+    use data::{Config, Server, User, config, isupport, target};
     use iced::Length;
+    use iced::advanced::text;
+    use iced::widget::{Scrollable, column, scrollable};
     use user_context::Message;
 
     use crate::buffer::user_context;
-    use crate::widget::{selectable_text, Element};
+    use crate::widget::{Element, selectable_text};
     use crate::{font, theme};
 
     pub fn view<'a>(
