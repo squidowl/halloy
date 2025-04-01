@@ -373,7 +373,7 @@ impl std::fmt::Display for AccessLevel {
             AccessLevel::Member => "",
         };
 
-        write!(f, "{}", access_level)
+        write!(f, "{access_level}")
     }
 }
 

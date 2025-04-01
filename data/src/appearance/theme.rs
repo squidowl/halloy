@@ -228,12 +228,12 @@ pub fn color_to_hex(color: Color) -> String {
     let [r, g, b, a] = color.into_rgba8();
 
     let _ = write!(&mut hex, "#");
-    let _ = write!(&mut hex, "{:02X}", r);
-    let _ = write!(&mut hex, "{:02X}", g);
-    let _ = write!(&mut hex, "{:02X}", b);
+    let _ = write!(&mut hex, "{r:02X}");
+    let _ = write!(&mut hex, "{g:02X}");
+    let _ = write!(&mut hex, "{b:02X}");
 
     if a < u8::MAX {
-        let _ = write!(&mut hex, "{:02X}", a);
+        let _ = write!(&mut hex, "{a:02X}");
     }
 
     hex

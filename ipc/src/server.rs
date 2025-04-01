@@ -13,7 +13,7 @@ fn server_path() -> String {
         .unwrap()
         .as_secs();
 
-    format!("halloy-{}", nonce)
+    format!("halloy-{nonce}")
 }
 
 #[cfg(windows)]
@@ -67,7 +67,7 @@ pub fn listen() -> futures::stream::BoxStream<'static, String> {
             State::Uninitialized => match spawn_server().await {
                 Ok(server) => Some((None, State::Waiting(server))),
                 Err(err) => {
-                    println!("error: {:?}", err);
+                    println!("error: {err:?}");
                     None
                 }
             },
