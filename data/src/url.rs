@@ -121,7 +121,7 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
             if channel.starts_with('#') {
                 Some(channel.to_string())
             } else {
-                Some(format!("#{}", channel))
+                Some(format!("#{channel}"))
             }
         };
 

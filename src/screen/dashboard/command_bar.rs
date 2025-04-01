@@ -207,13 +207,13 @@ impl Command {
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Command::Buffer(buffer) => write!(f, "Buffer: {}", buffer),
-            Command::Configuration(config) => write!(f, "Configuration: {}", config),
-            Command::UI(ui) => write!(f, "UI: {}", ui),
-            Command::Theme(theme) => write!(f, "Theme: {}", theme),
-            Command::Version(application) => write!(f, "Version: {}", application),
-            Command::Window(window) => write!(f, "Window: {}", window),
-            Command::Application(application) => write!(f, "Application: {}", application),
+            Command::Buffer(buffer) => write!(f, "Buffer: {buffer}"),
+            Command::Configuration(config) => write!(f, "Configuration: {config}"),
+            Command::UI(ui) => write!(f, "UI: {ui}"),
+            Command::Theme(theme) => write!(f, "Theme: {theme}"),
+            Command::Version(application) => write!(f, "Version: {application}"),
+            Command::Window(window) => write!(f, "Window: {window}"),
+            Command::Application(application) => write!(f, "Application: {application}"),
         }
     }
 }
@@ -323,7 +323,7 @@ impl std::fmt::Display for Version {
                     .remote
                     .as_ref()
                     .filter(|remote| remote != &&version.current)
-                    .map(|remote| format!("(Latest: {})", remote))
+                    .map(|remote| format!("(Latest: {remote})"))
                     .unwrap_or("(Latest release)".to_owned());
 
                 write!(f, "{} {}", version.current, latest)
@@ -349,11 +349,11 @@ impl std::fmt::Display for Buffer {
             Buffer::New => write!(f, "New buffer"),
             Buffer::Close => write!(f, "Close buffer"),
             Buffer::Replace(buffer) => match buffer {
-                buffer::Upstream::Server(server) => write!(f, "Change to {}", server),
+                buffer::Upstream::Server(server) => write!(f, "Change to {server}"),
                 buffer::Upstream::Channel(server, channel) => {
-                    write!(f, "Change to {} ({})", channel, server)
+                    write!(f, "Change to {channel} ({server})")
                 }
-                buffer::Upstream::Query(_, nick) => write!(f, "Change to {}", nick),
+                buffer::Upstream::Query(_, nick) => write!(f, "Change to {nick}"),
             },
             Buffer::Popout => write!(f, "Pop out buffer"),
             Buffer::Merge => write!(f, "Merge buffer"),
