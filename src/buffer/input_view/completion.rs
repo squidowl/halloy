@@ -3,8 +3,9 @@ use std::fmt;
 use std::sync::LazyLock;
 
 use data::buffer::{SkinTone, SortDirection};
+use data::isupport::{self, find_target_limit};
 use data::user::User;
-use data::{isupport, target, Config};
+use data::{target, Config};
 use iced::widget::{column, container, row, text, tooltip};
 use iced::Length;
 use itertools::Itertools;
@@ -266,7 +267,7 @@ impl Commands {
             .map(|command| {
                 match command.title {
                     "AWAY" => {
-                        if let Some(isupport::Parameter::AWAYLEN(Some(max_len))) =
+                        if let Some(isupport::Parameter::AWAYLEN(max_len)) =
                             isupport.get(&isupport::Kind::AWAYLEN)
                         {
                             return away_command(max_len);
@@ -302,6 +303,21 @@ impl Commands {
                             return join_command(channel_len, channel_limits, key_len);
                         }
                     }
+                    "KICK" => {
+                        let kick_len = if let Some(isupport::Parameter::KICKLEN(max_len)) =
+                            isupport.get(&isupport::Kind::KICKLEN)
+                        {
+                            Some(max_len)
+                        } else {
+                            None
+                        };
+
+                        let target_limit = find_target_limit(isupport, "KICK");
+
+                        if target_limit.is_some() || kick_len.is_some() {
+                            return kick_command(target_limit, kick_len);
+                        }
+                    }
                     "MSG" => {
                         let channel_membership_prefixes = if let Some(
                             isupport::Parameter::STATUSMSG(channel_membership_prefixes),
@@ -329,6 +345,23 @@ impl Commands {
                             isupport.get(&isupport::Kind::NICKLEN)
                         {
                             return nick_command(max_len);
+                        }
+                    }
+                    "NOTICE" => {
+                        let channel_membership_prefixes = if let Some(
+                            isupport::Parameter::STATUSMSG(channel_membership_prefixes),
+                        ) =
+                            isupport.get(&isupport::Kind::STATUSMSG)
+                        {
+                            channel_membership_prefixes.clone()
+                        } else {
+                            vec![]
+                        };
+
+                        let target_limit = find_target_limit(isupport, "NOTICE");
+
+                        if !channel_membership_prefixes.is_empty() || target_limit.is_some() {
+                            return notice_command(channel_membership_prefixes, target_limit);
                         }
                     }
                     "PART" => {
@@ -870,7 +903,25 @@ static COMMAND_LIST: LazyLock<Vec<Command>> = LazyLock::new(|| {
                 },
                 Arg {
                     text: "text",
+                    optional: true,
+                    tooltip: None,
+                },
+            ],
+            subcommands: None,
+        },
+        Command {
+            title: "NOTICE",
+            args: vec![
+                Arg {
+                    text: "targets",
                     optional: false,
+                    tooltip: Some(String::from(
+                        "comma-separated\n   {user}: user directly\n{channel}: all users in channel",
+                    )),
+                },
+                Arg {
+                    text: "text",
+                    optional: true,
                     tooltip: None,
                 },
             ],
@@ -1026,21 +1077,6 @@ static COMMAND_LIST: LazyLock<Vec<Command>> = LazyLock::new(|| {
         },
     ]
 });
-
-fn find_target_limit<'a>(
-    isupport: &'a HashMap<isupport::Kind, isupport::Parameter>,
-    command: &str,
-) -> Option<&'a isupport::CommandTargetLimit> {
-    if let Some(isupport::Parameter::TARGMAX(target_limits)) =
-        isupport.get(&isupport::Kind::TARGMAX)
-    {
-        target_limits
-            .iter()
-            .find(|target_limit| target_limit.command == command)
-    } else {
-        None
-    }
-}
 
 fn isupport_parameter_to_command(isupport_parameter: &isupport::Parameter) -> Option<Command> {
     match isupport_parameter {
@@ -1389,6 +1425,41 @@ fn join_command(
     }
 }
 
+fn kick_command(target_limit: Option<u16>, max_len: Option<&u16>) -> Command {
+    let mut users_tooltip = String::from("comma-separated");
+
+    if let Some(target_limit) = target_limit {
+        users_tooltip.push_str(format!("\nup to {} user", target_limit).as_str());
+        if target_limit != 1 {
+            users_tooltip.push('s')
+        }
+    }
+
+    let comment_tooltip = max_len.map(|max_len| format!("maximum length: {}", max_len));
+
+    Command {
+        title: "KICK",
+        args: vec![
+            Arg {
+                text: "channel",
+                optional: false,
+                tooltip: None,
+            },
+            Arg {
+                text: "users",
+                optional: false,
+                tooltip: Some(users_tooltip),
+            },
+            Arg {
+                text: "comment",
+                optional: true,
+                tooltip: comment_tooltip,
+            },
+        ],
+        subcommands: None,
+    }
+}
+
 static KNOCK_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "KNOCK",
     args: vec![
@@ -1416,18 +1487,13 @@ static LIST_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     subcommands: None,
 });
 
-fn list_command(
-    search_extensions: Option<&String>,
-    target_limit: Option<&isupport::CommandTargetLimit>,
-) -> Command {
+fn list_command(search_extensions: Option<&String>, target_limit: Option<u16>) -> Command {
     let mut channels_tooltip = String::from("comma-separated");
 
     if let Some(target_limit) = target_limit {
-        if let Some(limit) = target_limit.limit {
-            channels_tooltip.push_str(format!("\nup to {} channel", limit).as_str());
-            if limit != 1 {
-                channels_tooltip.push('s')
-            }
+        channels_tooltip.push_str(format!("\nup to {} channel", target_limit).as_str());
+        if target_limit != 1 {
+            channels_tooltip.push('s')
         }
     }
 
@@ -1551,10 +1617,7 @@ static MONITOR_STATUS_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     subcommands: None,
 });
 
-fn msg_command(
-    channel_membership_prefixes: Vec<char>,
-    target_limit: Option<&isupport::CommandTargetLimit>,
-) -> Command {
+fn msg_command(channel_membership_prefixes: Vec<char>, target_limit: Option<u16>) -> Command {
     let mut targets_tooltip = String::from(
         "comma-separated\n    {user}: user directly\n {channel}: all users in channel",
     );
@@ -1572,11 +1635,9 @@ fn msg_command(
     }
 
     if let Some(target_limit) = target_limit {
-        if let Some(limit) = target_limit.limit {
-            targets_tooltip.push_str(format!("\nup to {} target", limit).as_str());
-            if limit != 1 {
-                targets_tooltip.push('s')
-            }
+        targets_tooltip.push_str(format!("\nup to {} target", target_limit).as_str());
+        if target_limit != 1 {
+            targets_tooltip.push('s')
         }
     }
 
@@ -1590,7 +1651,7 @@ fn msg_command(
             },
             Arg {
                 text: "text",
-                optional: false,
+                optional: true,
                 tooltip: None,
             },
         ],
@@ -1598,14 +1659,12 @@ fn msg_command(
     }
 }
 
-fn names_command(target_limit: &isupport::CommandTargetLimit) -> Command {
+fn names_command(target_limit: u16) -> Command {
     let mut channels_tooltip = String::from("comma-separated");
 
-    if let Some(limit) = target_limit.limit {
-        channels_tooltip.push_str(format!("\nup to {} channel", limit).as_str());
-        if limit != 1 {
-            channels_tooltip.push('s')
-        }
+    channels_tooltip.push_str(format!("\nup to {} channel", target_limit).as_str());
+    if target_limit != 1 {
+        channels_tooltip.push('s')
     }
 
     Command {
@@ -1627,6 +1686,48 @@ fn nick_command(max_len: &u16) -> Command {
             optional: false,
             tooltip: Some(format!("maximum length: {}", max_len)),
         }],
+        subcommands: None,
+    }
+}
+
+fn notice_command(channel_membership_prefixes: Vec<char>, target_limit: Option<u16>) -> Command {
+    let mut targets_tooltip = String::from(
+        "comma-separated\n    {user}: user directly\n {channel}: all users in channel",
+    );
+
+    for channel_membership_prefix in channel_membership_prefixes {
+        match channel_membership_prefix {
+            '~' => targets_tooltip.push_str("\n~{channel}: all founders in channel"),
+            '&' => targets_tooltip.push_str("\n&{channel}: all protected users in channel"),
+            '!' => targets_tooltip.push_str("\n!{channel}: all protected users in channel"),
+            '@' => targets_tooltip.push_str("\n@{channel}: all operators in channel"),
+            '%' => targets_tooltip.push_str("\n%{channel}: all half-operators in channel"),
+            '+' => targets_tooltip.push_str("\n+{channel}: all voiced users in channel"),
+            _ => (),
+        }
+    }
+
+    if let Some(target_limit) = target_limit {
+        targets_tooltip.push_str(format!("\nup to {} target", target_limit).as_str());
+        if target_limit != 1 {
+            targets_tooltip.push('s')
+        }
+    }
+
+    Command {
+        title: "NOTICE",
+        args: vec![
+            Arg {
+                text: "targets",
+                optional: false,
+                tooltip: Some(targets_tooltip),
+            },
+            Arg {
+                text: "text",
+                optional: true,
+                tooltip: None,
+            },
+        ],
         subcommands: None,
     }
 }
@@ -1657,7 +1758,7 @@ fn setname_command(max_len: &u16) -> Command {
     Command {
         title: "SETNAME",
         args: vec![Arg {
-            text: "real name",
+            text: "realname",
             optional: false,
             tooltip: Some(format!("maximum length: {}", max_len)),
         }],
@@ -1730,14 +1831,12 @@ static WHOX_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     subcommands: None,
 });
 
-fn whois_command(target_limit: &isupport::CommandTargetLimit) -> Command {
+fn whois_command(target_limit: u16) -> Command {
     let mut nicks_tooltip = String::from("comma-separated");
 
-    if let Some(limit) = target_limit.limit {
-        nicks_tooltip.push_str(format!("\nup to {} nick", limit).as_str());
-        if limit != 1 {
-            nicks_tooltip.push('s')
-        }
+    nicks_tooltip.push_str(format!("\nup to {} nick", target_limit).as_str());
+    if target_limit != 1 {
+        nicks_tooltip.push('s')
     }
 
     Command {
