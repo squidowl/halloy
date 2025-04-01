@@ -14,8 +14,9 @@ pub fn parse(
     buffer: buffer::Upstream,
     auto_format: AutoFormat,
     input: &str,
+    isupport: &HashMap<isupport::Kind, isupport::Parameter>,
 ) -> Result<Parsed, Error> {
-    let content = match command::parse(input, Some(&buffer)) {
+    let content = match command::parse(input, Some(&buffer), isupport) {
         Ok(Command::Internal(command)) => return Ok(Parsed::Internal(command)),
         Ok(Command::Irc(command)) => Content::Command(command),
         Err(command::Error::MissingSlash) => {
@@ -30,12 +31,13 @@ pub fn parse(
         Err(error) => return Err(Error::Command(error)),
     };
 
-    if content
+    if let Some(message_bytes) = content
         .proto(&buffer)
-        .map(exceeds_byte_limit)
-        .unwrap_or_default()
+        .map(|message| format::message(message).len())
     {
-        return Err(Error::ExceedsByteLimit);
+        if message_bytes > format::BYTE_LIMIT {
+            return Err(Error::ExceedsByteLimit { message_bytes });
+        }
     }
 
     Ok(Parsed::Input(Input { buffer, content }))
@@ -82,7 +84,7 @@ impl Input {
         let command = self.content.command(&self.buffer)?;
 
         match command {
-            command::Irc::Msg(targets, text) => Some(
+            command::Irc::Msg(targets, text) | command::Irc::Notice(targets, text) => Some(
                 targets
                     .split(',')
                     .map(|target| {
@@ -182,14 +184,11 @@ pub struct Cache<'a> {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(
-        "message exceeds maximum encoded length of {} bytes",
+        "message exceeds maximum encoded length ({}/{} bytes)",
+        message_bytes,
         format::BYTE_LIMIT
     )]
-    ExceedsByteLimit,
+    ExceedsByteLimit { message_bytes: usize },
     #[error(transparent)]
     Command(#[from] command::Error),
-}
-
-fn exceeds_byte_limit(message: proto::Message) -> bool {
-    format::message(message).len() > format::BYTE_LIMIT
 }
