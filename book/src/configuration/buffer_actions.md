@@ -69,7 +69,7 @@ click_highlight = "new-pane"
 
 ## `click_user_name`
 
-Action when clicking on a user name in a pane. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with a query for clicked user. `"new-window"` opens a new window each time.
+Action when clicking on a user name in a pane (if `buffer.channel.nicklist` or `buffer.nickname` is set to `"open-query"`). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with a query for clicked user. `"new-window"` opens a new window each time.
 
 ```toml
 # Type: string
