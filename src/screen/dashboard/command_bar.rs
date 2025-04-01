@@ -163,6 +163,7 @@ pub enum Window {
 pub enum Theme {
     Switch(data::Theme),
     OpenEditor,
+    OpenThemesWebsite,
 }
 
 impl Command {
@@ -292,6 +293,7 @@ impl Theme {
     fn list(config: &Config) -> Vec<Self> {
         Some(Self::OpenEditor)
             .into_iter()
+            .chain(Some(Self::OpenThemesWebsite))
             .chain(config.appearance.all.iter().cloned().map(Self::Switch))
             .collect()
     }
@@ -385,6 +387,7 @@ impl std::fmt::Display for Theme {
         match self {
             Theme::Switch(theme) => write!(f, "Switch to {}", theme.name),
             Theme::OpenEditor => write!(f, "Open editor"),
+            Theme::OpenThemesWebsite => write!(f, "Discover more themes (Opens website)"),
         }
     }
 }

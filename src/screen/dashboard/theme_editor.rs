@@ -1,19 +1,19 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use data::{url, Config};
+use data::{Config, url};
 use futures::TryFutureExt;
 use iced::alignment::Vertical;
 use iced::widget::text::LineHeight;
 use iced::widget::{button, center, column, container, row, text_input};
-use iced::{alignment, clipboard, Length::*};
 use iced::{Color, Length};
+use iced::{Length::*, alignment, clipboard};
 use iced::{Task, Vector};
 use strum::IntoEnumIterator;
 use tokio::time;
 
 use crate::theme::{self, Colors, Theme};
-use crate::widget::{color_picker, combo_box, tooltip, Element};
+use crate::widget::{Element, color_picker, combo_box, tooltip};
 use crate::window::{self, Window};
 use crate::{icon, widget};
 
@@ -34,6 +34,7 @@ pub enum Message {
     Revert,
     Clear,
     Copy,
+    Share,
     SavePath(Option<PathBuf>),
     Saved(Result<(), String>),
     ClearSaveResult,
@@ -168,6 +169,12 @@ impl ThemeEditor {
                     None,
                 );
             }
+            Message::Share => {
+                let url = url::theme_submit(theme.colors());
+                let _ = open::that_detached(url);
+
+                return (Task::none(), None);
+            }
             Message::SavePath(None) => {}
             Message::SavePath(Some(path)) => {
                 log::debug!("Saving theme to {path:?}");
@@ -260,6 +267,8 @@ impl ThemeEditor {
             icon(icon::copy(), "Copy Theme to URL", Message::Copy)
         };
 
+        let share = icon(icon::share(), "Share Theme with community", Message::Share);
+
         let color_picker = color_picker(color, Message::Color);
 
         let content = column![
@@ -268,6 +277,7 @@ impl ThemeEditor {
                 container(hex_input).width(80),
                 undo,
                 copy,
+                share
             ]
             .align_y(Vertical::Center)
             .spacing(4),
