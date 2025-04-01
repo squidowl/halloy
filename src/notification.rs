@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use data::{
     audio::Sound,
     config::{self, notification},
-    Notification,
+    Notification, Server,
 };
 
 use crate::audio;
@@ -30,7 +30,7 @@ impl Notifications {
         &mut self,
         config: &config::Notifications<Sound>,
         notification: &Notification,
-        server: impl ToString,
+        server: &Server,
     ) {
         match notification {
             Notification::Connected => {
@@ -38,7 +38,7 @@ impl Notifications {
                     &config.connected,
                     notification,
                     "Connected",
-                    server.to_string(),
+                    server,
                 );
             }
             Notification::Disconnected => {
@@ -46,7 +46,7 @@ impl Notifications {
                     &config.disconnected,
                     notification,
                     "Disconnected",
-                    server.to_string(),
+                    server,
                 );
             }
             Notification::Reconnected => {
@@ -54,7 +54,7 @@ impl Notifications {
                     &config.reconnected,
                     notification,
                     "Reconnected",
-                    server.to_string(),
+                    server,
                 );
             }
             Notification::MonitoredOnline(targets) => {
@@ -63,7 +63,7 @@ impl Notifications {
                         &config.monitored_online,
                         notification,
                         &format!("{} is online", target.nickname()),
-                        server.to_string(),
+                        server,
                     );
                 });
             }
@@ -73,7 +73,7 @@ impl Notifications {
                         &config.monitored_offline,
                         notification,
                         &format!("{} is offline", target),
-                        server.to_string(),
+                        server,
                     );
                 });
             }
@@ -86,7 +86,7 @@ impl Notifications {
                         &config.file_transfer_request,
                         notification,
                         &format!("File transfer from {}", nick),
-                        server.to_string(),
+                        server,
                     );
                 }
             }
@@ -99,7 +99,7 @@ impl Notifications {
                         &config.direct_message,
                         notification,
                         "Direct message",
-                        format!("{} sent you a direct message on {}", user.nickname(), server.to_string()),
+                        format!("{} sent you a direct message on {server}", user.nickname()),
                     );
                 }
             }
@@ -112,7 +112,7 @@ impl Notifications {
                         &config.highlight,
                         notification,
                         "Highlight",
-                        format!("{} highlighted you in {} on {}", user.nickname(), channel, server.to_string()),
+                        format!("{} highlighted you in {channel} on {server}", user.nickname()),
                     );
                 }
             }
