@@ -504,7 +504,7 @@ impl<'de> Deserialize<'de> for Message {
             parse_fragments(text)
         } else {
             // Unreachable
-            Content::Plain("".to_string())
+            Content::Plain(String::new())
         };
 
         let is_echo = is_echo.unwrap_or_default();
