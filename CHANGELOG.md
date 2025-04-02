@@ -12,6 +12,7 @@ Added:
 - Various shortcuts for https://themes.halloy.chat/
   - The Command Bar now includes a "Discover More Themes" action, which opens the website
   - The Theme Editor now has a "Share Theme with Community" option that opens the submit page with the theme payload pre-filled
+- Ability to adjust alpha value of away users
 
 Fixed:
 

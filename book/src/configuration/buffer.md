@@ -27,12 +27,19 @@ Controls the appearance of away nicknames.
 Controls the appearance of away nicknames in buffers.
 
 ```toml
-# Type: string
-# Values: "dimmed", "solid"
+# Type: string or object
+# Values: "dimmed", "solid" or { dimmed = float }
 # Default: "dimmed"
-
 [buffer.away]
 appearance = "dimmed"
+
+# with custom dimming alpha value (0.0-1.0)
+[buffer.away]
+appearance = { dimmed = 0.5 }
+
+# no away indication
+[buffer.away]
+appearance = "solid"
 ```
 
 ## `[buffer.channel]`
