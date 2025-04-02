@@ -88,8 +88,8 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced", rev = "892ac1ce722a809e73aecd8d47ed4e7254d156df" }
-iced_core = { git = "https://github.com/iced-rs/iced", rev = "892ac1ce722a809e73aecd8d47ed4e7254d156df" }
+iced = { git = "https://github.com/iced-rs/iced", rev = "15530cd57d8efd83fbc0869560f5021e013bc685" }
+iced_core = { git = "https://github.com/iced-rs/iced", rev = "15530cd57d8efd83fbc0869560f5021e013bc685" }
 
 [profile.ci]
 inherits = "dev"
