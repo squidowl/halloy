@@ -69,7 +69,6 @@ iced = { version = "0.14.0-dev", default-features = false, features = [
     "lazy",
     "advanced",
     "image",
-    "web-colors"
 ] }
 unicode-segmentation = "1.6"
 open = "5.0.1"
@@ -83,6 +82,7 @@ uuid = { version = "1.15", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
 image = "0.24.6"
+iced = { version = "0.14.0-dev", default-features = false, features = ["web-colors"] }
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "3.0.2"
