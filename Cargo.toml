@@ -105,3 +105,4 @@ opt-level = 3
 
 [lints.clippy]
 uninlined_format_args = "warn"
+manual_string_new = "deny"

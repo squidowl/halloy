@@ -404,7 +404,7 @@ impl Command {
             NOTE(_, _, _, _) => "NOTE".to_string(),
             Numeric(numeric, _) => format!("{:03}", *numeric as u16),
             Unknown(tag, _) => tag.clone(),
-            Raw(_) => "".to_string(),
+            Raw(_) => String::new(),
         }
     }
 }
