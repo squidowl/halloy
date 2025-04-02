@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{fmt, io};
@@ -10,7 +11,7 @@ use tokio::time::Instant;
 
 use crate::message::{self, MessageReferences};
 use crate::target::{self, Target};
-use crate::{Buffer, Message, Server, buffer, compression, environment, isupport};
+use crate::{buffer, compression, environment, isupport, Buffer, Message, Server};
 
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
@@ -510,7 +511,7 @@ impl History {
 pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
     let fuzz_seconds =
         if matches!(message.direction, message::Direction::Received) && message.is_echo {
-            chrono::Duration::seconds(120)
+            chrono::Duration::seconds(300)
         } else {
             chrono::Duration::seconds(1)
         };
@@ -557,11 +558,32 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
     }
 
     if let Some(index) = replace_at {
-        if has_matching_content(&messages[index], &message) {
-            messages[index].id = message.id;
-            messages[index].received_at = message.received_at;
+        if messages[index].server_time == message.server_time {
+            if has_matching_content(&messages[index], &message) {
+                messages[index].id = message.id;
+                messages[index].received_at = message.received_at;
+            } else {
+                messages[index] = message;
+            }
         } else {
-            messages[index] = message;
+            let insert_at = match messages
+                .binary_search_by(|stored| stored.server_time.cmp(&message.server_time))
+            {
+                Ok(match_index) => match_index,
+                Err(sorted_insert_index) => sorted_insert_index,
+            };
+
+            match insert_at.cmp(&index) {
+                Ordering::Less => {
+                    messages.remove(index);
+                    messages.insert(insert_at, message);
+                }
+                Ordering::Equal => messages[index] = message,
+                Ordering::Greater => {
+                    messages.insert(insert_at, message);
+                    messages.remove(index);
+                }
+            }
         }
     } else {
         messages.insert(insert_at, message);
