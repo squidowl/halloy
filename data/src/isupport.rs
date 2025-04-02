@@ -769,7 +769,7 @@ impl fmt::Display for MessageReference {
                 "timestamp={}",
                 server_time.to_rfc3339_opts(SecondsFormat::Millis, true)
             ),
-            MessageReference::MessageId(id) => write!(f, "msgid={}", id),
+            MessageReference::MessageId(id) => write!(f, "msgid={id}"),
             MessageReference::None => write!(f, "*"),
         }
     }

@@ -1094,7 +1094,7 @@ fn away_command(max_len: &u16) -> Command {
         args: vec![Arg {
             text: "reason",
             optional: true,
-            tooltip: Some(format!("maximum length: {}", max_len)),
+            tooltip: Some(format!("maximum length: {max_len}")),
         }],
         subcommands: None,
     }
@@ -1130,7 +1130,7 @@ fn chathistory_after_command(maximum_limit: &u16) -> Command {
     let limit_tooltip = if *maximum_limit == 1 {
         String::from("up to 1 message")
     } else {
-        format!("up to {} messages", maximum_limit)
+        format!("up to {maximum_limit} messages")
     };
 
     Command {
@@ -1162,7 +1162,7 @@ fn chathistory_around_command(maximum_limit: &u16) -> Command {
     let limit_tooltip = if *maximum_limit == 1 {
         String::from("up to 1 message")
     } else {
-        format!("up to {} messages", maximum_limit)
+        format!("up to {maximum_limit} messages")
     };
 
     Command {
@@ -1194,7 +1194,7 @@ fn chathistory_before_command(maximum_limit: &u16) -> Command {
     let limit_tooltip = if *maximum_limit == 1 {
         String::from("up to 1 message")
     } else {
-        format!("up to {} messages", maximum_limit)
+        format!("up to {maximum_limit} messages")
     };
 
     Command {
@@ -1226,7 +1226,7 @@ fn chathistory_between_command(maximum_limit: &u16) -> Command {
     let limit_tooltip = if *maximum_limit == 1 {
         String::from("up to 1 message")
     } else {
-        format!("up to {} messages", maximum_limit)
+        format!("up to {maximum_limit} messages")
     };
 
     Command {
@@ -1265,7 +1265,7 @@ fn chathistory_latest_command(maximum_limit: &u16) -> Command {
     let limit_tooltip = if *maximum_limit == 1 {
         String::from("up to 1 message")
     } else {
-        format!("up to {} messages", maximum_limit)
+        format!("up to {maximum_limit} messages")
     };
 
     Command {
@@ -1298,7 +1298,7 @@ fn chathistory_targets_command(maximum_limit: &u16) -> Command {
     let limit_tooltip = if *maximum_limit == 1 {
         String::from("up to 1 target")
     } else {
-        format!("up to {} targets", maximum_limit)
+        format!("up to {maximum_limit} targets")
     };
 
     Command {
@@ -1380,7 +1380,7 @@ fn join_command(
     let mut channels_tooltip = String::from("comma-separated");
 
     if let Some(channel_len) = channel_len {
-        channels_tooltip.push_str(format!("\nmaximum length of each: {}", channel_len).as_str());
+        channels_tooltip.push_str(format!("\nmaximum length of each: {channel_len}").as_str());
     }
 
     if let Some(channel_limits) = channel_limits {
@@ -1404,7 +1404,7 @@ fn join_command(
     let mut keys_tooltip = String::from("comma-separated");
 
     if let Some(key_len) = key_len {
-        keys_tooltip.push_str(format!("\nmaximum length of each: {}", key_len).as_str())
+        keys_tooltip.push_str(format!("\nmaximum length of each: {key_len}").as_str())
     }
 
     Command {
@@ -1429,13 +1429,13 @@ fn kick_command(target_limit: Option<u16>, max_len: Option<&u16>) -> Command {
     let mut users_tooltip = String::from("comma-separated");
 
     if let Some(target_limit) = target_limit {
-        users_tooltip.push_str(format!("\nup to {} user", target_limit).as_str());
+        users_tooltip.push_str(format!("\nup to {target_limit} user").as_str());
         if target_limit != 1 {
             users_tooltip.push('s')
         }
     }
 
-    let comment_tooltip = max_len.map(|max_len| format!("maximum length: {}", max_len));
+    let comment_tooltip = max_len.map(|max_len| format!("maximum length: {max_len}"));
 
     Command {
         title: "KICK",
@@ -1491,7 +1491,7 @@ fn list_command(search_extensions: Option<&String>, target_limit: Option<u16>) -
     let mut channels_tooltip = String::from("comma-separated");
 
     if let Some(target_limit) = target_limit {
-        channels_tooltip.push_str(format!("\nup to {} channel", target_limit).as_str());
+        channels_tooltip.push_str(format!("\nup to {target_limit} channel").as_str());
         if target_limit != 1 {
             channels_tooltip.push('s')
         }
@@ -1571,7 +1571,7 @@ fn monitor_add_command(target_limit: &Option<u16>) -> Command {
     let mut targets_tooltip = String::from("comma-separated users");
 
     if let Some(target_limit) = target_limit {
-        targets_tooltip.push_str(format!("\nup to {} target", target_limit).as_str());
+        targets_tooltip.push_str(format!("\nup to {target_limit} target").as_str());
         if *target_limit != 1 {
             targets_tooltip.push('s')
         }
@@ -1635,7 +1635,7 @@ fn msg_command(channel_membership_prefixes: Vec<char>, target_limit: Option<u16>
     }
 
     if let Some(target_limit) = target_limit {
-        targets_tooltip.push_str(format!("\nup to {} target", target_limit).as_str());
+        targets_tooltip.push_str(format!("\nup to {target_limit} target").as_str());
         if target_limit != 1 {
             targets_tooltip.push('s')
         }
@@ -1662,7 +1662,7 @@ fn msg_command(channel_membership_prefixes: Vec<char>, target_limit: Option<u16>
 fn names_command(target_limit: u16) -> Command {
     let mut channels_tooltip = String::from("comma-separated");
 
-    channels_tooltip.push_str(format!("\nup to {} channel", target_limit).as_str());
+    channels_tooltip.push_str(format!("\nup to {target_limit} channel").as_str());
     if target_limit != 1 {
         channels_tooltip.push('s')
     }
@@ -1684,7 +1684,7 @@ fn nick_command(max_len: &u16) -> Command {
         args: vec![Arg {
             text: "nickname",
             optional: false,
-            tooltip: Some(format!("maximum length: {}", max_len)),
+            tooltip: Some(format!("maximum length: {max_len}")),
         }],
         subcommands: None,
     }
@@ -1708,7 +1708,7 @@ fn notice_command(channel_membership_prefixes: Vec<char>, target_limit: Option<u
     }
 
     if let Some(target_limit) = target_limit {
-        targets_tooltip.push_str(format!("\nup to {} target", target_limit).as_str());
+        targets_tooltip.push_str(format!("\nup to {target_limit} target").as_str());
         if target_limit != 1 {
             targets_tooltip.push('s')
         }
@@ -1740,8 +1740,7 @@ fn part_command(max_len: &u16) -> Command {
                 text: "channels",
                 optional: false,
                 tooltip: Some(format!(
-                    "comma-separated\nmaximum length of each: {}",
-                    max_len
+                    "comma-separated\nmaximum length of each: {max_len}"
                 )),
             },
             Arg {
@@ -1760,7 +1759,7 @@ fn setname_command(max_len: &u16) -> Command {
         args: vec![Arg {
             text: "realname",
             optional: false,
-            tooltip: Some(format!("maximum length: {}", max_len)),
+            tooltip: Some(format!("maximum length: {max_len}")),
         }],
         subcommands: None,
     }
@@ -1778,7 +1777,7 @@ fn topic_command(max_len: &u16) -> Command {
             Arg {
                 text: "topic",
                 optional: true,
-                tooltip: Some(format!("maximum length: {}", max_len)),
+                tooltip: Some(format!("maximum length: {max_len}")),
             },
         ],
         subcommands: None,
@@ -1834,7 +1833,7 @@ static WHOX_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 fn whois_command(target_limit: u16) -> Command {
     let mut nicks_tooltip = String::from("comma-separated");
 
-    nicks_tooltip.push_str(format!("\nup to {} nick", target_limit).as_str());
+    nicks_tooltip.push_str(format!("\nup to {target_limit} nick").as_str());
     if target_limit != 1 {
         nicks_tooltip.push('s')
     }
