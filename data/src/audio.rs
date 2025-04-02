@@ -87,7 +87,7 @@ fn find_external_sound(sound: &str) -> Result<PathBuf, LoadError> {
     let sounds_dir = if let Ok(sounds_dir) = sounds_dir.into_os_string().into_string() {
         format!(" in {sounds_dir}")
     } else {
-        "".to_string()
+        String::new()
     };
 
     Err(LoadError::NoSoundFound(sound.to_string(), sounds_dir))
