@@ -335,7 +335,7 @@ impl fmt::Display for KeyCode {
             key::Key::Unidentified => String::new(),
         };
 
-        write!(f, "{}", key)
+        write!(f, "{key}")
     }
 }
 

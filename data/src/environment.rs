@@ -16,7 +16,7 @@ pub fn formatted_version() -> String {
         .map(|hash| format!(" ({hash})"))
         .unwrap_or_default();
 
-    format!("{}{hash}", VERSION)
+    format!("{VERSION}{hash}")
 }
 
 pub fn config_dir() -> PathBuf {

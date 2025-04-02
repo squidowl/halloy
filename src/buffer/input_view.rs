@@ -418,11 +418,11 @@ impl State {
         let mut text = history.input(&buffer).draft.to_string();
 
         if text.is_empty() {
-            text = format!("{}: ", nick);
+            text = format!("{nick}: ");
         } else if text.ends_with(' ') {
-            text = format!("{}{}", text, nick);
+            text = format!("{text}{nick}");
         } else {
-            text = format!("{} {}", text, nick);
+            text = format!("{text} {nick}");
         }
 
         history.record_draft(Draft { buffer, text });

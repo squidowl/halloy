@@ -298,7 +298,7 @@ impl Command {
             Command::PRIVMSG(a, b) => vec![a, b],
             Command::NOTICE(a, b) => vec![a, b],
             Command::WHO(a, b, c) => std::iter::once(a)
-                .chain(b.map(|b| c.map_or_else(|| format!("%{}", b), |c| format!("%{},{}", b, c))))
+                .chain(b.map(|b| c.map_or_else(|| format!("%{b}"), |c| format!("%{b},{c}"))))
                 .collect(),
             Command::WHOIS(a, b) => a.into_iter().chain(Some(b)).collect(),
             Command::WHOWAS(a, b) => std::iter::once(a).chain(b).collect(),

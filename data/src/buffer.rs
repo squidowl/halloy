@@ -56,12 +56,12 @@ impl Buffer {
 impl Upstream {
     pub fn key(&self) -> String {
         match self {
-            Upstream::Server(server) => format!("server:{}", server),
+            Upstream::Server(server) => format!("server:{server}"),
             Upstream::Channel(server, channel) => {
-                format!("server:{}:{}", server, channel.as_str())
+                format!("server:{server}:{}", channel.as_str())
             }
             Upstream::Query(server, query) => {
-                format!("server:{}:{}", server, query.as_str())
+                format!("server:{server}:{}", query.as_str())
             }
         }
     }

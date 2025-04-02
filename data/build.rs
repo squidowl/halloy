@@ -12,10 +12,10 @@ fn main() {
         .and_then(|x| String::from_utf8(x.stdout).ok());
 
     println!("cargo:rerun-if-changed=../VERSION");
-    println!("cargo:rustc-env=VERSION={}", VERSION);
+    println!("cargo:rustc-env=VERSION={VERSION}");
 
     if let Some(hash) = git_hash.as_ref() {
-        println!("cargo:rustc-env=GIT_HASH={}", hash);
+        println!("cargo:rustc-env=GIT_HASH={hash}");
     }
 
     if git_hash.is_none() {

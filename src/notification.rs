@@ -72,7 +72,7 @@ impl Notifications {
                     self.execute(
                         &config.monitored_offline,
                         notification,
-                        &format!("{} is offline", target),
+                        &format!("{target} is offline"),
                         server,
                     );
                 });
@@ -85,7 +85,7 @@ impl Notifications {
                     self.execute(
                         &config.file_transfer_request,
                         notification,
-                        &format!("File transfer from {}", nick),
+                        &format!("File transfer from {nick}"),
                         server,
                     );
                 }
