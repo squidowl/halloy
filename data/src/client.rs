@@ -754,11 +754,9 @@ impl Client {
                     }
                     if contains("labeled-response") {
                         requested.push("labeled-response");
-
-                        // We require labeled-response so we can properly tag echo-messages
-                        if contains("echo-message") {
-                            requested.push("echo-message");
-                        }
+                    }
+                    if contains("echo-message") {
+                        requested.push("echo-message");
                     }
                     if self.listed_caps.iter().any(|cap| cap.starts_with("sasl")) {
                         requested.push("sasl");
@@ -892,15 +890,11 @@ impl Client {
                         }
                     }
                 }
-                if contains("labeled-response") || newly_contains("labeled-response") {
-                    if newly_contains("labeled-response") {
-                        requested.push("labeled-response");
-                    }
-
-                    // We require labeled-response so we can properly tag echo-messages
-                    if newly_contains("echo-message") {
-                        requested.push("echo-message");
-                    }
+                if newly_contains("labeled-response") {
+                    requested.push("labeled-response");
+                }
+                if newly_contains("echo-message") {
+                    requested.push("echo-message");
                 }
                 if newly_contains("multi-prefix") {
                     requested.push("multi-prefix");
@@ -1090,15 +1084,7 @@ impl Client {
                             self.highlight_notification_blackout.allowed(),
                         );
 
-                        if user.nickname() == self.nickname()
-                            && context.is_some()
-                            && message_id(&message).is_none()
-                        {
-                            // If we sent (echo) & context exists (we sent from this client),
-                            // then ignore unless it has a message id (in which case the local
-                            // copy should be updated with the message id)
-                            return Ok(vec![]);
-                        } else if direct_message {
+                        if direct_message {
                             return Ok(vec![event, Event::DirectMessage(user)]);
                         } else {
                             return Ok(vec![event]);
