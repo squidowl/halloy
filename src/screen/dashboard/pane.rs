@@ -57,7 +57,7 @@ impl Pane {
         is_popout: bool,
     ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
-            Buffer::Empty => "".to_string(),
+            Buffer::Empty => String::new(),
             Buffer::Channel(state) => {
                 let channel = state.target.as_str();
                 let server = &state.server;
