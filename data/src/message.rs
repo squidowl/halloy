@@ -15,17 +15,17 @@ use url::Url;
 
 pub use self::formatting::Formatting;
 pub use self::source::{
-    Source,
     server::{Kind, StandardReply},
+    Source,
 };
 
-use crate::config::Highlights;
 use crate::config::buffer::UsernameFormat;
+use crate::config::Highlights;
 use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{Config, Server, User, ctcp, isupport, target};
+use crate::{ctcp, isupport, target, Config, Server, User};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -1172,16 +1172,23 @@ fn content<'a>(
                 })
         }
         Command::PRIVMSG(target, text) => {
-            // Check if a synthetic action message
-            if let Some(nick) = message.user().as_ref().map(User::nickname) {
-                if let Some(action) = parse_action(nick, text) {
-                    return Some(action);
-                }
-            }
-
             let channel_users = target::Channel::parse(target, chantypes, statusmsg, casemapping)
                 .map(|channel| channel_users(&channel))
                 .unwrap_or_default();
+
+            // Check if a synthetic action message
+            if let Some(nick) = message.user().as_ref().map(User::nickname) {
+                if let Some(action) = parse_action(
+                    nick,
+                    text,
+                    channel_users,
+                    target,
+                    Some(our_nick),
+                    &config.highlights,
+                ) {
+                    return Some(action);
+                }
+            }
 
             Some(parse_fragments_with_highlights(
                 text.clone(),
@@ -1452,18 +1459,41 @@ pub fn is_action(text: &str) -> bool {
     }
 }
 
-fn parse_action(nick: NickRef, text: &str) -> Option<Content> {
+fn parse_action(
+    nick: NickRef,
+    text: &str,
+    channel_users: &[User],
+    target: &str,
+    our_nick: Option<&Nick>,
+    highlights: &Highlights,
+) -> Option<Content> {
     let query = ctcp::parse_query(text)?;
 
-    Some(action_text(nick, query.params))
+    Some(action_text(
+        nick,
+        query.params,
+        channel_users,
+        target,
+        our_nick,
+        highlights,
+    ))
 }
 
-pub fn action_text(nick: NickRef, action: Option<&str>) -> Content {
-    if let Some(action) = action {
-        parse_fragments(format!("{nick} {action}"))
+pub fn action_text(
+    nick: NickRef,
+    action: Option<&str>,
+    channel_users: &[User],
+    target: &str,
+    our_nick: Option<&Nick>,
+    highlights: &Highlights,
+) -> Content {
+    let text = if let Some(action) = action {
+        format!("{nick} {action}")
     } else {
-        plain(format!("{nick}"))
-    }
+        format!("{nick}")
+    };
+
+    parse_fragments_with_highlights(text, channel_users, target, our_nick, highlights)
 }
 
 fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
