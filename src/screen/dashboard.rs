@@ -853,6 +853,7 @@ impl Dashboard {
                                 &open_buffers,
                             ) {
                                 state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
+                                self.last_changed = Some(Instant::now());
                                 return (self.focus_pane(window, pane), None);
                             }
                         }
@@ -868,6 +869,7 @@ impl Dashboard {
                                 &open_buffers,
                             ) {
                                 state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
+                                self.last_changed = Some(Instant::now());
                                 return (self.focus_pane(window, pane), None);
                             }
                         }
@@ -1024,6 +1026,7 @@ impl Dashboard {
                                 &open_buffers,
                             ) {
                                 state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
+                                self.last_changed = Some(Instant::now());
                                 return (self.focus_pane(window, pane), None);
                             }
                         }
@@ -1039,6 +1042,7 @@ impl Dashboard {
                                 &open_buffers,
                             ) {
                                 state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
+                                self.last_changed = Some(Instant::now());
                                 return (self.focus_pane(window, pane), None);
                             }
                         }
