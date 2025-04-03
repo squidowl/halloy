@@ -1,8 +1,8 @@
-use data::appearance::theme::{alpha_color, randomize_color};
-use iced::{
-    widget::text::{Catalog, Style, StyleFn},
-    Color,
+use data::{
+    appearance::theme::{alpha_color, alpha_color_calculate, randomize_color},
+    config::buffer::away,
 };
+use iced::widget::text::{Catalog, Style, StyleFn};
 
 use super::Theme;
 
@@ -82,27 +82,29 @@ pub fn unread_indicator(theme: &Theme) -> Style {
     }
 }
 
-pub fn nickname<T: AsRef<str>>(theme: &Theme, seed: Option<T>, should_dim_nickname: bool) -> Style {
-    let color = theme.colors().buffer.nickname;
-    let calculate_alpha_color = |color: Color| -> Color {
-        alpha_color(0.15, 0.61, theme.colors().buffer.background, color)
-    };
-
-    let Some(seed) = seed else {
-        let color = if should_dim_nickname {
-            calculate_alpha_color(color)
+pub fn nickname<T: AsRef<str>>(
+    theme: &Theme,
+    seed: Option<T>,
+    away_appearance: Option<away::Appearance>,
+) -> Style {
+    let nickname = theme.colors().buffer.nickname;
+    let calculate_alpha_color = |color| {
+        if let Some(away::Appearance::Dimmed(alpha)) = away_appearance {
+            match alpha {
+                // Calculate alpha based on background and foreground.
+                None => alpha_color_calculate(0.20, 0.61, theme.colors().buffer.background, color),
+                // Calculate alpha based on user defined alpha value.
+                Some(a) => alpha_color(color, a),
+            }
         } else {
             color
-        };
-
-        return Style { color: Some(color) };
+        }
     };
 
-    let randomized_color = randomize_color(color, seed.as_ref());
-    let color = if should_dim_nickname {
-        calculate_alpha_color(randomized_color)
-    } else {
-        randomized_color
+    // If we have a seed we randomize the color based on the seed before adding any alpha value.
+    let color = match seed {
+        Some(seed) => calculate_alpha_color(randomize_color(nickname, seed.as_ref())),
+        None => calculate_alpha_color(nickname),
     };
 
     Style { color: Some(color) }

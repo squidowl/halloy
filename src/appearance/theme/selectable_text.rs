@@ -1,7 +1,7 @@
-use data::message::{
+use data::{config::buffer::away, message::{
     self,
     source::server::{Kind, StandardReply},
-};
+}};
 use data::{Config, User};
 
 use crate::widget::{
@@ -9,7 +9,7 @@ use crate::widget::{
     selectable_text::{Catalog, Style, StyleFn},
 };
 
-use super::{text, Theme};
+use super::{Theme, text};
 
 impl Catalog for Theme {
     type Class<'a> = StyleFn<'a, Self>;
@@ -98,7 +98,10 @@ pub fn nicklist_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
         theme,
         config.buffer.channel.nicklist.color,
         user,
-        config.buffer.away.should_dim_nickname(user.is_away()),
+        config
+            .buffer
+            .away
+            .appearance(user.is_away()),
     )
 }
 
@@ -107,7 +110,10 @@ pub fn nickname(theme: &Theme, config: &Config, user: &User) -> Style {
         theme,
         config.buffer.channel.message.nickname_color,
         user,
-        config.buffer.away.should_dim_nickname(user.is_away()),
+        config
+            .buffer
+            .away
+            .appearance(user.is_away()),
     )
 }
 
@@ -116,7 +122,7 @@ pub fn topic_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
         theme,
         config.buffer.channel.message.nickname_color,
         user,
-        false,
+        None,
     )
 }
 
@@ -124,14 +130,14 @@ fn nickname_style(
     theme: &Theme,
     kind: data::buffer::Color,
     user: &User,
-    should_dim_nickname: bool,
+    away_appearance: Option<away::Appearance>,
 ) -> Style {
     let seed = match kind {
         data::buffer::Color::Solid => None,
         data::buffer::Color::Unique => Some(user.seed()),
     };
 
-    let color = text::nickname(theme, seed, should_dim_nickname).color;
+    let color = text::nickname(theme, seed, away_appearance).color;
 
     Style {
         color,
