@@ -834,6 +834,20 @@ impl Halloy {
                                             &server,
                                         );
                                     }
+                                    data::client::Event::OpenBuffers(targets) => {
+                                        for target in targets {
+                                            commands.push(
+                                                dashboard
+                                                    .open_target(
+                                                        server.clone(),
+                                                        target,
+                                                        &mut self.clients,
+                                                        &self.config,
+                                                    )
+                                                    .map(Message::Dashboard),
+                                            );
+                                        }
+                                    }
                                 }
                             }
 
