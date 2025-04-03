@@ -189,7 +189,7 @@ impl Halloy {
                 version: Version::new(),
                 screen,
                 theme: appearance::theme(&config.appearance.selected).into(),
-                clients: Default::default(),
+                clients: data::client::Map::default(),
                 servers: config.servers.clone(),
                 config,
                 modal: None,

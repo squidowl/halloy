@@ -60,7 +60,7 @@ where
             shaping: Shaping::Basic,
             #[cfg(not(debug_assertions))]
             shaping: Shaping::Advanced,
-            wrapping: Default::default(),
+            wrapping: Wrapping::default(),
             class: Theme::default(),
         }
     }

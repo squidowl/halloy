@@ -60,7 +60,7 @@ fn bordered<'a, Message: 'a>(element: impl Into<Element<'a, Message>>) -> Contai
             border: border::rounded(2)
                 .width(1)
                 .color(theme.colors().general.border),
-            shadow: Default::default(),
+            shadow: iced::Shadow::default(),
         })
 }
 
@@ -79,8 +79,8 @@ fn preview<'a, Message: 'a>(color: Color) -> Element<'a, Message> {
                 renderer.fill_quad(
                     Quad {
                         bounds: layout.bounds(),
-                        border: Default::default(),
-                        shadow: Default::default(),
+                        border: iced::Border::default(),
+                        shadow: iced::Shadow::default(),
                     },
                     color,
                 )
@@ -418,8 +418,8 @@ fn picker<'a, Message: 'a>(
                             renderer.fill_quad(
                                 Quad {
                                     bounds: Rectangle::new(top_left, Size::new(width, height)),
-                                    border: Default::default(),
-                                    shadow: Default::default(),
+                                    border: iced::Border::default(),
+                                    shadow: iced::Shadow::default(),
                                 },
                                 color,
                             );
@@ -441,8 +441,8 @@ fn picker<'a, Message: 'a>(
                                 width: 1.0,
                                 height: cell_height,
                             },
-                            border: Default::default(),
-                            shadow: Default::default(),
+                            border: iced::Border::default(),
+                            shadow: iced::Shadow::default(),
                         },
                         data::appearance::theme::from_hsva(color),
                     );
@@ -455,7 +455,7 @@ fn picker<'a, Message: 'a>(
                             border: border::rounded(handle.width / 2.0)
                                 .color(Color::BLACK)
                                 .width(1.0),
-                            shadow: Default::default(),
+                            shadow: iced::Shadow::default(),
                         },
                         Color::WHITE,
                     );
