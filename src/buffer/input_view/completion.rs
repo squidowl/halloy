@@ -65,7 +65,7 @@ impl Completion {
             .then(|| {
                 input
                     .split(' ')
-                    .last()
+                    .next_back()
                     .filter(|last_word| last_word.starts_with(':'))
             })
             .flatten()
