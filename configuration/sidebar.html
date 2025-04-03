@@ -162,24 +162,6 @@
                     <main>
                         <h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
 <p>Sidebar settings for Halloy.</p>
-<h2 id="buffer_action"><a class="header" href="#buffer_action"><code>buffer_action</code></a></h2>
-<p>Action when pressing buffers in the sidebar. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the pressed buffer. <code>"new-window"</code> opens a new window each time.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "new-pane", "replace-pane", "new-window"
-# Default: "new-pane"
-
-[sidebar]
-buffer_action = "replace-pane"
-</code></pre>
-<h2 id="buffer_focused_action"><a class="header" href="#buffer_focused_action"><code>buffer_focused_action</code></a></h2>
-<p>Action when pressing a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "close-pane"
-# Default: not set
-
-[sidebar]
-buffer_focused_action = "close-pane"
-</code></pre>
 <h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
 <p>Unread buffer indicator style.</p>
 <pre><code class="language-toml"># Type: string

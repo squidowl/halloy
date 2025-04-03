@@ -483,7 +483,102 @@ channels = ["#halloy"]
 [buffer.channel.topic]
 enabled = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="buffer"><a class="header" href="#buffer"><code>[buffer]</code></a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="actions"><a class="header" href="#actions"><code>[actions]</code></a></h1>
+<p>Application-wide actions;  how user actions should be enacted.</p>
+<ol>
+<li><a href="configuration/actions.html#actionsbuffer">Buffer</a> - Buffer actions</li>
+<li><a href="configuration/actions.html#actionssidebar">Sidebar</a> - Sidebar actions</li>
+</ol>
+<p><strong>Example</strong></p>
+<pre><code class="language-toml"># Replace pane when clicking on channel/user names in a pane,
+# open a new pane when clicking on a buffer in the sidebar
+# (or close the buffer if it's already open)
+
+[actions.sidebar]
+buffer = "new-pane"
+focused_buffer = "close-pane"
+
+[actions.buffer]
+click_channel_name = "replace-pane"
+click_username = "replace-pane"
+</code></pre>
+<h2 id="actionsbuffer"><a class="header" href="#actionsbuffer"><code>[actions.buffer]</code></a></h2>
+<p>How buffer actions should be enacted.</p>
+<h2 id="click_channel_name"><a class="header" href="#click_channel_name"><code>click_channel_name</code></a></h2>
+<p>Action when clicking on a channel name in a pane. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the clicked channel. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+click_channel_name = "new-pane"
+</code></pre>
+<h2 id="click_highlight"><a class="header" href="#click_highlight"><code>click_highlight</code></a></h2>
+<p>Action when clicking on a highlight in the highlights buffer. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the buffer that contains the highlight. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+click_highlight = "new-pane"
+</code></pre>
+<h2 id="click_username"><a class="header" href="#click_username"><code>click_username</code></a></h2>
+<p>Action when clicking on a user name in a pane (if <code>buffer.channel.nicklist</code> or <code>buffer.nickname</code> is set to <code>"open-query"</code>). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with a query for clicked user. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+click_username = "new-pane"
+</code></pre>
+<h2 id="local"><a class="header" href="#local"><code>local</code></a></h2>
+<p>Action when opening a local buffer (the highlights or logs buffer). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the local buffer. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+local = "new-pane"
+</code></pre>
+<h2 id="message_channel"><a class="header" href="#message_channel"><code>message_channel</code></a></h2>
+<p>Action when sending an empty message to a channel (via the <code>/msg</code> or <code>/notice</code> command). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the channel. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+message_channel = "replace-pane"
+</code></pre>
+<h2 id="message_user"><a class="header" href="#message_user"><code>message_user</code></a></h2>
+<p>Action when sending an empty message to a user (via <code>Message</code> in the user context menu or the <code>/msg</code> or <code>/notice</code> command). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with a query for the user. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+message_user = "replace-pane"
+</code></pre>
+<h2 id="actionssidebar"><a class="header" href="#actionssidebar"><code>[actions.sidebar]</code></a></h2>
+<p>How sidebar actions should be enacted.</p>
+<h2 id="buffer"><a class="header" href="#buffer"><code>buffer</code></a></h2>
+<p>Action when clicking buffers in the sidebar. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the clicked buffer. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+buffer = "replace-pane"
+</code></pre>
+<h2 id="focused_buffer"><a class="header" href="#focused_buffer"><code>focused_buffer</code></a></h2>
+<p>Action when clicking a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "close-pane"
+# Default: not set
+
+[sidebar]
+focused_buffer = "close-pane"
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="buffer-1"><a class="header" href="#buffer-1"><code>[buffer]</code></a></h1>
 <p>Buffer settings for Halloy.</p>
 <ol>
 <li><a href="configuration/buffer.html#bufferaway">Away</a> - Controls the appearance of away nicknames</li>
@@ -1870,24 +1965,6 @@ key = "/path/to/your/private_key.pem"
 </li>
 </ol><div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
 <p>Sidebar settings for Halloy.</p>
-<h2 id="buffer_action"><a class="header" href="#buffer_action"><code>buffer_action</code></a></h2>
-<p>Action when pressing buffers in the sidebar. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the pressed buffer. <code>"new-window"</code> opens a new window each time.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "new-pane", "replace-pane", "new-window"
-# Default: "new-pane"
-
-[sidebar]
-buffer_action = "replace-pane"
-</code></pre>
-<h2 id="buffer_focused_action"><a class="header" href="#buffer_focused_action"><code>buffer_focused_action</code></a></h2>
-<p>Action when pressing a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "close-pane"
-# Default: not set
-
-[sidebar]
-buffer_focused_action = "close-pane"
-</code></pre>
 <h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
 <p>Unread buffer indicator style.</p>
 <pre><code class="language-toml"># Type: string
