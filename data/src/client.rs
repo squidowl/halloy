@@ -12,6 +12,7 @@ use itertools::{Either, Itertools};
 use log::error;
 use tokio::fs;
 
+use crate::dashboard::BufferAction;
 use crate::history::ReadMarker;
 use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken, WhoXPollParameters,
@@ -104,7 +105,7 @@ pub enum Event {
     DirectMessage(User),
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
-    OpenBuffers(Vec<Target>),
+    OpenBuffers(Vec<(Target, BufferAction)>),
 }
 
 struct ChatHistoryRequest {
@@ -302,12 +303,16 @@ impl Client {
         }
     }
 
-    fn receive(&mut self, message: message::Encoded) -> Result<Vec<Event>> {
+    fn receive(
+        &mut self,
+        message: message::Encoded,
+        config: &config::Actions,
+    ) -> Result<Vec<Event>> {
         log::trace!("Message received => {:?}", *message);
 
         let stop_reroute = stop_reroute(&message.command);
 
-        let events = self.handle(message, None)?;
+        let events = self.handle(message, None, config)?;
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -320,6 +325,7 @@ impl Client {
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
+        config: &config::Actions,
     ) -> Result<Vec<Event>> {
         use irc::proto::command::Numeric::*;
 
@@ -655,7 +661,7 @@ impl Client {
                         }
                     }
                 } else {
-                    self.handle(message, context)?
+                    self.handle(message, context, config)?
                 };
 
                 if let Some(batch) = self.batches.get_mut(&Target::parse(
@@ -1237,6 +1243,14 @@ impl Client {
                                                 self.statusmsg(),
                                                 self.casemapping(),
                                             )
+                                        })
+                                        .map(|target| match target {
+                                            Target::Channel(_) => {
+                                                (target, config.buffer.message_channel)
+                                            }
+                                            Target::Query(_) => {
+                                                (target, config.buffer.message_user)
+                                            }
                                         })
                                         .collect(),
                                 ));
@@ -2578,9 +2592,14 @@ impl Map {
         self.client(server).map(Client::nickname)
     }
 
-    pub fn receive(&mut self, server: &Server, message: message::Encoded) -> Result<Vec<Event>> {
+    pub fn receive(
+        &mut self,
+        server: &Server,
+        message: message::Encoded,
+        config: &config::Actions,
+    ) -> Result<Vec<Event>> {
         if let Some(client) = self.client_mut(server) {
-            client.receive(message)
+            client.receive(message, config)
         } else {
             Ok(Default::default())
         }

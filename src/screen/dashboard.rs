@@ -342,31 +342,13 @@ impl Dashboard {
                                         .cloned()
                                     {
                                         for (target, buffer_action) in targets {
-                                            match target {
-                                                Target::Channel(channel) => {
-                                                    tasks.push(self.open_channel(
-                                                        server.clone(),
-                                                        channel,
-                                                        clients,
-                                                        buffer_action,
-                                                        config,
-                                                    ));
-                                                }
-                                                Target::Query(query) => {
-                                                    let buffer = data::Buffer::Upstream(
-                                                        buffer::Upstream::Query(
-                                                            server.clone(),
-                                                            query,
-                                                        ),
-                                                    );
-
-                                                    tasks.push(self.open_buffer(
-                                                        buffer.clone(),
-                                                        buffer_action,
-                                                        config,
-                                                    ));
-                                                }
-                                            }
+                                            tasks.push(self.open_target(
+                                                server.clone(),
+                                                target,
+                                                clients,
+                                                buffer_action,
+                                                config,
+                                            ));
                                         }
                                     }
 
@@ -2309,14 +2291,17 @@ impl Dashboard {
         server: Server,
         target: Target,
         clients: &mut data::client::Map,
+        buffer_action: BufferAction,
         config: &Config,
     ) -> Task<Message> {
         match target {
-            Target::Channel(channel) => self.open_channel(server, channel, clients, config),
+            Target::Channel(channel) => {
+                self.open_channel(server, channel, clients, buffer_action, config)
+            }
             Target::Query(query) => {
                 let buffer = data::Buffer::Upstream(buffer::Upstream::Query(server, query));
 
-                self.open_buffer(buffer.clone(), config)
+                self.open_buffer(buffer.clone(), buffer_action, config)
             }
         }
     }
