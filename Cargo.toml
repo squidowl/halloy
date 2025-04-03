@@ -104,6 +104,7 @@ opt-level = 1
 opt-level = 3
 
 [lints.clippy]
-uninlined_format_args = "deny"
-manual_string_new = "deny"
 default_trait_access ="deny"
+ignored_unit_patterns ="deny"
+manual_string_new = "deny"
+uninlined_format_args = "deny"

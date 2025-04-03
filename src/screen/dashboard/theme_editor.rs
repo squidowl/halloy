@@ -164,7 +164,7 @@ impl ThemeEditor {
                 return (
                     Task::batch(vec![
                         clipboard::write(url),
-                        Task::perform(time::sleep(Duration::from_secs(2)), |_| Message::ClearCopy),
+                        Task::perform(time::sleep(Duration::from_secs(2)), |()| Message::ClearCopy),
                     ]),
                     None,
                 );
@@ -191,18 +191,18 @@ impl ThemeEditor {
                 self.save_result = Some(false);
 
                 return (
-                    Task::perform(time::sleep(Duration::from_secs(2)), |_| {
+                    Task::perform(time::sleep(Duration::from_secs(2)), |()| {
                         Message::ClearSaveResult
                     }),
                     None,
                 );
             }
-            Message::Saved(Ok(_)) => {
+            Message::Saved(Ok(())) => {
                 log::debug!("Theme saved");
                 self.save_result = Some(true);
 
                 return (
-                    Task::perform(time::sleep(Duration::from_secs(2)), |_| {
+                    Task::perform(time::sleep(Duration::from_secs(2)), |()| {
                         Message::ClearSaveResult
                     }),
                     Some(Event::ReloadThemes),
