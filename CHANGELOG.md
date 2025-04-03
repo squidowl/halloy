@@ -1,5 +1,10 @@
 # Unreleased
 
+Changed:
+- Sidebar buffer action settings have been moved to the new action settings section
+  = `sidebar.buffer_action` → `actions.sidebar.buffer`
+  - `sidebar.buffer_focused_action` → `actions.sidebar.focused_buffer`
+
 Added:
 
 - All toast notifications now display the server name
@@ -14,6 +19,7 @@ Added:
   - The Command Bar now includes a "Discover More Themes" action, which opens the website
   - The Theme Editor now has a "Share Theme with Community" option that opens the submit page with the theme payload pre-filled
 - Ability to adjust alpha value of away users
+- New action settings section with settings to control how to open buffers in response to various user actions
 
 Fixed:
 
