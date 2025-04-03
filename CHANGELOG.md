@@ -4,6 +4,7 @@ Added:
 
 - All toast notifications now display the server name
 - Server messages (join, part, etc.) are now user-aware and will color nicknames accordingly
+- Actions will be colored with the same features as regular messages (nicknames, urls, etc)
 - Shortcuts for cycling buffers with unread message(s)
   - Cycle to next buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>`</kbd>
   - Cycle to previous buffer with unread message(s) <kbd>ctrl</kbd> + <kbd>~</kbd>
