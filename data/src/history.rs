@@ -539,15 +539,15 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
     let mut replace_at = None;
 
     for stored in &messages[start_index..end_index] {
-        if (message.id.is_some() && stored.id == message.id)
-            || ((stored.server_time == message.server_time
-                || (matches!(stored.direction, message::Direction::Sent)
-                    && matches!(message.direction, message::Direction::Received)
-                    && message.is_echo))
-                && has_matching_content(stored, &message))
+        if replace_at.is_none()
+            && ((message.id.is_some() && stored.id == message.id)
+                || ((stored.server_time == message.server_time
+                    || (matches!(stored.direction, message::Direction::Sent)
+                        && matches!(message.direction, message::Direction::Received)
+                        && message.is_echo))
+                    && has_matching_content(stored, &message)))
         {
             replace_at = Some(current_index);
-            break;
         }
 
         if message.server_time >= stored.server_time {
@@ -566,13 +566,6 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
                 messages[index] = message;
             }
         } else {
-            let insert_at = match messages
-                .binary_search_by(|stored| stored.server_time.cmp(&message.server_time))
-            {
-                Ok(match_index) => match_index,
-                Err(sorted_insert_index) => sorted_insert_index,
-            };
-
             match insert_at.cmp(&index) {
                 Ordering::Less => {
                     messages.remove(index);
