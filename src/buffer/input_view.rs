@@ -232,10 +232,10 @@ impl State {
                                                 .map(|target| match target {
                                                     Target::Channel(_) => (
                                                         target,
-                                                        config.buffer_actions.message_channel,
+                                                        config.actions.buffer.message_channel,
                                                     ),
                                                     Target::Query(_) => {
-                                                        (target, config.buffer_actions.message_user)
+                                                        (target, config.actions.buffer.message_user)
                                                     }
                                                 })
                                                 .collect(),
