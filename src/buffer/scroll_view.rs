@@ -461,7 +461,7 @@ impl State {
                     Task::none(),
                     Some(Event::OpenBuffer(
                         Target::Channel(channel),
-                        config.buffer_actions.click_channel_name,
+                        config.actions.buffer.click_channel_name,
                     )),
                 );
             }
@@ -476,7 +476,7 @@ impl State {
                                 target::Query::from_user(&user, clients.get_casemapping(&server));
                             Event::OpenBuffer(
                                 Target::Query(query),
-                                config.buffer_actions.click_user_name,
+                                config.actions.buffer.click_username,
                             )
                         })
                     }

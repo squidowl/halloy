@@ -15,8 +15,8 @@ use crate::environment::config_dir;
 use crate::server::Map as ServerMap;
 use crate::{environment, Theme};
 
+pub use self::actions::Actions;
 pub use self::buffer::Buffer;
-pub use self::buffer_actions::BufferActions;
 pub use self::file_transfer::FileTransfer;
 pub use self::highlights::Highlights;
 pub use self::keys::Keyboard;
@@ -27,8 +27,8 @@ pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
 
+pub mod actions;
 pub mod buffer;
-pub mod buffer_actions;
 pub mod file_transfer;
 pub mod highlights;
 pub mod keys;
@@ -58,7 +58,7 @@ pub struct Config {
     pub tooltips: bool,
     pub preview: Preview,
     pub highlights: Highlights,
-    pub buffer_actions: BufferActions,
+    pub actions: Actions,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -180,7 +180,7 @@ impl Config {
             #[serde(default)]
             pub highlights: Highlights,
             #[serde(default)]
-            pub buffer_actions: BufferActions,
+            pub actions: Actions,
         }
 
         let path = Self::path();
@@ -208,7 +208,7 @@ impl Config {
             preview,
             pane,
             highlights,
-            buffer_actions,
+            actions,
         } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_passwords().await?;
@@ -234,7 +234,7 @@ impl Config {
             preview,
             pane,
             highlights,
-            buffer_actions,
+            actions,
         })
     }
 

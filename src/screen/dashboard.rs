@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque, hash_map};
+use std::collections::{hash_map, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
@@ -6,14 +6,14 @@ use std::{convert, slice};
 use chrono::{DateTime, Utc};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
-use data::history::ReadMarker;
 use data::history::manager::Broadcast;
+use data::history::ReadMarker;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{
-    Config, Notification, Server, Version, client, command, config, environment, file_transfer,
-    history, preview,
+    client, command, config, environment, file_transfer, history, preview, Config, Notification,
+    Server, Version,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{column, container, row, Space};
@@ -27,10 +27,10 @@ use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
 use crate::widget::{
-    Column, Element, Row, anchored_overlay, context_menu, selectable_text, shortcut,
+    anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
 };
 use crate::window::Window;
-use crate::{Theme, event, notification, theme, window};
+use crate::{event, notification, theme, window, Theme};
 
 mod command_bar;
 pub mod pane;
@@ -276,7 +276,7 @@ impl Dashboard {
                                                     task,
                                                     self.open_buffer(
                                                         data::Buffer::Upstream(buffer),
-                                                        config.buffer_actions.message_user,
+                                                        config.actions.buffer.message_user,
                                                         config,
                                                     ),
                                                 ]),
@@ -388,7 +388,7 @@ impl Dashboard {
                                     if self.panes.get_mut_by_buffer(&buffer).is_none() {
                                         tasks.push(self.open_buffer(
                                             buffer.clone(),
-                                            config.buffer_actions.click_highlight,
+                                            config.actions.buffer.click_highlight,
                                             config,
                                         ));
                                     }
@@ -1376,7 +1376,7 @@ impl Dashboard {
         } else {
             self.open_buffer(
                 data::Buffer::Internal(buffer),
-                config.buffer_actions.local_buffer,
+                config.actions.buffer.local,
                 config,
             )
         }

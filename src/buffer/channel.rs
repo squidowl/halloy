@@ -2,14 +2,14 @@ use data::dashboard::BufferAction;
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{Config, User, buffer, history, message, preview};
+use data::{buffer, history, message, preview, Config, User};
 use iced::advanced::text;
 use iced::widget::{column, container, row};
-use iced::{Length, Task, padding};
+use iced::{padding, Length, Task};
 
 use super::{input_view, scroll_view, user_context};
-use crate::widget::{Element, message_content, message_marker, selectable_text};
-use crate::{Theme, theme};
+use crate::widget::{message_content, message_marker, selectable_text, Element};
+use crate::{theme, Theme};
 
 mod topic;
 
@@ -432,7 +432,7 @@ impl Channel {
                     topic::Event::UserContext(event) => Event::UserContext(event),
                     topic::Event::OpenChannel(channel) => Event::OpenBuffers(vec![(
                         Target::Channel(channel),
-                        config.buffer_actions.click_channel_name,
+                        config.actions.buffer.click_channel_name,
                     )]),
                 }),
             ),
@@ -487,14 +487,14 @@ fn topic<'a>(
 }
 
 mod nick_list {
-    use data::{Config, Server, User, config, isupport, target};
-    use iced::Length;
+    use data::{config, isupport, target, Config, Server, User};
     use iced::advanced::text;
-    use iced::widget::{Scrollable, column, scrollable};
+    use iced::widget::{column, scrollable, Scrollable};
+    use iced::Length;
     use user_context::Message;
 
     use crate::buffer::user_context;
-    use crate::widget::{Element, selectable_text};
+    use crate::widget::{selectable_text, Element};
     use crate::{font, theme};
 
     pub fn view<'a>(
