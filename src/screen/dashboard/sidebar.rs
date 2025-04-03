@@ -95,7 +95,7 @@ impl Sidebar {
                 (Task::perform(Config::load(), Message::ConfigReloaded), None)
             }
             Message::ConfigReloaded(config) => (
-                Task::perform(time::sleep(CONFIG_RELOAD_DELAY), |_| {
+                Task::perform(time::sleep(CONFIG_RELOAD_DELAY), |()| {
                     Message::ReloadComplete
                 }),
                 Some(Event::ConfigReloaded(config)),
