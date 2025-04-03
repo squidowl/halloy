@@ -644,7 +644,7 @@ impl Dashboard {
                     }
                 }
             }
-            Message::DashboardSaved(Ok(_)) => {
+            Message::DashboardSaved(Ok(())) => {
                 log::info!("dashboard saved");
             }
             Message::DashboardSaved(Err(error)) => {
@@ -1110,7 +1110,7 @@ impl Dashboard {
                 client::Message::ChatHistoryRequest(server, subcommand) => {
                     clients.send_chathistory_request(&server, subcommand);
                 }
-                client::Message::ChatHistoryTargetsTimestampUpdated(server, timestamp, Ok(_)) => {
+                client::Message::ChatHistoryTargetsTimestampUpdated(server, timestamp, Ok(())) => {
                     log::debug!("updated targets timestamp for {server} to {timestamp}");
                 }
                 client::Message::ChatHistoryTargetsTimestampUpdated(
@@ -2199,7 +2199,7 @@ impl Dashboard {
             async move {
                 if last_changed.is_some() {
                     match dashboard.save().await {
-                        Ok(_) => {
+                        Ok(()) => {
                             log::info!("dashboard saved");
                         }
                         Err(error) => {
