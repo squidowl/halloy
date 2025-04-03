@@ -1,9 +1,10 @@
+use data::dashboard::BufferAction;
 use data::user::Nick;
-use data::{Config, Server, User, config, isupport, target};
-use iced::widget::{Space, button, column, container, horizontal_rule, row, text};
-use iced::{Length, Padding, padding};
+use data::{config, isupport, target, Config, Server, User};
+use iced::widget::{button, column, container, horizontal_rule, row, text, Space};
+use iced::{padding, Length, Padding};
 
-use crate::widget::{Element, context_menu, double_pass};
+use crate::widget::{context_menu, double_pass, Element};
 use crate::{theme, widget};
 
 #[derive(Debug, Clone, Copy)]
@@ -60,7 +61,11 @@ impl Entry {
             Entry::Whois => menu_button("Whois", Message::Whois(server.clone(), nickname), length),
             Entry::Query => menu_button(
                 "Message",
-                Message::Query(server.clone(), target::Query::from_user(user, casemapping)),
+                Message::Query(
+                    server.clone(),
+                    target::Query::from_user(user, casemapping),
+                    config.actions.buffer.message_user,
+                ),
                 length,
             ),
             Entry::ToggleAccessLevelOp => {
@@ -138,7 +143,7 @@ impl Entry {
 #[derive(Clone, Debug)]
 pub enum Message {
     Whois(Server, Nick),
-    Query(Server, target::Query),
+    Query(Server, target::Query, BufferAction),
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, Nick),
     InsertNickname(Nick),
@@ -147,7 +152,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     SendWhois(Server, Nick),
-    OpenQuery(Server, target::Query),
+    OpenQuery(Server, target::Query, BufferAction),
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, Nick),
     InsertNickname(Nick),
@@ -156,7 +161,9 @@ pub enum Event {
 pub fn update(message: Message) -> Option<Event> {
     match message {
         Message::Whois(server, nick) => Some(Event::SendWhois(server, nick)),
-        Message::Query(server, nick) => Some(Event::OpenQuery(server, nick)),
+        Message::Query(server, nick, buffer_action) => {
+            Some(Event::OpenQuery(server, nick, buffer_action))
+        }
         Message::ToggleAccessLevel(server, target, nick, mode) => {
             Some(Event::ToggleAccessLevel(server, target, nick, mode))
         }
@@ -179,9 +186,11 @@ pub fn view<'a>(
     let entries = Entry::list(channel.is_some(), our_user);
 
     let message = match click {
-        data::config::buffer::NicknameClickAction::OpenQuery => {
-            Message::Query(server.clone(), target::Query::from_user(user, casemapping))
-        }
+        data::config::buffer::NicknameClickAction::OpenQuery => Message::Query(
+            server.clone(),
+            target::Query::from_user(user, casemapping),
+            config.actions.buffer.click_username,
+        ),
         data::config::buffer::NicknameClickAction::InsertNickname => {
             Message::InsertNickname(user.nickname().to_owned())
         }
@@ -189,17 +198,22 @@ pub fn view<'a>(
 
     let base = widget::button::transparent_button(content, message);
 
-    context_menu(context_menu::MouseButton::default(), base, entries, move |entry, length| {
-        entry.view(
-            server,
-            casemapping,
-            channel,
-            user,
-            current_user,
-            length,
-            config,
-        )
-    })
+    context_menu(
+        context_menu::MouseButton::default(),
+        base,
+        entries,
+        move |entry, length| {
+            entry.view(
+                server,
+                casemapping,
+                channel,
+                user,
+                current_user,
+                length,
+                config,
+            )
+        },
+    )
     .into()
 }
 
@@ -234,23 +248,18 @@ fn user_info<'a>(
 
     // Dimmed if away or offline.
     let is_user_away = current_user.map(|u| u.is_away()).unwrap_or_default();
-    let away_appearance = config
-        .buffer
-        .away
-        .appearance(is_user_away);
+    let away_appearance = config.buffer.away.appearance(is_user_away);
     let seed = match config.buffer.nickname.color {
         data::buffer::Color::Solid => None,
         data::buffer::Color::Unique => Some(nickname.to_string()),
     };
 
-    column![
-        container(
-            text(nickname.to_string())
-                .style(move |theme| theme::text::nickname(theme, seed.clone(), away_appearance))
-                .width(length)
-        )
-        .padding(right_justified_padding()),
-    ]
+    column![container(
+        text(nickname.to_string())
+            .style(move |theme| theme::text::nickname(theme, seed.clone(), away_appearance))
+            .width(length)
+    )
+    .padding(right_justified_padding()),]
     .push_maybe(state.map(|s| container(s).padding(right_justified_padding())))
     .into()
 }
