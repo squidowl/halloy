@@ -1,9 +1,9 @@
 use data::user::Nick;
-use data::{config, isupport, target, Config, Server, User};
-use iced::widget::{button, column, container, horizontal_rule, row, text, Space};
-use iced::{padding, Length, Padding};
+use data::{Config, Server, User, config, isupport, target};
+use iced::widget::{Space, button, column, container, horizontal_rule, row, text};
+use iced::{Length, Padding, padding};
 
-use crate::widget::{context_menu, double_pass, Element};
+use crate::widget::{Element, context_menu, double_pass};
 use crate::{theme, widget};
 
 #[derive(Debug, Clone, Copy)]
@@ -233,18 +233,24 @@ fn user_info<'a>(
     };
 
     // Dimmed if away or offline.
-    let user_is_dimmed = current_user.map(|u| u.is_away()).unwrap_or(true);
+    let is_user_away = current_user.map(|u| u.is_away()).unwrap_or_default();
+    let away_appearance = config
+        .buffer
+        .away
+        .appearance(is_user_away);
     let seed = match config.buffer.nickname.color {
         data::buffer::Color::Solid => None,
         data::buffer::Color::Unique => Some(nickname.to_string()),
     };
 
-    column![container(
-        text(nickname.to_string())
-            .style(move |theme| theme::text::nickname(theme, seed.clone(), user_is_dimmed))
-            .width(length)
-    )
-    .padding(right_justified_padding()),]
+    column![
+        container(
+            text(nickname.to_string())
+                .style(move |theme| theme::text::nickname(theme, seed.clone(), away_appearance))
+                .width(length)
+        )
+        .padding(right_justified_padding()),
+    ]
     .push_maybe(state.map(|s| container(s).padding(right_justified_padding())))
     .into()
 }

@@ -2432,7 +2432,6 @@ dependencies = [
  "futures-core",
  "futures-task",
  "futures-util",
- "num_cpus",
 ]
 
 [[package]]
@@ -2816,12 +2815,6 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hermit-abi"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
-
-[[package]]
-name = "hermit-abi"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbf6a919d6cf397374f7dfeeea91d974c7c0a7221d0d0f4f20d859d329e53fcc"
@@ -3037,11 +3030,12 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=892ac1ce722a809e73aecd8d47ed4e7254d156df#892ac1ce722a809e73aecd8d47ed4e7254d156df"
+source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
 dependencies = [
  "iced_core",
  "iced_futures",
  "iced_renderer",
+ "iced_runtime",
  "iced_widget",
  "iced_winit",
  "image 0.25.5",
@@ -3051,7 +3045,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=892ac1ce722a809e73aecd8d47ed4e7254d156df#892ac1ce722a809e73aecd8d47ed4e7254d156df"
+source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
 dependencies = [
  "bitflags 2.7.0",
  "bytes",
@@ -3059,7 +3053,6 @@ dependencies = [
  "lilt",
  "log",
  "num-traits",
- "palette",
  "rustc-hash 2.1.0",
  "smol_str",
  "thiserror 1.0.69",
@@ -3069,7 +3062,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=892ac1ce722a809e73aecd8d47ed4e7254d156df#892ac1ce722a809e73aecd8d47ed4e7254d156df"
+source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
 dependencies = [
  "futures",
  "iced_core",
@@ -3083,7 +3076,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=892ac1ce722a809e73aecd8d47ed4e7254d156df#892ac1ce722a809e73aecd8d47ed4e7254d156df"
+source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
 dependencies = [
  "bitflags 2.7.0",
  "bytemuck",
@@ -3103,7 +3096,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=892ac1ce722a809e73aecd8d47ed4e7254d156df#892ac1ce722a809e73aecd8d47ed4e7254d156df"
+source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -3115,20 +3108,19 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=892ac1ce722a809e73aecd8d47ed4e7254d156df#892ac1ce722a809e73aecd8d47ed4e7254d156df"
+source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
 dependencies = [
  "bytes",
  "iced_core",
  "iced_futures",
  "raw-window-handle",
- "sipper",
  "thiserror 1.0.69",
 ]
 
 [[package]]
 name = "iced_tiny_skia"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=892ac1ce722a809e73aecd8d47ed4e7254d156df#892ac1ce722a809e73aecd8d47ed4e7254d156df"
+source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3143,7 +3135,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=892ac1ce722a809e73aecd8d47ed4e7254d156df#892ac1ce722a809e73aecd8d47ed4e7254d156df"
+source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
 dependencies = [
  "bitflags 2.7.0",
  "bytemuck",
@@ -3161,7 +3153,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=892ac1ce722a809e73aecd8d47ed4e7254d156df#892ac1ce722a809e73aecd8d47ed4e7254d156df"
+source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -3176,7 +3168,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=892ac1ce722a809e73aecd8d47ed4e7254d156df#892ac1ce722a809e73aecd8d47ed4e7254d156df"
+source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
 dependencies = [
  "iced_futures",
  "iced_graphics",
@@ -4296,16 +4288,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num_cpus"
-version = "1.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
-dependencies = [
- "hermit-abi 0.3.9",
- "libc",
-]
-
-[[package]]
 name = "num_enum"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5012,7 +4994,7 @@ checksum = "a604568c3202727d1507653cb121dbd627a58684eb09a820fd746bee38b4442f"
 dependencies = [
  "cfg-if",
  "concurrent-queue",
- "hermit-abi 0.4.0",
+ "hermit-abi",
  "pin-project-lite",
  "rustix",
  "tracing",
@@ -6078,16 +6060,6 @@ name = "siphasher"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
-
-[[package]]
-name = "sipper"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bccb4192828b3d9a08e0b5a73f17795080dfb278b50190216e3ae2132cf4f95"
-dependencies = [
- "futures",
- "pin-project-lite",
-]
 
 [[package]]
 name = "skrifa"
