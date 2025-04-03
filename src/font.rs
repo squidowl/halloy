@@ -96,12 +96,12 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
             .map(f32::from)
             .unwrap_or(theme::TEXT_SIZE)
             .into(),
-        line_height: Default::default(),
+        line_height: text::LineHeight::default(),
         font: MONO.clone().into(),
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,
         shaping: text::Shaping::Basic,
-        wrapping: Default::default(),
+        wrapping: text::Wrapping::default(),
     })
     .min_bounds()
     .expand(Size::new(1.0, 0.0))

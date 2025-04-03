@@ -577,7 +577,7 @@ fn upstream_buffer_button(
     if entries.is_empty() || !connected {
         base.into()
     } else {
-        context_menu(Default::default(), base, entries, move |entry, length| {
+        context_menu(context_menu::MouseButton::default(), base, entries, move |entry, length| {
             let (content, message) = match entry {
                 Entry::NewPane => ("Open in new pane", Message::Open(buffer.clone())),
                 Entry::Popout => ("Open in new window", Message::Popout(buffer.clone())),
