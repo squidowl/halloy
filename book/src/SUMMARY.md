@@ -20,6 +20,7 @@
 # Configuration
 
 - [Configuration](configuration/README.md)
+  - [Actions](configuration/actions.md)
   - [Buffer](configuration/buffer.md)
   - [File Transfer](configuration/file_transfer.md)
   - [Font](configuration/font.md)

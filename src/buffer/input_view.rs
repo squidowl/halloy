@@ -1,4 +1,5 @@
 use data::command;
+use data::dashboard::BufferAction;
 use data::input::{self, Cache, Draft};
 use data::target::Target;
 use data::user::Nick;
@@ -17,7 +18,7 @@ pub enum Event {
         history_task: Task<history::manager::Message>,
     },
     OpenBuffers {
-        targets: Vec<Target>,
+        targets: Vec<(Target, BufferAction)>,
     },
 }
 
@@ -227,6 +228,15 @@ impl State {
                                                         statusmsg,
                                                         casemapping,
                                                     )
+                                                })
+                                                .map(|target| match target {
+                                                    Target::Channel(_) => (
+                                                        target,
+                                                        config.actions.buffer.message_channel,
+                                                    ),
+                                                    Target::Query(_) => {
+                                                        (target, config.actions.buffer.message_user)
+                                                    }
                                                 })
                                                 .collect(),
                                         }),

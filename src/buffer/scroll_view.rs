@@ -1,20 +1,22 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
+use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
-use data::{Config, Preview, client, history, preview, target};
+use data::target::{self, Target};
+use data::{client, history, preview, Config, Preview};
 use iced::widget::{
-    Scrollable, button, center, column, container, horizontal_rule, horizontal_space, image,
-    mouse_area, row, scrollable, text,
+    button, center, column, container, horizontal_rule, horizontal_space, image, mouse_area, row,
+    scrollable, text, Scrollable,
 };
-use iced::{ContentFit, Length, Task, alignment, padding};
+use iced::{alignment, padding, ContentFit, Length, Task};
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::user_context;
-use crate::widget::{Element, MESSAGE_MARKER_TEXT, notify_visibility, selectable_text};
+use crate::widget::{notify_visibility, selectable_text, Element, MESSAGE_MARKER_TEXT};
 use crate::{font, icon, theme};
 
 #[derive(Debug, Clone)]
@@ -41,7 +43,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(target::Channel),
+    OpenBuffer(Target, BufferAction),
     GoToMessage(Server, target::Channel, message::Hash),
     RequestOlderChatHistory,
     PreviewChanged,
@@ -457,7 +459,13 @@ impl State {
                 );
             }
             Message::Link(message::Link::Channel(channel)) => {
-                return (Task::none(), Some(Event::OpenChannel(channel)));
+                return (
+                    Task::none(),
+                    Some(Event::OpenBuffer(
+                        Target::Channel(channel),
+                        config.actions.buffer.click_channel_name,
+                    )),
+                );
             }
             Message::Link(message::Link::Url(url)) => {
                 let _ = open::that_detached(url);
@@ -468,7 +476,10 @@ impl State {
                         kind.server().cloned().map(|server| {
                             let query =
                                 target::Query::from_user(&user, clients.get_casemapping(&server));
-                            Event::UserContext(user_context::Event::OpenQuery(server, query))
+                            Event::OpenBuffer(
+                                Target::Query(query),
+                                config.actions.buffer.click_username,
+                            )
                         })
                     }
                     data::config::buffer::NicknameClickAction::InsertNickname => {
@@ -743,10 +754,10 @@ mod keyed {
     use data::message;
     use iced::advanced::widget::{self, Operation};
     use iced::widget::scrollable::{self, AbsoluteOffset};
-    use iced::{Rectangle, Task, Vector, advanced};
+    use iced::{advanced, Rectangle, Task, Vector};
 
     use crate::widget::Element;
-    use crate::widget::{Renderer, decorate};
+    use crate::widget::{decorate, Renderer};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Key {
@@ -1019,24 +1030,20 @@ fn preview_row<'a>(
                 keyed::Key::Preview(message.hash, idx),
                 button(
                     container(
-                        column![
-                            column![
-                                text(title)
-                                    .shaping(text::Shaping::Advanced)
-                                    .style(theme::text::primary)
-                            ]
-                            .push_maybe(description.as_ref().map(|description| {
-                                text(description)
-                                    .shaping(text::Shaping::Advanced)
-                                    .style(theme::text::secondary)
-                            }))
-                            .push_maybe(
-                                config.preview.card.show_image.then_some(
-                                    container(image(path).content_fit(ContentFit::ScaleDown))
-                                        .max_height(200)
-                                )
-                            ),
-                        ]
+                        column![column![text(title)
+                            .shaping(text::Shaping::Advanced)
+                            .style(theme::text::primary)]
+                        .push_maybe(description.as_ref().map(|description| {
+                            text(description)
+                                .shaping(text::Shaping::Advanced)
+                                .style(theme::text::secondary)
+                        }))
+                        .push_maybe(
+                            config.preview.card.show_image.then_some(
+                                container(image(path).content_fit(ContentFit::ScaleDown))
+                                    .max_height(200)
+                            )
+                        ),]
                         .max_width(400)
                         .spacing(4),
                     )
@@ -1166,7 +1173,7 @@ mod correct_viewport {
     use std::any::Any;
     use std::sync::{Arc, Mutex};
 
-    use iced::advanced::widget::operation::{Scrollable, scrollable};
+    use iced::advanced::widget::operation::{scrollable, Scrollable};
     use iced::advanced::widget::{Id, Operation};
     use iced::advanced::{self, widget};
     use iced::widget::scrollable::{AbsoluteOffset, Anchor};
@@ -1175,8 +1182,8 @@ mod correct_viewport {
     use crate::widget::decorate;
     use crate::widget::{Element, Renderer};
 
-    use super::Message;
     use super::keyed;
+    use super::Message;
 
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,
