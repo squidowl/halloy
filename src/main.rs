@@ -517,7 +517,11 @@ impl Halloy {
                     let commands = messages
                         .into_iter()
                         .flat_map(|message| {
-                            let events = match self.clients.receive(&server, message) {
+                            let events = match self.clients.receive(
+                                &server,
+                                message,
+                                &self.config.actions,
+                            ) {
                                 Ok(events) => events,
                                 Err(e) => {
                                     handle_irc_error(e);
@@ -834,13 +838,14 @@ impl Halloy {
                                         );
                                     }
                                     data::client::Event::OpenBuffers(targets) => {
-                                        for target in targets {
+                                        for (target, buffer_action) in targets {
                                             commands.push(
                                                 dashboard
                                                     .open_target(
                                                         server.clone(),
                                                         target,
                                                         &mut self.clients,
+                                                        buffer_action,
                                                         &self.config,
                                                     )
                                                     .map(Message::Dashboard),
