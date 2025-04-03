@@ -25,6 +25,10 @@ Fixed:
   - `/notice <targets>` (without any message text) will open a pane for the target(s) without sending a message
 - `/msg <targets>` supports more than one target when opening pane(s) without sending a message
 
+Changed:
+
+- Improved font rendering on Windows for better readability
+
 # 2025.3 (2025-03-14)
 
 Added:
