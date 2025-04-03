@@ -189,7 +189,7 @@ pub fn view<'a>(
 
     let base = widget::button::transparent_button(content, message);
 
-    context_menu(Default::default(), base, entries, move |entry, length| {
+    context_menu(context_menu::MouseButton::default(), base, entries, move |entry, length| {
         entry.view(
             server,
             casemapping,

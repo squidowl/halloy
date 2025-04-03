@@ -49,7 +49,7 @@ pub fn theme(selected: &data::appearance::Selected) -> data::appearance::Theme {
                 log::warn!(
                     "[theme] couldn't determine the OS appearance, using the default theme."
                 );
-                Default::default()
+                appearance::Theme::default()
             }
         },
     }
