@@ -185,8 +185,7 @@ impl TitleBar {
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.target) {
                 if topic.content.is_some() {
                     let topic_enabled = settings
-                        .map(|settings| settings.channel.topic.enabled)
-                        .unwrap_or(config.buffer.channel.topic.enabled);
+                        .map_or(config.buffer.channel.topic.enabled, |settings| settings.channel.topic.enabled);
 
                     let topic_button = button(center(icon::topic()))
                         .padding(5)
@@ -208,8 +207,7 @@ impl TitleBar {
             }
 
             let nicklist_enabled = settings
-                .map(|settings| settings.channel.nicklist.enabled)
-                .unwrap_or(config.buffer.channel.nicklist.enabled);
+                .map_or(config.buffer.channel.nicklist.enabled, |settings| settings.channel.nicklist.enabled);
 
             let nicklist_button = button(center(icon::people()))
                 .padding(5)

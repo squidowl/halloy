@@ -377,7 +377,7 @@ impl Sidebar {
             let second_pass = content(Length::Fill);
 
             container(double_pass(first_pass, second_pass))
-                .max_width(config.max_width.map(f32::from).unwrap_or(f32::INFINITY))
+                .max_width(config.max_width.map_or(f32::INFINITY, f32::from))
                 .width(Length::Shrink)
                 .padding(padding)
                 .into()

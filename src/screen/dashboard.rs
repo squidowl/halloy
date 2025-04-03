@@ -946,24 +946,22 @@ impl Dashboard {
                     ScrollUpPage => {
                         return (
                             self.get_focused_mut()
-                                .map(|(window, pane, state)| {
+                                .map_or_else(Task::none, |(window, pane, state)| {
                                     state.buffer.scroll_up_page().map(move |message| {
                                         Message::Pane(window, pane::Message::Buffer(pane, message))
                                     })
-                                })
-                                .unwrap_or_else(Task::none),
+                                }),
                             None,
                         );
                     }
                     ScrollDownPage => {
                         return (
                             self.get_focused_mut()
-                                .map(|(window, pane, state)| {
+                                .map_or_else(Task::none, |(window, pane, state)| {
                                     state.buffer.scroll_down_page().map(move |message| {
                                         Message::Pane(window, pane::Message::Buffer(pane, message))
                                     })
-                                })
-                                .unwrap_or_else(Task::none),
+                                }),
                             None,
                         );
                     }
@@ -978,24 +976,22 @@ impl Dashboard {
 
                         return (
                             self.get_focused_mut()
-                                .map(|(window, id, pane)| {
+                                .map_or_else(Task::none, |(window, id, pane)| {
                                     pane.buffer.scroll_to_start().map(move |message| {
                                         Message::Pane(window, pane::Message::Buffer(id, message))
                                     })
-                                })
-                                .unwrap_or_else(Task::none),
+                                }),
                             None,
                         );
                     }
                     ScrollToBottom => {
                         return (
                             self.get_focused_mut()
-                                .map(|(window, pane, state)| {
+                                .map_or_else(Task::none, |(window, pane, state)| {
                                     state.buffer.scroll_to_end().map(move |message| {
                                         Message::Pane(window, pane::Message::Buffer(pane, message))
                                     })
-                                })
-                                .unwrap_or_else(Task::none),
+                                }),
                             None,
                         );
                     }
@@ -1503,8 +1499,7 @@ impl Dashboard {
                 tasks.push(
                     self.history
                         .close(history::Kind::Channel(server, channel))
-                        .map(|task| Task::perform(task, Message::History))
-                        .unwrap_or_else(Task::none),
+                        .map_or_else(Task::none, |task| Task::perform(task, Message::History)),
                 );
 
                 (Task::batch(tasks), None)
@@ -1513,8 +1508,7 @@ impl Dashboard {
                 tasks.push(
                     self.history
                         .close(history::Kind::Query(server, nick))
-                        .map(|task| Task::perform(task, Message::History))
-                        .unwrap_or_else(Task::none),
+                        .map_or_else(Task::none, |task| Task::perform(task, Message::History)),
                 );
 
                 // No PART to send, just close history
@@ -2314,8 +2308,7 @@ impl<'a> From<&'a Dashboard> for data::Dashboard {
                 Node::Pane(pane) => panes
                     .get(pane)
                     .cloned()
-                    .map(data::Pane::from)
-                    .unwrap_or(data::Pane::Empty),
+                    .map_or(data::Pane::Empty, data::Pane::from),
             }
         }
 

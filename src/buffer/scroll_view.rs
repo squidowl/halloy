@@ -91,7 +91,7 @@ pub fn view<'a>(
     config: &'a Config,
     format: impl Fn(&'a data::Message, Option<f32>, Option<f32>) -> Option<Element<'a, Message>> + 'a,
 ) -> Element<'a, Message> {
-    let divider_font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) - 1.0;
+    let divider_font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
 
     let Some(history::View {
         has_more_older_messages,
@@ -136,9 +136,7 @@ pub fn view<'a>(
     let oldest = old_messages
         .iter()
         .chain(&new_messages)
-        .next()
-        .map(|message| message.server_time)
-        .unwrap_or_else(Utc::now);
+        .next().map_or_else(Utc::now, |message| message.server_time);
     let status = state.status;
 
     let max_nick_width = max_nick_chars.map(|len| {
