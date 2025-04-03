@@ -1,4 +1,6 @@
-use data::{history, message, target, Config, Server};
+use data::dashboard::BufferAction;
+use data::target::{self, Target};
+use data::{history, message, Config, Server};
 use iced::widget::{container, row, span};
 use iced::{Length, Task};
 
@@ -13,7 +15,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenChannel(target::Channel),
+    OpenBuffer(Target, BufferAction),
     GoToMessage(Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
 }
@@ -213,7 +215,9 @@ impl Highlights {
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
-                    scroll_view::Event::OpenChannel(channel) => Some(Event::OpenChannel(channel)),
+                    scroll_view::Event::OpenBuffer(target, buffer_action) => {
+                        Some(Event::OpenBuffer(target, buffer_action))
+                    }
                     scroll_view::Event::GoToMessage(server, channel, message) => {
                         Some(Event::GoToMessage(server, channel, message))
                     }

@@ -2,32 +2,6 @@
 
 Sidebar settings for Halloy.
 
-## `buffer_action`
-
-Action when pressing buffers in the sidebar. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the pressed buffer. `"new-window"` opens a new window each time.
-
-```toml
-# Type: string
-# Values: "new-pane", "replace-pane", "new-window"
-# Default: "new-pane"
-
-[sidebar]
-buffer_action = "replace-pane"
-```
-
-## `buffer_focused_action`
-
-Action when pressing a focused buffer in the sidebar. `"close-pane"` will close the focused pane.
-
-```toml
-# Type: string
-# Values: "close-pane"
-# Default: not set
-
-[sidebar]
-buffer_focused_action = "close-pane"
-```
-
 ## `unread_indicator`
 
 Unread buffer indicator style.

@@ -1,13 +1,7 @@
 use serde::Deserialize;
 
-use crate::dashboard::{BufferAction, BufferFocusedAction};
-
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct Sidebar {
-    #[serde(default, alias = "default_action")]
-    pub buffer_action: BufferAction,
-    #[serde(default)]
-    pub buffer_focused_action: Option<BufferFocusedAction>,
     #[serde(default)]
     pub max_width: Option<u16>,
     #[serde(default)]
@@ -49,8 +43,6 @@ impl Position {
 impl Default for Sidebar {
     fn default() -> Self {
         Sidebar {
-            buffer_action: Default::default(),
-            buffer_focused_action: Default::default(),
             max_width: None,
             unread_indicator: UnreadIndicator::default(),
             position: Position::default(),

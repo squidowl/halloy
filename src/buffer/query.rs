@@ -1,3 +1,4 @@
+use data::dashboard::BufferAction;
 use data::target::{self, Target};
 use data::{buffer, history, message, preview, Config, Server};
 use iced::advanced::text;
@@ -16,7 +17,7 @@ pub enum Message {
 
 pub enum Event {
     UserContext(user_context::Event),
-    OpenBuffers(Vec<Target>),
+    OpenBuffers(Vec<(Target, BufferAction)>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
@@ -286,8 +287,8 @@ impl Query {
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
-                    scroll_view::Event::OpenChannel(channel) => {
-                        Some(Event::OpenBuffers(vec![Target::Channel(channel)]))
+                    scroll_view::Event::OpenBuffer(target, buffer_action) => {
+                        Some(Event::OpenBuffers(vec![(target, buffer_action)]))
                     }
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => {
