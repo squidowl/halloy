@@ -104,7 +104,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(),
             previews: preview::Collection::default(),
-            buffer_settings: Default::default(),
+            buffer_settings: dashboard::BufferSettings::default(),
         };
 
         let command = dashboard.track();
