@@ -186,12 +186,19 @@
 <p>Controls the appearance of away nicknames.</p>
 <h3 id="appearance"><a class="header" href="#appearance"><code>appearance</code></a></h3>
 <p>Controls the appearance of away nicknames in buffers.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "dimmed", "solid"
+<pre><code class="language-toml"># Type: string or object
+# Values: "dimmed", "solid" or { dimmed = float }
 # Default: "dimmed"
-
 [buffer.away]
 appearance = "dimmed"
+
+# with custom dimming alpha value (0.0-1.0)
+[buffer.away]
+appearance = { dimmed = 0.5 }
+
+# no away indication
+[buffer.away]
+appearance = "solid"
 </code></pre>
 <h2 id="bufferchannel"><a class="header" href="#bufferchannel"><code>[buffer.channel]</code></a></h2>
 <p>Channel specific settings</p>
