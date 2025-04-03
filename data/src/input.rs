@@ -103,7 +103,14 @@ impl Input {
             ),
             command::Irc::Me(target, action) => Some(vec![Message::sent(
                 to_target(&target, message::Source::Action(Some(user.clone()))),
-                message::action_text(user.nickname(), Some(&action)),
+                message::action_text(
+                    user.nickname(),
+                    Some(&action),
+                    channel_users,
+                    &target,
+                    None,
+                    &config.highlights,
+                ),
             )]),
             _ => None,
         }
