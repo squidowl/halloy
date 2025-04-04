@@ -15,17 +15,17 @@ use url::Url;
 
 pub use self::formatting::Formatting;
 pub use self::source::{
-    server::{Kind, StandardReply},
     Source,
+    server::{Kind, StandardReply},
 };
 
-use crate::config::buffer::UsernameFormat;
 use crate::config::Highlights;
+use crate::config::buffer::UsernameFormat;
 use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{ctcp, isupport, target, Config, Server, User};
+use crate::{Config, Server, User, ctcp, isupport, target};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -1598,10 +1598,10 @@ mod test {
                 ],
             ),
             (
-                "We have a wiki at https://halloy.squidowl.org",
+                "We have a wiki at https://halloy.chat",
                 vec![
                     Fragment::Text("We have a wiki at ".into()),
-                    Fragment::Url("https://halloy.squidowl.org".parse().unwrap()),
+                    Fragment::Url("https://halloy.chat".parse().unwrap()),
                 ],
             ),
             (
