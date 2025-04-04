@@ -414,6 +414,19 @@ mod test {
                     command: Command::MODE("#test".to_string(), Some("+nt".to_string()), Some(vec![])),
                 },
             ),
+            (
+                ":soju.bouncer FAIL * ACCOUNT_REQUIRED :Authentication required\r\n",
+                Message {
+                    tags: vec![],
+                    source: Some(Source::Server("soju.bouncer".to_string())),
+                    command: Command::FAIL(
+                        "*".to_string(),
+                        "ACCOUNT_REQUIRED".to_string(),
+                        None,
+                        "Authentication required".to_string(),
+                    ),
+                },
+            ),
         ];
 
         for (test, expected) in tests {
