@@ -153,7 +153,7 @@ fn markdown<'a>(
                     pair(
                         peek(left_flanking(d, n)),
                         verify(right_flanking(d, n), move |c| {
-                            c.map_or(false, |c| c != d && c.is_ascii_punctuation())
+                            c.is_some_and(|c| c != d && c.is_ascii_punctuation())
                         }),
                     ),
                     |_| (),

@@ -269,14 +269,18 @@ impl Dashboard {
                                                 }
                                             }
                                         }
-                                        buffer::user_context::Event::OpenQuery(server, query) => {
+                                        buffer::user_context::Event::OpenQuery(
+                                            server,
+                                            query,
+                                            buffer_action,
+                                        ) => {
                                             let buffer = buffer::Upstream::Query(server, query);
                                             return (
                                                 Task::batch(vec![
                                                     task,
                                                     self.open_buffer(
                                                         data::Buffer::Upstream(buffer),
-                                                        config.actions.buffer.message_user,
+                                                        buffer_action,
                                                         config,
                                                     ),
                                                 ]),
