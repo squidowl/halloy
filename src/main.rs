@@ -105,8 +105,7 @@ fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
         .as_ref()
         .ok()
         .and_then(|config| config.font.size)
-        .map(f32::from)
-        .unwrap_or(theme::TEXT_SIZE);
+        .map_or(theme::TEXT_SIZE, f32::from);
 
     iced::Settings {
         default_font: font::MONO.clone().into(),
