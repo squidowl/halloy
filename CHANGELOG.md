@@ -1,10 +1,5 @@
 # Unreleased
 
-Changed:
-- Sidebar buffer action settings have been moved to the new action settings section
-  = `sidebar.buffer_action` → `actions.sidebar.buffer`
-  - `sidebar.buffer_focused_action` → `actions.sidebar.focused_buffer`
-
 Added:
 
 - All toast notifications now display the server name
@@ -34,6 +29,9 @@ Fixed:
 Changed:
 
 - Improved font rendering on Windows for better readability
+- Sidebar buffer action settings have been moved to the new action settings section
+  - `sidebar.buffer_action` → `actions.sidebar.buffer`
+  - `sidebar.buffer_focused_action` → `actions.sidebar.focused_buffer`
 
 # 2025.3 (2025-03-14)
 
