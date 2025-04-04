@@ -64,7 +64,7 @@ impl CommandBar {
         main_window: window::Id,
     ) -> Element<'a, Message> {
         // 1px larger than default
-        let font_size = config.font.size.map(f32::from).unwrap_or(theme::TEXT_SIZE) + 1.0;
+        let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) + 1.0;
 
         let combo_box = combo_box(&self.state, "Type a command...", None, Message::Command)
             .on_close(Message::Unfocused)
@@ -323,8 +323,7 @@ impl std::fmt::Display for Version {
                     .remote
                     .as_ref()
                     .filter(|remote| remote != &&version.current)
-                    .map(|remote| format!("(Latest: {remote})"))
-                    .unwrap_or("(Latest release)".to_owned());
+                    .map_or("(Latest release)".to_owned(), |remote| format!("(Latest: {remote})"));
 
                 write!(f, "{} {}", version.current, latest)
             }

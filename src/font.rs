@@ -93,8 +93,7 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
         bounds: Size::INFINITY,
         size: config
             .size
-            .map(f32::from)
-            .unwrap_or(theme::TEXT_SIZE)
+            .map_or(theme::TEXT_SIZE, f32::from)
             .into(),
         line_height: text::LineHeight::default(),
         font: MONO.clone().into(),

@@ -324,8 +324,7 @@ pub fn view<'a>(
     let content = column![topic, messages].spacing(4);
 
     let nicklist_enabled = settings
-        .map(|settings| settings.channel.nicklist.enabled)
-        .unwrap_or(config.buffer.channel.nicklist.enabled);
+        .map_or(config.buffer.channel.nicklist.enabled, |settings| settings.channel.nicklist.enabled);
 
     let content = match (nicklist_enabled, config.buffer.channel.nicklist.position) {
         (true, data::channel::Position::Left) => row![nick_list, content],
@@ -459,8 +458,7 @@ fn topic<'a>(
     theme: &'a Theme,
 ) -> Option<Element<'a, Message>> {
     let topic_enabled = settings
-        .map(|settings| settings.channel.topic.enabled)
-        .unwrap_or(config.buffer.channel.topic.enabled);
+        .map_or(config.buffer.channel.topic.enabled, |settings| settings.channel.topic.enabled);
 
     if !topic_enabled {
         return None;
