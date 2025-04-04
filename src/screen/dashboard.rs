@@ -2198,8 +2198,7 @@ impl Dashboard {
         } else if self
             .theme_editor
             .as_ref()
-            .map(|e| e.window == id)
-            .unwrap_or_default()
+            .is_some_and(|e| e.window == id)
         {
             match event {
                 window::Event::CloseRequested => {
