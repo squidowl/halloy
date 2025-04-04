@@ -1,121 +1,225 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-
-<Wix
-    xmlns="http://wixtoolset.org/schemas/v4/wxs"
-    xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-
-    <Package
-        Name="Halloy"
-        Version="$(PackageVersion)"
-        Manufacturer="Squidowl"
-        Language="1033"
-        UpgradeCode="3ed18662-fb43-4803-a4f9-89bbbc0b6d01"
-        UpgradeStrategy="majorUpgrade"
-        Scope="perMachine">
-
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+    <Package Name="Halloy"
+             Version="$(PackageVersion)"
+             Manufacturer="Squidowl"
+             Language="1033"
+             UpgradeCode="3ed18662-fb43-4803-a4f9-89bbbc0b6d01"
+             UpgradeStrategy="majorUpgrade"
+             Scope="perMachine">
         <MajorUpgrade Schedule="afterInstallInitialize"
-            DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit."/>
-
-        <Media Id="1" Cabinet="media1.cab" EmbedCab="yes"/>
-
+                      DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit." />
+        <Media Id="1"
+               Cabinet="media1.cab"
+               EmbedCab="yes" />
         <StandardDirectory Id="ProgramFiles6432Folder">
-            <Directory
-                Id="INSTALLFOLDER"
-                Name="!(bind.Property.ProductName)"
-            />
+            <Directory Id="INSTALLFOLDER"
+                       Name="!(bind.Property.ProductName)" />
         </StandardDirectory>
-
-        <ComponentGroup Id="MainComponents" Directory="INSTALLFOLDER">
-
+        <ComponentGroup Id="MainComponents"
+                        Directory="INSTALLFOLDER">
             <Component>
-                <File Id="Application" DiskId="1" Source="target/release/halloy.exe" KeyPath="yes">
-                    <Shortcut
-                        Id="ApplicationStartMenuShortcutInFile"
-                        Name="Halloy"
-                        Icon="HalloyIcon.exe"
-                        Directory="ProgramMenuFolder"
-                        Description="IRC client"
-                        Advertise="yes"
-                        WorkingDirectory="INSTALLFOLDER">
-                        <ShortcutProperty Key="System.AppUserModel.ID" Value="org.squidowl.halloy" />
+                <File Id="Application"
+                      DiskId="1"
+                      Source="target/release/halloy.exe"
+                      KeyPath="yes">
+                    <Shortcut Id="ApplicationStartMenuShortcutInFile"
+                              Name="Halloy"
+                              Icon="HalloyIcon.exe"
+                              Directory="ProgramMenuFolder"
+                              Description="IRC client"
+                              Advertise="yes"
+                              WorkingDirectory="INSTALLFOLDER">
+                        <ShortcutProperty Key="System.AppUserModel.ID"
+                                          Value="org.squidowl.halloy" />
                     </Shortcut>
                 </File>
             </Component>
-
             <Component>
-                <RegistryKey Root="HKLM" Key="SOFTWARE\Halloy" ForceDeleteOnUninstall="yes" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationDescription" Value="Halloy - IRC client" Type="string" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationIcon" Value="[INSTALLFOLDER]Halloy.exe,0" Type="string" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities" Name="ApplicationName" Value="Halloy" Type="string" />
-
-                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\DefaultIcon" Value="[INSTALLFOLDER]Halloy.exe,1" Type="string" />
-
-                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="halloy" Value="halloy" Type="string" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="irc" Value="halloy" Type="string" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\URLAssociations" Name="ircs" Value="halloy" Type="string" />
-
-                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\shell" Value="open" Type="string" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\Halloy\Capabilities\shell\open\command" Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;" Type="string" />
-
-                <RegistryValue Root="HKLM" Key="SOFTWARE\RegisteredApplications" Name="Halloy" Value="SOFTWARE\Halloy\Capabilities" Type="string" />
+                <RegistryKey Root="HKLM"
+                             Key="SOFTWARE\Halloy"
+                             ForceDeleteOnUninstall="yes" />
+                <RegistryValue Root="HKLM"
+                               Key="SOFTWARE\Halloy\Capabilities"
+                               Name="ApplicationDescription"
+                               Value="Halloy - IRC client"
+                               Type="string" />
+                <RegistryValue Root="HKLM"
+                               Key="SOFTWARE\Halloy\Capabilities"
+                               Name="ApplicationIcon"
+                               Value="[INSTALLFOLDER]Halloy.exe,0"
+                               Type="string" />
+                <RegistryValue Root="HKLM"
+                               Key="SOFTWARE\Halloy\Capabilities"
+                               Name="ApplicationName"
+                               Value="Halloy"
+                               Type="string" />
+                <RegistryValue Root="HKLM"
+                               Key="SOFTWARE\Halloy\Capabilities\DefaultIcon"
+                               Value="[INSTALLFOLDER]Halloy.exe,1"
+                               Type="string" />
+                <RegistryValue Root="HKLM"
+                               Key="SOFTWARE\Halloy\Capabilities\URLAssociations"
+                               Name="halloy"
+                               Value="halloy"
+                               Type="string" />
+                <RegistryValue Root="HKLM"
+                               Key="SOFTWARE\Halloy\Capabilities\URLAssociations"
+                               Name="irc"
+                               Value="halloy"
+                               Type="string" />
+                <RegistryValue Root="HKLM"
+                               Key="SOFTWARE\Halloy\Capabilities\URLAssociations"
+                               Name="ircs"
+                               Value="halloy"
+                               Type="string" />
+                <RegistryValue Root="HKLM"
+                               Key="SOFTWARE\Halloy\Capabilities\shell"
+                               Value="open"
+                               Type="string" />
+                <RegistryValue Root="HKLM"
+                               Key="SOFTWARE\Halloy\Capabilities\shell\open\command"
+                               Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;"
+                               Type="string" />
+                <RegistryValue Root="HKLM"
+                               Key="SOFTWARE\RegisteredApplications"
+                               Name="Halloy"
+                               Value="SOFTWARE\Halloy\Capabilities"
+                               Type="string" />
             </Component>
-
             <Component>
-                <RegistryKey Root="HKCR" Key="halloy" ForceDeleteOnUninstall="yes" />
-                <RegistryValue Root="HKCR" Key="halloy" Value="URL:Halloy" Type="string"  />
-                <RegistryValue Root="HKCR" Key="halloy" Name="FriendlyTypeName" Value="Halloy URL" Type="string" />
-                <RegistryValue Root="HKCR" Key="halloy" Name="EditFlags" Value="2" Type="integer" />
-                <RegistryValue Root="HKCR" Key="halloy" Name="URL Protocol" Value="halloy" Type="string" />
-
-                <RegistryValue Root="HKCR" Key="halloy\DefaultIcon" Value="[INSTALLFOLDER]halloy.exe,1" Type="string" />
-
-                <RegistryValue Root="HKCR" Key="halloy\shell" Type="string" Value="open" />
-                <RegistryValue Root="HKCR" Key="halloy\shell\open\command" Type="string" Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;" />
+                <RegistryKey Root="HKCR"
+                             Key="halloy"
+                             ForceDeleteOnUninstall="yes" />
+                <RegistryValue Root="HKCR"
+                               Key="halloy"
+                               Value="URL:Halloy"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="halloy"
+                               Name="FriendlyTypeName"
+                               Value="Halloy URL"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="halloy"
+                               Name="EditFlags"
+                               Value="2"
+                               Type="integer" />
+                <RegistryValue Root="HKCR"
+                               Key="halloy"
+                               Name="URL Protocol"
+                               Value="halloy"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="halloy\DefaultIcon"
+                               Value="[INSTALLFOLDER]halloy.exe,1"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="halloy\shell"
+                               Type="string"
+                               Value="open" />
+                <RegistryValue Root="HKCR"
+                               Key="halloy\shell\open\command"
+                               Type="string"
+                               Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;" />
             </Component>
-
             <Component>
-                <RegistryKey Root="HKCR" Key="irc" ForceDeleteOnUninstall="yes" />
-                <RegistryValue Root="HKCR" Key="irc" Value="URL:Internet Relay Chat" Type="string" />
-                <RegistryValue Root="HKCR" Key="irc" Name="FriendlyTypeName" Value="Internet Relay Chat URL" Type="string" />
-                <RegistryValue Root="HKCR" Key="irc" Name="EditFlags" Value="2" Type="integer" />
-                <RegistryValue Root="HKCR" Key="irc" Name="URL Protocol" Value="irc" Type="string" />
-
-                <RegistryValue Root="HKCR" Key="irc\DefaultIcon" Value="[INSTALLFOLDER]halloy.exe,1" Type="string" />
-
-                <RegistryValue Root="HKCR" Key="irc\shell" Type="string" Value="open" />
-                <RegistryValue Root="HKCR" Key="irc\shell\open\command" Type="string" Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;" />
+                <RegistryKey Root="HKCR"
+                             Key="irc"
+                             ForceDeleteOnUninstall="yes" />
+                <RegistryValue Root="HKCR"
+                               Key="irc"
+                               Value="URL:Internet Relay Chat"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="irc"
+                               Name="FriendlyTypeName"
+                               Value="Internet Relay Chat URL"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="irc"
+                               Name="EditFlags"
+                               Value="2"
+                               Type="integer" />
+                <RegistryValue Root="HKCR"
+                               Key="irc"
+                               Name="URL Protocol"
+                               Value="irc"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="irc\DefaultIcon"
+                               Value="[INSTALLFOLDER]halloy.exe,1"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="irc\shell"
+                               Type="string"
+                               Value="open" />
+                <RegistryValue Root="HKCR"
+                               Key="irc\shell\open\command"
+                               Type="string"
+                               Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;" />
             </Component>
-
             <Component>
-                <RegistryKey Root="HKCR" Key="ircs" ForceDeleteOnUninstall="yes" />
-                <RegistryValue Root="HKCR" Key="ircs" Value="URL:Internet Relay Chat with Privacy" Type="string" />
-                <RegistryValue Root="HKCR" Key="ircs" Name="FriendlyTypeName" Value="Internet Relay Chat with Privacy URL" Type="string" />
-                <RegistryValue Root="HKCR" Key="ircs" Name="EditFlags" Value="2" Type="integer" />
-                <RegistryValue Root="HKCR" Key="ircs" Name="URL Protocol" Value="ircs" Type="string" />
-                
-                <RegistryValue Root="HKCR" Key="ircs\DefaultIcon" Value="[INSTALLFOLDER]halloy.exe,1" Type="string" />
-
-                <RegistryValue Root="HKCR" Key="ircs\shell" Type="string" Value="open" />
-                <RegistryValue Root="HKCR" Key="ircs\shell\open\command" Type="string" Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;" />
+                <RegistryKey Root="HKCR"
+                             Key="ircs"
+                             ForceDeleteOnUninstall="yes" />
+                <RegistryValue Root="HKCR"
+                               Key="ircs"
+                               Value="URL:Internet Relay Chat with Privacy"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="ircs"
+                               Name="FriendlyTypeName"
+                               Value="Internet Relay Chat with Privacy URL"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="ircs"
+                               Name="EditFlags"
+                               Value="2"
+                               Type="integer" />
+                <RegistryValue Root="HKCR"
+                               Key="ircs"
+                               Name="URL Protocol"
+                               Value="ircs"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="ircs\DefaultIcon"
+                               Value="[INSTALLFOLDER]halloy.exe,1"
+                               Type="string" />
+                <RegistryValue Root="HKCR"
+                               Key="ircs\shell"
+                               Type="string"
+                               Value="open" />
+                <RegistryValue Root="HKCR"
+                               Key="ircs\shell\open\command"
+                               Type="string"
+                               Value="&quot;[INSTALLFOLDER]Halloy.exe&quot; &quot;%1&quot;" />
             </Component>
-
         </ComponentGroup>
-
-        <Icon Id="HalloyIcon.exe" SourceFile="assets/windows/halloy.ico" />
-
-        <Property Id="ARPPRODUCTICON" Value="HalloyIcon.exe"/>
-        <Property Id="APPHELPLINK" Value="https://halloy.squidowl.org/"/>
-
-        <CustomAction Id="LaunchApp" Impersonate="yes" Execute="deferred" FileRef="Application" ExeCommand="" Return="asyncNoWait" />
-
+        <Icon Id="HalloyIcon.exe"
+              SourceFile="assets/windows/halloy.ico" />
+        <Property Id="ARPPRODUCTICON"
+                  Value="HalloyIcon.exe" />
+        <Property Id="APPHELPLINK"
+                  Value="https://halloy.chat/" />
+        <CustomAction Id="LaunchApp"
+                      Impersonate="yes"
+                      Execute="deferred"
+                      FileRef="Application"
+                      ExeCommand=""
+                      Return="asyncNoWait" />
         <InstallExecuteSequence>
-          <Custom Action="LaunchApp" Before="InstallFinalize"/>
+            <Custom Action="LaunchApp"
+                    Before="InstallFinalize" />
         </InstallExecuteSequence>
-
-        <WixVariable Id="WixUILicenseRtf" Value="wix/license.rtf"/>
-        <WixVariable Id="WixUIDialogBmp" Value="wix/dialog.png"/>
-        <WixVariable Id="WixUIBannerBmp" Value="wix/banner.png"/>
-
-        <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+        <WixVariable Id="WixUILicenseRtf"
+                     Value="wix/license.rtf" />
+        <WixVariable Id="WixUIDialogBmp"
+                     Value="wix/dialog.png" />
+        <WixVariable Id="WixUIBannerBmp"
+                     Value="wix/banner.png" />
+        <ui:WixUI Id="WixUI_InstallDir"
+                  InstallDirectory="INSTALLFOLDER" />
     </Package>
 </Wix>

@@ -1,7 +1,7 @@
 [package]
 name = "halloy"
 description = "Halloy IRC Client"
-documentation = "https://halloy.squidowl.org/"
+documentation = "https://halloy.chat/"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -43,7 +43,7 @@ log = { version = "0.4.26", features = ['std'] }
 tokio = { workspace = true, features = ["rt", "fs", "process"] }
 futures = { workspace = true }
 thiserror = { workspace = true }
-chrono = { workspace =  true }
+chrono = { workspace = true }
 strum = { workspace = true }
 anyhow = { workspace = true }
 url = { workspace = true }
@@ -77,12 +77,17 @@ rodio = "0.20.1"
 humantime = "2.1.0"
 dark-light = { git = "https://github.com/rust-dark-light/dark-light", rev = "8e1f745f91e1e805fa772a83e4744afe95d70aa1" }
 strsim = "0.11.1"
-rfd = { version = "0.15.2", default-features = false, features = ["xdg-portal", "tokio"] }
+rfd = { version = "0.15.2", default-features = false, features = [
+    "xdg-portal",
+    "tokio",
+] }
 uuid = { version = "1.15", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
 image = "0.24.6"
-iced = { version = "0.14.0-dev", default-features = false, features = ["web-colors"] }
+iced = { version = "0.14.0-dev", default-features = false, features = [
+    "web-colors",
+] }
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "3.0.2"
@@ -105,7 +110,7 @@ opt-level = 1
 opt-level = 3
 
 [lints.clippy]
-default_trait_access ="deny"
-ignored_unit_patterns ="deny"
+default_trait_access = "deny"
+ignored_unit_patterns = "deny"
 manual_string_new = "deny"
 uninlined_format_args = "deny"

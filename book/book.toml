@@ -5,7 +5,7 @@ multilingual = false
 src = "src"
 
 [output.html]
-cname = "halloy.squidowl.org"
+cname = "halloy.chat"
 git-repository-url = "https://github.com/squidowl/halloy"
 edit-url-template = "https://github.com/squidowl/halloy/edit/main/book/{path}"
 
