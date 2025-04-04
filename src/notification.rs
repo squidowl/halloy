@@ -126,7 +126,7 @@ impl Notifications {
         title: &str,
         body: impl ToString,
     ) {
-        let last_notification = self.recent_notifications.get(notification).cloned();
+        let last_notification = self.recent_notifications.get(notification).copied();
 
         if last_notification.is_some()
             && last_notification.unwrap()

@@ -1798,7 +1798,7 @@ impl Dashboard {
             return self.split_pane(axis);
         } else {
             // If there is no focused pane, split the last pane or create a new empty grid
-            let pane = self.panes.main.iter().last().map(|(pane, _)| pane).cloned();
+            let pane = self.panes.main.iter().last().map(|(pane, _)| pane).copied();
 
             if let Some(pane) = pane {
                 let result = self.panes.main.split(axis, pane, Pane::new(Buffer::Empty));
@@ -1849,7 +1849,7 @@ impl Dashboard {
                 .focus_history
                 .iter()
                 .filter(|p| **p != pane)
-                .cloned()
+                .copied()
                 .collect();
 
             if let Some((_, sibling)) = self.panes.main.close(pane) {
@@ -2198,8 +2198,7 @@ impl Dashboard {
         } else if self
             .theme_editor
             .as_ref()
-            .map(|e| e.window == id)
-            .unwrap_or_default()
+            .is_some_and(|e| e.window == id)
         {
             match event {
                 window::Event::CloseRequested => {

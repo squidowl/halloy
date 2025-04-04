@@ -247,7 +247,7 @@ fn user_info<'a>(
     };
 
     // Dimmed if away or offline.
-    let is_user_away = current_user.map(|u| u.is_away()).unwrap_or_default();
+    let is_user_away = current_user.is_some_and(|u| u.is_away());
     let away_appearance = config.buffer.away.appearance(is_user_away);
     let seed = match config.buffer.nickname.color {
         data::buffer::Color::Solid => None,

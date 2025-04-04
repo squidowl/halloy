@@ -45,8 +45,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let version = args
         .next()
-        .map(|s| s == "--version" || s == "-V")
-        .unwrap_or_default();
+        .is_some_and(|s| s == "--version" || s == "-V");
 
     if version {
         println!("halloy {}", environment::formatted_version());

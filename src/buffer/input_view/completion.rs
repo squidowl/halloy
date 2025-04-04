@@ -1928,7 +1928,7 @@ impl Emojis {
             filtered,
         } = self
         {
-            if let Some(shortcode) = filtered.get(*index).cloned() {
+            if let Some(shortcode) = filtered.get(*index).copied() {
                 *self = Self::Idle;
 
                 return pick_emoji(shortcode, config.buffer.emojis.skin_tone)
