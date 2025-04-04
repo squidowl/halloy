@@ -108,4 +108,5 @@ opt-level = 3
 default_trait_access ="deny"
 ignored_unit_patterns ="deny"
 manual_string_new = "deny"
+map_unwrap_or = "deny"
 uninlined_format_args = "deny"

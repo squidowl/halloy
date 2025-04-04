@@ -376,8 +376,7 @@ impl Sidebar {
                     config
                         .sidebar
                         .max_width
-                        .map(f32::from)
-                        .unwrap_or(f32::INFINITY),
+                        .map_or(f32::INFINITY, f32::from),
                 )
                 .width(Length::Shrink)
                 .padding(padding)
