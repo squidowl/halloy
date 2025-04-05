@@ -70,7 +70,7 @@ impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> 
             layout,
             cursor,
             viewport,
-        )
+        );
     }
 
     fn children(&self) -> Vec<widget::Tree> {

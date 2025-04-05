@@ -879,7 +879,7 @@ mod keyed {
             _bounds: Rectangle,
             operate_on_children: &mut dyn FnMut(&mut dyn Operation<Hit>),
         ) {
-            operate_on_children(self)
+            operate_on_children(self);
         }
 
         fn custom(
@@ -953,7 +953,7 @@ mod keyed {
             _bounds: Rectangle,
             operate_on_children: &mut dyn FnMut(&mut dyn Operation<Hit>),
         ) {
-            operate_on_children(self)
+            operate_on_children(self);
         }
 
         fn custom(

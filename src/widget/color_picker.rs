@@ -83,7 +83,7 @@ fn preview<'a, Message: 'a>(color: Color) -> Element<'a, Message> {
                         shadow: iced::Shadow::default(),
                     },
                     color,
-                )
+                );
             },
         )
         .into()
