@@ -174,7 +174,9 @@ pub fn view<'a>(
                             .cloned()
                             .collect::<Vec<_>>();
 
-                        if !urls.is_empty() {
+                        if urls.is_empty() {
+                            element
+                        } else {
                             let is_message_visible =
                                 state.visible_url_messages.contains_key(&message.hash);
 
@@ -222,8 +224,6 @@ pub fn view<'a>(
                             }
 
                             column.into()
-                        } else {
-                            element
                         }
                     } else {
                         element
@@ -728,7 +728,9 @@ impl Status {
         other: Self,
         viewport: scrollable::Viewport,
     ) -> Option<scrollable::AbsoluteOffset> {
-        if self.anchor() != other.anchor() {
+        if self.anchor() == other.anchor() {
+            None
+        } else {
             let offset = viewport.absolute_offset();
             let reversed_offset = viewport.absolute_offset_reversed();
 
@@ -736,8 +738,6 @@ impl Status {
                 x: offset.x,
                 y: reversed_offset.y,
             })
-        } else {
-            None
         }
     }
 }
