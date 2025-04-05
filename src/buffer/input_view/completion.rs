@@ -459,7 +459,7 @@ impl Commands {
                         subcommand: None,
                     };
                 } else {
-                    *self = Self::Idle
+                    *self = Self::Idle;
                 }
             }
             // Command fully typed & already selected, check for subcommand if any exist
@@ -1398,13 +1398,13 @@ fn join_command(
                     format!("\nunlimited {} channels per client", channel_limit.prefix).as_str(),
                 );
             }
-        })
+        });
     }
 
     let mut keys_tooltip = String::from("comma-separated");
 
     if let Some(key_len) = key_len {
-        keys_tooltip.push_str(format!("\nmaximum length of each: {key_len}").as_str())
+        keys_tooltip.push_str(format!("\nmaximum length of each: {key_len}").as_str());
     }
 
     Command {
@@ -1431,7 +1431,7 @@ fn kick_command(target_limit: Option<u16>, max_len: Option<&u16>) -> Command {
     if let Some(target_limit) = target_limit {
         users_tooltip.push_str(format!("\nup to {target_limit} user").as_str());
         if target_limit != 1 {
-            users_tooltip.push('s')
+            users_tooltip.push('s');
         }
     }
 
@@ -1493,7 +1493,7 @@ fn list_command(search_extensions: Option<&String>, target_limit: Option<u16>) -
     if let Some(target_limit) = target_limit {
         channels_tooltip.push_str(format!("\nup to {target_limit} channel").as_str());
         if target_limit != 1 {
-            channels_tooltip.push('s')
+            channels_tooltip.push('s');
         }
     }
 
@@ -1573,7 +1573,7 @@ fn monitor_add_command(target_limit: &Option<u16>) -> Command {
     if let Some(target_limit) = target_limit {
         targets_tooltip.push_str(format!("\nup to {target_limit} target").as_str());
         if *target_limit != 1 {
-            targets_tooltip.push('s')
+            targets_tooltip.push('s');
         }
         targets_tooltip.push_str(" in total");
     }
@@ -1637,7 +1637,7 @@ fn msg_command(channel_membership_prefixes: Vec<char>, target_limit: Option<u16>
     if let Some(target_limit) = target_limit {
         targets_tooltip.push_str(format!("\nup to {target_limit} target").as_str());
         if target_limit != 1 {
-            targets_tooltip.push('s')
+            targets_tooltip.push('s');
         }
     }
 
@@ -1664,7 +1664,7 @@ fn names_command(target_limit: u16) -> Command {
 
     channels_tooltip.push_str(format!("\nup to {target_limit} channel").as_str());
     if target_limit != 1 {
-        channels_tooltip.push('s')
+        channels_tooltip.push('s');
     }
 
     Command {
@@ -1710,7 +1710,7 @@ fn notice_command(channel_membership_prefixes: Vec<char>, target_limit: Option<u
     if let Some(target_limit) = target_limit {
         targets_tooltip.push_str(format!("\nup to {target_limit} target").as_str());
         if target_limit != 1 {
-            targets_tooltip.push('s')
+            targets_tooltip.push('s');
         }
     }
 
@@ -1835,7 +1835,7 @@ fn whois_command(target_limit: u16) -> Command {
 
     nicks_tooltip.push_str(format!("\nup to {target_limit} nick").as_str());
     if target_limit != 1 {
-        nicks_tooltip.push('s')
+        nicks_tooltip.push('s');
     }
 
     Command {

@@ -447,7 +447,7 @@ impl Dashboard {
                                 let settings = self
                                     .buffer_settings
                                     .entry(&buffer, Some(config.buffer.clone().into()));
-                                settings.channel.nicklist.toggle_visibility()
+                                settings.channel.nicklist.toggle_visibility();
                             }
 
                             self.last_changed = Some(Instant::now());
@@ -460,7 +460,7 @@ impl Dashboard {
                                 let settings = self
                                     .buffer_settings
                                     .entry(&buffer, Some(config.buffer.clone().into()));
-                                settings.channel.topic.toggle_visibility()
+                                settings.channel.topic.toggle_visibility();
                             }
 
                             self.last_changed = Some(Instant::now());
@@ -840,7 +840,7 @@ impl Dashboard {
                                 let settings = self
                                     .buffer_settings
                                     .entry(&buffer, Some(config.buffer.clone().into()));
-                                settings.channel.nicklist.toggle_visibility()
+                                settings.channel.nicklist.toggle_visibility();
                             }
 
                             self.last_changed = Some(Instant::now());
@@ -853,7 +853,7 @@ impl Dashboard {
                                 let settings = self
                                     .buffer_settings
                                     .entry(&buffer, Some(config.buffer.clone().into()));
-                                settings.channel.topic.toggle_visibility()
+                                settings.channel.topic.toggle_visibility();
                             }
 
                             self.last_changed = Some(Instant::now());

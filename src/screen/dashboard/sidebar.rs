@@ -73,7 +73,7 @@ impl Sidebar {
     }
 
     pub fn toggle_visibility(&mut self) {
-        self.hidden = !self.hidden
+        self.hidden = !self.hidden;
     }
 
     pub fn update(&mut self, message: Message) -> (Task<Message>, Option<Event>) {
@@ -317,7 +317,7 @@ impl Sidebar {
                                         .width(12)
                                         .align_x(Alignment::Center)
                                         .into(),
-                                )
+                                );
                             }
                         } else {
                             buffers.push(vertical_space().height(12).into());
