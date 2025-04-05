@@ -803,20 +803,7 @@ where
             wrapping: text::Wrapping::default(),
         };
 
-        if state.spans != spans {
-            state.spans = spans.iter().cloned().map(Span::to_static).collect();
-
-            // Apply shown spoiler
-            if let Some((index, _, _)) = state.shown_spoiler {
-                if let Some(span) = state.spans.get_mut(index) {
-                    span.color = None;
-                    span.highlight = None;
-                }
-            }
-
-            state.paragraph =
-                Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_slice()));
-        } else {
+        if state.spans == spans {
             match state.paragraph.compare(Text {
                 content: (),
                 bounds,
@@ -847,6 +834,19 @@ where
                         Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_slice()));
                 }
             }
+        } else {
+            state.spans = spans.iter().cloned().map(Span::to_static).collect();
+
+            // Apply shown spoiler
+            if let Some((index, _, _)) = state.shown_spoiler {
+                if let Some(span) = state.spans.get_mut(index) {
+                    span.color = None;
+                    span.highlight = None;
+                }
+            }
+
+            state.paragraph =
+                Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_slice()));
         }
 
         state.paragraph.min_bounds()
