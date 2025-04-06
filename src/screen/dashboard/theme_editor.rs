@@ -101,7 +101,7 @@ impl ThemeEditor {
                 self.hex_input = None;
                 self.combo_box = combo_box::State::new(components().collect());
 
-                self.component = component
+                self.component = component;
             }
             Message::HexInput(input) => {
                 if let Some(color) = theme::hex_to_color(&input) {
@@ -427,7 +427,7 @@ impl General {
             General::Border => colors.border = color.unwrap_or(Color::TRANSPARENT),
             General::HorizontalRule => colors.horizontal_rule = color.unwrap_or(Color::TRANSPARENT),
             General::UnreadIndicator => {
-                colors.unread_indicator = color.unwrap_or(Color::TRANSPARENT)
+                colors.unread_indicator = color.unwrap_or(Color::TRANSPARENT);
             }
         }
     }
@@ -512,10 +512,10 @@ impl Buffer {
             Buffer::Action => colors.action = color.unwrap_or(Color::TRANSPARENT),
             Buffer::Background => colors.background = color.unwrap_or(Color::TRANSPARENT),
             Buffer::BackgroundTextInput => {
-                colors.background_text_input = color.unwrap_or(Color::TRANSPARENT)
+                colors.background_text_input = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::BackgroundTitleBar => {
-                colors.background_title_bar = color.unwrap_or(Color::TRANSPARENT)
+                colors.background_title_bar = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Border => colors.border = color.unwrap_or(Color::TRANSPARENT),
             Buffer::BorderSelected => colors.border_selected = color.unwrap_or(Color::TRANSPARENT),
@@ -524,7 +524,7 @@ impl Buffer {
             Buffer::Nickname => colors.nickname = color.unwrap_or(Color::TRANSPARENT),
             Buffer::Selection => colors.selection = color.unwrap_or(Color::TRANSPARENT),
             Buffer::ServerMessages(server_messages) => {
-                server_messages.update(&mut colors.server_messages, color)
+                server_messages.update(&mut colors.server_messages, color);
             }
             Buffer::Timestamp => colors.timestamp = color.unwrap_or(Color::TRANSPARENT),
             Buffer::Topic => colors.topic = color.unwrap_or(Color::TRANSPARENT),
@@ -632,13 +632,13 @@ impl Button {
         match self {
             Button::Background => colors.background = color.unwrap_or(Color::TRANSPARENT),
             Button::BackgroundHover => {
-                colors.background_hover = color.unwrap_or(Color::TRANSPARENT)
+                colors.background_hover = color.unwrap_or(Color::TRANSPARENT);
             }
             Button::BackgroundSelected => {
-                colors.background_selected = color.unwrap_or(Color::TRANSPARENT)
+                colors.background_selected = color.unwrap_or(Color::TRANSPARENT);
             }
             Button::BackgroundSelectedHover => {
-                colors.background_selected_hover = color.unwrap_or(Color::TRANSPARENT)
+                colors.background_selected_hover = color.unwrap_or(Color::TRANSPARENT);
             }
         }
     }

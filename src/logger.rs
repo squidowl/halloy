@@ -27,7 +27,7 @@ pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, Error> {
             chrono::Local::now().format("%H:%M:%S%.3f"),
             record.level(),
             message
-        ))
+        ));
     });
 
     if is_debug || cfg!(feature = "dev") {

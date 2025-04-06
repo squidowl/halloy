@@ -276,7 +276,7 @@ where
     fn update_text_input(&self, tree: widget::Tree) {
         let mut inner = self.0.borrow_mut();
 
-        inner.update_text_input(tree)
+        inner.update_text_input(tree);
     }
 
     fn with_inner<O>(&self, f: impl FnOnce(&Inner<T>) -> O) -> O {

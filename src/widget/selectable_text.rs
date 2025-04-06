@@ -499,7 +499,7 @@ pub fn selected<Message: Send + 'static>(f: fn(Vec<(f32, String)>) -> Message) -
             _bounds: Rectangle,
             operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
         ) {
-            operate_on_children(self)
+            operate_on_children(self);
         }
 
         fn custom(

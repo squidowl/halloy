@@ -991,13 +991,13 @@ impl Halloy {
                 if id == self.main_window.id {
                     match event {
                         window::Event::Moved(position) => {
-                            self.main_window.position = Some(position)
+                            self.main_window.position = Some(position);
                         }
                         window::Event::Resized(size) => self.main_window.size = size,
                         window::Event::Focused => self.main_window.focused = true,
                         window::Event::Unfocused => self.main_window.focused = false,
                         window::Event::Opened { position, size } => {
-                            self.main_window.opened(position, size)
+                            self.main_window.opened(position, size);
                         }
                         window::Event::CloseRequested => {
                             if let Screen::Dashboard(dashboard) = &mut self.screen {
@@ -1020,7 +1020,7 @@ impl Halloy {
                             dashboard
                                 .focus_window(self.main_window.id)
                                 .map(Message::Dashboard),
-                        )
+                        );
                     }
 
                     Task::batch(tasks)
@@ -1034,7 +1034,7 @@ impl Halloy {
             }
             Message::WindowSettingsSaved(result) => {
                 if let Err(err) = result {
-                    log::error!("window settings failed to save: {:?}", err)
+                    log::error!("window settings failed to save: {:?}", err);
                 }
 
                 Task::none()
