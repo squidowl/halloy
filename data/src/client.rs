@@ -677,7 +677,7 @@ impl Client {
                 }
             }
             // Label context whois
-            _ if context.as_ref().map(Context::is_whois).unwrap_or_default() => {
+            _ if context.as_ref().is_some_and(Context::is_whois) => {
                 if let Some(source) = context
                     .map(Context::buffer)
                     .map(|buffer| buffer.server_message_target(None))
@@ -2747,8 +2747,7 @@ impl Map {
 
     pub fn get_server_supports_chathistory(&self, server: &Server) -> bool {
         self.client(server)
-            .map(|client| client.supports_chathistory)
-            .unwrap_or_default()
+            .is_some_and(|client| client.supports_chathistory)
     }
 
     pub fn get_chathistory_request(
@@ -2774,8 +2773,7 @@ impl Map {
 
     pub fn get_chathistory_exhausted(&self, server: &Server, target: &Target) -> bool {
         self.client(server)
-            .map(|client| client.chathistory_exhausted(target))
-            .unwrap_or_default()
+            .is_some_and(|client| client.chathistory_exhausted(target))
     }
 
     pub fn get_chathistory_state(

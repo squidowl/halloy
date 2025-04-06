@@ -79,7 +79,7 @@ fn find_external_sound(sound: &str) -> Result<PathBuf, LoadError> {
         .into_iter()
         .filter_map(|e| e.ok())
     {
-        if e.metadata().map(|data| data.is_file()).unwrap_or_default() && e.file_name() == sound {
+        if e.metadata().is_ok_and(|data| data.is_file()) && e.file_name() == sound {
             return Ok(e.path().to_path_buf());
         }
     }
