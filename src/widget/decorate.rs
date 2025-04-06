@@ -312,7 +312,7 @@ where
     ) {
         inner.as_widget_mut().update(
             tree, event, layout, cursor, renderer, clipboard, shell, viewport,
-        )
+        );
     }
 }
 
@@ -346,7 +346,7 @@ where
     ) {
         self(
             state, inner, tree, event, layout, cursor, renderer, clipboard, shell, viewport,
-        )
+        );
     }
 }
 
@@ -383,7 +383,7 @@ where
     ) {
         inner
             .as_widget()
-            .draw(tree, renderer, theme, style, layout, cursor, viewport)
+            .draw(tree, renderer, theme, style, layout, cursor, viewport);
     }
 }
 
@@ -415,7 +415,7 @@ where
     ) {
         self(
             state, inner, tree, renderer, theme, style, layout, cursor, viewport,
-        )
+        );
     }
 }
 
@@ -530,7 +530,7 @@ where
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
     ) {
-        self(state, inner, tree, layout, renderer, operation)
+        self(state, inner, tree, layout, renderer, operation);
     }
 }
 
@@ -688,7 +688,7 @@ where
             clipboard,
             shell,
             viewport,
-        )
+        );
     }
 
     fn draw(
@@ -711,7 +711,7 @@ where
             layout,
             cursor,
             viewport,
-        )
+        );
     }
 
     fn mouse_interaction(
@@ -747,7 +747,7 @@ where
             layout,
             renderer,
             operation,
-        )
+        );
     }
 
     fn overlay<'b>(
