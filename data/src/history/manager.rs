@@ -111,7 +111,7 @@ impl Manager {
                 return Some(Event::Closed(kind, read_marker));
             }
             Message::Closed(kind, Err(error)) => {
-                log::warn!("failed to close history for {kind}: {error}")
+                log::warn!("failed to close history for {kind}: {error}");
             }
             Message::Flushed(kind, Ok(())) => {
                 // Will cause flush loop if we emit a log every time we flush logs
@@ -120,7 +120,7 @@ impl Manager {
                 }
             }
             Message::Flushed(kind, Err(error)) => {
-                log::warn!("failed to flush history for {kind}: {error}")
+                log::warn!("failed to flush history for {kind}: {error}");
             }
             Message::UpdatePartial(kind, Ok(metadata)) => {
                 log::debug!("loaded metadata for {kind}");
