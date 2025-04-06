@@ -2449,13 +2449,12 @@ impl Client {
     pub fn statusmsg(&self) -> &[char] {
         self.isupport
             .get(&isupport::Kind::STATUSMSG)
-            .map(|statusmsg| {
+            .map_or(&[], |statusmsg| {
                 let isupport::Parameter::STATUSMSG(prefixes) = statusmsg else {
                     unreachable!("Corruption in isupport table.")
                 };
                 prefixes.as_ref()
             })
-            .unwrap_or(&[])
     }
 
     pub fn is_channel(&self, target: &str) -> bool {
@@ -2741,8 +2740,7 @@ impl Map {
 
     pub fn get_server_chathistory_limit(&self, server: &Server) -> u16 {
         self.client(server)
-            .map(|client| client.chathistory_limit())
-            .unwrap_or(CLIENT_CHATHISTORY_LIMIT)
+            .map_or(CLIENT_CHATHISTORY_LIMIT, |client| client.chathistory_limit())
     }
 
     pub fn get_server_supports_chathistory(&self, server: &Server) -> bool {
@@ -2835,11 +2833,10 @@ impl Map {
     pub fn status(&self, server: &Server) -> Status {
         self.0
             .get(server)
-            .map(|s| match s {
+            .map_or(Status::Unavailable, |s| match s {
                 State::Disconnected => Status::Disconnected,
                 State::Ready(_) => Status::Connected,
             })
-            .unwrap_or(Status::Unavailable)
     }
 
     pub fn tick(&mut self, now: Instant) -> Result<()> {
@@ -3100,8 +3097,7 @@ fn group_joins<'a>(
 
     let (without_keys, with_keys): (Vec<_>, Vec<_>) = channels.iter().partition_map(|channel| {
         keys.get(channel.as_str())
-            .map(|key| Either::Right((channel, key)))
-            .unwrap_or(Either::Left(channel))
+            .map_or(Either::Left(channel), |key| Either::Right((channel, key)))
     });
 
     let joins_without_keys = without_keys
