@@ -297,8 +297,7 @@ impl Manager {
         self.data
             .map
             .get(kind)
-            .map(|history| history.has_unread())
-            .unwrap_or_default()
+            .is_some_and(|history| history.has_unread())
     }
 
     pub fn read_marker(&self, kind: &history::Kind) -> Option<history::ReadMarker> {
