@@ -166,12 +166,12 @@ impl FromStr for Operation {
                                 .for_each(|client_tag_denial| {
                                     match client_tag_denial.chars().next() {
                                         Some('*') => {
-                                            client_tag_denials.push(ClientOnlyTags::DenyAll)
+                                            client_tag_denials.push(ClientOnlyTags::DenyAll);
                                         }
                                         Some('-') => {
                                             client_tag_denials.push(ClientOnlyTags::Allowed(
                                                 client_tag_denial.chars().skip(1).collect(),
-                                            ))
+                                            ));
                                         }
                                         _ => client_tag_denials.push(ClientOnlyTags::Denied(
                                             client_tag_denial.to_string(),
@@ -341,7 +341,7 @@ impl FromStr for Operation {
 
                             if let Some((modes, prefixes)) = value.split_once(')') {
                                 for (mode, prefix) in modes.chars().skip(1).zip(prefixes.chars()) {
-                                    prefix_maps.push(PrefixMap { mode, prefix })
+                                    prefix_maps.push(PrefixMap { mode, prefix });
                                 }
 
                                 Ok(Operation::Add(Parameter::PREFIX(prefix_maps)))

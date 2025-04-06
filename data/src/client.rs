@@ -1068,7 +1068,7 @@ impl Client {
                                         ctcp::Command::Unknown(command) => {
                                             log::debug!(
                                                 "Ignorning CTCP command {command}: Unknown command"
-                                            )
+                                            );
                                         }
                                     }
                                 }
@@ -1188,14 +1188,14 @@ impl Client {
                                     "PRIVMSG",
                                     "NickServ",
                                     format!("IDENTIFY {nick_pass} {}", &self.config.nickname)
-                                ))?
+                                ))?;
                             }
                             config::server::IdentifySyntax::NickPassword => {
                                 self.handle.try_send(command!(
                                     "PRIVMSG",
                                     "NickServ",
                                     format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                                ))?
+                                ))?;
                             }
                         }
                     } else if self.resolved_nick == Some(self.config.nickname.clone()) {
@@ -1205,14 +1205,14 @@ impl Client {
                             "PRIVMSG",
                             "NickServ",
                             format!("IDENTIFY {nick_pass}")
-                        ))?
+                        ))?;
                     } else {
                         // Default to most common syntax if unknown
                         self.handle.try_send(command!(
                             "PRIVMSG",
                             "NickServ",
                             format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                        ))?
+                        ))?;
                     }
                 }
 
@@ -1835,7 +1835,7 @@ impl Client {
                                     self.server,
                                     arg,
                                     error
-                                )
+                                );
                             }
                         }
                     }

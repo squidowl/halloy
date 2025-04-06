@@ -247,7 +247,7 @@ impl Sasl {
                     .collect::<Vec<String>>();
 
                 if signal_end_of_response {
-                    params.push("+".into())
+                    params.push("+".into());
                 }
 
                 params
