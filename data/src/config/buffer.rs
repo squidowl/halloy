@@ -62,7 +62,7 @@ impl Default for Emojis {
     fn default() -> Self {
         Self {
             show_picker: default_bool_true(),
-            skin_tone: Default::default(),
+            skin_tone: SkinTone::default(),
             auto_replace: default_bool_true(),
         }
     }
@@ -147,10 +147,10 @@ impl Default for ServerMessage {
     fn default() -> Self {
         Self {
             enabled: true,
-            smart: Default::default(),
+            smart: Option::default(),
             username_format: UsernameFormat::default(),
-            exclude: Default::default(),
-            include: Default::default(),
+            exclude: Vec::default(),
+            include: Vec::default(),
         }
     }
 }
@@ -206,7 +206,7 @@ impl Default for InternalMessage {
     fn default() -> Self {
         Self {
             enabled: true,
-            smart: Default::default(),
+            smart: Option::default(),
         }
     }
 }

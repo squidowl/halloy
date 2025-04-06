@@ -2601,7 +2601,7 @@ impl Map {
         if let Some(client) = self.client_mut(server) {
             client.receive(message, config)
         } else {
-            Ok(Default::default())
+            Ok(Vec::default())
         }
     }
 
