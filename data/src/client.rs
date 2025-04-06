@@ -2215,7 +2215,7 @@ impl Client {
     pub fn chathistory_exhausted(&self, target: &Target) -> bool {
         self.chathistory_exhausted
             .get(target)
-            .cloned()
+            .copied()
             .unwrap_or_default()
     }
 
