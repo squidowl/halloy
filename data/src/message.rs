@@ -1042,8 +1042,7 @@ pub fn server_time(message: &Encoded) -> DateTime<Utc> {
         .find(|tag| &tag.key == "time")
         .and_then(|tag| tag.value.clone())
         .and_then(|rfc3339| DateTime::parse_from_rfc3339(&rfc3339).ok())
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(Utc::now)
+        .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc))
 }
 
 fn content<'a>(
