@@ -113,7 +113,7 @@ impl Manager {
             Message::Closed(kind, Err(error)) => {
                 log::warn!("failed to close history for {kind}: {error}")
             }
-            Message::Flushed(kind, Ok(_)) => {
+            Message::Flushed(kind, Ok(())) => {
                 // Will cause flush loop if we emit a log every time we flush logs
                 if !matches!(kind, history::Kind::Logs) {
                     log::debug!("flushed history for {kind}",);
@@ -129,7 +129,7 @@ impl Manager {
             Message::UpdatePartial(kind, Err(error)) => {
                 log::warn!("failed to load metadata for {kind}: {error}");
             }
-            Message::UpdateReadMarker(kind, read_marker, Ok(_)) => {
+            Message::UpdateReadMarker(kind, read_marker, Ok(())) => {
                 log::debug!("updated read marker for {kind} to {read_marker}");
             }
             Message::UpdateReadMarker(kind, read_marker, Err(error)) => {
