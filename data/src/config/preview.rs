@@ -85,8 +85,8 @@ pub struct Card {
 impl Default for Card {
     fn default() -> Self {
         Self {
-            exclude: Default::default(),
-            include: Default::default(),
+            exclude: Vec::default(),
+            include: Vec::default(),
             show_image: true,
         }
     }

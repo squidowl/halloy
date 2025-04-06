@@ -22,8 +22,8 @@ impl<T> Default for Notification<T> {
             show_toast: false,
             sound: None,
             delay: Some(500),
-            exclude: Default::default(),
-            include: Default::default(),
+            exclude: Vec::default(),
+            include: Vec::default(),
         }
     }
 }

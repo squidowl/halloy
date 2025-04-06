@@ -194,7 +194,7 @@ impl Default for Timestamp {
     fn default() -> Self {
         Self {
             format: default_timestamp(),
-            brackets: Default::default(),
+            brackets: Brackets::default(),
         }
     }
 }
@@ -233,11 +233,11 @@ pub struct Nickname {
 impl Default for Nickname {
     fn default() -> Self {
         Self {
-            color: Default::default(),
-            brackets: Default::default(),
-            alignment: Default::default(),
+            color: Color::default(),
+            brackets: Brackets::default(),
+            alignment: Alignment::default(),
             show_access_levels: default_bool_true(),
-            click: Default::default(),
+            click: NicknameClickAction::default(),
         }
     }
 }
