@@ -1652,6 +1652,13 @@ mod test {
                     Fragment::Url("http://öbb.at".parse().unwrap()),
                 ],
             ),
+            (
+                "\x0f\x0303VLC\x0f \x0305master\x0f \x0306somenick\x0f describe commit \x0314https://someurl/7089\x0f",
+                vec![
+                    Fragment::Text("VLC master somenick describe commit ".into()),
+                    Fragment::Url("https://someurl/7089".parse().unwrap()),
+                ],
+            ),
         ];
 
         for (text, expected) in tests {
