@@ -30,10 +30,11 @@
         <!-- Custom theme stylesheets -->
 
 
-        <!-- Provide site root to javascript -->
+        <!-- Provide site root and default themes to javascript -->
         <script>
-            var path_to_root = "../";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc.js"></script>
@@ -43,8 +44,8 @@
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
-                var theme = localStorage.getItem('mdbook-theme');
-                var sidebar = localStorage.getItem('mdbook-sidebar');
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
 
                 if (theme.startsWith('"') && theme.endsWith('"')) {
                     localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
@@ -58,7 +59,8 @@
 
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script>
-            var theme;
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
             try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
             if (theme === null || theme === undefined) { theme = default_theme; }
             const html = document.documentElement;
@@ -71,8 +73,8 @@
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
-            var sidebar = null;
-            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
@@ -108,6 +110,7 @@
                             <i class="fa fa-paint-brush"></i>
                         </button>
                         <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
@@ -185,7 +188,7 @@ nickname = ""
 nick_password = ""
 </code></pre>
 <h2 id="nick_password_file"><a class="header" href="#nick_password_file"><code>nick_password_file</code></a></h2>
-<p>Read nick_password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Read nick_password from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -266,7 +269,7 @@ port = 6697
 password = ""
 </code></pre>
 <h2 id="password_file"><a class="header" href="#password_file"><code>password_file</code></a></h2>
-<p>Read password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Read password from the file at the given path.<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-2"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -359,10 +362,10 @@ umodes = "+RB-x"
 <p>Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
-# Default: false
+# Default: true
 
 [servers.&lt;name&gt;]
-use_tls = false
+use_tls = true
 </code></pre>
 <h2 id="dangerously_accept_invalid_certs"><a class="header" href="#dangerously_accept_invalid_certs"><code>dangerously_accept_invalid_certs</code></a></h2>
 <p>When <code>true</code>, all certificate validations are skipped.</p>
@@ -374,7 +377,7 @@ use_tls = false
 dangerously_accept_invalid_certs = false
 </code></pre>
 <h2 id="root_cert_path"><a class="header" href="#root_cert_path"><code>root_cert_path</code></a></h2>
-<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-3"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -451,7 +454,7 @@ username = "username"
 password = "password"
 </code></pre>
 <h3 id="password_file-1"><a class="header" href="#password_file-1"><code>password_file</code></a></h3>
-<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-4"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-4"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -471,7 +474,7 @@ password_command = ""
 <h2 id="saslexternal"><a class="header" href="#saslexternal"><code>sasl.external</code></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
 <h3 id="cert"><a class="header" href="#cert"><code>cert</code></a></h3>
-<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-5"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-5"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -480,7 +483,7 @@ password_command = ""
 cert = "/path/to/your/certificate.pem"
 </code></pre>
 <h3 id="key"><a class="header" href="#key"><code>key</code></a></h3>
-<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference" id="fr-1-6"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-6"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -488,13 +491,14 @@ cert = "/path/to/your/certificate.pem"
 [servers.&lt;name&gt;.sasl.external]
 key = "/path/to/your/private_key.pem"
 </code></pre>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
-</div>
-<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
-<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
-</div>
-
+<hr>
+<ol class="footnote-definition"><li id="footnote-1">
+<p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings. <a href="#fr-1-1">↩</a> <a href="#fr-1-2">↩2</a> <a href="#fr-1-3">↩3</a> <a href="#fr-1-4">↩4</a> <a href="#fr-1-5">↩5</a> <a href="#fr-1-6">↩6</a></p>
+</li>
+<li id="footnote-2">
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-2-1">↩</a> <a href="#fr-2-2">↩2</a> <a href="#fr-2-3">↩3</a> <a href="#fr-2-4">↩4</a> <a href="#fr-2-5">↩5</a> <a href="#fr-2-6">↩6</a></p>
+</li>
+</ol>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

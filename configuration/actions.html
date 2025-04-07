@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Halloy</title>
+        <title>Actions</title>
 
 
         <!-- Custom HTML head -->
@@ -12,32 +12,32 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" id="highlight-css" href="highlight.css">
-        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
-        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
 
         <!-- Provide site root and default themes to javascript -->
         <script>
-            const path_to_root = "";
+            const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc.js"></script>
+        <script src="../toc.js"></script>
     </head>
     <body>
     <div id="body-container">
@@ -90,7 +90,7 @@
             <!-- populated by js -->
             <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
             <noscript>
-                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
             </noscript>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -125,13 +125,13 @@
                     <h1 class="menu-title"></h1>
 
                     <div class="right-buttons">
-                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/README.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/actions.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -160,56 +160,111 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="halloy"><a class="header" href="#halloy">Halloy</a></h1>
-<img src="images/banner-logo.png" style="width: 100%">
-<p><img src="./images/animation.gif" alt="halloy" /></p>
-<p><strong>Halloy</strong> is an open-source IRC client written in Rust, with the <a href="https://github.com/iced-rs/iced/">iced</a> GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.</p>
-<ul>
-<li>IRCv3.2 capabilities
-<ul>
-<li><a href="https://ircv3.net/specs/extensions/account-notify">account-notify</a></li>
-<li><a href="https://ircv3.net/specs/extensions/away-notify">away-notify</a></li>
-<li><a href="https://ircv3.net/specs/extensions/batch">batch</a></li>
-<li><a href="https://ircv3.net/specs/extensions/capability-negotiation.html#cap-notify">cap-notify</a></li>
-<li><a href="https://ircv3.net/specs/extensions/chathistory">chathistory</a></li>
-<li><a href="https://ircv3.net/specs/extensions/chghost">chghost</a></li>
-<li><a href="https://ircv3.net/specs/extensions/echo-message">echo-message</a></li>
-<li><a href="https://ircv3.net/specs/extensions/extended-join">extended-join</a></li>
-<li><a href="https://ircv3.net/specs/extensions/invite-notify">invite-notify</a></li>
-<li><a href="https://ircv3.net/specs/extensions/labeled-response">labeled-response</a></li>
-<li><a href="https://ircv3.net/specs/extensions/message-tags">message-tags</a></li>
-<li><a href="https://ircv3.net/specs/extensions/monitor">Monitor</a></li>
-<li><a href="https://ircv3.net/specs/extensions/message-ids">msgid</a></li>
-<li><a href="https://ircv3.net/specs/extensions/multi-prefix">multi-prefix</a></li>
-<li><a href="https://ircv3.net/specs/extensions/read-marker">read-marker</a></li>
-<li><a href="https://ircv3.net/specs/extensions/sasl-3.1">sasl-3.1</a></li>
-<li><a href="https://ircv3.net/specs/extensions/server-time">server-time</a></li>
-<li><a href="https://ircv3.net/specs/extensions/setname.html">setname</a></li>
-<li><a href="https://ircv3.net/specs/extensions/standard-replies">Standard Replies</a></li>
-<li><a href="https://ircv3.net/specs/extensions/userhost-in-names">userhost-in-names</a></li>
-<li><a href="https://ircv3.net/specs/extensions/utf8-only"><code>UTF8ONLY</code></a></li>
-<li><a href="https://ircv3.net/specs/extensions/whox"><code>WHOX</code></a></li>
-</ul>
-</li>
-<li>SASL support</li>
-<li>DCC Send</li>
-<li>Keyboard shortcuts</li>
-<li>Auto-completion for nicknames, commands, and channels</li>
-<li>Notifications support</li>
-<li>Multiple channels at the same time across servers</li>
-<li>Commandbar for for quick actions</li>
-<li><a href="https://themes.halloy.chat">Custom themes</a></li>
-<li>Portable mode</li>
-</ul>
-<h2 id="contributing"><a class="header" href="#contributing">Contributing</a></h2>
-<p>Halloy is free and open source. You can find the source code as well as report issues and feature requests on <a href="https://github.com/squidowl/halloy">GitHub</a>.</p>
+                        <h1 id="actions"><a class="header" href="#actions"><code>[actions]</code></a></h1>
+<p>Application-wide actions;  how user actions should be enacted.</p>
+<ol>
+<li><a href="#actionsbuffer">Buffer</a> - Buffer actions</li>
+<li><a href="#actionssidebar">Sidebar</a> - Sidebar actions</li>
+</ol>
+<p><strong>Example</strong></p>
+<pre><code class="language-toml"># Replace pane when clicking on channel/user names in a pane,
+# open a new pane when clicking on a buffer in the sidebar
+# (or close the buffer if it's already open)
+
+[actions.sidebar]
+buffer = "new-pane"
+focused_buffer = "close-pane"
+
+[actions.buffer]
+click_channel_name = "replace-pane"
+click_username = "replace-pane"
+</code></pre>
+<h2 id="actionsbuffer"><a class="header" href="#actionsbuffer"><code>[actions.buffer]</code></a></h2>
+<p>How buffer actions should be enacted.</p>
+<h2 id="click_channel_name"><a class="header" href="#click_channel_name"><code>click_channel_name</code></a></h2>
+<p>Action when clicking on a channel name in a pane. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the clicked channel. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+click_channel_name = "new-pane"
+</code></pre>
+<h2 id="click_highlight"><a class="header" href="#click_highlight"><code>click_highlight</code></a></h2>
+<p>Action when clicking on a highlight in the highlights buffer. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the buffer that contains the highlight. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+click_highlight = "new-pane"
+</code></pre>
+<h2 id="click_username"><a class="header" href="#click_username"><code>click_username</code></a></h2>
+<p>Action when clicking on a user name in a pane (if <code>buffer.channel.nicklist</code> or <code>buffer.nickname</code> is set to <code>"open-query"</code>). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with a query for clicked user. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+click_username = "new-pane"
+</code></pre>
+<h2 id="local"><a class="header" href="#local"><code>local</code></a></h2>
+<p>Action when opening a local buffer (the highlights or logs buffer). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the local buffer. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+local = "new-pane"
+</code></pre>
+<h2 id="message_channel"><a class="header" href="#message_channel"><code>message_channel</code></a></h2>
+<p>Action when sending an empty message to a channel (via the <code>/msg</code> or <code>/notice</code> command). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the channel. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+message_channel = "replace-pane"
+</code></pre>
+<h2 id="message_user"><a class="header" href="#message_user"><code>message_user</code></a></h2>
+<p>Action when sending an empty message to a user (via <code>Message</code> in the user context menu or the <code>/msg</code> or <code>/notice</code> command). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with a query for the user. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+message_user = "replace-pane"
+</code></pre>
+<h2 id="actionssidebar"><a class="header" href="#actionssidebar"><code>[actions.sidebar]</code></a></h2>
+<p>How sidebar actions should be enacted.</p>
+<h2 id="buffer"><a class="header" href="#buffer"><code>buffer</code></a></h2>
+<p>Action when clicking buffers in the sidebar. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the clicked buffer. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+buffer = "replace-pane"
+</code></pre>
+<h2 id="focused_buffer"><a class="header" href="#focused_buffer"><code>focused_buffer</code></a></h2>
+<p>Action when clicking a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "close-pane"
+# Default: not set
+
+[sidebar]
+focused_buffer = "close-pane"
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../configuration/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
 
-                            <a rel="next prefetch" href="installation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../configuration/buffer.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -219,8 +274,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../configuration/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
 
-                    <a rel="next prefetch" href="installation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../configuration/buffer.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
@@ -235,13 +293,13 @@
         </script>
 
 
-        <script src="elasticlunr.min.js"></script>
-        <script src="mark.min.js"></script>
-        <script src="searcher.js"></script>
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
 
-        <script src="clipboard.min.js"></script>
-        <script src="highlight.js"></script>
-        <script src="book.js"></script>
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
 
         <!-- Custom JS scripts -->
 

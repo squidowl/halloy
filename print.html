@@ -31,10 +31,11 @@
         <!-- Custom theme stylesheets -->
 
 
-        <!-- Provide site root to javascript -->
+        <!-- Provide site root and default themes to javascript -->
         <script>
-            var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc.js"></script>
@@ -44,8 +45,8 @@
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
-                var theme = localStorage.getItem('mdbook-theme');
-                var sidebar = localStorage.getItem('mdbook-sidebar');
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
 
                 if (theme.startsWith('"') && theme.endsWith('"')) {
                     localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
@@ -59,7 +60,8 @@
 
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script>
-            var theme;
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
             try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
             if (theme === null || theme === undefined) { theme = default_theme; }
             const html = document.documentElement;
@@ -72,8 +74,8 @@
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
-            var sidebar = null;
-            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
@@ -109,6 +111,7 @@
                             <i class="fa fa-paint-brush"></i>
                         </button>
                         <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
@@ -193,7 +196,7 @@
 <li>Notifications support</li>
 <li>Multiple channels at the same time across servers</li>
 <li>Commandbar for for quick actions</li>
-<li>Custom themes</li>
+<li><a href="https://themes.halloy.chat">Custom themes</a></li>
 <li>Portable mode</li>
 </ul>
 <h2 id="contributing"><a class="header" href="#contributing">Contributing</a></h2>
@@ -266,11 +269,11 @@ cargo run --release
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started"><a class="header" href="#getting-started">Getting started</a></h1>
 <p>To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the <a href="https://libera.chat/">Libera</a> server. However, there are many other servers available: <a href="https://www.oftc.net/">OFTC</a>, <a href="https://www.undernet.org/">Undernet</a>, <a href="http://www.efnet.org">EFnet</a>, <a href="https://www.quakenet.org/">QuakeNet</a> and <a href="https://netsplit.de/networks/">many more</a>. Halloy can connect to multiple servers at the same time.</p>
-<p>Once connected to a server, you can join channels. This can be done automatically from the config file or manually using the join command: <code>/join #channel</code><sup class="footnote-reference"><a href="#1">1</a></sup>. To find channels, you can either use the list command: <code>/list</code>, or <a href="https://netsplit.de/channels/">browse for channels online</a>.</p>
+<p>Once connected to a server, you can join channels. This can be done automatically from the config file or manually using the join command: <code>/join #channel</code><sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup>. To find channels, you can either use the list command: <code>/list</code>, or <a href="https://netsplit.de/channels/">browse for channels online</a>.</p>
 <blockquote>
 <p>💡 Configuration in Halloy happens through a <code>config.toml</code> file. See <a href="guides/../configuration/">Configuration</a>.</p>
 </blockquote>
-<p>Here are a few useful IRC commands for a new user<sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Here are a few useful IRC commands for a new user<sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
 <div class="table-wrapper"><table><thead><tr><th>Command</th><th>Example</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>/join</code></td><td><code>/join #halloy</code></td><td>Join a new channel</td></tr>
 <tr><td><code>/part</code></td><td><code>/part #halloy</code></td><td>Part a channel</td></tr>
@@ -278,14 +281,14 @@ cargo run --release
 <tr><td><code>/whois nickname</code></td><td><code>/whois halloyisgreat</code></td><td>Displays information of nickname requested</td></tr>
 <tr><td><code>/list *keyword*</code></td><td><code>/list *linux*</code></td><td>List channels. Keyword is optional</td></tr>
 </tbody></table>
-</div>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Channel names always start with a <code>#</code> symbol and do not contain spaces.</p>
-</div>
-<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
-<p>Find more commands <a href="https://en.wikipedia.org/wiki/List_of_Internet_Relay_Chat_commands">here</a>.</p>
-</div>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="get-in-touch"><a class="header" href="#get-in-touch">Get in touch</a></h1>
+</div><hr>
+<ol class="footnote-definition"><li id="footnote-1">
+<p>Channel names always start with a <code>#</code> symbol and do not contain spaces. <a href="#fr-1-1">↩</a></p>
+</li>
+<li id="footnote-2">
+<p>Find more commands <a href="https://en.wikipedia.org/wiki/List_of_Internet_Relay_Chat_commands">here</a>. <a href="#fr-2-1">↩</a></p>
+</li>
+</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="get-in-touch"><a class="header" href="#get-in-touch">Get in touch</a></h1>
 <p>Join <code>#halloy</code> on <code>libera.chat</code> (<a href="ircs://irc.libera.chat/#halloy">link</a>) if you have questions, looking for help or just want to say hello.
 For feature requests or reporting issues, please open a ticket on <a href="https://github.com/squidowl/halloy">GitHub</a>.</p>
 <h2 id="maintainers"><a class="header" href="#maintainers">Maintainers</a></h2>
@@ -313,10 +316,10 @@ password = "&lt;your-password&gt;"
 # Depending on your ZNC setup you may need to apply these extra settings:
 
 # Does your znc use a self-signed or expired certificate? See: 
-# https://halloy.squidowl.org/configuration/servers.html#dangerously_accept_invalid_certs
+# https://halloy.chat/configuration/servers.html#dangerously_accept_invalid_certs
 
 # Does your znc listen on a different port? See: 
-# https://halloy.squidowl.org/configuration/servers.html#port
+# https://halloy.chat/configuration/servers.html#port
 
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="portable-mode"><a class="header" href="#portable-mode">Portable mode</a></h1>
@@ -480,7 +483,102 @@ channels = ["#halloy"]
 [buffer.channel.topic]
 enabled = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="buffer"><a class="header" href="#buffer"><code>[buffer]</code></a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="actions"><a class="header" href="#actions"><code>[actions]</code></a></h1>
+<p>Application-wide actions;  how user actions should be enacted.</p>
+<ol>
+<li><a href="configuration/actions.html#actionsbuffer">Buffer</a> - Buffer actions</li>
+<li><a href="configuration/actions.html#actionssidebar">Sidebar</a> - Sidebar actions</li>
+</ol>
+<p><strong>Example</strong></p>
+<pre><code class="language-toml"># Replace pane when clicking on channel/user names in a pane,
+# open a new pane when clicking on a buffer in the sidebar
+# (or close the buffer if it's already open)
+
+[actions.sidebar]
+buffer = "new-pane"
+focused_buffer = "close-pane"
+
+[actions.buffer]
+click_channel_name = "replace-pane"
+click_username = "replace-pane"
+</code></pre>
+<h2 id="actionsbuffer"><a class="header" href="#actionsbuffer"><code>[actions.buffer]</code></a></h2>
+<p>How buffer actions should be enacted.</p>
+<h2 id="click_channel_name"><a class="header" href="#click_channel_name"><code>click_channel_name</code></a></h2>
+<p>Action when clicking on a channel name in a pane. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the clicked channel. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+click_channel_name = "new-pane"
+</code></pre>
+<h2 id="click_highlight"><a class="header" href="#click_highlight"><code>click_highlight</code></a></h2>
+<p>Action when clicking on a highlight in the highlights buffer. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the buffer that contains the highlight. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+click_highlight = "new-pane"
+</code></pre>
+<h2 id="click_username"><a class="header" href="#click_username"><code>click_username</code></a></h2>
+<p>Action when clicking on a user name in a pane (if <code>buffer.channel.nicklist</code> or <code>buffer.nickname</code> is set to <code>"open-query"</code>). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with a query for clicked user. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+click_username = "new-pane"
+</code></pre>
+<h2 id="local"><a class="header" href="#local"><code>local</code></a></h2>
+<p>Action when opening a local buffer (the highlights or logs buffer). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the local buffer. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+local = "new-pane"
+</code></pre>
+<h2 id="message_channel"><a class="header" href="#message_channel"><code>message_channel</code></a></h2>
+<p>Action when sending an empty message to a channel (via the <code>/msg</code> or <code>/notice</code> command). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the channel. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+message_channel = "replace-pane"
+</code></pre>
+<h2 id="message_user"><a class="header" href="#message_user"><code>message_user</code></a></h2>
+<p>Action when sending an empty message to a user (via <code>Message</code> in the user context menu or the <code>/msg</code> or <code>/notice</code> command). <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with a query for the user. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+message_user = "replace-pane"
+</code></pre>
+<h2 id="actionssidebar"><a class="header" href="#actionssidebar"><code>[actions.sidebar]</code></a></h2>
+<p>How sidebar actions should be enacted.</p>
+<h2 id="buffer"><a class="header" href="#buffer"><code>buffer</code></a></h2>
+<p>Action when clicking buffers in the sidebar. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the clicked buffer. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[sidebar]
+buffer = "replace-pane"
+</code></pre>
+<h2 id="focused_buffer"><a class="header" href="#focused_buffer"><code>focused_buffer</code></a></h2>
+<p>Action when clicking a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "close-pane"
+# Default: not set
+
+[sidebar]
+focused_buffer = "close-pane"
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="buffer-1"><a class="header" href="#buffer-1"><code>[buffer]</code></a></h1>
 <p>Buffer settings for Halloy.</p>
 <ol>
 <li><a href="configuration/buffer.html#bufferaway">Away</a> - Controls the appearance of away nicknames</li>
@@ -506,12 +604,19 @@ enabled = true
 <p>Controls the appearance of away nicknames.</p>
 <h3 id="appearance"><a class="header" href="#appearance"><code>appearance</code></a></h3>
 <p>Controls the appearance of away nicknames in buffers.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "dimmed", "solid"
+<pre><code class="language-toml"># Type: string or object
+# Values: "dimmed", "solid" or { dimmed = float }
 # Default: "dimmed"
-
 [buffer.away]
 appearance = "dimmed"
+
+# with custom dimming alpha value (0.0-1.0)
+[buffer.away]
+appearance = { dimmed = 0.5 }
+
+# no away indication
+[buffer.away]
+appearance = "solid"
 </code></pre>
 <h2 id="bufferchannel"><a class="header" href="#bufferchannel"><code>[buffer.channel]</code></a></h2>
 <p>Channel specific settings</p>
@@ -1548,7 +1653,7 @@ nickname = ""
 nick_password = ""
 </code></pre>
 <h2 id="nick_password_file"><a class="header" href="#nick_password_file"><code>nick_password_file</code></a></h2>
-<p>Read nick_password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Read nick_password from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1629,7 +1734,7 @@ port = 6697
 password = ""
 </code></pre>
 <h2 id="password_file"><a class="header" href="#password_file"><code>password_file</code></a></h2>
-<p>Read password from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Read password from the file at the given path.<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-2"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1722,10 +1827,10 @@ umodes = "+RB-x"
 <p>Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
-# Default: false
+# Default: true
 
 [servers.&lt;name&gt;]
-use_tls = false
+use_tls = true
 </code></pre>
 <h2 id="dangerously_accept_invalid_certs"><a class="header" href="#dangerously_accept_invalid_certs"><code>dangerously_accept_invalid_certs</code></a></h2>
 <p>When <code>true</code>, all certificate validations are skipped.</p>
@@ -1737,7 +1842,7 @@ use_tls = false
 dangerously_accept_invalid_certs = false
 </code></pre>
 <h2 id="root_cert_path"><a class="header" href="#root_cert_path"><code>root_cert_path</code></a></h2>
-<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-3"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1814,7 +1919,7 @@ username = "username"
 password = "password"
 </code></pre>
 <h3 id="password_file-1"><a class="header" href="#password_file-1"><code>password_file</code></a></h3>
-<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-4"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-4"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1834,7 +1939,7 @@ password_command = ""
 <h2 id="saslexternal"><a class="header" href="#saslexternal"><code>sasl.external</code></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
 <h3 id="cert"><a class="header" href="#cert"><code>cert</code></a></h3>
-<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-5"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-5"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1843,7 +1948,7 @@ password_command = ""
 cert = "/path/to/your/certificate.pem"
 </code></pre>
 <h3 id="key"><a class="header" href="#key"><code>key</code></a></h3>
-<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference"><a href="#1">1</a></sup> <sup class="footnote-reference"><a href="#2">2</a></sup></p>
+<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference" id="fr-1-6"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-6"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1851,32 +1956,15 @@ cert = "/path/to/your/certificate.pem"
 [servers.&lt;name&gt;.sasl.external]
 key = "/path/to/your/private_key.pem"
 </code></pre>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings.</p>
-</div>
-<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
-<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>).</p>
-</div>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
+<hr>
+<ol class="footnote-definition"><li id="footnote-1">
+<p>Shell expansions (e.g. <code>"~/"</code> → <code>"/home/user/"</code>) are not supported in path strings. <a href="#fr-1-1">↩</a> <a href="#fr-1-2">↩2</a> <a href="#fr-1-3">↩3</a> <a href="#fr-1-4">↩4</a> <a href="#fr-1-5">↩5</a> <a href="#fr-1-6">↩6</a></p>
+</li>
+<li id="footnote-2">
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-2-1">↩</a> <a href="#fr-2-2">↩2</a> <a href="#fr-2-3">↩3</a> <a href="#fr-2-4">↩4</a> <a href="#fr-2-5">↩5</a> <a href="#fr-2-6">↩6</a></p>
+</li>
+</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
 <p>Sidebar settings for Halloy.</p>
-<h2 id="buffer_action"><a class="header" href="#buffer_action"><code>buffer_action</code></a></h2>
-<p>Action when pressing buffers in the sidebar. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the pressed buffer. <code>"new-window"</code> opens a new window each time.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "new-pane", "replace-pane", "new-window"
-# Default: "new-pane"
-
-[sidebar]
-buffer_action = "replace-pane"
-</code></pre>
-<h2 id="buffer_focused_action"><a class="header" href="#buffer_focused_action"><code>buffer_focused_action</code></a></h2>
-<p>Action when pressing a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "close-pane"
-# Default: not set
-
-[sidebar]
-buffer_focused_action = "close-pane"
-</code></pre>
 <h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
 <p>Unread buffer indicator style.</p>
 <pre><code class="language-toml"># Type: string
@@ -2005,67 +2093,8 @@ default = "&lt;string&gt;"
 <p>💡  The default Ferra theme toml file can be viewed <a href="https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml">here</a>.</p>
 </blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="community"><a class="header" href="#community">Community</a></h1>
-<p>This is a list of community created themes for Halloy.</p>
-<blockquote>
-<p>💡 Have a great theme you want to share? Open a pull-request <a href="https://github.com/squidowl/halloy/pulls">here</a>.</p>
-</blockquote>
-<h2 id="oxocarbon"><a class="header" href="#oxocarbon">Oxocarbon</a></h2>
-<p><a href="halloy:///theme?e=ABYWFv8BJiYm_wImJib_A76V__8E8vT4_wVSUlL_Br6V__8HQr5l_wjuU5b_CT3b2f8KFhYW_wsfHh7_DBwcHP8NJiYm_w5jUIH_D76V__8QQDZP_xFCvmX_EjApOv8TOTk5_xRSUlL_FXip__8d_362_x4AAAAAHx0dHf8gJycn_yE2Njb_IiQkJP8jKCgo_yRANk__JVFDZ_8">Open in Halloy</a></p>
-<img src="configuration/themes/oxocarbon.png">
-<h2 id="dracula"><a class="header" href="#dracula">Dracula</a></h2>
-<p><a href="halloy:///theme?e=ACgqNv8BHR8n_wJER1r_A2JypP8E-Pjy_wVyd5T_Br2T-v8HUPp7_wj_VVX_Cf-4bP8KHyIt_wsaGyT_DBobJP8NAAAAAA5Q-nv_D_95xv8QKy46_xH_ecb_EjU5R_8TkZKT_xTAwb__FYvp_f8d8fqM_x4oKjb_HygqNv8gPT1R_yExMUH_IisuOv8jMjZE_yQ7Nk7_JVZKcv8">Open in Halloy</a></p>
-<img src="configuration/themes/dracula.png">
-<h2 id="gruvbox"><a class="header" href="#gruvbox">Gruvbox</a></h2>
-<p><a href="halloy:///theme?e=ACgoKP8BkoN0_wI8ODb_A7Fihv8E69uy_wWomYT_BrFihv8HmJca_wjMJB3_CdZdDv8KHSAh_wsoKCj_DB8hIf8NAAAAAA6Sg3T_D2idWv8QPDg2_xGOwHz_Ej05N_8TZlxU_xSSg3T_FUWFiP8d15kh_x4AAAAAHy4uLv8gMjIy_yE5OTn_IiImJ_8jJSor_yRBPDf_JVpSSv8">Open in Halloy</a></p>
-<img src="configuration/themes/gruvbox.png">
-<h2 id="catppuccin-latte"><a class="header" href="#catppuccin-latte">Catppuccin Latte</a></h2>
-<p><a href="halloy:///theme?e=ANzg6P8BnKCw_wLM0Nr_A4g57_8ETE9p_wVsb4X_Bog57_8HQKAr_wjSDzn_Cf5kC_8K5unv_wvv8fX_DO_x9f8N3ODo_w7MuO__D3KH_f8Q1cnv_xEEpeX_ErXM9f8TnqG2_xSMj6H_FR5m9f8d344d_x4AAAAAH9bZ4f8gwcTK_yG3usD_IuPn7f8j1dne_yTUyO__JcKk7_8">Open in Halloy</a></p>
-<img src="configuration/themes/catppuccin-latte.png">
-<h2 id="catppuccin-macchiato"><a class="header" href="#catppuccin-macchiato">Catppuccin Macchiato</a></h2>
-<p><a href="halloy:///theme?e=ABgZJv8BbnON_wIkJzr_A8ag9v8EytP1_wWlrcv_Bsag9v8HptqV_wjth5b_CfWpf_8KHiAw_wskJzr_DCQnOv8NGBkm_w5MQWP_D7e9-P8QWUx2_xGR1-P_EiwySv8TW2B2_xSAh6L_FYqt9P8d7tSf_x4AAAAAHx4fL_8gIiM1_yEnKD3_IiksQv8jMjVQ_yRKQGL_JY10sf8">Open in Halloy</a></p>
-<img src="configuration/themes/catppuccin-macchiato.png">
-<h2 id="catppuccin-mocha"><a class="header" href="#catppuccin-mocha">Catppuccin Mocha</a></h2>
-<p><a href="halloy:///theme?e=ABERG_8BbHCG_wIeHi7_A8um9_8Ezdb0_wWmrcj_Bsum9_8HpuOh_wjzi6j_Cfqzh_8KGBgl_wseHi7_DB4eLv8NEREb_w5MQWP_D7e9-P8QWUx2_xGJ3Ov_EiwySv8TWFpu_xR_hJz_FYm0-v8d-eKv_x4AAAAAHxoaKf8gHh4v_yEiIjb_IiMjNv8jKytC_yRMQWP_JWhXhv8">Open in Halloy</a></p>
-<img src="configuration/themes/catppuccin-mocha.png">
-<h2 id="ferra-light"><a class="header" href="#ferra-light">Ferra Light</a></h2>
-<p><a href="halloy:///theme?e=APTs5v8B3dDI_wLp2c7_A_-gev8EaFZQ_wWnmJH_BqNSxf8HdIYt_wjfUl7_CXSGLf8K8ebe_wvu4NX_DO_i2P8NAAAAAA7HubH_D6NSxf8Q9NbH_xHESGz_EubGw_8Trp2V_xSrinn_FWNg1v8dwZMX_x707Ob_H_Hl3f8g6trQ_yHm1cn_IunVyP8j38Kt_yTZ0bv_JcnFp_8">Open in Halloy</a></p>
-<img src="configuration/themes/ferra-light.png">
-<h2 id="booberry"><a class="header" href="#booberry">Booberry</a></h2>
-<p><a href="halloy:///theme?e=AEUoWf8B27_v_wJUMm__Aza_hv8E2Mjz_wWtlr7_BuzNuv8HoPKP_wj0eGj_CejcoP8KOiJM_wsxHUH_DDYgR_8NAAAAAA6koOj_D8zMzP8QZFRv_xGg8o__ElBJbf8TgG2N_xTbv-__FYLOz_8d_80d_x4AAAAAH08uZf8gVDFs_yFWMm7_Ij8mU_8jRCla_ySFcpP_JcGo0_8">Open in Halloy</a></p>
-<img src="configuration/themes/booberry.png">
-<h2 id="one-dark"><a class="header" href="#one-dark">One Dark</a></h2>
-<p><a href="halloy:///theme?e=ACAkKv8Bc3Nz_wJgY2j_A_-MAP8Eu7u7_wWHjpv_BvRHR_8Hicp4_wjHVFD_CdVf3v8KKCw0_wsxN0H_DDE3Qf8NO0BI_w5gY2j_D4eOm_8QQlV7_xGJynj_EkBIWf8Tc3mE_xSHjpv_FWGv7_8dNZLE_x4AAAAAHzU6Rv8gREta_yFES1r_IiAkKv8jNTpG_yRES1r_JURLWv8">Open in Halloy</a></p>
-<img src="configuration/themes/one-dark.png">
-<h2 id="intellij-light"><a class="header" href="#intellij-light">IntelliJ Light</a></h2>
-<p><a href="halloy:///theme?e=AP____8Bv7-__wLg4OD_AwCN3v8ECAgI_wVBTUH_Bv8AAP8HsNGr_wjbWGD_CQBtzP8K_____wvw8PD_DPDw8P8N5ubm_w7g4OD_D0FNQf8QzMz__xEAjd7_EqbS__8TgICA_xRBTUH_FQBtzP8dOJ_W_x4AAAAAH9bW1v8g4ODg_yHg4OD_Iv____8j1tbW_yTg4OD_JeDg4P8">Open in Halloy</a></p>
-<img src="configuration/themes/intellij-light.png">
-<h2 id="macaw-light"><a class="header" href="#macaw-light">Macaw Light</a></h2>
-<p><a href="halloy:///theme?e=APHx8_8BtbW1_wLLzNf_AwB6__8EAAAA_wVsb4X_Bog57_8HlZWV_wiVlZX_CZWVlf8K_v___wvw8PD_DPDw8P8Nra2t_w6tra3_D3KH_f8Q1eD-_xFQbf__ErXM9f8TlZWV_xQAAAD_FR5m9f8dlZWV_x4AAAAAH-Li4v8g2tra_yHBwcH_Iu3t7f8j3t7e_yTs7Oz_Jenp6f8">Open in Halloy</a></p>
-<img src="configuration/themes/macaw-light.png">
-<h2 id="macaw-dark"><a class="header" href="#macaw-dark">Macaw Dark</a></h2>
-<p><a href="halloy:///theme?e=ADMzM_8BUFBQ_wIzMzP_AyiE_P8E39_f_wXCwsL_Bog57_8HlZWV_wiVlZX_CZWVlf8KHh4e_wsuLi7_DC4uLv8NGhoa_w4aGhr_D3KH_f8QRUZF_xEAyP__End3d_8TlZWV_xTf39__FSiE_P8dlZWV_x4AAAAAH0hISP8gSkpK_yFmZmb_Ijs7O_8jSEhI_yRkZGT_JWZmZv8">Open in Halloy</a></p>
- <img src="configuration/themes/macaw-dark.png">
-<h2 id="zenburn"><a class="header" href="#zenburn">Zenburn</a></h2>
-<p><a href="halloy:///theme?e=ADg4OP8BrtYA_wJGRkb_A16urv8E3NzM_wWVlYr_BvDfr_8HX4cA_wjXXwD_Cf-4bP8KPz8__wsxMTH_DDExMf8NAAAAAA6u1gD_D_95xv8QPU9P_xH5nZj_EmFcT_8TYWFc_xTAwb__FYvp_f8dXq6u_x44ODj_Hy4uLv8gODg4_yEuLi7_Ij8_P_8jODg4_yQ4ODj_JTg4OP8">Open in Halloy</a></p>
-<img src="configuration/themes/zenburn.png">
-<h2 id="solarized-dark"><a class="header" href="#solarized-dark">Solarized Dark</a></h2>
-<p><a href="halloy:///theme?e=AAArNv8Bk6Gh_wKToaH_A5Ohof8Eg5SW_wVYbnX_BpOhof8HhZkA_wjcMi__CctLFv8KACs2_wsHNkL_DAc2Qv8Ng5SW_w6ToaH_D9M2gv8QBzZC_xEmi9L_EgArNv8TWG51_xSDlJb_FSqhmP8dWG51_x4AKzb_Hwc2Qv8gBzZC_yEHNkL_IgArNv8jBzZC_yQHNkL_JQc2Qv8">Open in Halloy</a></p>
-<img src="configuration/themes/solarized-dark.png">
-<h2 id="cyberpunk"><a class="header" href="#cyberpunk">Cyberpunk</a></h2>
-<p><a href="halloy:///theme?e=AAoOFP8BLjxJ_wIbHyf_AwD_2f8EOf8U_wUAv___Bv8A__8HAP-d_wj_TEz_CQD_mf8KDQ8U_wsRFRz_DBsfJ_8NAAAAAA4A_9n_Dzn_FP8QiwCL_xH_AP__EhoeJf8TYHCL_xQAv___FQC___8d_9cA_x4KDhT_Hx0jL_8gDRIY_yEUGiH_IhsfJ_8jJCoz_yQuPEn_JTlFVP8">Open in Halloy</a></p>
-<img src="configuration/themes/cyberpunk.png">
-<h2 id="rose-pine"><a class="header" href="#rose-pine">Rose Pine</a></h2>
-<p><a href="halloy:///theme?e=ACEgLv8BQD1S_wImIzr_A_bBd_8E67y6_wWQjKr_BsSn5_8HnM_Y_wjrb5L_CZzP2P8KISAu_wsZFyT_DB8dLv8NAAAAAA5uaob_D-tvkv8QQD1S_xHrvLr_EiYjOv8TUk9n_xSQjKr_FeDe9P8d9sF3_x4hIC7_HyEgLv8gGRck_yEfHS7_IiYjOv8jQD1S_yRST2f_JW5qhv8">Open in Halloy</a></p>
-<img src="configuration/themes/rose-pine.png">
-<h2 id="rose-pine-moon"><a class="header" href="#rose-pine-moon">Rose Pine Moon</a></h2>
-<p><a href="halloy:///theme?e=ACooPv8BREFa_wI5NVL_A_bBd_8E6pqX_wWQjKr_BsSn5_8HnM_Y_wjrb5L_CZzP2P8KKig-_wsjITb_DConP_8NAAAAAA5uaob_D-tvkv8QREFa_xHqmpf_Ejk1Uv8TVlJu_xSQjKr_FeDe9P8d9sF3_x4qKD7_HyooPv8gIyE2_yEqJz__Ijk1Uv8jREFa_yRWUm7_JW5qhv8">Open in Halloy</a></p>
-<img src="configuration/themes/rose-pine-moon.png">
-<h2 id="rose-pine-dawn"><a class="header" href="#rose-pine-dawn">Rose Pine Dawn</a></h2>
-<p><a href="halloy:///theme?e=APTt6P8B39rZ_wLy6eH_A-qdNP8E14J-_wV5dZP_BpB6qf8HVpSf_wi0Y3r_CVaUn_8K9O3o_wv69O3_DP_68_8NAAAAAA6Yk6X_D7Rjev8Q39rZ_xHXgn7_EvLp4f8TzsrN_xR5dZP_FVdSef8d6p00_x707ej_H_Tt6P8g-vTt_yH_-vP_IvLp4f8j39rZ_yTOys3_JZiTpf8">Open in Halloy</a></p>
-<img src="configuration/themes/rose-pine-dawn.png">
-<h2 id="noctis-lilac"><a class="header" href="#noctis-lilac">Noctis Lilac</a></h2>
-<p><a href="halloy:///theme?e=AO3s-P8BnKCw_wLM0Nr_A4g57_8EDABr_wV1cY7_BlhC__8HALNo_wj_Uw__Cf5kC_8K8vH4_wvy8fj_DOLf9v8Nta3r_w5wYOv_D3KH_f8Q1cnv_xH_V5L_ErSt63cTmZW3_xR1cY7_FQDG4P8d9Jcl_x4AAAAAH3Bg6yIgcGDrZiFwYOtmIgAAAAAjpZn_dySlmf__JaWZ_90">Open in Halloy</a></p>
-<img src="configuration/themes/noctis-lilac.png"><div style="break-before: page; page-break-before: always;"></div><h1 id="base16"><a class="header" href="#base16">Base16</a></h1>
+<p>Discover community created themes for Halloy at https://themes.halloy.chat.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="base16"><a class="header" href="#base16">Base16</a></h1>
 <p>The <a href="https://github.com/chriskempson/base16">base16</a> color scheme framework
 includes hundreds of colorschemes build using 16 colors. These colorschemes have
 are compiled for Halloy in the
