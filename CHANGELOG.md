@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.4 (2025-04-07)
+
 Added:
 
 - All toast notifications now display the server name
