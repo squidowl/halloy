@@ -143,16 +143,14 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
         }
     }
 
-    if fragments.is_empty()
-        || (fragments.len() == 1 && matches!(fragments.first(), Some(Fragment::Unformatted(_))))
-    {
+    if fragments.is_empty() {
         None
     } else {
         Some(fragments)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Formatting {
     pub bold: bool,
     pub italics: bool,
