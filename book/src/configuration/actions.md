@@ -34,7 +34,7 @@ Action when clicking on a channel name in a pane. `"new-pane"` opens a new pane 
 # Values: "new-pane", "replace-pane", "new-window"
 # Default: "new-pane"
 
-[sidebar]
+[actions.buffer]
 click_channel_name = "new-pane"
 ```
 
@@ -47,7 +47,7 @@ Action when clicking on a highlight in the highlights buffer. `"new-pane"` opens
 # Values: "new-pane", "replace-pane", "new-window"
 # Default: "new-pane"
 
-[sidebar]
+[actions.buffer]
 click_highlight = "new-pane"
 ```
 
@@ -60,7 +60,7 @@ Action when clicking on a user name in a pane (if `buffer.channel.nicklist` or `
 # Values: "new-pane", "replace-pane", "new-window"
 # Default: "new-pane"
 
-[sidebar]
+[actions.buffer]
 click_username = "new-pane"
 ```
 
@@ -73,7 +73,7 @@ Action when opening a local buffer (the highlights or logs buffer). `"new-pane"`
 # Values: "new-pane", "replace-pane", "new-window"
 # Default: "new-pane"
 
-[sidebar]
+[actions.buffer]
 local = "new-pane"
 ```
 
@@ -86,7 +86,7 @@ Action when sending an empty message to a channel (via the `/msg` or `/notice` c
 # Values: "new-pane", "replace-pane", "new-window"
 # Default: "new-pane"
 
-[sidebar]
+[actions.buffer]
 message_channel = "replace-pane"
 ```
 
@@ -99,7 +99,7 @@ Action when sending an empty message to a user (via `Message` in the user contex
 # Values: "new-pane", "replace-pane", "new-window"
 # Default: "new-pane"
 
-[sidebar]
+[actions.buffer]
 message_user = "replace-pane"
 ```
 
@@ -116,7 +116,7 @@ Action when clicking buffers in the sidebar. `"new-pane"` opens a new pane each 
 # Values: "new-pane", "replace-pane", "new-window"
 # Default: "new-pane"
 
-[sidebar]
+[actions.sidebar]
 buffer = "replace-pane"
 ```
 
@@ -129,6 +129,6 @@ Action when clicking a focused buffer in the sidebar. `"close-pane"` will close 
 # Values: "close-pane"
 # Default: not set
 
-[sidebar]
+[actions.sidebar]
 focused_buffer = "close-pane"
 ```
