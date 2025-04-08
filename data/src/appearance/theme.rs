@@ -571,17 +571,17 @@ mod binary {
                 Tag::BufferServerMessagesDefault => colors.buffer.server_messages.default = color,
                 Tag::ButtonsPrimaryBackground => colors.buttons.primary.background = color,
                 Tag::ButtonsPrimaryBackgroundHover => {
-                    colors.buttons.primary.background_hover = color
+                    colors.buttons.primary.background_hover = color;
                 }
                 Tag::ButtonsPrimaryBackgroundSelected => {
-                    colors.buttons.primary.background_selected = color
+                    colors.buttons.primary.background_selected = color;
                 }
                 Tag::ButtonsPrimaryBackgroundSelectedHover => {
                     colors.buttons.primary.background_selected_hover = color;
                 }
                 Tag::ButtonsSecondaryBackground => colors.buttons.secondary.background = color,
                 Tag::ButtonsSecondaryBackgroundHover => {
-                    colors.buttons.secondary.background_hover = color
+                    colors.buttons.secondary.background_hover = color;
                 }
                 Tag::ButtonsSecondaryBackgroundSelected => {
                     colors.buttons.secondary.background_selected = color;

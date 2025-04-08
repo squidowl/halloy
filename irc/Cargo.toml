@@ -23,3 +23,6 @@ xz2 = { version = "0.1.7", features = ["static"] }
 [dependencies.proto]
 path = "proto"
 package = "irc_proto"
+
+[lints]
+workspace = true

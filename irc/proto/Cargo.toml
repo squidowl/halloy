@@ -9,3 +9,6 @@ edition.workspace = true
 itertools = "0.12.1"
 nom = "7.1"
 thiserror = "1.0.30"
+
+[lints]
+workspace = true

@@ -394,7 +394,7 @@ impl History {
                 Some(async move {
                     overwrite(&kind, &messages, read_marker)
                         .await
-                        .map(|_| read_marker)
+                        .map(|()| read_marker)
                 })
             }
         }

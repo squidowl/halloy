@@ -141,7 +141,7 @@ impl Command {
         if let Ok(num) = tag.parse::<u16>() {
             return match self::Numeric::try_from(num) {
                 Ok(numeric) => Numeric(numeric, parameters),
-                Err(_) => Unknown(num.to_string(), parameters),
+                Err(()) => Unknown(num.to_string(), parameters),
             };
         }
 

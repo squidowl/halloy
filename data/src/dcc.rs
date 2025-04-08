@@ -128,7 +128,7 @@ impl Send {
                 token,
             } => {
                 let host = encode_host(host);
-                let port = port.map(NonZeroU16::get).unwrap_or(0);
+                let port = port.map_or(0, NonZeroU16::get);
 
                 ctcp::query_message(
                     &ctcp::Command::DCC,

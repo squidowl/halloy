@@ -47,8 +47,7 @@ impl<'de> Deserialize<'de> for Appearance {
                 "dimmed" => Ok(Appearance::Dimmed(None)),
                 "solid" => Ok(Appearance::Solid),
                 _ => Err(serde::de::Error::custom(format!(
-                    "unknown appearance: {}",
-                    s
+                    "unknown appearance: {s}",
                 ))),
             },
             AppearanceRepr::Struct(s) => Ok(Appearance::Dimmed(s.dimmed)),
