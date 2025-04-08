@@ -21,6 +21,10 @@ pub struct Metadata {
 pub struct ReadMarker(DateTime<Utc>);
 
 impl ReadMarker {
+    pub fn from_date_time(date_time: DateTime<Utc>) -> Self {
+        ReadMarker(date_time)
+    }
+
     pub fn latest(messages: &[Message]) -> Option<Self> {
         messages
             .iter()

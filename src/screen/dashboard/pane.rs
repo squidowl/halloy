@@ -21,6 +21,7 @@ pub enum Message {
     Popout,
     Merge,
     ScrollToBottom,
+    MarkAsRead,
 }
 
 #[derive(Clone, Debug)]
@@ -79,6 +80,13 @@ impl Pane {
             Buffer::Highlights(_) => "Highlights".to_string(),
         };
 
+        let can_mark_as_read =
+            if let Some(kind) = self.buffer.data().and_then(history::Kind::from_buffer) {
+                history.can_mark_as_read(&kind)
+            } else {
+                false
+            };
+
         let title_bar = self.title_bar.view(
             &self.buffer,
             title_bar_text,
@@ -90,6 +98,7 @@ impl Pane {
             settings,
             config.tooltips,
             is_popout,
+            can_mark_as_read,
             config,
         );
 
@@ -157,35 +166,55 @@ impl TitleBar {
         settings: Option<&'a buffer::Settings>,
         show_tooltips: bool,
         is_popout: bool,
+        can_mark_as_read: bool,
         config: &'a Config,
     ) -> widget::TitleBar<'a, Message> {
         // Pane controls.
         let mut controls = row![].spacing(2);
 
+        // Show scroll-to-bottom if scrollable isnt scrolled to bottom.
+        if !buffer.is_scrolled_to_bottom().unwrap_or_default() {
+            let scrollable_button = button(center(icon::scroll_to_bottom()))
+                .padding(5)
+                .width(22)
+                .height(22)
+                .on_press(Message::ScrollToBottom)
+                .style(|theme, status| theme::button::secondary(theme, status, false));
+
+            let scrollable_button_with_tooltip = tooltip(
+                scrollable_button,
+                show_tooltips.then_some("Scroll to Bottom"),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(scrollable_button_with_tooltip);
+        }
+
+        if can_mark_as_read {
+            let mark_as_read_button = button(center(icon::mark_as_read()))
+                .padding(5)
+                .width(22)
+                .height(22)
+                .on_press(Message::MarkAsRead)
+                .style(move |theme, status| theme::button::secondary(theme, status, false));
+
+            let mark_as_read_button_with_tooltip = tooltip(
+                mark_as_read_button,
+                show_tooltips.then_some("Mark as Read"),
+                tooltip::Position::Bottom,
+            );
+
+            controls = controls.push(mark_as_read_button_with_tooltip);
+        }
+
         if let Buffer::Channel(state) = &buffer {
-            // Show scroll-to-bottom if scrollable isnt scrolled to bottom.
-            if !buffer.is_scrolled_to_bottom().unwrap_or_default() {
-                let scrollable_button = button(center(icon::scroll_to_bottom()))
-                    .padding(5)
-                    .width(22)
-                    .height(22)
-                    .on_press(Message::ScrollToBottom)
-                    .style(|theme, status| theme::button::secondary(theme, status, false));
-
-                let scrollable_button_with_tooltip = tooltip(
-                    scrollable_button,
-                    show_tooltips.then_some("Scroll to Bottom"),
-                    tooltip::Position::Bottom,
-                );
-
-                controls = controls.push(scrollable_button_with_tooltip);
-            }
-
             // Show topic button only if there is a topic to show
             if let Some(topic) = clients.get_channel_topic(&state.server, &state.target) {
                 if topic.content.is_some() {
                     let topic_enabled = settings
-                        .map_or(config.buffer.channel.topic.enabled, |settings| settings.channel.topic.enabled);
+                        .map_or(config.buffer.channel.topic.enabled, |settings| {
+                            settings.channel.topic.enabled
+                        });
 
                     let topic_button = button(center(icon::topic()))
                         .padding(5)
@@ -207,7 +236,9 @@ impl TitleBar {
             }
 
             let nicklist_enabled = settings
-                .map_or(config.buffer.channel.nicklist.enabled, |settings| settings.channel.nicklist.enabled);
+                .map_or(config.buffer.channel.nicklist.enabled, |settings| {
+                    settings.channel.nicklist.enabled
+                });
 
             let nicklist_button = button(center(icon::people()))
                 .padding(5)

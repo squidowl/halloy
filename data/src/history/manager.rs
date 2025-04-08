@@ -5,7 +5,7 @@ use futures::future::BoxFuture;
 use futures::{future, Future, FutureExt};
 use tokio::time::Instant;
 
-use crate::history::{self, History, MessageReferences};
+use crate::history::{self, History, MessageReferences, ReadMarker};
 use crate::message::{self, Limit};
 use crate::target::{self, Target};
 use crate::user::Nick;
@@ -66,7 +66,11 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn track(&mut self, new_resources: HashSet<Resource>) -> Vec<BoxFuture<'static, Message>> {
+    pub fn track(
+        &mut self,
+        new_resources: HashSet<Resource>,
+        config: &Config,
+    ) -> Vec<BoxFuture<'static, Message>> {
         let added = new_resources.difference(&self.resources).cloned();
         let removed = self.resources.difference(&new_resources).cloned();
 
@@ -80,7 +84,7 @@ impl Manager {
         });
 
         let removed = removed.into_iter().filter_map(|resource| {
-            self.data.untrack(&resource.kind).map(|task| {
+            self.data.untrack(&resource.kind, config).map(|task| {
                 task.map(|result| Message::Closed(resource.kind, result))
                     .boxed()
             })
@@ -162,19 +166,35 @@ impl Manager {
         self.data.flush_all(now)
     }
 
-    pub fn close(&mut self, kind: history::Kind) -> Option<impl Future<Output = Message> + use<>> {
+    pub fn close(
+        &mut self,
+        kind: history::Kind,
+        mark_as_read: bool,
+    ) -> Option<impl Future<Output = Message> + use<>> {
         let history = self.data.map.remove(&kind)?;
 
-        Some(history.close().map(|result| Message::Closed(kind, result)))
+        Some(
+            history
+                .close(mark_as_read)
+                .map(|result| Message::Closed(kind, result)),
+        )
     }
 
-    pub fn exit(&mut self) -> impl Future<Output = Message> + use<> {
+    pub fn exit(
+        &mut self,
+        mark_partial_as_read: bool,
+        mark_full_as_read: bool,
+    ) -> impl Future<Output = Message> + use<> {
         let map = std::mem::take(&mut self.data).map;
 
         async move {
-            let tasks = map
-                .into_iter()
-                .map(|(kind, state)| state.close().map(move |result| (kind, result)));
+            let tasks = map.into_iter().map(|(kind, state)| {
+                match state {
+                    History::Partial { .. } => state.close(mark_partial_as_read),
+                    History::Full { .. } => state.close(mark_full_as_read),
+                }
+                .map(move |result| (kind, result))
+            });
 
             Message::Exited(future::join_all(tasks).await)
         }
@@ -268,6 +288,14 @@ impl Manager {
     ) -> Option<MessageReferences> {
         self.data
             .last_can_reference_before(server, target, server_time)
+    }
+
+    pub fn mark_as_read(&mut self, kind: &history::Kind) -> Option<ReadMarker> {
+        self.data.mark_as_read(kind)
+    }
+
+    pub fn can_mark_as_read(&self, kind: &history::Kind) -> bool {
+        self.data.can_mark_as_read(kind)
     }
 
     pub fn get_messages(
@@ -829,12 +857,27 @@ impl Data {
             .and_then(|history| history.last_can_reference_before(server_time))
     }
 
+    fn mark_as_read(&mut self, kind: &history::Kind) -> Option<ReadMarker> {
+        self.map
+            .get_mut(kind)
+            .and_then(|history| history.mark_as_read())
+    }
+
+    fn can_mark_as_read(&self, kind: &history::Kind) -> bool {
+        self.map
+            .get(kind)
+            .is_some_and(|history| history.can_mark_as_read())
+    }
+
     fn untrack(
         &mut self,
         kind: &history::Kind,
+        config: &Config,
     ) -> Option<impl Future<Output = Result<Option<history::ReadMarker>, history::Error>> + use<>>
     {
-        self.map.get_mut(kind).and_then(History::make_partial)
+        self.map.get_mut(kind).and_then(|history| {
+            History::make_partial(history, config.buffer.mark_as_read.on_buffer_close)
+        })
     }
 
     fn flush_all(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {

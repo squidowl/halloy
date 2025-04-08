@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+use crate::serde::default_bool_true;
 use crate::Target;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -128,10 +129,6 @@ fn is_visible(include: &[String], exclude: &[String], target: &Target) -> bool {
             channel_included || !channel_excluded
         }
     }
-}
-
-fn default_bool_true() -> bool {
-    true
 }
 
 fn default_user_agent() -> String {
