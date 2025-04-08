@@ -404,7 +404,7 @@ impl State {
                         if !matches!(self.status, Status::Bottom)
                             && config.buffer.mark_as_read.on_scroll_to_bottom
                         {
-                            event = Some(Event::MarkAsRead)
+                            event = Some(Event::MarkAsRead);
                         }
 
                         self.status = Status::Bottom;
