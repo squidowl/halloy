@@ -76,6 +76,21 @@ impl Kind {
             message::Target::Highlights { .. } => None,
         }
     }
+
+    pub fn from_buffer(buffer: Buffer) -> Option<Self> {
+        match buffer {
+            Buffer::Upstream(buffer::Upstream::Server(server)) => Some(Kind::Server(server)),
+            Buffer::Upstream(buffer::Upstream::Channel(server, channel)) => {
+                Some(Kind::Channel(server, channel))
+            }
+            Buffer::Upstream(buffer::Upstream::Query(server, nick)) => {
+                Some(Kind::Query(server, nick))
+            }
+            Buffer::Internal(buffer::Internal::Logs) => Some(Kind::Logs),
+            Buffer::Internal(buffer::Internal::Highlights) => Some(Kind::Highlights),
+            Buffer::Internal(buffer::Internal::FileTransfers) => None,
+        }
+    }
 }
 
 impl Kind {
@@ -89,11 +104,11 @@ impl Kind {
         }
     }
 
-    pub fn target(&self) -> Option<&str> {
+    pub fn target(&self) -> Option<Target> {
         match self {
             Kind::Server(_) => None,
-            Kind::Channel(_, channel) => Some(channel.as_str()),
-            Kind::Query(_, nick) => Some(nick.as_str()),
+            Kind::Channel(_, channel) => Some(Target::Channel(channel.clone())),
+            Kind::Query(_, nick) => Some(Target::Query(nick.clone())),
             Kind::Logs => None,
             Kind::Highlights => None,
         }
@@ -366,6 +381,7 @@ impl History {
 
     fn make_partial(
         &mut self,
+        mark_as_read: bool,
     ) -> Option<impl Future<Output = Result<Option<ReadMarker>, Error>> + use<>> {
         match self {
             History::Partial { .. } => None,
@@ -378,8 +394,14 @@ impl History {
                 let kind = kind.clone();
                 let messages = std::mem::take(messages);
 
-                let read_marker = ReadMarker::latest(&messages).max(*read_marker);
+                let read_marker = if mark_as_read {
+                    ReadMarker::latest(&messages).max(*read_marker)
+                } else {
+                    *read_marker
+                };
+
                 let max_triggers_unread = metadata::latest_triggers_unread(&messages);
+
                 let chathistory_references = metadata::latest_can_reference(&messages);
 
                 *self = Self::Partial {
@@ -400,17 +422,29 @@ impl History {
         }
     }
 
-    async fn close(self) -> Result<Option<ReadMarker>, Error> {
+    async fn close(self, mark_as_read: bool) -> Result<Option<ReadMarker>, Error> {
         match self {
             History::Partial {
                 kind,
                 messages,
                 read_marker,
+                max_triggers_unread,
                 ..
             } => {
-                append(&kind, messages, read_marker).await?;
+                log::debug!("close History::Partial mark_as_read {mark_as_read}");
+                if mark_as_read {
+                    let read_marker = ReadMarker::latest(&messages)
+                        .max(read_marker)
+                        .max(max_triggers_unread.map(ReadMarker::from_date_time));
 
-                Ok(None)
+                    append(&kind, messages, read_marker).await?;
+
+                    Ok(read_marker)
+                } else {
+                    append(&kind, messages, read_marker).await?;
+
+                    Ok(None)
+                }
             }
             History::Full {
                 kind,
@@ -418,11 +452,60 @@ impl History {
                 read_marker,
                 ..
             } => {
-                let read_marker = ReadMarker::latest(&messages).max(read_marker);
+                if mark_as_read {
+                    let read_marker = ReadMarker::latest(&messages).max(read_marker);
 
-                overwrite(&kind, &messages, read_marker).await?;
+                    overwrite(&kind, &messages, read_marker).await?;
 
-                Ok(read_marker)
+                    Ok(read_marker)
+                } else {
+                    overwrite(&kind, &messages, read_marker).await?;
+
+                    Ok(None)
+                }
+            }
+        }
+    }
+
+    pub fn mark_as_read(&mut self) -> Option<ReadMarker> {
+        let (read_marker, latest) = match self {
+            History::Partial {
+                max_triggers_unread,
+                read_marker,
+                ..
+            } => (
+                read_marker,
+                max_triggers_unread.map(ReadMarker::from_date_time),
+            ),
+            History::Full {
+                messages,
+                read_marker,
+                ..
+            } => (read_marker, ReadMarker::latest(messages)),
+        };
+
+        if latest > *read_marker {
+            *read_marker = latest;
+
+            latest
+        } else {
+            None
+        }
+    }
+
+    pub fn can_mark_as_read(&self) -> bool {
+        match self {
+            History::Partial { .. } => self.has_unread(),
+            History::Full {
+                messages,
+                read_marker,
+                ..
+            } => {
+                if messages.is_empty() {
+                    false
+                } else {
+                    *read_marker < ReadMarker::latest(messages)
+                }
             }
         }
     }

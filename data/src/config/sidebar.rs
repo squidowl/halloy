@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::serde::default_bool_true;
+
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct Sidebar {
     #[serde(default)]
@@ -49,8 +51,4 @@ impl Default for Sidebar {
             show_user_menu: default_bool_true(),
         }
     }
-}
-
-fn default_bool_true() -> bool {
-    true
 }

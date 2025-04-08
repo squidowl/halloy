@@ -2,6 +2,7 @@ use serde::Deserialize;
 
 use crate::buffer::Color;
 use crate::channel::Position;
+use crate::serde::default_bool_true;
 
 use super::NicknameClickAction;
 
@@ -80,8 +81,4 @@ impl Default for Topic {
 
 fn default_topic_banner_max_lines() -> u16 {
     2
-}
-
-fn default_bool_true() -> bool {
-    true
 }

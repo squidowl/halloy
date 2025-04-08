@@ -33,6 +33,7 @@ pub enum Message {
     OpenReleaseWebsite,
     OpenDocumentation,
     ReloadComplete,
+    MarkAsRead(buffer::Upstream),
 }
 
 #[derive(Debug, Clone)]
@@ -50,6 +51,7 @@ pub enum Event {
     OpenReleaseWebsite,
     OpenDocumentation,
     ConfigReloaded(Result<Config, config::Error>),
+    MarkAsRead(buffer::Upstream),
 }
 
 #[derive(Clone)]
@@ -106,6 +108,7 @@ impl Sidebar {
                 (Task::none(), None)
             }
             Message::OpenDocumentation => (Task::none(), Some(Event::OpenDocumentation)),
+            Message::MarkAsRead(buffer) => (Task::none(), Some(Event::MarkAsRead(buffer))),
         }
     }
 
@@ -372,12 +375,7 @@ impl Sidebar {
             let second_pass = content(Length::Fill);
 
             container(double_pass(first_pass, second_pass))
-                .max_width(
-                    config
-                        .sidebar
-                        .max_width
-                        .map_or(f32::INFINITY, f32::from),
-                )
+                .max_width(config.sidebar.max_width.map_or(f32::INFINITY, f32::from))
                 .width(Length::Shrink)
                 .padding(padding)
                 .into()
@@ -418,6 +416,7 @@ impl Menu {
 
 #[derive(Debug, Clone, Copy)]
 enum Entry {
+    MarkAsRead,
     NewPane,
     Popout,
     Replace,
@@ -433,7 +432,13 @@ impl Entry {
         focus: Focus,
     ) -> Vec<Self> {
         match open {
-            None => vec![Entry::NewPane, Entry::Popout, Entry::Replace, Entry::Leave],
+            None => vec![
+                Entry::MarkAsRead,
+                Entry::NewPane,
+                Entry::Popout,
+                Entry::Replace,
+                Entry::Leave,
+            ],
             Some((window, pane)) => (num_panes > 1)
                 .then_some(Entry::Close(window, pane))
                 .into_iter()
@@ -577,31 +582,50 @@ fn upstream_buffer_button(
     if entries.is_empty() || !connected {
         base.into()
     } else {
-        context_menu(context_menu::MouseButton::default(), base, entries, move |entry, length| {
-            let (content, message) = match entry {
-                Entry::NewPane => ("Open in new pane", Message::New(buffer.clone())),
-                Entry::Popout => ("Open in new window", Message::Popout(buffer.clone())),
-                Entry::Replace => ("Replace current pane", Message::Replace(buffer.clone())),
-                Entry::Close(window, pane) => ("Close pane", Message::Close(window, pane)),
-                Entry::Swap(window, pane) => {
-                    ("Swap with current pane", Message::Swap(window, pane))
-                }
-                Entry::Leave => (
-                    match &buffer {
-                        buffer::Upstream::Server(_) => "Leave server",
-                        buffer::Upstream::Channel(_, _) => "Leave channel",
-                        buffer::Upstream::Query(_, _) => "Close query",
-                    },
-                    Message::Leave(buffer.clone()),
-                ),
-            };
+        context_menu(
+            context_menu::MouseButton::default(),
+            base,
+            entries,
+            move |entry, length| {
+                let (content, message) = match entry {
+                    Entry::MarkAsRead => (
+                        "Mark as Read",
+                        if has_unread {
+                            Some(Message::MarkAsRead(buffer.clone()))
+                        } else {
+                            None
+                        },
+                    ),
+                    Entry::NewPane => ("Open in new pane", Some(Message::New(buffer.clone()))),
+                    Entry::Popout => ("Open in new window", Some(Message::Popout(buffer.clone()))),
+                    Entry::Replace => (
+                        "Replace current pane",
+                        Some(Message::Replace(buffer.clone())),
+                    ),
+                    Entry::Close(window, pane) => {
+                        ("Close pane", Some(Message::Close(window, pane)))
+                    }
+                    Entry::Swap(window, pane) => {
+                        ("Swap with current pane", Some(Message::Swap(window, pane)))
+                    }
+                    Entry::Leave => (
+                        match &buffer {
+                            buffer::Upstream::Server(_) => "Leave server",
+                            buffer::Upstream::Channel(_, _) => "Leave channel",
+                            buffer::Upstream::Query(_, _) => "Close query",
+                        },
+                        Some(Message::Leave(buffer.clone())),
+                    ),
+                };
 
-            button(text(content).style(theme::text::primary))
-                .width(length)
-                .padding(5)
-                .on_press(message)
-                .into()
-        })
+                button(text(content))
+                    .width(length)
+                    .padding(5)
+                    .style(|theme, status| theme::button::primary(theme, status, false))
+                    .on_press_maybe(message)
+                    .into()
+            },
+        )
         .into()
     }
 }

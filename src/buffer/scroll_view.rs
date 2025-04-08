@@ -38,6 +38,7 @@ pub enum Message {
     PreviewHovered(message::Hash, usize),
     PreviewUnhovered(message::Hash, usize),
     HidePreview(message::Hash, url::Url),
+    MarkAsRead,
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +49,7 @@ pub enum Event {
     RequestOlderChatHistory,
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
+    MarkAsRead,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -138,7 +140,8 @@ pub fn view<'a>(
     let oldest = old_messages
         .iter()
         .chain(&new_messages)
-        .next().map_or_else(Utc::now, |message| message.server_time);
+        .next()
+        .map_or_else(Utc::now, |message| message.server_time);
     let status = state.status;
 
     let max_nick_width = max_nick_chars.map(|len| {
@@ -398,6 +401,12 @@ impl State {
                     }
                     // Hit bottom, anchor it
                     _ if old_status.is_bottom(relative_offset) => {
+                        if !matches!(self.status, Status::Bottom)
+                            && config.buffer.mark_as_read.on_scroll_to_bottom
+                        {
+                            event = Some(Event::MarkAsRead)
+                        }
+
                         self.status = Status::Bottom;
 
                         if !matches!(self.limit, Limit::Bottom(_)) {
@@ -575,6 +584,9 @@ impl State {
                     Task::none(),
                     Some(Event::HidePreview(kind.into(), message, url)),
                 );
+            }
+            Message::MarkAsRead => {
+                return (Task::none(), Some(Event::MarkAsRead));
             }
         }
 

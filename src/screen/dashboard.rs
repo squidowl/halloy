@@ -109,7 +109,7 @@ impl Dashboard {
             buffer_settings: dashboard::BufferSettings::default(),
         };
 
-        let command = dashboard.track();
+        let command = dashboard.track(config);
 
         (dashboard, command)
     }
@@ -121,7 +121,7 @@ impl Dashboard {
     ) -> (Self, Task<Message>) {
         let (mut dashboard, task) = Dashboard::from_data(dashboard, config, main_window);
 
-        let tasks = Task::batch(vec![task, dashboard.track()]);
+        let tasks = Task::batch(vec![task, dashboard.track(config)]);
 
         (dashboard, tasks)
     }
@@ -436,6 +436,9 @@ impl Dashboard {
                                 buffer::Event::HidePreview(kind, hash, url) => {
                                     self.history.hide_preview(kind, hash, url);
                                 }
+                                buffer::Event::MarkAsRead(kind) => {
+                                    self.mark_as_read(kind, clients);
+                                }
                             }
 
                             return (task, None);
@@ -474,12 +477,27 @@ impl Dashboard {
                         let Focus { window, pane } = self.focus;
 
                         if let Some(state) = self.panes.get_mut(window, pane) {
-                            return (
-                                state.buffer.scroll_to_end().map(move |message| {
-                                    Message::Pane(window, pane::Message::Buffer(pane, message))
-                                }),
-                                None,
-                            );
+                            let mut task = state.buffer.scroll_to_end().map(move |message| {
+                                Message::Pane(window, pane::Message::Buffer(pane, message))
+                            });
+
+                            if config.buffer.mark_as_read.on_scroll_to_bottom {
+                                task = task.chain(Task::done(Message::Pane(
+                                    window,
+                                    pane::Message::MarkAsRead,
+                                )));
+                            }
+
+                            return (task, None);
+                        }
+                    }
+                    pane::Message::MarkAsRead => {
+                        if let Some((_, _, pane)) = self.get_focused_mut() {
+                            if let Some(kind) =
+                                pane.buffer.data().and_then(history::Kind::from_buffer)
+                            {
+                                self.mark_as_read(kind, clients);
+                            }
                         }
                     }
                 }
@@ -521,7 +539,11 @@ impl Dashboard {
                     sidebar::Event::Swap(window, pane) => {
                         (self.swap_pane_with_focus(window, pane), None)
                     }
-                    sidebar::Event::Leave(buffer) => self.leave_buffer(clients, buffer),
+                    sidebar::Event::Leave(buffer) => self.leave_buffer(
+                        clients,
+                        buffer,
+                        config.buffer.mark_as_read.on_buffer_close,
+                    ),
                     sidebar::Event::ToggleInternalBuffer(buffer) => {
                         (self.toggle_internal_buffer(config, buffer), None)
                     }
@@ -546,6 +568,15 @@ impl Dashboard {
                     }
                     sidebar::Event::OpenDocumentation => {
                         let _ = open::that_detached(WIKI_WEBSITE);
+                        (Task::none(), None)
+                    }
+                    sidebar::Event::MarkAsRead(buffer) => {
+                        if let Some(kind) =
+                            history::Kind::from_buffer(data::Buffer::Upstream(buffer))
+                        {
+                            self.mark_as_read(kind, clients);
+                        }
+
                         (Task::none(), None)
                     }
                 };
@@ -729,7 +760,7 @@ impl Dashboard {
                                 }
                             },
                             command_bar::Command::Application(application) => match application {
-                                command_bar::Application::Quit => (self.exit(), None),
+                                command_bar::Application::Quit => (self.exit(config), None),
                             },
                         };
 
@@ -830,7 +861,11 @@ impl Dashboard {
                     LeaveBuffer => {
                         if let Some((_, _, state)) = self.get_focused_mut() {
                             if let Some(buffer) = state.buffer.upstream().cloned() {
-                                return self.leave_buffer(clients, buffer);
+                                return self.leave_buffer(
+                                    clients,
+                                    buffer,
+                                    config.buffer.mark_as_read.on_buffer_close,
+                                );
                             }
                         }
                     }
@@ -899,26 +934,30 @@ impl Dashboard {
                         );
                     }
                     ToggleFullscreen => return (window::toggle_fullscreen(), None),
-                    QuitApplication => return (self.exit(), None),
+                    QuitApplication => return (self.exit(config), None),
                     ScrollUpPage => {
                         return (
-                            self.get_focused_mut()
-                                .map_or_else(Task::none, |(window, pane, state)| {
+                            self.get_focused_mut().map_or_else(
+                                Task::none,
+                                |(window, pane, state)| {
                                     state.buffer.scroll_up_page().map(move |message| {
                                         Message::Pane(window, pane::Message::Buffer(pane, message))
                                     })
-                                }),
+                                },
+                            ),
                             None,
                         );
                     }
                     ScrollDownPage => {
                         return (
-                            self.get_focused_mut()
-                                .map_or_else(Task::none, |(window, pane, state)| {
+                            self.get_focused_mut().map_or_else(
+                                Task::none,
+                                |(window, pane, state)| {
                                     state.buffer.scroll_down_page().map(move |message| {
                                         Message::Pane(window, pane::Message::Buffer(pane, message))
                                     })
-                                }),
+                                },
+                            ),
                             None,
                         );
                     }
@@ -942,15 +981,25 @@ impl Dashboard {
                         );
                     }
                     ScrollToBottom => {
-                        return (
-                            self.get_focused_mut()
-                                .map_or_else(Task::none, |(window, pane, state)| {
-                                    state.buffer.scroll_to_end().map(move |message| {
-                                        Message::Pane(window, pane::Message::Buffer(pane, message))
-                                    })
-                                }),
-                            None,
+                        let task = self.get_focused_mut().map_or_else(
+                            Task::none,
+                            |(window, pane, state)| {
+                                let mut task = state.buffer.scroll_to_end().map(move |message| {
+                                    Message::Pane(window, pane::Message::Buffer(pane, message))
+                                });
+
+                                if config.buffer.mark_as_read.on_scroll_to_bottom {
+                                    task = task.chain(Task::done(Message::Pane(
+                                        window,
+                                        pane::Message::MarkAsRead,
+                                    )));
+                                }
+
+                                task
+                            },
                         );
+
+                        return (task, None);
                     }
                     CycleNextUnreadBuffer => {
                         let all_buffers = all_buffers_with_has_unread(clients, &self.history);
@@ -981,6 +1030,15 @@ impl Dashboard {
                                 state.buffer = Buffer::from(data::Buffer::Upstream(buffer));
                                 self.last_changed = Some(Instant::now());
                                 return (self.focus_pane(window, pane), None);
+                            }
+                        }
+                    }
+                    MarkAsRead => {
+                        if let Some((_, _, pane)) = self.get_focused_mut() {
+                            if let Some(kind) =
+                                pane.buffer.data().and_then(history::Kind::from_buffer)
+                            {
+                                self.mark_as_read(kind, clients);
                             }
                         }
                     }
@@ -1484,6 +1542,7 @@ impl Dashboard {
         &mut self,
         clients: &mut data::client::Map,
         buffer: buffer::Upstream,
+        mark_as_read: bool,
     ) -> (Task<Message>, Option<Event>) {
         let open = self.panes.iter().find_map(|(window, pane, state)| {
             (state.buffer.upstream() == Some(&buffer)).then_some((window, pane))
@@ -1513,7 +1572,7 @@ impl Dashboard {
 
                 tasks.push(
                     self.history
-                        .close(history::Kind::Channel(server, channel))
+                        .close(history::Kind::Channel(server, channel), mark_as_read)
                         .map_or_else(Task::none, |task| Task::perform(task, Message::History)),
                 );
 
@@ -1522,7 +1581,7 @@ impl Dashboard {
             buffer::Upstream::Query(server, nick) => {
                 tasks.push(
                     self.history
-                        .close(history::Kind::Query(server, nick))
+                        .close(history::Kind::Query(server, nick), mark_as_read)
                         .map_or_else(Task::none, |task| Task::perform(task, Message::History)),
                 );
 
@@ -1943,12 +2002,12 @@ impl Dashboard {
         }
     }
 
-    pub fn track(&mut self) -> Task<Message> {
+    pub fn track(&mut self, config: &Config) -> Task<Message> {
         let resources = self.panes.resources().collect();
 
         Task::batch(
             self.history
-                .track(resources)
+                .track(resources, config)
                 .into_iter()
                 .map(|fut| Task::perform(fut, Message::History))
                 .collect::<Vec<_>>(),
@@ -2237,8 +2296,12 @@ impl Dashboard {
         }
     }
 
-    pub fn exit(&mut self) -> Task<Message> {
-        let history = self.history.exit();
+    pub fn exit(&mut self, config: &Config) -> Task<Message> {
+        let history = self.history.exit(
+            config.buffer.mark_as_read.on_application_exit,
+            config.buffer.mark_as_read.on_buffer_close
+                || config.buffer.mark_as_read.on_application_exit,
+        );
         let last_changed = self.last_changed.take();
         let dashboard = data::Dashboard::from(&*self);
 
@@ -2305,6 +2368,16 @@ impl Dashboard {
 
     fn main_window(&self) -> window::Id {
         self.panes.main_window
+    }
+
+    fn mark_as_read(&mut self, kind: history::Kind, clients: &mut data::client::Map) {
+        let read_marker = self.history.mark_as_read(&kind);
+
+        if let (Some(server), Some(target), Some(read_marker)) =
+            (kind.server(), kind.target(), read_marker)
+        {
+            let _ = clients.send_markread(server, target, read_marker);
+        }
     }
 }
 

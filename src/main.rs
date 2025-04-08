@@ -318,7 +318,7 @@ impl Halloy {
                 );
 
                 // Retrack after dashboard state changes
-                let track = dashboard.track();
+                let track = dashboard.track(&self.config);
 
                 let event_task = match event {
                     Some(dashboard::Event::ConfigReloaded(config)) => {
@@ -1001,7 +1001,7 @@ impl Halloy {
                         }
                         window::Event::CloseRequested => {
                             if let Screen::Dashboard(dashboard) = &mut self.screen {
-                                return dashboard.exit().map(Message::Dashboard);
+                                return dashboard.exit(&self.config).map(Message::Dashboard);
                             } else {
                                 return iced::exit();
                             }

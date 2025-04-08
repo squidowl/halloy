@@ -1,6 +1,8 @@
 use chrono::{DateTime, Local, Utc};
 use serde::Deserialize;
 
+use crate::serde::default_bool_true;
+
 pub use self::away::Away;
 pub use self::channel::Channel;
 
@@ -12,7 +14,7 @@ use crate::{
     message::source,
 };
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Default, Clone, Deserialize)]
 pub struct Buffer {
     #[serde(default)]
     pub away: Away,
@@ -38,6 +40,8 @@ pub struct Buffer {
     pub commands: Commands,
     #[serde(default)]
     pub emojis: Emojis,
+    #[serde(default)]
+    pub mark_as_read: MarkAsRead,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -64,6 +68,26 @@ impl Default for Emojis {
             show_picker: default_bool_true(),
             skin_tone: Default::default(),
             auto_replace: default_bool_true(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct MarkAsRead {
+    #[serde(default)]
+    pub on_application_exit: bool,
+    #[serde(default = "default_bool_true")]
+    pub on_buffer_close: bool,
+    #[serde(default = "default_bool_true")]
+    pub on_scroll_to_bottom: bool,
+}
+
+impl Default for MarkAsRead {
+    fn default() -> Self {
+        Self {
+            on_application_exit: bool::default(),
+            on_buffer_close: default_bool_true(),
+            on_scroll_to_bottom: default_bool_true(),
         }
     }
 }
@@ -248,8 +272,4 @@ impl Buffer {
             )
         ))
     }
-}
-
-fn default_bool_true() -> bool {
-    true
 }
