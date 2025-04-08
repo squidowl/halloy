@@ -15,17 +15,17 @@ use url::Url;
 
 pub use self::formatting::Formatting;
 pub use self::source::{
-    Source,
     server::{Kind, StandardReply},
+    Source,
 };
 
-use crate::config::Highlights;
 use crate::config::buffer::UsernameFormat;
+use crate::config::Highlights;
 use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{Config, Server, User, ctcp, isupport, target};
+use crate::{ctcp, isupport, target, Config, Server, User};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -661,11 +661,18 @@ fn parse_fragments_inner<'a>(text: String) -> impl Iterator<Item = Fragment> + u
     .flat_map(|fragment| {
         if let Fragment::Text(text) = &fragment {
             if let Some(formatted) = formatting::parse(text) {
-                return Either::Left(formatted.into_iter().map(Fragment::from));
+                if formatted
+                    .iter()
+                    .any(|fragment| matches!(fragment, formatting::Fragment::Formatted(_, _)))
+                {
+                    return Either::Left(formatted.into_iter().map(Fragment::from));
+                }
+            } else {
+                return Either::Right(Either::Left(iter::empty()));
             }
         }
 
-        Either::Right(iter::once(fragment))
+        Either::Right(Either::Right(iter::once(fragment)))
     })
     .flat_map(|fragment| {
         if let Fragment::Text(text) = &fragment {
@@ -1569,6 +1576,7 @@ impl PartialOrd for MessageReferences {
 
 #[cfg(test)]
 mod test {
+    use self::formatting::Color;
     use super::*;
 
     #[test]
@@ -1653,10 +1661,15 @@ mod test {
                 ],
             ),
             (
-                "\x0f\x0303VLC\x0f \x0305master\x0f \x0306somenick\x0f describe commit \x0314https://someurl/7089\x0f",
+                "\u{f}\u{3}03VLC\u{f} \u{3}05master\u{f} \u{3}06somenick\u{f} * describe commit * \u{3}14https://code.videolan.org/videolan/vlc/\u{f}",
                 vec![
-                    Fragment::Text("VLC master somenick describe commit ".into()),
-                    Fragment::Url("https://someurl/7089".parse().unwrap()),
+                    Fragment::Formatted{ text: "VLC".into(), formatting: Formatting {  fg: Some(Color::Green), ..Formatting::default() }},
+                    Fragment::Text(" ".into()),
+                    Fragment::Formatted{ text: "master".into(), formatting: Formatting {  fg: Some(Color::Brown), ..Formatting::default() }},
+                    Fragment::Text(" ".into()),
+                    Fragment::Formatted{ text: "somenick".into(), formatting: Formatting {  fg: Some(Color::Magenta), ..Formatting::default() }},
+                    Fragment::Text(" * describe commit * ".into()),
+                    Fragment::Url("https://code.videolan.org/videolan/vlc/".parse().unwrap()),
                 ],
             ),
         ];
