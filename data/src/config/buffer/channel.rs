@@ -43,12 +43,12 @@ impl Default for Nicklist {
     fn default() -> Self {
         Self {
             enabled: default_bool_true(),
-            position: Default::default(),
-            color: Default::default(),
-            width: Default::default(),
-            alignment: Default::default(),
+            position: Position::default(),
+            color: Color::default(),
+            width: Option::default(),
+            alignment: Alignment::default(),
             show_access_levels: default_bool_true(),
-            click: Default::default(),
+            click: NicknameClickAction::default(),
         }
     }
 }

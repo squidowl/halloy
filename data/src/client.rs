@@ -677,7 +677,7 @@ impl Client {
                 }
             }
             // Label context whois
-            _ if context.as_ref().map(Context::is_whois).unwrap_or_default() => {
+            _ if context.as_ref().is_some_and(Context::is_whois) => {
                 if let Some(source) = context
                     .map(Context::buffer)
                     .map(|buffer| buffer.server_message_target(None))
@@ -1068,7 +1068,7 @@ impl Client {
                                         ctcp::Command::Unknown(command) => {
                                             log::debug!(
                                                 "Ignorning CTCP command {command}: Unknown command"
-                                            )
+                                            );
                                         }
                                     }
                                 }
@@ -1188,14 +1188,14 @@ impl Client {
                                     "PRIVMSG",
                                     "NickServ",
                                     format!("IDENTIFY {nick_pass} {}", &self.config.nickname)
-                                ))?
+                                ))?;
                             }
                             config::server::IdentifySyntax::NickPassword => {
                                 self.handle.try_send(command!(
                                     "PRIVMSG",
                                     "NickServ",
                                     format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                                ))?
+                                ))?;
                             }
                         }
                     } else if self.resolved_nick == Some(self.config.nickname.clone()) {
@@ -1205,14 +1205,14 @@ impl Client {
                             "PRIVMSG",
                             "NickServ",
                             format!("IDENTIFY {nick_pass}")
-                        ))?
+                        ))?;
                     } else {
                         // Default to most common syntax if unknown
                         self.handle.try_send(command!(
                             "PRIVMSG",
                             "NickServ",
                             format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                        ))?
+                        ))?;
                     }
                 }
 
@@ -1835,7 +1835,7 @@ impl Client {
                                     self.server,
                                     arg,
                                     error
-                                )
+                                );
                             }
                         }
                     }
@@ -2215,7 +2215,7 @@ impl Client {
     pub fn chathistory_exhausted(&self, target: &Target) -> bool {
         self.chathistory_exhausted
             .get(target)
-            .cloned()
+            .copied()
             .unwrap_or_default()
     }
 
@@ -2449,13 +2449,12 @@ impl Client {
     pub fn statusmsg(&self) -> &[char] {
         self.isupport
             .get(&isupport::Kind::STATUSMSG)
-            .map(|statusmsg| {
+            .map_or(&[], |statusmsg| {
                 let isupport::Parameter::STATUSMSG(prefixes) = statusmsg else {
                     unreachable!("Corruption in isupport table.")
                 };
                 prefixes.as_ref()
             })
-            .unwrap_or(&[])
     }
 
     pub fn is_channel(&self, target: &str) -> bool {
@@ -2601,7 +2600,7 @@ impl Map {
         if let Some(client) = self.client_mut(server) {
             client.receive(message, config)
         } else {
-            Ok(Default::default())
+            Ok(Vec::default())
         }
     }
 
@@ -2741,14 +2740,12 @@ impl Map {
 
     pub fn get_server_chathistory_limit(&self, server: &Server) -> u16 {
         self.client(server)
-            .map(|client| client.chathistory_limit())
-            .unwrap_or(CLIENT_CHATHISTORY_LIMIT)
+            .map_or(CLIENT_CHATHISTORY_LIMIT, |client| client.chathistory_limit())
     }
 
     pub fn get_server_supports_chathistory(&self, server: &Server) -> bool {
         self.client(server)
-            .map(|client| client.supports_chathistory)
-            .unwrap_or_default()
+            .is_some_and(|client| client.supports_chathistory)
     }
 
     pub fn get_chathistory_request(
@@ -2774,8 +2771,7 @@ impl Map {
 
     pub fn get_chathistory_exhausted(&self, server: &Server, target: &Target) -> bool {
         self.client(server)
-            .map(|client| client.chathistory_exhausted(target))
-            .unwrap_or_default()
+            .is_some_and(|client| client.chathistory_exhausted(target))
     }
 
     pub fn get_chathistory_state(
@@ -2837,11 +2833,10 @@ impl Map {
     pub fn status(&self, server: &Server) -> Status {
         self.0
             .get(server)
-            .map(|s| match s {
+            .map_or(Status::Unavailable, |s| match s {
                 State::Disconnected => Status::Disconnected,
                 State::Ready(_) => Status::Connected,
             })
-            .unwrap_or(Status::Unavailable)
     }
 
     pub fn tick(&mut self, now: Instant) -> Result<()> {
@@ -3102,8 +3097,7 @@ fn group_joins<'a>(
 
     let (without_keys, with_keys): (Vec<_>, Vec<_>) = channels.iter().partition_map(|channel| {
         keys.get(channel.as_str())
-            .map(|key| Either::Right((channel, key)))
-            .unwrap_or(Either::Left(channel))
+            .map_or(Either::Left(channel), |key| Either::Right((channel, key)))
     });
 
     let joins_without_keys = without_keys

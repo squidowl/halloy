@@ -431,7 +431,7 @@ pub fn parse(
                 }
             }
         },
-        Err(_) => Ok(unknown()),
+        Err(()) => Ok(unknown()),
     }
 }
 

@@ -109,7 +109,7 @@ opt-level = 1
 [profile.dev.package."*"]
 opt-level = 3
 
-[lints.clippy]
+[workspace.lints.clippy]
 cloned_instead_of_copied = "deny"
 default_trait_access = "deny"
 ignored_unit_patterns = "deny"

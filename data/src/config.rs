@@ -138,7 +138,7 @@ impl Config {
 
         impl Default for ThemeKeys {
             fn default() -> Self {
-                Self::Static(Default::default())
+                Self::Static(String::default())
             }
         }
 

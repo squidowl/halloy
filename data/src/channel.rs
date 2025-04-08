@@ -46,7 +46,7 @@ impl Default for Nicklist {
 
 impl Nicklist {
     pub fn toggle_visibility(&mut self) {
-        self.enabled = !self.enabled
+        self.enabled = !self.enabled;
     }
 }
 
@@ -65,6 +65,6 @@ impl From<config::buffer::channel::Topic> for Topic {
 
 impl Topic {
     pub fn toggle_visibility(&mut self) {
-        self.enabled = !self.enabled
+        self.enabled = !self.enabled;
     }
 }
