@@ -109,10 +109,22 @@ opt-level = 1
 [profile.dev.package."*"]
 opt-level = 3
 
+[lints.clippy]
+cloned_instead_of_copied = "deny"
+default_trait_access = "deny"
+ignored_unit_patterns = "deny"
+items_after_statements = "deny"
+manual_is_variant_and = "deny"
+manual_string_new = "deny"
+map_unwrap_or = "deny"
+semicolon_if_nothing_returned = "deny"
+uninlined_format_args = "deny"
+
 [workspace.lints.clippy]
 cloned_instead_of_copied = "deny"
 default_trait_access = "deny"
 ignored_unit_patterns = "deny"
+items_after_statements = "deny"
 manual_is_variant_and = "deny"
 manual_string_new = "deny"
 map_unwrap_or = "deny"

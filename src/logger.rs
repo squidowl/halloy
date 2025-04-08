@@ -54,9 +54,6 @@ pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, Error> {
 }
 
 fn channel_logger() -> (Box<dyn Log>, ReceiverStream<Vec<Record>>) {
-    let (log_sender, log_receiver) = mpsc::channel();
-    let (async_sender, async_receiver) = tokio_mpsc::channel(1);
-
     struct Sink {
         sender: mpsc::Sender<Record>,
     }
@@ -76,6 +73,9 @@ fn channel_logger() -> (Box<dyn Log>, ReceiverStream<Vec<Record>>) {
 
         fn flush(&self) {}
     }
+
+    let (log_sender, log_receiver) = mpsc::channel();
+    let (async_sender, async_receiver) = tokio_mpsc::channel(1);
 
     thread::spawn(move || {
         const BATCH_SIZE: usize = 25;
