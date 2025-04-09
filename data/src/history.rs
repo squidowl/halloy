@@ -431,7 +431,6 @@ impl History {
                 max_triggers_unread,
                 ..
             } => {
-                log::debug!("close History::Partial mark_as_read {mark_as_read}");
                 if mark_as_read {
                     let read_marker = ReadMarker::latest(&messages)
                         .max(read_marker)
