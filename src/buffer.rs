@@ -2,7 +2,7 @@ pub use data::buffer::{Internal, Settings, Upstream};
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{buffer, file_transfer, history, message, preview, Config};
+use data::{Config, buffer, file_transfer, history, message, preview};
 use iced::Task;
 
 pub use self::channel::Channel;
@@ -11,9 +11,9 @@ pub use self::highlights::Highlights;
 pub use self::logs::Logs;
 pub use self::query::Query;
 pub use self::server::Server;
+use crate::Theme;
 use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
-use crate::Theme;
 
 pub mod channel;
 pub mod empty;
@@ -50,6 +50,7 @@ pub enum Message {
 pub enum Event {
     UserContext(user_context::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
+    ReplaceFocusedBuffer(Target),
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -117,6 +118,7 @@ impl Buffer {
                     channel::Event::HidePreview(kind, hash, url) => {
                         Event::HidePreview(kind, hash, url)
                     }
+                    channel::Event::ReplaceFocusedBuffer(target) => Event::ReplaceFocusedBuffer(target),
                 });
 
                 (command.map(Message::Channel), event)
@@ -128,6 +130,7 @@ impl Buffer {
                     server::Event::UserContext(event) => Event::UserContext(event),
                     server::Event::OpenBuffers(targets) => Event::OpenBuffers(targets),
                     server::Event::History(task) => Event::History(task),
+                    server::Event::ReplaceFocusedBuffer(target) => Event::ReplaceFocusedBuffer(target),
                 });
 
                 (command.map(Message::Server), event)
@@ -144,6 +147,7 @@ impl Buffer {
                     query::Event::HidePreview(kind, hash, url) => {
                         Event::HidePreview(kind, hash, url)
                     }
+                    query::Event::ReplaceFocusedBuffer(target) => Event::ReplaceFocusedBuffer(target),
                 });
 
                 (command.map(Message::Query), event)

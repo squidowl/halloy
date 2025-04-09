@@ -24,6 +24,7 @@ pub enum Message {
 pub enum Event {
     UserContext(user_context::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
+    ReplaceFocusedBuffer(Target),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
@@ -418,6 +419,9 @@ impl Channel {
                     }
                     Some(input_view::Event::OpenBuffers { targets }) => {
                         (command, Some(Event::OpenBuffers(targets)))
+                    }
+                    Some(input_view::Event::ReplaceFocusedBuffer(target)) => {
+                        (command, Some(Event::ReplaceFocusedBuffer(target)))
                     }
                     None => (command, None),
                 }
