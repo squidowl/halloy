@@ -630,8 +630,8 @@ impl Dashboard {
                             }
                         }
                         history::manager::Event::Closed(kind, read_marker) => {
-                            if let Some(((server, target), read_marker)) =
-                                kind.server().zip(kind.target()).zip(read_marker)
+                            if let (Some(server), Some(target), Some(read_marker)) =
+                                (kind.server(), kind.target(), read_marker)
                             {
                                 if let Err(e) = clients.send_markread(server, target, read_marker) {
                                     return (Task::none(), Some(Event::IrcError(e)));
@@ -640,8 +640,8 @@ impl Dashboard {
                         }
                         history::manager::Event::Exited(results) => {
                             for (kind, read_marker) in results {
-                                if let Some(((server, target), read_marker)) =
-                                    kind.server().zip(kind.target()).zip(read_marker)
+                                if let (Some(server), Some(target), Some(read_marker)) =
+                                    (kind.server(), kind.target(), read_marker)
                                 {
                                     if let Err(e) =
                                         clients.send_markread(server, target, read_marker)
@@ -2254,11 +2254,7 @@ impl Dashboard {
                 | window::Event::Unfocused
                 | window::Event::Opened { .. } => {}
             }
-        } else if self
-            .theme_editor
-            .as_ref()
-            .is_some_and(|e| e.window == id)
-        {
+        } else if self.theme_editor.as_ref().is_some_and(|e| e.window == id) {
             match event {
                 window::Event::CloseRequested => {
                     if let Some(editor) = self.theme_editor.take() {
