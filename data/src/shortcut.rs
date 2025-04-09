@@ -348,8 +348,9 @@ impl FromStr for KeyCode {
             | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r"
             | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" | "`" | "-" | "=" | "[" | "]"
             | "\\" | ";" | "'" | "," | "." | "/" | "~" | "!" | "@" | "#" | "$" | "%" | "^"
-            | "&" | "*" | "(" | ")" | "_" | "+" | "{" | "}" | "|" | ":" | "\"" | "<" | ">"
-            | "?" => keyboard::Key::Character(s.into()),
+            | "&" | "*" | "(" | ")" | "_" | "{" | "}" | "|" | ":" | "\"" | "<" | ">" | "?" => {
+                keyboard::Key::Character(s.into())
+            }
             "escape" | "esc" => keyboard::Key::Named(key::Named::Escape),
             "f1" => keyboard::Key::Named(key::Named::F1),
             "f2" => keyboard::Key::Named(key::Named::F2),
