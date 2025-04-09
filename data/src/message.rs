@@ -676,12 +676,27 @@ fn parse_fragments_inner<'a>(text: String) -> impl Iterator<Item = Fragment> + u
     })
     .flat_map(move |fragment| {
         if let Fragment::Text(text) = &fragment {
-            if let Some(formatted) = formatting::parse(text, &mut modifiers, &mut fg, &mut bg) {
-                if formatted
+            if let Some(fragments) = formatting::parse(text, &mut modifiers, &mut fg, &mut bg) {
+                if fragments
                     .iter()
                     .any(|fragment| matches!(fragment, formatting::Fragment::Formatted(_, _)))
                 {
-                    return Either::Left(formatted.into_iter().map(Fragment::from));
+                    return Either::Left(fragments.into_iter().map(Fragment::from));
+                // If there are no Formatted fragments,
+                // then fragments should contain a single Unformatted fragment
+                } else if let Some(text) =
+                    fragments
+                        .into_iter()
+                        .next()
+                        .and_then(|fragment| match fragment {
+                            formatting::Fragment::Unformatted(text) => Some(text),
+                            formatting::Fragment::Formatted(_, _) => None,
+                        })
+                {
+                    // Even if the fragment is Unformatted there may have been formatting
+                    // characters in the text input into formatting::parse. They are
+                    // stripped from the text contained in the fragment.
+                    return Either::Right(Either::Right(iter::once(Fragment::Text(text))));
                 }
             } else {
                 return Either::Right(Either::Left(iter::empty()));
@@ -1665,13 +1680,15 @@ mod test {
                 ],
             ),
             (
-                "\u{f}\u{3}03VLC\u{f} \u{3}05master\u{f} \u{3}06somenick\u{f} * describe commit * \u{3}14https://code.videolan.org/videolan/vlc/\u{f}",
+                "\u{f}\u{3}03VLC\u{f} \u{3}05master\u{f} \u{3}06somenick\u{f} \u{3}14http://some.website.com/\u{f} * describe commit * \u{3}14https://code.videolan.org/videolan/vlc/\u{f}",
                 vec![
                     Fragment::Formatted{ text: "VLC".into(), formatting: Formatting { fg: Some(Color::Green), ..Formatting::default() }},
                     Fragment::Text(" ".into()),
                     Fragment::Formatted{ text: "master".into(), formatting: Formatting { fg: Some(Color::Brown), ..Formatting::default() }},
                     Fragment::Text(" ".into()),
                     Fragment::Formatted{ text: "somenick".into(), formatting: Formatting { fg: Some(Color::Magenta), ..Formatting::default() }},
+                    Fragment::Text(" ".into()),
+                    Fragment::Url("http://some.website.com/".parse().unwrap()),
                     Fragment::Text(" * describe commit * ".into()),
                     Fragment::Url("https://code.videolan.org/videolan/vlc/".parse().unwrap()),
                 ],
@@ -1693,11 +1710,11 @@ mod test {
                 ],
             ),
             (
-                "\u{f}\u{3}09color that wraps a #channel like so\u{f}",
+                "\u{f}\u{3}11color that wraps a #channel like so\u{f}",
                 vec![
-                    Fragment::Formatted{ text: "color that wraps a ".into(), formatting: Formatting { fg: Some(Color::LightGreen), ..Formatting::default() }},
+                    Fragment::Formatted{ text: "color that wraps a ".into(), formatting: Formatting { fg: Some(Color::LightCyan), ..Formatting::default() }},
                     Fragment::Channel("#channel".into()),
-                    Fragment::Formatted{ text: " like so".into(), formatting: Formatting { fg: Some(Color::LightGreen), ..Formatting::default() }},
+                    Fragment::Formatted{ text: " like so".into(), formatting: Formatting { fg: Some(Color::LightCyan), ..Formatting::default() }},
                 ],
             ),
         ];
