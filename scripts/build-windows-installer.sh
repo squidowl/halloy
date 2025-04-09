@@ -1,6 +1,6 @@
 #!/bin/bash
 WXS_FILE="wix/main.wxs"
-HALLOY_VERSION=$(cat VERSION)
+HALLOY_VERSION=$(cat VERSION).0
 
 # build the binary
 scripts/build-windows.sh
