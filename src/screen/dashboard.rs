@@ -1326,10 +1326,7 @@ impl Dashboard {
                 }
             }
             Copy => selectable_text::selected(Message::SelectedText),
-            LeftClick => {
-                log::debug!("here?");
-                self.refocus_pane()
-            }
+            LeftClick => self.refocus_pane(),
         }
     }
 
