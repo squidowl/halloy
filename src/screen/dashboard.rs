@@ -1729,6 +1729,36 @@ impl Dashboard {
         }
     }
 
+    fn replace_buffer(&mut self, buffer: data::Buffer) -> Task<Message> {
+        let panes = self.panes.clone();
+
+        // If buffer already is open, we swap it with focused pane.
+        for (window, id, pane) in panes.iter() {
+            if pane.buffer.data().as_ref() == Some(&buffer) {
+                if window != self.focus.window || id != self.focus.pane {
+                    return self.swap_pane_with_focus(window, id);
+                } else {
+                    return Task::none();
+                }
+            }
+        }
+
+        let Focus { window, pane } = self.focus;
+
+        if let Some(state) = self.panes.get_mut(window, pane) {
+            state.buffer = Buffer::from(buffer);
+            self.last_changed = Some(Instant::now());
+
+            Task::batch(vec![
+                self.reset_pane(window, pane),
+                self.focus_pane(window, pane),
+            ])
+        } else {
+            log::error!("Didn't find any panes to replace");
+            Task::none()
+        }
+    }
+
     fn open_buffer(
         &mut self,
         buffer: data::Buffer,

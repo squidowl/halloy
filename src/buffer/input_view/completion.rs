@@ -490,6 +490,27 @@ impl Commands {
                     subcommands: None,
                 }
             },
+            // HOP
+            {
+                Command {
+                    title: "HOP",
+                    args: vec![
+                        Arg {
+                            text: "channel",
+                            optional: true,
+                            tooltip: Some(String::from("the #channel to join")),
+                        },
+                        Arg {
+                            text: "message",
+                            optional: true,
+                            tooltip: Some(String::from(
+                                "the part message to be sent",
+                            )),
+                        },
+                    ],
+                    subcommands: None,
+                }
+            },
             // CTCP
             {
                 Command {
@@ -793,6 +814,8 @@ impl Command {
             "ctcp version" => {
                 "Request the name and version of <nick>'s IRC client"
             }
+            "hop" => "Parts the current channel and joins a new one",
+
             _ => return None,
         })
     }
@@ -811,6 +834,7 @@ impl Command {
             "topic" => vec!["t"],
             "whois" => vec![],
             "format" => vec!["f"],
+            "hop" => vec!["rejoin"],
 
             _ => vec![],
         }
