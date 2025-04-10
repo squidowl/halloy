@@ -10,13 +10,15 @@ pub use self::encode::encode;
 
 pub mod encode;
 
-pub fn parse(text: &str) -> Option<Vec<Fragment>> {
+pub fn parse(
+    text: &str,
+    modifiers: &mut HashSet<Modifier>,
+    fg: &mut Option<Color>,
+    bg: &mut Option<Color>,
+) -> Option<Vec<Fragment>> {
     let mut fragments = vec![];
 
     let mut current_text = String::new();
-    let mut modifiers = HashSet::new();
-    let mut fg = None;
-    let mut bg = None;
 
     let mut iter = text.chars().peekable();
 
@@ -30,7 +32,7 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
                 } else {
                     fragments.push(Fragment::Formatted(
                         text,
-                        Formatting::new(&modifiers, fg, bg),
+                        Formatting::new(modifiers, *fg, *bg),
                     ));
                 }
             }
@@ -38,8 +40,8 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
             match modifier {
                 Modifier::Reset => {
                     modifiers.clear();
-                    fg = None;
-                    bg = None;
+                    *fg = None;
+                    *bg = None;
                 }
                 Modifier::Color => {
                     // Trailing digit for new color, otherwise resets
@@ -52,7 +54,7 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
 
                         let code = digits.parse().ok()?;
 
-                        fg = Color::code(code);
+                        *fg = Color::code(code);
 
                         if let Some(comma) = iter.peeking_next(|c| *c == ',') {
                             // Has background
@@ -65,7 +67,7 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
 
                                 let code = digits.parse().ok()?;
 
-                                bg = Color::code(code);
+                                *bg = Color::code(code);
                             }
                             // Nope, just a normal char
                             else {
@@ -73,8 +75,8 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
                             }
                         }
                     } else {
-                        fg = None;
-                        bg = None;
+                        *fg = None;
+                        *bg = None;
                     }
                 }
                 Modifier::HexColor => {
@@ -90,7 +92,7 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
                         let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
                         let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
 
-                        fg = Some(Color::Rgb(r, g, b));
+                        *fg = Some(Color::Rgb(r, g, b));
 
                         if let Some(comma) = iter.peeking_next(|c| *c == ',') {
                             // Has background
@@ -105,7 +107,7 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
                                 let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
                                 let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
 
-                                bg = Some(Color::Rgb(r, g, b));
+                                *bg = Some(Color::Rgb(r, g, b));
                             }
                             // Nope, just a normal char
                             else {
@@ -113,8 +115,8 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
                             }
                         }
                     } else {
-                        fg = None;
-                        bg = None;
+                        *fg = None;
+                        *bg = None;
                     }
                 }
                 m => {
@@ -138,21 +140,19 @@ pub fn parse(text: &str) -> Option<Vec<Fragment>> {
         } else {
             fragments.push(Fragment::Formatted(
                 text,
-                Formatting::new(&modifiers, fg, bg),
+                Formatting::new(modifiers, *fg, *bg),
             ));
         }
     }
 
-    if fragments.is_empty()
-        || (fragments.len() == 1 && matches!(fragments.first(), Some(Fragment::Unformatted(_))))
-    {
+    if fragments.is_empty() {
         None
     } else {
         Some(fragments)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Formatting {
     pub bold: bool,
     pub italics: bool,
@@ -191,7 +191,7 @@ pub enum Fragment {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
-enum Modifier {
+pub enum Modifier {
     Bold = 0x02,
     Italics = 0x1D,
     Underline = 0x1F,

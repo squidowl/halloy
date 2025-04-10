@@ -15,17 +15,17 @@ use url::Url;
 
 pub use self::formatting::Formatting;
 pub use self::source::{
-    Source,
     server::{Kind, StandardReply},
+    Source,
 };
 
-use crate::config::Highlights;
 use crate::config::buffer::UsernameFormat;
+use crate::config::Highlights;
 use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{Config, Server, User, ctcp, isupport, target};
+use crate::{ctcp, isupport, target, Config, Server, User};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -648,6 +648,10 @@ fn parse_fragments_with_users_inner(
 }
 
 fn parse_fragments_inner<'a>(text: String) -> impl Iterator<Item = Fragment> + use<'a> {
+    let mut modifiers = HashSet::new();
+    let mut fg = None;
+    let mut bg = None;
+
     parse_regex_fragments(&URL_REGEX, text, |url| {
         let url = if url.starts_with("www") {
             format!("https://{url}")
@@ -660,15 +664,6 @@ fn parse_fragments_inner<'a>(text: String) -> impl Iterator<Item = Fragment> + u
     .into_iter()
     .flat_map(|fragment| {
         if let Fragment::Text(text) = &fragment {
-            if let Some(formatted) = formatting::parse(text) {
-                return Either::Left(formatted.into_iter().map(Fragment::from));
-            }
-        }
-
-        Either::Right(iter::once(fragment))
-    })
-    .flat_map(|fragment| {
-        if let Fragment::Text(text) = &fragment {
             return Either::Left(
                 parse_regex_fragments(&CHANNEL_REGEX, text, |channel| {
                     Some(Fragment::Channel(channel.to_owned()))
@@ -678,6 +673,37 @@ fn parse_fragments_inner<'a>(text: String) -> impl Iterator<Item = Fragment> + u
         }
 
         Either::Right(iter::once(fragment))
+    })
+    .flat_map(move |fragment| {
+        if let Fragment::Text(text) = &fragment {
+            if let Some(fragments) = formatting::parse(text, &mut modifiers, &mut fg, &mut bg) {
+                if fragments
+                    .iter()
+                    .any(|fragment| matches!(fragment, formatting::Fragment::Formatted(_, _)))
+                {
+                    return Either::Left(fragments.into_iter().map(Fragment::from));
+                // If there are no Formatted fragments,
+                // then fragments should contain a single Unformatted fragment
+                } else if let Some(text) =
+                    fragments
+                        .into_iter()
+                        .next()
+                        .and_then(|fragment| match fragment {
+                            formatting::Fragment::Unformatted(text) => Some(text),
+                            formatting::Fragment::Formatted(_, _) => None,
+                        })
+                {
+                    // Even if the fragment is Unformatted there may have been formatting
+                    // characters in the text input into formatting::parse. They are
+                    // stripped from the text contained in the fragment.
+                    return Either::Right(Either::Right(iter::once(Fragment::Text(text))));
+                }
+            } else {
+                return Either::Right(Either::Left(iter::empty()));
+            }
+        }
+
+        Either::Right(Either::Right(iter::once(fragment)))
     })
 }
 
@@ -1568,6 +1594,7 @@ impl PartialOrd for MessageReferences {
 
 #[cfg(test)]
 mod test {
+    use self::formatting::Color;
     use super::*;
 
     #[test]
@@ -1652,10 +1679,41 @@ mod test {
                 ],
             ),
             (
-                "\x0f\x0303VLC\x0f \x0305master\x0f \x0306somenick\x0f describe commit \x0314https://someurl/7089\x0f",
+                "\u{f}\u{3}03VLC\u{f} \u{3}05master\u{f} \u{3}06somenick\u{f} \u{3}14http://some.website.com/\u{f} * describe commit * \u{3}14https://code.videolan.org/videolan/vlc/\u{f}",
                 vec![
-                    Fragment::Text("VLC master somenick describe commit ".into()),
-                    Fragment::Url("https://someurl/7089".parse().unwrap()),
+                    Fragment::Formatted{ text: "VLC".into(), formatting: Formatting { fg: Some(Color::Green), ..Formatting::default() }},
+                    Fragment::Text(" ".into()),
+                    Fragment::Formatted{ text: "master".into(), formatting: Formatting { fg: Some(Color::Brown), ..Formatting::default() }},
+                    Fragment::Text(" ".into()),
+                    Fragment::Formatted{ text: "somenick".into(), formatting: Formatting { fg: Some(Color::Magenta), ..Formatting::default() }},
+                    Fragment::Text(" ".into()),
+                    Fragment::Url("http://some.website.com/".parse().unwrap()),
+                    Fragment::Text(" * describe commit * ".into()),
+                    Fragment::Url("https://code.videolan.org/videolan/vlc/".parse().unwrap()),
+                ],
+            ),
+            (
+                "\u{f}\u{11}formatting that wraps a https://www.website.com/ like so\u{f}",
+                vec![
+                    Fragment::Formatted{ text: "formatting that wraps a ".into(), formatting: Formatting { monospace: true, ..Formatting::default() }},
+                    Fragment::Url("https://www.website.com/".parse().unwrap()),
+                    Fragment::Formatted{ text: " like so".into(), formatting: Formatting { monospace: true, ..Formatting::default() }},
+                ],
+            ),
+            (
+                "\u{f}\u{3}09color that wraps a https://www.website.com/ like so\u{f}",
+                vec![
+                    Fragment::Formatted{ text: "color that wraps a ".into(), formatting: Formatting { fg: Some(Color::LightGreen), ..Formatting::default() }},
+                    Fragment::Url("https://www.website.com/".parse().unwrap()),
+                    Fragment::Formatted{ text: " like so".into(), formatting: Formatting { fg: Some(Color::LightGreen), ..Formatting::default() }},
+                ],
+            ),
+            (
+                "\u{f}\u{3}11color that wraps a #channel like so\u{f}",
+                vec![
+                    Fragment::Formatted{ text: "color that wraps a ".into(), formatting: Formatting { fg: Some(Color::LightCyan), ..Formatting::default() }},
+                    Fragment::Channel("#channel".into()),
+                    Fragment::Formatted{ text: " like so".into(), formatting: Formatting { fg: Some(Color::LightCyan), ..Formatting::default() }},
                 ],
             ),
         ];
