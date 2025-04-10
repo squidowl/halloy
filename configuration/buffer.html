@@ -176,6 +176,7 @@
 <li><a href="#bufferdate_separators">Date Separators</a> - Customize how date separators are displayed within a buffer</li>
 <li><a href="#bufferemojis">Emojis</a> - Emojis settings</li>
 <li><a href="#bufferinternal_messages">Internal Messages</a> - Internal messages are messages sent from Halloy itself</li>
+<li><a href="#buffermark_as_read">Mark as Read</a> - When to automatically mark a buffer as read</li>
 <li><a href="#buffernickname">Nickname</a> - Customize how nicknames are displayed within a buffer</li>
 <li><a href="#bufferserver_messages">Server Messages</a> - Server messages are messages sent from a irc server.</li>
 <li><a href="#bufferstatus_message_prefix">Status Message Prefix</a> - Status message prefix settings</li>
@@ -423,6 +424,35 @@ enabled = true
 
 [buffer.internal_messages.error]
 smart = 180
+</code></pre>
+<h2 id="buffermark_as_read"><a class="header" href="#buffermark_as_read"><code>[buffer.mark_as_read]</code></a></h2>
+<p>When to mark a buffer as read</p>
+<h3 id="on_application_exit"><a class="header" href="#on_application_exit"><code>on_application_exit</code></a></h3>
+<p>When exiting the application (all buffers, opened or closed, will be marked as read when the application exits).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.mark_as_read]
+on_application_exit = false
+</code></pre>
+<h3 id="on_buffer_close"><a class="header" href="#on_buffer_close"><code>on_buffer_close</code></a></h3>
+<p>When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_buffer_close = true
+</code></pre>
+<h3 id="on_scroll_to_bottom"><a class="header" href="#on_scroll_to_bottom"><code>on_scroll_to_bottom</code></a></h3>
+<p>When scrolling to the bottom of a buffer.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_scroll_to_bottom = true
 </code></pre>
 <h2 id="buffernickname"><a class="header" href="#buffernickname"><code>[buffer.nickname]</code></a></h2>
 <p>Customize how nicknames are displayed within a buffer.</p>
