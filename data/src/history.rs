@@ -547,7 +547,7 @@ impl History {
                 .iter()
                 .rev()
                 .find(|message| message.can_reference() && message.server_time < server_time)
-                .map(|message| message.references()),
+                .map(Message::references),
         }
     }
 

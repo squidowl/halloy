@@ -377,7 +377,7 @@ impl Client {
                     '+' => {
                         let mut batch = Batch::new(context);
 
-                        batch.chathistory = match params.first().map(|x| x.as_str()) {
+                        batch.chathistory = match params.first().map(String::as_str) {
                             Some("chathistory") => params.get(1).map(|target| {
                                 ChatHistoryBatch::Target(Target::parse(
                                     target,
@@ -583,7 +583,7 @@ impl Client {
                         batch
                             .chathistory
                             .as_ref()
-                            .and_then(|chathistory| chathistory.target())
+                            .and_then(ChatHistoryBatch::target)
                     })
                     .and_then(|target| {
                         if self.chathistory_requests.contains_key(&target) {
@@ -2692,7 +2692,7 @@ impl Map {
 
     pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [target::Channel] {
         self.client(server)
-            .map(|client| client.channels())
+            .map(Client::channels)
             .unwrap_or_default()
     }
 
@@ -2713,19 +2713,19 @@ impl Map {
 
     pub fn get_casemapping(&self, server: &Server) -> isupport::CaseMap {
         self.client(server)
-            .map(|client| client.casemapping())
+            .map(Client::casemapping)
             .unwrap_or_default()
     }
 
     pub fn get_chantypes<'a>(&'a self, server: &Server) -> &'a [char] {
         self.client(server)
-            .map(|client| client.chantypes())
+            .map(Client::chantypes)
             .unwrap_or_default()
     }
 
     pub fn get_statusmsg<'a>(&'a self, server: &Server) -> &'a [char] {
         self.client(server)
-            .map(|client| client.statusmsg())
+            .map(Client::statusmsg)
             .unwrap_or_default()
     }
 
@@ -2734,13 +2734,13 @@ impl Map {
         server: &Server,
     ) -> Vec<isupport::MessageReferenceType> {
         self.client(server)
-            .map(|client| client.chathistory_message_reference_types())
+            .map(Client::chathistory_message_reference_types)
             .unwrap_or_default()
     }
 
     pub fn get_server_chathistory_limit(&self, server: &Server) -> u16 {
         self.client(server)
-            .map_or(CLIENT_CHATHISTORY_LIMIT, |client| client.chathistory_limit())
+            .map_or(CLIENT_CHATHISTORY_LIMIT, Client::chathistory_limit)
     }
 
     pub fn get_server_supports_chathistory(&self, server: &Server) -> bool {

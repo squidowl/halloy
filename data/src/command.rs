@@ -110,7 +110,7 @@ pub fn parse(
     let unknown = || {
         Command::Irc(Irc::Unknown(
             cmd.to_string(),
-            args.iter().map(|s| s.to_string()).collect(),
+            args.iter().map(ToString::to_string).collect(),
         ))
     };
 
@@ -236,7 +236,7 @@ pub fn parse(
                 }
             }),
             Kind::Me => {
-                if let Some(target) = buffer.and_then(|b| b.target()) {
+                if let Some(target) = buffer.and_then(buffer::Upstream::target) {
                     validated::<1, 0, true>(args, |[text], _| {
                         Ok(Command::Irc(Irc::Me(target.to_string(), text)))
                     })
@@ -421,7 +421,7 @@ pub fn parse(
             }),
             Kind::Raw => Ok(Command::Irc(Irc::Raw(raw.to_string()))),
             Kind::Format => {
-                if let Some(target) = buffer.and_then(|b| b.target()) {
+                if let Some(target) = buffer.and_then(buffer::Upstream::target) {
                     Ok(Command::Irc(Irc::Msg(
                         target.to_string(),
                         formatting::encode(raw, false),
@@ -447,7 +447,7 @@ fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
         let combined = args.iter().skip(max.saturating_sub(1)).join(" ");
         args.iter()
             .take(max.saturating_sub(1))
-            .map(|s| s.to_string())
+            .map(ToString::to_string)
             .chain((!combined.is_empty()).then_some(combined))
             .collect()
     } else {

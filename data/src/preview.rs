@@ -93,7 +93,7 @@ async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, Lo
 
             for captures in OPENGRAPH_REGEX
                 .captures_iter(&String::from_utf8_lossy(&bytes))
-                .filter_map(|r| r.ok())
+                .filter_map(Result::ok)
             {
                 let Some((((key_1, value_1), key_2), value_2)) = captures
                     .get(1)
