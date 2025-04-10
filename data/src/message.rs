@@ -1716,6 +1716,20 @@ mod test {
                     Fragment::Formatted{ text: " like so".into(), formatting: Formatting { fg: Some(Color::LightCyan), ..Formatting::default() }},
                 ],
             ),
+            (
+                "\u{3}22,33testing normal color with background and color \u{3}reset",
+                vec![
+                    Fragment::Formatted { text: "testing normal color with background and color ".into(), formatting: Formatting { fg: Some(Color::Code22), bg: Some(Color::Code33), ..Formatting::default() }},
+                    Fragment::Text("reset".into()),
+                ],
+            ),
+            (
+                "\u{4}ffffff,0909aatesting hex color with background and color \u{4}reset",
+                vec![
+                    Fragment::Formatted { text: "testing hex color with background and color ".into(), formatting: Formatting { fg: Some(Color::Rgb(255, 255, 255)), bg: Some(Color::Rgb(9, 9, 170)), ..Formatting::default() }},
+                    Fragment::Text("reset".into()),
+                ],
+            ),
         ];
 
         for (text, expected) in tests {
