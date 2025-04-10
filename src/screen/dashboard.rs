@@ -1,4 +1,4 @@
-use std::collections::{hash_map, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque, hash_map};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
@@ -6,19 +6,19 @@ use std::{convert, slice};
 use chrono::{DateTime, Utc};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
-use data::history::manager::Broadcast;
 use data::history::ReadMarker;
+use data::history::manager::Broadcast;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{
-    client, command, config, environment, file_transfer, history, preview, Config, Notification,
-    Server, Version,
+    Config, Notification, Server, Version, client, command, config, environment, file_transfer,
+    history, preview,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{column, container, row, Space};
+use iced::widget::{Space, column, container, row};
 use iced::window::get_position;
-use iced::{clipboard, Length, Task, Vector};
+use iced::{Length, Task, Vector, clipboard};
 use log::{debug, error};
 
 use self::command_bar::CommandBar;
@@ -27,10 +27,10 @@ use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
 use crate::widget::{
-    anchored_overlay, context_menu, selectable_text, shortcut, Column, Element, Row,
+    Column, Element, Row, anchored_overlay, context_menu, selectable_text, shortcut,
 };
 use crate::window::Window;
-use crate::{event, notification, theme, window, Theme};
+use crate::{Theme, event, notification, theme, window};
 
 mod command_bar;
 pub mod pane;
@@ -357,6 +357,31 @@ impl Dashboard {
                                     }
 
                                     return (Task::batch(tasks), None);
+                                }
+                                buffer::Event::ReplaceFocusedBuffer(target) => {
+                                    if let Some(server) = pane
+                                        .buffer
+                                        .upstream()
+                                        .map(buffer::Upstream::server)
+                                        .cloned()
+                                    {
+                                        let buffer = match target {
+                                            Target::Channel(channel) => buffer::Upstream::Channel(
+                                                server.clone(),
+                                                channel.clone(),
+                                            ),
+                                            Target::Query(query) => {
+                                                buffer::Upstream::Query(server.clone(), query)
+                                            }
+                                        };
+
+                                        return (
+                                            self.replace_buffer(data::Buffer::Upstream(buffer)),
+                                            None,
+                                        );
+                                    }
+
+                                    return (Task::none(), None);
                                 }
                                 buffer::Event::History(history_task) => {
                                     return (
@@ -902,23 +927,27 @@ impl Dashboard {
                     QuitApplication => return (self.exit(), None),
                     ScrollUpPage => {
                         return (
-                            self.get_focused_mut()
-                                .map_or_else(Task::none, |(window, pane, state)| {
+                            self.get_focused_mut().map_or_else(
+                                Task::none,
+                                |(window, pane, state)| {
                                     state.buffer.scroll_up_page().map(move |message| {
                                         Message::Pane(window, pane::Message::Buffer(pane, message))
                                     })
-                                }),
+                                },
+                            ),
                             None,
                         );
                     }
                     ScrollDownPage => {
                         return (
-                            self.get_focused_mut()
-                                .map_or_else(Task::none, |(window, pane, state)| {
+                            self.get_focused_mut().map_or_else(
+                                Task::none,
+                                |(window, pane, state)| {
                                     state.buffer.scroll_down_page().map(move |message| {
                                         Message::Pane(window, pane::Message::Buffer(pane, message))
                                     })
-                                }),
+                                },
+                            ),
                             None,
                         );
                     }
@@ -943,12 +972,14 @@ impl Dashboard {
                     }
                     ScrollToBottom => {
                         return (
-                            self.get_focused_mut()
-                                .map_or_else(Task::none, |(window, pane, state)| {
+                            self.get_focused_mut().map_or_else(
+                                Task::none,
+                                |(window, pane, state)| {
                                     state.buffer.scroll_to_end().map(move |message| {
                                         Message::Pane(window, pane::Message::Buffer(pane, message))
                                     })
-                                }),
+                                },
+                            ),
                             None,
                         );
                     }
@@ -1365,6 +1396,36 @@ impl Dashboard {
         }
     }
 
+    fn replace_buffer(&mut self, buffer: data::Buffer) -> Task<Message> {
+        let panes = self.panes.clone();
+
+        // If buffer already is open, we swap it with focused pane.
+        for (window, id, pane) in panes.iter() {
+            if pane.buffer.data().as_ref() == Some(&buffer) {
+                if window != self.focus.window || id != self.focus.pane {
+                    return self.swap_pane_with_focus(window, id);
+                } else {
+                    return Task::none();
+                }
+            }
+        }
+
+        let Focus { window, pane } = self.focus;
+
+        if let Some(state) = self.panes.get_mut(window, pane) {
+            state.buffer = Buffer::from(buffer);
+            self.last_changed = Some(Instant::now());
+
+            Task::batch(vec![
+                self.reset_pane(window, pane),
+                self.focus_pane(window, pane),
+            ])
+        } else {
+            log::error!("Didn't find any panes to replace");
+            Task::none()
+        }
+    }
+
     fn open_buffer(
         &mut self,
         buffer: data::Buffer,
@@ -1376,33 +1437,7 @@ impl Dashboard {
         self.last_changed = Some(Instant::now());
 
         match buffer_action {
-            BufferAction::ReplacePane => {
-                // If buffer already is open, we swap it with focused pane.
-                for (window, id, pane) in panes.iter() {
-                    if pane.buffer.data().as_ref() == Some(&buffer) {
-                        if window != self.focus.window || id != self.focus.pane {
-                            return self.swap_pane_with_focus(window, id);
-                        } else {
-                            return Task::none();
-                        }
-                    }
-                }
-
-                let Focus { window, pane } = self.focus;
-
-                if let Some(state) = self.panes.get_mut(window, pane) {
-                    state.buffer = Buffer::from(buffer);
-                    self.last_changed = Some(Instant::now());
-
-                    Task::batch(vec![
-                        self.reset_pane(window, pane),
-                        self.focus_pane(window, pane),
-                    ])
-                } else {
-                    log::error!("Didn't find any panes to replace");
-                    Task::none()
-                }
-            }
+            BufferAction::ReplacePane => self.replace_buffer(buffer),
             BufferAction::NewPane => {
                 // If buffer already is open, we focus it.
                 for (window, id, pane) in panes.iter() {
@@ -2192,11 +2227,7 @@ impl Dashboard {
                 | window::Event::Unfocused
                 | window::Event::Opened { .. } => {}
             }
-        } else if self
-            .theme_editor
-            .as_ref()
-            .is_some_and(|e| e.window == id)
-        {
+        } else if self.theme_editor.as_ref().is_some_and(|e| e.window == id) {
             match event {
                 window::Event::CloseRequested => {
                     if let Some(editor) = self.theme_editor.take() {

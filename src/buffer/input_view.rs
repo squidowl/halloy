@@ -3,13 +3,13 @@ use data::dashboard::BufferAction;
 use data::input::{self, Cache, Draft};
 use data::target::Target;
 use data::user::Nick;
-use data::{buffer, client, history, Config};
-use iced::widget::{column, container, text, text_input};
+use data::{Config, buffer, client, history};
 use iced::Task;
+use iced::widget::{column, container, text, text_input};
 
 use self::completion::Completion;
 use crate::theme;
-use crate::widget::{anchored_overlay, key_press, Element};
+use crate::widget::{Element, anchored_overlay, key_press};
 
 mod completion;
 
@@ -20,6 +20,7 @@ pub enum Event {
     OpenBuffers {
         targets: Vec<(Target, BufferAction)>,
     },
+    ReplaceFocusedBuffer(Target),
 }
 
 #[derive(Debug, Clone)]
@@ -241,6 +242,103 @@ impl State {
                                                 .collect(),
                                         }),
                                     );
+                                }
+                                command::Internal::Hop(first, rest) => {
+                                    let has_channel_argument =
+                                        first.as_ref().is_some_and(|s| s.starts_with('#'));
+
+                                    // Channel to join, either from first argument or buffer channel
+                                    let target_channel = if has_channel_argument {
+                                        // Use first argument as channel.
+                                        first.clone()
+                                    } else {
+                                        // If first argument isn't a channel, we use buffer channel
+                                        buffer.channel().map(|chan| chan.as_str().to_string())
+                                    };
+
+                                    // If we don't have a target channel for some reason we return
+                                    let Some(target_channel) = target_channel else {
+                                        return (Task::none(), None);
+                                    };
+
+                                    let message = if has_channel_argument {
+                                        // If first argument is a channel, we use second argument as message
+                                        rest
+                                    } else {
+                                        // Otherwise we use both arguments
+                                        match (first.as_deref(), rest.as_deref()) {
+                                            (Some(a), Some(b)) => Some(format!("{} {}", a, b)),
+                                            (Some(a), None) => Some(a.to_string()),
+                                            (None, Some(b)) => Some(b.to_string()),
+                                            (None, None) => None,
+                                        }
+                                    };
+
+                                    // Part channel. Might not exsist if we execute on a query/server.
+                                    let part_command = buffer.channel().and_then(|channel| {
+                                        data::Input::command(
+                                            buffer.clone(),
+                                            command::Irc::Part(
+                                                channel.as_str().to_string(),
+                                                message,
+                                            ),
+                                        )
+                                        .encoded()
+                                    });
+
+                                    // Send part command.
+                                    if let Some(part_command) = part_command {
+                                        clients.send(buffer, part_command);
+                                    }
+
+                                    let join_command = data::Input::command(
+                                        buffer.clone(),
+                                        command::Irc::Join(target_channel.clone(), None),
+                                    )
+                                    .encoded();
+
+                                    // Send join command.
+                                    if let Some(join_command) = join_command {
+                                        clients.send(buffer, join_command);
+                                    }
+
+                                    let chantypes = clients.get_chantypes(buffer.server());
+                                    let statusmsg = clients.get_statusmsg(buffer.server());
+                                    let casemapping = clients.get_casemapping(buffer.server());
+
+                                    let target = Target::parse(
+                                        target_channel.as_str(),
+                                        chantypes,
+                                        statusmsg,
+                                        casemapping,
+                                    );
+
+                                    if has_channel_argument {
+                                        match buffer {
+                                            // If its a channel, we want to replace it when hopping to a new channel.
+                                            buffer::Upstream::Channel(_, _) => {
+                                                return (
+                                                    Task::none(),
+                                                    Some(Event::ReplaceFocusedBuffer(target)),
+                                                );
+                                            }
+                                            // If its a server, or query we want to open a new buffer.
+                                            buffer::Upstream::Server(_)
+                                            | buffer::Upstream::Query(_, _) => {
+                                                return (
+                                                    Task::none(),
+                                                    Some(Event::OpenBuffers {
+                                                        targets: vec![(
+                                                            target,
+                                                            config.actions.buffer.message_channel,
+                                                        )],
+                                                    }),
+                                                );
+                                            }
+                                        }
+                                    } else {
+                                        return (Task::none(), None);
+                                    }
                                 }
                             }
                         }

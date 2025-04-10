@@ -17,6 +17,11 @@ pub enum Command {
 #[derive(Debug, Clone)]
 pub enum Internal {
     OpenBuffers(String),
+    /// Part the current channel and join a new one.
+    ///
+    /// - Channel to join
+    /// - Part message
+    Hop(Option<String>, Option<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +60,7 @@ enum Kind {
     Format,
     Away,
     SetName,
+    Hop,
     Notice,
     Raw,
 }
@@ -80,6 +86,7 @@ impl FromStr for Kind {
             "setname" => Ok(Kind::SetName),
             "notice" => Ok(Kind::Notice),
             "raw" => Ok(Kind::Raw),
+            "hop" | "rejoin" => Ok(Kind::Hop),
             _ => Err(()),
         }
     }
@@ -430,6 +437,9 @@ pub fn parse(
                     Ok(unknown())
                 }
             }
+            Kind::Hop => validated::<0, 2, true>(args, |_, [channel, message]| {
+                Ok(Command::Internal(Internal::Hop(channel, message)))
+            }),
         },
         Err(()) => Ok(unknown()),
     }

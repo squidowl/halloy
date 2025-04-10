@@ -621,6 +621,7 @@ impl Command {
             "topic" => "Retrieve the topic of a channel or set a new topic",
             "whois" => "Retrieve information about user(s)",
             "format" => "Format text using markdown or $ sequences",
+            "hop" => "Parts the current channel and joins a new one",
 
             _ => return None,
         })
@@ -640,6 +641,7 @@ impl Command {
             "topic" => vec!["t"],
             "whois" => vec![],
             "format" => vec!["f"],
+            "hop" => vec!["rejoin"],
 
             _ => vec![],
         }
@@ -1071,6 +1073,22 @@ static COMMAND_LIST: LazyLock<Vec<Command>> = LazyLock::new(|| {
                     text: "text",
                     optional: false,
                     tooltip: Some(include_str!("./format_tooltip.txt").to_string()),
+                },
+            ],
+            subcommands: None,
+        },
+        Command {
+            title: "HOP",
+            args: vec![
+                Arg {
+                    text: "channel",
+                    optional: true,
+                    tooltip: Some(String::from("the #channel to join")),
+                },
+                Arg {
+                    text: "message",
+                    optional: true,
+                    tooltip: Some(String::from("the part message to be sent")),
                 },
             ],
             subcommands: None,
