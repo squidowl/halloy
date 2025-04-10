@@ -297,14 +297,14 @@ impl Manager {
         self.data
             .map
             .get(kind)
-            .is_some_and(|history| history.has_unread())
+            .is_some_and(History::has_unread)
     }
 
     pub fn read_marker(&self, kind: &history::Kind) -> Option<history::ReadMarker> {
         self.data
             .map
             .get(kind)
-            .map(|history| history.read_marker())
+            .map(History::read_marker)
             .unwrap_or_default()
     }
 
