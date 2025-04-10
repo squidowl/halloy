@@ -50,6 +50,7 @@ pub enum Command {
     ScrollToBottom,
     CycleNextUnreadBuffer,
     CyclePreviousUnreadBuffer,
+    MarkAsRead,
 }
 
 macro_rules! default {
@@ -148,6 +149,8 @@ impl KeyBind {
     default!(scroll_to_bottom, ArrowDown, COMMAND);
     default!(cycle_next_unread_buffer, "`", CTRL);
     default!(cycle_previous_unread_buffer, "`", CTRL | SHIFT);
+    // Command + m is minimize in macOS
+    default!(mark_as_read, "m", COMMAND | SHIFT);
 
     pub fn is_pressed(
         &self,

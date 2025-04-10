@@ -56,6 +56,8 @@ pub struct Keyboard {
     pub cycle_next_unread_buffer: KeyBind,
     #[serde(default = "KeyBind::cycle_previous_unread_buffer")]
     pub cycle_previous_unread_buffer: KeyBind,
+    #[serde(default = "KeyBind::mark_as_read")]
+    pub mark_as_read: KeyBind,
     #[serde(default)]
     pub quit_application: Option<KeyBind>,
 }
@@ -89,6 +91,7 @@ impl Default for Keyboard {
             scroll_to_bottom: KeyBind::scroll_to_bottom(),
             cycle_next_unread_buffer: KeyBind::cycle_next_unread_buffer(),
             cycle_previous_unread_buffer: KeyBind::cycle_previous_unread_buffer(),
+            mark_as_read: KeyBind::mark_as_read(),
             quit_application: None,
         }
     }
@@ -128,6 +131,7 @@ impl Keyboard {
                 self.cycle_previous_unread_buffer.clone(),
                 CyclePreviousUnreadBuffer,
             ),
+            shortcut(self.mark_as_read.clone(), MarkAsRead),
         ];
 
         if let Some(quit_application) = self.quit_application.clone() {

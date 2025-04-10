@@ -22,6 +22,7 @@ pub enum Event {
     RequestOlderChatHistory,
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
+    MarkAsRead(history::Kind),
 }
 
 pub fn view<'a>(
@@ -297,6 +298,10 @@ impl Query {
                     scroll_view::Event::PreviewChanged => Some(Event::PreviewChanged),
                     scroll_view::Event::HidePreview(kind, hash, url) => {
                         Some(Event::HidePreview(kind, hash, url))
+                    }
+                    scroll_view::Event::MarkAsRead => {
+                        history::Kind::from_buffer(data::Buffer::Upstream(self.buffer.clone()))
+                            .map(Event::MarkAsRead)
                     }
                 });
 

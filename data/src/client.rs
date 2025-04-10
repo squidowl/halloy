@@ -2007,11 +2007,11 @@ impl Client {
         Ok(vec![Event::Single(message, self.nickname().to_owned())])
     }
 
-    pub fn send_markread(&mut self, target: &str, read_marker: ReadMarker) -> Result<()> {
+    pub fn send_markread(&mut self, target: Target, read_marker: ReadMarker) -> Result<()> {
         if self.supports_read_marker {
             self.handle.try_send(command!(
                 "MARKREAD",
-                target.to_string(),
+                target.as_str().to_string(),
                 format!("timestamp={read_marker}"),
             ))?;
         }
@@ -2619,7 +2619,7 @@ impl Map {
     pub fn send_markread(
         &mut self,
         server: &Server,
-        target: &str,
+        target: Target,
         read_marker: ReadMarker,
     ) -> Result<()> {
         if let Some(client) = self.client_mut(server) {

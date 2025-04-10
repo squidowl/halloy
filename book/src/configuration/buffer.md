@@ -12,11 +12,12 @@ Buffer settings for Halloy.
 5. [Date Separators](#bufferdate_separators) - Customize how date separators are displayed within a buffer
 6. [Emojis](#bufferemojis) - Emojis settings
 7. [Internal Messages](#bufferinternal_messages) - Internal messages are messages sent from Halloy itself
-8. [Nickname](#buffernickname) - Customize how nicknames are displayed within a buffer
-9. [Server Messages](#bufferserver_messages) - Server messages are messages sent from a irc server.
-10. [Status Message Prefix](#bufferstatus_message_prefix) - Status message prefix settings
-11. [Text Input](#buffertext_input) - Customize the text input for in buffers
-12. [Timestamp](#buffertimestamp) - Customize how timestamps are displayed within a buffer
+8. [Mark as Read](#buffermark_as_read) - When to automatically mark a buffer as read
+9. [Nickname](#buffernickname) - Customize how nicknames are displayed within a buffer
+10. [Server Messages](#bufferserver_messages) - Server messages are messages sent from a irc server.
+11. [Status Message Prefix](#bufferstatus_message_prefix) - Status message prefix settings
+12. [Text Input](#buffertext_input) - Customize the text input for in buffers
+13. [Timestamp](#buffertimestamp) - Customize how timestamps are displayed within a buffer
 
 ## `[buffer.away]`
 
@@ -373,6 +374,49 @@ Only show internal message if received within the given time duration (seconds).
 
 [buffer.internal_messages.error]
 smart = 180
+```
+
+## `[buffer.mark_as_read]`
+
+When to mark a buffer as read
+
+### `on_application_exit`
+
+When exiting the application (all buffers, opened or closed, will be marked as read when the application exits).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.mark_as_read]
+on_application_exit = false
+```
+
+### `on_buffer_close`
+
+When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_buffer_close = true
+```
+
+### `on_scroll_to_bottom`
+
+When scrolling to the bottom of a buffer.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_scroll_to_bottom = true
 ```
 
 ## `[buffer.nickname]`
