@@ -96,6 +96,10 @@ pub fn share<'a>() -> Text<'a> {
     to_text('\u{E813}')
 }
 
+pub fn mark_as_read<'a>() -> Text<'a> {
+    to_text('\u{E815}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .line_height(LineHeight::Relative(1.0))

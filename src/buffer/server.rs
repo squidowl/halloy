@@ -18,6 +18,7 @@ pub enum Event {
     UserContext(user_context::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
     History(Task<history::manager::Message>),
+    MarkAsRead(history::Kind),
 }
 
 pub fn view<'a>(
@@ -159,6 +160,10 @@ impl Server {
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
+                    scroll_view::Event::MarkAsRead => {
+                        history::Kind::from_buffer(data::Buffer::Upstream(self.buffer.clone()))
+                            .map(Event::MarkAsRead)
+                    }
                 });
 
                 (command.map(Message::ScrollView), event)

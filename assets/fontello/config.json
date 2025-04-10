@@ -155,6 +155,12 @@
       "css": "export",
       "code": 59411,
       "src": "entypo"
+    },
+    {
+      "uid": "12f4ece88e46abd864e40b35e05b11cd",
+      "css": "ok",
+      "code": 59413,
+      "src": "fontawesome"
     }
   ]
 }

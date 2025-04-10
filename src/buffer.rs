@@ -55,6 +55,7 @@ pub enum Event {
     RequestOlderChatHistory,
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
+    MarkAsRead(history::Kind),
 }
 
 impl Buffer {
@@ -96,6 +97,18 @@ impl Buffer {
         }
     }
 
+    pub fn target(&self) -> Option<Target> {
+        match self {
+            Buffer::Channel(state) => Some(Target::Channel(state.target.clone())),
+            Buffer::Query(state) => Some(Target::Query(state.target.clone())),
+            Buffer::Empty
+            | Buffer::Server(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_) => None,
+        }
+    }
+
     pub fn update(
         &mut self,
         message: Message,
@@ -117,6 +130,7 @@ impl Buffer {
                     channel::Event::HidePreview(kind, hash, url) => {
                         Event::HidePreview(kind, hash, url)
                     }
+                    channel::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
                 });
 
                 (command.map(Message::Channel), event)
@@ -128,6 +142,7 @@ impl Buffer {
                     server::Event::UserContext(event) => Event::UserContext(event),
                     server::Event::OpenBuffers(targets) => Event::OpenBuffers(targets),
                     server::Event::History(task) => Event::History(task),
+                    server::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
                 });
 
                 (command.map(Message::Server), event)
@@ -144,6 +159,7 @@ impl Buffer {
                     query::Event::HidePreview(kind, hash, url) => {
                         Event::HidePreview(kind, hash, url)
                     }
+                    query::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
                 });
 
                 (command.map(Message::Query), event)
@@ -162,6 +178,7 @@ impl Buffer {
                         Event::OpenBuffers(vec![(target, buffer_action)])
                     }
                     logs::Event::History(task) => Event::History(task),
+                    logs::Event::MarkAsRead => Event::MarkAsRead(history::Kind::Logs),
                 });
 
                 (command.map(Message::Logs), event)

@@ -3,6 +3,7 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::config::buffer::NicknameClickAction;
+use crate::serde::default_bool_true;
 use crate::target::{self, Target};
 use crate::{channel, config, message, Server};
 
@@ -335,10 +336,6 @@ fn default_timestamp() -> String {
 
 fn default_date_separators() -> String {
     "%A, %B %-d".to_string()
-}
-
-fn default_bool_true() -> bool {
-    true
 }
 
 fn default_completion_suffixes() -> [String; 2] {

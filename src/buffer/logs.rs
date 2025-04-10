@@ -17,6 +17,7 @@ pub enum Event {
     UserContext(user_context::Event),
     OpenBuffer(Target, BufferAction),
     History(Task<history::manager::Message>),
+    MarkAsRead,
 }
 
 pub fn view<'a>(
@@ -96,6 +97,7 @@ impl Logs {
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
+                    scroll_view::Event::MarkAsRead => Some(Event::MarkAsRead),
                 });
 
                 (command.map(Message::ScrollView), event)

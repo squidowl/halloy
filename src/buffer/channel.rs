@@ -28,6 +28,7 @@ pub enum Event {
     RequestOlderChatHistory,
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
+    MarkAsRead(history::Kind),
 }
 
 pub fn view<'a>(
@@ -323,8 +324,9 @@ pub fn view<'a>(
 
     let content = column![topic, messages].spacing(4);
 
-    let nicklist_enabled = settings
-        .map_or(config.buffer.channel.nicklist.enabled, |settings| settings.channel.nicklist.enabled);
+    let nicklist_enabled = settings.map_or(config.buffer.channel.nicklist.enabled, |settings| {
+        settings.channel.nicklist.enabled
+    });
 
     let content = match (nicklist_enabled, config.buffer.channel.nicklist.position) {
         (true, data::channel::Position::Left) => row![nick_list, content],
@@ -397,6 +399,10 @@ impl Channel {
                     scroll_view::Event::HidePreview(kind, hash, url) => {
                         Some(Event::HidePreview(kind, hash, url))
                     }
+                    scroll_view::Event::MarkAsRead => {
+                        history::Kind::from_buffer(data::Buffer::Upstream(self.buffer.clone()))
+                            .map(Event::MarkAsRead)
+                    }
                 });
 
                 (command.map(Message::ScrollView), event)
@@ -457,8 +463,9 @@ fn topic<'a>(
     config: &'a Config,
     theme: &'a Theme,
 ) -> Option<Element<'a, Message>> {
-    let topic_enabled = settings
-        .map_or(config.buffer.channel.topic.enabled, |settings| settings.channel.topic.enabled);
+    let topic_enabled = settings.map_or(config.buffer.channel.topic.enabled, |settings| {
+        settings.channel.topic.enabled
+    });
 
     if !topic_enabled {
         return None;
