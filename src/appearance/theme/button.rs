@@ -65,6 +65,7 @@ pub fn sidebar_buffer(theme: &Theme, status: Status, is_focused: bool, is_open: 
 
     let background_hover = match (is_focused, is_open) {
         (true, true) => button_colors.background_selected_hover,
+        (false, true) => button_colors.background_selected,
         (_, _) => button_colors.background_hover,
     };
 
