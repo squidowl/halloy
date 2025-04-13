@@ -735,6 +735,7 @@ impl Command {
             "topic" => "Retrieve the topic of a channel or set a new topic",
             "whois" => "Retrieve information about user(s)",
             "format" => "Format text using markdown or $ sequences",
+            "ctcp" => "Send Client-To-Client requests",
 
             _ => return None,
         })
