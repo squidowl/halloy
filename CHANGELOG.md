@@ -4,6 +4,7 @@ Added:
 
 - Ability to show a modal prompt before opening a URL
 - WHOIS command now accepts optional server parameter
+- CTCP requests through commands and user context
 - Title bar button and keyboard shortcut to mark a buffer as read (will update the read marker as well, if the `read-marker` capability is available)
 - Mark as Read settings to control when buffers are automatically marked as read
 
