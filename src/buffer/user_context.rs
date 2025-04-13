@@ -158,7 +158,8 @@ pub enum Event {
     InsertNickname(Nick),
 }
 
-pub fn update(message: Message) -> Option<Event> {
+#[allow(clippy::unnecessary_wraps)]
+pub fn update(message: Message) -> Option<Event> { // enables use of .map()
     match message {
         Message::Whois(server, nick) => Some(Event::SendWhois(server, nick)),
         Message::Query(server, nick, buffer_action) => {
