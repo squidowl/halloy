@@ -680,6 +680,7 @@ impl Command {
             "topic" => "Retrieve the topic of a channel or set a new topic",
             "whois" => "Retrieve information about user(s)",
             "format" => "Format text using markdown or $ sequences",
+            "ctcp" => "Send Client-To-Client requests",
 
             _ => return None,
         })
@@ -1137,6 +1138,30 @@ static COMMAND_LIST: LazyLock<Vec<Command>> = LazyLock::new(|| {
                 optional: false,
                 tooltip: Some(include_str!("./format_tooltip.txt").to_string()),
             }],
+            subcommands: None,
+        },
+        Command {
+            title: "CTCP",
+            args: vec![
+                Arg {
+                    text: "nick",
+                    optional: false,
+                    tooltip: None,
+                },
+                Arg {
+                    text: "command",
+                    optional: false,
+                    tooltip: Some(
+                        "ACTION CLIENTINFO PING SOURCE VERSION TIME"
+                            .to_string(),
+                    ),
+                },
+                Arg {
+                    text: "params",
+                    optional: true,
+                    tooltip: Some("Additional parameters".to_string()),
+                },
+            ],
             subcommands: None,
         },
     ]

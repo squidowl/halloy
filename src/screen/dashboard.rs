@@ -353,6 +353,32 @@ impl Dashboard {
                                                 None,
                                             );
                                         }
+                                        buffer::user_context::Event::CtcpRequest(
+                                            command,
+                                            server,
+                                            nick,
+                                            params,
+                                        ) => {
+                                            let buffer =
+                                                pane.buffer.upstream().cloned().unwrap_or_else(
+                                                    || buffer::Upstream::Server(server.clone()),
+                                                );
+
+                                            let command = command::Irc::Ctcp(
+                                                command,
+                                                nick.to_string(),
+                                                params,
+                                            );
+
+                                            let input =
+                                                data::Input::command(buffer.clone(), command);
+
+                                            if let Some(encoded) = input.encoded() {
+                                                clients.send(&input.buffer, encoded);
+                                            }
+
+                                            return (Task::none(), None);
+                                        }
                                     }
                                 }
                                 buffer::Event::OpenBuffers(targets) => {

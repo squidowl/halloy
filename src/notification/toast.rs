@@ -1,7 +1,7 @@
 #[cfg(target_os = "macos")]
 pub fn prepare() {
     match notify_rust::set_application(data::environment::APPLICATION_ID) {
-        Ok(_) => {}
+        Ok(()) => {}
         Err(error) => {
             log::error!("{}", error.to_string());
         }
