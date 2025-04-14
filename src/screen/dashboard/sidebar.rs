@@ -552,25 +552,27 @@ fn upstream_buffer_button(
         .style(move |theme, status| {
             theme::button::sidebar_buffer(theme, status, is_focused.is_some(), open.is_some())
         })
-        .on_press_maybe({
+        .on_press({
             match is_focused {
                 Some((window, pane)) => {
                     if let Some(focus_action) = focused_buffer_action {
                         match focus_action {
-                            BufferFocusedAction::ClosePane => Some(Message::Close(window, pane)),
+                            BufferFocusedAction::ClosePane => Message::Close(window, pane),
                         }
                     } else {
-                        None
+                        // Re-focus pane on press instead of disabling the button in order
+                        // to have hover status of the button for styling
+                        Message::Focus(window, pane)
                     }
                 }
                 None => {
                     if let Some((window, pane)) = open {
-                        Some(Message::Focus(window, pane))
+                        Message::Focus(window, pane)
                     } else {
                         match buffer_action {
-                            BufferAction::NewPane => Some(Message::New(buffer.clone())),
-                            BufferAction::ReplacePane => Some(Message::Replace(buffer.clone())),
-                            BufferAction::NewWindow => Some(Message::Popout(buffer.clone())),
+                            BufferAction::NewPane => Message::New(buffer.clone()),
+                            BufferAction::ReplacePane => Message::Replace(buffer.clone()),
+                            BufferAction::NewWindow => Message::Popout(buffer.clone()),
                         }
                     }
                 }
