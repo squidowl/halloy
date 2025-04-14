@@ -621,15 +621,17 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
     let mut replace_at = None;
 
     for stored in &messages[start_index..end_index] {
-        if replace_at.is_none()
-            && ((message.id.is_some() && stored.id == message.id)
-                || ((stored.server_time == message.server_time
-                    || (matches!(stored.direction, message::Direction::Sent)
-                        && matches!(message.direction, message::Direction::Received)
-                        && message.is_echo))
-                    && has_matching_content(stored, &message)))
-        {
-            replace_at = Some(current_index);
+        if replace_at.is_none() {
+            let use_echo_cmp = matches!(stored.direction, message::Direction::Sent)
+                && matches!(message.direction, message::Direction::Received)
+                && message.is_echo;
+
+            if (message.id.is_some() && stored.id == message.id)
+                || ((stored.server_time == message.server_time || use_echo_cmp)
+                    && has_matching_content(stored, &message, use_echo_cmp))
+            {
+                replace_at = Some(current_index);
+            }
         }
 
         if message.server_time >= stored.server_time {
@@ -641,7 +643,7 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
 
     if let Some(index) = replace_at {
         if messages[index].server_time == message.server_time {
-            if has_matching_content(&messages[index], &message) {
+            if has_matching_content(&messages[index], &message, false) {
                 messages[index].id = message.id;
                 messages[index].received_at = message.received_at;
             } else {
@@ -668,7 +670,7 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
 /// The content of JOIN, PART, and QUIT messages may be dependent on how
 /// the user attributes are resolved.  Match those messages based on Nick
 /// alone (covered by comparing target components) to avoid false negatives.
-fn has_matching_content(message: &Message, other: &Message) -> bool {
+fn has_matching_content(message: &Message, other: &Message, use_echo_cmp: bool) -> bool {
     if message.target == other.target {
         if let message::Source::Server(Some(source)) = message.target.source() {
             match source.kind() {
@@ -685,7 +687,11 @@ fn has_matching_content(message: &Message, other: &Message) -> bool {
             }
         }
 
-        message.content == other.content
+        if use_echo_cmp {
+            matches!(message.content.echo_cmp(&other.content), Ordering::Equal)
+        } else {
+            message.content == other.content
+        }
     } else {
         false
     }
