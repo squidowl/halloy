@@ -21,7 +21,7 @@ pub enum Message {
 
 pub fn update(message: Message) -> Option<Event> {
     match message {
-        Message::UserContext(message) => user_context::update(message).map(Event::UserContext),
+        Message::UserContext(message) => Some(Event::UserContext(user_context::update(message))),
         Message::Link(message::Link::Channel(channel)) => Some(Event::OpenChannel(channel)),
         Message::Link(message::Link::Url(url)) => {
             let _ = open::that_detached(url);

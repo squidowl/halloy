@@ -430,7 +430,7 @@ impl Channel {
             }
             Message::UserContext(message) => (
                 Task::none(),
-                user_context::update(message).map(Event::UserContext),
+                Some(Event::UserContext(user_context::update(message))),
             ),
             Message::Topic(message) => (
                 Task::none(),
