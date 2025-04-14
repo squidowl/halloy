@@ -428,6 +428,7 @@ fn internal_format() {
     let _ = dbg!(encode("hello there _friend_!!", false));
     let _ = dbg!(encode("hello there __friend__!!", false));
     let _ = dbg!(encode("hello there ___friend___!!", false));
+    let _ = dbg!(encode("hello there ~~friend~~!!", false));
     let _ = dbg!(encode("hello there **_fri_end_**!!", false));
     let _ = dbg!(encode("testing__testing__onetwothree", false));
     let _ = dbg!(encode("some code `let x = 0;`", false));
