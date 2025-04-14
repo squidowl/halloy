@@ -1,7 +1,7 @@
 # Base16
 
 The [base16](https://github.com/chriskempson/base16) color scheme framework
-includes hundreds of colorschemes build using 16 colors. These colorschemes have
+includes hundreds of color schemes build using 16 colors. These color schemes have
 are compiled for Halloy in the
 [`4e554c4c/base16-halloy`](https://github.com/4e554c4c/base16-halloy)
 repository.

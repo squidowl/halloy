@@ -1,6 +1,6 @@
 # URL Schemes
 
-Halloy is able to recongize different URL schemes.
+Halloy is able to recognize different URL schemes.
 
 ## IRC and IRCS
 
