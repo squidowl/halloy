@@ -421,20 +421,65 @@ enum Dollar {
     EndColor,
 }
 
-#[test]
-fn internal_format() {
-    let _ = dbg!(encode("_hello_", false));
-    let _ = dbg!(encode("hello there friend!!", false));
-    let _ = dbg!(encode("hello there _friend_!!", false));
-    let _ = dbg!(encode("hello there __friend__!!", false));
-    let _ = dbg!(encode("hello there ___friend___!!", false));
-    let _ = dbg!(encode("hello there ~~friend~~!!", false));
-    let _ = dbg!(encode("hello there **_fri_end_**!!", false));
-    let _ = dbg!(encode("testing__testing__onetwothree", false));
-    let _ = dbg!(encode("some code `let x = 0;`", false));
-    let _ = dbg!(encode("spoiler --> ||super secret||", false));
-    let _ = dbg!(encode(
-        "$c1,0black on white $c2now blue on white$r$b BOLD $i BOLD AND ITALIC$r $ccode yo",
-        false,
-    ));
+#[cfg(test)]
+mod test {
+    use crate::message::formatting::encode;
+    #[test]
+    fn internal_format() {
+        let tests = [
+            (
+                ("_hello_", false),
+                String::from("\u{1d}hello\u{1d}"),
+            ),
+            (
+                ("hello there friend!!", false),
+                String::from("hello there friend!!"),
+            ),
+            (
+                ("hello there _friend_!!", false),
+                String::from("hello there \u{1d}friend\u{1d}!!"),
+            ),
+            (
+                ("hello there __friend__!!", false),
+                String::from("hello there \u{2}friend\u{2}!!"),
+            ),
+            (
+                ("hello there ___friend___!!", false),
+                String::from("hello there \u{2}\u{1d}friend\u{1d}\u{2}!!"),
+            ),
+            (
+                ("hello there **_fri_end_**!!", false),
+                String::from("hello there \u{2}\u{1d}fri_end\u{1d}\u{2}!!"),
+            ),
+            (
+                ("hello there ~~friend~~!!", false),
+                String::from("hello there \u{1e}friend\u{1e}!!"),
+            ),
+            (
+                ("testing__testing__onetwothree", false),
+                String::from("testing__testing__onetwothree"),
+            ),
+            (
+                ("some code `let x = 0;`", false),
+                String::from("some code \u{11}let x = 0;\u{11}"),
+            ),
+            (
+                ("spoiler --> ||super secret||", false),
+                String::from("spoiler --> \u{3}1,1super secret\u{3}"),
+            ),
+            (
+                (
+                    "$c1,0black on white $c2now blue on white$r$b BOLD $i BOLD AND ITALIC$r $ccode yo",
+                    false
+                ),
+                String::from(
+                    "\u{3}1,0black on white \u{3}2now blue on white\u{f}\u{2} BOLD \u{1d} BOLD AND ITALIC\u{f} \u{3}code yo"
+                ),
+            ),
+        ];
+        for ((text, markdown_only), expected) in tests {
+            let actual = encode(text, markdown_only);
+            assert_eq!(actual, expected);
+        }
+    }
 }
