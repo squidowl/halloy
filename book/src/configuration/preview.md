@@ -21,7 +21,7 @@ Request settings for previews.
 
 ### `user_agent`
 
-Some servers will only send opengraph metadata to browser-like user agents. We default to `WhatsApp/2` for wide compatability.
+Some servers will only send opengraph metadata to browser-like user agents. We default to `WhatsApp/2` for wide compatibility.
 
 ```toml
 # Type: string
@@ -34,7 +34,7 @@ user_agent = "WhatsApp/2"
 
 ### `timeout_ms`
 
-Request timeout in millisceonds. Defaults is 10s.
+Request timeout in milliseconds. Defaults is 10s.
 
 ```toml
 # Type: integer
@@ -86,7 +86,7 @@ concurrency = 4
 
 ### `delay_ms`
 
-Numer of milliseconds to wait before requesting another preview when number of requested previews > `concurrency`.
+Number of milliseconds to wait before requesting another preview when number of requested previews > `concurrency`.
 
 ```toml
 # Type: integer

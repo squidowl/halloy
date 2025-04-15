@@ -81,7 +81,7 @@ You can also exclude all nicks/channels by using a wildcard: `["*"]` or `["all"]
 # Values: array of strings
 # Default: []
 
-[notifications.<direct_mesage|file_transfer_request>]
+[notifications.<direct_message|file_transfer_request>]
 exclude = ["HalloyUser1"]
 
 [notifications.highlight]
@@ -105,7 +105,7 @@ from.
 # Values: array of strings
 # Default: []
 
-[notifications.<direct_mesage|file_transfer_request>]
+[notifications.<direct_message|file_transfer_request>]
 include = ["HalloyUser1"]
 
 [notifications.highlight]
