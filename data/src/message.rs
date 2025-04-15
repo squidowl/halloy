@@ -1597,9 +1597,16 @@ impl PartialOrd for MessageReferences {
 }
 
 #[cfg(test)]
-mod test {
-    use self::formatting::Color;
-    use super::*;
+mod tests {
+    use fancy_regex::Regex;
+
+    use crate::{
+        config::{highlights::{Match, Nickname}, Highlights},
+        message::{formatting::Color, Content, Formatting, Fragment},
+        user::Nick, User
+    };
+
+    use super::{parse_fragments, parse_fragments_with_highlights};
 
     #[test]
     fn fragment_parsing() {
@@ -1739,6 +1746,48 @@ mod test {
         for (text, expected) in tests {
             let actual = parse_fragments(text.to_string());
 
+            assert_eq!(Content::Fragments(expected), actual);
+        }
+    }
+    #[test]
+    fn fragment_highlight_parsing() {
+        let nick = Nick::from("Bob");
+        let tests = [
+            (
+                (
+                    "Bob: I'm in #interesting with Greg. I hope Dave doesn't notice.".to_string(),
+                    &[
+                        User::try_from("Greg").unwrap(),
+                        User::try_from("Dave").unwrap(),
+                        User::try_from("Bob").unwrap(),
+                    ],
+                    "Bob",
+                    Some(&nick),
+                    &Highlights {
+                        nickname: Nickname {exclude: vec!["Dave".into()], include: vec!["Greg".into()]},
+                        matches: vec![
+                            Match {
+                                regex: Regex::new(r#"[h]"#).unwrap(),
+                                exclude: vec!["hope".into()],
+                                include: vec!["with".into()],
+                            }
+                        ],
+                    },
+                ),
+                vec![
+                    Fragment::HighlightNick(User::try_from("Bob").unwrap(), "Bob".into()),
+                    Fragment::Text(": I'm in ".into()),
+                    Fragment::Channel("#interesting".into()),
+                    Fragment::Text(" with ".into()),
+                    Fragment::User(User::try_from("Greg").unwrap(), "Greg".into()),
+                    Fragment::Text(". I hope ".into()),
+                    Fragment::User(User::try_from("Dave").unwrap(), "Dave".into()),
+                    Fragment::Text(" doesn't notice.".into()),
+                ],
+            ),
+        ];
+        for ((text, channel_users, target, our_nick, highlights), expected) in tests {
+            let actual = parse_fragments_with_highlights(text, channel_users, target, our_nick, highlights);
             assert_eq!(Content::Fragments(expected), actual);
         }
     }
