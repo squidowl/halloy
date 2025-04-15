@@ -49,7 +49,7 @@ Added:
 - Sidebar now automatically adjusts its width based on content
 - Ability to customize default pane splitting direction (vertical or horizontal)
 - Clicking a nickname is now configurable. The default behavior has changed to open a query.
-- Ability to quit Halloy through commandbar and keyboard shortcut
+- Ability to quit Halloy through command bar and keyboard shortcut
 - New shortcuts for scrolling a buffer:
   - Scroll buffer up a page <kbd>pageup</kbd> (<kbd>Fn</kbd> + <kbd>↑</kbd> on macOS)
   - Scroll buffer down a page <kbd>pagedown</kbd> (<kbd>Fn</kbd> + <kbd>↓</kbd> on macOS)
@@ -129,7 +129,7 @@ Added:
   - Toggle logs buffer (<kbd>Ctrl</kbd> + <kbd>l</kbd> (macOS: <kbd>⌘</kbd> + <kbd>l</kbd>))
   - Toggle theme editor window (<kbd>Ctrl</kbd> + <kbd>t</kbd> (macOS: <kbd>⌘</kbd> + <kbd>t</kbd>))
 - New configuration options
-  - Dynamically select dark or light theme based on OS appearance. See [configuartion](https://halloy.squidowl.org/configuration/themes/index.html).
+  - Dynamically select dark or light theme based on OS appearance. See [configuration](https://halloy.squidowl.org/configuration/themes/index.html).
   - Ability to define a shell command for loading a NICKSERV password. See [configuration](https://halloy.squidowl.org/configuration/servers/index.html#nick_password_command)
   - Ability to define a shell command for loading a SASL password. See [configuration](https://halloy.squidowl.org/configuration/servers/sasl/plain.html)
   - Show/hide sidebar button to view logs. See [configuration](https://halloy.squidowl.org/configuration/sidebar/buttons.html#logs)
@@ -193,7 +193,7 @@ Fixed:
 Changed:
 
 - Reworked themes to add better customization possibilities
-  - **NOTE** Old theme files are not compatibile with the new format. However all the themes in the [theme community](https://halloy.squidowl.org/configuration/themes/community.html) has been updated to the new format.
+  - **NOTE** Old theme files are not compatible with the new format. However all the themes in the [theme community](https://halloy.squidowl.org/configuration/themes/community.html) has been updated to the new format.
 - Unread indicator has changed from a boolean value to a enum. See [configuration](https://halloy.squidowl.org/configuration/sidebar/index.html#unread_indicators).
 - Renamed `sidebar.default_action` to `sidebar.buffer_action`.
 - Auto-completing (with tab) a nickname at the beginning of the input line will append ': ' (colon space). Otherwise, a space is appended to the completion.
@@ -230,7 +230,7 @@ Added:
 Fixed:
 
 - Text input missing key presses in certain instances
-- Connection timeout when UI is suspended on an offscreen workspace due to channel backpressure
+- Connection timeout when UI is suspended on an offscreen workspace due to channel back pressure
 - Raw commands are passed through unmodified
 - AWAY command cuts off the away message
 
@@ -311,7 +311,7 @@ Changed:
   - Renamed `[buffer.input_visibility]` section to `[buffer.text_input]`
   - Removed `[dashboard]` section
     - Renamed `[dashboard.sidebar]` section to `[sidebar]`
-  - Changed `exclude` from `[buffer.server_messages]` to two seperate settings
+  - Changed `exclude` from `[buffer.server_messages]` to two separate settings
     - `enabled = bool`
     - `smart = number`
 - Use primary text color instead of accent color for `solid` nicknames
@@ -464,7 +464,7 @@ Added:
 
 - Nickname completions in text input with <kbd>Tab</kbd>
 - Previously sent messages can be accessed per buffer in the text input with <kbd>↑</kbd> / <kbd>↓</kbd> arrows
-- New configuration option `dashboard.sidebar_default_action` to control pane behaviour when selecting buffers
+- New configuration option `dashboard.sidebar_default_action` to control pane behavior when selecting buffers
 - Messages from other users containing your nickname are now highlighted
 - Themes directory where users can add their own theme files
 - Broadcast nickname changes to relevant channels and queries.
@@ -484,7 +484,7 @@ Changed:
 
 Fixed:
 
-- The last word of a message sometimes dissapeared
+- The last word of a message sometimes disappeared
 - Persist partial text input content when switching away from buffer
 - Correctly load image on welcome screen
 
