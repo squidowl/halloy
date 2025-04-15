@@ -119,6 +119,7 @@ manual_string_new = "deny"
 map_unwrap_or = "deny"
 semicolon_if_nothing_returned = "deny"
 uninlined_format_args = "deny"
+unnecessary_wraps = "deny"
 
 [workspace.lints.clippy]
 cloned_instead_of_copied = "deny"
@@ -130,3 +131,4 @@ manual_string_new = "deny"
 map_unwrap_or = "deny"
 semicolon_if_nothing_returned = "deny"
 uninlined_format_args = "deny"
+unnecessary_wraps = "deny"

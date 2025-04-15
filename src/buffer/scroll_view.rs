@@ -462,7 +462,7 @@ impl State {
             Message::UserContext(message) => {
                 return (
                     Task::none(),
-                    user_context::update(message).map(Event::UserContext),
+                    Some(Event::UserContext(user_context::update(message))),
                 );
             }
             Message::Link(message::Link::Channel(channel)) => {

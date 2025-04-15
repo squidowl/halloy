@@ -158,17 +158,17 @@ pub enum Event {
     InsertNickname(Nick),
 }
 
-pub fn update(message: Message) -> Option<Event> {
+pub fn update(message: Message) -> Event {
     match message {
-        Message::Whois(server, nick) => Some(Event::SendWhois(server, nick)),
+        Message::Whois(server, nick) => Event::SendWhois(server, nick),
         Message::Query(server, nick, buffer_action) => {
-            Some(Event::OpenQuery(server, nick, buffer_action))
+            Event::OpenQuery(server, nick, buffer_action)
         }
         Message::ToggleAccessLevel(server, target, nick, mode) => {
-            Some(Event::ToggleAccessLevel(server, target, nick, mode))
+            Event::ToggleAccessLevel(server, target, nick, mode)
         }
-        Message::SendFile(server, nick) => Some(Event::SendFile(server, nick)),
-        Message::InsertNickname(nick) => Some(Event::InsertNickname(nick)),
+        Message::SendFile(server, nick) => Event::SendFile(server, nick),
+        Message::InsertNickname(nick) => Event::InsertNickname(nick),
     }
 }
 
