@@ -753,6 +753,10 @@ impl Content {
             Content::Log(record) => (&record.message).into(),
         }
     }
+
+    pub fn echo_cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.text().trim_end().cmp(other.text().trim_end())
+    }
 }
 
 impl PartialEq for Content {
