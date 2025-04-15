@@ -195,7 +195,7 @@
 <li>Auto-completion for nicknames, commands, and channels</li>
 <li>Notifications support</li>
 <li>Multiple channels at the same time across servers</li>
-<li>Commandbar for for quick actions</li>
+<li>Command bar for for quick actions</li>
 <li><a href="https://themes.halloy.chat">Custom themes</a></li>
 <li>Portable mode</li>
 </ul>
@@ -804,7 +804,7 @@ auto_replace = true
 <h2 id="bufferinternal_messages"><a class="header" href="#bufferinternal_messages"><code>[buffer.internal_messages]</code></a></h2>
 <p>Internal messages are messages sent from Halloy itself.</p>
 <h3 id="bufferinternal_messagessuccess"><a class="header" href="#bufferinternal_messagessuccess"><code>[buffer.internal_messages.success]</code></a></h3>
-<p>A internal messages which is considered a "success" such as when a connection was restored, or when connected succesfully to a server.</p>
+<p>A internal messages which is considered a "success" such as when a connection was restored, or when connected successfully to a server.</p>
 <h4 id="enabled-2"><a class="header" href="#enabled-2"><code>enabled</code></a></h4>
 <p>Control if internal message type is enabled.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -968,7 +968,7 @@ enabled = true
 smart = 180
 </code></pre>
 <h3 id="exclude"><a class="header" href="#exclude"><code>exclude</code></a></h3>
-<p>Exclude channels from receiving the server messag.
+<p>Exclude channels from receiving the server message.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not receive the server message. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
 <pre><code class="language-toml"># Type: array of strings
 # Values: array of any strings
@@ -1365,7 +1365,7 @@ notifications.</p>
 # Values: array of strings
 # Default: []
 
-[notifications.&lt;direct_mesage|file_transfer_request&gt;]
+[notifications.&lt;direct_message|file_transfer_request&gt;]
 exclude = ["HalloyUser1"]
 
 [notifications.highlight]
@@ -1383,7 +1383,7 @@ from.</p>
 # Values: array of strings
 # Default: []
 
-[notifications.&lt;direct_mesage|file_transfer_request&gt;]
+[notifications.&lt;direct_message|file_transfer_request&gt;]
 include = ["HalloyUser1"]
 
 [notifications.highlight]
@@ -1533,7 +1533,7 @@ enabled = true
 <h2 id="request"><a class="header" href="#request"><code>request</code></a></h2>
 <p>Request settings for previews.</p>
 <h3 id="user_agent"><a class="header" href="#user_agent"><code>user_agent</code></a></h3>
-<p>Some servers will only send opengraph metadata to browser-like user agents. We default to <code>WhatsApp/2</code> for wide compatability.</p>
+<p>Some servers will only send opengraph metadata to browser-like user agents. We default to <code>WhatsApp/2</code> for wide compatibility.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: "WhatsApp/2"
@@ -1542,7 +1542,7 @@ enabled = true
 user_agent = "WhatsApp/2"
 </code></pre>
 <h3 id="timeout_ms"><a class="header" href="#timeout_ms"><code>timeout_ms</code></a></h3>
-<p>Request timeout in millisceonds. Defaults is 10s.</p>
+<p>Request timeout in milliseconds. Defaults is 10s.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer
 # Default: 10000
@@ -1578,7 +1578,7 @@ max_scrape_size = 512000
 concurrency = 4
 </code></pre>
 <h3 id="delay_ms"><a class="header" href="#delay_ms"><code>delay_ms</code></a></h3>
-<p>Numer of milliseconds to wait before requesting another preview when number of requested previews &gt; <code>concurrency</code>.</p>
+<p>Number of milliseconds to wait before requesting another preview when number of requested previews &gt; <code>concurrency</code>.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer
 # Default: 500
@@ -2129,7 +2129,7 @@ default = "&lt;string&gt;"
 <p>Discover community created themes for Halloy at https://themes.halloy.chat.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="base16"><a class="header" href="#base16">Base16</a></h1>
 <p>The <a href="https://github.com/chriskempson/base16">base16</a> color scheme framework
-includes hundreds of colorschemes build using 16 colors. These colorschemes have
+includes hundreds of color schemes build using 16 colors. These color schemes have
 are compiled for Halloy in the
 <a href="https://github.com/4e554c4c/base16-halloy"><code>4e554c4c/base16-halloy</code></a>
 repository.</p>
@@ -2151,7 +2151,7 @@ Note: <code>tooltips</code> is a root key, so it must be placed before any secti
 tooltips = true
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="url-schemes"><a class="header" href="#url-schemes">URL Schemes</a></h1>
-<p>Halloy is able to recongize different URL schemes.</p>
+<p>Halloy is able to recognize different URL schemes.</p>
 <h2 id="irc-and-ircs"><a class="header" href="#irc-and-ircs">IRC and IRCS</a></h2>
 <p>The IRC URL scheme is used to create a new connection to a server.<br />
 The format is based on the <a href="https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax">URI Syntax</a>.</p>
