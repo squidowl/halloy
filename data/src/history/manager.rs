@@ -309,8 +309,7 @@ impl Manager {
         let maybe_filters = kind
             .server()
             .and_then(|server| config.servers.get(server))
-            .and_then(|conf| conf.filters.as_ref())
-            .map(|server_filters| server_filters.borrow_as_chain());
+            .map(|conf| FilterChain::from(conf.filters.as_ref()));
 
         self.data
             .history_view(kind, limit, &config.buffer, maybe_filters)
