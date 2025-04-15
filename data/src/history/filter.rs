@@ -1,58 +1,35 @@
-use chrono::{DateTime, Utc};
+use serde::Deserialize;
 
 use crate::{message::Source, Message};
 
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug, Clone, Deserialize)]
 pub enum Filter {
     ExcludeSources(Vec<Source>),
 }
 
 impl Filter {
-    fn filter(&self, message: &Message) -> bool {
+    fn pass(&self, message: &Message) -> bool {
         match &self {
-            Filter::ExcludeSources(target_list) => !target_list.contains(&message.target.source()),
+            Filter::ExcludeSources(target_list) => !target_list.contains(message.target.source()),
         }
     }
 }
 
-#[derive(Debug)]
-pub struct FilterChain {
-    filters: Vec<Filter>,
+pub struct FilterChain<'f> {
+    filters: &'f Vec<Filter>,
 }
 
-impl FilterChain {
-    pub fn new() -> Self {
-        Self {
-            filters: Vec::new(),
-        }
-    }
-    pub fn add_source_list_filter<I, T>(mut self, values: &I) -> Self
-    where
-        I: IntoIterator<Item = T> + Clone,
-        T: Into<Source> + Clone,
-    {
-        let target_list: Vec<Source> = values
-            .clone()
-            .into_iter()
-            .map(|targ| targ.clone().into())
-            .collect();
-        let filter = Filter::ExcludeSources(target_list);
-        self.filters.push(filter);
-        self
+impl<'f> FilterChain<'f> {
+    pub fn from(filters: &'f Vec<Filter>) -> Self {
+        Self { filters }
     }
 
-    pub fn build(self) -> FilterChain {
-        FilterChain {
-            filters: self.filters,
-        }
-    }
-
-    pub fn test(&self, message: &Message) -> bool {
-        for f in &self.filters {
-            if f.filter(&message) == false {
+    pub fn pass(&self, message: &Message) -> bool {
+        for filter in self.filters {
+            if !filter.pass(message) {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
