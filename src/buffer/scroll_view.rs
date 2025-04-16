@@ -52,6 +52,7 @@ pub enum Event {
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead,
+    OpenUrl(String),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -519,7 +520,7 @@ impl State {
                 );
             }
             Message::Link(message::Link::Url(url)) => {
-                let _ = open::that_detached(url);
+                return (Task::none(), Some(Event::OpenUrl(url)));
             }
             Message::Link(message::Link::User(user)) => {
                 let event = match config.buffer.nickname.click {
@@ -824,6 +825,7 @@ mod keyed {
     use iced::{Rectangle, Task, Vector, advanced};
 
     use crate::widget::{Element, Renderer, decorate};
+    use crate::widget::{Renderer, decorate};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Key {
@@ -1273,6 +1275,9 @@ mod correct_viewport {
 
     use super::{Message, keyed};
     use crate::widget::{Element, Renderer, decorate};
+
+    use super::Message;
+    use super::keyed;
 
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,

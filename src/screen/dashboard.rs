@@ -82,6 +82,7 @@ pub enum Event {
     QuitServer(Server),
     IrcError(anyhow::Error),
     Exit,
+    OpenUrl(String, bool),
 }
 
 impl Dashboard {
@@ -496,6 +497,18 @@ impl Dashboard {
                                 }
                                 buffer::Event::MarkAsRead(kind) => {
                                     self.mark_as_read(kind, clients);
+                                }
+                                buffer::Event::OpenUrl(url) => {
+                                    return (
+                                        Task::none(),
+                                        Some(Event::OpenUrl(
+                                            url,
+                                            config
+                                                .buffer
+                                                .url
+                                                .prompt_before_open,
+                                        )),
+                                    );
                                 }
                             }
 
