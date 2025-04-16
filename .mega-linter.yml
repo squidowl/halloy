@@ -8,8 +8,11 @@ ENABLE_LINTERS:
 
 EDITORCONFIG_EDITORCONFIG_CHECKER_DISABLE_ERRORS: true
 
-# RUST_CLIPPY_ARGUMENTS:
-#   - --profile ci --workspace --all-targets -- -D warnings
+RUST_CLIPPY_PRE_COMMANDS:
+  - command: apk add openssl-dev
+    cwd: "root"
+RUST_CLIPPY_ARGUMENTS:
+  - --profile ci --workspace --all-targets -- -D warnings
 
 SPELL_CSPELL_FILE_EXTENSIONS:
   - ".md"
