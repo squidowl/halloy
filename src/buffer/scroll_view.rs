@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::dashboard::BufferAction;
-use data::isupport::ChatHistoryState;
+use data::isupport::{self, ChatHistoryState};
 use data::message::{self, Limit};
 use data::server::Server;
 use data::target::{self, Target};
@@ -98,7 +98,7 @@ pub fn view<'a>(
     state: &State,
     kind: Kind,
     history: &'a history::Manager,
-    previews: Option<&'a preview::Collection>,
+    previews: Option<(&'a preview::Collection, isupport::CaseMap)>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
     format: impl Fn(
@@ -192,10 +192,9 @@ pub fn view<'a>(
 
                 let content = if let (
                     message::Content::Fragments(fragments),
-                    Some(previews),
+                    Some((previews, casemapping)),
                     true,
-                ) =
-                    (&message.content, previews, config.preview.enabled)
+                ) = (&message.content, previews, config.preview.enabled)
                 {
                     let urls = fragments
                         .iter()
@@ -204,9 +203,8 @@ pub fn view<'a>(
                         .collect::<Vec<_>>();
 
                     if !urls.is_empty() {
-                        let is_message_visible = state
-                            .visible_url_messages
-                            .contains_key(&message.hash);
+                        let is_message_visible =
+                            state.visible_url_messages.contains_key(&message.hash);
 
                         let element = if is_message_visible {
                             notify_visibility(
@@ -220,10 +218,7 @@ pub fn view<'a>(
                                 element,
                                 1000.0,
                                 notify_visibility::When::Visible,
-                                Message::EnteringViewport(
-                                    message.hash,
-                                    urls.clone(),
-                                ),
+                                Message::EnteringViewport(message.hash, urls.clone()),
                             )
                         };
 
@@ -234,15 +229,12 @@ pub fn view<'a>(
                                 continue;
                             }
 
-                            if let (
-                                true,
-                                Some(preview::State::Loaded(preview)),
-                            ) = (is_message_visible, previews.get(&url))
+                            if let (true, Some(preview::State::Loaded(preview))) =
+                                (is_message_visible, previews.get(&url))
                             {
-                                let is_hovered =
-                                    state.hovered_preview.is_some_and(
-                                        |(a, b)| a == message.hash && b == idx,
-                                    );
+                                let is_hovered = state
+                                    .hovered_preview
+                                    .is_some_and(|(a, b)| a == message.hash && b == idx);
 
                                 column = column.push_maybe(preview_row(
                                     message,
@@ -253,6 +245,7 @@ pub fn view<'a>(
                                     max_prefix_width,
                                     is_hovered,
                                     config,
+                                    casemapping,
                                 ));
                             }
                         }
@@ -1082,6 +1075,7 @@ fn preview_row<'a>(
     max_prefix_width: Option<f32>,
     is_hovered: bool,
     config: &'a Config,
+    casemapping: isupport::CaseMap,
 ) -> Option<Element<'a, Message>> {
     let target = match &message.target {
         message::Target::Channel { channel, .. } => channel.to_target(),
@@ -1099,7 +1093,7 @@ fn preview_row<'a>(
             canonical_url,
             ..
         }) => {
-            if !config.preview.card.visible(&target) {
+            if !config.preview.card.visible(&target, casemapping) {
                 return None;
             }
 
@@ -1144,7 +1138,7 @@ fn preview_row<'a>(
             )
         }
         data::Preview::Image(preview::Image { path, url, .. }) => {
-            if !config.preview.image.visible(&target) {
+            if !config.preview.image.visible(&target, casemapping) {
                 return None;
             }
 

@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::isupport;
+use crate::serde::default_bool_true;
 use crate::Target;
 use crate::serde::default_bool_true;
 
@@ -94,8 +96,8 @@ impl Default for Card {
 }
 
 impl Card {
-    pub fn visible(&self, target: &Target) -> bool {
-        is_visible(&self.include, &self.exclude, target)
+    pub fn visible(&self, target: &Target, casemapping: isupport::CaseMap) -> bool {
+        is_visible(&self.include, &self.exclude, target, casemapping)
     }
 }
 
@@ -118,21 +120,26 @@ pub enum ImageAction {
 }
 
 impl Image {
-    pub fn visible(&self, target: &Target) -> bool {
-        is_visible(&self.include, &self.exclude, target)
+    pub fn visible(&self, target: &Target, casemapping: isupport::CaseMap) -> bool {
+        is_visible(&self.include, &self.exclude, target, casemapping)
     }
 }
 
-fn is_visible(include: &[String], exclude: &[String], target: &Target) -> bool {
+fn is_visible(
+    include: &[String],
+    exclude: &[String],
+    target: &Target,
+    casemapping: isupport::CaseMap,
+) -> bool {
     let target = match target {
-        Target::Query(user) => user.as_str(),
-        Target::Channel(channel) => channel.as_str(),
+        Target::Query(user) => user.as_normalized_str(),
+        Target::Channel(channel) => channel.as_normalized_str(),
     };
 
     let is_target_filtered = |list: &[String], target: &str| -> bool {
         let wildcards = ["*", "all"];
         list.iter()
-            .any(|item| wildcards.contains(&item.as_str()) || item == target)
+            .any(|item| wildcards.contains(&item.as_str()) || casemapping.normalize(item) == target)
     };
 
     let target_included = is_target_filtered(include, target);

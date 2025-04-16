@@ -55,7 +55,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Query(server, query),
             history,
-            Some(previews),
+            Some((previews, casemapping)),
             chathistory_state,
             config,
             move |message, max_nick_width, _| {
