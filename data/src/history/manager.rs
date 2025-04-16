@@ -12,6 +12,8 @@ use crate::user::Nick;
 use crate::{buffer, config, input, isupport};
 use crate::{server, Config, Input, Server, User};
 
+use super::filter::FilterChain;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
     pub kind: history::Kind,
@@ -302,9 +304,15 @@ impl Manager {
         &self,
         kind: &history::Kind,
         limit: Option<Limit>,
-        buffer_config: &config::Buffer,
+        config: &Config,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(kind, limit, buffer_config)
+        let maybe_filters = kind
+            .server()
+            .and_then(|server| config.servers.get(server))
+            .map(|conf| FilterChain::from(conf.filters.as_ref()));
+
+        self.data
+            .history_view(kind, limit, &config.buffer, maybe_filters)
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
@@ -572,6 +580,7 @@ impl Data {
         kind: &history::Kind,
         limit: Option<Limit>,
         buffer_config: &config::Buffer,
+        filter_chain: Option<FilterChain>,
     ) -> Option<history::View> {
         let History::Full {
             messages,
@@ -586,6 +595,7 @@ impl Data {
 
         let filtered = messages
             .iter()
+            .filter(|message| filter_chain.as_ref().is_none_or(|f| f.pass(message)))
             .filter(|message| match message.target.source() {
                 message::Source::Server(Some(source)) => {
                     if let Some(server_message) = buffer_config.server_messages.get(source) {

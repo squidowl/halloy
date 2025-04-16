@@ -2,6 +2,7 @@
 
 Added:
 
+- Config option to ignore nickname, along with framework to add new filters
 - Title bar button and keyboard shortcut to mark a buffer as read (will update the read marker as well, if the `read-marker` capability is available)
 - Mark as Read settings to control when buffers are automatically marked as read
 

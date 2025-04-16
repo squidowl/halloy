@@ -5,7 +5,7 @@ use std::time::Duration;
 use irc::connection;
 use serde::{Deserialize, Deserializer};
 
-use crate::config;
+use crate::{config, history::filter::Filter, message::Source, User};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Server {
@@ -37,6 +37,9 @@ pub struct Server {
     pub password_file: Option<String>,
     /// The command which outputs a password to connect to the server.
     pub password_command: Option<String>,
+    /// Filter settings for the server, e.g. ignored nicks
+    #[serde(default, deserialize_with = "deserialize_filters_from_strings")]
+    pub filters: Vec<Filter>,
     /// A list of channels to join on connection.
     #[serde(default)]
     pub channels: Vec<String>,
@@ -154,6 +157,7 @@ impl Default for Server {
             password: Option::default(),
             password_file: Option::default(),
             password_command: Option::default(),
+            filters: Vec::default(),
             channels: Vec::default(),
             channel_keys: HashMap::default(),
             ping_time: default_ping_time(),
@@ -271,6 +275,32 @@ impl Sasl {
             None
         }
     }
+}
+fn deserialize_filters_from_strings<'de, D>(deserializer: D) -> Result<Vec<Filter>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Debug, Deserialize)]
+    pub struct Filters {
+        ignore: Option<Vec<String>>,
+    }
+
+    let filters = Filters::deserialize(deserializer)?;
+
+    let sources: Vec<Source> = filters.ignore.map_or(Vec::new(), |ignore_list| {
+        ignore_list
+            .into_iter()
+            .filter_map(|string| {
+                let Ok(user) = User::try_from(string) else {
+                    return None;
+                };
+                Some(Source::User(user))
+            })
+            .collect()
+    });
+    let filter = Filter::ExcludeSources(sources);
+    log::debug!("loaded filter for ignored nicks {:?}", filter);
+    Ok(vec![filter])
 }
 
 fn deserialize_duration_from_u64<'de, D>(deserializer: D) -> Result<Duration, D::Error>
