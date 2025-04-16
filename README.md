@@ -51,7 +51,7 @@ Halloy is also available from [Flathub](https://flathub.org/apps/org.squidowl.ha
 * Auto-completion for nicknames, commands, and channels
 * Notifications support
 * Multiple channels at the same time across servers
-* Commandbar for for quick actions
+* Command bar for for quick actions
 * Custom themes
 * Portable mode
 
