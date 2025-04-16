@@ -6,6 +6,8 @@ ENABLE_LINTERS:
   - SPELL_CSPELL
   - SPELL_LYCHEE
 
+EDITORCONFIG_EDITORCONFIG_CHECKER_DISABLE_ERRORS: true
+
 # RUST_CLIPPY_ARGUMENTS:
 #   - --profile ci --workspace --all-targets -- -D warnings
 
