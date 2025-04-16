@@ -14,6 +14,7 @@ Changed:
 - Clicking to insert a username will now use same suffixes specified for autocomplete
 - Emoji picker will only show once there are two characters after `:` (by default, configurable)
 - Autocomplete will match users based on how recently they were seen in the channel (by default, configurable)
+- Include & exclude settings for previews apply to queries as well as channels
 
 # 2025.4 (2025-04-07)
 
