@@ -425,8 +425,12 @@ impl Client {
                                         ) =
                                             self.chathistory_requests.get(batch_target)
                                         {
-                                            if let ChatHistorySubcommand::Before(_, _, limit) =
-                                                subcommand
+                                            if let ChatHistorySubcommand::Before(_, _, limit)
+                                            | ChatHistorySubcommand::Latest(
+                                                _,
+                                                MessageReference::None,
+                                                limit,
+                                            ) = subcommand
                                             {
                                                 self.chathistory_exhausted.insert(
                                                     batch_target.clone(),
