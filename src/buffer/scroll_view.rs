@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::dashboard::BufferAction;
-use data::isupport::{self, ChatHistoryState};
+use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
 use data::target::{self, Target};
@@ -98,7 +98,7 @@ pub fn view<'a>(
     state: &State,
     kind: Kind,
     history: &'a history::Manager,
-    previews: Option<(&'a preview::Collection, isupport::CaseMap)>,
+    previews: Option<data::buffer::Previews<'a>>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
     format: impl Fn(
@@ -190,73 +190,70 @@ pub fn view<'a>(
 
                 *last_date = Some(date);
 
-                let content = if let (
-                    message::Content::Fragments(fragments),
-                    Some((previews, casemapping)),
-                    true,
-                ) = (&message.content, previews, config.preview.enabled)
-                {
-                    let urls = fragments
-                        .iter()
-                        .filter_map(message::Fragment::url)
-                        .cloned()
-                        .collect::<Vec<_>>();
+                let content =
+                    if let (message::Content::Fragments(fragments), Some(previews), true) =
+                        (&message.content, previews, config.preview.enabled)
+                    {
+                        let urls = fragments
+                            .iter()
+                            .filter_map(message::Fragment::url)
+                            .cloned()
+                            .collect::<Vec<_>>();
 
-                    if !urls.is_empty() {
-                        let is_message_visible =
-                            state.visible_url_messages.contains_key(&message.hash);
+                        if !urls.is_empty() {
+                            let is_message_visible =
+                                state.visible_url_messages.contains_key(&message.hash);
 
-                        let element = if is_message_visible {
-                            notify_visibility(
-                                element,
-                                2000.0,
-                                notify_visibility::When::NotVisible,
-                                Message::ExitingViewport(message.hash),
-                            )
+                            let element = if is_message_visible {
+                                notify_visibility(
+                                    element,
+                                    2000.0,
+                                    notify_visibility::When::NotVisible,
+                                    Message::ExitingViewport(message.hash),
+                                )
+                            } else {
+                                notify_visibility(
+                                    element,
+                                    1000.0,
+                                    notify_visibility::When::Visible,
+                                    Message::EnteringViewport(message.hash, urls.clone()),
+                                )
+                            };
+
+                            let mut column = column![element];
+
+                            for (idx, url) in urls.into_iter().enumerate() {
+                                if message.hidden_urls.contains(&url) {
+                                    continue;
+                                }
+
+                                if let (true, Some(preview::State::Loaded(preview))) =
+                                    (is_message_visible, previews.get(&url))
+                                {
+                                    let is_hovered = state
+                                        .hovered_preview
+                                        .is_some_and(|(a, b)| a == message.hash && b == idx);
+
+                                    column = column.push(preview_row(
+                                        message,
+                                        preview,
+                                        &url,
+                                        idx,
+                                        max_nick_width,
+                                        max_prefix_width,
+                                        is_hovered,
+                                        config,
+                                    ));
+                                }
+                            }
+
+                            column.into()
                         } else {
-                            notify_visibility(
-                                element,
-                                1000.0,
-                                notify_visibility::When::Visible,
-                                Message::EnteringViewport(message.hash, urls.clone()),
-                            )
-                        };
-
-                        let mut column = column![element];
-
-                        for (idx, url) in urls.into_iter().enumerate() {
-                            if message.hidden_urls.contains(&url) {
-                                continue;
-                            }
-
-                            if let (true, Some(preview::State::Loaded(preview))) =
-                                (is_message_visible, previews.get(&url))
-                            {
-                                let is_hovered = state
-                                    .hovered_preview
-                                    .is_some_and(|(a, b)| a == message.hash && b == idx);
-
-                                column = column.push_maybe(preview_row(
-                                    message,
-                                    preview,
-                                    &url,
-                                    idx,
-                                    max_nick_width,
-                                    max_prefix_width,
-                                    is_hovered,
-                                    config,
-                                    casemapping,
-                                ));
-                            }
+                            element
                         }
-
-                        column.into()
                     } else {
                         element
-                    }
-                } else {
-                    element
-                };
+                    };
 
                 if is_new_day && config.buffer.date_separators.show {
                     Some(
@@ -1075,16 +1072,7 @@ fn preview_row<'a>(
     max_prefix_width: Option<f32>,
     is_hovered: bool,
     config: &'a Config,
-    casemapping: isupport::CaseMap,
-) -> Option<Element<'a, Message>> {
-    let target = match &message.target {
-        message::Target::Channel { channel, .. } => channel.to_target(),
-        message::Target::Query { query, .. } => query.to_target(),
-        message::Target::Server { .. }
-        | message::Target::Logs
-        | message::Target::Highlights { .. } => return None,
-    };
-
+) -> Element<'a, Message> {
     let content = match preview {
         data::Preview::Card(preview::Card {
             image: preview::Image { path, .. },
@@ -1092,49 +1080,26 @@ fn preview_row<'a>(
             description,
             canonical_url,
             ..
-        }) => {
-            if !config.preview.card.visible(&target, casemapping) {
-                return None;
-            }
-
-            keyed(
-                keyed::Key::Preview(message.hash, idx),
-                button(
-                    container(
-                        column![
-                            column![
-                                text(title)
-                                    .shaping(text::Shaping::Advanced)
-                                    .style(theme::text::primary)
-                            ]
-                            .push_maybe(description.as_ref().map(
-                                |description| {
-                                    text(description)
-                                        .shaping(text::Shaping::Advanced)
-                                        .style(theme::text::secondary)
-                                }
-                            ))
-                            .push_maybe(
-                                config.preview.card.show_image.then_some(
-                                    container(
-                                        image(path)
-                                            .content_fit(ContentFit::ScaleDown)
-                                    )
-                                    .max_height(200)
-                                )
-                            ),
-                        ]
-                        .max_width(400)
-                        .spacing(4),
-                    )
-                    .padding(4)
-                    .style(theme::container::image_card),
+        }) => keyed(
+            keyed::Key::Preview(message.hash, idx),
+            button(
+                container(
+                    column![column![text(title)
+                        .shaping(text::Shaping::Advanced)
+                        .style(theme::text::primary)]
+                    .push_maybe(description.as_ref().map(|description| {
+                        text(description)
+                            .shaping(text::Shaping::Advanced)
+                            .style(theme::text::secondary)
+                    }))
+                    .push_maybe(config.preview.card.show_image.then_some(
+                        container(image(path).content_fit(ContentFit::ScaleDown)).max_height(200)
+                    )),]
+                    .max_width(400)
+                    .spacing(4),
                 )
-                .on_press(Message::Link(message::Link::Url(
-                    canonical_url.to_string(),
-                )))
-                .padding(0)
-                .style(theme::button::bare),
+                .padding(4)
+                .style(theme::container::image_card),
             )
         }
         data::Preview::Image(preview::Image { path, url, .. }) => {
@@ -1160,7 +1125,10 @@ fn preview_row<'a>(
                 .padding(0)
                 .style(theme::button::bare),
             )
-        }
+            .on_press(Message::Link(message::Link::Url(url.to_string())))
+            .padding(0)
+            .style(theme::button::bare),
+        ),
     };
 
     let timestamp_gap = config
@@ -1255,18 +1223,16 @@ fn preview_row<'a>(
         None
     };
 
-    Some(
-        mouse_area(
-            row![aligned_content]
-                .push_maybe(hide_button)
-                .align_y(alignment::Vertical::Top)
-                .width(Length::Fill)
-                .spacing(4),
-        )
-        .on_enter(Message::PreviewHovered(message.hash, idx))
-        .on_exit(Message::PreviewUnhovered(message.hash, idx))
-        .into(),
+    mouse_area(
+        row![aligned_content]
+            .push_maybe(hide_button)
+            .align_y(alignment::Vertical::Top)
+            .width(Length::Fill)
+            .spacing(4),
     )
+    .on_enter(Message::PreviewHovered(message.hash, idx))
+    .on_exit(Message::PreviewUnhovered(message.hash, idx))
+    .into()
 }
 
 mod correct_viewport {

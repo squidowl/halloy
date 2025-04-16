@@ -50,12 +50,19 @@ pub fn view<'a>(
     let chathistory_state =
         clients.get_chathistory_state(server, &query.to_target());
 
+    let previews = Some(buffer::Previews::from(
+        previews,
+        &query.to_target(),
+        &config.preview,
+        casemapping,
+    ));
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
             scroll_view::Kind::Query(server, query),
             history,
-            Some((previews, casemapping)),
+            previews,
             chathistory_state,
             config,
             move |message, max_nick_width, _| {
