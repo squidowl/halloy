@@ -70,7 +70,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Channel(&state.server, channel),
             history,
-            Some(previews),
+            Some((previews, casemapping)),
             chathistory_state,
             config,
             move |message, max_nick_width, max_prefix_width| {
