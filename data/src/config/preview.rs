@@ -124,25 +124,21 @@ impl Image {
 }
 
 fn is_visible(include: &[String], exclude: &[String], target: &Target) -> bool {
-    match target {
-        Target::Query(_) => true,
-        Target::Channel(channel) => {
-            let is_channel_filtered =
-                |list: &[String], channel: &str| -> bool {
-                    let wildcards = ["*", "all"];
-                    list.iter().any(|item| {
-                        wildcards.contains(&item.as_str()) || item == channel
-                    })
-                };
+    let target = match target {
+        Target::Query(user) => user.as_str(),
+        Target::Channel(channel) => channel.as_str(),
+    };
 
-            let channel_included =
-                is_channel_filtered(include, channel.as_str());
-            let channel_excluded =
-                is_channel_filtered(exclude, channel.as_str());
+    let is_target_filtered = |list: &[String], target: &str| -> bool {
+        let wildcards = ["*", "all"];
+        list.iter()
+            .any(|item| wildcards.contains(&item.as_str()) || item == target)
+    };
 
-            channel_included || !channel_excluded
-        }
-    }
+    let target_included = is_target_filtered(include, target);
+    let target_excluded = is_target_filtered(exclude, target);
+
+    target_included || !target_excluded
 }
 
 fn default_user_agent() -> String {
