@@ -3,6 +3,7 @@ use data::{Server, config};
 use crate::widget::Element;
 
 pub mod connect_to_server;
+pub mod prompt_before_open_url;
 pub mod reload_configuration_error;
 
 #[derive(Debug)]
@@ -13,13 +14,15 @@ pub enum Modal {
         server: Server,
         config: config::Server,
     },
+    PromptBeforeOpenUrl(String),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Message {
     Cancel,
     AcceptNewServer,
     DangerouslyAcceptInvalidCerts(bool),
+    OpenURL(String),
 }
 
 pub enum Event {
@@ -39,6 +42,10 @@ impl Modal {
 
                 None
             }
+            Message::OpenURL(url) => {
+                let _ = open::that_detached(url);
+                Some(Event::CloseModal)
+            }
         }
     }
 
@@ -50,6 +57,9 @@ impl Modal {
             Modal::ServerConnect {
                 url: raw, config, ..
             } => connect_to_server::view(raw, config),
+            Modal::PromptBeforeOpenUrl(payload) => {
+                prompt_before_open_url::view(payload)
+            }
         }
     }
 }

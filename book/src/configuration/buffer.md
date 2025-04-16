@@ -18,6 +18,7 @@ Buffer settings for Halloy.
 11. [Status Message Prefix](#bufferstatus_message_prefix) - Status message prefix settings
 12. [Text Input](#buffertext_input) - Customize the text input for in buffers
 13. [Timestamp](#buffertimestamp) - Customize how timestamps are displayed within a buffer
+14. [Url](#bufferurl) - URLs in buffers
 
 ## `[buffer.away]`
 
@@ -697,4 +698,21 @@ Brackets around timestamps.
 
 [buffer.timestamp]
 brackets = { left = "[", right = "]" }
+```
+
+## `[buffer.url]`
+
+Customize how urls behave in buffers
+
+### `prompt_before_open`
+
+Prompt before opening a hyperlink.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.url]
+prompt_before_open = true
 ```

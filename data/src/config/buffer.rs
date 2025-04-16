@@ -42,6 +42,8 @@ pub struct Buffer {
     pub emojis: Emojis,
     #[serde(default)]
     pub mark_as_read: MarkAsRead,
+    #[serde(default)]
+    pub url: Url,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -70,6 +72,12 @@ impl Default for Emojis {
             auto_replace: default_bool_true(),
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct Url {
+    #[serde(default)]
+    pub prompt_before_open: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]

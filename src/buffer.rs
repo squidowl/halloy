@@ -56,6 +56,7 @@ pub enum Event {
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead(history::Kind),
+    OpenUrl(String),
 }
 
 impl Buffer {
@@ -154,6 +155,7 @@ impl Buffer {
                         Event::HidePreview(kind, hash, url)
                     }
                     channel::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
+                    channel::Event::OpenUrl(url) => Event::OpenUrl(url),
                 });
 
                 (command.map(Message::Channel), event)
@@ -171,6 +173,7 @@ impl Buffer {
                     }
                     server::Event::History(task) => Event::History(task),
                     server::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
+                    server::Event::OpenUrl(url) => Event::OpenUrl(url),
                 });
 
                 (command.map(Message::Server), event)
@@ -195,6 +198,7 @@ impl Buffer {
                         Event::HidePreview(kind, hash, url)
                     }
                     query::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
+                    query::Event::OpenUrl(url) => Event::OpenUrl(url),
                 });
 
                 (command.map(Message::Query), event)
@@ -219,6 +223,7 @@ impl Buffer {
                     logs::Event::MarkAsRead => {
                         Event::MarkAsRead(history::Kind::Logs)
                     }
+                    logs::Event::OpenUrl(url) => Event::OpenUrl(url),
                 });
 
                 (command.map(Message::Logs), event)
@@ -240,6 +245,7 @@ impl Buffer {
                         message,
                     ) => Event::GoToMessage(server, channel, message),
                     highlights::Event::History(task) => Event::History(task),
+                    highlights::Event::OpenUrl(url) => Event::OpenUrl(url),
                 });
 
                 (command.map(Message::Highlights), event)

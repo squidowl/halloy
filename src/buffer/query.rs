@@ -25,6 +25,7 @@ pub enum Event {
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead(history::Kind),
+    OpenUrl(String),
 }
 
 pub fn view<'a>(
@@ -344,6 +345,9 @@ impl Query {
                             self.buffer.clone(),
                         ))
                         .map(Event::MarkAsRead)
+                    }
+                    scroll_view::Event::OpenUrl(url) => {
+                        Some(Event::OpenUrl(url))
                     }
                 });
 
