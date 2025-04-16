@@ -1171,120 +1171,6 @@ impl Client {
                 // Updated actual nick
                 let nick = ok!(args.first());
                 self.resolved_nick = Some(nick.to_string());
-
-                // Send nick password & ghost
-                if let Some(nick_pass) = self.config.nick_password.as_ref() {
-                    // Try ghost recovery if we couldn't claim our nick
-                    if self.config.should_ghost && nick != &self.config.nickname {
-                        for sequence in &self.config.ghost_sequence {
-                            self.handle.try_send(command!(
-                                "PRIVMSG",
-                                "NickServ",
-                                format!("{sequence} {} {nick_pass}", &self.config.nickname)
-                            ))?;
-                        }
-                    }
-
-                    if let Some(identify_syntax) = &self.config.nick_identify_syntax {
-                        match identify_syntax {
-                            config::server::IdentifySyntax::PasswordNick => {
-                                self.handle.try_send(command!(
-                                    "PRIVMSG",
-                                    "NickServ",
-                                    format!("IDENTIFY {nick_pass} {}", &self.config.nickname)
-                                ))?;
-                            }
-                            config::server::IdentifySyntax::NickPassword => {
-                                self.handle.try_send(command!(
-                                    "PRIVMSG",
-                                    "NickServ",
-                                    format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                                ))?;
-                            }
-                        }
-                    } else if self.resolved_nick == Some(self.config.nickname.clone()) {
-                        // Use nickname-less identification if possible, since it has
-                        // no possible argument order issues.
-                        self.handle.try_send(command!(
-                            "PRIVMSG",
-                            "NickServ",
-                            format!("IDENTIFY {nick_pass}")
-                        ))?;
-                    } else {
-                        // Default to most common syntax if unknown
-                        self.handle.try_send(command!(
-                            "PRIVMSG",
-                            "NickServ",
-                            format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                        ))?;
-                    }
-                }
-
-                // Send user modestring
-                if let Some(modestring) = self.config.umodes.as_ref() {
-                    self.handle.try_send(command!("MODE", nick, modestring))?;
-                }
-
-                let mut events = vec![];
-
-                // Loop on connect commands
-                for command in self.config.on_connect.iter() {
-                    match crate::command::parse(command, None, &self.isupport) {
-                        Ok(crate::Command::Irc(cmd)) => {
-                            if let Ok(command) = proto::Command::try_from(cmd) {
-                                self.handle.try_send(command.into())?;
-                            }
-                        }
-                        Ok(crate::Command::Internal(cmd)) => match cmd {
-                            crate::command::Internal::OpenBuffers(targets) => {
-                                events.push(Event::OpenBuffers(
-                                    targets
-                                        .split(",")
-                                        .map(|target| {
-                                            Target::parse(
-                                                target,
-                                                self.chantypes(),
-                                                self.statusmsg(),
-                                                self.casemapping(),
-                                            )
-                                        })
-                                        .map(|target| match target {
-                                            Target::Channel(_) => {
-                                                (target, config.buffer.message_channel)
-                                            }
-                                            Target::Query(_) => {
-                                                (target, config.buffer.message_user)
-                                            }
-                                        })
-                                        .collect(),
-                                ));
-                            }
-                        },
-                        Err(_) => (),
-                    }
-                }
-
-                let channels = self
-                    .config
-                    .channels
-                    .iter()
-                    .filter_map(|channel| {
-                        target::Channel::parse(
-                            channel,
-                            self.chantypes(),
-                            self.statusmsg(),
-                            self.casemapping(),
-                        )
-                        .ok()
-                    })
-                    .collect::<Vec<_>>();
-
-                // Send JOIN
-                for message in group_joins(&channels, &self.config.channel_keys) {
-                    self.handle.try_send(message)?;
-                }
-
-                return Ok(events);
             }
             // QUIT
             Command::QUIT(comment) => {
@@ -2003,6 +1889,133 @@ impl Client {
                         // No user request, rate-limited due to WHO polling
                         return Ok(vec![]);
                     }
+                }
+            }
+            Command::Numeric(RPL_ENDOFMOTD | ERR_NOMOTD, _) => {
+                // MOTD (or ERR_NOMOTD) is the last required message in the numerics
+                // sent on successfully completing the registration process (after
+                // RPL_ISUPPORT message(s) are sent).
+                // https://modern.ircdocs.horse/#connection-registration
+                if self.registration_step == RegistrationStep::End {
+                    self.registration_step = RegistrationStep::Complete;
+
+                    // Send nick password & ghost
+                    if let Some(nick_pass) = self.config.nick_password.as_ref() {
+                        // Try ghost recovery if we couldn't claim our nick
+                        if self.config.should_ghost
+                            && self.resolved_nick == Some(self.config.nickname.clone())
+                        {
+                            for sequence in &self.config.ghost_sequence {
+                                self.handle.try_send(command!(
+                                    "PRIVMSG",
+                                    "NickServ",
+                                    format!("{sequence} {} {nick_pass}", &self.config.nickname)
+                                ))?;
+                            }
+                        }
+
+                        if let Some(identify_syntax) = &self.config.nick_identify_syntax {
+                            match identify_syntax {
+                                config::server::IdentifySyntax::PasswordNick => {
+                                    self.handle.try_send(command!(
+                                        "PRIVMSG",
+                                        "NickServ",
+                                        format!("IDENTIFY {nick_pass} {}", &self.config.nickname)
+                                    ))?;
+                                }
+                                config::server::IdentifySyntax::NickPassword => {
+                                    self.handle.try_send(command!(
+                                        "PRIVMSG",
+                                        "NickServ",
+                                        format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
+                                    ))?;
+                                }
+                            }
+                        } else if self.resolved_nick == Some(self.config.nickname.clone()) {
+                            // Use nickname-less identification if possible, since it has
+                            // no possible argument order issues.
+                            self.handle.try_send(command!(
+                                "PRIVMSG",
+                                "NickServ",
+                                format!("IDENTIFY {nick_pass}")
+                            ))?;
+                        } else {
+                            // Default to most common syntax if unknown
+                            self.handle.try_send(command!(
+                                "PRIVMSG",
+                                "NickServ",
+                                format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
+                            ))?;
+                        }
+                    }
+
+                    // Send user modestring
+                    if let (Some(nick), Some(modestring)) =
+                        (self.resolved_nick.clone(), self.config.umodes.as_ref())
+                    {
+                        self.handle.try_send(command!("MODE", nick, modestring))?;
+                    }
+
+                    let mut events = vec![];
+
+                    // Loop on connect commands
+                    for command in self.config.on_connect.iter() {
+                        match crate::command::parse(command, None, &self.isupport) {
+                            Ok(crate::Command::Irc(cmd)) => {
+                                if let Ok(command) = proto::Command::try_from(cmd) {
+                                    self.handle.try_send(command.into())?;
+                                }
+                            }
+                            Ok(crate::Command::Internal(cmd)) => match cmd {
+                                crate::command::Internal::OpenBuffers(targets) => {
+                                    events.push(Event::OpenBuffers(
+                                        targets
+                                            .split(",")
+                                            .map(|target| {
+                                                Target::parse(
+                                                    target,
+                                                    self.chantypes(),
+                                                    self.statusmsg(),
+                                                    self.casemapping(),
+                                                )
+                                            })
+                                            .map(|target| match target {
+                                                Target::Channel(_) => {
+                                                    (target, config.buffer.message_channel)
+                                                }
+                                                Target::Query(_) => {
+                                                    (target, config.buffer.message_user)
+                                                }
+                                            })
+                                            .collect(),
+                                    ));
+                                }
+                            },
+                            Err(_) => (),
+                        }
+                    }
+
+                    let channels = self
+                        .config
+                        .channels
+                        .iter()
+                        .filter_map(|channel| {
+                            target::Channel::parse(
+                                channel,
+                                self.chantypes(),
+                                self.statusmsg(),
+                                self.casemapping(),
+                            )
+                            .ok()
+                        })
+                        .collect::<Vec<_>>();
+
+                    // Send JOIN
+                    for message in group_joins(&channels, &self.config.channel_keys) {
+                        self.handle.try_send(message)?;
+                    }
+
+                    return Ok(events);
                 }
             }
             _ => {}
@@ -2952,6 +2965,7 @@ enum RegistrationStep {
     Req,
     Sasl,
     End,
+    Complete,
 }
 
 #[derive(Debug, Default)]
