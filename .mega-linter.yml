@@ -11,6 +11,7 @@ EDITORCONFIG_EDITORCONFIG_CHECKER_DISABLE_ERRORS: true
 RUST_CLIPPY_PRE_COMMANDS:
   - command: apk add openssl-dev
     cwd: "root"
+  - command: apk add alsa-lib-dev
 RUST_CLIPPY_ARGUMENTS:
   - --profile ci --workspace --all-targets -- -D warnings
 
