@@ -1598,10 +1598,8 @@ impl PartialOrd for MessageReferences {
 
 #[cfg(test)]
 mod tests {
-    use fancy_regex::Regex;
-
     use crate::{
-        config::{highlights::{Match, Nickname}, Highlights},
+        config::{highlights::Nickname, Highlights},
         message::{formatting::Color, Content, Formatting, Fragment},
         user::Nick, User
     };
@@ -1761,17 +1759,11 @@ mod tests {
                         User::try_from("Dave").unwrap(),
                         User::try_from("Bob").unwrap(),
                     ],
-                    "Bob",
+                    "#interesting",
                     Some(&nick),
                     &Highlights {
-                        nickname: Nickname {exclude: vec!["Dave".into()], include: vec!["Greg".into()]},
-                        matches: vec![
-                            Match {
-                                regex: Regex::new(r#"[h]"#).unwrap(),
-                                exclude: vec!["hope".into()],
-                                include: vec!["with".into()],
-                            }
-                        ],
+                        nickname: Nickname {exclude: vec![], include: vec!["#interesting".into()]},
+                        matches: vec![],
                     },
                 ),
                 vec![
@@ -1787,8 +1779,13 @@ mod tests {
             ),
         ];
         for ((text, channel_users, target, our_nick, highlights), expected) in tests {
-            let actual = parse_fragments_with_highlights(text, channel_users, target, our_nick, highlights);
-            assert_eq!(Content::Fragments(expected), actual);
+            if let Content::Fragments(actual) =
+                parse_fragments_with_highlights(text, channel_users, target, our_nick, highlights)
+            {
+                assert_eq!(expected, actual);
+            } else {
+                panic!("expected fragments with highlighting");
+            }
         }
     }
 }
