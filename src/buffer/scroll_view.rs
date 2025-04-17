@@ -95,7 +95,7 @@ pub fn view<'a>(
     state: &State,
     kind: Kind,
     history: &'a history::Manager,
-    previews: Option<&'a preview::Collection>,
+    previews: Option<data::buffer::Previews<'a>>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
     format: impl Fn(
@@ -241,7 +241,7 @@ pub fn view<'a>(
                                         |(a, b)| a == message.hash && b == idx,
                                     );
 
-                                column = column.push_maybe(preview_row(
+                                column = column.push(preview_row(
                                     message,
                                     preview,
                                     &url,
@@ -1076,15 +1076,7 @@ fn preview_row<'a>(
     max_prefix_width: Option<f32>,
     is_hovered: bool,
     config: &'a Config,
-) -> Option<Element<'a, Message>> {
-    let target = match &message.target {
-        message::Target::Channel { channel, .. } => channel.to_target(),
-        message::Target::Query { query, .. } => query.to_target(),
-        message::Target::Server { .. }
-        | message::Target::Logs
-        | message::Target::Highlights { .. } => return None,
-    };
-
+) -> Element<'a, Message> {
     let content = match preview {
         data::Preview::Card(preview::Card {
             image: preview::Image { path, .. },
@@ -1092,68 +1084,54 @@ fn preview_row<'a>(
             description,
             canonical_url,
             ..
-        }) => {
-            if !config.preview.card.visible(&target) {
-                return None;
-            }
-
-            keyed(
-                keyed::Key::Preview(message.hash, idx),
-                button(
-                    container(
+        }) => keyed(
+            keyed::Key::Preview(message.hash, idx),
+            button(
+                container(
+                    column![
                         column![
-                            column![
-                                text(title)
-                                    .shaping(text::Shaping::Advanced)
-                                    .style(theme::text::primary)
-                            ]
-                            .push_maybe(description.as_ref().map(
-                                |description| {
-                                    text(description)
-                                        .shaping(text::Shaping::Advanced)
-                                        .style(theme::text::secondary)
-                                }
-                            ))
-                            .push_maybe(
-                                config.preview.card.show_image.then_some(
-                                    container(
-                                        image(path)
-                                            .content_fit(ContentFit::ScaleDown)
-                                    )
-                                    .max_height(200)
-                                )
-                            ),
+                            text(title)
+                                .shaping(text::Shaping::Advanced)
+                                .style(theme::text::primary)
                         ]
-                        .max_width(400)
-                        .spacing(4),
-                    )
-                    .padding(4)
-                    .style(theme::container::image_card),
+                        .push_maybe(description.as_ref().map(|description| {
+                            text(description)
+                                .shaping(text::Shaping::Advanced)
+                                .style(theme::text::secondary)
+                        }))
+                        .push_maybe(
+                            config.preview.card.show_image.then_some(
+                                container(
+                                    image(path)
+                                        .content_fit(ContentFit::ScaleDown)
+                                )
+                                .max_height(200)
+                            )
+                        ),
+                    ]
+                    .max_width(400)
+                    .spacing(4),
                 )
-                .on_press(Message::Link(message::Link::Url(
-                    canonical_url.to_string(),
-                )))
-                .padding(0)
-                .style(theme::button::bare),
+                .padding(4)
+                .style(theme::container::image_card),
             )
-        }
-        data::Preview::Image(preview::Image { path, url, .. }) => {
-            if !config.preview.image.visible(&target) {
-                return None;
-            }
-
-            keyed(
-                keyed::Key::Preview(message.hash, idx),
-                button(
-                    container(image(path).content_fit(ContentFit::ScaleDown))
-                        .max_width(550)
-                        .max_height(350),
-                )
-                .on_press(Message::Link(message::Link::Url(url.to_string())))
-                .padding(0)
-                .style(theme::button::bare),
+            .on_press(Message::Link(message::Link::Url(
+                canonical_url.to_string(),
+            )))
+            .padding(0)
+            .style(theme::button::bare),
+        ),
+        data::Preview::Image(preview::Image { path, url, .. }) => keyed(
+            keyed::Key::Preview(message.hash, idx),
+            button(
+                container(image(path).content_fit(ContentFit::ScaleDown))
+                    .max_width(550)
+                    .max_height(350),
             )
-        }
+            .on_press(Message::Link(message::Link::Url(url.to_string())))
+            .padding(0)
+            .style(theme::button::bare),
+        ),
     };
 
     let timestamp_gap = config
@@ -1248,18 +1226,16 @@ fn preview_row<'a>(
         None
     };
 
-    Some(
-        mouse_area(
-            row![aligned_content]
-                .push_maybe(hide_button)
-                .align_y(alignment::Vertical::Top)
-                .width(Length::Fill)
-                .spacing(4),
-        )
-        .on_enter(Message::PreviewHovered(message.hash, idx))
-        .on_exit(Message::PreviewUnhovered(message.hash, idx))
-        .into(),
+    mouse_area(
+        row![aligned_content]
+            .push_maybe(hide_button)
+            .align_y(alignment::Vertical::Top)
+            .width(Length::Fill)
+            .spacing(4),
     )
+    .on_enter(Message::PreviewHovered(message.hash, idx))
+    .on_exit(Message::PreviewUnhovered(message.hash, idx))
+    .into()
 }
 
 mod correct_viewport {
