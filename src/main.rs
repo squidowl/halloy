@@ -20,20 +20,21 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use std::{env, mem};
 
-use appearance::{theme, Theme};
+use appearance::{Theme, theme};
 use chrono::Utc;
 use data::config::{self, Config};
-use data::history::{self, manager::Broadcast};
+use data::history::manager::Broadcast;
+use data::history::{self};
 use data::target::{self, Target};
 use data::version::Version;
-use data::{environment, server, version, Notification, Server, Url, User};
+use data::{Notification, Server, Url, User, environment, server, version};
 use iced::widget::{column, container};
-use iced::{padding, Length, Subscription, Task};
+use iced::{Length, Subscription, Task, padding};
 use screen::{dashboard, help, migration, welcome};
 use tokio::runtime;
 use tokio_stream::wrappers::ReceiverStream;
 
-use self::event::{events, Event};
+use self::event::{Event, events};
 use self::modal::Modal;
 use self::notification::Notifications;
 use self::widget::Element;
@@ -43,9 +44,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args();
     args.next();
 
-    let version = args
-        .next()
-        .is_some_and(|s| s == "--version" || s == "-V");
+    let version = args.next().is_some_and(|s| s == "--version" || s == "-V");
 
     if version {
         println!("halloy {}", environment::formatted_version());
@@ -93,7 +92,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .scale_factor(Halloy::scale_factor)
         .subscription(Halloy::subscription)
         .settings(settings(&config_load))
-        .run_with(move || Halloy::new(config_load, window_load, destination, log_stream))
+        .run_with(move || {
+            Halloy::new(config_load, window_load, destination, log_stream)
+        })
         .inspect_err(|err| log::error!("{}", err))?;
 
     Ok(())
@@ -140,7 +141,9 @@ impl Halloy {
         let main_window = Window::new(main_window);
 
         let load_dashboard = |config| match data::Dashboard::load() {
-            Ok(dashboard) => screen::Dashboard::restore(dashboard, config, &main_window),
+            Ok(dashboard) => {
+                screen::Dashboard::restore(dashboard, config, &main_window)
+            }
             Err(error) => {
                 log::warn!("failed to load dashboard: {error}");
 
@@ -236,7 +239,8 @@ impl Halloy {
         log_stream: ReceiverStream<Vec<logger::Record>>,
     ) -> (Halloy, Task<Message>) {
         let data::Window { size, position } = window_load.unwrap_or_default();
-        let position = position.map(window::Position::Specific).unwrap_or_default();
+        let position =
+            position.map(window::Position::Specific).unwrap_or_default();
 
         let (main_window, open_main_window) = window::open(window::Settings {
             size,
@@ -246,7 +250,8 @@ impl Halloy {
             ..window::settings()
         });
 
-        let (mut halloy, command) = Halloy::load_from_state(main_window, config_load);
+        let (mut halloy, command) =
+            Halloy::load_from_state(main_window, config_load);
         let latest_remote_version =
             Task::perform(version::latest_remote_version(), Message::Version);
 
@@ -280,7 +285,11 @@ impl Halloy {
             data::Url::Theme { colors, .. } => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     return dashboard
-                        .preview_theme_in_editor(colors, &self.main_window, &mut self.theme)
+                        .preview_theme_in_editor(
+                            colors,
+                            &self.main_window,
+                            &mut self.theme,
+                        )
                         .map(Message::Dashboard);
                 }
             }
@@ -299,7 +308,8 @@ impl Halloy {
                 Task::none()
             }
             Message::ScreenConfigReloaded(updated) => {
-                let (halloy, command) = Halloy::load_from_state(self.main_window.id, updated);
+                let (halloy, command) =
+                    Halloy::load_from_state(self.main_window.id, updated);
                 *self = halloy;
                 command
             }
@@ -327,12 +337,17 @@ impl Halloy {
                                 let removed_servers = self
                                     .servers
                                     .keys()
-                                    .filter(|server| !updated.servers.contains(server))
+                                    .filter(|server| {
+                                        !updated.servers.contains(server)
+                                    })
                                     .cloned()
                                     .collect::<Vec<_>>();
 
                                 self.servers = updated.servers.clone();
-                                self.theme = appearance::theme(&updated.appearance.selected).into();
+                                self.theme = appearance::theme(
+                                    &updated.appearance.selected,
+                                )
+                                .into();
                                 self.config = updated;
 
                                 for server in removed_servers {
@@ -340,14 +355,18 @@ impl Halloy {
                                 }
                             }
                             Err(error) => {
-                                self.modal = Some(Modal::ReloadConfigurationError(error));
+                                self.modal = Some(
+                                    Modal::ReloadConfigurationError(error),
+                                );
                             }
                         };
                         Task::none()
                     }
-                    Some(dashboard::Event::ReloadThemes) => Task::future(Config::load())
-                        .and_then(|config| Task::done(config.appearance))
-                        .map(Message::AppearanceReloaded),
+                    Some(dashboard::Event::ReloadThemes) => {
+                        Task::future(Config::load())
+                            .and_then(|config| Task::done(config.appearance))
+                            .map(Message::AppearanceReloaded)
+                    }
                     Some(dashboard::Event::QuitServer(server)) => {
                         self.clients.quit(&server, None);
                         Task::none()
@@ -387,9 +406,10 @@ impl Halloy {
                 };
 
                 match help.update(message) {
-                    Some(help::Event::RefreshConfiguration) => {
-                        Task::perform(Config::load(), Message::ScreenConfigReloaded)
-                    }
+                    Some(help::Event::RefreshConfiguration) => Task::perform(
+                        Config::load(),
+                        Message::ScreenConfigReloaded,
+                    ),
                     None => Task::none(),
                 }
             }
@@ -400,7 +420,10 @@ impl Halloy {
 
                 match welcome.update(message) {
                     Some(welcome::Event::RefreshConfiguration) => {
-                        Task::perform(Config::load(), Message::ScreenConfigReloaded)
+                        Task::perform(
+                            Config::load(),
+                            Message::ScreenConfigReloaded,
+                        )
                     }
                     None => Task::none(),
                 }
@@ -412,7 +435,10 @@ impl Halloy {
 
                 match migration.update(message) {
                     Some(migration::Event::RefreshConfiguration) => {
-                        Task::perform(Config::load(), Message::ScreenConfigReloaded)
+                        Task::perform(
+                            Config::load(),
+                            Message::ScreenConfigReloaded,
+                        )
                     }
                     None => Task::none(),
                 }
@@ -433,7 +459,12 @@ impl Halloy {
                     if is_initial {
                         // Intial is sent when first trying to connect
                         dashboard
-                            .broadcast(&server, &self.config, sent_time, Broadcast::Connecting)
+                            .broadcast(
+                                &server,
+                                &self.config,
+                                sent_time,
+                                Broadcast::Connecting,
+                            )
                             .map(Message::Dashboard)
                     } else {
                         self.notifications.notify(
@@ -472,7 +503,12 @@ impl Halloy {
                         );
 
                         dashboard
-                            .broadcast(&server, &self.config, sent_time, Broadcast::Connected)
+                            .broadcast(
+                                &server,
+                                &self.config,
+                                sent_time,
+                                Broadcast::Connected,
+                            )
                             .map(Message::Dashboard)
                     } else {
                         self.notifications.notify(
@@ -482,11 +518,17 @@ impl Halloy {
                         );
 
                         dashboard
-                            .broadcast(&server, &self.config, sent_time, Broadcast::Reconnected)
+                            .broadcast(
+                                &server,
+                                &self.config,
+                                sent_time,
+                                Broadcast::Reconnected,
+                            )
                             .map(Message::Dashboard)
                     };
 
-                    let refocus_pane = dashboard.refocus_pane().map(Message::Dashboard);
+                    let refocus_pane =
+                        dashboard.refocus_pane().map(Message::Dashboard);
 
                     Task::batch(vec![broadcast, refocus_pane])
                 }
@@ -864,42 +906,44 @@ impl Halloy {
 
                     Task::batch(commands)
                 }
-                stream::Update::Quit(server, reason) => match &mut self.screen {
-                    Screen::Dashboard(dashboard) => {
-                        self.servers.remove(&server);
+                stream::Update::Quit(server, reason) => {
+                    match &mut self.screen {
+                        Screen::Dashboard(dashboard) => {
+                            self.servers.remove(&server);
 
-                        if let Some(client) = self.clients.remove(&server) {
-                            let user = client.nickname().to_owned().into();
+                            if let Some(client) = self.clients.remove(&server) {
+                                let user = client.nickname().to_owned().into();
 
-                            let channels = client.channels().to_vec();
+                                let channels = client.channels().to_vec();
 
-                            dashboard
-                                .broadcast(
-                                    &server,
-                                    &self.config,
-                                    Utc::now(),
-                                    Broadcast::Quit {
-                                        user,
-                                        comment: reason,
-                                        user_channels: channels,
-                                    },
-                                )
-                                .map(Message::Dashboard)
-                        } else {
-                            Task::none()
+                                dashboard
+                                    .broadcast(
+                                        &server,
+                                        &self.config,
+                                        Utc::now(),
+                                        Broadcast::Quit {
+                                            user,
+                                            comment: reason,
+                                            user_channels: channels,
+                                        },
+                                    )
+                                    .map(Message::Dashboard)
+                            } else {
+                                Task::none()
+                            }
                         }
-                    }
-                    Screen::Exit { pending_exit } => {
-                        pending_exit.remove(&server);
+                        Screen::Exit { pending_exit } => {
+                            pending_exit.remove(&server);
 
-                        if pending_exit.is_empty() {
-                            iced::exit()
-                        } else {
-                            Task::none()
+                            if pending_exit.is_empty() {
+                                iced::exit()
+                            } else {
+                                Task::none()
+                            }
                         }
+                        _ => Task::none(),
                     }
-                    _ => Task::none(),
-                },
+                }
             },
             Message::Event(window, event) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
@@ -939,18 +983,27 @@ impl Halloy {
                             self.modal = None;
                         }
                         modal::Event::AcceptNewServer => {
-                            if let Some(Modal::ServerConnect { server, config, .. }) =
-                                self.modal.take()
+                            if let Some(Modal::ServerConnect {
+                                server,
+                                config,
+                                ..
+                            }) = self.modal.take()
                             {
-                                let existing_entry = self.servers.entries().find(|entry| {
-                                    entry.server == server || entry.config.server == config.server
-                                });
+                                let existing_entry =
+                                    self.servers.entries().find(|entry| {
+                                        entry.server == server
+                                            || entry.config.server
+                                                == config.server
+                                    });
 
                                 // If server already exists, we only want to join the new channels
                                 if let Some(entry) = existing_entry {
-                                    let chantypes = self.clients.get_chantypes(&server);
-                                    let statusmsg = self.clients.get_statusmsg(&server);
-                                    let casemapping = self.clients.get_casemapping(&server);
+                                    let chantypes =
+                                        self.clients.get_chantypes(&server);
+                                    let statusmsg =
+                                        self.clients.get_statusmsg(&server);
+                                    let casemapping =
+                                        self.clients.get_casemapping(&server);
 
                                     self.clients.join(
                                         &entry.server,
@@ -993,15 +1046,25 @@ impl Halloy {
                         window::Event::Moved(position) => {
                             self.main_window.position = Some(position);
                         }
-                        window::Event::Resized(size) => self.main_window.size = size,
-                        window::Event::Focused => self.main_window.focused = true,
-                        window::Event::Unfocused => self.main_window.focused = false,
+                        window::Event::Resized(size) => {
+                            self.main_window.size = size
+                        }
+                        window::Event::Focused => {
+                            self.main_window.focused = true
+                        }
+                        window::Event::Unfocused => {
+                            self.main_window.focused = false
+                        }
                         window::Event::Opened { position, size } => {
                             self.main_window.opened(position, size);
                         }
                         window::Event::CloseRequested => {
-                            if let Screen::Dashboard(dashboard) = &mut self.screen {
-                                return dashboard.exit(&self.config).map(Message::Dashboard);
+                            if let Screen::Dashboard(dashboard) =
+                                &mut self.screen
+                            {
+                                return dashboard
+                                    .exit(&self.config)
+                                    .map(Message::Dashboard);
                             } else {
                                 return iced::exit();
                             }
@@ -1014,7 +1077,8 @@ impl Halloy {
                     )];
 
                     if let Some(Screen::Dashboard(dashboard)) =
-                        matches!(event, window::Event::Focused).then_some(&mut self.screen)
+                        matches!(event, window::Event::Focused)
+                            .then_some(&mut self.screen)
                     {
                         tasks.push(
                             dashboard
@@ -1080,11 +1144,20 @@ impl Halloy {
         let content = if id == self.main_window.id {
             let screen = match &self.screen {
                 Screen::Dashboard(dashboard) => dashboard
-                    .view(&self.clients, &self.version, &self.config, &self.theme)
+                    .view(
+                        &self.clients,
+                        &self.version,
+                        &self.config,
+                        &self.theme,
+                    )
                     .map(Message::Dashboard),
                 Screen::Help(help) => help.view().map(Message::Help),
-                Screen::Welcome(welcome) => welcome.view().map(Message::Welcome),
-                Screen::Migration(migration) => migration.view().map(Message::Migration),
+                Screen::Welcome(welcome) => {
+                    welcome.view().map(Message::Welcome)
+                }
+                Screen::Migration(migration) => {
+                    migration.view().map(Message::Migration)
+                }
                 Screen::Exit { .. } => column![].into(),
             };
 
@@ -1093,7 +1166,9 @@ impl Halloy {
                 .height(Length::Fill)
                 .style(theme::container::general);
 
-            if let (Some(modal), Screen::Dashboard(_)) = (&self.modal, &self.screen) {
+            if let (Some(modal), Screen::Dashboard(_)) =
+                (&self.modal, &self.screen)
+            {
                 widget::modal(content, modal.view().map(Message::Modal), || {
                     Message::Modal(modal::Message::Cancel)
                 })
@@ -1142,14 +1217,17 @@ impl Halloy {
         let mut subscriptions = vec![
             url::listen().map(Message::RouteReceived),
             events().map(|(window, event)| Message::Event(window, event)),
-            window::events().map(|(window, event)| Message::Window(window, event)),
+            window::events()
+                .map(|(window, event)| Message::Window(window, event)),
             tick,
             streams,
         ];
 
         // We only want to listen for appearance changes if user has dynamic themes.
         if self.config.appearance.selected.is_dynamic() {
-            subscriptions.push(appearance::subscription().map(Message::AppearanceChange));
+            subscriptions.push(
+                appearance::subscription().map(Message::AppearanceChange),
+            );
         }
 
         Subscription::batch(subscriptions)

@@ -1,7 +1,9 @@
-use data::environment::WIKI_WEBSITE;
 use data::Config;
-use iced::widget::{button, column, container, image, row, text, vertical_space};
-use iced::{alignment, Length};
+use data::environment::WIKI_WEBSITE;
+use iced::widget::{
+    button, column, container, image, row, text, vertical_space,
+};
+use iced::{Length, alignment};
 
 use crate::widget::Element;
 use crate::{font, theme};

@@ -1,5 +1,7 @@
-use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::{mouse, Event, Length, Point, Rectangle, Size, Vector};
+use iced::advanced::{
+    Clipboard, Layout, Shell, Widget, layout, overlay, renderer, widget,
+};
+use iced::{Event, Length, Point, Rectangle, Size, Vector, mouse};
 
 use super::{Element, Renderer};
 use crate::Theme;
@@ -32,7 +34,9 @@ struct AnchoredOverlay<'a, Message> {
     offset: f32,
 }
 
-impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> {
+impl<Message> Widget<Message, Theme, Renderer>
+    for AnchoredOverlay<'_, Message>
+{
     fn size(&self) -> Size<Length> {
         self.base.as_widget().size()
     }
@@ -91,9 +95,12 @@ impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> 
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.base
-            .as_widget()
-            .operate(&mut tree.children[0], layout, renderer, operation);
+        self.base.as_widget().operate(
+            &mut tree.children[0],
+            layout,
+            renderer,
+            operation,
+        );
     }
 
     fn update(
@@ -145,10 +152,12 @@ impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> 
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let (first, second) = tree.children.split_at_mut(1);
 
-        let base = self
-            .base
-            .as_widget_mut()
-            .overlay(&mut first[0], layout, renderer, translation);
+        let base = self.base.as_widget_mut().overlay(
+            &mut first[0],
+            layout,
+            renderer,
+            translation,
+        );
 
         let overlay = overlay::Element::new(Box::new(Overlay {
             content: &mut self.overlay,
@@ -160,8 +169,10 @@ impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> 
         }));
 
         Some(
-            overlay::Group::with_children(base.into_iter().chain(Some(overlay)).collect())
-                .overlay(),
+            overlay::Group::with_children(
+                base.into_iter().chain(Some(overlay)).collect(),
+            )
+            .overlay(),
         )
     }
 }
@@ -184,7 +195,9 @@ struct Overlay<'a, 'b, Message> {
     position: Point,
 }
 
-impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Message> {
+impl<Message> overlay::Overlay<Message, Theme, Renderer>
+    for Overlay<'_, '_, Message>
+{
     fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
         let height = match self.anchor {
             // From top of base to top of viewport
@@ -210,7 +223,9 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
 
         let translation = match self.anchor {
             // Overlay height + offset above the top
-            Anchor::AboveTop => Vector::new(0.0, -(node.size().height + self.offset)),
+            Anchor::AboveTop => {
+                Vector::new(0.0, -(node.size().height + self.offset))
+            }
             // Offset below the top and centered
             Anchor::BelowTopCentered => Vector::new(
                 self.base_layout.width / 2.0 - node.size().width / 2.0,
@@ -284,7 +299,12 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
             .mouse_interaction(self.tree, layout, cursor, viewport, renderer)
     }
 
-    fn is_over(&self, layout: Layout<'_>, _renderer: &Renderer, cursor_position: Point) -> bool {
+    fn is_over(
+        &self,
+        layout: Layout<'_>,
+        _renderer: &Renderer,
+        cursor_position: Point,
+    ) -> bool {
         layout.bounds().contains(cursor_position)
     }
 
@@ -293,8 +313,11 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
         layout: Layout<'_>,
         renderer: &Renderer,
     ) -> Option<overlay::Element<'c, Message, Theme, Renderer>> {
-        self.content
-            .as_widget_mut()
-            .overlay(self.tree, layout, renderer, Vector::default())
+        self.content.as_widget_mut().overlay(
+            self.tree,
+            layout,
+            renderer,
+            Vector::default(),
+        )
     }
 }

@@ -1,11 +1,11 @@
 use std::io;
 use std::io::prelude::*;
 
+use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use flate2::Compression;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 pub fn compress<T: Serialize>(value: &T) -> Result<Vec<u8>, Error> {
     let bytes = serde_json::to_vec(&value).map_err(Error::Encode)?;

@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
-use data::{file_transfer, Config};
-use iced::widget::{button, center, column, container, scrollable, text, Scrollable};
+use data::{Config, file_transfer};
+use iced::widget::{
+    Scrollable, button, center, column, container, scrollable, text,
+};
 use iced::{Length, Task};
 
 use crate::widget::{Element, Text};
@@ -32,14 +34,12 @@ pub fn view<'a>(
         .into();
     }
 
-    let column = column(
-        file_transfers
-            .list()
-            .enumerate()
-            .map(|(idx, transfer)| container(transfer_row::view(transfer, idx)).into()),
-    )
-    .spacing(1)
-    .padding([0, 2]);
+    let column =
+        column(file_transfers.list().enumerate().map(|(idx, transfer)| {
+            container(transfer_row::view(transfer, idx)).into()
+        }))
+        .spacing(1)
+        .padding([0, 2]);
 
     container(
         Scrollable::new(column)
@@ -72,7 +72,8 @@ impl FileTransfers {
                 if let Some(transfer) = file_transfers.get(&id).cloned() {
                     match &config.file_transfer.save_directory {
                         Some(save_directory) => {
-                            let file_save_directory = save_directory.join(transfer.filename);
+                            let file_save_directory =
+                                save_directory.join(transfer.filename);
                             return Task::done(Message::SavePathSelected(
                                 id,
                                 Some(file_save_directory),
@@ -85,10 +86,12 @@ impl FileTransfers {
                                         .set_file_name(transfer.filename)
                                         .save_file()
                                         .await
-                                        .map(|handle| handle.path().to_path_buf())
+                                        .map(|handle| {
+                                            handle.path().to_path_buf()
+                                        })
                                 },
                                 move |path| Message::SavePathSelected(id, path),
-                            )
+                            );
                         }
                     }
                 }
@@ -110,35 +113,40 @@ impl FileTransfers {
 mod transfer_row {
     use std::time::Duration;
 
-    use super::Message;
     use bytesize::ByteSize;
     use data::file_transfer::{self, FileTransfer};
     use iced::widget::{column, container, progress_bar, row, text};
-    use iced::{alignment, padding, Length};
+    use iced::{Length, alignment, padding};
 
+    use super::Message;
     use crate::buffer::file_transfers::row_button;
     use crate::widget::Element;
     use crate::{icon, theme};
 
-    pub fn view<'a>(transfer: &FileTransfer, idx: usize) -> Element<'a, Message> {
+    pub fn view<'a>(
+        transfer: &FileTransfer,
+        idx: usize,
+    ) -> Element<'a, Message> {
         let status = match &transfer.status {
             file_transfer::Status::PendingApproval
-            | file_transfer::Status::PendingReverseConfirmation => match &transfer.direction {
-                file_transfer::Direction::Sent => container(
-                    text(format!(
-                        "Transfer to {}. Waiting for them to accept.",
-                        transfer.remote_user
-                    ))
-                    .style(theme::text::secondary),
-                ),
-                file_transfer::Direction::Received => container(
-                    text(format!(
-                        "Transfer from {}. Accept to begin.",
-                        transfer.remote_user
-                    ))
-                    .style(theme::text::secondary),
-                ),
-            },
+            | file_transfer::Status::PendingReverseConfirmation => {
+                match &transfer.direction {
+                    file_transfer::Direction::Sent => container(
+                        text(format!(
+                            "Transfer to {}. Waiting for them to accept.",
+                            transfer.remote_user
+                        ))
+                        .style(theme::text::secondary),
+                    ),
+                    file_transfer::Direction::Received => container(
+                        text(format!(
+                            "Transfer from {}. Accept to begin.",
+                            transfer.remote_user
+                        ))
+                        .style(theme::text::secondary),
+                    ),
+                }
+            }
             file_transfer::Status::Queued => {
                 let direction = match transfer.direction {
                     file_transfer::Direction::Sent => "to",
@@ -171,18 +179,23 @@ mod transfer_row {
                 transferred,
                 elapsed,
             } => {
-                let transfer_speed_and_remaining_time = if elapsed.as_secs() == 0 {
+                let transfer_speed_and_remaining_time = if elapsed.as_secs()
+                    == 0
+                {
                     String::default()
                 } else {
                     let bytes_per_second = *transferred / elapsed.as_secs();
                     let transfer_speed = ByteSize::b(bytes_per_second);
 
-                    let remaining_bytes = transfer.size.saturating_sub(*transferred);
+                    let remaining_bytes =
+                        transfer.size.saturating_sub(*transferred);
                     let remaining_time = if bytes_per_second > 0 {
-                        let estimated_seconds = remaining_bytes / bytes_per_second;
-                        let readable_time_left =
-                            humantime::format_duration(Duration::from_secs(estimated_seconds))
-                                .to_string();
+                        let estimated_seconds =
+                            remaining_bytes / bytes_per_second;
+                        let readable_time_left = humantime::format_duration(
+                            Duration::from_secs(estimated_seconds),
+                        )
+                        .to_string();
 
                         format!("| {readable_time_left}")
                     } else {
@@ -195,9 +208,12 @@ mod transfer_row {
                 let transferred = ByteSize::b(*transferred);
                 let file_size = ByteSize::b(transfer.size);
 
-                let progress_bar = container(progress_bar(0.0..=1.0, transfer.progress() as f32))
-                    .padding([4, 0])
-                    .height(11);
+                let progress_bar = container(progress_bar(
+                    0.0..=1.0,
+                    transfer.progress() as f32,
+                ))
+                .padding([4, 0])
+                .height(11);
 
                 container(
                     column![
@@ -231,13 +247,14 @@ mod transfer_row {
                     .style(theme::text::secondary),
                 )
             }
-            file_transfer::Status::Failed { error } => {
-                container(text(format!("Failed: {error}")).style(theme::text::error))
-            }
+            file_transfer::Status::Failed { error } => container(
+                text(format!("Failed: {error}")).style(theme::text::error),
+            ),
         };
 
         let file_size = ByteSize::b(transfer.size);
-        let filename = container(text(format!("{} ({file_size})", transfer.filename)));
+        let filename =
+            container(text(format!("{} ({file_size})", transfer.filename)));
 
         let mut buttons = row![].align_y(iced::Alignment::Center).spacing(2);
         let content = column![filename, status]
@@ -249,20 +266,35 @@ mod transfer_row {
 
         match &transfer.status {
             file_transfer::Status::PendingApproval => {
-                buttons =
-                    buttons.push(row_button(icon::checkmark(), Message::Approve(transfer.id)));
-                buttons = buttons.push(row_button(icon::cancel(), Message::Clear(transfer.id)));
+                buttons = buttons.push(row_button(
+                    icon::checkmark(),
+                    Message::Approve(transfer.id),
+                ));
+                buttons = buttons.push(row_button(
+                    icon::cancel(),
+                    Message::Clear(transfer.id),
+                ));
             }
             file_transfer::Status::PendingReverseConfirmation
             | file_transfer::Status::Queued
             | file_transfer::Status::Ready => {
-                buttons = buttons.push(row_button(icon::cancel(), Message::Clear(transfer.id)));
+                buttons = buttons.push(row_button(
+                    icon::cancel(),
+                    Message::Clear(transfer.id),
+                ));
             }
-            file_transfer::Status::Active { .. } | file_transfer::Status::Completed { .. } => {
-                buttons = buttons.push(row_button(icon::cancel(), Message::Clear(transfer.id)));
+            file_transfer::Status::Active { .. }
+            | file_transfer::Status::Completed { .. } => {
+                buttons = buttons.push(row_button(
+                    icon::cancel(),
+                    Message::Clear(transfer.id),
+                ));
             }
             file_transfer::Status::Failed { .. } => {
-                buttons = buttons.push(row_button(icon::cancel(), Message::Clear(transfer.id)));
+                buttons = buttons.push(row_button(
+                    icon::cancel(),
+                    Message::Clear(transfer.id),
+                ));
             }
         }
 

@@ -64,15 +64,19 @@ impl<'de> Deserialize<'de> for Match {
                 include,
                 case_insensitive,
             } => {
-                let words = words.iter().map(|s| fancy_regex::escape(s)).join("|");
+                let words =
+                    words.iter().map(|s| fancy_regex::escape(s)).join("|");
 
                 let flags = if case_insensitive { "(?i)" } else { "" };
 
                 let regex = format!(r#"{flags}(?<!\w)({words})(?!\w)"#);
 
-                let regex = RegexBuilder::new(&regex).build().map_err(|err| {
-                    serde::de::Error::custom(format!("invalid regex '{regex}': {err}"))
-                })?;
+                let regex =
+                    RegexBuilder::new(&regex).build().map_err(|err| {
+                        serde::de::Error::custom(format!(
+                            "invalid regex '{regex}': {err}"
+                        ))
+                    })?;
 
                 Ok(Match {
                     regex,
@@ -85,9 +89,12 @@ impl<'de> Deserialize<'de> for Match {
                 exclude,
                 include,
             } => {
-                let regex = RegexBuilder::new(&regex).build().map_err(|err| {
-                    serde::de::Error::custom(format!("invalid regex '{regex}': {err}"))
-                })?;
+                let regex =
+                    RegexBuilder::new(&regex).build().map_err(|err| {
+                        serde::de::Error::custom(format!(
+                            "invalid regex '{regex}': {err}"
+                        ))
+                    })?;
 
                 Ok(Match {
                     regex,
@@ -105,7 +112,11 @@ impl Match {
     }
 }
 
-fn is_target_included(include: &[String], exclude: &[String], target: &str) -> bool {
+fn is_target_included(
+    include: &[String],
+    exclude: &[String],
+    target: &str,
+) -> bool {
     let is_channel_filtered = |list: &[String], target: &str| -> bool {
         let wildcards = ["*", "all"];
         list.iter()

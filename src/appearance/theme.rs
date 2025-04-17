@@ -1,8 +1,9 @@
-use crate::widget::combo_box;
-
 pub use data::appearance::theme::{
-    color_to_hex, hex_to_color, Buffer, Button, Buttons, Colors, General, ServerMessages, Text,
+    Buffer, Button, Buttons, Colors, General, ServerMessages, Text,
+    color_to_hex, hex_to_color,
 };
+
+use crate::widget::combo_box;
 
 pub mod button;
 pub mod checkbox;
@@ -34,10 +35,12 @@ pub enum Theme {
 impl Theme {
     pub fn preview(&self, theme: data::Theme) -> Self {
         match self {
-            Theme::Selected(selected) | Theme::Preview { selected, .. } => Self::Preview {
-                selected: selected.clone(),
-                preview: theme,
-            },
+            Theme::Selected(selected) | Theme::Preview { selected, .. } => {
+                Self::Preview {
+                    selected: selected.clone(),
+                    preview: theme,
+                }
+            }
         }
     }
 

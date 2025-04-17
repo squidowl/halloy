@@ -6,7 +6,9 @@ use irc::proto::format;
 use crate::buffer::{self, AutoFormat};
 use crate::message::formatting;
 use crate::target::Target;
-use crate::{command, isupport, message, Command, Config, Message, Server, User};
+use crate::{
+    Command, Config, Message, Server, User, command, isupport, message,
+};
 
 const INPUT_HISTORY_LENGTH: usize = 100;
 
@@ -75,21 +77,31 @@ impl Input {
         casemapping: isupport::CaseMap,
         config: &Config,
     ) -> Option<Vec<Message>> {
-        let to_target =
-            |target: &str, source| match Target::parse(target, chantypes, statusmsg, casemapping) {
-                Target::Channel(channel) => message::Target::Channel { channel, source },
-                Target::Query(query) => message::Target::Query { query, source },
-            };
+        let to_target = |target: &str, source| match Target::parse(
+            target,
+            chantypes,
+            statusmsg,
+            casemapping,
+        ) {
+            Target::Channel(channel) => {
+                message::Target::Channel { channel, source }
+            }
+            Target::Query(query) => message::Target::Query { query, source },
+        };
 
         let command = self.content.command(&self.buffer)?;
 
         match command {
-            command::Irc::Msg(targets, text) | command::Irc::Notice(targets, text) => Some(
+            command::Irc::Msg(targets, text)
+            | command::Irc::Notice(targets, text) => Some(
                 targets
                     .split(',')
                     .map(|target| {
                         Message::sent(
-                            to_target(target, message::Source::User(user.clone())),
+                            to_target(
+                                target,
+                                message::Source::User(user.clone()),
+                            ),
                             message::parse_fragments_with_highlights(
                                 text.clone(),
                                 channel_users,
@@ -160,7 +172,11 @@ pub struct Storage {
 impl Storage {
     pub fn get<'a>(&'a self, buffer: &buffer::Upstream) -> Cache<'a> {
         Cache {
-            history: self.sent.get(buffer).map(Vec::as_slice).unwrap_or_default(),
+            history: self
+                .sent
+                .get(buffer)
+                .map(Vec::as_slice)
+                .unwrap_or_default(),
             draft: self
                 .draft
                 .get(buffer)

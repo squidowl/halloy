@@ -5,7 +5,10 @@ use data::{config, server};
 use futures::Stream;
 use iced::Subscription;
 
-pub fn run(entry: server::Entry, proxy: Option<config::Proxy>) -> Subscription<stream::Update> {
+pub fn run(
+    entry: server::Entry,
+    proxy: Option<config::Proxy>,
+) -> Subscription<stream::Update> {
     struct State {
         entry: server::Entry,
         proxy: Option<config::Proxy>,

@@ -1,15 +1,14 @@
-use data::command;
 use data::dashboard::BufferAction;
 use data::input::{self, Cache, Draft};
 use data::target::Target;
 use data::user::Nick;
-use data::{buffer, client, history, Config};
-use iced::widget::{column, container, text, text_input};
+use data::{Config, buffer, client, command, history};
 use iced::Task;
+use iced::widget::{column, container, text, text_input};
 
 use self::completion::Completion;
 use crate::theme;
-use crate::widget::{anchored_overlay, key_press, Element};
+use crate::widget::{Element, anchored_overlay, key_press};
 
 mod completion;
 
@@ -144,7 +143,9 @@ impl State {
 
                 let users = buffer
                     .channel()
-                    .map(|channel| clients.get_channel_users(buffer.server(), channel))
+                    .map(|channel| {
+                        clients.get_channel_users(buffer.server(), channel)
+                    })
                     .unwrap_or_default();
                 let channels = clients.get_channels(buffer.server());
                 let isupport = clients.get_isupport(buffer.server());
@@ -152,7 +153,8 @@ impl State {
                 self.completion
                     .process(&input, users, channels, &isupport, config);
 
-                let input = self.completion.complete_emoji(&input).unwrap_or(input);
+                let input =
+                    self.completion.complete_emoji(&input).unwrap_or(input);
 
                 if let Err(error) = input::parse(
                     buffer.clone(),
@@ -162,16 +164,28 @@ impl State {
                 ) {
                     if match error {
                         input::Error::ExceedsByteLimit { .. } => true,
-                        input::Error::Command(command::Error::IncorrectArgCount {
-                            actual,
-                            max,
+                        input::Error::Command(
+                            command::Error::IncorrectArgCount {
+                                actual,
+                                max,
+                                ..
+                            },
+                        ) => actual > max,
+                        input::Error::Command(command::Error::MissingSlash) => {
+                            false
+                        }
+                        input::Error::Command(
+                            command::Error::MissingCommand,
+                        ) => false,
+                        input::Error::Command(
+                            command::Error::InvalidModeString,
+                        ) => true,
+                        input::Error::Command(command::Error::ArgTooLong {
                             ..
-                        }) => actual > max,
-                        input::Error::Command(command::Error::MissingSlash) => false,
-                        input::Error::Command(command::Error::MissingCommand) => false,
-                        input::Error::Command(command::Error::InvalidModeString) => true,
-                        input::Error::Command(command::Error::ArgTooLong { .. }) => true,
-                        input::Error::Command(command::Error::TooManyTargets { .. }) => true,
+                        }) => true,
+                        input::Error::Command(
+                            command::Error::TooManyTargets { .. },
+                        ) => true,
                     } {
                         self.error = Some(error.to_string());
                     }
@@ -194,7 +208,8 @@ impl State {
 
                 if let Some(entry) = self.completion.select(config) {
                     let chantypes = clients.get_chantypes(buffer.server());
-                    let new_input = entry.complete_input(raw_input, chantypes, config);
+                    let new_input =
+                        entry.complete_input(raw_input, chantypes, config);
 
                     self.on_completion(buffer, history, new_input)
                 } else if !raw_input.is_empty() {
@@ -208,13 +223,19 @@ impl State {
                         &clients.get_isupport(buffer.server()),
                     ) {
                         Ok(input::Parsed::Internal(command)) => {
-                            history.record_input_history(buffer, raw_input.to_owned());
+                            history.record_input_history(
+                                buffer,
+                                raw_input.to_owned(),
+                            );
 
                             match command {
                                 command::Internal::OpenBuffers(targets) => {
-                                    let chantypes = clients.get_chantypes(buffer.server());
-                                    let statusmsg = clients.get_statusmsg(buffer.server());
-                                    let casemapping = clients.get_casemapping(buffer.server());
+                                    let chantypes =
+                                        clients.get_chantypes(buffer.server());
+                                    let statusmsg =
+                                        clients.get_statusmsg(buffer.server());
+                                    let casemapping = clients
+                                        .get_casemapping(buffer.server());
 
                                     return (
                                         Task::none(),
@@ -232,11 +253,18 @@ impl State {
                                                 .map(|target| match target {
                                                     Target::Channel(_) => (
                                                         target,
-                                                        config.actions.buffer.message_channel,
+                                                        config
+                                                            .actions
+                                                            .buffer
+                                                            .message_channel,
                                                     ),
-                                                    Target::Query(_) => {
-                                                        (target, config.actions.buffer.message_user)
-                                                    }
+                                                    Target::Query(_) => (
+                                                        target,
+                                                        config
+                                                            .actions
+                                                            .buffer
+                                                            .message_user,
+                                                    ),
                                                 })
                                                 .collect(),
                                         }),
@@ -264,14 +292,18 @@ impl State {
                         let mut channel_users = &[][..];
                         let chantypes = clients.get_chantypes(buffer.server());
                         let statusmsg = clients.get_statusmsg(buffer.server());
-                        let casemapping = clients.get_casemapping(buffer.server());
+                        let casemapping =
+                            clients.get_casemapping(buffer.server());
 
                         // Resolve our attributes if sending this message in a channel
-                        if let buffer::Upstream::Channel(server, channel) = &buffer {
-                            channel_users = clients.get_channel_users(server, channel);
+                        if let buffer::Upstream::Channel(server, channel) =
+                            &buffer
+                        {
+                            channel_users =
+                                clients.get_channel_users(server, channel);
 
-                            if let Some(user_with_attributes) =
-                                clients.resolve_user_attributes(server, channel, &user)
+                            if let Some(user_with_attributes) = clients
+                                .resolve_user_attributes(server, channel, &user)
                             {
                                 user = user_with_attributes.clone();
                             }
@@ -303,7 +335,8 @@ impl State {
 
                 if let Some(entry) = self.completion.tab(reverse) {
                     let chantypes = clients.get_chantypes(buffer.server());
-                    let new_input = entry.complete_input(input, chantypes, config);
+                    let new_input =
+                        entry.complete_input(input, chantypes, config);
 
                     self.on_completion(buffer, history, new_input)
                 } else {
@@ -334,13 +367,16 @@ impl State {
 
                     let users = buffer
                         .channel()
-                        .map(|channel| clients.get_channel_users(buffer.server(), channel))
+                        .map(|channel| {
+                            clients.get_channel_users(buffer.server(), channel)
+                        })
                         .unwrap_or_default();
                     let channels = clients.get_channels(buffer.server());
                     let isupport = clients.get_isupport(buffer.server());
 
-                    self.completion
-                        .process(&new_input, users, channels, &isupport, config);
+                    self.completion.process(
+                        &new_input, users, channels, &isupport, config,
+                    );
 
                     return self.on_completion(buffer, history, new_input);
                 }
@@ -362,17 +398,22 @@ impl State {
                         String::new()
                     } else {
                         *index -= 1;
-                        let new_input = cache.history.get(*index).unwrap().clone();
+                        let new_input =
+                            cache.history.get(*index).unwrap().clone();
 
                         let users = buffer
                             .channel()
-                            .map(|channel| clients.get_channel_users(buffer.server(), channel))
+                            .map(|channel| {
+                                clients
+                                    .get_channel_users(buffer.server(), channel)
+                            })
                             .unwrap_or_default();
                         let channels = clients.get_channels(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
 
-                        self.completion
-                            .process(&new_input, users, channels, &isupport, config);
+                        self.completion.process(
+                            &new_input, users, channels, &isupport, config,
+                        );
                         new_input
                     };
 

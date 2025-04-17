@@ -1,12 +1,9 @@
 use std::cell::RefCell;
 
-use iced::{
-    advanced::{widget, Clipboard, Layout, Shell},
-    window, Padding,
-};
-use iced::{mouse, Event, Rectangle};
+use iced::advanced::{Clipboard, Layout, Shell, widget};
+use iced::{Event, Padding, Rectangle, mouse, window};
 
-use super::{decorate, Element, Renderer};
+use super::{Element, Renderer, decorate};
 
 #[derive(Debug, Clone, Copy)]
 pub enum When {
@@ -38,10 +35,12 @@ where
                   clipboard: &mut dyn Clipboard,
                   shell: &mut Shell<'_, Message>,
                   viewport: &Rectangle| {
-                if let Event::Window(window::Event::RedrawRequested(_)) = &event {
+                if let Event::Window(window::Event::RedrawRequested(_)) = &event
+                {
                     let mut sent = sent.borrow_mut();
 
-                    let is_visible = viewport.expand(margin).intersects(&layout.bounds());
+                    let is_visible =
+                        viewport.expand(margin).intersects(&layout.bounds());
 
                     let should_notify = match when {
                         When::Visible => is_visible,
@@ -55,7 +54,8 @@ where
                 }
 
                 inner.as_widget_mut().update(
-                    tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+                    tree, event, layout, cursor, renderer, clipboard, shell,
+                    viewport,
                 );
             },
         )

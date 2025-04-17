@@ -19,7 +19,12 @@ fn default(theme: &Theme, status: Status) -> Style {
     primary(theme, status, false)
 }
 
-fn button(foreground: Color, background: Color, background_hover: Color, status: Status) -> Style {
+fn button(
+    foreground: Color,
+    background: Color,
+    background_hover: Color,
+    status: Status,
+) -> Style {
     match status {
         Status::Active | Status::Pressed => Style {
             background: Some(Background::Color(background)),
@@ -40,7 +45,12 @@ fn button(foreground: Color, background: Color, background_hover: Color, status:
             ..Default::default()
         },
         Status::Disabled => {
-            let active: Style = button(foreground, background, background_hover, Status::Active);
+            let active: Style = button(
+                foreground,
+                background,
+                background_hover,
+                Status::Active,
+            );
 
             Style {
                 text_color: Color {
@@ -53,7 +63,12 @@ fn button(foreground: Color, background: Color, background_hover: Color, status:
     }
 }
 
-pub fn sidebar_buffer(theme: &Theme, status: Status, is_focused: bool, is_open: bool) -> Style {
+pub fn sidebar_buffer(
+    theme: &Theme,
+    status: Status,
+    is_focused: bool,
+    is_open: bool,
+) -> Style {
     let foreground = theme.colors().text.primary;
     let button_colors = theme.colors().buttons.primary;
 

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::buffer::NicknameClickAction;
 use crate::serde::default_bool_true;
 use crate::target::{self, Target};
-use crate::{channel, config, message, Server};
+use crate::{Server, channel, config, message};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -21,7 +21,17 @@ pub enum Upstream {
     Query(Server, target::Query),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    strum::Display,
+)]
 pub enum Internal {
     #[strum(serialize = "File Transfers")]
     FileTransfers,
@@ -69,7 +79,9 @@ impl Upstream {
 
     pub fn server(&self) -> &Server {
         match self {
-            Self::Server(server) | Self::Channel(server, _) | Self::Query(server, _) => server,
+            Self::Server(server)
+            | Self::Channel(server, _)
+            | Self::Query(server, _) => server,
         }
     }
 
@@ -88,7 +100,10 @@ impl Upstream {
         }
     }
 
-    pub fn server_message_target(self, source: Option<message::source::Server>) -> message::Target {
+    pub fn server_message_target(
+        self,
+        source: Option<message::source::Server>,
+    ) -> message::Target {
         match self {
             Self::Server(_) => message::Target::Server {
                 source: message::Source::Server(source),
@@ -106,7 +121,8 @@ impl Upstream {
 }
 
 impl Internal {
-    pub const ALL: &'static [Self] = &[Self::FileTransfers, Self::Logs, Self::Highlights];
+    pub const ALL: &'static [Self] =
+        &[Self::FileTransfers, Self::Logs, Self::Highlights];
 
     pub fn key(&self) -> String {
         match self {

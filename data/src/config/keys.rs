@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::shortcut::{shortcut, KeyBind, Shortcut};
+use crate::shortcut::{KeyBind, Shortcut, shortcut};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Keyboard {
@@ -90,7 +90,8 @@ impl Default for Keyboard {
             scroll_to_top: KeyBind::scroll_to_top(),
             scroll_to_bottom: KeyBind::scroll_to_bottom(),
             cycle_next_unread_buffer: KeyBind::cycle_next_unread_buffer(),
-            cycle_previous_unread_buffer: KeyBind::cycle_previous_unread_buffer(),
+            cycle_previous_unread_buffer: KeyBind::cycle_previous_unread_buffer(
+            ),
             mark_as_read: KeyBind::mark_as_read(),
             quit_application: None,
         }
@@ -126,7 +127,10 @@ impl Keyboard {
             shortcut(self.scroll_to_top.clone(), ScrollToTop),
             shortcut(self.scroll_to_bottom.clone(), ScrollToBottom),
             shortcut(self.highlight.clone(), Highlight),
-            shortcut(self.cycle_next_unread_buffer.clone(), CycleNextUnreadBuffer),
+            shortcut(
+                self.cycle_next_unread_buffer.clone(),
+                CycleNextUnreadBuffer,
+            ),
             shortcut(
                 self.cycle_previous_unread_buffer.clone(),
                 CyclePreviousUnreadBuffer,

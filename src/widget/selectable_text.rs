@@ -5,7 +5,8 @@ use iced::advanced::{Layout, Widget, layout, mouse, renderer, text, widget};
 use iced::widget::text::{Fragment, IntoFragment, Wrapping};
 use iced::widget::text_input::Value;
 use iced::{
-    Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow, Size, Task, alignment, touch,
+    Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow, Size,
+    Task, alignment, touch,
 };
 
 pub use self::selection::selection;
@@ -119,7 +120,8 @@ where
     }
 }
 
-impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Text<'_, Theme, Renderer>
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Text<'_, Theme, Renderer>
 where
     Renderer: text::Renderer,
     Theme: Catalog,
@@ -189,18 +191,23 @@ where
         state.hovered = cursor.is_over(bounds);
 
         match event {
-            iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+            iced::Event::Mouse(mouse::Event::ButtonPressed(
+                mouse::Button::Left,
+            ))
             | iced::Event::Touch(touch::Event::FingerPressed { .. }) => {
                 if let Some(cursor) = cursor.position() {
-                    state.interaction = Interaction::Selecting(selection::Raw {
-                        start: cursor,
-                        end: cursor,
-                    });
+                    state.interaction =
+                        Interaction::Selecting(selection::Raw {
+                            start: cursor,
+                            end: cursor,
+                        });
                 } else {
                     state.interaction = Interaction::Idle;
                 }
             }
-            iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+            iced::Event::Mouse(mouse::Event::ButtonReleased(
+                mouse::Button::Left,
+            ))
             | iced::Event::Touch(touch::Event::FingerLifted { .. })
             | iced::Event::Touch(touch::Event::FingerLost { .. }) => {
                 if let Interaction::Selecting(raw) = state.interaction {
@@ -212,7 +219,8 @@ where
             iced::Event::Mouse(mouse::Event::CursorMoved { .. })
             | iced::Event::Touch(touch::Event::FingerMoved { .. }) => {
                 if let Some(cursor) = cursor.position() {
-                    if let Interaction::Selecting(raw) = &mut state.interaction {
+                    if let Interaction::Selecting(raw) = &mut state.interaction
+                    {
                         raw.end = cursor;
                     }
                 }
@@ -220,7 +228,9 @@ where
             _ => {}
         }
 
-        if prev_hovered != state.hovered || prev_interaction != state.interaction {
+        if prev_hovered != state.hovered
+            || prev_interaction != state.interaction
+        {
             shell.request_redraw();
         }
     }
@@ -250,13 +260,13 @@ where
             .selection()
             .and_then(|raw| raw.resolve(bounds))
         {
-            let line_height = f32::from(
-                self.line_height
-                    .to_absolute(self.size.unwrap_or_else(|| renderer.default_size())),
-            );
+            let line_height = f32::from(self.line_height.to_absolute(
+                self.size.unwrap_or_else(|| renderer.default_size()),
+            ));
 
-            let baseline_y =
-                bounds.y + ((selection.start.y - bounds.y) / line_height).floor() * line_height;
+            let baseline_y = bounds.y
+                + ((selection.start.y - bounds.y) / line_height).floor()
+                    * line_height;
 
             let height = selection.end.y - baseline_y - 0.5;
             let rows = (height / line_height).ceil() as usize;
@@ -266,7 +276,8 @@ where
                     (
                         selection.start.x,
                         if rows == 1 {
-                            f32::min(selection.end.x, bounds.x + bounds.width) - selection.start.x
+                            f32::min(selection.end.x, bounds.x + bounds.width)
+                                - selection.start.x
                         } else {
                             bounds.x + bounds.width - selection.start.x
                         },
@@ -280,7 +291,10 @@ where
 
                 renderer.fill_quad(
                     Quad {
-                        bounds: Rectangle::new(Point::new(x, y), Size::new(width, line_height)),
+                        bounds: Rectangle::new(
+                            Point::new(x, y),
+                            Size::new(width, line_height),
+                        ),
                         border: Border {
                             radius: 0.0.into(),
                             width: 0.0,
@@ -392,12 +406,11 @@ where
 
         let bounds = layout.bounds();
         let value = Value::new(&self.fragment);
-        if let Some(selection) = state
-            .interaction
-            .selection()
-            .and_then(|raw| selection(raw, bounds, state.paragraph.raw(), &value))
-        {
-            let mut content = value.select(selection.start, selection.end).to_string();
+        if let Some(selection) = state.interaction.selection().and_then(|raw| {
+            selection(raw, bounds, state.paragraph.raw(), &value)
+        }) {
+            let mut content =
+                value.select(selection.start, selection.end).to_string();
             operation.custom(None, bounds, &mut content);
         }
     }
@@ -417,7 +430,9 @@ fn draw<Renderer>(
     let bounds = layout.bounds();
 
     let x = match paragraph.align_x() {
-        text::Alignment::Default | text::Alignment::Left | text::Alignment::Justified => bounds.x,
+        text::Alignment::Default
+        | text::Alignment::Left
+        | text::Alignment::Justified => bounds.x,
         text::Alignment::Center => bounds.center_x(),
         text::Alignment::Right => bounds.x + bounds.width,
     };
@@ -442,7 +457,9 @@ where
     Renderer: text::Renderer + 'a,
     Theme: Catalog + 'a,
 {
-    fn from(text: Text<'a, Theme, Renderer>) -> Element<'a, Message, Theme, Renderer> {
+    fn from(
+        text: Text<'a, Theme, Renderer>,
+    ) -> Element<'a, Message, Theme, Renderer> {
         Element::new(text)
     }
 }
@@ -466,7 +483,9 @@ impl Interaction {
     pub fn selection(self) -> Option<selection::Raw> {
         match &self {
             Interaction::Idle => None,
-            Interaction::Selecting(raw) | Interaction::Selected(raw) => Some(*raw),
+            Interaction::Selecting(raw) | Interaction::Selected(raw) => {
+                Some(*raw)
+            }
         }
     }
 }
@@ -486,7 +505,9 @@ impl Interaction {
 //     renderer.measure_width(&value.to_string(), size, font, text::Shaping::Advanced)
 // }
 
-pub fn selected<Message: Send + 'static>(f: fn(Vec<(f32, String)>) -> Message) -> Task<Message> {
+pub fn selected<Message: Send + 'static>(
+    f: fn(Vec<(f32, String)>) -> Message,
+) -> Task<Message> {
     struct Selected<T> {
         contents: Vec<(f32, String)>,
         f: fn(Vec<(f32, String)>) -> T,

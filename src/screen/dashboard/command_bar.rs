@@ -2,10 +2,9 @@ use data::{Config, buffer};
 use iced::Length;
 use iced::widget::{column, container, text};
 
+use super::Focus;
 use crate::widget::{Element, combo_box, double_pass, key_press};
 use crate::{theme, window};
-
-use super::Focus;
 
 #[derive(Debug, Clone)]
 pub struct CommandBar {
@@ -64,13 +63,15 @@ impl CommandBar {
         main_window: window::Id,
     ) -> Element<'a, Message> {
         // 1px larger than default
-        let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) + 1.0;
+        let font_size =
+            config.font.size.map_or(theme::TEXT_SIZE, f32::from) + 1.0;
 
-        let combo_box = combo_box(&self.state, "Type a command...", None, Message::Command)
-            .on_close(Message::Unfocused)
-            .on_option_hovered(Message::Hovered)
-            .size(font_size)
-            .padding([8, 8]);
+        let combo_box =
+            combo_box(&self.state, "Type a command...", None, Message::Command)
+                .on_close(Message::Unfocused)
+                .on_option_hovered(Message::Hovered)
+                .size(font_size)
+                .padding([8, 8]);
 
         // Capture ESC so we can close the combobox manually from application
         // and prevent undesired effects
@@ -86,9 +87,18 @@ impl CommandBar {
             column(
                 std::iter::once(text("Type a command...").size(font_size))
                     .chain(
-                        Command::list(buffers, config, focus, resize_buffer, version, main_window)
-                            .iter()
-                            .map(|command| text(command.to_string()).size(font_size)),
+                        Command::list(
+                            buffers,
+                            config,
+                            focus,
+                            resize_buffer,
+                            version,
+                            main_window,
+                        )
+                        .iter()
+                        .map(|command| {
+                            text(command.to_string()).size(font_size)
+                        }),
                     )
                     .map(Element::from),
             )
@@ -191,7 +201,8 @@ impl Command {
 
         let version = Version::list(version).into_iter().map(Command::Version);
 
-        let application = Application::list().into_iter().map(Command::Application);
+        let application =
+            Application::list().into_iter().map(Command::Application);
 
         version
             .chain(application)
@@ -208,12 +219,18 @@ impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Command::Buffer(buffer) => write!(f, "Buffer: {buffer}"),
-            Command::Configuration(config) => write!(f, "Configuration: {config}"),
+            Command::Configuration(config) => {
+                write!(f, "Configuration: {config}")
+            }
             Command::UI(ui) => write!(f, "UI: {ui}"),
             Command::Theme(theme) => write!(f, "Theme: {theme}"),
-            Command::Version(application) => write!(f, "Version: {application}"),
+            Command::Version(application) => {
+                write!(f, "Version: {application}")
+            }
             Command::Window(window) => write!(f, "Window: {window}"),
-            Command::Application(application) => write!(f, "Application: {application}"),
+            Command::Application(application) => {
+                write!(f, "Application: {application}")
+            }
         }
     }
 }
@@ -323,7 +340,9 @@ impl std::fmt::Display for Version {
                     .remote
                     .as_ref()
                     .filter(|remote| remote != &&version.current)
-                    .map_or("(Latest release)".to_owned(), |remote| format!("(Latest: {remote})"));
+                    .map_or("(Latest release)".to_owned(), |remote| {
+                        format!("(Latest: {remote})")
+                    });
 
                 write!(f, "{} {}", version.current, latest)
             }
@@ -348,11 +367,15 @@ impl std::fmt::Display for Buffer {
             Buffer::New => write!(f, "New buffer"),
             Buffer::Close => write!(f, "Close buffer"),
             Buffer::Replace(buffer) => match buffer {
-                buffer::Upstream::Server(server) => write!(f, "Change to {server}"),
+                buffer::Upstream::Server(server) => {
+                    write!(f, "Change to {server}")
+                }
                 buffer::Upstream::Channel(server, channel) => {
                     write!(f, "Change to {channel} ({server})")
                 }
-                buffer::Upstream::Query(_, nick) => write!(f, "Change to {nick}"),
+                buffer::Upstream::Query(_, nick) => {
+                    write!(f, "Change to {nick}")
+                }
             },
             Buffer::Popout => write!(f, "Pop out buffer"),
             Buffer::Merge => write!(f, "Merge buffer"),
@@ -364,11 +387,19 @@ impl std::fmt::Display for Buffer {
 impl std::fmt::Display for Configuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Configuration::OpenConfigDirectory => write!(f, "Open config directory"),
-            Configuration::OpenWebsite => write!(f, "Open documentation website"),
+            Configuration::OpenConfigDirectory => {
+                write!(f, "Open config directory")
+            }
+            Configuration::OpenWebsite => {
+                write!(f, "Open documentation website")
+            }
             Configuration::Reload => write!(f, "Reload config file"),
-            Configuration::OpenCacheDirectory => write!(f, "Open cache directory"),
-            Configuration::OpenDataDirectory => write!(f, "Open data directory"),
+            Configuration::OpenCacheDirectory => {
+                write!(f, "Open cache directory")
+            }
+            Configuration::OpenDataDirectory => {
+                write!(f, "Open data directory")
+            }
         }
     }
 }
@@ -376,7 +407,9 @@ impl std::fmt::Display for Configuration {
 impl std::fmt::Display for Ui {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Ui::ToggleSidebarVisibility => write!(f, "Toggle sidebar visibility"),
+            Ui::ToggleSidebarVisibility => {
+                write!(f, "Toggle sidebar visibility")
+            }
         }
     }
 }
@@ -386,7 +419,9 @@ impl std::fmt::Display for Theme {
         match self {
             Theme::Switch(theme) => write!(f, "Switch to {}", theme.name),
             Theme::OpenEditor => write!(f, "Open editor"),
-            Theme::OpenThemesWebsite => write!(f, "Discover more themes (Opens website)"),
+            Theme::OpenThemesWebsite => {
+                write!(f, "Discover more themes (Opens website)")
+            }
         }
     }
 }

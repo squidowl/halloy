@@ -1,7 +1,5 @@
-use iced::{
-    widget::text_input::{Catalog, Status, Style, StyleFn},
-    Background, Border, Color,
-};
+use iced::widget::text_input::{Catalog, Status, Style, StyleFn};
+use iced::{Background, Border, Color};
 
 use super::Theme;
 
@@ -19,7 +17,9 @@ impl Catalog for Theme {
 
 pub fn primary(theme: &Theme, status: Status) -> Style {
     let active = Style {
-        background: Background::Color(theme.colors().buffer.background_text_input),
+        background: Background::Color(
+            theme.colors().buffer.background_text_input,
+        ),
         border: Border {
             radius: 4.0.into(),
             width: 0.0,
@@ -35,7 +35,9 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
     match status {
         Status::Active | Status::Hovered | Status::Focused { .. } => active,
         Status::Disabled => Style {
-            background: Background::Color(theme.colors().buffer.background_text_input),
+            background: Background::Color(
+                theme.colors().buffer.background_text_input,
+            ),
             placeholder: Color {
                 a: 0.2,
                 ..theme.colors().text.secondary

@@ -6,17 +6,19 @@ use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::server::Server;
 use data::target::{self, Target};
-use data::{client, history, preview, Config, Preview};
+use data::{Config, Preview, client, history, preview};
 use iced::widget::{
-    button, center, column, container, horizontal_rule, horizontal_space, image, mouse_area, row,
-    scrollable, text, Scrollable,
+    Scrollable, button, center, column, container, horizontal_rule,
+    horizontal_space, image, mouse_area, row, scrollable, text,
 };
-use iced::{alignment, padding, ContentFit, Length, Task};
+use iced::{ContentFit, Length, Task, alignment, padding};
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::user_context;
-use crate::widget::{notify_visibility, selectable_text, Element, MESSAGE_MARKER_TEXT};
+use crate::widget::{
+    Element, MESSAGE_MARKER_TEXT, notify_visibility, selectable_text,
+};
 use crate::{font, icon, theme};
 
 #[derive(Debug, Clone)]
@@ -64,9 +66,9 @@ pub enum Kind<'a> {
 impl Kind<'_> {
     fn server(&self) -> Option<&Server> {
         match self {
-            Kind::Server(server) | Kind::Channel(server, _) | Kind::Query(server, _) => {
-                Some(server)
-            }
+            Kind::Server(server)
+            | Kind::Channel(server, _)
+            | Kind::Query(server, _) => Some(server),
             Kind::Logs | Kind::Highlights => None,
         }
     }
@@ -79,7 +81,9 @@ impl From<Kind<'_>> for history::Kind {
             Kind::Channel(server, channel) => {
                 history::Kind::Channel(server.clone(), channel.clone())
             }
-            Kind::Query(server, nick) => history::Kind::Query(server.clone(), nick.clone()),
+            Kind::Query(server, nick) => {
+                history::Kind::Query(server.clone(), nick.clone())
+            }
             Kind::Logs => history::Kind::Logs,
             Kind::Highlights => history::Kind::Highlights,
         }
@@ -93,9 +97,15 @@ pub fn view<'a>(
     previews: Option<&'a preview::Collection>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
-    format: impl Fn(&'a data::Message, Option<f32>, Option<f32>) -> Option<Element<'a, Message>> + 'a,
+    format: impl Fn(
+        &'a data::Message,
+        Option<f32>,
+        Option<f32>,
+    ) -> Option<Element<'a, Message>>
+    + 'a,
 ) -> Element<'a, Message> {
-    let divider_font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
+    let divider_font_size =
+        config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
 
     let Some(history::View {
         has_more_older_messages,
@@ -110,31 +120,34 @@ pub fn view<'a>(
         return column![].into();
     };
 
-    let top_row =
-        if let (false, Some(chathistory_state)) = (has_more_older_messages, chathistory_state) {
-            let (content, message) = match chathistory_state {
-                ChatHistoryState::Exhausted => ("No Older Chat History Messages Available", None),
-                ChatHistoryState::PendingRequest => ("...", None),
-                ChatHistoryState::Ready => (
-                    "Request Older Chat History Messages",
-                    Some(Message::RequestOlderChatHistory),
-                ),
-            };
-
-            let top_row_button = button(text(content).size(divider_font_size))
-                .padding([3, 5])
-                .style(|theme, status| theme::button::primary(theme, status, false))
-                .on_press_maybe(message);
-
-            Some(
-                row![horizontal_space(), top_row_button, horizontal_space()]
-                    .padding(padding::top(2).bottom(6))
-                    .width(Length::Fill)
-                    .align_y(iced::Alignment::Center),
-            )
-        } else {
-            None
+    let top_row = if let (false, Some(chathistory_state)) =
+        (has_more_older_messages, chathistory_state)
+    {
+        let (content, message) = match chathistory_state {
+            ChatHistoryState::Exhausted => {
+                ("No Older Chat History Messages Available", None)
+            }
+            ChatHistoryState::PendingRequest => ("...", None),
+            ChatHistoryState::Ready => (
+                "Request Older Chat History Messages",
+                Some(Message::RequestOlderChatHistory),
+            ),
         };
+
+        let top_row_button = button(text(content).size(divider_font_size))
+            .padding([3, 5])
+            .style(|theme, status| theme::button::primary(theme, status, false))
+            .on_press_maybe(message);
+
+        Some(
+            row![horizontal_space(), top_row_button, horizontal_space()]
+                .padding(padding::top(2).bottom(6))
+                .width(Length::Fill)
+                .align_y(iced::Alignment::Center),
+        )
+    } else {
+        None
+    };
 
     let count = old_messages.len() + new_messages.len();
     let oldest = old_messages
@@ -151,86 +164,102 @@ pub fn view<'a>(
         )
     });
 
-    let max_prefix_width = max_prefix_chars.map(|len| font::width_from_chars(len, &config.font));
+    let max_prefix_width =
+        max_prefix_chars.map(|len| font::width_from_chars(len, &config.font));
 
-    let message_rows = |last_date: Option<NaiveDate>, messages: &[&'a data::Message]| {
+    let message_rows = |last_date: Option<NaiveDate>,
+                        messages: &[&'a data::Message]| {
         messages
             .iter()
             .filter_map(|message| {
-                format(message, max_nick_width, max_prefix_width)
-                    .map(|element| (message, keyed(keyed::Key::message(message), element)))
+                format(message, max_nick_width, max_prefix_width).map(
+                    |element| {
+                        (message, keyed(keyed::Key::message(message), element))
+                    },
+                )
             })
             .scan(last_date, |last_date, (message, element)| {
-                let date = message.server_time.with_timezone(&Local).date_naive();
+                let date =
+                    message.server_time.with_timezone(&Local).date_naive();
 
                 let is_new_day = last_date.is_none_or(|prev| date > prev);
 
                 *last_date = Some(date);
 
-                let content =
-                    if let (message::Content::Fragments(fragments), Some(previews), true) =
-                        (&message.content, previews, config.preview.enabled)
-                    {
-                        let urls = fragments
-                            .iter()
-                            .filter_map(message::Fragment::url)
-                            .cloned()
-                            .collect::<Vec<_>>();
+                let content = if let (
+                    message::Content::Fragments(fragments),
+                    Some(previews),
+                    true,
+                ) =
+                    (&message.content, previews, config.preview.enabled)
+                {
+                    let urls = fragments
+                        .iter()
+                        .filter_map(message::Fragment::url)
+                        .cloned()
+                        .collect::<Vec<_>>();
 
-                        if !urls.is_empty() {
-                            let is_message_visible =
-                                state.visible_url_messages.contains_key(&message.hash);
+                    if !urls.is_empty() {
+                        let is_message_visible = state
+                            .visible_url_messages
+                            .contains_key(&message.hash);
 
-                            let element = if is_message_visible {
-                                notify_visibility(
-                                    element,
-                                    2000.0,
-                                    notify_visibility::When::NotVisible,
-                                    Message::ExitingViewport(message.hash),
-                                )
-                            } else {
-                                notify_visibility(
-                                    element,
-                                    1000.0,
-                                    notify_visibility::When::Visible,
-                                    Message::EnteringViewport(message.hash, urls.clone()),
-                                )
-                            };
+                        let element = if is_message_visible {
+                            notify_visibility(
+                                element,
+                                2000.0,
+                                notify_visibility::When::NotVisible,
+                                Message::ExitingViewport(message.hash),
+                            )
+                        } else {
+                            notify_visibility(
+                                element,
+                                1000.0,
+                                notify_visibility::When::Visible,
+                                Message::EnteringViewport(
+                                    message.hash,
+                                    urls.clone(),
+                                ),
+                            )
+                        };
 
-                            let mut column = column![element];
+                        let mut column = column![element];
 
-                            for (idx, url) in urls.into_iter().enumerate() {
-                                if message.hidden_urls.contains(&url) {
-                                    continue;
-                                }
-
-                                if let (true, Some(preview::State::Loaded(preview))) =
-                                    (is_message_visible, previews.get(&url))
-                                {
-                                    let is_hovered = state
-                                        .hovered_preview
-                                        .is_some_and(|(a, b)| a == message.hash && b == idx);
-
-                                    column = column.push_maybe(preview_row(
-                                        message,
-                                        preview,
-                                        &url,
-                                        idx,
-                                        max_nick_width,
-                                        max_prefix_width,
-                                        is_hovered,
-                                        config,
-                                    ));
-                                }
+                        for (idx, url) in urls.into_iter().enumerate() {
+                            if message.hidden_urls.contains(&url) {
+                                continue;
                             }
 
-                            column.into()
-                        } else {
-                            element
+                            if let (
+                                true,
+                                Some(preview::State::Loaded(preview)),
+                            ) = (is_message_visible, previews.get(&url))
+                            {
+                                let is_hovered =
+                                    state.hovered_preview.is_some_and(
+                                        |(a, b)| a == message.hash && b == idx,
+                                    );
+
+                                column = column.push_maybe(preview_row(
+                                    message,
+                                    preview,
+                                    &url,
+                                    idx,
+                                    max_nick_width,
+                                    max_prefix_width,
+                                    is_hovered,
+                                    config,
+                                ));
+                            }
                         }
+
+                        column.into()
                     } else {
                         element
-                    };
+                    }
+                } else {
+                    element
+                };
 
                 if is_new_day && config.buffer.date_separators.show {
                     Some(
@@ -240,8 +269,10 @@ pub fn view<'a>(
                                     .width(Length::Fill)
                                     .padding(padding::right(6)),
                                 text(
-                                    date.format(&config.buffer.date_separators.format)
-                                        .to_string()
+                                    date.format(
+                                        &config.buffer.date_separators.format
+                                    )
+                                    .to_string()
                                 )
                                 .size(divider_font_size)
                                 .style(theme::text::secondary),
@@ -264,9 +295,9 @@ pub fn view<'a>(
 
     let old = message_rows(None, &old_messages);
     let new = message_rows(
-        old_messages
-            .last()
-            .map(|message| message.server_time.with_timezone(&Local).date_naive()),
+        old_messages.last().map(|message| {
+            message.server_time.with_timezone(&Local).date_naive()
+        }),
         &new_messages,
     );
 
@@ -378,12 +409,16 @@ impl State {
 
                 match old_status {
                     // Scrolling down from top & have more to load
-                    _ if old_status.is_bottom(relative_offset) && has_more_newer_messages => {
+                    _ if old_status.is_bottom(relative_offset)
+                        && has_more_newer_messages =>
+                    {
                         self.status = Status::Unlocked;
                         self.limit = Limit::Top(count + Limit::DEFAULT_STEP);
                     }
                     // Scrolling up from bottom & have more to load
-                    _ if old_status.is_top(relative_offset) && has_more_older_messages => {
+                    _ if old_status.is_top(relative_offset)
+                        && has_more_older_messages =>
+                    {
                         self.status = Status::Unlocked;
                         self.limit = Limit::Bottom(count + Limit::DEFAULT_STEP);
 
@@ -392,9 +427,14 @@ impl State {
                             old_messages,
                             new_messages,
                             ..
-                        }) = history.get_messages(&kind.into(), Some(self.limit), &config.buffer)
-                        {
-                            if let Some(oldest) = old_messages.iter().chain(&new_messages).next() {
+                        }) = history.get_messages(
+                            &kind.into(),
+                            Some(self.limit),
+                            &config.buffer,
+                        ) {
+                            if let Some(oldest) =
+                                old_messages.iter().chain(&new_messages).next()
+                            {
                                 self.limit = Limit::Since(oldest.server_time);
                             }
                         }
@@ -416,15 +456,15 @@ impl State {
                     // Hit top
                     _ if old_status.is_top(relative_offset) => {
                         // If we're infinite scroll & out of messages, load more via chathistory
-                        if let Some(server) = kind
-                            .server()
-                            .filter(|_| infinite_scroll && !has_more_older_messages)
-                        {
+                        if let Some(server) = kind.server().filter(|_| {
+                            infinite_scroll && !has_more_older_messages
+                        }) {
                             // Load more history & ensure scrollable is unlocked
                             event = Some(Event::RequestOlderChatHistory);
                             self.status = Status::Unlocked;
                             self.limit = Limit::Top(
-                                clients.get_server_chathistory_limit(server) as usize
+                                clients.get_server_chathistory_limit(server)
+                                    as usize
                                     + Limit::DEFAULT_COUNT,
                             );
                         } else {
@@ -437,7 +477,9 @@ impl State {
                         }
                     }
                     // Move away from bottom
-                    Status::Bottom if !old_status.is_bottom(relative_offset) => {
+                    Status::Bottom
+                        if !old_status.is_bottom(relative_offset) =>
+                    {
                         self.status = Status::Unlocked;
                         self.limit = Limit::Since(oldest);
                     }
@@ -450,7 +492,9 @@ impl State {
 
                 // If alignment changes, we need to flip the scrollable translation
                 // for the new offset
-                if let Some(new_offset) = self.status.flipped(old_status, viewport) {
+                if let Some(new_offset) =
+                    self.status.flipped(old_status, viewport)
+                {
                     tasks.push(correct_viewport::scroll_to(
                         self.scrollable.clone(),
                         new_offset,
@@ -498,7 +542,11 @@ impl State {
 
                 return (Task::none(), event);
             }
-            Message::Link(message::Link::GoToMessage(server, channel, message)) => {
+            Message::Link(message::Link::GoToMessage(
+                server,
+                channel,
+                message,
+            )) => {
                 return (
                     Task::none(),
                     Some(Event::GoToMessage(server, channel, message)),
@@ -556,7 +604,10 @@ impl State {
                             + Limit::DEFAULT_COUNT,
                     );
 
-                    return (Task::none(), Some(Event::RequestOlderChatHistory));
+                    return (
+                        Task::none(),
+                        Some(Event::RequestOlderChatHistory),
+                    );
                 }
             }
             Message::EnteringViewport(hash, urls) => {
@@ -594,21 +645,25 @@ impl State {
     }
 
     pub fn scroll_up_page(&mut self) -> Task<Message> {
-        correct_viewport::scroll_by(self.scrollable.clone(), self.status.anchor(), |bounds| {
-            scrollable::AbsoluteOffset {
+        correct_viewport::scroll_by(
+            self.scrollable.clone(),
+            self.status.anchor(),
+            |bounds| scrollable::AbsoluteOffset {
                 x: 0.0,
                 y: -(bounds.height - 20.0).max(0.0).min(bounds.height),
-            }
-        })
+            },
+        )
     }
 
     pub fn scroll_down_page(&mut self) -> Task<Message> {
-        correct_viewport::scroll_by(self.scrollable.clone(), self.status.anchor(), |bounds| {
-            scrollable::AbsoluteOffset {
+        correct_viewport::scroll_by(
+            self.scrollable.clone(),
+            self.status.anchor(),
+            |bounds| scrollable::AbsoluteOffset {
                 x: 0.0,
                 y: (bounds.height - 20.0).max(0.0).min(bounds.height),
-            }
-        })
+            },
+        )
     }
 
     pub fn scroll_to_start(&mut self) -> Task<Message> {
@@ -668,7 +723,8 @@ impl State {
 
         self.limit = Limit::Bottom(offset.max(Limit::DEFAULT_COUNT));
 
-        keyed::find(self.scrollable.clone(), keyed::Key::Message(message)).map(Message::ScrollTo)
+        keyed::find(self.scrollable.clone(), keyed::Key::Message(message))
+            .map(Message::ScrollTo)
     }
 
     pub fn scroll_to_backlog(
@@ -699,7 +755,8 @@ impl State {
 
         self.limit = Limit::Bottom(offset.max(Limit::DEFAULT_COUNT));
 
-        keyed::find(self.scrollable.clone(), keyed::Key::Divider).map(Message::ScrollTo)
+        keyed::find(self.scrollable.clone(), keyed::Key::Divider)
+            .map(Message::ScrollTo)
     }
 
     pub fn visible_urls(&self) -> impl Iterator<Item = &url::Url> {
@@ -764,10 +821,9 @@ mod keyed {
     use data::message;
     use iced::advanced::widget::{self, Operation};
     use iced::widget::scrollable::{self, AbsoluteOffset};
-    use iced::{advanced, Rectangle, Task, Vector};
+    use iced::{Rectangle, Task, Vector, advanced};
 
-    use crate::widget::Element;
-    use crate::widget::{decorate, Renderer};
+    use crate::widget::{Element, Renderer, decorate};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Key {
@@ -824,8 +880,10 @@ mod keyed {
 
         pub fn reversed_offset(&self) -> AbsoluteOffset {
             AbsoluteOffset {
-                x: (self.content.width - self.viewport.width).max(0.0) - self.offset.x,
-                y: (self.content.height - self.viewport.height).max(0.0) - self.offset.y,
+                x: (self.content.width - self.viewport.width).max(0.0)
+                    - self.offset.x,
+                y: (self.content.height - self.viewport.height).max(0.0)
+                    - self.offset.y,
             }
         }
     }
@@ -912,15 +970,14 @@ mod keyed {
         }
 
         fn finish(&self) -> widget::operation::Outcome<Hit> {
-            match self
-                .scrollable
-                .zip(self.hit_bounds)
-                .map(|(scrollable, hit_bounds)| Hit {
+            match self.scrollable.zip(self.hit_bounds).map(
+                |(scrollable, hit_bounds)| Hit {
                     key: self.key,
                     scrollable,
                     hit_bounds,
                     prev_bounds: self.prev_bounds,
-                }) {
+                },
+            ) {
                 Some(hit) => widget::operation::Outcome::Some(hit),
                 None => widget::operation::Outcome::None,
             }
@@ -979,7 +1036,11 @@ mod keyed {
                     if self.hit_bounds.is_none()
                         && self.scrollable.is_some_and(|scrollable| {
                             scrollable.viewport.intersects(
-                                &(bounds - Vector::new(scrollable.offset.x, scrollable.offset.y)),
+                                &(bounds
+                                    - Vector::new(
+                                        scrollable.offset.x,
+                                        scrollable.offset.y,
+                                    )),
                             )
                         })
                     {
@@ -990,15 +1051,14 @@ mod keyed {
         }
 
         fn finish(&self) -> widget::operation::Outcome<Hit> {
-            match self
-                .scrollable
-                .zip(self.hit_bounds)
-                .map(|(scrollable, (key, hit_bounds))| Hit {
+            match self.scrollable.zip(self.hit_bounds).map(
+                |(scrollable, (key, hit_bounds))| Hit {
                     key,
                     scrollable,
                     hit_bounds,
                     prev_bounds: None,
-                }) {
+                },
+            ) {
                 Some(hit) => widget::operation::Outcome::Some(hit),
                 None => widget::operation::Outcome::None,
             }
@@ -1040,27 +1100,38 @@ fn preview_row<'a>(
                 keyed::Key::Preview(message.hash, idx),
                 button(
                     container(
-                        column![column![text(title)
-                            .shaping(text::Shaping::Advanced)
-                            .style(theme::text::primary)]
-                        .push_maybe(description.as_ref().map(|description| {
-                            text(description)
-                                .shaping(text::Shaping::Advanced)
-                                .style(theme::text::secondary)
-                        }))
-                        .push_maybe(
-                            config.preview.card.show_image.then_some(
-                                container(image(path).content_fit(ContentFit::ScaleDown))
+                        column![
+                            column![
+                                text(title)
+                                    .shaping(text::Shaping::Advanced)
+                                    .style(theme::text::primary)
+                            ]
+                            .push_maybe(description.as_ref().map(
+                                |description| {
+                                    text(description)
+                                        .shaping(text::Shaping::Advanced)
+                                        .style(theme::text::secondary)
+                                }
+                            ))
+                            .push_maybe(
+                                config.preview.card.show_image.then_some(
+                                    container(
+                                        image(path)
+                                            .content_fit(ContentFit::ScaleDown)
+                                    )
                                     .max_height(200)
-                            )
-                        ),]
+                                )
+                            ),
+                        ]
                         .max_width(400)
                         .spacing(4),
                     )
                     .padding(4)
                     .style(theme::container::image_card),
                 )
-                .on_press(Message::Link(message::Link::Url(canonical_url.to_string())))
+                .on_press(Message::Link(message::Link::Url(
+                    canonical_url.to_string(),
+                )))
                 .padding(0)
                 .style(theme::button::bare),
             )
@@ -1087,14 +1158,20 @@ fn preview_row<'a>(
     let timestamp_gap = config
         .buffer
         .format_timestamp(&message.server_time)
-        .map(|timestamp| selectable_text(" ".repeat(timestamp.chars().count())));
+        .map(|timestamp| {
+            selectable_text(" ".repeat(timestamp.chars().count()))
+        });
 
     let aligned_content = match &config.buffer.nickname.alignment {
-        data::buffer::Alignment::Left => row![].push_maybe(timestamp_gap).push(content).into(),
+        data::buffer::Alignment::Left => {
+            row![].push_maybe(timestamp_gap).push(content).into()
+        }
         data::buffer::Alignment::Right => {
             let prefixes = message.target.prefixes().map_or(
-                max_nick_width
-                    .and_then(|_| max_prefix_width.map(|width| selectable_text("").width(width))),
+                max_nick_width.and_then(|_| {
+                    max_prefix_width
+                        .map(|width| selectable_text("").width(width))
+                }),
                 |prefixes| {
                     let text = selectable_text(
                         " ".repeat(
@@ -1119,27 +1196,30 @@ fn preview_row<'a>(
 
             let space = selectable_text(" ");
 
-            let nick = if let message::Source::User(user) = message.target.source() {
-                let mut nick = selectable_text(
-                    " ".repeat(
-                        config
-                            .buffer
-                            .nickname
-                            .brackets
-                            .format(user.display(config.buffer.nickname.show_access_levels))
-                            .chars()
-                            .count(),
-                    ),
-                );
+            let nick =
+                if let message::Source::User(user) = message.target.source() {
+                    let mut nick = selectable_text(
+                        " ".repeat(
+                            config
+                                .buffer
+                                .nickname
+                                .brackets
+                                .format(user.display(
+                                    config.buffer.nickname.show_access_levels,
+                                ))
+                                .chars()
+                                .count(),
+                        ),
+                    );
 
-                if let Some(width) = max_nick_width {
-                    nick = nick.width(width);
-                }
+                    if let Some(width) = max_nick_width {
+                        nick = nick.width(width);
+                    }
 
-                Some(nick)
-            } else {
-                None
-            };
+                    Some(nick)
+                } else {
+                    None
+                };
 
             let timestamp_nickname_row = row![]
                 .push_maybe(timestamp_gap)
@@ -1159,7 +1239,9 @@ fn preview_row<'a>(
                 .width(22)
                 .height(22)
                 .on_press(Message::HidePreview(message.hash, url.clone()))
-                .style(|theme, status| theme::button::secondary(theme, status, false)),
+                .style(|theme, status| {
+                    theme::button::secondary(theme, status, false)
+                }),
         )
     } else {
         None
@@ -1183,17 +1265,14 @@ mod correct_viewport {
     use std::any::Any;
     use std::sync::{Arc, Mutex};
 
-    use iced::advanced::widget::operation::{scrollable, Scrollable};
+    use iced::advanced::widget::operation::{Scrollable, scrollable};
     use iced::advanced::widget::{Id, Operation};
     use iced::advanced::{self, widget};
     use iced::widget::scrollable::{AbsoluteOffset, Anchor};
     use iced::{Rectangle, Task, Vector};
 
-    use crate::widget::decorate;
-    use crate::widget::{Element, Renderer};
-
-    use super::keyed;
-    use super::Message;
+    use super::{Message, keyed};
+    use crate::widget::{Element, Renderer, decorate};
 
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,
@@ -1403,7 +1482,10 @@ mod correct_viewport {
             .into()
     }
 
-    pub fn scroll_to<T: Send + 'static>(target: impl Into<Id>, offset: AbsoluteOffset) -> Task<T> {
+    pub fn scroll_to<T: Send + 'static>(
+        target: impl Into<Id>,
+        offset: AbsoluteOffset,
+    ) -> Task<T> {
         struct ScrollTo {
             target: Id,
             offset: AbsoluteOffset,
@@ -1432,7 +1514,12 @@ mod correct_viewport {
                 }
             }
 
-            fn custom(&mut self, id: Option<&Id>, _bounds: Rectangle, state: &mut dyn Any) {
+            fn custom(
+                &mut self,
+                id: Option<&Id>,
+                _bounds: Rectangle,
+                state: &mut dyn Any,
+            ) {
                 if id.is_some_and(|id| *id == self.target) {
                     if let Some(is_scroll_to) = state.downcast_mut::<bool>() {
                         *is_scroll_to = true;
@@ -1481,11 +1568,13 @@ mod correct_viewport {
 
                     // Flip offset
                     if matches!(self.anchor, Anchor::End) {
-                        offset.y =
-                            (offset.y * -1.0).clamp(0.0, content_bounds.height - bounds.height);
+                        offset.y = (offset.y * -1.0)
+                            .clamp(0.0, content_bounds.height - bounds.height);
                     } else {
                         let min_offset = 0.0 - translation.y;
-                        let max_offset = (content_bounds.height - bounds.height) - translation.y;
+                        let max_offset = (content_bounds.height
+                            - bounds.height)
+                            - translation.y;
 
                         offset.y = offset.y.clamp(min_offset, max_offset);
                     }
@@ -1494,7 +1583,12 @@ mod correct_viewport {
                 }
             }
 
-            fn custom(&mut self, id: Option<&Id>, _bounds: Rectangle, state: &mut dyn Any) {
+            fn custom(
+                &mut self,
+                id: Option<&Id>,
+                _bounds: Rectangle,
+                state: &mut dyn Any,
+            ) {
                 if id.is_some_and(|id| *id == self.target) {
                     if let Some(is_scroll_to) = state.downcast_mut::<bool>() {
                         *is_scroll_to = true;

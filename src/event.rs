@@ -28,9 +28,9 @@ fn filtered_events(
             modifiers,
             ..
         }) if c.as_str() == "c" && modifiers.command() => Some(Event::Copy),
-        iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) if ignored(status) => {
-            Some(Event::LeftClick)
-        }
+        iced::Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        )) if ignored(status) => Some(Event::LeftClick),
         _ => None,
     };
 

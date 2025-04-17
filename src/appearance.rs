@@ -1,14 +1,13 @@
 use std::time::Duration;
 
 use data::appearance;
-use futures::stream;
-use futures::{stream::BoxStream, StreamExt};
+use futures::stream::BoxStream;
+use futures::{StreamExt, stream};
+use iced::advanced::graphics::futures::subscription;
 use iced::advanced::subscription::Hasher;
-use iced::futures;
-use iced::{advanced::graphics::futures::subscription, Subscription};
-use tokio::time;
-
+use iced::{Subscription, futures};
 pub use theme::Theme;
+use tokio::time;
 
 pub mod theme;
 
@@ -66,7 +65,10 @@ impl subscription::Recipe for Appearance {
         std::any::TypeId::of::<Marker>().hash(state);
     }
 
-    fn stream(self: Box<Self>, _input: subscription::EventStream) -> BoxStream<'static, Mode> {
+    fn stream(
+        self: Box<Self>,
+        _input: subscription::EventStream,
+    ) -> BoxStream<'static, Mode> {
         let interval = time::interval(Duration::from_secs(5));
 
         stream::unfold(
