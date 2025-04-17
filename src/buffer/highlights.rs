@@ -20,6 +20,7 @@ pub enum Event {
     OpenBuffer(Target, BufferAction),
     GoToMessage(Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
+    OpenUrl(String),
 }
 
 pub fn view<'a>(
@@ -244,6 +245,9 @@ impl Highlights {
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
                     scroll_view::Event::MarkAsRead => None,
+                    scroll_view::Event::OpenUrl(url) => {
+                        Some(Event::OpenUrl(url))
+                    }
                 });
 
                 (command.map(Message::ScrollView), event)

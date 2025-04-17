@@ -82,6 +82,12 @@ pub fn unread_indicator(theme: &Theme) -> Style {
     }
 }
 
+pub fn url(theme: &Theme) -> Style {
+    Style {
+        color: Some(theme.colors().buffer.url),
+    }
+}
+
 pub fn nickname<T: AsRef<str>>(
     theme: &Theme,
     seed: Option<T>,
