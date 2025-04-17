@@ -19,6 +19,7 @@ pub enum Event {
     OpenBuffers(Vec<(Target, BufferAction)>),
     History(Task<history::manager::Message>),
     MarkAsRead(history::Kind),
+    OpenUrl(String),
 }
 
 pub fn view<'a>(
@@ -187,6 +188,7 @@ impl Server {
                         ))
                         .map(Event::MarkAsRead)
                     }
+                    scroll_view::Event::OpenUrl(url) => Some(Event::OpenUrl(url)),
                 });
 
                 (command.map(Message::ScrollView), event)

@@ -31,6 +31,7 @@ pub enum Event {
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead(history::Kind),
+    OpenUrl(String),
 }
 
 pub fn view<'a>(
@@ -450,6 +451,9 @@ impl Channel {
                         ))
                         .map(Event::MarkAsRead)
                     }
+                    scroll_view::Event::OpenUrl(url) => {
+                        Some(Event::OpenUrl(url))
+                    }
                 });
 
                 (command.map(Message::ScrollView), event)
@@ -497,6 +501,7 @@ impl Channel {
                             config.actions.buffer.click_channel_name,
                         )])
                     }
+                    topic::Event::OpenUrl(url) => Event::OpenUrl(url),
                 }),
             ),
         }

@@ -52,6 +52,7 @@ pub enum Event {
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead,
+    OpenUrl(String),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -519,7 +520,7 @@ impl State {
                 );
             }
             Message::Link(message::Link::Url(url)) => {
-                let _ = open::that_detached(url);
+                return (Task::none(), Some(Event::OpenUrl(url)));
             }
             Message::Link(message::Link::User(user)) => {
                 let event = match config.buffer.nickname.click {

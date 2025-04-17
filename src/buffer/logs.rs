@@ -18,6 +18,7 @@ pub enum Event {
     OpenBuffer(Target, BufferAction),
     History(Task<history::manager::Message>),
     MarkAsRead,
+    OpenUrl(String),
 }
 
 pub fn view<'a>(
@@ -102,6 +103,7 @@ impl Logs {
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
                     scroll_view::Event::MarkAsRead => Some(Event::MarkAsRead),
+                    scroll_view::Event::OpenUrl(url) => Some(Event::OpenUrl(url)),
                 });
 
                 (command.map(Message::ScrollView), event)
