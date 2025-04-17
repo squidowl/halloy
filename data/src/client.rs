@@ -1268,7 +1268,7 @@ impl Client {
                         }
                     }
                     None if !self.config.alt_nicks.is_empty() => {
-                        self.alt_nick = Some(0)
+                        self.alt_nick = Some(0);
                     }
                     None => {}
                 }

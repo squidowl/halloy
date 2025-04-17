@@ -1736,7 +1736,7 @@ impl Dashboard {
                     for (id, pane) in panes.main.iter() {
                         if matches!(pane.buffer, Buffer::Empty) {
                             self.panes.main.panes.entry(*id).and_modify(|p| {
-                                *p = Pane::new(Buffer::from(buffer))
+                                *p = Pane::new(Buffer::from(buffer));
                             });
                             self.last_changed = Some(Instant::now());
 

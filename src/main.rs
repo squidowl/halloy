@@ -1047,13 +1047,13 @@ impl Halloy {
                             self.main_window.position = Some(position);
                         }
                         window::Event::Resized(size) => {
-                            self.main_window.size = size
+                            self.main_window.size = size;
                         }
                         window::Event::Focused => {
-                            self.main_window.focused = true
+                            self.main_window.focused = true;
                         }
                         window::Event::Unfocused => {
-                            self.main_window.focused = false
+                            self.main_window.focused = false;
                         }
                         window::Event::Opened { position, size } => {
                             self.main_window.opened(position, size);
