@@ -182,6 +182,7 @@
 <li><a href="#bufferstatus_message_prefix">Status Message Prefix</a> - Status message prefix settings</li>
 <li><a href="#buffertext_input">Text Input</a> - Customize the text input for in buffers</li>
 <li><a href="#buffertimestamp">Timestamp</a> - Customize how timestamps are displayed within a buffer</li>
+<li><a href="#bufferurl">Url</a> - URLs in buffers</li>
 </ol>
 <h2 id="bufferaway"><a class="header" href="#bufferaway"><code>[buffer.away]</code></a></h2>
 <p>Controls the appearance of away nicknames.</p>
@@ -652,6 +653,17 @@ format = "%R"
 
 [buffer.timestamp]
 brackets = { left = "[", right = "]" }
+</code></pre>
+<h2 id="bufferurl"><a class="header" href="#bufferurl"><code>[buffer.url]</code></a></h2>
+<p>Customize how urls behave in buffers</p>
+<h3 id="prompt_before_open"><a class="header" href="#prompt_before_open"><code>prompt_before_open</code></a></h3>
+<p>Prompt before opening a hyperlink.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.url]
+prompt_before_open = true
 </code></pre>
 
                     </main>
