@@ -7,7 +7,7 @@ use crate::config::buffer::NicknameClickAction;
 use crate::preview::{self, Preview};
 use crate::serde::default_bool_true;
 use crate::target::{self, Target};
-use crate::{channel, config, isupport, message, Server};
+use crate::{Server, channel, config, isupport, message};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -375,8 +375,10 @@ impl<'a> Previews<'a> {
     ) -> Previews<'a> {
         Self {
             collection,
-            cards_are_visible: config.enabled && config.card.visible(target, casemapping),
-            images_are_visible: config.enabled && config.image.visible(target, casemapping),
+            cards_are_visible: config.enabled
+                && config.card.visible(target, casemapping),
+            images_are_visible: config.enabled
+                && config.image.visible(target, casemapping),
         }
     }
 

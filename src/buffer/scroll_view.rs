@@ -190,70 +190,80 @@ pub fn view<'a>(
 
                 *last_date = Some(date);
 
-                let content =
-                    if let (message::Content::Fragments(fragments), Some(previews), true) =
-                        (&message.content, previews, config.preview.enabled)
-                    {
-                        let urls = fragments
-                            .iter()
-                            .filter_map(message::Fragment::url)
-                            .cloned()
-                            .collect::<Vec<_>>();
+                let content = if let (
+                    message::Content::Fragments(fragments),
+                    Some(previews),
+                    true,
+                ) =
+                    (&message.content, previews, config.preview.enabled)
+                {
+                    let urls = fragments
+                        .iter()
+                        .filter_map(message::Fragment::url)
+                        .cloned()
+                        .collect::<Vec<_>>();
 
-                        if !urls.is_empty() {
-                            let is_message_visible =
-                                state.visible_url_messages.contains_key(&message.hash);
+                    if !urls.is_empty() {
+                        let is_message_visible = state
+                            .visible_url_messages
+                            .contains_key(&message.hash);
 
-                            let element = if is_message_visible {
-                                notify_visibility(
-                                    element,
-                                    2000.0,
-                                    notify_visibility::When::NotVisible,
-                                    Message::ExitingViewport(message.hash),
-                                )
-                            } else {
-                                notify_visibility(
-                                    element,
-                                    1000.0,
-                                    notify_visibility::When::Visible,
-                                    Message::EnteringViewport(message.hash, urls.clone()),
-                                )
-                            };
+                        let element = if is_message_visible {
+                            notify_visibility(
+                                element,
+                                2000.0,
+                                notify_visibility::When::NotVisible,
+                                Message::ExitingViewport(message.hash),
+                            )
+                        } else {
+                            notify_visibility(
+                                element,
+                                1000.0,
+                                notify_visibility::When::Visible,
+                                Message::EnteringViewport(
+                                    message.hash,
+                                    urls.clone(),
+                                ),
+                            )
+                        };
 
-                            let mut column = column![element];
+                        let mut column = column![element];
 
-                            for (idx, url) in urls.into_iter().enumerate() {
-                                if message.hidden_urls.contains(&url) {
-                                    continue;
-                                }
-
-                                if let (true, Some(preview::State::Loaded(preview))) =
-                                    (is_message_visible, previews.get(&url))
-                                {
-                                    let is_hovered = state
-                                        .hovered_preview
-                                        .is_some_and(|(a, b)| a == message.hash && b == idx);
-
-                                    column = column.push(preview_row(
-                                        message,
-                                        preview,
-                                        &url,
-                                        idx,
-                                        max_nick_width,
-                                        max_prefix_width,
-                                        is_hovered,
-                                        config,
-                                    ));
-                                }
+                        for (idx, url) in urls.into_iter().enumerate() {
+                            if message.hidden_urls.contains(&url) {
+                                continue;
                             }
 
-                            column.into()
-                        } else {
-                            element
+                            if let (
+                                true,
+                                Some(preview::State::Loaded(preview)),
+                            ) = (is_message_visible, previews.get(&url))
+                            {
+                                let is_hovered =
+                                    state.hovered_preview.is_some_and(
+                                        |(a, b)| a == message.hash && b == idx,
+                                    );
+
+                                column = column.push(preview_row(
+                                    message,
+                                    preview,
+                                    &url,
+                                    idx,
+                                    max_nick_width,
+                                    max_prefix_width,
+                                    is_hovered,
+                                    config,
+                                ));
+                            }
                         }
+
+                        column.into()
                     } else {
                         element
-                    };
+                    }
+                } else {
+                    element
+                };
 
                 if is_new_day && config.buffer.date_separators.show {
                     Some(
@@ -1084,17 +1094,27 @@ fn preview_row<'a>(
             keyed::Key::Preview(message.hash, idx),
             button(
                 container(
-                    column![column![text(title)
-                        .shaping(text::Shaping::Advanced)
-                        .style(theme::text::primary)]
-                    .push_maybe(description.as_ref().map(|description| {
-                        text(description)
-                            .shaping(text::Shaping::Advanced)
-                            .style(theme::text::secondary)
-                    }))
-                    .push_maybe(config.preview.card.show_image.then_some(
-                        container(image(path).content_fit(ContentFit::ScaleDown)).max_height(200)
-                    )),]
+                    column![
+                        column![
+                            text(title)
+                                .shaping(text::Shaping::Advanced)
+                                .style(theme::text::primary)
+                        ]
+                        .push_maybe(description.as_ref().map(|description| {
+                            text(description)
+                                .shaping(text::Shaping::Advanced)
+                                .style(theme::text::secondary)
+                        }))
+                        .push_maybe(
+                            config.preview.card.show_image.then_some(
+                                container(
+                                    image(path)
+                                        .content_fit(ContentFit::ScaleDown)
+                                )
+                                .max_height(200)
+                            )
+                        ),
+                    ]
                     .max_width(400)
                     .spacing(4),
                 )
