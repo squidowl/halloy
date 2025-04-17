@@ -413,14 +413,14 @@ impl Component {
     fn update(&self, colors: &mut Colors, color: Option<Color>) {
         match self {
             Component::General(general) => {
-                general.update(&mut colors.general, color)
+                general.update(&mut colors.general, color);
             }
             Component::Text(text) => text.update(&mut colors.text, color),
             Component::Buffer(buffer) => {
-                buffer.update(&mut colors.buffer, color)
+                buffer.update(&mut colors.buffer, color);
             }
             Component::Buttons(buttons) => {
-                buttons.update(&mut colors.buttons, color)
+                buttons.update(&mut colors.buttons, color);
             }
         }
     }
@@ -450,13 +450,13 @@ impl General {
     fn update(&self, colors: &mut theme::General, color: Option<Color>) {
         match self {
             General::Background => {
-                colors.background = color.unwrap_or(Color::TRANSPARENT)
+                colors.background = color.unwrap_or(Color::TRANSPARENT);
             }
             General::Border => {
-                colors.border = color.unwrap_or(Color::TRANSPARENT)
+                colors.border = color.unwrap_or(Color::TRANSPARENT);
             }
             General::HorizontalRule => {
-                colors.horizontal_rule = color.unwrap_or(Color::TRANSPARENT)
+                colors.horizontal_rule = color.unwrap_or(Color::TRANSPARENT);
             }
             General::UnreadIndicator => {
                 colors.unread_indicator = color.unwrap_or(Color::TRANSPARENT);
@@ -491,16 +491,16 @@ impl Text {
     fn update(&self, colors: &mut theme::Text, color: Option<Color>) {
         match self {
             Text::Primary => {
-                colors.primary = color.unwrap_or(Color::TRANSPARENT)
+                colors.primary = color.unwrap_or(Color::TRANSPARENT);
             }
             Text::Secondary => {
-                colors.secondary = color.unwrap_or(Color::TRANSPARENT)
+                colors.secondary = color.unwrap_or(Color::TRANSPARENT);
             }
             Text::Tertiary => {
-                colors.tertiary = color.unwrap_or(Color::TRANSPARENT)
+                colors.tertiary = color.unwrap_or(Color::TRANSPARENT);
             }
             Text::Success => {
-                colors.success = color.unwrap_or(Color::TRANSPARENT)
+                colors.success = color.unwrap_or(Color::TRANSPARENT);
             }
             Text::Error => colors.error = color.unwrap_or(Color::TRANSPARENT),
         }
@@ -554,10 +554,10 @@ impl Buffer {
     fn update(&self, colors: &mut theme::Buffer, color: Option<Color>) {
         match self {
             Buffer::Action => {
-                colors.action = color.unwrap_or(Color::TRANSPARENT)
+                colors.action = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Background => {
-                colors.background = color.unwrap_or(Color::TRANSPARENT)
+                colors.background = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::BackgroundTextInput => {
                 colors.background_text_input =
@@ -568,26 +568,26 @@ impl Buffer {
                     color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Border => {
-                colors.border = color.unwrap_or(Color::TRANSPARENT)
+                colors.border = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::BorderSelected => {
-                colors.border_selected = color.unwrap_or(Color::TRANSPARENT)
+                colors.border_selected = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Code => colors.code = color.unwrap_or(Color::TRANSPARENT),
             Buffer::Highlight => {
-                colors.highlight = color.unwrap_or(Color::TRANSPARENT)
+                colors.highlight = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Nickname => {
-                colors.nickname = color.unwrap_or(Color::TRANSPARENT)
+                colors.nickname = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Selection => {
-                colors.selection = color.unwrap_or(Color::TRANSPARENT)
+                colors.selection = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::ServerMessages(server_messages) => {
                 server_messages.update(&mut colors.server_messages, color);
             }
             Buffer::Timestamp => {
-                colors.timestamp = color.unwrap_or(Color::TRANSPARENT)
+                colors.timestamp = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Topic => colors.topic = color.unwrap_or(Color::TRANSPARENT),
             Buffer::Url => colors.url = color.unwrap_or(Color::TRANSPARENT),
@@ -640,19 +640,19 @@ impl ServerMessages {
             ServerMessages::ChangeHost => colors.change_host = color,
             ServerMessages::MonitoredOnline => colors.monitored_online = color,
             ServerMessages::MonitoredOffline => {
-                colors.monitored_offline = color
+                colors.monitored_offline = color;
             }
             ServerMessages::StandardReplyFail => {
-                colors.standard_reply_fail = color
+                colors.standard_reply_fail = color;
             }
             ServerMessages::StandardReplyWarn => {
-                colors.standard_reply_warn = color
+                colors.standard_reply_warn = color;
             }
             ServerMessages::StandardReplyNote => {
-                colors.standard_reply_note = color
+                colors.standard_reply_note = color;
             }
             ServerMessages::Default => {
-                colors.default = color.unwrap_or(Color::TRANSPARENT)
+                colors.default = color.unwrap_or(Color::TRANSPARENT);
             }
         }
     }
@@ -679,10 +679,10 @@ impl Buttons {
     fn update(&self, colors: &mut theme::Buttons, color: Option<Color>) {
         match self {
             Buttons::Primary(button) => {
-                button.update(&mut colors.primary, color)
+                button.update(&mut colors.primary, color);
             }
             Buttons::Secondary(button) => {
-                button.update(&mut colors.secondary, color)
+                button.update(&mut colors.secondary, color);
             }
         }
     }
@@ -713,7 +713,7 @@ impl Button {
     fn update(&self, colors: &mut theme::Button, color: Option<Color>) {
         match self {
             Button::Background => {
-                colors.background = color.unwrap_or(Color::TRANSPARENT)
+                colors.background = color.unwrap_or(Color::TRANSPARENT);
             }
             Button::BackgroundHover => {
                 colors.background_hover = color.unwrap_or(Color::TRANSPARENT);
