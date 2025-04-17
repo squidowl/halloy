@@ -1,9 +1,7 @@
 use serde::Deserialize;
 
-use crate::isupport;
 use crate::serde::default_bool_true;
-use crate::Target;
-use crate::serde::default_bool_true;
+use crate::{Target, isupport};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Preview {
@@ -96,7 +94,11 @@ impl Default for Card {
 }
 
 impl Card {
-    pub fn visible(&self, target: &Target, casemapping: isupport::CaseMap) -> bool {
+    pub fn visible(
+        &self,
+        target: &Target,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
         is_visible(&self.include, &self.exclude, target, casemapping)
     }
 }
@@ -120,7 +122,11 @@ pub enum ImageAction {
 }
 
 impl Image {
-    pub fn visible(&self, target: &Target, casemapping: isupport::CaseMap) -> bool {
+    pub fn visible(
+        &self,
+        target: &Target,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
         is_visible(&self.include, &self.exclude, target, casemapping)
     }
 }
@@ -138,8 +144,10 @@ fn is_visible(
 
     let is_target_filtered = |list: &[String], target: &str| -> bool {
         let wildcards = ["*", "all"];
-        list.iter()
-            .any(|item| wildcards.contains(&item.as_str()) || casemapping.normalize(item) == target)
+        list.iter().any(|item| {
+            wildcards.contains(&item.as_str())
+                || casemapping.normalize(item) == target
+        })
     };
 
     let target_included = is_target_filtered(include, target);
