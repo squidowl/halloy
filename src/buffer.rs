@@ -1,4 +1,4 @@
-pub use data::buffer::{Internal, Settings, Upstream};
+pub use data::buffer::{Autocomplete, Internal, Settings, Upstream};
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
 use data::user::Nick;
@@ -342,6 +342,7 @@ impl Buffer {
         &mut self,
         nick: Nick,
         history: &mut history::Manager,
+        autocomplete: &Autocomplete,
     ) -> Task<Message> {
         match self {
             Buffer::Empty
@@ -351,13 +352,13 @@ impl Buffer {
             | Buffer::Highlights(_) => Task::none(),
             Buffer::Channel(state) => state
                 .input_view
-                .insert_user(nick, state.buffer.clone(), history)
+                .insert_user(nick, state.buffer.clone(), history, autocomplete)
                 .map(|message| {
                     Message::Channel(channel::Message::InputView(message))
                 }),
             Buffer::Query(state) => state
                 .input_view
-                .insert_user(nick, state.buffer.clone(), history)
+                .insert_user(nick, state.buffer.clone(), history, autocomplete)
                 .map(|message| {
                     Message::Query(query::Message::InputView(message))
                 }),

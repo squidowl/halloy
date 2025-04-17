@@ -5,6 +5,9 @@ Added:
 - Title bar button and keyboard shortcut to mark a buffer as read (will update the read marker as well, if the `read-marker` capability is available)
 - Mark as Read settings to control when buffers are automatically marked as read
 
+Changed:
+- Clicking to insert a username will now use same suffixes specified for autocomplete
+
 # 2025.4 (2025-04-07)
 
 Added:
