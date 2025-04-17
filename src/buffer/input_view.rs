@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use data::buffer::Upstream;
 use data::dashboard::BufferAction;
 use data::input::{self, Cache, Draft};
 use data::target::Target;
@@ -5,6 +8,7 @@ use data::user::Nick;
 use data::{Config, buffer, client, command, history};
 use iced::Task;
 use iced::widget::{column, container, text, text_input};
+use tokio::time;
 
 use self::completion::Completion;
 use crate::theme;
