@@ -276,201 +276,256 @@ impl Commands {
             (rest, false)
         };
 
-        let command_list = COMMAND_LIST
+        let mut command_list = vec![
+            // MOTD
+            {
+                Command {
+                    title: "MOTD",
+                    args: vec![Arg {
+                        text: "server",
+                        optional: true,
+                        tooltip: None,
+                    }],
+                    subcommands: None,
+                }
+            },
+            // QUIT
+            {
+                Command {
+                    title: "QUIT",
+                    args: vec![Arg {
+                        text: "reason",
+                        optional: true,
+                        tooltip: None,
+                    }],
+                    subcommands: None,
+                }
+            },
+            // Away
+            {
+                let max_len = match isupport.get(&isupport::Kind::AWAYLEN) {
+                    Some(isupport::Parameter::AWAYLEN(len)) => Some(*len),
+                    _ => None,
+                };
+
+                away_command(max_len)
+            },
+            // JOIN
+            {
+                {
+                    let channel_len =
+                        match isupport.get(&isupport::Kind::CHANNELLEN) {
+                            Some(isupport::Parameter::CHANNELLEN(len)) => {
+                                Some(*len)
+                            }
+                            _ => None,
+                        };
+
+                    let channel_limits = match isupport
+                        .get(&isupport::Kind::CHANLIMIT)
+                    {
+                        Some(isupport::Parameter::CHANLIMIT(len)) => Some(len),
+                        _ => None,
+                    };
+
+                    let key_len = match isupport.get(&isupport::Kind::KEYLEN) {
+                        Some(isupport::Parameter::KEYLEN(len)) => Some(*len),
+                        _ => None,
+                    };
+
+                    join_command(channel_len, channel_limits, key_len)
+                }
+            },
+            // KICK
+            {
+                let kick_len = match isupport.get(&isupport::Kind::KICKLEN) {
+                    Some(isupport::Parameter::KICKLEN(len)) => Some(*len),
+                    _ => None,
+                };
+
+                let target_limit = find_target_limit(isupport, "KICK");
+
+                kick_command(target_limit, kick_len)
+            },
+            // MSG
+            {
+                let channel_membership_prefixes: &[char] =
+                    match isupport.get(&isupport::Kind::STATUSMSG) {
+                        Some(isupport::Parameter::STATUSMSG(len)) => len,
+                        _ => &[],
+                    };
+
+                let target_limit = find_target_limit(isupport, "PRIVMSG");
+
+                msg_command(channel_membership_prefixes, target_limit)
+            },
+            // NAMES
+            {
+                let target_limit = find_target_limit(isupport, "NAMES");
+
+                names_command(target_limit)
+            },
+            // NICK
+            {
+                let nick_len = match isupport.get(&isupport::Kind::NICKLEN) {
+                    Some(isupport::Parameter::NICKLEN(len)) => Some(*len),
+                    _ => None,
+                };
+
+                nick_command(nick_len)
+            },
+            // NOTICE
+            {
+                let channel_membership_prefixes: &[char] =
+                    match isupport.get(&isupport::Kind::STATUSMSG) {
+                        Some(isupport::Parameter::STATUSMSG(len)) => len,
+                        _ => &[],
+                    };
+
+                let target_limit = find_target_limit(isupport, "NOTICE");
+
+                notice_command(channel_membership_prefixes, target_limit)
+            },
+            // PART
+            {
+                let channel_len = match isupport
+                    .get(&isupport::Kind::CHANNELLEN)
+                {
+                    Some(isupport::Parameter::CHANNELLEN(len)) => Some(*len),
+                    _ => None,
+                };
+
+                part_command(channel_len)
+            },
+            // TOPIC
+            {
+                let max_len = match isupport.get(&isupport::Kind::TOPICLEN) {
+                    Some(isupport::Parameter::TOPICLEN(len)) => Some(*len),
+                    _ => None,
+                };
+
+                topic_command(max_len)
+            },
+            // WHO -- WHOX
+            {
+                if isupport.get(&isupport::Kind::WHOX).is_some() {
+                    whox_command()
+                } else {
+                    who_command()
+                }
+            },
+            // WHOIS
+            {
+                let target_limit = find_target_limit(isupport, "WHOIS");
+                whois_command(target_limit)
+            },
+            // ME
+            {
+                Command {
+                    title: "ME",
+                    args: vec![Arg {
+                        text: "action",
+                        optional: false,
+                        tooltip: None,
+                    }],
+                    subcommands: None,
+                }
+            },
+            // MODE
+            {
+                Command {
+                    title: "MODE",
+                    args: vec![
+                        Arg {
+                            text: "target",
+                            optional: false,
+                            tooltip: None,
+                        },
+                        Arg {
+                            text: "modestring",
+                            optional: true,
+                            tooltip: None,
+                        },
+                        Arg {
+                            text: "arguments",
+                            optional: true,
+                            tooltip: None,
+                        },
+                    ],
+                    subcommands: None,
+                }
+            },
+            // RAW
+            {
+                Command {
+                    title: "RAW",
+                    args: vec![
+                        Arg {
+                            text: "command",
+                            optional: false,
+                            tooltip: None,
+                        },
+                        Arg {
+                            text: "args",
+                            optional: true,
+                            tooltip: None,
+                        },
+                    ],
+                    subcommands: None,
+                }
+            },
+            // FORMAT
+            {
+                Command {
+                    title: "FORMAT",
+                    args: vec![Arg {
+                        text: "text",
+                        optional: false,
+                        tooltip: Some(
+                            include_str!("./format_tooltip.txt").to_string(),
+                        ),
+                    }],
+                    subcommands: None,
+                }
+            },
+        ];
+
+        let isupport_commands = isupport
             .iter()
-            .map(|command| {
-                match command.title {
-                    "AWAY" => {
-                        if let Some(isupport::Parameter::AWAYLEN(max_len)) =
-                            isupport.get(&isupport::Kind::AWAYLEN)
-                        {
-                            return away_command(max_len);
-                        }
-                    }
-                    "JOIN" => {
-                        let channel_len = if let Some(
-                            isupport::Parameter::CHANNELLEN(max_len),
-                        ) =
-                            isupport.get(&isupport::Kind::CHANNELLEN)
-                        {
-                            Some(max_len)
-                        } else {
-                            None
-                        };
-
-                        let channel_limits = if let Some(
-                            isupport::Parameter::CHANLIMIT(channel_limits),
-                        ) =
-                            isupport.get(&isupport::Kind::CHANLIMIT)
-                        {
-                            Some(channel_limits)
-                        } else {
-                            None
-                        };
-
-                        let key_len =
-                            if let Some(isupport::Parameter::KEYLEN(max_len)) =
-                                isupport.get(&isupport::Kind::KEYLEN)
-                            {
-                                Some(max_len)
-                            } else {
-                                None
-                            };
-
-                        if channel_len.is_some()
-                            || channel_limits.is_some()
-                            || key_len.is_some()
-                        {
-                            return join_command(
-                                channel_len,
-                                channel_limits,
-                                key_len,
-                            );
-                        }
-                    }
-                    "KICK" => {
-                        let kick_len = if let Some(
-                            isupport::Parameter::KICKLEN(max_len),
-                        ) =
-                            isupport.get(&isupport::Kind::KICKLEN)
-                        {
-                            Some(max_len)
-                        } else {
-                            None
-                        };
-
-                        let target_limit = find_target_limit(isupport, "KICK");
-
-                        if target_limit.is_some() || kick_len.is_some() {
-                            return kick_command(target_limit, kick_len);
-                        }
-                    }
-                    "MSG" => {
-                        let channel_membership_prefixes =
-                            if let Some(isupport::Parameter::STATUSMSG(
-                                channel_membership_prefixes,
-                            )) = isupport.get(&isupport::Kind::STATUSMSG)
-                            {
-                                channel_membership_prefixes.clone()
-                            } else {
-                                vec![]
-                            };
-
-                        let target_limit =
-                            find_target_limit(isupport, "PRIVMSG");
-
-                        if !channel_membership_prefixes.is_empty()
-                            || target_limit.is_some()
-                        {
-                            return msg_command(
-                                channel_membership_prefixes,
-                                target_limit,
-                            );
-                        }
-                    }
-                    "NAMES" => {
-                        if let Some(target_limit) =
-                            find_target_limit(isupport, command.title)
-                        {
-                            return names_command(target_limit);
-                        }
-                    }
-                    "NICK" => {
-                        if let Some(isupport::Parameter::NICKLEN(max_len)) =
-                            isupport.get(&isupport::Kind::NICKLEN)
-                        {
-                            return nick_command(max_len);
-                        }
-                    }
-                    "NOTICE" => {
-                        let channel_membership_prefixes =
-                            if let Some(isupport::Parameter::STATUSMSG(
-                                channel_membership_prefixes,
-                            )) = isupport.get(&isupport::Kind::STATUSMSG)
-                            {
-                                channel_membership_prefixes.clone()
-                            } else {
-                                vec![]
-                            };
-
-                        let target_limit =
-                            find_target_limit(isupport, "NOTICE");
-
-                        if !channel_membership_prefixes.is_empty()
-                            || target_limit.is_some()
-                        {
-                            return notice_command(
-                                channel_membership_prefixes,
-                                target_limit,
-                            );
-                        }
-                    }
-                    "PART" => {
-                        if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
-                            isupport.get(&isupport::Kind::CHANNELLEN)
-                        {
-                            return part_command(max_len);
-                        }
-                    }
-                    "TOPIC" => {
-                        if let Some(isupport::Parameter::TOPICLEN(max_len)) =
-                            isupport.get(&isupport::Kind::TOPICLEN)
-                        {
-                            return topic_command(max_len);
-                        }
-                    }
-                    "WHO" => {
-                        if isupport.get(&isupport::Kind::WHOX).is_some() {
-                            return WHOX_COMMAND.clone();
-                        }
-                    }
-                    "WHOIS" => {
-                        if let Some(target_limit) =
-                            find_target_limit(isupport, command.title)
-                        {
-                            return whois_command(target_limit);
-                        }
-                    }
-                    _ => (),
+            .filter_map(|(_, isupport_parameter)| match isupport_parameter {
+                isupport::Parameter::CHATHISTORY(maximum_limit) => {
+                    Some(chathistory_command(maximum_limit))
                 }
+                isupport::Parameter::MONITOR(target_limit) => {
+                    Some(monitor_command(target_limit))
+                }
+                isupport::Parameter::SAFELIST => {
+                    let search_extensions = if let Some(
+                        isupport::Parameter::ELIST(search_extensions),
+                    ) =
+                        isupport.get(&isupport::Kind::ELIST)
+                    {
+                        Some(search_extensions)
+                    } else {
+                        None
+                    };
 
-                command.clone()
+                    let target_limit = find_target_limit(isupport, "LIST");
+
+                    if search_extensions.is_some() || target_limit.is_some() {
+                        Some(list_command(search_extensions, target_limit))
+                    } else {
+                        Some(LIST_COMMAND.clone())
+                    }
+                }
+                isupport::Parameter::NAMELEN(max_len) => {
+                    Some(setname_command(max_len))
+                }
+                _ => isupport_parameter_to_command(isupport_parameter),
             })
-            .chain(isupport.iter().filter_map(|(_, isupport_parameter)| {
-                match isupport_parameter {
-                    isupport::Parameter::CHATHISTORY(maximum_limit) => {
-                        Some(chathistory_command(maximum_limit))
-                    }
-                    isupport::Parameter::MONITOR(target_limit) => {
-                        Some(monitor_command(target_limit))
-                    }
-                    isupport::Parameter::SAFELIST => {
-                        let search_extensions = if let Some(
-                            isupport::Parameter::ELIST(search_extensions),
-                        ) =
-                            isupport.get(&isupport::Kind::ELIST)
-                        {
-                            Some(search_extensions)
-                        } else {
-                            None
-                        };
+            .collect::<Vec<Command>>();
 
-                        let target_limit = find_target_limit(isupport, "LIST");
-
-                        if search_extensions.is_some() || target_limit.is_some()
-                        {
-                            Some(list_command(search_extensions, target_limit))
-                        } else {
-                            Some(LIST_COMMAND.clone())
-                        }
-                    }
-                    isupport::Parameter::NAMELEN(max_len) => {
-                        Some(setname_command(max_len))
-                    }
-                    _ => isupport_parameter_to_command(isupport_parameter),
-                }
-            }))
-            .collect::<Vec<_>>();
+        command_list.extend(isupport_commands);
 
         match self {
             // Command not fully typed, show filtered entries
@@ -914,234 +969,6 @@ impl Text {
     }
 }
 
-static COMMAND_LIST: LazyLock<Vec<Command>> = LazyLock::new(|| {
-    vec![
-        Command {
-            title: "JOIN",
-            args: vec![
-                Arg {
-                    text: "channels",
-                    optional: false,
-                    tooltip: Some(String::from("comma-separated")),
-                },
-                Arg {
-                    text: "keys",
-                    optional: true,
-                    tooltip: Some(String::from("comma-separated")),
-                },
-            ],
-            subcommands: None,
-        },
-        Command {
-            title: "MOTD",
-            args: vec![Arg {
-                text: "server",
-                optional: true,
-                tooltip: None,
-            }],
-            subcommands: None,
-        },
-        Command {
-            title: "NICK",
-            args: vec![Arg {
-                text: "nickname",
-                optional: false,
-                tooltip: None,
-            }],
-            subcommands: None,
-        },
-        Command {
-            title: "QUIT",
-            args: vec![Arg {
-                text: "reason",
-                optional: true,
-                tooltip: None,
-            }],
-            subcommands: None,
-        },
-        Command {
-            title: "MSG",
-            args: vec![
-                Arg {
-                    text: "targets",
-                    optional: false,
-                    tooltip: Some(String::from(
-                        "comma-separated\n   {user}: user directly\n{channel}: all users in channel",
-                    )),
-                },
-                Arg {
-                    text: "text",
-                    optional: true,
-                    tooltip: None,
-                },
-            ],
-            subcommands: None,
-        },
-        Command {
-            title: "NOTICE",
-            args: vec![
-                Arg {
-                    text: "targets",
-                    optional: false,
-                    tooltip: Some(String::from(
-                        "comma-separated\n   {user}: user directly\n{channel}: all users in channel",
-                    )),
-                },
-                Arg {
-                    text: "text",
-                    optional: true,
-                    tooltip: None,
-                },
-            ],
-            subcommands: None,
-        },
-        Command {
-            title: "WHOIS",
-            args: vec![Arg {
-                text: "nicks",
-                optional: false,
-                tooltip: Some(String::from("comma-separated")),
-            }],
-            subcommands: None,
-        },
-        Command {
-            title: "AWAY",
-            args: vec![Arg {
-                text: "reason",
-                optional: true,
-                tooltip: None,
-            }],
-            subcommands: None,
-        },
-        Command {
-            title: "ME",
-            args: vec![Arg {
-                text: "action",
-                optional: false,
-                tooltip: None,
-            }],
-            subcommands: None,
-        },
-        Command {
-            title: "MODE",
-            args: vec![
-                Arg {
-                    text: "target",
-                    optional: false,
-                    tooltip: None,
-                },
-                Arg {
-                    text: "modestring",
-                    optional: true,
-                    tooltip: None,
-                },
-                Arg {
-                    text: "arguments",
-                    optional: true,
-                    tooltip: None,
-                },
-            ],
-            subcommands: None,
-        },
-        Command {
-            title: "PART",
-            args: vec![
-                Arg {
-                    text: "channels",
-                    optional: false,
-                    tooltip: Some(String::from("comma-separated")),
-                },
-                Arg {
-                    text: "reason",
-                    optional: true,
-                    tooltip: None,
-                },
-            ],
-            subcommands: None,
-        },
-        Command {
-            title: "TOPIC",
-            args: vec![
-                Arg {
-                    text: "channel",
-                    optional: false,
-                    tooltip: None,
-                },
-                Arg {
-                    text: "topic",
-                    optional: true,
-                    tooltip: None,
-                },
-            ],
-            subcommands: None,
-        },
-        Command {
-            title: "WHO",
-            args: vec![Arg {
-                text: "target",
-                optional: false,
-                tooltip: None,
-            }],
-            subcommands: None,
-        },
-        Command {
-            title: "NAMES",
-            args: vec![Arg {
-                text: "channels",
-                optional: false,
-                tooltip: Some(String::from("comma-separated")),
-            }],
-            subcommands: None,
-        },
-        Command {
-            title: "KICK",
-            args: vec![
-                Arg {
-                    text: "channel",
-                    optional: false,
-                    tooltip: None,
-                },
-                Arg {
-                    text: "user",
-                    optional: false,
-                    tooltip: None,
-                },
-                Arg {
-                    text: "comment",
-                    optional: true,
-                    tooltip: None,
-                },
-            ],
-            subcommands: None,
-        },
-        Command {
-            title: "RAW",
-            args: vec![
-                Arg {
-                    text: "command",
-                    optional: false,
-                    tooltip: None,
-                },
-                Arg {
-                    text: "args",
-                    optional: true,
-                    tooltip: None,
-                },
-            ],
-            subcommands: None,
-        },
-        Command {
-            title: "FORMAT",
-            args: vec![Arg {
-                text: "text",
-                optional: false,
-                tooltip: Some(include_str!("./format_tooltip.txt").to_string()),
-            }],
-            subcommands: None,
-        },
-    ]
-});
-
 fn isupport_parameter_to_command(
     isupport_parameter: &isupport::Parameter,
 ) -> Option<Command> {
@@ -1154,13 +981,15 @@ fn isupport_parameter_to_command(
     }
 }
 
-fn away_command(max_len: &u16) -> Command {
+fn away_command(max_len: Option<u16>) -> Command {
+    let tooltip = max_len.map(|max_len| format!("maximum length: {max_len}"));
+
     Command {
         title: "AWAY",
         args: vec![Arg {
             text: "reason",
             optional: true,
-            tooltip: Some(format!("maximum length: {max_len}")),
+            tooltip,
         }],
         subcommands: None,
     }
@@ -1439,9 +1268,9 @@ static CPRIVMSG_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 });
 
 fn join_command(
-    channel_len: Option<&u16>,
+    channel_len: Option<u16>,
     channel_limits: Option<&Vec<isupport::ChannelLimit>>,
-    key_len: Option<&u16>,
+    key_len: Option<u16>,
 ) -> Command {
     let mut channels_tooltip = String::from("comma-separated");
 
@@ -1498,7 +1327,7 @@ fn join_command(
     }
 }
 
-fn kick_command(target_limit: Option<u16>, max_len: Option<&u16>) -> Command {
+fn kick_command(target_limit: Option<u16>, max_len: Option<u16>) -> Command {
     let mut users_tooltip = String::from("comma-separated");
 
     if let Some(target_limit) = target_limit {
@@ -1697,7 +1526,7 @@ static MONITOR_STATUS_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 });
 
 fn msg_command(
-    channel_membership_prefixes: Vec<char>,
+    channel_membership_prefixes: &[char],
     target_limit: Option<u16>,
 ) -> Command {
     let mut targets_tooltip = String::from(
@@ -1748,13 +1577,16 @@ fn msg_command(
     }
 }
 
-fn names_command(target_limit: u16) -> Command {
+fn names_command(target_limit: Option<u16>) -> Command {
     let mut channels_tooltip = String::from("comma-separated");
 
-    channels_tooltip
-        .push_str(format!("\nup to {target_limit} channel").as_str());
-    if target_limit != 1 {
-        channels_tooltip.push('s');
+    if let Some(target_limit) = target_limit {
+        channels_tooltip
+            .push_str(format!("\nup to {target_limit} channel").as_str());
+
+        if target_limit != 1 {
+            channels_tooltip.push('s');
+        }
     }
 
     Command {
@@ -1768,20 +1600,22 @@ fn names_command(target_limit: u16) -> Command {
     }
 }
 
-fn nick_command(max_len: &u16) -> Command {
+fn nick_command(max_len: Option<u16>) -> Command {
+    let tooltip = max_len.map(|max_len| format!("maximum length: {max_len}"));
+
     Command {
         title: "NICK",
         args: vec![Arg {
             text: "nickname",
             optional: false,
-            tooltip: Some(format!("maximum length: {max_len}")),
+            tooltip,
         }],
         subcommands: None,
     }
 }
 
 fn notice_command(
-    channel_membership_prefixes: Vec<char>,
+    channel_membership_prefixes: &[char],
     target_limit: Option<u16>,
 ) -> Command {
     let mut targets_tooltip = String::from(
@@ -1832,16 +1666,21 @@ fn notice_command(
     }
 }
 
-fn part_command(max_len: &u16) -> Command {
+fn part_command(max_len: Option<u16>) -> Command {
+    let mut part_tooltip = String::from("comma-separated");
+
+    if let Some(max_len) = max_len {
+        part_tooltip
+            .push_str(format!("\nmaximum length of each: {max_len}").as_str());
+    }
+
     Command {
         title: "PART",
         args: vec![
             Arg {
                 text: "channels",
                 optional: false,
-                tooltip: Some(format!(
-                    "comma-separated\nmaximum length of each: {max_len}"
-                )),
+                tooltip: Some(part_tooltip),
             },
             Arg {
                 text: "reason",
@@ -1865,7 +1704,10 @@ fn setname_command(max_len: &u16) -> Command {
     }
 }
 
-fn topic_command(max_len: &u16) -> Command {
+fn topic_command(max_len: Option<u16>) -> Command {
+    let topic_tooltip =
+        max_len.map(|max_len| format!("maximum length: {max_len}"));
+
     Command {
         title: "TOPIC",
         args: vec![
@@ -1877,7 +1719,7 @@ fn topic_command(max_len: &u16) -> Command {
             Arg {
                 text: "topic",
                 optional: true,
-                tooltip: Some(format!("maximum length: {max_len}")),
+                tooltip: topic_tooltip,
             },
         ],
         subcommands: None,
@@ -1894,57 +1736,81 @@ static USERIP_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     subcommands: None,
 });
 
-static WHOX_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "WHO",
-    args: vec![
-        Arg {
+fn whox_command() -> Command {
+    Command {
+        title: "WHO",
+        args: vec![
+            Arg {
+                text: "target",
+                optional: false,
+                tooltip: None,
+            },
+            Arg {
+                text: "fields",
+                optional: true,
+                tooltip: Some(String::from(
+                    "t: token\n\
+                     c: channel\n\
+                     u: username\n\
+                     i: IP address\n\
+                     h: hostname\n\
+                     s: server name\n\
+                     n: nickname\n\
+                     f: WHO flags\n\
+                     d: hop count\n\
+                     l: idle seconds\n\
+                     a: account name\n\
+                     o: channel op level\n\
+                     r: realname",
+                )),
+            },
+            Arg {
+                text: "token",
+                optional: true,
+                tooltip: Some(String::from("1-3 digits")),
+            },
+        ],
+        subcommands: None,
+    }
+}
+
+fn who_command() -> Command {
+    Command {
+        title: "WHO",
+        args: vec![Arg {
             text: "target",
             optional: false,
             tooltip: None,
-        },
-        Arg {
-            text: "fields",
-            optional: true,
-            tooltip: Some(String::from(
-                "t: token\n\
-                 c: channel\n\
-                 u: username\n\
-                 i: IP address\n\
-                 h: hostname\n\
-                 s: server name\n\
-                 n: nickname\n\
-                 f: WHO flags\n\
-                 d: hop count\n\
-                 l: idle seconds\n\
-                 a: account name\n\
-                 o: channel op level\n\
-                 r: realname",
-            )),
-        },
-        Arg {
-            text: "token",
-            optional: true,
-            tooltip: Some(String::from("1-3 digits")),
-        },
-    ],
-    subcommands: None,
-});
+        }],
+        subcommands: None,
+    }
+}
 
-fn whois_command(target_limit: u16) -> Command {
+fn whois_command(target_limit: Option<u16>) -> Command {
+    let server_tooltip = String::from("optional server parameter");
     let mut nicks_tooltip = String::from("comma-separated");
 
-    nicks_tooltip.push_str(format!("\nup to {target_limit} nick").as_str());
-    if target_limit != 1 {
-        nicks_tooltip.push('s');
+    if let Some(target_limit) = target_limit {
+        nicks_tooltip.push_str(format!("\nup to {target_limit} nick").as_str());
+        if target_limit != 1 {
+            nicks_tooltip.push('s');
+        }
     }
 
     Command {
         title: "WHOIS",
-        args: vec![Arg {
-            text: "nicks",
-            optional: false,
-            tooltip: Some(nicks_tooltip),
-        }],
+        args: vec![
+            Arg {
+                text: "server",
+                optional: true,
+                tooltip: Some(server_tooltip),
+            },
+            Arg {
+                text: "nicks",
+                optional: false,
+                tooltip: Some(nicks_tooltip),
+            },
+        ],
         subcommands: None,
     }
 }
