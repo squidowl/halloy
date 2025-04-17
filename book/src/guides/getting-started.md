@@ -8,13 +8,13 @@ Once connected to a server, you can join channels. This can be done automaticall
 
 Here are a few useful IRC commands for a new user[^2]
 
-| Command          | Example                                             | Description |
-|--------------|---------------------------------------------------------|---------|
-| `/join` | `/join #halloy` | Join a new channel        |
-| `/part` | `/part #halloy` | Part a channel        |
-| `/nick` | `/nick halloyisgreat` | Change your nickname        |
-| `/whois nickname` | `/whois halloyisgreat` | Displays information of nickname requested       |
-| `/list *keyword*` | `/list *linux*` | List channels. Keyword is optional        |
+| Command           | Example                | Description                                |
+| ----------------- | ---------------------- | ------------------------------------------ |
+| `/join`           | `/join #halloy`        | Join a new channel                         |
+| `/part`           | `/part #halloy`        | Part a channel                             |
+| `/nick`           | `/nick halloyisgreat`  | Change your nickname                       |
+| `/whois nickname` | `/whois halloyisgreat` | Displays information of nickname requested |
+| `/list *keyword*` | `/list *linux*`        | List channels. Keyword is optional         |
 
 
 [^1]: Channel names always start with a `#` symbol and do not contain spaces.
