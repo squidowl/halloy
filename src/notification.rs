@@ -2,16 +2,12 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-
-use data::{
-    audio::Sound,
-    config::{self, notification},
-    Notification, Server,
-};
-
-use crate::audio;
+use data::audio::Sound;
+use data::config::{self, notification};
+use data::{Notification, Server};
 
 pub use self::toast::prepare;
+use crate::audio;
 
 mod toast;
 
@@ -99,20 +95,26 @@ impl Notifications {
                         &config.direct_message,
                         notification,
                         "Direct message",
-                        format!("{} sent you a direct message on {server}", user.nickname()),
+                        format!(
+                            "{} sent you a direct message on {server}",
+                            user.nickname()
+                        ),
                     );
                 }
             }
             Notification::Highlight { user, channel } => {
-                if config
-                    .highlight
-                    .should_notify(vec![channel.to_string(), user.nickname().to_string()])
-                {
+                if config.highlight.should_notify(vec![
+                    channel.to_string(),
+                    user.nickname().to_string(),
+                ]) {
                     self.execute(
                         &config.highlight,
                         notification,
                         "Highlight",
-                        format!("{} highlighted you in {channel} on {server}", user.nickname()),
+                        format!(
+                            "{} highlighted you in {channel} on {server}",
+                            user.nickname()
+                        ),
                     );
                 }
             }
@@ -126,11 +128,13 @@ impl Notifications {
         title: &str,
         body: impl ToString,
     ) {
-        let last_notification = self.recent_notifications.get(notification).copied();
+        let last_notification =
+            self.recent_notifications.get(notification).copied();
 
         if last_notification.is_some()
             && last_notification.unwrap()
-                > Utc::now() - Duration::from_millis(config.delay.unwrap_or(500))
+                > Utc::now()
+                    - Duration::from_millis(config.delay.unwrap_or(500))
         {
             return;
         }

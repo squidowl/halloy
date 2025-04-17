@@ -30,12 +30,14 @@ impl<T> Default for Notification<T> {
 
 impl<T> Notification<T> {
     pub fn should_notify(&self, targets: Vec<String>) -> bool {
-        let is_target_filtered = |list: &Vec<String>, targets: &Vec<String>| -> bool {
-            let wildcards = ["*", "all"];
+        let is_target_filtered =
+            |list: &Vec<String>, targets: &Vec<String>| -> bool {
+                let wildcards = ["*", "all"];
 
-            list.iter()
-                .any(|item| wildcards.contains(&item.as_str()) || targets.contains(item))
-        };
+                list.iter().any(|item| {
+                    wildcards.contains(&item.as_str()) || targets.contains(item)
+                })
+            };
         let target_included = is_target_filtered(&self.include, &targets);
         let target_excluded = is_target_filtered(&self.exclude, &targets);
 
@@ -79,7 +81,9 @@ impl<T> Default for Notifications<T> {
 }
 
 impl Notifications {
-    pub fn load_sounds(&self) -> Result<Notifications<Sound>, audio::LoadError> {
+    pub fn load_sounds(
+        &self,
+    ) -> Result<Notifications<Sound>, audio::LoadError> {
         let load = |notification: &Notification<String>| -> Result<_, audio::LoadError> {
             Ok(Notification {
                 show_toast: notification.show_toast,

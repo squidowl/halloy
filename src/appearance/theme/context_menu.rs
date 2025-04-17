@@ -1,6 +1,5 @@
-use crate::widget::context_menu::{Catalog, Style, StyleFn};
-
 use super::Theme;
+use crate::widget::context_menu::{Catalog, Style, StyleFn};
 
 impl Catalog for Theme {
     type Class<'a> = StyleFn<'a, Self>;

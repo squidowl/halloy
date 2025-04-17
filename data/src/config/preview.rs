@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
-use crate::serde::default_bool_true;
 use crate::Target;
+use crate::serde::default_bool_true;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Preview {
@@ -117,14 +117,18 @@ fn is_visible(include: &[String], exclude: &[String], target: &Target) -> bool {
     match target {
         Target::Query(_) => true,
         Target::Channel(channel) => {
-            let is_channel_filtered = |list: &[String], channel: &str| -> bool {
-                let wildcards = ["*", "all"];
-                list.iter()
-                    .any(|item| wildcards.contains(&item.as_str()) || item == channel)
-            };
+            let is_channel_filtered =
+                |list: &[String], channel: &str| -> bool {
+                    let wildcards = ["*", "all"];
+                    list.iter().any(|item| {
+                        wildcards.contains(&item.as_str()) || item == channel
+                    })
+                };
 
-            let channel_included = is_channel_filtered(include, channel.as_str());
-            let channel_excluded = is_channel_filtered(exclude, channel.as_str());
+            let channel_included =
+                is_channel_filtered(include, channel.as_str());
+            let channel_excluded =
+                is_channel_filtered(exclude, channel.as_str());
 
             channel_included || !channel_excluded
         }

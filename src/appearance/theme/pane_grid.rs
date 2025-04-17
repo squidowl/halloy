@@ -1,7 +1,5 @@
-use iced::{
-    widget::pane_grid::{Catalog, Highlight, Line, Style, StyleFn},
-    Background, Border, Color,
-};
+use iced::widget::pane_grid::{Catalog, Highlight, Line, Style, StyleFn};
+use iced::{Background, Border, Color};
 
 use super::Theme;
 

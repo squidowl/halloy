@@ -1,11 +1,10 @@
-use std::{
-    net::{IpAddr, Ipv4Addr},
-    num::NonZeroU16,
-};
+use std::net::{IpAddr, Ipv4Addr};
+use std::num::NonZeroU16;
 
-use crate::ctcp;
 use irc::proto;
 use itertools::Itertools;
+
+use crate::ctcp;
 
 pub fn decode(content: &str) -> Option<Command> {
     let query = ctcp::parse_query(content)?;
@@ -133,7 +132,9 @@ impl Send {
                 ctcp::query_message(
                     &ctcp::Command::DCC,
                     target.to_string(),
-                    Some(format!("SEND {filename} {host} {port} {size} {token}")),
+                    Some(format!(
+                        "SEND {filename} {host} {port} {size} {token}"
+                    )),
                 )
             }
             Self::Direct {

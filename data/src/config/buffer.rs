@@ -1,18 +1,18 @@
 use chrono::{DateTime, Local, Utc};
 use serde::Deserialize;
 
-use crate::serde::default_bool_true;
-
 pub use self::away::Away;
 pub use self::channel::Channel;
+use crate::serde::default_bool_true;
 
 pub mod away;
 pub mod channel;
 
-use crate::{
-    buffer::{DateSeparators, Nickname, SkinTone, StatusMessagePrefix, TextInput, Timestamp},
-    message::source,
+use crate::buffer::{
+    DateSeparators, Nickname, SkinTone, StatusMessagePrefix, TextInput,
+    Timestamp,
 };
+use crate::message::source;
 
 #[derive(Debug, Default, Clone, Deserialize)]
 pub struct Buffer {
@@ -138,17 +138,21 @@ impl ServerMessages {
             source::server::Kind::Part => Some(&self.part),
             source::server::Kind::Quit => Some(&self.quit),
             source::server::Kind::ChangeHost => Some(&self.change_host),
-            source::server::Kind::MonitoredOnline => Some(&self.monitored_online),
-            source::server::Kind::MonitoredOffline => Some(&self.monitored_offline),
-            source::server::Kind::StandardReply(source::server::StandardReply::Fail) => {
-                Some(&self.standard_reply_fail)
+            source::server::Kind::MonitoredOnline => {
+                Some(&self.monitored_online)
             }
-            source::server::Kind::StandardReply(source::server::StandardReply::Warn) => {
-                Some(&self.standard_reply_warn)
+            source::server::Kind::MonitoredOffline => {
+                Some(&self.monitored_offline)
             }
-            source::server::Kind::StandardReply(source::server::StandardReply::Note) => {
-                Some(&self.standard_reply_note)
-            }
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Fail,
+            ) => Some(&self.standard_reply_fail),
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Warn,
+            ) => Some(&self.standard_reply_warn),
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Note,
+            ) => Some(&self.standard_reply_note),
         }
     }
 }
@@ -189,8 +193,9 @@ impl ServerMessage {
         let is_channel_filtered = |list: &Vec<String>, channel: &str| -> bool {
             let wildcards = ["*", "all"];
 
-            list.iter()
-                .any(|item| wildcards.contains(&item.as_str()) || item == channel)
+            list.iter().any(|item| {
+                wildcards.contains(&item.as_str()) || item == channel
+            })
         };
 
         let channel_included = is_channel_filtered(&self.include, channel);
@@ -258,7 +263,10 @@ pub enum UsernameFormat {
 }
 
 impl Buffer {
-    pub fn format_timestamp(&self, date_time: &DateTime<Utc>) -> Option<String> {
+    pub fn format_timestamp(
+        &self,
+        date_time: &DateTime<Utc>,
+    ) -> Option<String> {
         if self.timestamp.format.is_empty() {
             return None;
         }

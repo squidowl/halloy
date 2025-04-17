@@ -1,11 +1,11 @@
-use chrono::{DateTime, Utc};
-use futures::never::Never;
 use std::time::Duration;
 
+use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
-use futures::{future, stream, FutureExt, SinkExt, StreamExt};
-use irc::proto::{self, command, Command};
-use irc::{codec, connection, Connection};
+use futures::never::Never;
+use futures::{FutureExt, SinkExt, StreamExt, future, stream};
+use irc::proto::{self, Command, command};
+use irc::{Connection, codec, connection};
 use tokio::time::{self, Instant, Interval};
 
 use crate::client::Client;
@@ -76,8 +76,9 @@ pub fn run(
     let (sender, receiver) = mpsc::unbounded();
 
     // Spawn to unblock backend from iced stream which has backpressure
-    let runner = stream::once(async { tokio::spawn(_run(server, proxy, sender)).await })
-        .map(|_| unreachable!());
+    let runner =
+        stream::once(async { tokio::spawn(_run(server, proxy, sender)).await })
+            .map(|_| unreachable!());
 
     stream::select(receiver, runner)
 }
@@ -106,14 +107,17 @@ async fn _run(
         match &mut state {
             State::Disconnected { last_retry } => {
                 if let Some(last_retry) = last_retry.as_ref() {
-                    let remaining = reconnect_delay.saturating_sub(last_retry.elapsed());
+                    let remaining =
+                        reconnect_delay.saturating_sub(last_retry.elapsed());
 
                     if !remaining.is_zero() {
                         time::sleep(remaining).await;
                     }
                 }
 
-                match connect(server.clone(), config.clone(), proxy.clone()).await {
+                match connect(server.clone(), config.clone(), proxy.clone())
+                    .await
+                {
                     Ok((stream, client)) => {
                         log::info!("[{server}] connected");
 
@@ -136,17 +140,20 @@ async fn _run(
                     Err(e) => {
                         let error = match e {
                             // unwrap Tls-specific error enums to access more error info
-                            connection::Error::Tls(e) => format!("a TLS error occured: {e}"),
+                            connection::Error::Tls(e) => {
+                                format!("a TLS error occured: {e}")
+                            }
                             _ => e.to_string(),
                         };
 
                         log::warn!("[{server}] connection failed: {error}");
 
-                        let _ = sender.unbounded_send(Update::ConnectionFailed {
-                            server: server.clone(),
-                            error,
-                            sent_time: Utc::now(),
-                        });
+                        let _ =
+                            sender.unbounded_send(Update::ConnectionFailed {
+                                server: server.clone(),
+                                error,
+                                sent_time: Utc::now(),
+                            });
 
                         *last_retry = Some(Instant::now());
                     }
@@ -162,7 +169,11 @@ async fn _run(
                     let mut select = stream::select_all([
                         (&mut stream.connection).map(Input::IrcMessage).boxed(),
                         (&mut stream.receiver).map(Input::Send).boxed(),
-                        ping_time.tick().into_stream().map(|_| Input::Ping).boxed(),
+                        ping_time
+                            .tick()
+                            .into_stream()
+                            .map(|_| Input::Ping)
+                            .boxed(),
                         batch.map(Input::Batch).boxed(),
                     ]);
 
@@ -180,9 +191,13 @@ async fn _run(
                 };
 
                 match input {
-                    Input::IrcMessage(Ok(Ok(message))) => match message.command {
+                    Input::IrcMessage(Ok(Ok(message))) => match message.command
+                    {
                         proto::Command::PING(token) => {
-                            let _ = stream.connection.send(command!("PONG", token)).await;
+                            let _ = stream
+                                .connection
+                                .send(command!("PONG", token))
+                                .await;
                         }
                         proto::Command::PONG(_, token) => {
                             let token = token.unwrap_or_default();
@@ -192,12 +207,13 @@ async fn _run(
                         }
                         proto::Command::ERROR(error) => {
                             log::warn!("[{server}] disconnected: {error}");
-                            let _ = sender.unbounded_send(Update::Disconnected {
-                                server: server.clone(),
-                                is_initial,
-                                error: Some(error),
-                                sent_time: Utc::now(),
-                            });
+                            let _ =
+                                sender.unbounded_send(Update::Disconnected {
+                                    server: server.clone(),
+                                    is_initial,
+                                    error: Some(error),
+                                    sent_time: Utc::now(),
+                                });
                             state = State::Disconnected {
                                 last_retry: Some(Instant::now()),
                             };
@@ -222,17 +238,24 @@ async fn _run(
                         };
                     }
                     Input::Batch(messages) => {
-                        let _ = sender
-                            .unbounded_send(Update::MessagesReceived(server.clone(), messages));
+                        let _ = sender.unbounded_send(
+                            Update::MessagesReceived(server.clone(), messages),
+                        );
                     }
                     Input::Send(message) => {
-                        log::trace!("[{server}] Sending message => {:?}", message);
+                        log::trace!(
+                            "[{server}] Sending message => {:?}",
+                            message
+                        );
 
                         if let Command::QUIT(reason) = &message.command {
                             let reason = reason.clone();
 
                             let _ = stream.connection.send(message).await;
-                            let _ = sender.unbounded_send(Update::Quit(server.clone(), reason));
+                            let _ = sender.unbounded_send(Update::Quit(
+                                server.clone(),
+                                reason,
+                            ));
 
                             log::info!("[{server}] quit");
 
@@ -245,10 +268,13 @@ async fn _run(
                         let now = Posix::now().as_nanos().to_string();
                         log::trace!("[{server}] ping sent: {now}");
 
-                        let _ = stream.connection.send(command!("PING", now)).await;
+                        let _ =
+                            stream.connection.send(command!("PING", now)).await;
 
                         if ping_timeout.is_none() {
-                            *ping_timeout = Some(ping_timeout_interval(config.ping_timeout));
+                            *ping_timeout = Some(ping_timeout_interval(
+                                config.ping_timeout,
+                            ));
                         }
                     }
                     Input::PingTimeout => {
@@ -278,7 +304,8 @@ async fn connect(
     config: config::Server,
     proxy: Option<config::Proxy>,
 ) -> Result<(Stream, Client), connection::Error> {
-    let connection = Connection::new(config.connection(proxy), irc::Codec).await?;
+    let connection =
+        Connection::new(config.connection(proxy), irc::Codec).await?;
 
     let (sender, receiver) = mpsc::channel(100);
 

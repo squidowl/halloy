@@ -1,4 +1,6 @@
-use std::{io::Cursor, sync::Arc, thread};
+use std::io::Cursor;
+use std::sync::Arc;
+use std::thread;
 
 use data::audio::Sound;
 use rodio::{Decoder, OutputStream, Sink};

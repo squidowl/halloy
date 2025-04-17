@@ -1,16 +1,12 @@
-use std::{
-    env, mem,
-    sync::mpsc,
-    thread,
-    time::{Duration, Instant},
-};
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
+use std::{env, mem, thread};
 
 use chrono::Utc;
+pub use data::log::{Error, Record};
 use log::Log;
 use tokio::sync::mpsc as tokio_mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-
-pub use data::log::{Error, Record};
 
 pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, Error> {
     let level_filter = env::var("RUST_LOG")
@@ -94,8 +90,10 @@ fn channel_logger() -> (Box<dyn Log>, ReceiverStream<Vec<Record>>) {
             {
                 timeout = Instant::now();
 
-                let _ = async_sender
-                    .blocking_send(mem::replace(&mut batch, Vec::with_capacity(BATCH_SIZE)));
+                let _ = async_sender.blocking_send(mem::replace(
+                    &mut batch,
+                    Vec::with_capacity(BATCH_SIZE),
+                ));
             }
         }
     });

@@ -2,15 +2,16 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
-use futures::{future, Future, FutureExt};
+use futures::{Future, FutureExt, future};
 use tokio::time::Instant;
 
 use crate::history::{self, History, MessageReferences, ReadMarker};
 use crate::message::{self, Limit};
 use crate::target::{self, Target};
 use crate::user::Nick;
-use crate::{buffer, config, input, isupport};
-use crate::{server, Config, Input, Server, User};
+use crate::{
+    Config, Input, Server, User, buffer, config, input, isupport, server,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -137,7 +138,9 @@ impl Manager {
                 log::debug!("updated read marker for {kind} to {read_marker}");
             }
             Message::UpdateReadMarker(kind, read_marker, Err(error)) => {
-                log::warn!("failed to update read marker for {kind} to {read_marker}: {error}");
+                log::warn!(
+                    "failed to update read marker for {kind} to {read_marker}: {error}"
+                );
             }
             Message::Exited(results) => {
                 let mut output = vec![];
@@ -149,7 +152,9 @@ impl Manager {
                             output.push((kind, marker));
                         }
                         Err(error) => {
-                            log::warn!("failed to close history for {kind}: {error}");
+                            log::warn!(
+                                "failed to close history for {kind}: {error}"
+                            );
                             output.push((kind, None));
                         }
                     }
@@ -190,7 +195,9 @@ impl Manager {
         async move {
             let tasks = map.into_iter().map(|(kind, state)| {
                 match state {
-                    History::Partial { .. } => state.close(mark_partial_as_read),
+                    History::Partial { .. } => {
+                        state.close(mark_partial_as_read)
+                    }
                     History::Full { .. } => state.close(mark_full_as_read),
                 }
                 .map(move |result| (kind, result))
@@ -228,7 +235,11 @@ impl Manager {
         tasks
     }
 
-    pub fn record_input_history(&mut self, buffer: &buffer::Upstream, text: String) {
+    pub fn record_input_history(
+        &mut self,
+        buffer: &buffer::Upstream,
+        text: String,
+    ) {
         self.data.input.record(buffer, text);
     }
 
@@ -276,7 +287,11 @@ impl Manager {
         self.data.load_metadata(server, target)
     }
 
-    pub fn first_can_reference(&self, server: Server, target: Target) -> Option<&crate::Message> {
+    pub fn first_can_reference(
+        &self,
+        server: Server,
+        target: Target,
+    ) -> Option<&crate::Message> {
         self.data.first_can_reference(server, target)
     }
 
@@ -313,7 +328,9 @@ impl Manager {
             .map
             .keys()
             .filter_map(|kind| match kind {
-                history::Kind::Query(s, query) => (s == server).then_some(query),
+                history::Kind::Query(s, query) => {
+                    (s == server).then_some(query)
+                }
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -328,7 +345,10 @@ impl Manager {
             .is_some_and(|history| history.has_unread())
     }
 
-    pub fn read_marker(&self, kind: &history::Kind) -> Option<history::ReadMarker> {
+    pub fn read_marker(
+        &self,
+        kind: &history::Kind,
+    ) -> Option<history::ReadMarker> {
         self.data
             .map
             .get(kind)
@@ -375,15 +395,20 @@ impl Manager {
                 message::broadcast::connection_failed(error, sent_time)
             }
             Broadcast::Disconnected { error } => {
-                message::broadcast::disconnected(channels, queries, error, sent_time)
+                message::broadcast::disconnected(
+                    channels, queries, error, sent_time,
+                )
             }
-            Broadcast::Reconnected => message::broadcast::reconnected(channels, queries, sent_time),
+            Broadcast::Reconnected => {
+                message::broadcast::reconnected(channels, queries, sent_time)
+            }
             Broadcast::Quit {
                 user,
                 comment,
                 user_channels,
             } => {
-                let user_query = queries.find(|query| user.as_str() == query.as_str());
+                let user_query =
+                    queries.find(|query| user.as_str() == query.as_str());
 
                 message::broadcast::quit(
                     user_channels,
@@ -412,7 +437,8 @@ impl Manager {
                     )
                 } else {
                     // Otherwise just the query channel of the user w/ nick change
-                    let user_query = queries.find(|query| old_nick.as_ref() == query.as_str());
+                    let user_query = queries
+                        .find(|query| old_nick.as_ref() == query.as_str());
                     message::broadcast::nickname(
                         user_channels,
                         user_query,
@@ -427,7 +453,12 @@ impl Manager {
                 inviter,
                 channel,
                 user_channels,
-            } => message::broadcast::invite(inviter, channel, user_channels, sent_time),
+            } => message::broadcast::invite(
+                inviter,
+                channel,
+                user_channels,
+                sent_time,
+            ),
             Broadcast::ChangeHost {
                 old_user,
                 new_username,
@@ -450,7 +481,8 @@ impl Manager {
                     )
                 } else {
                     // Otherwise just the query channel of the user w/ host change
-                    let user_query = queries.find(|query| old_user.as_str() == query.as_str());
+                    let user_query = queries
+                        .find(|query| old_user.as_str() == query.as_str());
                     message::broadcast::change_host(
                         user_channels,
                         user_query,
@@ -526,14 +558,15 @@ impl Data {
                     read_marker: partial_read_marker,
                     ..
                 } => {
-                    let read_marker = (*partial_read_marker).max(metadata.read_marker);
+                    let read_marker =
+                        (*partial_read_marker).max(metadata.read_marker);
 
                     let last_updated_at = *last_updated_at;
-                    std::mem::take(new_messages)
-                        .into_iter()
-                        .for_each(|message| {
+                    std::mem::take(new_messages).into_iter().for_each(
+                        |message| {
                             history::insert_message(&mut messages, message);
-                        });
+                        },
+                    );
                     entry.insert(History::Full {
                         kind,
                         messages,
@@ -588,10 +621,16 @@ impl Data {
             .iter()
             .filter(|message| match message.target.source() {
                 message::Source::Server(Some(source)) => {
-                    if let Some(server_message) = buffer_config.server_messages.get(source) {
+                    if let Some(server_message) =
+                        buffer_config.server_messages.get(source)
+                    {
                         // Check if target is a channel, and if included/excluded.
-                        if let message::Target::Channel { channel, .. } = &message.target {
-                            if !server_message.should_send_message(channel.as_str()) {
+                        if let message::Target::Channel { channel, .. } =
+                            &message.target
+                        {
+                            if !server_message
+                                .should_send_message(channel.as_str())
+                            {
                                 return false;
                             }
                         }
@@ -600,8 +639,9 @@ impl Data {
                             let nick = match source.nick() {
                                 Some(nick) => nick.clone(),
                                 None => {
-                                    if let Some(nickname) =
-                                        message.plain().and_then(|s| s.split(' ').nth(1))
+                                    if let Some(nickname) = message
+                                        .plain()
+                                        .and_then(|s| s.split(' ').nth(1))
                                     {
                                         Nick::from(nickname)
                                     } else {
@@ -621,19 +661,27 @@ impl Data {
                     true
                 }
                 crate::message::Source::User(message_user) => {
-                    most_recent_messages
-                        .insert(message_user.nickname().to_owned(), message.server_time);
+                    most_recent_messages.insert(
+                        message_user.nickname().to_owned(),
+                        message.server_time,
+                    );
 
                     true
                 }
-                message::Source::Internal(message::source::Internal::Status(status)) => {
-                    if let Some(internal_message) = buffer_config.internal_messages.get(status) {
+                message::Source::Internal(
+                    message::source::Internal::Status(status),
+                ) => {
+                    if let Some(internal_message) =
+                        buffer_config.internal_messages.get(status)
+                    {
                         if !internal_message.enabled {
                             return false;
                         }
 
                         if let Some(seconds) = internal_message.smart {
-                            return !smart_filter_internal_message(message, &seconds);
+                            return !smart_filter_internal_message(
+                                message, &seconds,
+                            );
                         }
                     }
 
@@ -646,48 +694,52 @@ impl Data {
         let total = filtered.len();
         let with_access_levels = buffer_config.nickname.show_access_levels;
 
-        let max_nick_chars = buffer_config.nickname.alignment.is_right().then(|| {
-            filtered
-                .iter()
-                .filter_map(|message| {
-                    if let message::Source::User(user) = message.target.source() {
-                        Some(
-                            buffer_config
-                                .nickname
-                                .brackets
-                                .format(user.display(with_access_levels))
-                                .chars()
-                                .count(),
-                        )
-                    } else {
-                        None
-                    }
-                })
-                .max()
-                .unwrap_or_default()
-        });
-
-        let max_prefix_chars = buffer_config.nickname.alignment.is_right().then(|| {
-            if matches!(kind, history::Kind::Channel(..)) {
+        let max_nick_chars =
+            buffer_config.nickname.alignment.is_right().then(|| {
                 filtered
                     .iter()
                     .filter_map(|message| {
-                        message.target.prefixes().map(|prefixes| {
-                            buffer_config
-                                .status_message_prefix
-                                .brackets
-                                .format(prefixes.iter().collect::<String>())
-                                .chars()
-                                .count()
-                                + 1
-                        })
+                        if let message::Source::User(user) =
+                            message.target.source()
+                        {
+                            Some(
+                                buffer_config
+                                    .nickname
+                                    .brackets
+                                    .format(user.display(with_access_levels))
+                                    .chars()
+                                    .count(),
+                            )
+                        } else {
+                            None
+                        }
                     })
                     .max()
                     .unwrap_or_default()
-            } else {
-                0
-            }
-        });
+            });
+
+        let max_prefix_chars =
+            buffer_config.nickname.alignment.is_right().then(|| {
+                if matches!(kind, history::Kind::Channel(..)) {
+                    filtered
+                        .iter()
+                        .filter_map(|message| {
+                            message.target.prefixes().map(|prefixes| {
+                                buffer_config
+                                    .status_message_prefix
+                                    .brackets
+                                    .format(prefixes.iter().collect::<String>())
+                                    .chars()
+                                    .count()
+                                    + 1
+                            })
+                        })
+                        .max()
+                        .unwrap_or_default()
+                } else {
+                    0
+                }
+            });
 
         let has_read_messages = read_marker
             .map(|marker| {
@@ -709,15 +761,13 @@ impl Data {
             limited
                 .iter()
                 .rev()
-                .position(|message| message.server_time <= read_marker.date_time())
+                .position(|message| {
+                    message.server_time <= read_marker.date_time()
+                })
                 .map_or_else(
                     || {
                         // Backlog is before this limit view of messages
-                        if has_read_messages {
-                            0
-                        } else {
-                            limited.len()
-                        }
+                        if has_read_messages { 0 } else { limited.len() }
                     },
                     |position| limited.len() - position,
                 )
@@ -725,18 +775,16 @@ impl Data {
 
         let (old, new) = limited.split_at(split_at);
 
-        let has_more_older_messages =
-            first_without_limit
-                .zip(first_with_limit)
-                .is_some_and(|(without_limit, with_limit)| {
-                    without_limit.server_time < with_limit.server_time
-                });
-        let has_more_newer_messages =
-            last_without_limit
-                .zip(last_with_limit)
-                .is_some_and(|(without_limit, with_limit)| {
-                    without_limit.server_time > with_limit.server_time
-                });
+        let has_more_older_messages = first_without_limit
+            .zip(first_with_limit)
+            .is_some_and(|(without_limit, with_limit)| {
+                without_limit.server_time < with_limit.server_time
+            });
+        let has_more_newer_messages = last_without_limit
+            .zip(last_with_limit)
+            .is_some_and(|(without_limit, with_limit)| {
+                without_limit.server_time > with_limit.server_time
+            });
 
         Some(history::View {
             total,
@@ -769,7 +817,8 @@ impl Data {
 
                 Some(
                     async move {
-                        let loaded = history::metadata::load(kind.clone()).await;
+                        let loaded =
+                            history::metadata::load(kind.clone()).await;
 
                         Message::UpdatePartial(kind, loaded)
                     }
@@ -796,7 +845,8 @@ impl Data {
             }
             hash_map::Entry::Vacant(_) => Some(
                 async move {
-                    let updated = history::metadata::update(&kind, &read_marker).await;
+                    let updated =
+                        history::metadata::update(&kind, &read_marker).await;
 
                     Message::UpdateReadMarker(kind, read_marker, updated)
                 }
@@ -821,7 +871,8 @@ impl Data {
 
                 Some(
                     async move {
-                        let loaded = history::metadata::load(kind.clone()).await;
+                        let loaded =
+                            history::metadata::load(kind.clone()).await;
 
                         Message::UpdatePartial(kind, loaded)
                     }
@@ -872,10 +923,15 @@ impl Data {
         &mut self,
         kind: &history::Kind,
         config: &Config,
-    ) -> Option<impl Future<Output = Result<Option<history::ReadMarker>, history::Error>> + use<>>
-    {
+    ) -> Option<
+        impl Future<Output = Result<Option<history::ReadMarker>, history::Error>>
+        + use<>,
+    > {
         self.map.get_mut(kind).and_then(|history| {
-            History::make_partial(history, config.buffer.mark_as_read.on_buffer_close)
+            History::make_partial(
+                history,
+                config.buffer.mark_as_read.on_buffer_close,
+            )
         })
     }
 
@@ -893,7 +949,12 @@ impl Data {
             .collect()
     }
 
-    fn hide_preview(&mut self, kind: &history::Kind, message: message::Hash, url: url::Url) {
+    fn hide_preview(
+        &mut self,
+        kind: &history::Kind,
+        message: message::Hash,
+        url: url::Url,
+    ) {
         if let Some(history) = self.map.get_mut(kind) {
             history.hide_preview(message, url);
         }
@@ -917,7 +978,10 @@ fn smart_filter_message(
     duration_seconds > *seconds
 }
 
-fn smart_filter_internal_message(message: &crate::Message, seconds: &i64) -> bool {
+fn smart_filter_internal_message(
+    message: &crate::Message,
+    seconds: &i64,
+) -> bool {
     let current_time = Utc::now();
 
     let duration_seconds = current_time

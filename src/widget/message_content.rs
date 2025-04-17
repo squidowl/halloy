@@ -1,12 +1,11 @@
 use data::appearance::theme::randomize_color;
-use data::{isupport, message, target, Config};
+use data::{Config, isupport, message, target};
 use iced::widget::span;
 use iced::widget::text::Span;
-use iced::{border, Length};
+use iced::{Length, border};
 
-use crate::{font, Theme};
-
-use super::{selectable_rich_text, selectable_text, Element, Renderer};
+use super::{Element, Renderer, selectable_rich_text, selectable_text};
+use crate::{Theme, font};
 
 pub fn message_content<'a, M: 'a>(
     content: &'a message::Content,
@@ -62,24 +61,41 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
     config: &Config,
 ) -> Element<'a, M> {
     match content {
-        data::message::Content::Plain(text) => selectable_text(text).style(style).into(),
+        data::message::Content::Plain(text) => {
+            selectable_text(text).style(style).into()
+        }
         data::message::Content::Fragments(fragments) => {
-            let mut text = selectable_rich_text::<M, message::Link, T, Theme, Renderer>(
+            let mut text = selectable_rich_text::<
+                M,
+                message::Link,
+                T,
+                Theme,
+                Renderer,
+            >(
                 fragments
                     .iter()
                     .map(|fragment| match fragment {
                         data::message::Fragment::Text(s) => span(s),
                         data::message::Fragment::Channel(s) => span(s.as_str())
                             .color(theme.colors().buffer.url)
-                            .link(message::Link::Channel(target::Channel::from_str(
-                                s.as_str(),
-                                casemapping,
-                            ))),
+                            .link(message::Link::Channel(
+                                target::Channel::from_str(
+                                    s.as_str(),
+                                    casemapping,
+                                ),
+                            )),
                         data::message::Fragment::User(user, text) => {
                             let color = theme.colors().buffer.nickname;
-                            let seed = match &config.buffer.channel.message.nickname_color {
+                            let seed = match &config
+                                .buffer
+                                .channel
+                                .message
+                                .nickname_color
+                            {
                                 data::buffer::Color::Solid => None,
-                                data::buffer::Color::Unique => Some(user.seed()),
+                                data::buffer::Color::Unique => {
+                                    Some(user.seed())
+                                }
                             };
 
                             let color = match seed {
@@ -93,9 +109,16 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                         }
                         data::message::Fragment::HighlightNick(user, text) => {
                             let color = theme.colors().buffer.nickname;
-                            let seed = match &config.buffer.channel.message.nickname_color {
+                            let seed = match &config
+                                .buffer
+                                .channel
+                                .message
+                                .nickname_color
+                            {
                                 data::buffer::Color::Solid => None,
-                                data::buffer::Color::Unique => Some(user.seed()),
+                                data::buffer::Color::Unique => {
+                                    Some(user.seed())
+                                }
                             };
 
                             let color = match seed {
@@ -108,24 +131,25 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 .background(theme.colors().buffer.highlight)
                                 .link(message::Link::User(user.clone()))
                         }
-                        data::message::Fragment::HighlightMatch(text) => span(text.as_str())
-                            .color(theme.colors().text.primary)
-                            .background(theme.colors().buffer.highlight),
+                        data::message::Fragment::HighlightMatch(text) => {
+                            span(text.as_str())
+                                .color(theme.colors().text.primary)
+                                .background(theme.colors().buffer.highlight)
+                        }
                         data::message::Fragment::Url(s) => span(s.as_str())
                             .color(theme.colors().buffer.url)
                             .link(message::Link::Url(s.as_str().to_string())),
-                        data::message::Fragment::Formatted { text, formatting } => {
+                        data::message::Fragment::Formatted {
+                            text,
+                            formatting,
+                        } => {
                             let mut span = span(text)
-                                .color_maybe(
-                                    formatting
-                                        .fg
-                                        .and_then(|color| color.into_iced(theme.colors())),
-                                )
-                                .background_maybe(
-                                    formatting
-                                        .bg
-                                        .and_then(|color| color.into_iced(theme.colors())),
-                                )
+                                .color_maybe(formatting.fg.and_then(|color| {
+                                    color.into_iced(theme.colors())
+                                }))
+                                .background_maybe(formatting.bg.and_then(
+                                    |color| color.into_iced(theme.colors()),
+                                ))
                                 .underline(formatting.underline)
                                 .strikethrough(formatting.strikethrough);
 
@@ -135,20 +159,24 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                     .color(theme.colors().buffer.code)
                                     .border(
                                         border::rounded(3)
-                                            .color(theme.colors().general.border)
+                                            .color(
+                                                theme.colors().general.border,
+                                            )
                                             .width(1),
                                     );
                             }
 
                             match (formatting.bold, formatting.italics) {
                                 (true, true) => {
-                                    span = span.font(font::MONO_BOLD_ITALICS.clone());
+                                    span = span
+                                        .font(font::MONO_BOLD_ITALICS.clone());
                                 }
                                 (true, false) => {
                                     span = span.font(font::MONO_BOLD.clone());
                                 }
                                 (false, true) => {
-                                    span = span.font(font::MONO_ITALICS.clone());
+                                    span =
+                                        span.font(font::MONO_ITALICS.clone());
                                 }
                                 (false, false) => {}
                             }
@@ -178,7 +206,8 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
             );
 
             spans.extend([
-                span(format!("{: <5}", record.level)).color(theme.colors().text.secondary),
+                span(format!("{: <5}", record.level))
+                    .color(theme.colors().text.secondary),
                 span(" "),
                 span(&record.message),
             ]);

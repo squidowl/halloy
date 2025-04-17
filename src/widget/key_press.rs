@@ -1,8 +1,9 @@
-use iced::advanced::{widget, Clipboard, Layout, Shell};
-pub use iced::keyboard::{key::Named, Key, Modifiers};
-use iced::{keyboard, mouse, Event, Rectangle};
+use iced::advanced::{Clipboard, Layout, Shell, widget};
+pub use iced::keyboard::key::Named;
+pub use iced::keyboard::{Key, Modifiers};
+use iced::{Event, Rectangle, keyboard, mouse};
 
-use super::{decorate, Element, Renderer};
+use super::{Element, Renderer, decorate};
 
 pub fn key_press<'a, Message>(
     base: impl Into<Element<'a, Message>>,
@@ -39,7 +40,8 @@ where
                 }
 
                 inner.as_widget_mut().update(
-                    tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+                    tree, event, layout, cursor, renderer, clipboard, shell,
+                    viewport,
                 );
             },
         )

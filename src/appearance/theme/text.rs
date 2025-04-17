@@ -1,7 +1,7 @@
-use data::{
-    appearance::theme::{alpha_color, alpha_color_calculate, randomize_color},
-    config::buffer::away,
+use data::appearance::theme::{
+    alpha_color, alpha_color_calculate, randomize_color,
 };
+use data::config::buffer::away;
 use iced::widget::text::{Catalog, Style, StyleFn};
 
 use super::Theme;
@@ -92,7 +92,12 @@ pub fn nickname<T: AsRef<str>>(
         if let Some(away::Appearance::Dimmed(alpha)) = away_appearance {
             match alpha {
                 // Calculate alpha based on background and foreground.
-                None => alpha_color_calculate(0.20, 0.61, theme.colors().buffer.background, color),
+                None => alpha_color_calculate(
+                    0.20,
+                    0.61,
+                    theme.colors().buffer.background,
+                    color,
+                ),
                 // Calculate alpha based on user defined alpha value.
                 Some(a) => alpha_color(color, a),
             }
@@ -103,7 +108,9 @@ pub fn nickname<T: AsRef<str>>(
 
     // If we have a seed we randomize the color based on the seed before adding any alpha value.
     let color = match seed {
-        Some(seed) => calculate_alpha_color(randomize_color(nickname, seed.as_ref())),
+        Some(seed) => {
+            calculate_alpha_color(randomize_color(nickname, seed.as_ref()))
+        }
         None => calculate_alpha_color(nickname),
     };
 

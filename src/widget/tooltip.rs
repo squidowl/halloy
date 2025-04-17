@@ -1,10 +1,8 @@
+pub use iced::widget::tooltip::Position;
 use iced::widget::{container, text};
 
-use crate::theme;
-
-pub use iced::widget::tooltip::Position;
-
 use super::Element;
+use crate::theme;
 
 pub fn tooltip<'a, Message: 'a>(
     content: impl Into<Element<'a, Message>>,
