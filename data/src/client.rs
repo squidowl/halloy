@@ -4,10 +4,11 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fmt, io};
 
-use anyhow::{anyhow, bail, Context as ErrorContext, Result};
+use anyhow::{Context as ErrorContext, Result, anyhow, bail};
 use chrono::{DateTime, Utc};
-use futures::{channel::mpsc, Future, FutureExt};
-use irc::proto::{self, command, Command};
+use futures::channel::mpsc;
+use futures::{Future, FutureExt};
+use irc::proto::{self, Command, command};
 use itertools::{Either, Itertools};
 use log::error;
 use tokio::fs;
@@ -15,16 +16,17 @@ use tokio::fs;
 use crate::dashboard::BufferAction;
 use crate::history::ReadMarker;
 use crate::isupport::{
-    ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken, WhoXPollParameters,
+    ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
+    WhoXPollParameters,
 };
 use crate::message::{message_id, server_time, source};
 use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
 use crate::{
-    buffer, compression, config, ctcp, dcc, environment, isupport, message, mode, Server, User,
+    Server, User, buffer, compression, config, ctcp, dcc, environment,
+    file_transfer, isupport, message, mode, server,
 };
-use crate::{file_transfer, server};
 
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -85,7 +87,11 @@ pub enum Broadcast {
 #[derive(Debug)]
 pub enum Message {
     ChatHistoryRequest(Server, ChatHistorySubcommand),
-    ChatHistoryTargetsTimestampUpdated(Server, DateTime<Utc>, Result<(), Error>),
+    ChatHistoryTargetsTimestampUpdated(
+        Server,
+        DateTime<Utc>,
+        Result<(), Error>,
+    ),
     RequestNewerChatHistory(Server, Target, DateTime<Utc>),
     RequestChatHistoryTargets(Server, Option<DateTime<Utc>>, DateTime<Utc>),
 }
@@ -181,11 +187,14 @@ impl Client {
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
             chathistory_targets_request: None,
-            highlight_notification_blackout: HighlightNotificationBlackout::Blackout(Instant::now()),
+            highlight_notification_blackout:
+                HighlightNotificationBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
             isupport: HashMap::new(),
             who_polls: VecDeque::new(),
-            who_poll_interval: BackoffInterval::from_duration(config.who_poll_interval),
+            who_poll_interval: BackoffInterval::from_duration(
+                config.who_poll_interval,
+            ),
             config,
         }
     }
@@ -240,7 +249,11 @@ impl Client {
         }
     }
 
-    fn send(&mut self, buffer: &buffer::Upstream, mut message: message::Encoded) {
+    fn send(
+        &mut self,
+        buffer: &buffer::Upstream,
+        mut message: message::Encoded,
+    ) {
         if self.supports_labels {
             use proto::Tag;
 
@@ -256,7 +269,8 @@ impl Client {
             }];
         }
 
-        self.reroute_responses_to = self.start_reroute(&message.command).then(|| buffer.clone());
+        self.reroute_responses_to =
+            self.start_reroute(&message.command).then(|| buffer.clone());
 
         if matches!(message.command, Command::WHO(..)) {
             let params = message.command.clone().parameters();
@@ -354,7 +368,11 @@ impl Client {
         macro_rules! ok {
             ($option:expr) => {
                 $option.ok_or_else(|| {
-                    anyhow!("[{}] Malformed command: {:?}", self.server, message.command)
+                    anyhow!(
+                        "[{}] Malformed command: {:?}",
+                        self.server,
+                        message.command
+                    )
                 })?
             };
         }
@@ -362,7 +380,11 @@ impl Client {
         macro_rules! context {
             ($result:expr) => {
                 $result.with_context(|| {
-                    anyhow!("[{}] Malformed command: {:?}", self.server, message.command)
+                    anyhow!(
+                        "[{}] Malformed command: {:?}",
+                        self.server,
+                        message.command
+                    )
                 })?
             };
         }
@@ -377,18 +399,23 @@ impl Client {
                     '+' => {
                         let mut batch = Batch::new(context);
 
-                        batch.chathistory = match params.first().map(|x| x.as_str()) {
-                            Some("chathistory") => params.get(1).map(|target| {
-                                ChatHistoryBatch::Target(Target::parse(
-                                    target,
-                                    self.chantypes(),
-                                    self.statusmsg(),
-                                    self.casemapping(),
-                                ))
-                            }),
-                            Some("draft/chathistory-targets") => Some(ChatHistoryBatch::Targets),
-                            _ => None,
-                        };
+                        batch.chathistory =
+                            match params.first().map(|x| x.as_str()) {
+                                Some("chathistory") => {
+                                    params.get(1).map(|target| {
+                                        ChatHistoryBatch::Target(Target::parse(
+                                            target,
+                                            self.chantypes(),
+                                            self.statusmsg(),
+                                            self.casemapping(),
+                                        ))
+                                    })
+                                }
+                                Some("draft/chathistory-targets") => {
+                                    Some(ChatHistoryBatch::Targets)
+                                }
+                                _ => None,
+                            };
 
                         self.batches.insert(
                             Target::parse(
@@ -401,31 +428,40 @@ impl Client {
                         );
                     }
                     '-' => {
-                        if let Some(mut finished) = self.batches.remove(&Target::parse(
-                            &reference,
-                            self.chantypes(),
-                            self.statusmsg(),
-                            self.casemapping(),
-                        )) {
+                        if let Some(mut finished) =
+                            self.batches.remove(&Target::parse(
+                                &reference,
+                                self.chantypes(),
+                                self.statusmsg(),
+                                self.casemapping(),
+                            ))
+                        {
                             // If nested, extend events into parent batch
-                            if let Some(parent) = batch_tag.as_ref().and_then(|batch| {
-                                self.batches.get_mut(&Target::parse(
-                                    batch,
-                                    self.chantypes(),
-                                    self.statusmsg(),
-                                    self.casemapping(),
-                                ))
-                            }) {
+                            if let Some(parent) =
+                                batch_tag.as_ref().and_then(|batch| {
+                                    self.batches.get_mut(&Target::parse(
+                                        batch,
+                                        self.chantypes(),
+                                        self.statusmsg(),
+                                        self.casemapping(),
+                                    ))
+                                })
+                            {
                                 parent.events.extend(finished.events);
                             } else {
                                 match &finished.chathistory {
-                                    Some(ChatHistoryBatch::Target(batch_target)) => {
-                                        let continuation_subcommand = if let Some(
-                                            ChatHistoryRequest { subcommand, .. },
-                                        ) =
-                                            self.chathistory_requests.get(batch_target)
-                                        {
-                                            if let ChatHistorySubcommand::Before(_, _, limit)
+                                    Some(ChatHistoryBatch::Target(
+                                        batch_target,
+                                    )) => {
+                                        let continuation_subcommand =
+                                            if let Some(ChatHistoryRequest {
+                                                subcommand,
+                                                ..
+                                            }) = self
+                                                .chathistory_requests
+                                                .get(batch_target)
+                                            {
+                                                if let ChatHistorySubcommand::Before(_, _, limit)
                                             | ChatHistorySubcommand::Latest(
                                                 _,
                                                 MessageReference::None,
@@ -438,7 +474,7 @@ impl Client {
                                                 );
                                             }
 
-                                            match subcommand {
+                                                match subcommand {
                                                 ChatHistorySubcommand::Latest(
                                                     target,
                                                     message_reference,
@@ -520,20 +556,27 @@ impl Client {
                                                     None
                                                 }
                                             }
-                                        } else {
-                                            None
-                                        };
+                                            } else {
+                                                None
+                                            };
 
-                                        self.clear_chathistory_request(Some(batch_target));
+                                        self.clear_chathistory_request(Some(
+                                            batch_target,
+                                        ));
 
                                         if let Some(continuation_subcommand) =
                                             continuation_subcommand
                                         {
-                                            self.send_chathistory_request(continuation_subcommand);
+                                            self.send_chathistory_request(
+                                                continuation_subcommand,
+                                            );
                                         }
                                     }
                                     Some(ChatHistoryBatch::Targets) => {
-                                        if let Some(ChatHistoryRequest { subcommand, .. }) =
+                                        if let Some(ChatHistoryRequest {
+                                            subcommand,
+                                            ..
+                                        }) =
                                             &self.chathistory_targets_request
                                         {
                                             if let ChatHistorySubcommand::Targets(
@@ -596,7 +639,9 @@ impl Client {
                             None
                         }
                     }) {
-                    if Some(User::from(Nick::from("HistServ"))) == message.user() {
+                    if Some(User::from(Nick::from("HistServ")))
+                        == message.user()
+                    {
                         // HistServ provides event-playback without event-playback
                         // which would require client-side parsing to map appropriately.
                         // Avoid that complexity by only providing that functionality
@@ -624,12 +669,17 @@ impl Client {
                                 .map(|channel| {
                                     let target = message::Target::Channel {
                                         channel: channel.clone(),
-                                        source: source::Source::Server(Some(source::Server::new(
-                                            source::server::Kind::Quit,
-                                            message
-                                                .user()
-                                                .map(|user| Nick::from(user.nickname().as_ref())),
-                                        ))),
+                                        source: source::Source::Server(Some(
+                                            source::Server::new(
+                                                source::server::Kind::Quit,
+                                                message.user().map(|user| {
+                                                    Nick::from(
+                                                        user.nickname()
+                                                            .as_ref(),
+                                                    )
+                                                }),
+                                            ),
+                                        )),
                                     };
 
                                     vec![Event::WithTarget(
@@ -639,16 +689,24 @@ impl Client {
                                     )]
                                 })
                                 .unwrap_or_default(),
-                            Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
-                                if ctcp::is_query(text) && !message::is_action(text) {
+                            Command::PRIVMSG(target, text)
+                            | Command::NOTICE(target, text) => {
+                                if ctcp::is_query(text)
+                                    && !message::is_action(text)
+                                {
                                     // Ignore historical CTCP queries/responses except for ACTIONs
                                     vec![]
                                 } else {
                                     if let Some(user) = message.user() {
                                         // If direct message, update resolved queries with user
-                                        if target == &self.nickname().to_string() {
+                                        if target
+                                            == &self.nickname().to_string()
+                                        {
                                             self.resolved_queries.replace(
-                                                target::Query::from_user(&user, self.casemapping()),
+                                                target::Query::from_user(
+                                                    &user,
+                                                    self.casemapping(),
+                                                ),
                                             );
                                         }
                                     }
@@ -661,7 +719,10 @@ impl Client {
                                     )]
                                 }
                             }
-                            _ => vec![Event::Single(message, self.nickname().to_owned())],
+                            _ => vec![Event::Single(
+                                message,
+                                self.nickname().to_owned(),
+                            )],
                         }
                     }
                 } else {
@@ -694,7 +755,9 @@ impl Client {
                 }
             }
             // Reroute responses
-            Command::Numeric(..) | Command::Unknown(..) if self.reroute_responses_to.is_some() => {
+            Command::Numeric(..) | Command::Unknown(..)
+                if self.reroute_responses_to.is_some() =>
+            {
                 if let Some(source) = self
                     .reroute_responses_to
                     .clone()
@@ -721,7 +784,8 @@ impl Client {
                 if asterisk.is_none() {
                     let mut requested = vec![];
 
-                    let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
+                    let contains =
+                        |s| self.listed_caps.iter().any(|cap| cap == s);
 
                     if contains("invite-notify") {
                         requested.push("invite-notify");
@@ -769,7 +833,11 @@ impl Client {
                     if contains("echo-message") {
                         requested.push("echo-message");
                     }
-                    if self.listed_caps.iter().any(|cap| cap.starts_with("sasl")) {
+                    if self
+                        .listed_caps
+                        .iter()
+                        .any(|cap| cap.starts_with("sasl"))
+                    {
                         requested.push("sasl");
                     }
                     if contains("multi-prefix") {
@@ -800,7 +868,10 @@ impl Client {
                 // TODO this code is duplicated several times. Fix in `Command`.
                 let caps = ok!(b.as_ref().or(a.as_ref()));
 
-                log::info!("[{}] capabilities acknowledged: {caps}", self.server);
+                log::info!(
+                    "[{}] capabilities acknowledged: {caps}",
+                    self.server
+                );
 
                 let caps = caps.split(' ').collect::<Vec<_>>();
 
@@ -822,7 +893,9 @@ impl Client {
 
                 let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
 
-                if let Some(sasl) = self.config.sasl.as_ref().filter(|_| supports_sasl) {
+                if let Some(sasl) =
+                    self.config.sasl.as_ref().filter(|_| supports_sasl)
+                {
                     self.registration_step = RegistrationStep::Sasl;
                     self.handle
                         .try_send(command!("AUTHENTICATE", sasl.command()))?;
@@ -831,14 +904,19 @@ impl Client {
                     self.handle.try_send(command!("CAP", "END"))?;
                 }
 
-                if caps.contains(&"draft/chathistory") && self.config.chathistory {
+                if caps.contains(&"draft/chathistory")
+                    && self.config.chathistory
+                {
                     self.supports_chathistory = true;
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "NAK" => {
                 let caps = ok!(b.as_ref().or(a.as_ref()));
 
-                log::warn!("[{}] capabilities not acknowledged: {caps}", self.server);
+                log::warn!(
+                    "[{}] capabilities not acknowledged: {caps}",
+                    self.server
+                );
 
                 // End if we didn't move to sasl or already ended
                 if self.registration_step < RegistrationStep::Sasl {
@@ -849,7 +927,8 @@ impl Client {
             Command::CAP(_, sub, a, b) if sub == "NEW" => {
                 let caps = ok!(b.as_ref().or(a.as_ref()));
 
-                let new_caps = caps.split(' ').map(String::from).collect::<Vec<String>>();
+                let new_caps =
+                    caps.split(' ').map(String::from).collect::<Vec<String>>();
 
                 let mut requested = vec![];
 
@@ -878,7 +957,9 @@ impl Client {
                 if newly_contains("extended-monitor") {
                     requested.push("extended-monitor");
                 }
-                if contains("account-notify") || newly_contains("account-notify") {
+                if contains("account-notify")
+                    || newly_contains("account-notify")
+                {
                     if newly_contains("account-notify") {
                         requested.push("account-notify");
                     }
@@ -893,7 +974,9 @@ impl Client {
                     }
 
                     // We require batch for our chathistory support
-                    if newly_contains("draft/chathistory") && self.config.chathistory {
+                    if newly_contains("draft/chathistory")
+                        && self.config.chathistory
+                    {
                         requested.push("draft/chathistory");
 
                         if newly_contains("draft/event-playback") {
@@ -928,7 +1011,10 @@ impl Client {
             Command::CAP(_, sub, a, b) if sub == "DEL" => {
                 let caps = ok!(b.as_ref().or(a.as_ref()));
 
-                log::info!("[{}] capabilities no longer supported: {caps}", self.server);
+                log::info!(
+                    "[{}] capabilities no longer supported: {caps}",
+                    self.server
+                );
 
                 let del_caps = caps.split(' ').collect::<Vec<_>>();
 
@@ -951,15 +1037,21 @@ impl Client {
                     self.supports_chathistory = false;
                 }
 
-                self.listed_caps
-                    .retain(|cap| !del_caps.iter().any(|del_cap| del_cap == cap));
+                self.listed_caps.retain(|cap| {
+                    !del_caps.iter().any(|del_cap| del_cap == cap)
+                });
             }
             Command::AUTHENTICATE(param) if param == "+" => {
                 if let Some(sasl) = self.config.sasl.as_ref() {
-                    log::info!("[{}] sasl auth: {}", self.server, sasl.command());
+                    log::info!(
+                        "[{}] sasl auth: {}",
+                        self.server,
+                        sasl.command()
+                    );
 
                     for param in sasl.params() {
-                        self.handle.try_send(command!("AUTHENTICATE", param))?;
+                        self.handle
+                            .try_send(command!("AUTHENTICATE", param))?;
                     }
                 }
             }
@@ -986,7 +1078,9 @@ impl Client {
 
                     self.chanmap.values_mut().for_each(|channel| {
                         if let Some(user) = channel.users.take(&old_user) {
-                            channel.users.insert(user.with_accountname(accountname));
+                            channel
+                                .users
+                                .insert(user.with_accountname(accountname));
                         }
                     });
                 }
@@ -1034,7 +1128,10 @@ impl Client {
                             && !message::is_action(text)
                         {
                             if let Some(query) = ctcp::parse_query(text) {
-                                if matches!(&message.command, Command::PRIVMSG(_, _)) {
+                                if matches!(
+                                    &message.command,
+                                    Command::PRIVMSG(_, _)
+                                ) {
                                     match query.command {
                                         ctcp::Command::Action => (),
                                         ctcp::Command::ClientInfo => {
@@ -1046,11 +1143,13 @@ impl Client {
                                         }
                                         ctcp::Command::DCC => (),
                                         ctcp::Command::Ping => {
-                                            self.handle.try_send(ctcp::response_message(
-                                                &query.command,
-                                                user.nickname().to_string(),
-                                                query.params,
-                                            ))?;
+                                            self.handle.try_send(
+                                                ctcp::response_message(
+                                                    &query.command,
+                                                    user.nickname().to_string(),
+                                                    query.params,
+                                                ),
+                                            )?;
                                         }
                                         ctcp::Command::Source => {
                                             self.handle.try_send(ctcp::response_message(
@@ -1060,14 +1159,16 @@ impl Client {
                                             ))?;
                                         }
                                         ctcp::Command::Version => {
-                                            self.handle.try_send(ctcp::response_message(
-                                                &query.command,
-                                                user.nickname().to_string(),
-                                                Some(format!(
+                                            self.handle.try_send(
+                                                ctcp::response_message(
+                                                    &query.command,
+                                                    user.nickname().to_string(),
+                                                    Some(format!(
                                                     "Halloy {}",
                                                     crate::environment::VERSION
                                                 )),
-                                            ))?;
+                                                ),
+                                            )?;
                                         }
                                         ctcp::Command::Unknown(command) => {
                                             log::debug!(
@@ -1082,11 +1183,16 @@ impl Client {
                         }
 
                         // use `target` to confirm the direct message
-                        let direct_message = target == &self.nickname().to_string();
+                        let direct_message =
+                            target == &self.nickname().to_string();
 
                         if direct_message {
-                            self.resolved_queries
-                                .replace(target::Query::from_user(&user, self.casemapping()));
+                            self.resolved_queries.replace(
+                                target::Query::from_user(
+                                    &user,
+                                    self.casemapping(),
+                                ),
+                            );
                         }
 
                         let event = Event::PrivOrNotice(
@@ -1133,7 +1239,9 @@ impl Client {
 
                 self.chanmap.values_mut().for_each(|channel| {
                     if let Some(user) = channel.users.take(&old_user) {
-                        channel.users.insert(user.with_nickname(new_nick.clone()));
+                        channel
+                            .users
+                            .insert(user.with_nickname(new_nick.clone()));
                     }
                 });
 
@@ -1159,11 +1267,15 @@ impl Client {
                             *index += 1;
                         }
                     }
-                    None if !self.config.alt_nicks.is_empty() => self.alt_nick = Some(0),
+                    None if !self.config.alt_nicks.is_empty() => {
+                        self.alt_nick = Some(0);
+                    }
                     None => {}
                 }
 
-                if let Some(nick) = self.alt_nick.and_then(|i| self.config.alt_nicks.get(i)) {
+                if let Some(nick) =
+                    self.alt_nick.and_then(|i| self.config.alt_nicks.get(i))
+                {
                     self.handle.try_send(command!("NICK", nick))?;
                 }
             }
@@ -1240,11 +1352,15 @@ impl Client {
                         target_channel,
                         server_time(&message),
                     )]);
-                } else if let Some(channel) = self.chanmap.get_mut(&target_channel) {
+                } else if let Some(channel) =
+                    self.chanmap.get_mut(&target_channel)
+                {
                     let user = if self.supports_extended_join {
-                        accountname.as_ref().map_or(user.clone(), |accountname| {
-                            user.with_accountname(accountname)
-                        })
+                        accountname
+                            .as_ref()
+                            .map_or(user.clone(), |accountname| {
+                                user.with_accountname(accountname)
+                            })
                     } else {
                         user
                     };
@@ -1282,20 +1398,34 @@ impl Client {
                     self.statusmsg(),
                     self.casemapping(),
                 ) {
-                    if let Some(client_channel) = self.chanmap.get_mut(&target_channel) {
-                        client_channel.update_user_away(ok!(args.get(5)), ok!(args.get(6)));
+                    if let Some(client_channel) =
+                        self.chanmap.get_mut(&target_channel)
+                    {
+                        client_channel.update_user_away(
+                            ok!(args.get(5)),
+                            ok!(args.get(6)),
+                        );
 
                         let user_request = if let Some(who_poll) = self
                             .who_polls
                             .iter_mut()
                             .find(|who_poll| who_poll.channel == target_channel)
                         {
-                            if let WhoStatus::Requested(source, _, None) = &who_poll.status {
-                                who_poll.status = WhoStatus::Receiving(source.clone(), None);
-                                log::debug!("[{}] {channel} - WHO receiving...", self.server);
+                            if let WhoStatus::Requested(source, _, None) =
+                                &who_poll.status
+                            {
+                                who_poll.status =
+                                    WhoStatus::Receiving(source.clone(), None);
+                                log::debug!(
+                                    "[{}] {channel} - WHO receiving...",
+                                    self.server
+                                );
                             }
 
-                            matches!(who_poll.status, WhoStatus::Receiving(WhoSource::User, None))
+                            matches!(
+                                who_poll.status,
+                                WhoStatus::Receiving(WhoSource::User, None)
+                            )
                         } else {
                             false
                         };
@@ -1316,22 +1446,29 @@ impl Client {
                     self.statusmsg(),
                     self.casemapping(),
                 ) {
-                    if let Some(client_channel) = self.chanmap.get_mut(&target_channel) {
+                    if let Some(client_channel) =
+                        self.chanmap.get_mut(&target_channel)
+                    {
                         let user_request = if let Some(who_poll) = self
                             .who_polls
                             .iter_mut()
                             .find(|who_poll| who_poll.channel == target_channel)
                         {
                             match &who_poll.status {
-                                WhoStatus::Requested(source, _, Some(request_token))
-                                    if matches!(source, WhoSource::Poll) =>
-                                {
-                                    if let Ok(token) = ok!(args.get(1)).parse::<WhoToken>() {
+                                WhoStatus::Requested(
+                                    source,
+                                    _,
+                                    Some(request_token),
+                                ) if matches!(source, WhoSource::Poll) => {
+                                    if let Ok(token) =
+                                        ok!(args.get(1)).parse::<WhoToken>()
+                                    {
                                         if *request_token == token {
-                                            who_poll.status = WhoStatus::Receiving(
-                                                source.clone(),
-                                                Some(*request_token),
-                                            );
+                                            who_poll.status =
+                                                WhoStatus::Receiving(
+                                                    source.clone(),
+                                                    Some(*request_token),
+                                                );
                                             log::debug!(
                                                 "[{}] {channel} - WHO receiving...",
                                                 self.server
@@ -1339,29 +1476,55 @@ impl Client {
                                         }
                                     }
                                 }
-                                WhoStatus::Requested(WhoSource::User, _, Some(request_token)) => {
-                                    who_poll.status =
-                                        WhoStatus::Receiving(WhoSource::User, Some(*request_token));
+                                WhoStatus::Requested(
+                                    WhoSource::User,
+                                    _,
+                                    Some(request_token),
+                                ) => {
+                                    who_poll.status = WhoStatus::Receiving(
+                                        WhoSource::User,
+                                        Some(*request_token),
+                                    );
 
-                                    log::debug!("[{}] {channel} - WHO receiving...", self.server);
+                                    log::debug!(
+                                        "[{}] {channel} - WHO receiving...",
+                                        self.server
+                                    );
                                 }
                                 _ => (),
                             }
 
-                            if let WhoStatus::Receiving(WhoSource::Poll, Some(_)) = &who_poll.status
+                            if let WhoStatus::Receiving(
+                                WhoSource::Poll,
+                                Some(_),
+                            ) = &who_poll.status
                             {
                                 // Check token to ~ensure reply is to poll request
-                                if let Ok(token) = ok!(args.get(1)).parse::<WhoToken>() {
-                                    if token == WhoXPollParameters::Default.token() {
-                                        client_channel
-                                            .update_user_away(ok!(args.get(3)), ok!(args.get(4)));
-                                    } else if token == WhoXPollParameters::WithAccountName.token() {
+                                if let Ok(token) =
+                                    ok!(args.get(1)).parse::<WhoToken>()
+                                {
+                                    if token
+                                        == WhoXPollParameters::Default.token()
+                                    {
+                                        client_channel.update_user_away(
+                                            ok!(args.get(3)),
+                                            ok!(args.get(4)),
+                                        );
+                                    } else if token
+                                        == WhoXPollParameters::WithAccountName
+                                            .token()
+                                    {
                                         let user = ok!(args.get(3));
 
-                                        client_channel.update_user_away(user, ok!(args.get(4)));
+                                        client_channel.update_user_away(
+                                            user,
+                                            ok!(args.get(4)),
+                                        );
 
-                                        client_channel
-                                            .update_user_accountname(user, ok!(args.get(5)));
+                                        client_channel.update_user_accountname(
+                                            user,
+                                            ok!(args.get(5)),
+                                        );
                                     }
                                 }
                             }
@@ -1390,10 +1553,9 @@ impl Client {
                     self.statusmsg(),
                     self.casemapping(),
                 ) {
-                    let pos = self
-                        .who_polls
-                        .iter()
-                        .position(|who_poll| who_poll.channel == target_channel);
+                    let pos = self.who_polls.iter().position(|who_poll| {
+                        who_poll.channel == target_channel
+                    });
 
                     let user_request = pos.is_some_and(|pos| {
                         matches!(
@@ -1418,15 +1580,20 @@ impl Client {
                         if let Some(pos) = self
                             .who_polls
                             .iter()
-                            .position(|who_poll| matches!(who_poll.status, WhoStatus::Joined))
+                            .position(|who_poll| {
+                                matches!(who_poll.status, WhoStatus::Joined)
+                            })
                             .or(self.who_polls.iter().position(|who_poll| {
                                 matches!(who_poll.status, WhoStatus::Received)
                             }))
                         {
-                            self.who_polls[pos].status = WhoStatus::Waiting(Instant::now());
+                            self.who_polls[pos].status =
+                                WhoStatus::Waiting(Instant::now());
 
                             if pos != 0 {
-                                if let Some(who_poll) = self.who_polls.remove(pos) {
+                                if let Some(who_poll) =
+                                    self.who_polls.remove(pos)
+                                {
                                     self.who_polls.push_front(who_poll);
                                 }
                             }
@@ -1435,7 +1602,9 @@ impl Client {
 
                     log::debug!("[{}] {mask} - WHO done", self.server);
 
-                    if let Some(client_channel) = self.chanmap.get_mut(&target_channel) {
+                    if let Some(client_channel) =
+                        self.chanmap.get_mut(&target_channel)
+                    {
                         client_channel.who_init = true;
                     }
 
@@ -1448,7 +1617,8 @@ impl Client {
                 } else if mask == "*" {
                     // Some servers respond with the mask * instead of the requested
                     // channel name when rate-limiting WHO requests
-                    let target_channel = target::Channel::from_str(mask, self.casemapping());
+                    let target_channel =
+                        target::Channel::from_str(mask, self.casemapping());
 
                     if let Some(pos) = self
                         .who_polls
@@ -1460,13 +1630,13 @@ impl Client {
                         // User did not request, treat as part of rate-limiting reesponse
                         // (in conjunction with RPL_TRYAGAIN) and don't save to history.
                         if let Some(who_poll) = self.who_polls.front_mut() {
-                            who_poll.status = WhoStatus::Waiting(Instant::now());
+                            who_poll.status =
+                                WhoStatus::Waiting(Instant::now());
                         }
 
-                        self.who_polls
-                            .iter_mut()
-                            .skip(1)
-                            .for_each(|who_poll| who_poll.status = WhoStatus::Received);
+                        self.who_polls.iter_mut().skip(1).for_each(
+                            |who_poll| who_poll.status = WhoStatus::Received,
+                        );
 
                         return Ok(vec![]);
                     }
@@ -1518,15 +1688,22 @@ impl Client {
                 ) {
                     Target::Channel(ref channel) => {
                         if let Some(channel) = self.chanmap.get_mut(channel) {
-                            let modes = mode::parse::<mode::Channel>(modes, args);
+                            let modes =
+                                mode::parse::<mode::Channel>(modes, args);
 
                             for mode in modes {
-                                if let Some((op, lookup)) = mode
-                                    .operation()
-                                    .zip(mode.arg().map(|nick| User::from(Nick::from(nick))))
+                                if let Some((op, lookup)) =
+                                    mode.operation().zip(mode.arg().map(
+                                        |nick| User::from(Nick::from(nick)),
+                                    ))
                                 {
-                                    if let Some(mut user) = channel.users.take(&lookup) {
-                                        user.update_access_level(op, *mode.value());
+                                    if let Some(mut user) =
+                                        channel.users.take(&lookup)
+                                    {
+                                        user.update_access_level(
+                                            op,
+                                            *mode.value(),
+                                        );
                                         channel.users.insert(user);
                                     }
                                 }
@@ -1544,7 +1721,13 @@ impl Client {
                             let modes = mode::parse::<mode::User>(modes, args);
 
                             if modes.into_iter().any(|mode| {
-                                matches!(mode, mode::Mode::Add(mode::User::Registered, None))
+                                matches!(
+                                    mode,
+                                    mode::Mode::Add(
+                                        mode::User::Registered,
+                                        None
+                                    )
+                                )
                             }) {
                                 for message in group_joins(
                                     &self.registration_required_channels,
@@ -1562,12 +1745,14 @@ impl Client {
             Command::Numeric(RPL_NAMREPLY, args) if args.len() > 3 => {
                 let channel = ok!(args.get(2));
 
-                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
-                    channel,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                ))) {
+                if let Some(channel) =
+                    self.chanmap.get_mut(&context!(target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )))
+                {
                     for user in args[3].split(' ') {
                         if let Ok(user) = User::try_from(user) {
                             channel.users.insert(user);
@@ -1599,31 +1784,38 @@ impl Client {
                 }
             }
             Command::TOPIC(channel, topic) => {
-                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
-                    channel,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                ))) {
+                if let Some(channel) =
+                    self.chanmap.get_mut(&context!(target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )))
+                {
                     if let Some(text) = topic {
-                        channel.topic.content = Some(message::parse_fragments(text.clone()));
+                        channel.topic.content =
+                            Some(message::parse_fragments(text.clone()));
                     }
 
-                    channel.topic.who = message.user().map(|user| user.nickname().to_string());
+                    channel.topic.who =
+                        message.user().map(|user| user.nickname().to_string());
                     channel.topic.time = Some(server_time(&message));
                 }
             }
             Command::Numeric(RPL_TOPIC, args) => {
                 let channel = ok!(args.get(1));
 
-                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
-                    channel,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                ))) {
-                    channel.topic.content =
-                        Some(message::parse_fragments(ok!(args.get(2)).to_owned()));
+                if let Some(channel) =
+                    self.chanmap.get_mut(&context!(target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )))
+                {
+                    channel.topic.content = Some(message::parse_fragments(
+                        ok!(args.get(2)).to_owned(),
+                    ));
                 }
                 // Exclude topic message from history to prevent spam during dev
                 #[cfg(feature = "dev")]
@@ -1632,17 +1824,23 @@ impl Client {
             Command::Numeric(RPL_TOPICWHOTIME, args) => {
                 let channel = ok!(args.get(1));
 
-                if let Some(channel) = self.chanmap.get_mut(&context!(target::Channel::parse(
-                    channel,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                ))) {
+                if let Some(channel) =
+                    self.chanmap.get_mut(&context!(target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )))
+                {
                     channel.topic.who = Some(ok!(args.get(2)).to_string());
-                    let timestamp = Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
+                    let timestamp =
+                        Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
                     channel.topic.time =
                         Some(timestamp.datetime().ok_or_else(|| {
-                            anyhow!("Unable to parse timestamp: {:?}", timestamp)
+                            anyhow!(
+                                "Unable to parse timestamp: {:?}",
+                                timestamp
+                            )
                         })?);
                 }
                 // Exclude topic message from history to prevent spam during dev
@@ -1661,11 +1859,9 @@ impl Client {
                 // then interpret this numeric as ERR_NEEDREGGEDNICK (which has the
                 // same number as ERR_NOCHANMODES)
                 if !self.chanmap.contains_key(&channel)
-                    && self
-                        .config
-                        .channels
-                        .iter()
-                        .any(|config_channel| config_channel == channel.as_str())
+                    && self.config.channels.iter().any(|config_channel| {
+                        config_channel == channel.as_str()
+                    })
                 {
                     self.registration_required_channels.push(channel.clone());
                 }
@@ -1686,16 +1882,23 @@ impl Client {
                                             parameter
                                         );
 
-                                        self.isupport.insert(kind.clone(), parameter.clone());
+                                        self.isupport.insert(
+                                            kind.clone(),
+                                            parameter.clone(),
+                                        );
 
-                                        if let isupport::Parameter::MONITOR(target_limit) =
-                                            parameter
+                                        if let isupport::Parameter::MONITOR(
+                                            target_limit,
+                                        ) = parameter
                                         {
-                                            let messages =
-                                                group_monitors(&self.config.monitor, target_limit);
+                                            let messages = group_monitors(
+                                                &self.config.monitor,
+                                                target_limit,
+                                            );
 
                                             for message in messages {
-                                                self.handle.try_send(message)?;
+                                                self.handle
+                                                    .try_send(message)?;
                                             }
                                         }
                                     } else {
@@ -1741,7 +1944,9 @@ impl Client {
 
                 self.chanmap.values_mut().for_each(|channel| {
                     if let Some(user) = channel.users.take(&old_user) {
-                        channel.users.insert(user.with_accountname(accountname));
+                        channel
+                            .users
+                            .insert(user.with_accountname(accountname));
                     }
                 });
 
@@ -1839,7 +2044,8 @@ impl Client {
 
                     match target {
                         Target::Channel(ref channel) => {
-                            if !channel.prefixes().is_empty() && self.chanmap.contains_key(channel)
+                            if !channel.prefixes().is_empty()
+                                && self.chanmap.contains_key(channel)
                             {
                                 events.push(Event::ChatHistoryTargetReceived(
                                     target,
@@ -1857,7 +2063,10 @@ impl Client {
 
                     if self.chathistory_targets_request.is_none() {
                         // User requested, save to history
-                        events.push(Event::Single(message.clone(), self.nickname().to_owned()));
+                        events.push(Event::Single(
+                            message.clone(),
+                            self.nickname().to_owned(),
+                        ));
                     }
                 }
 
@@ -1884,7 +2093,10 @@ impl Client {
                     );
 
                     if !self.who_polls.iter().any(|who_poll| {
-                        matches!(who_poll.status, WhoStatus::Requested(WhoSource::User, _, _))
+                        matches!(
+                            who_poll.status,
+                            WhoStatus::Requested(WhoSource::User, _, _)
+                        )
                     }) {
                         // No user request, rate-limited due to WHO polling
                         return Ok(vec![]);
@@ -1900,21 +2112,28 @@ impl Client {
                     self.registration_step = RegistrationStep::Complete;
 
                     // Send nick password & ghost
-                    if let Some(nick_pass) = self.config.nick_password.as_ref() {
+                    if let Some(nick_pass) = self.config.nick_password.as_ref()
+                    {
                         // Try ghost recovery if we couldn't claim our nick
                         if self.config.should_ghost
-                            && self.resolved_nick == Some(self.config.nickname.clone())
+                            && self.resolved_nick
+                                == Some(self.config.nickname.clone())
                         {
                             for sequence in &self.config.ghost_sequence {
                                 self.handle.try_send(command!(
                                     "PRIVMSG",
                                     "NickServ",
-                                    format!("{sequence} {} {nick_pass}", &self.config.nickname)
+                                    format!(
+                                        "{sequence} {} {nick_pass}",
+                                        &self.config.nickname
+                                    )
                                 ))?;
                             }
                         }
 
-                        if let Some(identify_syntax) = &self.config.nick_identify_syntax {
+                        if let Some(identify_syntax) =
+                            &self.config.nick_identify_syntax
+                        {
                             match identify_syntax {
                                 config::server::IdentifySyntax::PasswordNick => {
                                     self.handle.try_send(command!(
@@ -1931,7 +2150,9 @@ impl Client {
                                     ))?;
                                 }
                             }
-                        } else if self.resolved_nick == Some(self.config.nickname.clone()) {
+                        } else if self.resolved_nick
+                            == Some(self.config.nickname.clone())
+                        {
                             // Use nickname-less identification if possible, since it has
                             // no possible argument order issues.
                             self.handle.try_send(command!(
@@ -1944,30 +2165,43 @@ impl Client {
                             self.handle.try_send(command!(
                                 "PRIVMSG",
                                 "NickServ",
-                                format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
+                                format!(
+                                    "IDENTIFY {} {nick_pass}",
+                                    &self.config.nickname
+                                )
                             ))?;
                         }
                     }
 
                     // Send user modestring
-                    if let (Some(nick), Some(modestring)) =
-                        (self.resolved_nick.clone(), self.config.umodes.as_ref())
-                    {
-                        self.handle.try_send(command!("MODE", nick, modestring))?;
+                    if let (Some(nick), Some(modestring)) = (
+                        self.resolved_nick.clone(),
+                        self.config.umodes.as_ref(),
+                    ) {
+                        self.handle
+                            .try_send(command!("MODE", nick, modestring))?;
                     }
 
                     let mut events = vec![];
 
                     // Loop on connect commands
                     for command in self.config.on_connect.iter() {
-                        match crate::command::parse(command, None, &self.isupport) {
+                        match crate::command::parse(
+                            command,
+                            None,
+                            &self.isupport,
+                        ) {
                             Ok(crate::Command::Irc(cmd)) => {
-                                if let Ok(command) = proto::Command::try_from(cmd) {
+                                if let Ok(command) =
+                                    proto::Command::try_from(cmd)
+                                {
                                     self.handle.try_send(command.into())?;
                                 }
                             }
                             Ok(crate::Command::Internal(cmd)) => match cmd {
-                                crate::command::Internal::OpenBuffers(targets) => {
+                                crate::command::Internal::OpenBuffers(
+                                    targets,
+                                ) => {
                                     events.push(Event::OpenBuffers(
                                         targets
                                             .split(",")
@@ -1980,12 +2214,16 @@ impl Client {
                                                 )
                                             })
                                             .map(|target| match target {
-                                                Target::Channel(_) => {
-                                                    (target, config.buffer.message_channel)
-                                                }
-                                                Target::Query(_) => {
-                                                    (target, config.buffer.message_user)
-                                                }
+                                                Target::Channel(_) => (
+                                                    target,
+                                                    config
+                                                        .buffer
+                                                        .message_channel,
+                                                ),
+                                                Target::Query(_) => (
+                                                    target,
+                                                    config.buffer.message_user,
+                                                ),
                                             })
                                             .collect(),
                                     ));
@@ -2011,7 +2249,9 @@ impl Client {
                         .collect::<Vec<_>>();
 
                     // Send JOIN
-                    for message in group_joins(&channels, &self.config.channel_keys) {
+                    for message in
+                        group_joins(&channels, &self.config.channel_keys)
+                    {
                         self.handle.try_send(message)?;
                     }
 
@@ -2024,7 +2264,11 @@ impl Client {
         Ok(vec![Event::Single(message, self.nickname().to_owned())])
     }
 
-    pub fn send_markread(&mut self, target: Target, read_marker: ReadMarker) -> Result<()> {
+    pub fn send_markread(
+        &mut self,
+        target: Target,
+        read_marker: ReadMarker,
+    ) -> Result<()> {
         if self.supports_read_marker {
             self.handle.try_send(command!(
                 "MARKREAD",
@@ -2041,7 +2285,9 @@ impl Client {
     // e.g. '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
     // wildly different places.
     fn compare_channels(&self, a: &str, b: &str) -> Ordering {
-        let (Some(a_chantype), Some(b_chantype)) = (a.chars().nth(0), b.chars().nth(0)) else {
+        let (Some(a_chantype), Some(b_chantype)) =
+            (a.chars().nth(0), b.chars().nth(0))
+        else {
             return a.cmp(b);
         };
 
@@ -2071,7 +2317,9 @@ impl Client {
         CLIENT_CHATHISTORY_LIMIT
     }
 
-    pub fn chathistory_message_reference_types(&self) -> Vec<isupport::MessageReferenceType> {
+    pub fn chathistory_message_reference_types(
+        &self,
+    ) -> Vec<isupport::MessageReferenceType> {
         if let Some(isupport::Parameter::MSGREFTYPES(message_reference_types)) =
             self.isupport.get(&isupport::Kind::MSGREFTYPES)
         {
@@ -2081,13 +2329,19 @@ impl Client {
         }
     }
 
-    pub fn chathistory_request(&self, target: &Target) -> Option<ChatHistorySubcommand> {
+    pub fn chathistory_request(
+        &self,
+        target: &Target,
+    ) -> Option<ChatHistorySubcommand> {
         self.chathistory_requests
             .get(target)
             .map(|request| request.subcommand.clone())
     }
 
-    pub fn send_chathistory_request(&mut self, subcommand: ChatHistorySubcommand) {
+    pub fn send_chathistory_request(
+        &mut self,
+        subcommand: ChatHistorySubcommand,
+    ) {
         use std::collections::hash_map;
 
         if self.supports_chathistory {
@@ -2117,9 +2371,15 @@ impl Client {
             }
 
             match subcommand {
-                ChatHistorySubcommand::Latest(target, message_reference, limit) => {
+                ChatHistorySubcommand::Latest(
+                    target,
+                    message_reference,
+                    limit,
+                ) => {
                     let command_message_reference =
-                        isupport::fuzz_start_message_reference(message_reference);
+                        isupport::fuzz_start_message_reference(
+                            message_reference,
+                        );
 
                     log::debug!(
                         "[{}] requesting {limit} latest messages in {target} since {}",
@@ -2135,7 +2395,11 @@ impl Client {
                         limit.to_string(),
                     ));
                 }
-                ChatHistorySubcommand::Before(target, message_reference, limit) => {
+                ChatHistorySubcommand::Before(
+                    target,
+                    message_reference,
+                    limit,
+                ) => {
                     let command_message_reference =
                         isupport::fuzz_end_message_reference(message_reference);
 
@@ -2159,11 +2423,13 @@ impl Client {
                     end_message_reference,
                     limit,
                 ) => {
-                    let (command_start_message_reference, command_end_message_reference) =
-                        isupport::fuzz_message_reference_range(
-                            start_message_reference,
-                            end_message_reference,
-                        );
+                    let (
+                        command_start_message_reference,
+                        command_end_message_reference,
+                    ) = isupport::fuzz_message_reference_range(
+                        start_message_reference,
+                        end_message_reference,
+                    );
 
                     log::debug!(
                         "[{}] requesting {limit} messages in {target} between {} and {}",
@@ -2186,21 +2452,33 @@ impl Client {
                     end_message_reference,
                     limit,
                 ) => {
-                    let command_start_message_reference = match start_message_reference {
-                        isupport::MessageReference::Timestamp(_) => start_message_reference,
-                        _ => isupport::MessageReference::Timestamp(DateTime::UNIX_EPOCH),
-                    };
+                    let command_start_message_reference =
+                        match start_message_reference {
+                            isupport::MessageReference::Timestamp(_) => {
+                                start_message_reference
+                            }
+                            _ => isupport::MessageReference::Timestamp(
+                                DateTime::UNIX_EPOCH,
+                            ),
+                        };
 
-                    let command_end_message_reference = match end_message_reference {
-                        isupport::MessageReference::Timestamp(_) => end_message_reference,
-                        _ => isupport::MessageReference::Timestamp(chrono::offset::Utc::now()),
-                    };
+                    let command_end_message_reference =
+                        match end_message_reference {
+                            isupport::MessageReference::Timestamp(_) => {
+                                end_message_reference
+                            }
+                            _ => isupport::MessageReference::Timestamp(
+                                chrono::offset::Utc::now(),
+                            ),
+                        };
 
-                    let (command_start_message_reference, command_end_message_reference) =
-                        isupport::fuzz_message_reference_range(
-                            command_start_message_reference,
-                            command_end_message_reference,
-                        );
+                    let (
+                        command_start_message_reference,
+                        command_end_message_reference,
+                    ) = isupport::fuzz_message_reference_range(
+                        command_start_message_reference,
+                        command_end_message_reference,
+                    );
 
                     log::debug!(
                         "[{}] requesting {limit} targets between {} and {}",
@@ -2250,11 +2528,13 @@ impl Client {
                 .ok()
                 .flatten();
 
-            let start_message_reference = timestamp.map_or(MessageReference::None, |timestamp| {
-                MessageReference::Timestamp(timestamp)
-            });
+            let start_message_reference = timestamp
+                .map_or(MessageReference::None, |timestamp| {
+                    MessageReference::Timestamp(timestamp)
+                });
 
-            let end_message_reference = MessageReference::Timestamp(server_time);
+            let end_message_reference =
+                MessageReference::Timestamp(server_time);
 
             Message::ChatHistoryRequest(
                 server,
@@ -2275,9 +2555,15 @@ impl Client {
         let server = self.server.clone();
 
         async move {
-            let result = overwrite_chathistory_targets_timestamp(server.clone(), timestamp).await;
+            let result = overwrite_chathistory_targets_timestamp(
+                server.clone(),
+                timestamp,
+            )
+            .await;
 
-            Message::ChatHistoryTargetsTimestampUpdated(server, timestamp, result)
+            Message::ChatHistoryTargetsTimestampUpdated(
+                server, timestamp, result,
+            )
         }
         .boxed()
     }
@@ -2287,7 +2573,12 @@ impl Client {
             .chanmap
             .keys()
             .cloned()
-            .sorted_by(|a, b| self.compare_channels(a.as_normalized_str(), b.as_normalized_str()))
+            .sorted_by(|a, b| {
+                self.compare_channels(
+                    a.as_normalized_str(),
+                    b.as_normalized_str(),
+                )
+            })
             .collect();
         self.users = self
             .chanmap
@@ -2338,7 +2629,10 @@ impl Client {
             .collect()
     }
 
-    fn resolve_query<'a>(&'a self, query: &target::Query) -> Option<&'a target::Query> {
+    fn resolve_query<'a>(
+        &'a self,
+        query: &target::Query,
+    ) -> Option<&'a target::Query> {
         self.resolved_queries.get(query)
     }
 
@@ -2355,7 +2649,8 @@ impl Client {
         match self.highlight_notification_blackout {
             HighlightNotificationBlackout::Blackout(instant) => {
                 if now.duration_since(instant) >= HIGHLIGHT_BLACKOUT_INTERVAL {
-                    self.highlight_notification_blackout = HighlightNotificationBlackout::Receiving;
+                    self.highlight_notification_blackout =
+                        HighlightNotificationBlackout::Receiving;
                 }
             }
             HighlightNotificationBlackout::Receiving => {}
@@ -2369,26 +2664,34 @@ impl Client {
             }
 
             let request = match &who_poll.status {
-                WhoStatus::Joined => (self.supports_away_notify || self.config.who_poll_enabled)
+                WhoStatus::Joined => (self.supports_away_notify
+                    || self.config.who_poll_enabled)
                     .then_some(Request::Poll),
                 WhoStatus::Waiting(last) => {
                     if self.supports_away_notify {
-                        self.chanmap.get(&who_poll.channel).and_then(|channel| {
-                            (!channel.who_init
-                                && (now.duration_since(*last) >= self.who_poll_interval.duration))
-                                .then_some(Request::Poll)
-                        })
+                        self.chanmap.get(&who_poll.channel).and_then(
+                            |channel| {
+                                (!channel.who_init
+                                    && (now.duration_since(*last)
+                                        >= self.who_poll_interval.duration))
+                                    .then_some(Request::Poll)
+                            },
+                        )
                     } else {
                         (self.config.who_poll_enabled
-                            && (now.duration_since(*last) >= self.who_poll_interval.duration))
+                            && (now.duration_since(*last)
+                                >= self.who_poll_interval.duration))
                             .then_some(Request::Poll)
                     }
                 }
                 WhoStatus::Requested(source, requested, _) => {
-                    if matches!(source, WhoSource::Poll) && !self.config.who_poll_enabled {
+                    if matches!(source, WhoSource::Poll)
+                        && !self.config.who_poll_enabled
+                    {
                         None
                     } else {
-                        (now.duration_since(*requested) >= 5 * self.who_poll_interval.duration)
+                        (now.duration_since(*requested)
+                            >= 5 * self.who_poll_interval.duration)
                             .then_some(Request::Retry)
                     }
                 }
@@ -2416,10 +2719,16 @@ impl Client {
                         whox_params.token().to_owned()
                     ))?;
                 } else {
-                    who_poll.status = WhoStatus::Requested(WhoSource::Poll, Instant::now(), None);
+                    who_poll.status = WhoStatus::Requested(
+                        WhoSource::Poll,
+                        Instant::now(),
+                        None,
+                    );
 
-                    self.handle
-                        .try_send(command!("WHO", who_poll.channel.to_string()))?;
+                    self.handle.try_send(command!(
+                        "WHO",
+                        who_poll.channel.to_string()
+                    ))?;
                 }
 
                 log::debug!(
@@ -2435,7 +2744,8 @@ impl Client {
         }
 
         self.chathistory_requests.retain(|_, chathistory_request| {
-            now.duration_since(chathistory_request.requested_at) < CHATHISTORY_REQUEST_TIMEOUT
+            now.duration_since(chathistory_request.requested_at)
+                < CHATHISTORY_REQUEST_TIMEOUT
         });
 
         Ok(())
@@ -2485,17 +2795,21 @@ fn continue_chathistory_between(
     end_message_reference: &MessageReference,
     limit: u16,
 ) -> Option<ChatHistorySubcommand> {
-    let start_message_reference = events.first().and_then(|first_event| match first_event {
-        Event::Single(message, _) | Event::WithTarget(message, _, _) => match end_message_reference
-        {
-            MessageReference::MessageId(_) => message_id(message).map(MessageReference::MessageId),
-            MessageReference::Timestamp(_) => {
-                Some(MessageReference::Timestamp(server_time(message)))
+    let start_message_reference =
+        events.first().and_then(|first_event| match first_event {
+            Event::Single(message, _) | Event::WithTarget(message, _, _) => {
+                match end_message_reference {
+                    MessageReference::MessageId(_) => {
+                        message_id(message).map(MessageReference::MessageId)
+                    }
+                    MessageReference::Timestamp(_) => {
+                        Some(MessageReference::Timestamp(server_time(message)))
+                    }
+                    MessageReference::None => None,
+                }
             }
-            MessageReference::None => None,
-        },
-        _ => None,
-    });
+            _ => None,
+        });
 
     start_message_reference.map(|start_message_reference| {
         ChatHistorySubcommand::Between(
@@ -2627,7 +2941,11 @@ impl Map {
         }
     }
 
-    pub fn send(&mut self, buffer: &buffer::Upstream, message: message::Encoded) {
+    pub fn send(
+        &mut self,
+        buffer: &buffer::Upstream,
+        message: message::Encoded,
+    ) {
         if let Some(client) = self.client_mut(buffer.server()) {
             client.send(buffer, message);
         }
@@ -2691,7 +3009,11 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_user_channels(&self, server: &Server, nick: NickRef) -> Vec<target::Channel> {
+    pub fn get_user_channels(
+        &self,
+        server: &Server,
+        nick: NickRef,
+    ) -> Vec<target::Channel> {
         self.client(server)
             .map(|client| client.user_channels(nick))
             .unwrap_or_default()
@@ -2707,7 +3029,10 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_channels<'a>(&'a self, server: &Server) -> &'a [target::Channel] {
+    pub fn get_channels<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [target::Channel] {
         self.client(server)
             .map(|client| client.channels())
             .unwrap_or_default()
@@ -2722,7 +3047,10 @@ impl Map {
             .and_then(|client| client.resolve_query(query))
     }
 
-    pub fn get_isupport(&self, server: &Server) -> HashMap<isupport::Kind, isupport::Parameter> {
+    pub fn get_isupport(
+        &self,
+        server: &Server,
+    ) -> HashMap<isupport::Kind, isupport::Parameter> {
         self.client(server)
             .map(|client| client.isupport.clone())
             .unwrap_or_default()
@@ -2757,7 +3085,9 @@ impl Map {
 
     pub fn get_server_chathistory_limit(&self, server: &Server) -> u16 {
         self.client(server)
-            .map_or(CLIENT_CHATHISTORY_LIMIT, |client| client.chathistory_limit())
+            .map_or(CLIENT_CHATHISTORY_LIMIT, |client| {
+                client.chathistory_limit()
+            })
     }
 
     pub fn get_server_supports_chathistory(&self, server: &Server) -> bool {
@@ -2774,19 +3104,31 @@ impl Map {
             .and_then(|client| client.chathistory_request(target))
     }
 
-    pub fn send_chathistory_request(&mut self, server: &Server, subcommand: ChatHistorySubcommand) {
+    pub fn send_chathistory_request(
+        &mut self,
+        server: &Server,
+        subcommand: ChatHistorySubcommand,
+    ) {
         if let Some(client) = self.client_mut(server) {
             client.send_chathistory_request(subcommand);
         }
     }
 
-    pub fn clear_chathistory_request(&mut self, server: &Server, target: Option<&Target>) {
+    pub fn clear_chathistory_request(
+        &mut self,
+        server: &Server,
+        target: Option<&Target>,
+    ) {
         if let Some(client) = self.client_mut(server) {
             client.clear_chathistory_request(target);
         }
     }
 
-    pub fn get_chathistory_exhausted(&self, server: &Server, target: &Target) -> bool {
+    pub fn get_chathistory_exhausted(
+        &self,
+        server: &Server,
+        target: &Target,
+    ) -> bool {
         self.client(server)
             .is_some_and(|client| client.chathistory_exhausted(target))
     }
@@ -2816,8 +3158,9 @@ impl Map {
         server: &Server,
         server_time: DateTime<Utc>,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.client(server)
-            .map(|client| client.load_chathistory_targets_timestamp(server_time))
+        self.client(server).map(|client| {
+            client.load_chathistory_targets_timestamp(server_time)
+        })
     }
 
     pub fn overwrite_chathistory_targets_timestamp(
@@ -2825,11 +3168,15 @@ impl Map {
         server: &Server,
         server_time: DateTime<Utc>,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.client(server)
-            .map(|client| client.overwrite_chathistory_targets_timestamp(server_time))
+        self.client(server).map(|client| {
+            client.overwrite_chathistory_targets_timestamp(server_time)
+        })
     }
 
-    pub fn get_server_handle(&self, server: &Server) -> Option<&server::Handle> {
+    pub fn get_server_handle(
+        &self,
+        server: &Server,
+    ) -> Option<&server::Handle> {
         self.client(server).map(|client| &client.handle)
     }
 
@@ -2848,20 +3195,18 @@ impl Map {
     }
 
     pub fn status(&self, server: &Server) -> Status {
-        self.0
-            .get(server)
-            .map_or(Status::Unavailable, |s| match s {
-                State::Disconnected => Status::Disconnected,
-                State::Ready(_) => Status::Connected,
-            })
+        self.0.get(server).map_or(Status::Unavailable, |s| match s {
+            State::Disconnected => Status::Disconnected,
+            State::Ready(_) => Status::Connected,
+        })
     }
 
     pub fn tick(&mut self, now: Instant) -> Result<()> {
         for client in self.0.values_mut() {
             if let State::Ready(client) = client {
-                client
-                    .tick(now)
-                    .with_context(|| anyhow!("[{}] tick failed", client.server))?;
+                client.tick(now).with_context(|| {
+                    anyhow!("[{}] tick failed", client.server)
+                })?;
             }
         }
         Ok(())
@@ -2904,7 +3249,9 @@ pub enum ChatHistoryBatch {
 impl ChatHistoryBatch {
     pub fn target(&self) -> Option<Target> {
         match self {
-            ChatHistoryBatch::Target(batch_target) => Some(batch_target.clone()),
+            ChatHistoryBatch::Target(batch_target) => {
+                Some(batch_target.clone())
+            }
             ChatHistoryBatch::Targets => None,
         }
     }
@@ -3060,7 +3407,8 @@ impl BackoffInterval {
             BackoffMode::Set => (),
             BackoffMode::EasingOn => {
                 self.previous = self.duration;
-                self.duration = std::cmp::max(self.duration.mul_f64(0.9), self.original);
+                self.duration =
+                    std::cmp::max(self.duration.mul_f64(0.9), self.original);
             }
             BackoffMode::BackingOff(count) => {
                 *count += 1;
@@ -3080,7 +3428,10 @@ impl BackoffInterval {
             }
             _ => {
                 self.mode = BackoffMode::BackingOff(0);
-                self.duration = std::cmp::min(self.duration.mul_f64(2.0), 256 * self.original);
+                self.duration = std::cmp::min(
+                    self.duration.mul_f64(2.0),
+                    256 * self.original,
+                );
             }
         }
     }
@@ -3103,7 +3454,9 @@ fn group_capability_requests<'a>(
         })
         .into_group_map()
         .into_values()
-        .map(|capabilities| command!("CAP", "REQ", capabilities.into_iter().join(" ")))
+        .map(|capabilities| {
+            command!("CAP", "REQ", capabilities.into_iter().join(" "))
+        })
 }
 
 /// Group channels together into as few JOIN messages as possible
@@ -3113,10 +3466,13 @@ fn group_joins<'a>(
 ) -> impl Iterator<Item = proto::Message> + 'a {
     const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"JOIN \r\n".len();
 
-    let (without_keys, with_keys): (Vec<_>, Vec<_>) = channels.iter().partition_map(|channel| {
-        keys.get(channel.as_str())
-            .map_or(Either::Left(channel), |key| Either::Right((channel, key)))
-    });
+    let (without_keys, with_keys): (Vec<_>, Vec<_>) =
+        channels.iter().partition_map(|channel| {
+            keys.get(channel.as_str())
+                .map_or(Either::Left(channel), |key| {
+                    Either::Right((channel, key))
+                })
+        });
 
     let joins_without_keys = without_keys
         .into_iter()

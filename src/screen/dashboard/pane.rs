@@ -1,11 +1,10 @@
-use data::{file_transfer, history, preview, Config};
+use data::{Config, file_transfer, history, preview};
 use iced::widget::{button, center, container, pane_grid, row, text};
 
+use super::sidebar;
 use crate::buffer::{self, Buffer};
 use crate::widget::tooltip;
-use crate::{icon, theme, widget, Theme};
-
-use super::sidebar;
+use crate::{Theme, icon, theme, widget};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -80,12 +79,13 @@ impl Pane {
             Buffer::Highlights(_) => "Highlights".to_string(),
         };
 
-        let can_mark_as_read =
-            if let Some(kind) = self.buffer.data().and_then(history::Kind::from_buffer) {
-                history.can_mark_as_read(&kind)
-            } else {
-                false
-            };
+        let can_mark_as_read = if let Some(kind) =
+            self.buffer.data().and_then(history::Kind::from_buffer)
+        {
+            history.can_mark_as_read(&kind)
+        } else {
+            false
+        };
 
         let title_bar = self.title_bar.view(
             &self.buffer,
@@ -126,13 +126,19 @@ impl Pane {
         match &self.buffer {
             Buffer::Empty => None,
             Buffer::Channel(state) => Some(history::Resource {
-                kind: history::Kind::Channel(state.server.clone(), state.target.clone()),
+                kind: history::Kind::Channel(
+                    state.server.clone(),
+                    state.target.clone(),
+                ),
             }),
             Buffer::Server(state) => Some(history::Resource {
                 kind: history::Kind::Server(state.server.clone()),
             }),
             Buffer::Query(state) => Some(history::Resource {
-                kind: history::Kind::Query(state.server.clone(), state.target.clone()),
+                kind: history::Kind::Query(
+                    state.server.clone(),
+                    state.target.clone(),
+                ),
             }),
             Buffer::FileTransfers(_) => None,
             Buffer::Logs(_) => Some(history::Resource::logs()),
@@ -142,7 +148,9 @@ impl Pane {
 
     pub fn visible_urls(&self) -> Vec<&url::Url> {
         match &self.buffer {
-            Buffer::Channel(channel) => channel.scroll_view.visible_urls().collect(),
+            Buffer::Channel(channel) => {
+                channel.scroll_view.visible_urls().collect()
+            }
             Buffer::Query(query) => query.scroll_view.visible_urls().collect(),
             Buffer::Empty
             | Buffer::Server(_)
@@ -179,7 +187,9 @@ impl TitleBar {
                 .width(22)
                 .height(22)
                 .on_press(Message::ScrollToBottom)
-                .style(|theme, status| theme::button::secondary(theme, status, false));
+                .style(|theme, status| {
+                    theme::button::secondary(theme, status, false)
+                });
 
             let scrollable_button_with_tooltip = tooltip(
                 scrollable_button,
@@ -196,7 +206,9 @@ impl TitleBar {
                 .width(22)
                 .height(22)
                 .on_press(Message::MarkAsRead)
-                .style(move |theme, status| theme::button::secondary(theme, status, false));
+                .style(move |theme, status| {
+                    theme::button::secondary(theme, status, false)
+                });
 
             let mark_as_read_button_with_tooltip = tooltip(
                 mark_as_read_button,
@@ -209,12 +221,14 @@ impl TitleBar {
 
         if let Buffer::Channel(state) = &buffer {
             // Show topic button only if there is a topic to show
-            if let Some(topic) = clients.get_channel_topic(&state.server, &state.target) {
+            if let Some(topic) =
+                clients.get_channel_topic(&state.server, &state.target)
+            {
                 if topic.content.is_some() {
-                    let topic_enabled = settings
-                        .map_or(config.buffer.channel.topic.enabled, |settings| {
-                            settings.channel.topic.enabled
-                        });
+                    let topic_enabled = settings.map_or(
+                        config.buffer.channel.topic.enabled,
+                        |settings| settings.channel.topic.enabled,
+                    );
 
                     let topic_button = button(center(icon::topic()))
                         .padding(5)
@@ -222,7 +236,11 @@ impl TitleBar {
                         .height(22)
                         .on_press(Message::ToggleShowTopic)
                         .style(move |theme, status| {
-                            theme::button::secondary(theme, status, topic_enabled)
+                            theme::button::secondary(
+                                theme,
+                                status,
+                                topic_enabled,
+                            )
                         });
 
                     let topic_button_with_tooltip = tooltip(
@@ -269,11 +287,17 @@ impl TitleBar {
             .width(22)
             .height(22)
             .on_press(Message::MaximizePane)
-            .style(move |theme, status| theme::button::secondary(theme, status, maximized));
+            .style(move |theme, status| {
+                theme::button::secondary(theme, status, maximized)
+            });
 
             let maximize_button_with_tooltip = tooltip(
                 maximize_button,
-                show_tooltips.then_some(if maximized { "Restore" } else { "Maximize" }),
+                show_tooltips.then_some(if maximized {
+                    "Restore"
+                } else {
+                    "Maximize"
+                }),
                 tooltip::Position::Bottom,
             );
 
@@ -287,7 +311,9 @@ impl TitleBar {
                 .width(22)
                 .height(22)
                 .on_press(Message::Merge)
-                .style(|theme, status| theme::button::secondary(theme, status, true));
+                .style(|theme, status| {
+                    theme::button::secondary(theme, status, true)
+                });
 
             let close_button_with_tooltip = tooltip(
                 merge_button,
@@ -304,7 +330,9 @@ impl TitleBar {
                 .width(22)
                 .height(22)
                 .on_press(Message::Popout)
-                .style(|theme, status| theme::button::secondary(theme, status, false));
+                .style(|theme, status| {
+                    theme::button::secondary(theme, status, false)
+                });
 
             let close_button_with_tooltip = tooltip(
                 popout_button,
@@ -322,7 +350,9 @@ impl TitleBar {
                 .width(22)
                 .height(22)
                 .on_press(Message::ClosePane)
-                .style(|theme, status| theme::button::secondary(theme, status, false));
+                .style(|theme, status| {
+                    theme::button::secondary(theme, status, false)
+                });
 
             let close_button_with_tooltip = tooltip(
                 close_button,
@@ -352,16 +382,22 @@ impl From<Pane> for data::Pane {
     fn from(pane: Pane) -> Self {
         let buffer = match pane.buffer {
             Buffer::Empty => return data::Pane::Empty,
-            Buffer::Channel(state) => {
-                data::Buffer::Upstream(buffer::Upstream::Channel(state.server, state.target))
+            Buffer::Channel(state) => data::Buffer::Upstream(
+                buffer::Upstream::Channel(state.server, state.target),
+            ),
+            Buffer::Server(state) => {
+                data::Buffer::Upstream(buffer::Upstream::Server(state.server))
             }
-            Buffer::Server(state) => data::Buffer::Upstream(buffer::Upstream::Server(state.server)),
-            Buffer::Query(state) => {
-                data::Buffer::Upstream(buffer::Upstream::Query(state.server, state.target))
+            Buffer::Query(state) => data::Buffer::Upstream(
+                buffer::Upstream::Query(state.server, state.target),
+            ),
+            Buffer::FileTransfers(_) => {
+                data::Buffer::Internal(buffer::Internal::FileTransfers)
             }
-            Buffer::FileTransfers(_) => data::Buffer::Internal(buffer::Internal::FileTransfers),
             Buffer::Logs(_) => data::Buffer::Internal(buffer::Internal::Logs),
-            Buffer::Highlights(_) => data::Buffer::Internal(buffer::Internal::Highlights),
+            Buffer::Highlights(_) => {
+                data::Buffer::Internal(buffer::Internal::Highlights)
+            }
         };
 
         data::Pane::Buffer { buffer }

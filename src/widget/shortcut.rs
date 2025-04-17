@@ -1,11 +1,10 @@
 use data::shortcut;
+pub use data::shortcut::Command;
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell};
-use iced::{keyboard, mouse, Event};
+use iced::{Event, keyboard, mouse};
 
-pub use data::shortcut::Command;
-
-use super::{decorate, Element, Renderer};
+use super::{Element, Renderer, decorate};
 
 pub fn shortcut<'a, Message>(
     base: impl Into<Element<'a, Message>>,
@@ -28,8 +27,13 @@ where
                   shell: &mut Shell<'_, Message>,
                   viewport: &iced::Rectangle| {
                 match &event {
-                    Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
-                        let key_bind = shortcut::KeyBind::from((key.clone(), *modifiers));
+                    Event::Keyboard(keyboard::Event::KeyPressed {
+                        key,
+                        modifiers,
+                        ..
+                    }) => {
+                        let key_bind =
+                            shortcut::KeyBind::from((key.clone(), *modifiers));
 
                         if let Some(command) = shortcuts
                             .iter()
@@ -40,14 +44,17 @@ where
                             return;
                         }
                     }
-                    Event::Keyboard(keyboard::Event::ModifiersChanged(new_modifiers)) => {
+                    Event::Keyboard(keyboard::Event::ModifiersChanged(
+                        new_modifiers,
+                    )) => {
                         *modifiers = (*new_modifiers).into();
                     }
                     _ => {}
                 }
 
                 inner.as_widget_mut().update(
-                    tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+                    tree, event, layout, cursor, renderer, clipboard, shell,
+                    viewport,
                 );
             },
         )

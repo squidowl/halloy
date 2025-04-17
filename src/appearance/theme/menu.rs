@@ -1,8 +1,6 @@
 pub use iced::widget::overlay::menu::Style;
-use iced::{
-    widget::overlay::menu::{Catalog, StyleFn},
-    Background, Border,
-};
+use iced::widget::overlay::menu::{Catalog, StyleFn};
+use iced::{Background, Border};
 
 use super::Theme;
 
@@ -32,6 +30,8 @@ pub fn primary(theme: &Theme) -> Style {
             color: general.border,
         },
         selected_text_color: text.primary,
-        selected_background: Background::Color(buttons.primary.background_hover),
+        selected_background: Background::Color(
+            buttons.primary.background_hover,
+        ),
     }
 }

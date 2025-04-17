@@ -1,10 +1,9 @@
 use serde::Deserialize;
 
+use super::NicknameClickAction;
 use crate::buffer::Color;
 use crate::channel::Position;
 use crate::serde::default_bool_true;
-
-use super::NicknameClickAction;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Channel {

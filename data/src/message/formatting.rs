@@ -1,12 +1,12 @@
-use std::{collections::HashSet, mem};
+use std::collections::HashSet;
+use std::mem;
 
 use iced_core::color;
 use itertools::PeekingNext;
 use serde::{Deserialize, Serialize};
 
-use crate::appearance::theme;
-
 pub use self::encode::encode;
+use crate::appearance::theme;
 
 pub mod encode;
 
@@ -48,7 +48,8 @@ pub fn parse(
                     if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
                         // 1-2 digiits
                         let mut digits = c.to_string();
-                        if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
+                        if let Some(c) = iter.peeking_next(char::is_ascii_digit)
+                        {
                             digits.push(c);
                         }
 
@@ -58,10 +59,14 @@ pub fn parse(
 
                         if let Some(comma) = iter.peeking_next(|c| *c == ',') {
                             // Has background
-                            if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
+                            if let Some(c) =
+                                iter.peeking_next(char::is_ascii_digit)
+                            {
                                 // 1-2 digits
                                 let mut digits = c.to_string();
-                                if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
+                                if let Some(c) =
+                                    iter.peeking_next(char::is_ascii_digit)
+                                {
                                     digits.push(c);
                                 }
 
@@ -81,7 +86,8 @@ pub fn parse(
                 }
                 Modifier::HexColor => {
                     // Trailing digit for new color, otherwise resets
-                    if let Some(c) = iter.peeking_next(char::is_ascii_hexdigit) {
+                    if let Some(c) = iter.peeking_next(char::is_ascii_hexdigit)
+                    {
                         // 6 digits (hex)
                         let mut hex = c.to_string();
                         for _ in 0..5 {
@@ -96,16 +102,21 @@ pub fn parse(
 
                         if let Some(comma) = iter.peeking_next(|c| *c == ',') {
                             // Has background
-                            if let Some(c) = iter.peeking_next(char::is_ascii_hexdigit) {
+                            if let Some(c) =
+                                iter.peeking_next(char::is_ascii_hexdigit)
+                            {
                                 // 6 digits (hex)
                                 let mut hex = c.to_string();
                                 for _ in 0..5 {
                                     hex.push(iter.next()?);
                                 }
 
-                                let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-                                let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-                                let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+                                let r =
+                                    u8::from_str_radix(&hex[0..2], 16).ok()?;
+                                let g =
+                                    u8::from_str_radix(&hex[2..4], 16).ok()?;
+                                let b =
+                                    u8::from_str_radix(&hex[4..6], 16).ok()?;
 
                                 *bg = Some(Color::Rgb(r, g, b));
                             }
@@ -152,7 +163,9 @@ pub fn parse(
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize,
+)]
 pub struct Formatting {
     pub bold: bool,
     pub italics: bool,
@@ -164,7 +177,11 @@ pub struct Formatting {
 }
 
 impl Formatting {
-    fn new(modifiers: &HashSet<Modifier>, fg: Option<Color>, bg: Option<Color>) -> Self {
+    fn new(
+        modifiers: &HashSet<Modifier>,
+        fg: Option<Color>,
+        bg: Option<Color>,
+    ) -> Self {
         let (fg, bg) = if modifiers.contains(&Modifier::ReverseColor) {
             (bg, fg)
         } else {
@@ -553,7 +570,10 @@ impl Color {
         }
     }
 
-    pub fn into_iced(self, _colors: &theme::Colors) -> Option<iced_core::Color> {
+    pub fn into_iced(
+        self,
+        _colors: &theme::Colors,
+    ) -> Option<iced_core::Color> {
         // TODO: Theme aware 0 - 15 colors
         match self {
             Color::White => Some(color!(0xffffff)),

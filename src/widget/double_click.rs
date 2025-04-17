@@ -1,13 +1,13 @@
 use std::time;
 
 use iced::advanced::widget::Tree;
-use iced::advanced::{mouse, Clipboard, Layout, Shell};
+use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::event;
 
 const TIMEOUT_MILLIS: u64 = 250;
 
-use crate::widget::{decorate, Renderer};
 use crate::Element;
+use crate::widget::{Renderer, decorate};
 
 pub fn double_click<'a, Message>(
     content: impl Into<Element<'a, Message>>,
@@ -29,7 +29,8 @@ where
                   shell: &mut Shell<'_, Message>,
                   viewport: &iced::Rectangle| {
                 inner.as_widget_mut().update(
-                    tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+                    tree, event, layout, cursor, renderer, clipboard, shell,
+                    viewport,
                 );
 
                 if shell.is_event_captured() {
@@ -40,7 +41,9 @@ where
                     return;
                 }
 
-                let event::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) = event
+                let event::Event::Mouse(mouse::Event::ButtonPressed(
+                    mouse::Button::Left,
+                )) = event
                 else {
                     return;
                 };

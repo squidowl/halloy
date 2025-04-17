@@ -1,16 +1,18 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    num::NonZeroU16,
-    path::PathBuf,
-    time::Duration,
-};
+use std::collections::{HashMap, VecDeque};
+use std::num::NonZeroU16;
+use std::path::PathBuf;
+use std::time::Duration;
 
 use chrono::Utc;
-use futures::{stream::BoxStream, StreamExt};
+use futures::StreamExt;
+use futures::stream::BoxStream;
 use itertools::Itertools;
 use rand::Rng;
 
-use super::{task, Direction, FileTransfer, Id, ReceiveRequest, SendRequest, Status, Task};
+use super::{
+    Direction, FileTransfer, Id, ReceiveRequest, SendRequest, Status, Task,
+    task,
+};
 use crate::{config, dcc};
 
 enum Item {
@@ -78,7 +80,11 @@ impl Manager {
         })
     }
 
-    pub fn send(&mut self, request: SendRequest, proxy: Option<config::Proxy>) -> Option<Event> {
+    pub fn send(
+        &mut self,
+        request: SendRequest,
+        proxy: Option<config::Proxy>,
+    ) -> Option<Event> {
         let SendRequest {
             to,
             path,
@@ -147,7 +153,8 @@ impl Manager {
         } = request;
 
         // Check if this is the response to a reverse send we sent
-        if let Some(id) = dcc_send.token().and_then(|s| s.parse().ok().map(Id)) {
+        if let Some(id) = dcc_send.token().and_then(|s| s.parse().ok().map(Id))
+        {
             if let dcc::Send::Reverse {
                 filename,
                 host,
@@ -268,7 +275,9 @@ impl Manager {
                 elapsed,
                 sha256,
             } => {
-                if let Some(Item::Working { file_transfer, .. }) = self.items.remove(&id) {
+                if let Some(Item::Working { file_transfer, .. }) =
+                    self.items.remove(&id)
+                {
                     log::debug!(
                         "File transfer completed {} {} for {:?} in {:.2}s",
                         match file_transfer.direction {
@@ -317,7 +326,9 @@ impl Manager {
         server
             .bind_ports
             .clone()
-            .find(|port| !self.used_ports.values().any(|used| used.get() == *port))
+            .find(|port| {
+                !self.used_ports.values().any(|used| used.get() == *port)
+            })
             .and_then(NonZeroU16::new)
     }
 

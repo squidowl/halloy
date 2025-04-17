@@ -1,27 +1,22 @@
-use std::{
-    collections::HashMap,
-    io,
-    sync::{LazyLock, OnceLock},
-    time::Duration,
-};
+use std::collections::HashMap;
+use std::io;
+use std::sync::{LazyLock, OnceLock};
+use std::time::Duration;
 
 use fancy_regex::Regex;
 use log::debug;
 use reqwest::header::{self, HeaderValue};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tokio::{
-    fs::{self, File},
-    io::AsyncWriteExt,
-    sync::Semaphore,
-    time,
-};
+use tokio::fs::{self, File};
+use tokio::io::AsyncWriteExt;
+use tokio::sync::Semaphore;
+use tokio::time;
 use url::Url;
-
-use crate::config;
 
 pub use self::card::Card;
 pub use self::image::Image;
+use crate::config;
 
 mod cache;
 pub mod card;
@@ -54,7 +49,10 @@ pub enum State {
     Error(LoadError),
 }
 
-pub async fn load(url: Url, config: config::Preview) -> Result<Preview, LoadError> {
+pub async fn load(
+    url: Url,
+    config: config::Preview,
+) -> Result<Preview, LoadError> {
     if !config.enabled {
         return Err(LoadError::Disabled);
     }
@@ -80,7 +78,10 @@ pub async fn load(url: Url, config: config::Preview) -> Result<Preview, LoadErro
     }
 }
 
-async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, LoadError> {
+async fn load_uncached(
+    url: Url,
+    config: &config::Preview,
+) -> Result<Preview, LoadError> {
     debug!("Loading preview for {url}");
 
     match fetch(url.clone(), config).await? {
@@ -116,14 +117,18 @@ async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, Lo
                         .trim_end_matches(['\'', '"']),
                 );
 
-                let (property, content) =
-                    if (key_1 == "property" || key_1 == "name") && key_2 == "content" {
-                        (value_1, value_2)
-                    } else if key_1 == "content" && (key_2 == "property" || key_2 == "name") {
-                        (value_2, value_1)
-                    } else {
-                        continue;
-                    };
+                let (property, content) = if (key_1 == "property"
+                    || key_1 == "name")
+                    && key_2 == "content"
+                {
+                    (value_1, value_2)
+                } else if key_1 == "content"
+                    && (key_2 == "property" || key_2 == "name")
+                {
+                    (value_2, value_1)
+                } else {
+                    continue;
+                };
 
                 match property.as_str() {
                     "og:url" => canonical_url = Some(content.parse()?),
@@ -134,7 +139,8 @@ async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, Lo
                 }
             }
 
-            let image_url = image_url.ok_or(LoadError::MissingProperty("image"))?;
+            let image_url =
+                image_url.ok_or(LoadError::MissingProperty("image"))?;
 
             let Fetched::Image(image) = fetch(image_url, config).await? else {
                 return Err(LoadError::NotImage);
@@ -142,7 +148,8 @@ async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, Lo
 
             Ok(Preview::Card(Card {
                 url: url.clone(),
-                canonical_url: canonical_url.ok_or(LoadError::MissingProperty("url"))?,
+                canonical_url: canonical_url
+                    .ok_or(LoadError::MissingProperty("url"))?,
                 image,
                 title: title.ok_or(LoadError::MissingProperty("title"))?,
                 description,
@@ -156,7 +163,10 @@ enum Fetched {
     Other(Vec<u8>),
 }
 
-async fn fetch(url: Url, config: &config::Preview) -> Result<Fetched, LoadError> {
+async fn fetch(
+    url: Url,
+    config: &config::Preview,
+) -> Result<Fetched, LoadError> {
     // WARN: `concurrency` changes aren't picked up until app is relaunchd
     let _permit = RATE_LIMIT
         .get_or_init(|| Semaphore::new(config.request.concurrency))
@@ -226,7 +236,9 @@ async fn fetch(url: Url, config: &config::Preview) -> Result<Fetched, LoadError>
 
             while let Some(mut chunk) = resp.chunk().await? {
                 if buffer.len() + chunk.len() > max_scrape_size {
-                    buffer.extend(chunk.split_to(max_scrape_size.saturating_sub(buffer.len())));
+                    buffer.extend(chunk.split_to(
+                        max_scrape_size.saturating_sub(buffer.len()),
+                    ));
                     break;
                 } else {
                     buffer.extend(chunk);

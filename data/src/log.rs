@@ -2,7 +2,6 @@ use std::path::PathBuf;
 use std::{fs, io};
 
 use chrono::{DateTime, Utc};
-
 use serde::{Deserialize, Serialize};
 
 use crate::environment;
@@ -36,7 +35,17 @@ pub struct Record {
 }
 
 #[derive(
-    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize, strum::Display,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    Hash,
+    Serialize,
+    Deserialize,
+    strum::Display,
 )]
 #[strum(serialize_all = "UPPERCASE")]
 pub enum Level {

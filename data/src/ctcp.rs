@@ -1,5 +1,6 @@
-use irc::proto;
 use std::fmt;
+
+use irc::proto;
 
 // Reference: https://rawgit.com/DanielOaks/irc-rfcs/master/dist/draft-oakley-irc-ctcp-latest.html
 
@@ -30,7 +31,9 @@ pub fn parse_query(text: &str) -> Option<Query> {
         .unwrap_or(text)
         .strip_prefix('\u{1}')?;
 
-    let (command, params) = if let Some((command, params)) = query.split_once(char::is_whitespace) {
+    let (command, params) = if let Some((command, params)) =
+        query.split_once(char::is_whitespace)
+    {
         (command.to_uppercase(), Some(params))
     } else {
         (query.to_uppercase(), None)

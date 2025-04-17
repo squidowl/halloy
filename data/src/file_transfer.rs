@@ -3,11 +3,10 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 
-use crate::user::Nick;
-use crate::{dcc, server, Server};
-
 pub use self::manager::Manager;
 pub use self::task::Task;
+use crate::user::Nick;
+use crate::{Server, dcc, server};
 
 pub mod manager;
 pub mod task;
@@ -42,7 +41,9 @@ pub struct FileTransfer {
 impl FileTransfer {
     pub fn progress(&self) -> f64 {
         match self.status {
-            Status::Active { transferred, .. } => transferred as f64 / self.size as f64,
+            Status::Active { transferred, .. } => {
+                transferred as f64 / self.size as f64
+            }
             Status::Completed { .. } => 1.0,
             _ => 0.0,
         }

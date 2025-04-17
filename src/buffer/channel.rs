@@ -2,14 +2,16 @@ use data::dashboard::BufferAction;
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{buffer, history, message, preview, Config, User};
+use data::{Config, User, buffer, history, message, preview};
 use iced::advanced::text;
 use iced::widget::{column, container, row};
-use iced::{padding, Length, Task};
+use iced::{Length, Task, padding};
 
 use super::{input_view, scroll_view, user_context};
-use crate::widget::{message_content, message_marker, selectable_text, Element};
-use crate::{theme, Theme};
+use crate::widget::{
+    Element, message_content, message_marker, selectable_text,
+};
+use crate::{Theme, theme};
 
 mod topic;
 
@@ -50,11 +52,14 @@ pub fn view<'a>(
 
     let our_user = our_nick
         .map(|our_nick| User::from(Nick::from(our_nick.as_ref())))
-        .and_then(|user| clients.resolve_user_attributes(&state.server, channel, &user));
+        .and_then(|user| {
+            clients.resolve_user_attributes(&state.server, channel, &user)
+        });
 
     let users = clients.get_channel_users(&state.server, channel);
 
-    let chathistory_state = clients.get_chathistory_state(server, &channel.to_target());
+    let chathistory_state =
+        clients.get_chathistory_state(server, &channel.to_target());
 
     let messages = container(
         scroll_view::view(
@@ -65,13 +70,13 @@ pub fn view<'a>(
             chathistory_state,
             config,
             move |message, max_nick_width, max_prefix_width| {
-                let timestamp =
-                    config
-                        .buffer
-                        .format_timestamp(&message.server_time)
-                        .map(|timestamp| {
-                            selectable_text(timestamp).style(theme::selectable_text::timestamp)
-                        });
+                let timestamp = config
+                    .buffer
+                    .format_timestamp(&message.server_time)
+                    .map(|timestamp| {
+                        selectable_text(timestamp)
+                            .style(theme::selectable_text::timestamp)
+                    });
 
                 let prefixes = message.target.prefixes().map_or(
                     max_nick_width.and_then(|_| {
@@ -93,7 +98,10 @@ pub fn view<'a>(
                         .style(theme::selectable_text::tertiary);
 
                         if let Some(width) = max_prefix_width {
-                            Some(text.width(width).align_x(text::Alignment::Right))
+                            Some(
+                                text.width(width)
+                                    .align_x(text::Alignment::Right),
+                            )
                         } else {
                             Some(text)
                         }
@@ -101,12 +109,14 @@ pub fn view<'a>(
                 );
 
                 let space = selectable_text(" ");
-                let with_access_levels = config.buffer.nickname.show_access_levels;
+                let with_access_levels =
+                    config.buffer.nickname.show_access_levels;
 
                 match message.target.source() {
                     message::Source::User(user) => {
-                        let current_user: Option<&User> =
-                            users.iter().find(|current_user| *current_user == user);
+                        let current_user: Option<&User> = users
+                            .iter()
+                            .find(|current_user| *current_user == user);
 
                         let mut text = selectable_text(
                             config
@@ -115,10 +125,16 @@ pub fn view<'a>(
                                 .brackets
                                 .format(user.display(with_access_levels)),
                         )
-                        .style(|theme| theme::selectable_text::nickname(theme, config, user));
+                        .style(|theme| {
+                            theme::selectable_text::nickname(
+                                theme, config, user,
+                            )
+                        });
 
                         if let Some(width) = max_nick_width {
-                            text = text.width(width).align_x(text::Alignment::Right);
+                            text = text
+                                .width(width)
+                                .align_x(text::Alignment::Right);
                         }
 
                         let nick = user_context::view(
@@ -141,7 +157,9 @@ pub fn view<'a>(
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
                             move |link| match link {
-                                message::Link::User(_) => user_context::Entry::list(true, our_user),
+                                message::Link::User(_) => {
+                                    user_context::Entry::list(true, our_user)
+                                }
                                 _ => vec![],
                             },
                             move |link, entry, length| match link {
@@ -170,7 +188,8 @@ pub fn view<'a>(
                         let text_container = container(message_content);
 
                         match &config.buffer.nickname.alignment {
-                            data::buffer::Alignment::Left | data::buffer::Alignment::Right => Some(
+                            data::buffer::Alignment::Left
+                            | data::buffer::Alignment::Right => Some(
                                 row![]
                                     .push(timestamp_nickname_row)
                                     .push(text_container)
@@ -186,10 +205,14 @@ pub fn view<'a>(
                     }
                     message::Source::Server(server_message) => {
                         let message_style = move |message_theme: &Theme| {
-                            theme::selectable_text::server(message_theme, server_message.as_ref())
+                            theme::selectable_text::server(
+                                message_theme,
+                                server_message.as_ref(),
+                            )
                         };
 
-                        let marker = message_marker(max_nick_width, message_style);
+                        let marker =
+                            message_marker(max_nick_width, message_style);
 
                         let message_content = message_content::with_context(
                             &message.content,
@@ -198,7 +221,9 @@ pub fn view<'a>(
                             scroll_view::Message::Link,
                             message_style,
                             move |link| match link {
-                                message::Link::User(_) => user_context::Entry::list(true, our_user),
+                                message::Link::User(_) => {
+                                    user_context::Entry::list(true, our_user)
+                                }
                                 _ => vec![],
                             },
                             move |link, entry, length| match link {
@@ -208,7 +233,9 @@ pub fn view<'a>(
                                         casemapping,
                                         Some(channel),
                                         user,
-                                        users.iter().find(|current_user| *current_user == user),
+                                        users.iter().find(|current_user| {
+                                            *current_user == user
+                                        }),
                                         length,
                                         config,
                                     )
@@ -233,7 +260,10 @@ pub fn view<'a>(
                         )
                     }
                     message::Source::Action(_) => {
-                        let marker = message_marker(max_nick_width, theme::selectable_text::action);
+                        let marker = message_marker(
+                            max_nick_width,
+                            theme::selectable_text::action,
+                        );
 
                         let message_content = message_content(
                             &message.content,
@@ -258,12 +288,18 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Internal(message::source::Internal::Status(status)) => {
+                    message::Source::Internal(
+                        message::source::Internal::Status(status),
+                    ) => {
                         let message_style = move |message_theme: &Theme| {
-                            theme::selectable_text::status(message_theme, *status)
+                            theme::selectable_text::status(
+                                message_theme,
+                                *status,
+                            )
                         };
 
-                        let marker = message_marker(max_nick_width, message_style);
+                        let marker =
+                            message_marker(max_nick_width, message_style);
 
                         let message = message_content(
                             &message.content,
@@ -286,7 +322,9 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Internal(message::source::Internal::Logs) => None,
+                    message::Source::Internal(
+                        message::source::Internal::Logs,
+                    ) => None,
                 }
             },
         )
@@ -295,8 +333,9 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let nick_list = nick_list::view(server, casemapping, channel, users, our_user, config)
-        .map(Message::UserContext);
+    let nick_list =
+        nick_list::view(server, casemapping, channel, users, our_user, config)
+            .map(Message::UserContext);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
@@ -324,16 +363,18 @@ pub fn view<'a>(
 
     let content = column![topic, messages].spacing(4);
 
-    let nicklist_enabled = settings.map_or(config.buffer.channel.nicklist.enabled, |settings| {
-        settings.channel.nicklist.enabled
-    });
+    let nicklist_enabled = settings
+        .map_or(config.buffer.channel.nicklist.enabled, |settings| {
+            settings.channel.nicklist.enabled
+        });
 
-    let content = match (nicklist_enabled, config.buffer.channel.nicklist.position) {
-        (true, data::channel::Position::Left) => row![nick_list, content],
-        (true, data::channel::Position::Right) => row![content, nick_list],
-        (false, _) => { row![content] }.height(Length::Fill),
-    }
-    .spacing(4);
+    let content =
+        match (nicklist_enabled, config.buffer.channel.nicklist.position) {
+            (true, data::channel::Position::Left) => row![nick_list, content],
+            (true, data::channel::Position::Right) => row![content, nick_list],
+            (false, _) => { row![content] }.height(Length::Fill),
+        }
+        .spacing(4);
 
     let body = column![]
         .push(container(content).height(Length::Fill))
@@ -387,7 +428,9 @@ impl Channel {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
+                    scroll_view::Event::UserContext(event) => {
+                        Some(Event::UserContext(event))
+                    }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffers(vec![(target, buffer_action)]))
                     }
@@ -395,29 +438,39 @@ impl Channel {
                     scroll_view::Event::RequestOlderChatHistory => {
                         Some(Event::RequestOlderChatHistory)
                     }
-                    scroll_view::Event::PreviewChanged => Some(Event::PreviewChanged),
+                    scroll_view::Event::PreviewChanged => {
+                        Some(Event::PreviewChanged)
+                    }
                     scroll_view::Event::HidePreview(kind, hash, url) => {
                         Some(Event::HidePreview(kind, hash, url))
                     }
                     scroll_view::Event::MarkAsRead => {
-                        history::Kind::from_buffer(data::Buffer::Upstream(self.buffer.clone()))
-                            .map(Event::MarkAsRead)
+                        history::Kind::from_buffer(data::Buffer::Upstream(
+                            self.buffer.clone(),
+                        ))
+                        .map(Event::MarkAsRead)
                     }
                 });
 
                 (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
-                let (command, event) =
-                    self.input_view
-                        .update(message, &self.buffer, clients, history, config);
+                let (command, event) = self.input_view.update(
+                    message,
+                    &self.buffer,
+                    clients,
+                    history,
+                    config,
+                );
                 let command = command.map(Message::InputView);
 
                 match event {
                     Some(input_view::Event::InputSent { history_task }) => {
                         let command = Task::batch(vec![
                             command,
-                            self.scroll_view.scroll_to_end().map(Message::ScrollView),
+                            self.scroll_view
+                                .scroll_to_end()
+                                .map(Message::ScrollView),
                         ]);
 
                         (command, Some(Event::History(history_task)))
@@ -435,11 +488,15 @@ impl Channel {
             Message::Topic(message) => (
                 Task::none(),
                 topic::update(message).map(|event| match event {
-                    topic::Event::UserContext(event) => Event::UserContext(event),
-                    topic::Event::OpenChannel(channel) => Event::OpenBuffers(vec![(
-                        Target::Channel(channel),
-                        config.actions.buffer.click_channel_name,
-                    )]),
+                    topic::Event::UserContext(event) => {
+                        Event::UserContext(event)
+                    }
+                    topic::Event::OpenChannel(channel) => {
+                        Event::OpenBuffers(vec![(
+                            Target::Channel(channel),
+                            config.actions.buffer.click_channel_name,
+                        )])
+                    }
                 }),
             ),
         }
@@ -463,9 +520,10 @@ fn topic<'a>(
     config: &'a Config,
     theme: &'a Theme,
 ) -> Option<Element<'a, Message>> {
-    let topic_enabled = settings.map_or(config.buffer.channel.topic.enabled, |settings| {
-        settings.channel.topic.enabled
-    });
+    let topic_enabled = settings
+        .map_or(config.buffer.channel.topic.enabled, |settings| {
+            settings.channel.topic.enabled
+        });
 
     if !topic_enabled {
         return None;
@@ -494,14 +552,14 @@ fn topic<'a>(
 }
 
 mod nick_list {
-    use data::{config, isupport, target, Config, Server, User};
-    use iced::advanced::text;
-    use iced::widget::{column, scrollable, Scrollable};
+    use data::{Config, Server, User, config, isupport, target};
     use iced::Length;
+    use iced::advanced::text;
+    use iced::widget::{Scrollable, column, scrollable};
     use user_context::Message;
 
     use crate::buffer::user_context;
-    use crate::widget::{selectable_text, Element};
+    use crate::widget::{Element, selectable_text};
     use crate::{font, theme};
 
     pub fn view<'a>(
@@ -532,13 +590,21 @@ mod nick_list {
         };
 
         let content = column(users.iter().map(|user| {
-            let content = selectable_text(user.display(nicklist_config.show_access_levels))
-                .style(|theme| theme::selectable_text::nicklist_nickname(theme, config, user))
-                .align_x(match nicklist_config.alignment {
-                    config::buffer::channel::Alignment::Left => text::Alignment::Left,
-                    config::buffer::channel::Alignment::Right => text::Alignment::Right,
-                })
-                .width(Length::Fixed(width));
+            let content = selectable_text(
+                user.display(nicklist_config.show_access_levels),
+            )
+            .style(|theme| {
+                theme::selectable_text::nicklist_nickname(theme, config, user)
+            })
+            .align_x(match nicklist_config.alignment {
+                config::buffer::channel::Alignment::Left => {
+                    text::Alignment::Left
+                }
+                config::buffer::channel::Alignment::Right => {
+                    text::Alignment::Right
+                }
+            })
+            .width(Length::Fixed(width));
 
             user_context::view(
                 content,

@@ -237,7 +237,9 @@ impl Query {
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
     ) -> Result<Self, ParseError> {
-        if let Some((_, _)) = proto::parse_channel_from_target(target, chantypes, statusmsg) {
+        if let Some((_, _)) =
+            proto::parse_channel_from_target(target, chantypes, statusmsg)
+        {
             Err(ParseError::InvalidQuery(target.to_string()))
         } else {
             Ok(Query {

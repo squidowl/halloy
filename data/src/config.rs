@@ -5,15 +5,8 @@ use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use serde::Deserialize;
 use thiserror::Error;
-use tokio_stream::wrappers::ReadDirStream;
 use tokio_stream::StreamExt;
-
-use crate::appearance::theme::Colors;
-use crate::appearance::{self, Appearance};
-use crate::audio::{self, Sound};
-use crate::environment::config_dir;
-use crate::server::Map as ServerMap;
-use crate::{environment, Theme};
+use tokio_stream::wrappers::ReadDirStream;
 
 pub use self::actions::Actions;
 pub use self::buffer::Buffer;
@@ -26,6 +19,12 @@ pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
+use crate::appearance::theme::Colors;
+use crate::appearance::{self, Appearance};
+use crate::audio::{self, Sound};
+use crate::environment::config_dir;
+use crate::server::Map as ServerMap;
+use crate::{Theme, environment};
 
 pub mod actions;
 pub mod buffer;
@@ -209,7 +208,8 @@ impl Config {
             pane,
             highlights,
             actions,
-        } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
+        } = toml::from_str(content.as_ref())
+            .map_err(|e| Error::Parse(e.to_string()))?;
 
         servers.read_passwords().await?;
 
@@ -238,7 +238,9 @@ impl Config {
         })
     }
 
-    async fn load_appearance(theme_keys: (&str, Option<&str>)) -> Result<Appearance, Error> {
+    async fn load_appearance(
+        theme_keys: (&str, Option<&str>),
+    ) -> Result<Appearance, Error> {
         use tokio::fs;
 
         #[derive(Deserialize)]
@@ -268,13 +270,15 @@ impl Config {
         let mut second_theme = theme_keys.1.map(|_| Theme::default());
         let mut has_halloy_theme = false;
 
-        let mut stream = ReadDirStream::new(fs::read_dir(Self::themes_dir()).await?);
+        let mut stream =
+            ReadDirStream::new(fs::read_dir(Self::themes_dir()).await?);
         while let Some(entry) = stream.next().await {
             let Ok(entry) = entry else {
                 continue;
             };
 
-            let Some(file_name) = entry.file_name().to_str().map(String::from) else {
+            let Some(file_name) = entry.file_name().to_str().map(String::from)
+            else {
                 continue;
             };
 
@@ -321,7 +325,8 @@ impl Config {
         let rand_nick = random_nickname();
 
         // Replace placeholder nick with unique nick
-        let config_string = CONFIG_TEMPLATE.replace("__NICKNAME__", rand_nick.as_str());
+        let config_string =
+            CONFIG_TEMPLATE.replace("__NICKNAME__", rand_nick.as_str());
         let config_bytes = config_string.as_bytes();
 
         // Create configuration path.
@@ -368,11 +373,17 @@ pub enum Error {
     StringUtf8Error(#[from] string::FromUtf8Error),
     #[error(transparent)]
     LoadSounds(#[from] audio::LoadError),
-    #[error("Only one of password, password_file and password_command can be set.")]
+    #[error(
+        "Only one of password, password_file and password_command can be set."
+    )]
     DuplicatePassword,
-    #[error("Only one of nick_password, nick_password_file and nick_password_command can be set.")]
+    #[error(
+        "Only one of nick_password, nick_password_file and nick_password_command can be set."
+    )]
     DuplicateNickPassword,
-    #[error("Exactly one of sasl.plain.password, sasl.plain.password_file or sasl.plain.password_command must be set.")]
+    #[error(
+        "Exactly one of sasl.plain.password, sasl.plain.password_file or sasl.plain.password_command must be set."
+    )]
     DuplicateSaslPassword,
     #[error("Config does not exist")]
     ConfigMissing { has_yaml_config: bool },

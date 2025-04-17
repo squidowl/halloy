@@ -12,7 +12,10 @@ pub struct Raw {
 impl Raw {
     pub fn resolve(&self, bounds: Rectangle) -> Option<Resolved> {
         if f32::max(f32::min(self.start.y, self.end.y), bounds.y)
-            <= f32::min(f32::max(self.start.y, self.end.y), bounds.y + bounds.height)
+            <= f32::min(
+                f32::max(self.start.y, self.end.y),
+                bounds.y + bounds.height,
+            )
         {
             let (mut start, mut end) = if self.start.y < self.end.y
                 || self.start.y == self.end.y && self.start.x < self.end.x
@@ -85,9 +88,16 @@ pub fn find_cursor_position<P: text::Paragraph>(
 ) -> Option<usize> {
     let value = value.to_string();
 
-    let char_offset = paragraph.hit_test(cursor_position).map(text::Hit::cursor)?;
+    let char_offset =
+        paragraph.hit_test(cursor_position).map(text::Hit::cursor)?;
 
-    Some(unicode_segmentation::UnicodeSegmentation::graphemes(&value[..char_offset], true).count())
+    Some(
+        unicode_segmentation::UnicodeSegmentation::graphemes(
+            &value[..char_offset],
+            true,
+        )
+        .count(),
+    )
 }
 
 fn relative(point: Point, bounds: Rectangle) -> Point {

@@ -9,12 +9,13 @@ use futures::{Future, FutureExt};
 use tokio::fs;
 use tokio::time::Instant;
 
-use crate::message::{self, MessageReferences};
-use crate::target::{self, Target};
-use crate::{buffer, compression, environment, isupport, Buffer, Message, Server};
-
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
+use crate::message::{self, MessageReferences};
+use crate::target::{self, Target};
+use crate::{
+    Buffer, Message, Server, buffer, compression, environment, isupport,
+};
 
 pub mod manager;
 pub mod metadata;
@@ -60,18 +61,25 @@ impl Kind {
     pub fn from_input_buffer(buffer: buffer::Upstream) -> Self {
         match buffer {
             buffer::Upstream::Server(server) => Self::Server(server),
-            buffer::Upstream::Channel(server, channel) => Self::Channel(server, channel),
+            buffer::Upstream::Channel(server, channel) => {
+                Self::Channel(server, channel)
+            }
             buffer::Upstream::Query(server, nick) => Self::Query(server, nick),
         }
     }
 
-    pub fn from_server_message(server: Server, message: &Message) -> Option<Self> {
+    pub fn from_server_message(
+        server: Server,
+        message: &Message,
+    ) -> Option<Self> {
         match &message.target {
             message::Target::Server { .. } => Some(Self::Server(server)),
             message::Target::Channel { channel, .. } => {
                 Some(Self::Channel(server, channel.clone()))
             }
-            message::Target::Query { query, .. } => Some(Self::Query(server, query.clone())),
+            message::Target::Query { query, .. } => {
+                Some(Self::Query(server, query.clone()))
+            }
             message::Target::Logs => None,
             message::Target::Highlights { .. } => None,
         }
@@ -79,7 +87,9 @@ impl Kind {
 
     pub fn from_buffer(buffer: Buffer) -> Option<Self> {
         match buffer {
-            Buffer::Upstream(buffer::Upstream::Server(server)) => Some(Kind::Server(server)),
+            Buffer::Upstream(buffer::Upstream::Server(server)) => {
+                Some(Kind::Server(server))
+            }
             Buffer::Upstream(buffer::Upstream::Channel(server, channel)) => {
                 Some(Kind::Channel(server, channel))
             }
@@ -87,7 +97,9 @@ impl Kind {
                 Some(Kind::Query(server, nick))
             }
             Buffer::Internal(buffer::Internal::Logs) => Some(Kind::Logs),
-            Buffer::Internal(buffer::Internal::Highlights) => Some(Kind::Highlights),
+            Buffer::Internal(buffer::Internal::Highlights) => {
+                Some(Kind::Highlights)
+            }
             Buffer::Internal(buffer::Internal::FileTransfers) => None,
         }
     }
@@ -119,7 +131,9 @@ impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Kind::Server(server) => write!(f, "server on {server}"),
-            Kind::Channel(server, channel) => write!(f, "channel {channel} on {server}"),
+            Kind::Channel(server, channel) => {
+                write!(f, "channel {channel} on {server}")
+            }
             Kind::Query(server, nick) => write!(f, "user {nick} on {server}"),
             Kind::Logs => write!(f, "logs"),
             Kind::Highlights => write!(f, "highlights"),
@@ -130,11 +144,15 @@ impl fmt::Display for Kind {
 impl From<Kind> for Buffer {
     fn from(kind: Kind) -> Self {
         match kind {
-            Kind::Server(server) => Buffer::Upstream(buffer::Upstream::Server(server)),
+            Kind::Server(server) => {
+                Buffer::Upstream(buffer::Upstream::Server(server))
+            }
             Kind::Channel(server, channel) => {
                 Buffer::Upstream(buffer::Upstream::Channel(server, channel))
             }
-            Kind::Query(server, nick) => Buffer::Upstream(buffer::Upstream::Query(server, nick)),
+            Kind::Query(server, nick) => {
+                Buffer::Upstream(buffer::Upstream::Query(server, nick))
+            }
             Kind::Logs => Buffer::Internal(buffer::Internal::Logs),
             Kind::Highlights => Buffer::Internal(buffer::Internal::Highlights),
         }
@@ -214,8 +232,12 @@ async fn path(kind: &Kind) -> Result<PathBuf, Error> {
 
     let name = match kind {
         Kind::Server(server) => format!("{server}"),
-        Kind::Channel(server, channel) => format!("{server}channel{}", channel.as_normalized_str()),
-        Kind::Query(server, query) => format!("{server}nickname{}", query.as_normalized_str()),
+        Kind::Channel(server, channel) => {
+            format!("{server}channel{}", channel.as_normalized_str())
+        }
+        Kind::Query(server, query) => {
+            format!("{server}nickname{}", query.as_normalized_str())
+        }
         Kind::Logs => "logs".to_string(),
         Kind::Highlights => "highlights".to_string(),
     };
@@ -264,7 +286,8 @@ impl History {
         } = self
         {
             *read_marker = (*read_marker).max(metadata.read_marker);
-            *max_triggers_unread = (*max_triggers_unread).max(metadata.last_triggers_unread);
+            *max_triggers_unread =
+                (*max_triggers_unread).max(metadata.last_triggers_unread);
             *chathistory_references = chathistory_references
                 .clone()
                 .max(metadata.chathistory_references);
@@ -280,7 +303,8 @@ impl History {
             } => {
                 // Read marker is prior to last known message which triggers unread
                 if let Some(read_marker) = read_marker {
-                    max_triggers_unread.is_some_and(|max| read_marker.date_time() < max)
+                    max_triggers_unread
+                        .is_some_and(|max| read_marker.date_time() < max)
                 }
                 // Default state == unread if theres messages that trigger indicator
                 else {
@@ -298,7 +322,8 @@ impl History {
                 ..
             } = self
             {
-                *max_triggers_unread = (*max_triggers_unread).max(Some(message.server_time));
+                *max_triggers_unread =
+                    (*max_triggers_unread).max(Some(message.server_time));
             }
         }
 
@@ -320,7 +345,10 @@ impl History {
         }
     }
 
-    fn flush(&mut self, now: Instant) -> Option<BoxFuture<'static, Result<(), Error>>> {
+    fn flush(
+        &mut self,
+        now: Instant,
+    ) -> Option<BoxFuture<'static, Result<(), Error>>> {
         match self {
             History::Partial {
                 kind,
@@ -340,7 +368,10 @@ impl History {
                         *last_updated_at = None;
 
                         return Some(
-                            async move { append(&kind, messages, read_marker).await }.boxed(),
+                            async move {
+                                append(&kind, messages, read_marker).await
+                            }
+                            .boxed(),
                         );
                     }
                 }
@@ -357,19 +388,27 @@ impl History {
                 if let Some(last_received) = *last_updated_at {
                     let since = now.duration_since(last_received);
 
-                    if since >= FLUSH_AFTER_LAST_RECEIVED && !messages.is_empty() {
+                    if since >= FLUSH_AFTER_LAST_RECEIVED
+                        && !messages.is_empty()
+                    {
                         let kind = kind.clone();
                         let read_marker = *read_marker;
                         *last_updated_at = None;
 
                         if messages.len() > MAX_MESSAGES {
-                            messages.drain(0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT));
+                            messages.drain(
+                                0..messages.len()
+                                    - (MAX_MESSAGES - TRUNC_COUNT),
+                            );
                         }
 
                         let messages = messages.clone();
 
                         return Some(
-                            async move { overwrite(&kind, &messages, read_marker).await }.boxed(),
+                            async move {
+                                overwrite(&kind, &messages, read_marker).await
+                            }
+                            .boxed(),
                         );
                     }
                 }
@@ -382,7 +421,8 @@ impl History {
     fn make_partial(
         &mut self,
         mark_as_read: bool,
-    ) -> Option<impl Future<Output = Result<Option<ReadMarker>, Error>> + use<>> {
+    ) -> Option<impl Future<Output = Result<Option<ReadMarker>, Error>> + use<>>
+    {
         match self {
             History::Partial { .. } => None,
             History::Full {
@@ -400,9 +440,11 @@ impl History {
                     *read_marker
                 };
 
-                let max_triggers_unread = metadata::latest_triggers_unread(&messages);
+                let max_triggers_unread =
+                    metadata::latest_triggers_unread(&messages);
 
-                let chathistory_references = metadata::latest_can_reference(&messages);
+                let chathistory_references =
+                    metadata::latest_can_reference(&messages);
 
                 *self = Self::Partial {
                     kind: kind.clone(),
@@ -422,7 +464,10 @@ impl History {
         }
     }
 
-    async fn close(self, mark_as_read: bool) -> Result<Option<ReadMarker>, Error> {
+    async fn close(
+        self,
+        mark_as_read: bool,
+    ) -> Result<Option<ReadMarker>, Error> {
         match self {
             History::Partial {
                 kind,
@@ -432,9 +477,10 @@ impl History {
                 ..
             } => {
                 if mark_as_read {
-                    let read_marker = ReadMarker::latest(&messages)
-                        .max(read_marker)
-                        .max(max_triggers_unread.map(ReadMarker::from_date_time));
+                    let read_marker =
+                        ReadMarker::latest(&messages).max(read_marker).max(
+                            max_triggers_unread.map(ReadMarker::from_date_time),
+                        );
 
                     append(&kind, messages, read_marker).await?;
 
@@ -452,7 +498,8 @@ impl History {
                 ..
             } => {
                 if mark_as_read {
-                    let read_marker = ReadMarker::latest(&messages).max(read_marker);
+                    let read_marker =
+                        ReadMarker::latest(&messages).max(read_marker);
 
                     overwrite(&kind, &messages, read_marker).await?;
 
@@ -511,7 +558,8 @@ impl History {
 
     pub fn first_can_reference(&self) -> Option<&Message> {
         match self {
-            History::Partial { messages, .. } | History::Full { messages, .. } => {
+            History::Partial { messages, .. }
+            | History::Full { messages, .. } => {
                 messages.iter().find(|message| message.can_reference())
             }
         }
@@ -529,14 +577,15 @@ impl History {
             } => messages
                 .iter()
                 .rev()
-                .find(|message| message.can_reference() && message.server_time < server_time)
+                .find(|message| {
+                    message.can_reference() && message.server_time < server_time
+                })
                 .map_or(
-                    if chathistory_references
-                        .as_ref()
-                        .is_some_and(|chathistory_references| {
+                    if chathistory_references.as_ref().is_some_and(
+                        |chathistory_references| {
                             chathistory_references.timestamp < server_time
-                        })
-                    {
+                        },
+                    ) {
                         chathistory_references.clone()
                     } else {
                         None
@@ -546,7 +595,9 @@ impl History {
             History::Full { messages, .. } => messages
                 .iter()
                 .rev()
-                .find(|message| message.can_reference() && message.server_time < server_time)
+                .find(|message| {
+                    message.can_reference() && message.server_time < server_time
+                })
                 .map(|message| message.references()),
         }
     }
@@ -562,9 +613,8 @@ impl History {
 
     pub fn read_marker(&self) -> Option<ReadMarker> {
         match self {
-            History::Partial { read_marker, .. } | History::Full { read_marker, .. } => {
-                *read_marker
-            }
+            History::Partial { read_marker, .. }
+            | History::Full { read_marker, .. } => *read_marker,
         }
     }
 
@@ -575,7 +625,9 @@ impl History {
             ..
         } = self
         {
-            if let Some(message) = messages.iter_mut().find(|m| m.hash == message) {
+            if let Some(message) =
+                messages.iter_mut().find(|m| m.hash == message)
+            {
                 message.hidden_urls.insert(url);
 
                 *last_updated_at = Some(Instant::now());
@@ -592,7 +644,9 @@ impl History {
 /// have an exact match + target & content.
 pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
     let fuzz_seconds =
-        if matches!(message.direction, message::Direction::Received) && message.is_echo {
+        if matches!(message.direction, message::Direction::Received)
+            && message.is_echo
+        {
             chrono::Duration::seconds(300)
         } else {
             chrono::Duration::seconds(1)
@@ -607,11 +661,15 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
     let start = message.server_time - fuzz_seconds;
     let end = message.server_time + fuzz_seconds;
 
-    let start_index = match messages.binary_search_by(|stored| stored.server_time.cmp(&start)) {
+    let start_index = match messages
+        .binary_search_by(|stored| stored.server_time.cmp(&start))
+    {
         Ok(match_index) => match_index,
         Err(sorted_insert_index) => sorted_insert_index,
     };
-    let end_index = match messages.binary_search_by(|stored| stored.server_time.cmp(&end)) {
+    let end_index = match messages
+        .binary_search_by(|stored| stored.server_time.cmp(&end))
+    {
         Ok(match_index) => match_index,
         Err(sorted_insert_index) => sorted_insert_index,
     };
@@ -622,9 +680,13 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
 
     for stored in &messages[start_index..end_index] {
         if replace_at.is_none() {
-            let use_echo_cmp = matches!(stored.direction, message::Direction::Sent)
-                && matches!(message.direction, message::Direction::Received)
-                && message.is_echo;
+            let use_echo_cmp =
+                matches!(stored.direction, message::Direction::Sent)
+                    && matches!(
+                        message.direction,
+                        message::Direction::Received
+                    )
+                    && message.is_echo;
 
             if (message.id.is_some() && stored.id == message.id)
                 || ((stored.server_time == message.server_time || use_echo_cmp)
@@ -670,7 +732,11 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
 /// The content of JOIN, PART, and QUIT messages may be dependent on how
 /// the user attributes are resolved.  Match those messages based on Nick
 /// alone (covered by comparing target components) to avoid false negatives.
-fn has_matching_content(message: &Message, other: &Message, use_echo_cmp: bool) -> bool {
+fn has_matching_content(
+    message: &Message,
+    other: &Message,
+    use_echo_cmp: bool,
+) -> bool {
     if message.target == other.target {
         if let message::Source::Server(Some(source)) = message.target.source() {
             match source.kind() {
