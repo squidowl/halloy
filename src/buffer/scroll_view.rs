@@ -825,7 +825,6 @@ mod keyed {
     use iced::{Rectangle, Task, Vector, advanced};
 
     use crate::widget::{Element, Renderer, decorate};
-    use crate::widget::{Renderer, decorate};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum Key {
@@ -1275,9 +1274,6 @@ mod correct_viewport {
 
     use super::{Message, keyed};
     use crate::widget::{Element, Renderer, decorate};
-
-    use super::Message;
-    use super::keyed;
 
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,
