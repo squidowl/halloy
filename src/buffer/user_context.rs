@@ -1,6 +1,6 @@
 use data::dashboard::BufferAction;
 use data::user::Nick;
-use data::{Config, Server, User, config, isupport, target};
+use data::{Config, Server, User, config, ctcp, isupport, target};
 use iced::widget::{
     Space, button, column, container, horizontal_rule, row, text,
 };
