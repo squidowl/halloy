@@ -255,25 +255,34 @@ pub fn parse(
                     Ok(unknown())
                 }
             }
-            Kind::Whois => validated::<1, 0, false>(args, |[nicks], _| {
-                let target_limit = find_target_limit(isupport, "WHOIS")
-                    .map(|limit| limit as usize);
+            Kind::Whois => {
+                validated::<1, 1, false>(args, |[target], [nickname]| {
+                    let target_limit = find_target_limit(isupport, "WHOIS")
+                        .map(|limit| limit as usize);
 
-                if let Some(target_limit) = target_limit {
-                    let nicks = nicks.split(',').collect::<Vec<_>>();
+                    // If both `target` and `nickname` is specified `target` should be a server.
+                    // Otherwise we use `target` as nick (when `nick` is `None`).
+                    let server = nickname.as_ref().map(|_| target.clone());
+                    let nickname = match nickname {
+                        Some(nickname) => nickname,
+                        None => target,
+                    };
 
-                    if nicks.len() > target_limit {
-                        return Err(Error::TooManyTargets {
-                            name: "nicks",
-                            number: nicks.len(),
-                            max_number: target_limit,
-                        });
+                    if let Some(target_limit) = target_limit {
+                        let nicks = nickname.split(',').collect::<Vec<_>>();
+
+                        if nicks.len() > target_limit {
+                            return Err(Error::TooManyTargets {
+                                name: "nicks",
+                                number: nicks.len(),
+                                max_number: target_limit,
+                            });
+                        }
                     }
-                }
 
-                // Leaving out optional [server] for now.
-                Ok(Command::Irc(Irc::Whois(None, nicks)))
-            }),
+                    Ok(Command::Irc(Irc::Whois(server, nickname)))
+                })
+            }
             Kind::Part => {
                 validated::<1, 1, true>(args, |[chanlist], [reason]| {
                     if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
