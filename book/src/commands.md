@@ -24,3 +24,4 @@ Halloy will first try to run below commands, and lastly send it directly to the 
 | `raw`     |            | Send data to the server without modifying it                  |
 | `topic`   | `t`        | Retrieve the topic of a channel or set a new topic            |
 | `whois`   |            | Retrieve information about user(s)                            |
+| `ctcp`    |            | Client-To-Client requests                                     |
