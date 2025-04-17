@@ -1,19 +1,21 @@
 use std::collections::BTreeMap;
 use std::{fmt, str};
-use tokio::fs;
-use tokio::process::Command;
 
 use futures::channel::mpsc::Sender;
 use irc::proto;
 use serde::{Deserialize, Serialize};
+use tokio::fs;
+use tokio::process::Command;
 
 use crate::config;
-use crate::config::server::Sasl;
 use crate::config::Error;
+use crate::config::server::Sasl;
 
 pub type Handle = Sender<proto::Message>;
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
+)]
 pub struct Server(String);
 
 impl From<&str> for Server {
@@ -101,7 +103,9 @@ impl Map {
     pub async fn read_passwords(&mut self) -> Result<(), Error> {
         for (_, config) in self.0.iter_mut() {
             if let Some(pass_file) = &config.password_file {
-                if config.password.is_some() || config.password_command.is_some() {
+                if config.password.is_some()
+                    || config.password_command.is_some()
+                {
                     return Err(Error::DuplicatePassword);
                 }
                 let pass = fs::read_to_string(pass_file).await?;
@@ -114,7 +118,9 @@ impl Map {
                 config.password = Some(read_from_command(pass_command).await?);
             }
             if let Some(nick_pass_file) = &config.nick_password_file {
-                if config.nick_password.is_some() || config.nick_password_command.is_some() {
+                if config.nick_password.is_some()
+                    || config.nick_password_command.is_some()
+                {
                     return Err(Error::DuplicateNickPassword);
                 }
                 let nick_pass = fs::read_to_string(nick_pass_file).await?;
@@ -124,7 +130,8 @@ impl Map {
                 if config.nick_password.is_some() {
                     return Err(Error::DuplicateNickPassword);
                 }
-                config.nick_password = Some(read_from_command(nick_pass_command).await?);
+                config.nick_password =
+                    Some(read_from_command(nick_pass_command).await?);
             }
             if let Some(sasl) = &mut config.sasl {
                 match sasl {

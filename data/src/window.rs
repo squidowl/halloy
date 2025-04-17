@@ -43,7 +43,8 @@ impl Window {
         let Window { position, size } = serde_json::from_slice(&bytes)?;
 
         let size = size.max(MIN_SIZE);
-        let position = position.filter(|pos| pos.y.is_sign_positive() && pos.x.is_sign_positive());
+        let position = position
+            .filter(|pos| pos.y.is_sign_positive() && pos.x.is_sign_positive());
 
         Ok(Window { position, size })
     }
@@ -87,7 +88,9 @@ mod serde_position {
         y: f32,
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Point>, D::Error>
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<Option<Point>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -126,7 +129,10 @@ mod serde_size {
         Ok(Size { width, height })
     }
 
-    pub fn serialize<S: Serializer>(size: &Size, serializer: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(
+        size: &Size,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         SerdeSize {
             width: size.width,
             height: size.height,

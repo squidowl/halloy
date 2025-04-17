@@ -1,10 +1,8 @@
-use iced::{
-    widget::{
-        container,
-        scrollable::{Catalog, Rail, Scroller, Status, Style, StyleFn},
-    },
-    Background, Border, Color, Shadow,
+use iced::widget::container;
+use iced::widget::scrollable::{
+    Catalog, Rail, Scroller, Status, Style, StyleFn,
 };
+use iced::{Background, Border, Color, Shadow};
 
 use super::Theme;
 
@@ -35,7 +33,9 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
     };
 
     match status {
-        Status::Active { .. } | Status::Hovered { .. } | Status::Dragged { .. } => Style {
+        Status::Active { .. }
+        | Status::Hovered { .. }
+        | Status::Dragged { .. } => Style {
             container: container::Style {
                 text_color: None,
                 background: None,
@@ -68,7 +68,9 @@ pub fn hidden(_theme: &Theme, status: Status) -> Style {
     };
 
     match status {
-        Status::Active { .. } | Status::Hovered { .. } | Status::Dragged { .. } => Style {
+        Status::Active { .. }
+        | Status::Hovered { .. }
+        | Status::Dragged { .. } => Style {
             container: container::Style {
                 text_color: None,
                 background: Some(Background::Color(Color::TRANSPARENT)),

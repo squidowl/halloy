@@ -1,13 +1,12 @@
 use iced::advanced::layout::{self, Layout};
-use iced::advanced::overlay;
-use iced::advanced::renderer;
 use iced::advanced::widget::{self, Widget};
-use iced::advanced::{self, Clipboard, Shell};
+use iced::advanced::{self, Clipboard, Shell, overlay, renderer};
 use iced::alignment::Alignment;
-use iced::keyboard;
 use iced::keyboard::key;
-use iced::mouse;
-use iced::{Color, Element, Event, Length, Point, Rectangle, Size, Vector};
+use iced::{
+    Color, Element, Event, Length, Point, Rectangle, Size, Vector, keyboard,
+    mouse,
+};
 
 pub fn modal<'a, Message, Theme, Renderer>(
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
@@ -159,9 +158,12 @@ where
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.base
-            .as_widget()
-            .operate(&mut state.children[0], layout, renderer, operation);
+        self.base.as_widget().operate(
+            &mut state.children[0],
+            layout,
+            renderer,
+            operation,
+        );
     }
 }
 
@@ -189,7 +191,8 @@ where
             .layout(self.tree, renderer, &limits)
             .align(Alignment::Center, Alignment::Center, limits.max());
 
-        layout::Node::with_children(self.size, vec![child]).move_to(self.position)
+        layout::Node::with_children(self.size, vec![child])
+            .move_to(self.position)
     }
 
     fn update(

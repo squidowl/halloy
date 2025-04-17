@@ -117,13 +117,22 @@ impl Server {
         }
     }
 
-    pub fn connection(&self, proxy: Option<config::Proxy>) -> connection::Config {
+    pub fn connection(
+        &self,
+        proxy: Option<config::Proxy>,
+    ) -> connection::Config {
         let security = if self.use_tls {
             connection::Security::Secured {
                 accept_invalid_certs: self.dangerously_accept_invalid_certs,
                 root_cert_path: self.root_cert_path.as_ref(),
-                client_cert_path: self.sasl.as_ref().and_then(Sasl::external_cert),
-                client_key_path: self.sasl.as_ref().and_then(Sasl::external_key),
+                client_cert_path: self
+                    .sasl
+                    .as_ref()
+                    .and_then(Sasl::external_cert),
+                client_key_path: self
+                    .sasl
+                    .as_ref()
+                    .and_then(Sasl::external_key),
             }
         } else {
             connection::Security::Unsecured
@@ -242,7 +251,8 @@ impl Sasl {
                 let mut params = chunks
                     .into_iter()
                     .map(|chunk| {
-                        String::from_utf8(chunk.into()).expect("chunks should be valid UTF-8")
+                        String::from_utf8(chunk.into())
+                            .expect("chunks should be valid UTF-8")
                     })
                     .collect::<Vec<String>>();
 
@@ -273,7 +283,9 @@ impl Sasl {
     }
 }
 
-fn deserialize_duration_from_u64<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+fn deserialize_duration_from_u64<'de, D>(
+    deserializer: D,
+) -> Result<Duration, D::Error>
 where
     D: Deserializer<'de>,
 {

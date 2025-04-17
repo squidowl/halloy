@@ -1,5 +1,6 @@
+use data::{Server, config};
+
 use crate::widget::Element;
-use data::{config, Server};
 
 pub mod connect_to_server;
 pub mod reload_configuration_error;
@@ -43,7 +44,9 @@ impl Modal {
 
     pub fn view(&self) -> Element<Message> {
         match self {
-            Modal::ReloadConfigurationError(error) => reload_configuration_error::view(error),
+            Modal::ReloadConfigurationError(error) => {
+                reload_configuration_error::view(error)
+            }
             Modal::ServerConnect {
                 url: raw, config, ..
             } => connect_to_server::view(raw, config),

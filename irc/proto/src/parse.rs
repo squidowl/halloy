@@ -4,7 +4,9 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
 use nom::combinator::{cut, map, opt, peek, recognize, value, verify};
-use nom::multi::{many0, many0_count, many1, many1_count, many_m_n, separated_list1};
+use nom::multi::{
+    many_m_n, many0, many0_count, many1, many1_count, separated_list1,
+};
 use nom::sequence::{preceded, terminated, tuple};
 use nom::{Finish, IResult};
 
@@ -95,7 +97,8 @@ fn command(input: &str) -> IResult<&str, Command> {
     // <sequence of any characters except NUL, CR, LF, colon (`:`) and SPACE>
     let nospcrlfcl = |input| recognize(many1_count(none_of("\0\r\n: ")))(input);
     // *( ":" / " " / nospcrlfcl )
-    let trailing = recognize(many0_count(alt((tag(":"), tag(" "), nospcrlfcl))));
+    let trailing =
+        recognize(many0_count(alt((tag(":"), tag(" "), nospcrlfcl))));
     // nospcrlfcl *( ":" / nospcrlfcl )
     let middle = recognize(tuple((
         nospcrlfcl,
@@ -112,7 +115,8 @@ fn command(input: &str) -> IResult<&str, Command> {
         recognize(many_m_n(3, 3, satisfy(|c| c.is_ascii_digit()))),
     ));
     // <command> <parameters>
-    let (input, (command, (leading, trailing))) = tuple((command, parameters))(input)?;
+    let (input, (command, (leading, trailing))) =
+        tuple((command, parameters))(input)?;
 
     let parameters = leading
         .into_iter()
@@ -162,10 +166,12 @@ fn user(input: &str) -> IResult<&str, User> {
             opt(preceded(char('!'), username)),
             opt(preceded(char('@'), hostname)),
         )),
-        |(nickname, username, hostname): (&str, Option<&str>, Option<&str>)| User {
-            nickname: nickname.to_string(),
-            username: username.map(ToString::to_string),
-            hostname: hostname.map(ToString::to_string),
+        |(nickname, username, hostname): (&str, Option<&str>, Option<&str>)| {
+            User {
+                nickname: nickname.to_string(),
+                username: username.map(ToString::to_string),
+                hostname: hostname.map(ToString::to_string),
+            }
         },
     )(input)
 }
@@ -281,7 +287,10 @@ mod test {
                         username: Some("d".into()),
                         hostname: Some("localhost".into()),
                     })),
-                    command: Command::PRIVMSG("#chan".to_string(), "Hey what's up! ".to_string()),
+                    command: Command::PRIVMSG(
+                        "#chan".to_string(),
+                        "Hey what's up! ".to_string(),
+                    ),
                 },
             ),
             (
@@ -289,7 +298,12 @@ mod test {
                 Message {
                     tags: vec![],
                     source: None,
-                    command: Command::CAP(Some("REQ".to_string()), "sasl".to_string(), None, None),
+                    command: Command::CAP(
+                        Some("REQ".to_string()),
+                        "sasl".to_string(),
+                        None,
+                        None,
+                    ),
                 },
             ),
             (
@@ -321,7 +335,9 @@ mod test {
                     source: Some(Source::User(User {
                         nickname: "test".into(),
                         username: Some("test".into()),
-                        hostname: Some("5555:5555:0:55:5555:5555:5555:5555".into()),
+                        hostname: Some(
+                            "5555:5555:0:55:5555:5555:5555:5555".into(),
+                        ),
                     })),
                     command: Command::Unknown(
                         "396".to_string(),
@@ -337,12 +353,15 @@ mod test {
                 ":atw.hu.quakenet.org 001 test :Welcome to the QuakeNet IRC Network, test\r\n",
                 Message {
                     tags: vec![],
-                    source: Some(Source::Server("atw.hu.quakenet.org".to_string())),
+                    source: Some(Source::Server(
+                        "atw.hu.quakenet.org".to_string(),
+                    )),
                     command: Command::Numeric(
                         RPL_WELCOME,
                         vec![
                             "test".to_string(),
-                            "Welcome to the QuakeNet IRC Network, test".to_string(),
+                            "Welcome to the QuakeNet IRC Network, test"
+                                .to_string(),
                         ],
                     ),
                 },
@@ -359,7 +378,10 @@ mod test {
                         username: Some("test".into()),
                         hostname: Some("user/test/bot/chat".into()),
                     })),
-                    command: Command::PRIVMSG("##chat".to_string(), "\\_o< quack!".to_string()),
+                    command: Command::PRIVMSG(
+                        "##chat".to_string(),
+                        "\\_o< quack!".to_string(),
+                    ),
                 },
             ),
             // Extra \r sent by digitalirc
@@ -374,7 +396,8 @@ mod test {
                         Tag {
                             key: "msgid".to_string(),
                             value: Some(
-                                "UGnor4DBoafs6ge0UgsHF7-aVdnYMbjbdTf9eEHQmPKWA".to_string(),
+                                "UGnor4DBoafs6ge0UgsHF7-aVdnYMbjbdTf9eEHQmPKWA"
+                                    .to_string(),
                             ),
                         },
                         Tag {
@@ -387,7 +410,10 @@ mod test {
                         username: Some("~foo".into()),
                         hostname: Some("F3FF3610.5A633F24.29800D3F.IP".into()),
                     })),
-                    command: Command::JOIN("#pixelcove".to_string(), Some("*".to_string())),
+                    command: Command::JOIN(
+                        "#pixelcove".to_string(),
+                        Some("*".to_string()),
+                    ),
                 },
             ),
             // Space between message and crlf sent by DejaToons
@@ -401,17 +427,24 @@ mod test {
                         },
                         Tag {
                             key: "time".to_string(),
-                            value: Some(
-                                "2025-01-15T22:54:02.123Z".to_string(),
-                            ),
+                            value: Some("2025-01-15T22:54:02.123Z".to_string()),
                         },
                         Tag {
                             key: "msgid".to_string(),
-                            value: Some("pgON6bxXjG7unoKIYwC3aV-KPRYjZhmCa3ZReibvMIrgw".to_string()),
+                            value: Some(
+                                "pgON6bxXjG7unoKIYwC3aV-KPRYjZhmCa3ZReibvMIrgw"
+                                    .to_string(),
+                            ),
                         },
                     ],
-                    source: Some(Source::Server("atarians.dejatoons.net".to_string())),
-                    command: Command::MODE("#test".to_string(), Some("+nt".to_string()), Some(vec![])),
+                    source: Some(Source::Server(
+                        "atarians.dejatoons.net".to_string(),
+                    )),
+                    command: Command::MODE(
+                        "#test".to_string(),
+                        Some("+nt".to_string()),
+                        Some(vec![]),
+                    ),
                 },
             ),
             (

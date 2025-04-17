@@ -3,12 +3,11 @@ use std::time::Duration;
 
 use data::{Config, url};
 use futures::TryFutureExt;
+use iced::Length::*;
 use iced::alignment::Vertical;
 use iced::widget::text::LineHeight;
 use iced::widget::{button, center, column, container, row, text_input};
-use iced::{Color, Length};
-use iced::{Length::*, alignment, clipboard};
-use iced::{Task, Vector};
+use iced::{Color, Length, Task, Vector, alignment, clipboard};
 use strum::IntoEnumIterator;
 use tokio::time;
 
@@ -59,7 +58,9 @@ impl ThemeEditor {
             resizable: false,
             position: main_window
                 .position
-                .map(|point| window::Position::Specific(point + Vector::new(20.0, 20.0)))
+                .map(|point| {
+                    window::Position::Specific(point + Vector::new(20.0, 20.0))
+                })
                 .unwrap_or_default(),
             exit_on_close_request: false,
             ..window::settings()
@@ -95,7 +96,8 @@ impl ThemeEditor {
 
                 self.component.update(&mut colors, Some(color));
 
-                *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
+                *theme = theme
+                    .preview(data::Theme::new("Custom Theme".into(), colors));
             }
             Message::Component(component) => {
                 self.hex_input = None;
@@ -109,7 +111,10 @@ impl ThemeEditor {
 
                     self.component.update(&mut colors, Some(color));
 
-                    *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
+                    *theme = theme.preview(data::Theme::new(
+                        "Custom Theme".into(),
+                        colors,
+                    ));
                 }
 
                 self.hex_input = Some(input);
@@ -145,7 +150,8 @@ impl ThemeEditor {
 
                 self.component.update(&mut colors, original);
 
-                *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
+                *theme = theme
+                    .preview(data::Theme::new("Custom Theme".into(), colors));
             }
             Message::Clear => {
                 self.hex_input = None;
@@ -154,7 +160,8 @@ impl ThemeEditor {
 
                 self.component.update(&mut colors, None);
 
-                *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
+                *theme = theme
+                    .preview(data::Theme::new("Custom Theme".into(), colors));
             }
             Message::Copy => {
                 self.copied = true;
@@ -164,7 +171,10 @@ impl ThemeEditor {
                 return (
                     Task::batch(vec![
                         clipboard::write(url),
-                        Task::perform(time::sleep(Duration::from_secs(2)), |()| Message::ClearCopy),
+                        Task::perform(
+                            time::sleep(Duration::from_secs(2)),
+                            |()| Message::ClearCopy,
+                        ),
                     ]),
                     None,
                 );
@@ -182,7 +192,10 @@ impl ThemeEditor {
                 let colors = *theme.colors();
 
                 return (
-                    Task::perform(colors.save(path).map_err(|e| e.to_string()), Message::Saved),
+                    Task::perform(
+                        colors.save(path).map_err(|e| e.to_string()),
+                        Message::Saved,
+                    ),
                     None,
                 );
             }
@@ -267,7 +280,8 @@ impl ThemeEditor {
             icon(icon::copy(), "Copy Theme to URL", Message::Copy)
         };
 
-        let share = icon(icon::share(), "Share Theme with community", Message::Share);
+        let share =
+            icon(icon::share(), "Share Theme with community", Message::Share);
 
         let color_picker = color_picker(color, Message::Color);
 
@@ -295,7 +309,11 @@ impl ThemeEditor {
     }
 }
 
-fn icon<'a>(icon: widget::Text<'a>, tip: &'a str, message: Message) -> Element<'a, Message> {
+fn icon<'a>(
+    icon: widget::Text<'a>,
+    tip: &'a str,
+    message: Message,
+) -> Element<'a, Message> {
     tooltip(
         button(center(icon.style(theme::text::primary)))
             .width(22)
@@ -394,15 +412,23 @@ impl Component {
 
     fn update(&self, colors: &mut Colors, color: Option<Color>) {
         match self {
-            Component::General(general) => general.update(&mut colors.general, color),
+            Component::General(general) => {
+                general.update(&mut colors.general, color);
+            }
             Component::Text(text) => text.update(&mut colors.text, color),
-            Component::Buffer(buffer) => buffer.update(&mut colors.buffer, color),
-            Component::Buttons(buttons) => buttons.update(&mut colors.buttons, color),
+            Component::Buffer(buffer) => {
+                buffer.update(&mut colors.buffer, color);
+            }
+            Component::Buttons(buttons) => {
+                buttons.update(&mut colors.buttons, color);
+            }
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter,
+)]
 #[strum(serialize_all = "kebab-case")]
 pub enum General {
     Background,
@@ -423,9 +449,15 @@ impl General {
 
     fn update(&self, colors: &mut theme::General, color: Option<Color>) {
         match self {
-            General::Background => colors.background = color.unwrap_or(Color::TRANSPARENT),
-            General::Border => colors.border = color.unwrap_or(Color::TRANSPARENT),
-            General::HorizontalRule => colors.horizontal_rule = color.unwrap_or(Color::TRANSPARENT),
+            General::Background => {
+                colors.background = color.unwrap_or(Color::TRANSPARENT);
+            }
+            General::Border => {
+                colors.border = color.unwrap_or(Color::TRANSPARENT);
+            }
+            General::HorizontalRule => {
+                colors.horizontal_rule = color.unwrap_or(Color::TRANSPARENT);
+            }
             General::UnreadIndicator => {
                 colors.unread_indicator = color.unwrap_or(Color::TRANSPARENT);
             }
@@ -433,7 +465,9 @@ impl General {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter,
+)]
 #[strum(serialize_all = "kebab-case")]
 pub enum Text {
     Primary,
@@ -456,16 +490,26 @@ impl Text {
 
     fn update(&self, colors: &mut theme::Text, color: Option<Color>) {
         match self {
-            Text::Primary => colors.primary = color.unwrap_or(Color::TRANSPARENT),
-            Text::Secondary => colors.secondary = color.unwrap_or(Color::TRANSPARENT),
-            Text::Tertiary => colors.tertiary = color.unwrap_or(Color::TRANSPARENT),
-            Text::Success => colors.success = color.unwrap_or(Color::TRANSPARENT),
+            Text::Primary => {
+                colors.primary = color.unwrap_or(Color::TRANSPARENT);
+            }
+            Text::Secondary => {
+                colors.secondary = color.unwrap_or(Color::TRANSPARENT);
+            }
+            Text::Tertiary => {
+                colors.tertiary = color.unwrap_or(Color::TRANSPARENT);
+            }
+            Text::Success => {
+                colors.success = color.unwrap_or(Color::TRANSPARENT);
+            }
             Text::Error => colors.error = color.unwrap_or(Color::TRANSPARENT),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter,
+)]
 #[strum(serialize_all = "kebab-case")]
 pub enum Buffer {
     Action,
@@ -509,31 +553,51 @@ impl Buffer {
 
     fn update(&self, colors: &mut theme::Buffer, color: Option<Color>) {
         match self {
-            Buffer::Action => colors.action = color.unwrap_or(Color::TRANSPARENT),
-            Buffer::Background => colors.background = color.unwrap_or(Color::TRANSPARENT),
+            Buffer::Action => {
+                colors.action = color.unwrap_or(Color::TRANSPARENT);
+            }
+            Buffer::Background => {
+                colors.background = color.unwrap_or(Color::TRANSPARENT);
+            }
             Buffer::BackgroundTextInput => {
-                colors.background_text_input = color.unwrap_or(Color::TRANSPARENT);
+                colors.background_text_input =
+                    color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::BackgroundTitleBar => {
-                colors.background_title_bar = color.unwrap_or(Color::TRANSPARENT);
+                colors.background_title_bar =
+                    color.unwrap_or(Color::TRANSPARENT);
             }
-            Buffer::Border => colors.border = color.unwrap_or(Color::TRANSPARENT),
-            Buffer::BorderSelected => colors.border_selected = color.unwrap_or(Color::TRANSPARENT),
+            Buffer::Border => {
+                colors.border = color.unwrap_or(Color::TRANSPARENT);
+            }
+            Buffer::BorderSelected => {
+                colors.border_selected = color.unwrap_or(Color::TRANSPARENT);
+            }
             Buffer::Code => colors.code = color.unwrap_or(Color::TRANSPARENT),
-            Buffer::Highlight => colors.highlight = color.unwrap_or(Color::TRANSPARENT),
-            Buffer::Nickname => colors.nickname = color.unwrap_or(Color::TRANSPARENT),
-            Buffer::Selection => colors.selection = color.unwrap_or(Color::TRANSPARENT),
+            Buffer::Highlight => {
+                colors.highlight = color.unwrap_or(Color::TRANSPARENT);
+            }
+            Buffer::Nickname => {
+                colors.nickname = color.unwrap_or(Color::TRANSPARENT);
+            }
+            Buffer::Selection => {
+                colors.selection = color.unwrap_or(Color::TRANSPARENT);
+            }
             Buffer::ServerMessages(server_messages) => {
                 server_messages.update(&mut colors.server_messages, color);
             }
-            Buffer::Timestamp => colors.timestamp = color.unwrap_or(Color::TRANSPARENT),
+            Buffer::Timestamp => {
+                colors.timestamp = color.unwrap_or(Color::TRANSPARENT);
+            }
             Buffer::Topic => colors.topic = color.unwrap_or(Color::TRANSPARENT),
             Buffer::Url => colors.url = color.unwrap_or(Color::TRANSPARENT),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, strum::Display, strum::EnumIter)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Default, strum::Display, strum::EnumIter,
+)]
 #[strum(serialize_all = "kebab-case")]
 pub enum ServerMessages {
     #[default]
@@ -575,16 +639,28 @@ impl ServerMessages {
             ServerMessages::ReplyTopic => colors.reply_topic = color,
             ServerMessages::ChangeHost => colors.change_host = color,
             ServerMessages::MonitoredOnline => colors.monitored_online = color,
-            ServerMessages::MonitoredOffline => colors.monitored_offline = color,
-            ServerMessages::StandardReplyFail => colors.standard_reply_fail = color,
-            ServerMessages::StandardReplyWarn => colors.standard_reply_warn = color,
-            ServerMessages::StandardReplyNote => colors.standard_reply_note = color,
-            ServerMessages::Default => colors.default = color.unwrap_or(Color::TRANSPARENT),
+            ServerMessages::MonitoredOffline => {
+                colors.monitored_offline = color;
+            }
+            ServerMessages::StandardReplyFail => {
+                colors.standard_reply_fail = color;
+            }
+            ServerMessages::StandardReplyWarn => {
+                colors.standard_reply_warn = color;
+            }
+            ServerMessages::StandardReplyNote => {
+                colors.standard_reply_note = color;
+            }
+            ServerMessages::Default => {
+                colors.default = color.unwrap_or(Color::TRANSPARENT);
+            }
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter,
+)]
 pub enum Buttons {
     #[strum(to_string = "primary-{0}")]
     Primary(Button),
@@ -602,13 +678,19 @@ impl Buttons {
 
     fn update(&self, colors: &mut theme::Buttons, color: Option<Color>) {
         match self {
-            Buttons::Primary(button) => button.update(&mut colors.primary, color),
-            Buttons::Secondary(button) => button.update(&mut colors.secondary, color),
+            Buttons::Primary(button) => {
+                button.update(&mut colors.primary, color);
+            }
+            Buttons::Secondary(button) => {
+                button.update(&mut colors.secondary, color);
+            }
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, strum::Display, strum::EnumIter)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Default, strum::Display, strum::EnumIter,
+)]
 #[strum(serialize_all = "kebab-case")]
 pub enum Button {
     #[default]
@@ -630,15 +712,19 @@ impl Button {
 
     fn update(&self, colors: &mut theme::Button, color: Option<Color>) {
         match self {
-            Button::Background => colors.background = color.unwrap_or(Color::TRANSPARENT),
+            Button::Background => {
+                colors.background = color.unwrap_or(Color::TRANSPARENT);
+            }
             Button::BackgroundHover => {
                 colors.background_hover = color.unwrap_or(Color::TRANSPARENT);
             }
             Button::BackgroundSelected => {
-                colors.background_selected = color.unwrap_or(Color::TRANSPARENT);
+                colors.background_selected =
+                    color.unwrap_or(Color::TRANSPARENT);
             }
             Button::BackgroundSelectedHover => {
-                colors.background_selected_hover = color.unwrap_or(Color::TRANSPARENT);
+                colors.background_selected_hover =
+                    color.unwrap_or(Color::TRANSPARENT);
             }
         }
     }

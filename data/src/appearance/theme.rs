@@ -11,7 +11,8 @@ use thiserror::Error;
 use tokio::fs;
 
 const DEFAULT_THEME_NAME: &str = "Ferra";
-const DEFAULT_THEME_CONTENT: &str = include_str!("../../../assets/themes/ferra.toml");
+const DEFAULT_THEME_CONTENT: &str =
+    include_str!("../../../assets/themes/ferra.toml");
 
 #[derive(Debug, Clone)]
 pub struct Theme {
@@ -64,7 +65,8 @@ impl Colors {
     }
 
     pub fn decode_base64(content: &str) -> Result<Self, Error> {
-        let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(content)?;
+        let bytes =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(content)?;
 
         Ok(binary::decode(&bytes))
     }
@@ -240,7 +242,12 @@ pub fn color_to_hex(color: Color) -> String {
 }
 
 /// Adjusts the transparency of the foreground color based on the background color's lightness.
-pub fn alpha_color_calculate(min_alpha: f32, max_alpha: f32, background: Color, foreground: Color) -> Color {
+pub fn alpha_color_calculate(
+    min_alpha: f32,
+    max_alpha: f32,
+    background: Color,
+    foreground: Color,
+) -> Color {
     alpha_color(
         foreground,
         min_alpha + to_hsl(background).lightness * (max_alpha - min_alpha),
@@ -285,7 +292,6 @@ pub fn to_hsva(color: Color) -> Hsva {
 
 pub fn from_hsva(color: Hsva) -> Color {
     to_color(Srgba::from_color(color))
-
 }
 
 pub fn from_hsl(hsl: Okhsl) -> Color {
@@ -350,14 +356,20 @@ mod color_serde_maybe {
     use iced_core::Color;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Color>, D::Error>
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<Option<Color>, D::Error>
     where
         D: Deserializer<'de>,
     {
-        Ok(Option::<String>::deserialize(deserializer)?.and_then(|hex| super::hex_to_color(&hex)))
+        Ok(Option::<String>::deserialize(deserializer)?
+            .and_then(|hex| super::hex_to_color(&hex)))
     }
 
-    pub fn serialize<S>(color: &Option<Color>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(
+        color: &Option<Color>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -395,8 +407,12 @@ mod binary {
         for chunk in bytes.chunks(5) {
             if chunk.len() == 5 {
                 if let Ok(tag) = Tag::try_from(chunk[0]) {
-                    let color =
-                        Color::from_rgba8(chunk[1], chunk[2], chunk[3], chunk[4] as f32 / 255.0);
+                    let color = Color::from_rgba8(
+                        chunk[1],
+                        chunk[2],
+                        chunk[3],
+                        chunk[4] as f32 / 255.0,
+                    );
 
                     tag.update_colors(&mut colors, color);
                 }
@@ -408,7 +424,14 @@ mod binary {
 
     // IMPORTANT: Tags cannot be rearranged or deleted to preserve
     // backwards compatability. Only append new items in the future
-    #[derive(Debug, Clone, Copy, strum::EnumIter, strum::VariantArray, derive_more::TryFrom)]
+    #[derive(
+        Debug,
+        Clone,
+        Copy,
+        strum::EnumIter,
+        strum::VariantArray,
+        derive_more::TryFrom,
+    )]
     #[try_from(repr)]
     #[repr(u8)]
     pub enum Tag {
@@ -469,8 +492,12 @@ mod binary {
                 Tag::TextError => colors.text.error,
                 Tag::BufferAction => colors.buffer.action,
                 Tag::BufferBackground => colors.buffer.background,
-                Tag::BufferBackgroundTextInput => colors.buffer.background_text_input,
-                Tag::BufferBackgroundTitleBar => colors.buffer.background_title_bar,
+                Tag::BufferBackgroundTextInput => {
+                    colors.buffer.background_text_input
+                }
+                Tag::BufferBackgroundTitleBar => {
+                    colors.buffer.background_title_bar
+                }
                 Tag::BufferBorder => colors.buffer.border,
                 Tag::BufferBorderSelected => colors.buffer.border_selected,
                 Tag::BufferCode => colors.buffer.code,
@@ -480,11 +507,21 @@ mod binary {
                 Tag::BufferTimestamp => colors.buffer.timestamp,
                 Tag::BufferTopic => colors.buffer.topic,
                 Tag::BufferUrl => colors.buffer.url,
-                Tag::BufferServerMessagesJoin => colors.buffer.server_messages.join?,
-                Tag::BufferServerMessagesPart => colors.buffer.server_messages.part?,
-                Tag::BufferServerMessagesQuit => colors.buffer.server_messages.quit?,
-                Tag::BufferServerMessagesReplyTopic => colors.buffer.server_messages.reply_topic?,
-                Tag::BufferServerMessagesChangeHost => colors.buffer.server_messages.change_host?,
+                Tag::BufferServerMessagesJoin => {
+                    colors.buffer.server_messages.join?
+                }
+                Tag::BufferServerMessagesPart => {
+                    colors.buffer.server_messages.part?
+                }
+                Tag::BufferServerMessagesQuit => {
+                    colors.buffer.server_messages.quit?
+                }
+                Tag::BufferServerMessagesReplyTopic => {
+                    colors.buffer.server_messages.reply_topic?
+                }
+                Tag::BufferServerMessagesChangeHost => {
+                    colors.buffer.server_messages.change_host?
+                }
                 Tag::BufferServerMessagesMonitoredOnline => {
                     colors.buffer.server_messages.monitored_online?
                 }
@@ -500,15 +537,27 @@ mod binary {
                 Tag::BufferServerMessagesStandardReplyNote => {
                     colors.buffer.server_messages.standard_reply_note?
                 }
-                Tag::BufferServerMessagesDefault => colors.buffer.server_messages.default,
-                Tag::ButtonsPrimaryBackground => colors.buttons.primary.background,
-                Tag::ButtonsPrimaryBackgroundHover => colors.buttons.primary.background_hover,
-                Tag::ButtonsPrimaryBackgroundSelected => colors.buttons.primary.background_selected,
+                Tag::BufferServerMessagesDefault => {
+                    colors.buffer.server_messages.default
+                }
+                Tag::ButtonsPrimaryBackground => {
+                    colors.buttons.primary.background
+                }
+                Tag::ButtonsPrimaryBackgroundHover => {
+                    colors.buttons.primary.background_hover
+                }
+                Tag::ButtonsPrimaryBackgroundSelected => {
+                    colors.buttons.primary.background_selected
+                }
                 Tag::ButtonsPrimaryBackgroundSelectedHover => {
                     colors.buttons.primary.background_selected_hover
                 }
-                Tag::ButtonsSecondaryBackground => colors.buttons.secondary.background,
-                Tag::ButtonsSecondaryBackgroundHover => colors.buttons.secondary.background_hover,
+                Tag::ButtonsSecondaryBackground => {
+                    colors.buttons.secondary.background
+                }
+                Tag::ButtonsSecondaryBackgroundHover => {
+                    colors.buttons.secondary.background_hover
+                }
                 Tag::ButtonsSecondaryBackgroundSelected => {
                     colors.buttons.secondary.background_selected
                 }
@@ -524,8 +573,12 @@ mod binary {
             match self {
                 Tag::GeneralBackground => colors.general.background = color,
                 Tag::GeneralBorder => colors.general.border = color,
-                Tag::GeneralHorizontalRule => colors.general.horizontal_rule = color,
-                Tag::GeneralUnreadIndicator => colors.general.unread_indicator = color,
+                Tag::GeneralHorizontalRule => {
+                    colors.general.horizontal_rule = color;
+                }
+                Tag::GeneralUnreadIndicator => {
+                    colors.general.unread_indicator = color;
+                }
                 Tag::TextPrimary => colors.text.primary = color,
                 Tag::TextSecondary => colors.text.secondary = color,
                 Tag::TextTertiary => colors.text.tertiary = color,
@@ -533,10 +586,16 @@ mod binary {
                 Tag::TextError => colors.text.error = color,
                 Tag::BufferAction => colors.buffer.action = color,
                 Tag::BufferBackground => colors.buffer.background = color,
-                Tag::BufferBackgroundTextInput => colors.buffer.background_text_input = color,
-                Tag::BufferBackgroundTitleBar => colors.buffer.background_title_bar = color,
+                Tag::BufferBackgroundTextInput => {
+                    colors.buffer.background_text_input = color;
+                }
+                Tag::BufferBackgroundTitleBar => {
+                    colors.buffer.background_title_bar = color;
+                }
                 Tag::BufferBorder => colors.buffer.border = color,
-                Tag::BufferBorderSelected => colors.buffer.border_selected = color,
+                Tag::BufferBorderSelected => {
+                    colors.buffer.border_selected = color;
+                }
                 Tag::BufferCode => colors.buffer.code = color,
                 Tag::BufferHighlight => colors.buffer.highlight = color,
                 Tag::BufferNickname => colors.buffer.nickname = color,
@@ -544,9 +603,15 @@ mod binary {
                 Tag::BufferTimestamp => colors.buffer.timestamp = color,
                 Tag::BufferTopic => colors.buffer.topic = color,
                 Tag::BufferUrl => colors.buffer.url = color,
-                Tag::BufferServerMessagesJoin => colors.buffer.server_messages.join = Some(color),
-                Tag::BufferServerMessagesPart => colors.buffer.server_messages.part = Some(color),
-                Tag::BufferServerMessagesQuit => colors.buffer.server_messages.quit = Some(color),
+                Tag::BufferServerMessagesJoin => {
+                    colors.buffer.server_messages.join = Some(color);
+                }
+                Tag::BufferServerMessagesPart => {
+                    colors.buffer.server_messages.part = Some(color);
+                }
+                Tag::BufferServerMessagesQuit => {
+                    colors.buffer.server_messages.quit = Some(color);
+                }
                 Tag::BufferServerMessagesReplyTopic => {
                     colors.buffer.server_messages.reply_topic = Some(color);
                 }
@@ -554,22 +619,31 @@ mod binary {
                     colors.buffer.server_messages.change_host = Some(color);
                 }
                 Tag::BufferServerMessagesMonitoredOnline => {
-                    colors.buffer.server_messages.monitored_online = Some(color);
+                    colors.buffer.server_messages.monitored_online =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesMonitoredOffline => {
-                    colors.buffer.server_messages.monitored_offline = Some(color);
+                    colors.buffer.server_messages.monitored_offline =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesStandardReplyFail => {
-                    colors.buffer.server_messages.standard_reply_fail = Some(color);
+                    colors.buffer.server_messages.standard_reply_fail =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesStandardReplyWarn => {
-                    colors.buffer.server_messages.standard_reply_warn = Some(color);
+                    colors.buffer.server_messages.standard_reply_warn =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesStandardReplyNote => {
-                    colors.buffer.server_messages.standard_reply_note = Some(color);
+                    colors.buffer.server_messages.standard_reply_note =
+                        Some(color);
                 }
-                Tag::BufferServerMessagesDefault => colors.buffer.server_messages.default = color,
-                Tag::ButtonsPrimaryBackground => colors.buttons.primary.background = color,
+                Tag::BufferServerMessagesDefault => {
+                    colors.buffer.server_messages.default = color;
+                }
+                Tag::ButtonsPrimaryBackground => {
+                    colors.buttons.primary.background = color;
+                }
                 Tag::ButtonsPrimaryBackgroundHover => {
                     colors.buttons.primary.background_hover = color;
                 }
@@ -579,7 +653,9 @@ mod binary {
                 Tag::ButtonsPrimaryBackgroundSelectedHover => {
                     colors.buttons.primary.background_selected_hover = color;
                 }
-                Tag::ButtonsSecondaryBackground => colors.buttons.secondary.background = color,
+                Tag::ButtonsSecondaryBackground => {
+                    colors.buttons.secondary.background = color;
+                }
                 Tag::ButtonsSecondaryBackgroundHover => {
                     colors.buttons.secondary.background_hover = color;
                 }

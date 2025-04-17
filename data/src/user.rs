@@ -2,13 +2,13 @@ use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
 
-use thiserror::Error;
-
 use irc::proto;
 use itertools::sorted;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-use crate::{config::buffer::UsernameFormat, mode};
+use crate::config::buffer::UsernameFormat;
+use crate::mode;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(into = "String")]
@@ -75,9 +75,9 @@ impl<'a> TryFrom<&'a str> for User {
             return Err(Self::Error::NicknameEmpty);
         }
 
-        let Some(index) =
-            value.find(|c: char| c.is_alphabetic() || "[\\]^_`{|}*".find(c).is_some())
-        else {
+        let Some(index) = value.find(|c: char| {
+            c.is_alphabetic() || "[\\]^_`{|}*".find(c).is_some()
+        }) else {
             return Err(Self::Error::NicknameInvalidCharacter);
         };
 
@@ -88,28 +88,33 @@ impl<'a> TryFrom<&'a str> for User {
             .filter_map(|c| AccessLevel::try_from(c).ok())
             .collect::<HashSet<_>>();
 
-        let (nickname, username, hostname) = match (rest.find('!'), rest.find('@')) {
-            (None, None) => (rest, None, None),
-            (Some(i), None) => (&rest[..i], Some(rest[i + 1..].to_string()), None),
-            (None, Some(i)) => (&rest[..i], None, Some(rest[i + 1..].to_string())),
-            (Some(i), Some(j)) => {
-                if i < j {
-                    (
-                        &rest[..i],
-                        Some(rest[i + 1..j].to_string()),
-                        Some(rest[j + 1..].to_string()),
-                    )
-                } else if let Some(k) = rest[i + 1..].find('@') {
-                    (
-                        &rest[..i],
-                        Some(rest[i + 1..i + k + 1].to_string()),
-                        Some(rest[i + k + 2..].to_string()),
-                    )
-                } else {
+        let (nickname, username, hostname) =
+            match (rest.find('!'), rest.find('@')) {
+                (None, None) => (rest, None, None),
+                (Some(i), None) => {
                     (&rest[..i], Some(rest[i + 1..].to_string()), None)
                 }
-            }
-        };
+                (None, Some(i)) => {
+                    (&rest[..i], None, Some(rest[i + 1..].to_string()))
+                }
+                (Some(i), Some(j)) => {
+                    if i < j {
+                        (
+                            &rest[..i],
+                            Some(rest[i + 1..j].to_string()),
+                            Some(rest[j + 1..].to_string()),
+                        )
+                    } else if let Some(k) = rest[i + 1..].find('@') {
+                        (
+                            &rest[..i],
+                            Some(rest[i + 1..i + k + 1].to_string()),
+                            Some(rest[i + k + 2..].to_string()),
+                        )
+                    } else {
+                        (&rest[..i], Some(rest[i + 1..].to_string()), None)
+                    }
+                }
+            };
 
         Ok(User {
             nickname: Nick::from(nickname),
@@ -161,7 +166,9 @@ impl User {
 
     pub fn display(&self, with_access_levels: bool) -> String {
         match with_access_levels {
-            true => format!("{}{}", self.highest_access_level(), self.nickname()),
+            true => {
+                format!("{}{}", self.highest_access_level(), self.nickname())
+            }
             false => self.nickname().to_string(),
         }
     }
@@ -194,7 +201,11 @@ impl User {
         Self { nickname, ..self }
     }
 
-    pub fn with_username_and_hostname(self, username: String, hostname: String) -> Self {
+    pub fn with_username_and_hostname(
+        self,
+        username: String,
+        hostname: String,
+    ) -> Self {
         Self {
             username: Some(username),
             hostname: Some(hostname),
@@ -227,7 +238,11 @@ impl User {
         self.access_levels.contains(&access_level)
     }
 
-    pub fn update_access_level(&mut self, operation: mode::Operation, mode: mode::Channel) {
+    pub fn update_access_level(
+        &mut self,
+        operation: mode::Operation,
+        mode: mode::Channel,
+    ) {
         if let Ok(level) = AccessLevel::try_from(mode) {
             match operation {
                 mode::Operation::Add => {
@@ -280,7 +295,9 @@ pub struct NickColor {
     pub color: iced_core::Color,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub struct Nick(String);
 
 impl fmt::Display for Nick {
@@ -352,7 +369,18 @@ impl PartialEq<Nick> for NickRef<'_> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
 pub enum AccessLevel {
     Member,
     Voice,
@@ -434,7 +462,9 @@ mod tests {
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::from([AccessLevel::Oper]),
+                    access_levels: HashSet::<AccessLevel>::from([
+                        AccessLevel::Oper,
+                    ]),
                     away: false,
                 },
                 "@d@n!d@localhost",
@@ -454,7 +484,9 @@ mod tests {
                 User {
                     nickname: "foobar".into(),
                     username: Some("8a027a9a4a".into()),
-                    hostname: Some("2201:12f1:2:1162:1242:1fg:he11:abde".into()),
+                    hostname: Some(
+                        "2201:12f1:2:1162:1242:1fg:he11:abde".into(),
+                    ),
                     accountname: None,
                     access_levels: HashSet::<AccessLevel>::new(),
                     away: false,
@@ -504,7 +536,9 @@ mod tests {
                     username: Some("the.flu".into()),
                     hostname: Some("in.you".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::from([AccessLevel::Oper]),
+                    access_levels: HashSet::<AccessLevel>::from([
+                        AccessLevel::Oper,
+                    ]),
                     away: false,
                 },
             ),

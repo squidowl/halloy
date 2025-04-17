@@ -1,12 +1,14 @@
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
-use data::{history, message, Config, Server};
+use data::{Config, Server, history, message};
 use iced::widget::{container, row, span};
 use iced::{Length, Task};
 
 use super::{scroll_view, user_context};
-use crate::widget::{message_content, selectable_rich_text, selectable_text, Element};
-use crate::{theme, Theme};
+use crate::widget::{
+    Element, message_content, selectable_rich_text, selectable_text,
+};
+use crate::{Theme, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -43,29 +45,32 @@ pub fn view<'a>(
                 } => {
                     let users = clients.get_channel_users(server, channel);
 
-                    let timestamp =
-                        config
-                            .buffer
-                            .format_timestamp(&message.server_time)
-                            .map(|timestamp| {
-                                selectable_text(timestamp).style(theme::selectable_text::timestamp)
-                            });
+                    let timestamp = config
+                        .buffer
+                        .format_timestamp(&message.server_time)
+                        .map(|timestamp| {
+                            selectable_text(timestamp)
+                                .style(theme::selectable_text::timestamp)
+                        });
 
-                    let channel_text = selectable_rich_text::<_, _, (), _, _>(vec![
-                        span(channel.as_str())
-                            .color(theme.colors().buffer.url)
-                            .link(message::Link::GoToMessage(
-                                server.clone(),
-                                channel.clone(),
-                                message.hash,
-                            )),
-                        span(" "),
-                    ])
-                    .on_link(scroll_view::Message::Link);
+                    let channel_text =
+                        selectable_rich_text::<_, _, (), _, _>(vec![
+                            span(channel.as_str())
+                                .color(theme.colors().buffer.url)
+                                .link(message::Link::GoToMessage(
+                                    server.clone(),
+                                    channel.clone(),
+                                    message.hash,
+                                )),
+                            span(" "),
+                        ])
+                        .on_link(scroll_view::Message::Link);
 
-                    let with_access_levels = config.buffer.nickname.show_access_levels;
+                    let with_access_levels =
+                        config.buffer.nickname.show_access_levels;
 
-                    let current_user = users.iter().find(|current_user| *current_user == user);
+                    let current_user =
+                        users.iter().find(|current_user| *current_user == user);
 
                     let text = selectable_text(
                         config
@@ -74,7 +79,9 @@ pub fn view<'a>(
                             .brackets
                             .format(user.display(with_access_levels)),
                     )
-                    .style(|theme| theme::selectable_text::nickname(theme, config, user));
+                    .style(|theme| {
+                        theme::selectable_text::nickname(theme, config, user)
+                    });
 
                     let casemapping = clients.get_casemapping(server);
 
@@ -98,7 +105,9 @@ pub fn view<'a>(
                         scroll_view::Message::Link,
                         theme::selectable_text::default,
                         move |link| match link {
-                            message::Link::User(_) => user_context::Entry::list(true, None),
+                            message::Link::User(_) => {
+                                user_context::Entry::list(true, None)
+                            }
                             _ => vec![],
                         },
                         move |link, entry, length| match link {
@@ -135,25 +144,26 @@ pub fn view<'a>(
                     channel,
                     source: message::Source::Action(_),
                 } => {
-                    let timestamp =
-                        config
-                            .buffer
-                            .format_timestamp(&message.server_time)
-                            .map(|timestamp| {
-                                selectable_text(timestamp).style(theme::selectable_text::timestamp)
-                            });
+                    let timestamp = config
+                        .buffer
+                        .format_timestamp(&message.server_time)
+                        .map(|timestamp| {
+                            selectable_text(timestamp)
+                                .style(theme::selectable_text::timestamp)
+                        });
 
-                    let channel_text = selectable_rich_text::<_, _, (), _, _>(vec![
-                        span(channel.as_str())
-                            .color(theme.colors().buffer.url)
-                            .link(message::Link::GoToMessage(
-                                server.clone(),
-                                channel.clone(),
-                                message.hash,
-                            )),
-                        span(" "),
-                    ])
-                    .on_link(scroll_view::Message::Link);
+                    let channel_text =
+                        selectable_rich_text::<_, _, (), _, _>(vec![
+                            span(channel.as_str())
+                                .color(theme.colors().buffer.url)
+                                .link(message::Link::GoToMessage(
+                                    server.clone(),
+                                    channel.clone(),
+                                    message.hash,
+                                )),
+                            span(" "),
+                        ])
+                        .on_link(scroll_view::Message::Link);
 
                     let casemapping = clients.get_casemapping(server);
 
@@ -167,8 +177,13 @@ pub fn view<'a>(
                     );
 
                     Some(
-                        container(row![].push_maybe(timestamp).push(channel_text).push(text))
-                            .into(),
+                        container(
+                            row![]
+                                .push_maybe(timestamp)
+                                .push(channel_text)
+                                .push(text),
+                        )
+                        .into(),
                     )
                 }
                 _ => None,
@@ -214,13 +229,17 @@ impl Highlights {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
+                    scroll_view::Event::UserContext(event) => {
+                        Some(Event::UserContext(event))
+                    }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffer(target, buffer_action))
                     }
-                    scroll_view::Event::GoToMessage(server, channel, message) => {
-                        Some(Event::GoToMessage(server, channel, message))
-                    }
+                    scroll_view::Event::GoToMessage(
+                        server,
+                        channel,
+                        message,
+                    ) => Some(Event::GoToMessage(server, channel, message)),
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,

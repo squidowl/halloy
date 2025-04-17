@@ -1,15 +1,11 @@
-use data::{config::buffer::away, message::{
-    self,
-    source::server::{Kind, StandardReply},
-}};
+use data::config::buffer::away;
+use data::message::source::server::{Kind, StandardReply};
+use data::message::{self};
 use data::{Config, User};
 
-use crate::widget::{
-    selectable_rich_text,
-    selectable_text::{Catalog, Style, StyleFn},
-};
-
 use super::{Theme, text};
+use crate::widget::selectable_rich_text;
+use crate::widget::selectable_text::{Catalog, Style, StyleFn};
 
 impl Catalog for Theme {
     type Class<'a> = StyleFn<'a, Self>;
@@ -66,7 +62,10 @@ pub fn topic(theme: &Theme) -> Style {
     }
 }
 
-pub fn server(theme: &Theme, server: Option<&message::source::Server>) -> Style {
+pub fn server(
+    theme: &Theme,
+    server: Option<&message::source::Server>,
+) -> Style {
     let colors = theme.colors().buffer.server_messages;
     let color = server
         .and_then(|server| match server.kind() {
@@ -83,7 +82,9 @@ pub fn server(theme: &Theme, server: Option<&message::source::Server>) -> Style 
             Kind::StandardReply(StandardReply::Warn) => colors
                 .standard_reply_warn
                 .or(Some(theme.colors().text.error)),
-            Kind::StandardReply(StandardReply::Note) => colors.standard_reply_note,
+            Kind::StandardReply(StandardReply::Note) => {
+                colors.standard_reply_note
+            }
         })
         .or(Some(colors.default));
 
@@ -98,10 +99,7 @@ pub fn nicklist_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
         theme,
         config.buffer.channel.nicklist.color,
         user,
-        config
-            .buffer
-            .away
-            .appearance(user.is_away()),
+        config.buffer.away.appearance(user.is_away()),
     )
 }
 
@@ -110,10 +108,7 @@ pub fn nickname(theme: &Theme, config: &Config, user: &User) -> Style {
         theme,
         config.buffer.channel.message.nickname_color,
         user,
-        config
-            .buffer
-            .away
-            .appearance(user.is_away()),
+        config.buffer.away.appearance(user.is_away()),
     )
 }
 

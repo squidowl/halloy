@@ -1,4 +1,6 @@
-use crate::{target::Channel, user::Nick, User};
+use crate::User;
+use crate::target::Channel;
+use crate::user::Nick;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Notification {

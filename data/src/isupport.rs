@@ -2,9 +2,11 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 
-use chrono::{format::SecondsFormat, DateTime, Utc};
+use chrono::format::SecondsFormat;
+use chrono::{DateTime, Utc};
 
-use crate::{target::Target, Message};
+use crate::Message;
+use crate::target::Target;
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
 // returned by Operation::kind() and Parameter::kind()
@@ -59,8 +61,10 @@ impl FromStr for Operation {
                             parse_required_positive_integer(value)?,
                         ))),
                         "ACCOUNTEXTBAN" => {
-                            let account_based_extended_ban_masks =
-                                value.split(',').map(String::from).collect::<Vec<_>>();
+                            let account_based_extended_ban_masks = value
+                                .split(',')
+                                .map(String::from)
+                                .collect::<Vec<_>>();
 
                             if !account_based_extended_ban_masks.is_empty() {
                                 Ok(Operation::Add(Parameter::ACCOUNTEXTBAN(
@@ -73,30 +77,37 @@ impl FromStr for Operation {
                         "AWAYLEN" => Ok(Operation::Add(Parameter::AWAYLEN(
                             parse_required_positive_integer(value)?,
                         ))),
-                        "BOT" => Ok(Operation::Add(Parameter::BOT(parse_required_letter(
-                            value, None,
-                        )?))),
+                        "BOT" => Ok(Operation::Add(Parameter::BOT(
+                            parse_required_letter(value, None)?,
+                        ))),
                         "CALLERID" => Ok(Operation::Add(Parameter::CALLERID(
-                            parse_required_letter(value, Some(DEFAULT_CALLER_ID_LETTER))?,
+                            parse_required_letter(
+                                value,
+                                Some(DEFAULT_CALLER_ID_LETTER),
+                            )?,
                         ))),
                         "CASEMAPPING" => match value.to_lowercase().as_ref() {
-                            "ascii" => Ok(Operation::Add(Parameter::CASEMAPPING(CaseMap::ASCII))),
-                            "rfc1459" => {
-                                Ok(Operation::Add(Parameter::CASEMAPPING(CaseMap::RFC1459)))
-                            }
-                            "rfc1459-strict" => Ok(Operation::Add(Parameter::CASEMAPPING(
-                                CaseMap::RFC1459_STRICT,
-                            ))),
-                            "rfc7613" => {
-                                Ok(Operation::Add(Parameter::CASEMAPPING(CaseMap::RFC7613)))
-                            }
+                            "ascii" => Ok(Operation::Add(
+                                Parameter::CASEMAPPING(CaseMap::ASCII),
+                            )),
+                            "rfc1459" => Ok(Operation::Add(
+                                Parameter::CASEMAPPING(CaseMap::RFC1459),
+                            )),
+                            "rfc1459-strict" => Ok(Operation::Add(
+                                Parameter::CASEMAPPING(CaseMap::RFC1459_STRICT),
+                            )),
+                            "rfc7613" => Ok(Operation::Add(
+                                Parameter::CASEMAPPING(CaseMap::RFC7613),
+                            )),
                             _ => Err("unknown casemapping"),
                         },
                         "CHANLIMIT" => {
                             let mut channel_limits = vec![];
 
                             value.split(',').for_each(|channel_limit| {
-                                if let Some((prefix, limit)) = channel_limit.split_once(':') {
+                                if let Some((prefix, limit)) =
+                                    channel_limit.split_once(':')
+                                {
                                     if limit.is_empty() {
                                         for c in prefix.chars() {
                                             // TODO validate after STATUSMSG received
@@ -105,7 +116,9 @@ impl FromStr for Operation {
                                                 limit: None,
                                             });
                                         }
-                                    } else if let Ok(limit) = limit.parse::<u16>() {
+                                    } else if let Ok(limit) =
+                                        limit.parse::<u16>()
+                                    {
                                         for c in prefix.chars() {
                                             // TODO validate after STATUSMSG received
                                             channel_limits.push(ChannelLimit {
@@ -118,7 +131,9 @@ impl FromStr for Operation {
                             });
 
                             if !channel_limits.is_empty() {
-                                Ok(Operation::Add(Parameter::CHANLIMIT(channel_limits)))
+                                Ok(Operation::Add(Parameter::CHANLIMIT(
+                                    channel_limits,
+                                )))
                             } else {
                                 Err("no valid channel limits")
                             }
@@ -126,90 +141,120 @@ impl FromStr for Operation {
                         "CHANMODES" => {
                             let mut channel_modes = vec![];
 
-                            ('A'..='Z')
-                                .zip(value.split(','))
-                                .for_each(|(letter, modes)| {
-                                    if modes.chars().all(|c| c.is_ascii_alphabetic()) {
+                            ('A'..='Z').zip(value.split(',')).for_each(
+                                |(letter, modes)| {
+                                    if modes
+                                        .chars()
+                                        .all(|c| c.is_ascii_alphabetic())
+                                    {
                                         channel_modes.push(ChannelMode {
                                             letter,
                                             modes: modes.to_string(),
                                         });
                                     }
-                                });
+                                },
+                            );
 
                             if !channel_modes.is_empty() {
-                                Ok(Operation::Add(Parameter::CHANMODES(channel_modes)))
+                                Ok(Operation::Add(Parameter::CHANMODES(
+                                    channel_modes,
+                                )))
                             } else {
                                 Err("no valid channel modes")
                             }
                         }
-                        "CHANNELLEN" => Ok(Operation::Add(Parameter::CHANNELLEN(
-                            parse_required_positive_integer(value)?,
-                        ))),
+                        "CHANNELLEN" => {
+                            Ok(Operation::Add(Parameter::CHANNELLEN(
+                                parse_required_positive_integer(value)?,
+                            )))
+                        }
                         "CHANTYPES" => {
                             let chars = value.chars().collect::<Vec<_>>();
                             if chars.is_empty() {
                                 Ok(Operation::Add(Parameter::CHANTYPES(None)))
                             } else {
                                 // TODO validate after STATUSMSG is received
-                                Ok(Operation::Add(Parameter::CHANTYPES(Some(chars))))
+                                Ok(Operation::Add(Parameter::CHANTYPES(Some(
+                                    chars,
+                                ))))
                             }
                         }
-                        "CHATHISTORY" | "draft/CHATHISTORY" => Ok(Operation::Add(
-                            Parameter::CHATHISTORY(parse_required_positive_integer(value)?),
-                        )),
+                        "CHATHISTORY" | "draft/CHATHISTORY" => {
+                            Ok(Operation::Add(Parameter::CHATHISTORY(
+                                parse_required_positive_integer(value)?,
+                            )))
+                        }
                         "CLIENTTAGDENY" => {
                             let mut client_tag_denials = vec![];
 
-                            value
-                                .split(',')
-                                .for_each(|client_tag_denial| {
-                                    match client_tag_denial.chars().next() {
-                                        Some('*') => {
-                                            client_tag_denials.push(ClientOnlyTags::DenyAll);
-                                        }
-                                        Some('-') => {
-                                            client_tag_denials.push(ClientOnlyTags::Allowed(
-                                                client_tag_denial.chars().skip(1).collect(),
-                                            ));
-                                        }
-                                        _ => client_tag_denials.push(ClientOnlyTags::Denied(
-                                            client_tag_denial.to_string(),
-                                        )),
+                            value.split(',').for_each(|client_tag_denial| {
+                                match client_tag_denial.chars().next() {
+                                    Some('*') => {
+                                        client_tag_denials
+                                            .push(ClientOnlyTags::DenyAll);
                                     }
-                                });
+                                    Some('-') => {
+                                        client_tag_denials.push(
+                                            ClientOnlyTags::Allowed(
+                                                client_tag_denial
+                                                    .chars()
+                                                    .skip(1)
+                                                    .collect(),
+                                            ),
+                                        );
+                                    }
+                                    _ => client_tag_denials.push(
+                                        ClientOnlyTags::Denied(
+                                            client_tag_denial.to_string(),
+                                        ),
+                                    ),
+                                }
+                            });
 
                             if !client_tag_denials.is_empty() {
-                                Ok(Operation::Add(Parameter::CLIENTTAGDENY(client_tag_denials)))
+                                Ok(Operation::Add(Parameter::CLIENTTAGDENY(
+                                    client_tag_denials,
+                                )))
                             } else {
                                 Err("no valid client tag denials")
                             }
                         }
                         "CLIENTVER" => {
-                            if let Some((major, minor)) = value.split_once('.') {
+                            if let Some((major, minor)) = value.split_once('.')
+                            {
                                 if let (Ok(major), Ok(minor)) =
                                     (major.parse::<u16>(), minor.parse::<u16>())
                                 {
-                                    return Ok(Operation::Add(Parameter::CLIENTVER(major, minor)));
+                                    return Ok(Operation::Add(
+                                        Parameter::CLIENTVER(major, minor),
+                                    ));
                                 }
                             }
 
-                            Err("value must be a <major>.<minor> version number")
+                            Err(
+                                "value must be a <major>.<minor> version number",
+                            )
                         }
                         "CNOTICE" => Ok(Operation::Add(Parameter::CNOTICE)),
                         "CPRIVMSG" => Ok(Operation::Add(Parameter::CPRIVMSG)),
-                        "DEAF" => Ok(Operation::Add(Parameter::DEAF(parse_required_letter(
-                            value,
-                            Some(DEFAULT_DEAF_LETTER),
-                        )?))),
+                        "DEAF" => Ok(Operation::Add(Parameter::DEAF(
+                            parse_required_letter(
+                                value,
+                                Some(DEFAULT_DEAF_LETTER),
+                            )?,
+                        ))),
                         "ELIST" => {
                             if !value.is_empty() {
                                 let value = value.to_uppercase();
 
                                 if value.chars().all(|c| "CMNTU".contains(c)) {
-                                    Ok(Operation::Add(Parameter::ELIST(value.to_string())))
+                                    Ok(Operation::Add(Parameter::ELIST(
+                                        value.to_string(),
+                                    )))
                                 } else {
-                                    Err("value required to only contain valid search extensions")
+                                    Err(
+                                        "value required to only contain valid search extensions",
+                                    )
                                 }
                             } else {
                                 Err("value required")
@@ -219,13 +264,19 @@ impl FromStr for Operation {
                             parse_optional_letters(value)?,
                         ))),
                         "ETRACE" => Ok(Operation::Add(Parameter::ETRACE)),
-                        "EXCEPTS" => Ok(Operation::Add(Parameter::EXCEPTS(parse_required_letter(
-                            value,
-                            Some(DEFAULT_BAN_EXCEPTION_CHANNEL_LETTER),
-                        )?))),
+                        "EXCEPTS" => Ok(Operation::Add(Parameter::EXCEPTS(
+                            parse_required_letter(
+                                value,
+                                Some(DEFAULT_BAN_EXCEPTION_CHANNEL_LETTER),
+                            )?,
+                        ))),
                         "EXTBAN" => {
-                            if let Some((prefix, types)) = value.split_once(',') {
-                                if types.chars().all(|c| c.is_ascii_alphabetic()) {
+                            if let Some((prefix, types)) = value.split_once(',')
+                            {
+                                if types
+                                    .chars()
+                                    .all(|c| c.is_ascii_alphabetic())
+                                {
                                     if prefix.is_empty() {
                                         Ok(Operation::Add(Parameter::EXTBAN(
                                             None,
@@ -250,10 +301,12 @@ impl FromStr for Operation {
                         "HOSTLEN" => Ok(Operation::Add(Parameter::HOSTLEN(
                             parse_required_positive_integer(value)?,
                         ))),
-                        "INVEX" => Ok(Operation::Add(Parameter::INVEX(parse_required_letter(
-                            value,
-                            Some(DEFAULT_INVITE_EXCEPTION_LETTER),
-                        )?))),
+                        "INVEX" => Ok(Operation::Add(Parameter::INVEX(
+                            parse_required_letter(
+                                value,
+                                Some(DEFAULT_INVITE_EXCEPTION_LETTER),
+                            )?,
+                        ))),
                         "KEYLEN" => Ok(Operation::Add(Parameter::KEYLEN(
                             parse_required_positive_integer(value)?,
                         ))),
@@ -268,18 +321,25 @@ impl FromStr for Operation {
                         "MAXBANS" => Ok(Operation::Add(Parameter::MAXBANS(
                             parse_required_positive_integer(value)?,
                         ))),
-                        "MAXCHANNELS" => Ok(Operation::Add(Parameter::MAXCHANNELS(
-                            parse_required_positive_integer(value)?,
-                        ))),
+                        "MAXCHANNELS" => {
+                            Ok(Operation::Add(Parameter::MAXCHANNELS(
+                                parse_required_positive_integer(value)?,
+                            )))
+                        }
                         "MAXLIST" => {
                             let mut modes_limits = vec![];
 
                             value.split(',').for_each(|modes_limit| {
-                                if let Some((modes, limit)) = modes_limit.split_once(':') {
+                                if let Some((modes, limit)) =
+                                    modes_limit.split_once(':')
+                                {
                                     if !modes.is_empty()
-                                        && modes.chars().all(|c| c.is_ascii_alphabetic())
+                                        && modes
+                                            .chars()
+                                            .all(|c| c.is_ascii_alphabetic())
                                     {
-                                        if let Ok(limit) = limit.parse::<u16>() {
+                                        if let Ok(limit) = limit.parse::<u16>()
+                                        {
                                             modes_limits.push(ModesLimit {
                                                 modes: modes.to_string(),
                                                 limit,
@@ -290,7 +350,9 @@ impl FromStr for Operation {
                             });
 
                             if !modes_limits.is_empty() {
-                                Ok(Operation::Add(Parameter::MAXLIST(modes_limits)))
+                                Ok(Operation::Add(Parameter::MAXLIST(
+                                    modes_limits,
+                                )))
                             } else {
                                 Err("no valid modes limits")
                             }
@@ -298,9 +360,11 @@ impl FromStr for Operation {
                         "MAXPARA" => Ok(Operation::Add(Parameter::MAXPARA(
                             parse_required_positive_integer(value)?,
                         ))),
-                        "MAXTARGETS" => Ok(Operation::Add(Parameter::MAXTARGETS(
-                            parse_optional_positive_integer(value)?,
-                        ))),
+                        "MAXTARGETS" => {
+                            Ok(Operation::Add(Parameter::MAXTARGETS(
+                                parse_optional_positive_integer(value)?,
+                            )))
+                        }
                         "METADATA" => Ok(Operation::Add(Parameter::METADATA(
                             parse_optional_positive_integer(value)?,
                         ))),
@@ -313,15 +377,23 @@ impl FromStr for Operation {
                         "MSGREFTYPES" => {
                             let mut message_reference_types = vec![];
 
-                            value.split(',').for_each(|message_reference_type| {
-                                match message_reference_type {
-                                    "msgid" => message_reference_types
-                                        .insert(0, MessageReferenceType::MessageId),
-                                    "timestamp" => message_reference_types
-                                        .insert(0, MessageReferenceType::Timestamp),
-                                    _ => (),
-                                }
-                            });
+                            value.split(',').for_each(
+                                |message_reference_type| {
+                                    match message_reference_type {
+                                        "msgid" => message_reference_types
+                                            .insert(
+                                                0,
+                                                MessageReferenceType::MessageId,
+                                            ),
+                                        "timestamp" => message_reference_types
+                                            .insert(
+                                                0,
+                                                MessageReferenceType::Timestamp,
+                                            ),
+                                        _ => (),
+                                    }
+                                },
+                            );
 
                             Ok(Operation::Add(Parameter::MSGREFTYPES(
                                 message_reference_types,
@@ -331,26 +403,39 @@ impl FromStr for Operation {
                             parse_required_positive_integer(value)?,
                         ))),
                         "NAMESX" => Ok(Operation::Add(Parameter::NAMESX)),
-                        "NETWORK" => Ok(Operation::Add(Parameter::NETWORK(value.to_string()))),
-                        "NICKLEN" | "MAXNICKLEN" => Ok(Operation::Add(Parameter::NICKLEN(
-                            parse_required_positive_integer(value)?,
+                        "NETWORK" => Ok(Operation::Add(Parameter::NETWORK(
+                            value.to_string(),
                         ))),
+                        "NICKLEN" | "MAXNICKLEN" => {
+                            Ok(Operation::Add(Parameter::NICKLEN(
+                                parse_required_positive_integer(value)?,
+                            )))
+                        }
                         "OVERRIDE" => Ok(Operation::Add(Parameter::OVERRIDE)),
                         "PREFIX" => {
                             let mut prefix_maps = vec![];
 
-                            if let Some((modes, prefixes)) = value.split_once(')') {
-                                for (mode, prefix) in modes.chars().skip(1).zip(prefixes.chars()) {
-                                    prefix_maps.push(PrefixMap { mode, prefix });
+                            if let Some((modes, prefixes)) =
+                                value.split_once(')')
+                            {
+                                for (mode, prefix) in
+                                    modes.chars().skip(1).zip(prefixes.chars())
+                                {
+                                    prefix_maps
+                                        .push(PrefixMap { mode, prefix });
                                 }
 
-                                Ok(Operation::Add(Parameter::PREFIX(prefix_maps)))
+                                Ok(Operation::Add(Parameter::PREFIX(
+                                    prefix_maps,
+                                )))
                             } else {
                                 Err("unrecognized PREFIX format")
                             }
                         }
                         "SAFELIST" => Ok(Operation::Add(Parameter::SAFELIST)),
-                        "SECURELIST" => Ok(Operation::Add(Parameter::SECURELIST)),
+                        "SECURELIST" => {
+                            Ok(Operation::Add(Parameter::SECURELIST))
+                        }
                         "SILENCE" => Ok(Operation::Add(Parameter::SILENCE(
                             parse_optional_positive_integer(value)?,
                         ))),
@@ -363,28 +448,43 @@ impl FromStr for Operation {
                             let mut command_target_limits = vec![];
 
                             value.split(',').for_each(|command_target_limit| {
-                                if let Some((command, limit)) = command_target_limit.split_once(':')
+                                if let Some((command, limit)) =
+                                    command_target_limit.split_once(':')
                                 {
                                     if !command.is_empty()
-                                        && command.chars().all(|c| c.is_ascii_alphabetic())
+                                        && command
+                                            .chars()
+                                            .all(|c| c.is_ascii_alphabetic())
                                     {
                                         if limit.is_empty() {
-                                            command_target_limits.push(CommandTargetLimit {
-                                                command: command.to_uppercase().to_string(),
-                                                limit: None,
-                                            });
-                                        } else if let Ok(limit) = limit.parse::<u16>() {
-                                            command_target_limits.push(CommandTargetLimit {
-                                                command: command.to_uppercase().to_string(),
-                                                limit: Some(limit),
-                                            });
+                                            command_target_limits.push(
+                                                CommandTargetLimit {
+                                                    command: command
+                                                        .to_uppercase()
+                                                        .to_string(),
+                                                    limit: None,
+                                                },
+                                            );
+                                        } else if let Ok(limit) =
+                                            limit.parse::<u16>()
+                                        {
+                                            command_target_limits.push(
+                                                CommandTargetLimit {
+                                                    command: command
+                                                        .to_uppercase()
+                                                        .to_string(),
+                                                    limit: Some(limit),
+                                                },
+                                            );
                                         }
                                     }
                                 }
                             });
 
                             if !command_target_limits.is_empty() {
-                                Ok(Operation::Add(Parameter::TARGMAX(command_target_limits)))
+                                Ok(Operation::Add(Parameter::TARGMAX(
+                                    command_target_limits,
+                                )))
                             } else {
                                 Err("no valid command target limits")
                             }
@@ -398,9 +498,9 @@ impl FromStr for Operation {
                             parse_required_positive_integer(value)?,
                         ))),
                         "UTF8ONLY" => Ok(Operation::Add(Parameter::UTF8ONLY)),
-                        "VLIST" => Ok(Operation::Add(Parameter::VLIST(parse_required_letters(
-                            value,
-                        )?))),
+                        "VLIST" => Ok(Operation::Add(Parameter::VLIST(
+                            parse_required_letters(value)?,
+                        ))),
                         "WATCH" => Ok(Operation::Add(Parameter::WATCH(
                             parse_required_positive_integer(value)?,
                         ))),
@@ -420,13 +520,19 @@ impl FromStr for Operation {
                         "CHANLIMIT" => Err("value(s) required"),
                         "CHANMODES" => Err("value(s) required"),
                         "CHANNELLEN" => Err("value required"),
-                        "CHANTYPES" => Ok(Operation::Add(Parameter::CHANTYPES(None))),
+                        "CHANTYPES" => {
+                            Ok(Operation::Add(Parameter::CHANTYPES(None)))
+                        }
                         "CHATHISTORY" => Err("value required"),
                         "CLIENTTAGDENY" => Err("value(s) required"),
                         "CLIENTVER" => Err("value required"),
-                        "DEAF" => Ok(Operation::Add(Parameter::DEAF(DEFAULT_DEAF_LETTER))),
+                        "DEAF" => Ok(Operation::Add(Parameter::DEAF(
+                            DEFAULT_DEAF_LETTER,
+                        ))),
                         "ELIST" => Err("value required"),
-                        "ESILENCE" => Ok(Operation::Add(Parameter::ESILENCE(None))),
+                        "ESILENCE" => {
+                            Ok(Operation::Add(Parameter::ESILENCE(None)))
+                        }
                         "ETRACE" => Ok(Operation::Add(Parameter::ETRACE)),
                         "EXCEPTS" => Ok(Operation::Add(Parameter::EXCEPTS(
                             DEFAULT_BAN_EXCEPTION_CHANNEL_LETTER,
@@ -446,22 +552,38 @@ impl FromStr for Operation {
                         "MAXCHANNELS" => Err("value required"),
                         "MAXLIST" => Err("value(s) required"),
                         "MAXPARA" => Err("value required"),
-                        "MAXTARGETS" => Ok(Operation::Add(Parameter::MAXTARGETS(None))),
-                        "METADATA" => Ok(Operation::Add(Parameter::METADATA(None))),
+                        "MAXTARGETS" => {
+                            Ok(Operation::Add(Parameter::MAXTARGETS(None)))
+                        }
+                        "METADATA" => {
+                            Ok(Operation::Add(Parameter::METADATA(None)))
+                        }
                         "MODES" => Ok(Operation::Add(Parameter::MODES(None))),
-                        "MONITOR" => Ok(Operation::Add(Parameter::MONITOR(None))),
-                        "MSGREFTYPES" => Ok(Operation::Add(Parameter::MSGREFTYPES(vec![]))),
+                        "MONITOR" => {
+                            Ok(Operation::Add(Parameter::MONITOR(None)))
+                        }
+                        "MSGREFTYPES" => {
+                            Ok(Operation::Add(Parameter::MSGREFTYPES(vec![])))
+                        }
                         "NAMESX" => Ok(Operation::Add(Parameter::NAMESX)),
                         "NAMELEN" => Err("value required"),
                         "NETWORK" => Err("value required"),
                         "NICKLEN" | "MAXNICKLEN" => Err("value required"),
                         "OVERRIDE" => Ok(Operation::Add(Parameter::OVERRIDE)),
-                        "PREFIX" => Ok(Operation::Add(Parameter::PREFIX(vec![]))),
+                        "PREFIX" => {
+                            Ok(Operation::Add(Parameter::PREFIX(vec![])))
+                        }
                         "SAFELIST" => Ok(Operation::Add(Parameter::SAFELIST)),
-                        "SECURELIST" => Ok(Operation::Add(Parameter::SECURELIST)),
-                        "SILENCE" => Ok(Operation::Add(Parameter::SILENCE(None))),
+                        "SECURELIST" => {
+                            Ok(Operation::Add(Parameter::SECURELIST))
+                        }
+                        "SILENCE" => {
+                            Ok(Operation::Add(Parameter::SILENCE(None)))
+                        }
                         "STATUSMSG" => Err("value required"),
-                        "TARGMAX" => Ok(Operation::Add(Parameter::TARGMAX(vec![]))),
+                        "TARGMAX" => {
+                            Ok(Operation::Add(Parameter::TARGMAX(vec![])))
+                        }
                         "TOPICLEN" => Err("value required"),
                         "UHNAMES" => Ok(Operation::Add(Parameter::UHNAMES)),
                         "USERIP" => Ok(Operation::Add(Parameter::USERIP)),
@@ -728,7 +850,9 @@ impl ChatHistorySubcommand {
         match self {
             ChatHistorySubcommand::Latest(target, _, _)
             | ChatHistorySubcommand::Before(target, _, _)
-            | ChatHistorySubcommand::Between(target, _, _, _) => Some(target.as_str()),
+            | ChatHistorySubcommand::Between(target, _, _, _) => {
+                Some(target.as_str())
+            }
             ChatHistorySubcommand::Targets(_, _, _) => None,
         }
     }
@@ -778,8 +902,12 @@ impl fmt::Display for MessageReference {
 impl PartialEq<Message> for MessageReference {
     fn eq(&self, other: &Message) -> bool {
         match self {
-            MessageReference::Timestamp(server_time) => other.server_time == *server_time,
-            MessageReference::MessageId(id) => other.id.as_deref() == Some(id.as_str()),
+            MessageReference::Timestamp(server_time) => {
+                other.server_time == *server_time
+            }
+            MessageReference::MessageId(id) => {
+                other.id.as_deref() == Some(id.as_str())
+            }
             MessageReference::None => false,
         }
     }
@@ -813,7 +941,9 @@ const DEFAULT_INVITE_EXCEPTION_LETTER: char = 'I';
 
 const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(5);
 
-pub fn fuzz_start_message_reference(message_reference: MessageReference) -> MessageReference {
+pub fn fuzz_start_message_reference(
+    message_reference: MessageReference,
+) -> MessageReference {
     match message_reference {
         MessageReference::Timestamp(start_server_time) => {
             MessageReference::Timestamp(start_server_time - FUZZ_SECONDS)
@@ -822,7 +952,9 @@ pub fn fuzz_start_message_reference(message_reference: MessageReference) -> Mess
     }
 }
 
-pub fn fuzz_end_message_reference(message_reference: MessageReference) -> MessageReference {
+pub fn fuzz_end_message_reference(
+    message_reference: MessageReference,
+) -> MessageReference {
     match message_reference {
         MessageReference::Timestamp(end_server_time) => {
             MessageReference::Timestamp(end_server_time + FUZZ_SECONDS)
@@ -923,7 +1055,9 @@ fn parse_optional_letters(value: &str) -> Result<Option<String>, &'static str> {
     }
 }
 
-fn parse_optional_positive_integer(value: &str) -> Result<Option<u16>, &'static str> {
+fn parse_optional_positive_integer(
+    value: &str,
+) -> Result<Option<u16>, &'static str> {
     if value.is_empty() {
         Ok(None)
     } else if let Ok(value) = value.parse::<u16>() {
@@ -933,7 +1067,10 @@ fn parse_optional_positive_integer(value: &str) -> Result<Option<u16>, &'static 
     }
 }
 
-fn parse_required_letter(value: &str, default_value: Option<char>) -> Result<char, &'static str> {
+fn parse_required_letter(
+    value: &str,
+    default_value: Option<char>,
+) -> Result<char, &'static str> {
     if let Some(value) = value.chars().next() {
         if value.is_ascii_alphabetic() {
             return Ok(value);
@@ -967,8 +1104,13 @@ fn parse_required_positive_integer(value: &str) -> Result<u16, &'static str> {
 
 // Returns the limit directly if found, since we currently treat "no target limit specified"
 // the same as "specifying no limit to the number of targets".
-pub fn find_target_limit(isupport: &HashMap<Kind, Parameter>, command: &str) -> Option<u16> {
-    if let Some(Parameter::TARGMAX(target_limits)) = isupport.get(&Kind::TARGMAX) {
+pub fn find_target_limit(
+    isupport: &HashMap<Kind, Parameter>,
+    command: &str,
+) -> Option<u16> {
+    if let Some(Parameter::TARGMAX(target_limits)) =
+        isupport.get(&Kind::TARGMAX)
+    {
         target_limits
             .iter()
             .find_map(|target_limit| {
