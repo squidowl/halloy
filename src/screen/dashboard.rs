@@ -317,7 +317,7 @@ impl Dashboard {
                                                 Task::batch(vec![
                                                     task,
                                                     pane.buffer
-                                                        .insert_user_to_input(nick, history)
+                                                        .insert_user_to_input(nick, history, &config.buffer.text_input.autocomplete)
                                                         .map(move |message| {
                                                             Message::Pane(
                                                                 window,

@@ -1,8 +1,9 @@
+use data::buffer::{self, Autocomplete};
 use data::dashboard::BufferAction;
 use data::input::{self, Cache, Draft};
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, buffer, client, command, history};
+use data::{Config, client, command, history};
 use iced::Task;
 use iced::widget::{column, container, text, text_input};
 
@@ -465,16 +466,24 @@ impl State {
         nick: Nick,
         buffer: buffer::Upstream,
         history: &mut history::Manager,
+        autocomplete: &Autocomplete,
     ) -> Task<Message> {
         let mut text = history.input(&buffer).draft.to_string();
 
-        if text.is_empty() {
-            text = format!("{nick}: ");
-        } else if text.ends_with(' ') {
-            text = format!("{text}{nick}");
+        let suffix = if text.is_empty() {
+            text = format!("{nick}");
+
+            &autocomplete.completion_suffixes[0]
         } else {
-            text = format!("{text} {nick}");
-        }
+            if text.ends_with(' ') {
+                text = format!("{text}{nick}");
+            } else {
+                text = format!("{text} {nick}");
+            }
+
+            &autocomplete.completion_suffixes[1]
+        };
+        text.push_str(suffix);
 
         history.record_draft(Draft { buffer, text });
 
