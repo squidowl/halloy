@@ -10,18 +10,13 @@ You have various options for contributing to Halloy. Before you start working on
   - [Licensing](#licensing)
   - [Contributing code](#contributing-code)
     - [Coding Prerequisites](#coding-prerequisites)
-  - [Contributing documentation](#contributing-documentation)
-    - [Documenting Prerequisites](#documenting-prerequisites)
   - [Codebase Overview](#codebase-overview)
     - [Project Structure](#project-structure)
     - [Data Flow](#data-flow)
     - [Architecture](#architecture)
   - [Coding-Standards \& Guidelines](#coding-standards--guidelines)
     - [Formatting \& Linting](#formatting--linting)
-    - [Testing](#testing)
-  - [Unit Tests](#unit-tests)
-  - [CI with Github Actions](#ci-with-github-actions)
-  - [Pull-Requests](#pull-requests)
+  - [Submitting a Pull-Requests](#submitting-a-pull-requests)
     - [Rebase vs. Merge](#rebase-vs-merge)
     - [Open a PR](#open-a-pr)
 
@@ -58,9 +53,11 @@ Before diving into Halloy development, make sure you're comfortable with the fol
 - **GitHub:** The platform we use for hosting the Halloy repository, tracking issues, and collaborating on code. You can find Halloy on [GitHub](https://github.com/squidowl/halloy).
 - **IRC:** Halloy is an IRC client, so understanding the Internet Relay Chat protocol is beneficial. The [IRCv3 specifications](https://ircv3.net) provide comprehensive information about the protocol.
 
+<!--
 ## Contributing documentation
 
 ### Documenting Prerequisites
+-->
 
 ## Codebase Overview
 
@@ -187,17 +184,7 @@ cargo install editorconfig-checker
 editorconfig-checker
 ```
 
-### Testing
-
-## Unit Tests
-
-TODO
-
-## CI with Github Actions
-
-TODO
-
-## Pull-Requests
+## Submitting a Pull-Requests
 
 ### Rebase vs. Merge
 
@@ -206,4 +193,3 @@ TODO
 ### Open a PR
 
 TODO
-
