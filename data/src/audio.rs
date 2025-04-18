@@ -81,7 +81,7 @@ fn find_external_sound(sound: &str) -> Result<PathBuf, LoadError> {
 
     for e in walkdir::WalkDir::new(sounds_dir.clone())
         .into_iter()
-        .filter_map(|e| e.ok())
+        .filter_map(Result::ok)
     {
         if e.metadata().is_ok_and(|data| data.is_file())
             && e.file_name() == sound

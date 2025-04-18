@@ -1306,14 +1306,14 @@ fn content<'a>(
 
                     let modes = modes
                         .iter()
-                        .map(|mode| mode.to_string())
+                        .map(ToString::to_string)
                         .collect::<Vec<_>>()
                         .join(" ");
 
                     let args = args
                         .iter()
                         .flatten()
-                        .map(|arg| arg.to_string())
+                        .map(ToString::to_string)
                         .collect::<Vec<_>>()
                         .join(" ");
 
@@ -1502,7 +1502,7 @@ fn content<'a>(
             let mode = params
                 .iter()
                 .skip(2)
-                .map(|s| s.as_str())
+                .map(String::as_str)
                 .collect::<Vec<_>>()
                 .join(" ");
 
@@ -1512,7 +1512,7 @@ fn content<'a>(
             let mode = params
                 .iter()
                 .skip(1)
-                .map(|s| s.as_str())
+                .map(String::as_str)
                 .collect::<Vec<_>>()
                 .join(" ");
 
@@ -1597,7 +1597,7 @@ fn content<'a>(
             Some(parse_fragments(
                 responses
                     .iter()
-                    .map(|s| s.as_str())
+                    .map(String::as_str)
                     .skip(1)
                     .collect::<Vec<_>>()
                     .join(" "),
