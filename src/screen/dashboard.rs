@@ -667,6 +667,10 @@ impl Dashboard {
 
                         (Task::none(), None)
                     }
+                    sidebar::Event::OpenConfigFile => {
+                        let _ = open::that_detached(Config::path());
+                        (Task::none(), None)
+                    }
                 };
 
                 return (
