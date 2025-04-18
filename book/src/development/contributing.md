@@ -28,14 +28,14 @@ You’ll find the full license text in the [LICENSE](https://github.com/squidowl
 
 ### Prerequisites
 
-You need to be familar with
+Before diving into Halloy development, make sure you're comfortable with the following tools and technologies:
 
-- **Rust:** The programming language in which Halloy is developed. Visit [Learn Rust](https://www.rust-lang.org/learn) to get more information.
-- **iced:** GUI library which Halloy use for its UI. Go to the [iced homepage](https://book.iced.rs) to learn more about it.
-- **Tokio:** Tokio is an asynchronous runtime for the Rust programming language. Learn more at the [Tokio](https://tokio.rs) project page.
-- **Git:** Distributed version control system which helps to collobarate on the Halloy source code.
-- **GitHub:** The DevOps platform that we use. You can visit [Halloy](https://github.com/squidowl/halloy) at GitHub to get the latest source code, reporting bugs and contributing to Halloy.
-- **IRC:** Halloy has been made for Internet Relay Chat. You can find the latest information about the protocol specification on the [IRCv3 page](https://ircv3.net).
+- **Rust:** The programming language Halloy is built with. If you're new to Rust, check out the [official learning resources](https://www.rust-lang.org/learn) to get started.​
+- **iced:** A cross-platform GUI library for Rust that powers Halloy's user interface. Learn more at the[iced homepage](https://book.iced.rs).
+- **Tokio:** An asynchronous runtime for Rust, essential for handling concurrent operations in Halloy. Visit the [Tokio project page](https://tokio.rs) for more information.​
+- **Git:**  distributed version control system that helps manage changes to the source code. If you're unfamiliar, the [Git book](https://git-scm.com/book/en/v2) is a great place to start.​
+- **GitHub:** The platform we use for hosting the Halloy repository, tracking issues, and collaborating on code. You can find Halloy on [GitHub](https://github.com/squidowl/halloy).
+- **IRC:** Halloy is an IRC client, so understanding the Internet Relay Chat protocol is beneficial. The [IRCv3 specifications](https://ircv3.net) provide comprehensive information about the protocol.
 
 ### Architecture
 
