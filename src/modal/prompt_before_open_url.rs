@@ -1,6 +1,5 @@
 use iced::{
-    Length,
-    alignment::{self, Horizontal::Left},
+    Length, alignment,
     widget::{button, column, container, text, vertical_space},
 };
 
