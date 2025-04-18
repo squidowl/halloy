@@ -342,7 +342,7 @@ impl Manager {
         self.data
             .map
             .get(kind)
-            .is_some_and(|history| history.has_unread())
+            .is_some_and(History::has_unread)
     }
 
     pub fn read_marker(
@@ -352,7 +352,7 @@ impl Manager {
         self.data
             .map
             .get(kind)
-            .map(|history| history.read_marker())
+            .map(History::read_marker)
             .unwrap_or_default()
     }
 
@@ -910,13 +910,13 @@ impl Data {
     fn mark_as_read(&mut self, kind: &history::Kind) -> Option<ReadMarker> {
         self.map
             .get_mut(kind)
-            .and_then(|history| history.mark_as_read())
+            .and_then(History::mark_as_read)
     }
 
     fn can_mark_as_read(&self, kind: &history::Kind) -> bool {
         self.map
             .get(kind)
-            .is_some_and(|history| history.can_mark_as_read())
+            .is_some_and(History::can_mark_as_read)
     }
 
     fn untrack(
