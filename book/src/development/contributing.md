@@ -9,20 +9,21 @@ You have various options for contributing to Halloy. Before you start working on
   - [Goals](#goals)
   - [Licensing](#licensing)
   - [Contributing code](#contributing-code)
-    - [Prerequisites](#prerequisites)
+    - [Coding Prerequisites](#coding-prerequisites)
+  - [Contributing documentation](#contributing-documentation)
+    - [Documenting Prerequisites](#documenting-prerequisites)
   - [Codebase Overview](#codebase-overview)
     - [Project Structure](#project-structure)
     - [Data Flow](#data-flow)
-  - [Architecture](#architecture)
+    - [Architecture](#architecture)
   - [Coding-Standards \& Guidelines](#coding-standards--guidelines)
     - [Formatting \& Linting](#formatting--linting)
-  - [Testing \& CI](#testing--ci)
+    - [Testing](#testing)
   - [Unit Tests](#unit-tests)
   - [CI with Github Actions](#ci-with-github-actions)
   - [Pull-Requests](#pull-requests)
     - [Rebase vs. Merge](#rebase-vs-merge)
     - [Open a PR](#open-a-pr)
-  - [Contributing documentation](#contributing-documentation)
 
 ## Be nice
 
@@ -46,7 +47,7 @@ You’ll find the full license text in the [LICENSE](https://github.com/squidowl
 
 ## Contributing code
 
-### Prerequisites
+### Coding Prerequisites
 
 Before diving into Halloy development, make sure you're comfortable with the following tools and technologies:
 
@@ -56,6 +57,10 @@ Before diving into Halloy development, make sure you're comfortable with the fol
 - **Git:** distributed version control system that helps manage changes to the source code. If you're unfamiliar, the [Git book](https://git-scm.com/book/en/v2) is a great place to start.​
 - **GitHub:** The platform we use for hosting the Halloy repository, tracking issues, and collaborating on code. You can find Halloy on [GitHub](https://github.com/squidowl/halloy).
 - **IRC:** Halloy is an IRC client, so understanding the Internet Relay Chat protocol is beneficial. The [IRCv3 specifications](https://ircv3.net) provide comprehensive information about the protocol.
+
+## Contributing documentation
+
+### Documenting Prerequisites
 
 ## Codebase Overview
 
@@ -88,9 +93,58 @@ State Update – The application state is updated accordingly.
 UI Rendering – The UI reacts to state changes and re-renders components as needed.​
 This unidirectional data flow ensures predictable behavior and simplifies debugging.​
 
-## Architecture
+### Architecture
 
-TODO
+```mermaid
+flowchart TD
+  %% UI Layer
+  subgraph "UI Layer"
+    A["main.rs
+    (iced)"]
+    B["UI Components
+    (src/ui)"]
+  end
+
+  %% Core Layer
+  subgraph "Core Layer"
+    C["Event Loop
+    (iced + Tokio)"]
+    D["State Management
+    (src/core)"]
+    E["Config Loader
+    (src/config)"]
+    F["Utils
+    (src/utils)"]
+  end
+
+  %% Network Layer
+  subgraph "Network Layer"
+    G["IRC Protocol Handler
+    (src/network)"]
+    H["Async Runtime
+    (Tokio)"]
+  end
+
+  %% Support Files
+  subgraph "Support Files"
+    I["Assets
+    (icons, themes)"]
+    J["Docs & Tests"]
+  end
+
+  %% Connections
+  A --> B
+  B --> C
+  C --> D
+  D --> E
+  D --> F
+  D --> G
+  G --> H
+  E --> D
+  F --> D
+  I --> B
+  J --> D
+```
 
 ## Coding-Standards & Guidelines
 
@@ -104,7 +158,11 @@ If you're thinking about opening a PR, take a minute to go through the standards
 
 We use [rustfmt](https://github.com/rust-lang/rustfmt) to keep the Rust codebase clean and consistently formatted. Our config slightly deviates from the default — check out the [rustfmt.toml](https://github.com/squidowl/halloy/blob/main/rustfmt.toml) in the Halloy repo for the current setup.
 
-Before committing, make sure to run: ```cargo +nightly fmt --all```
+Before committing, make sure to run:
+
+```sh
+cargo +nightly fmt --all
+```
 
 #### Markdown
 
@@ -112,6 +170,7 @@ Our documentations are written in [markdown](https://rust-lang.github.io/mdBook/
 
 - **[mdbook-external-links](https://github.com/jonahgoldwastaken/mdbook-external-links):** Makes external links open in a new tab.
 - **[mdbook-linkcheck](https://github.com/Michael-F-Bryan/mdbook-linkcheck):** Verifies that internal links aren’t broken.
+- **[mdbook-mermaid](https://github.com/badboy/mdbook-mermaid)** Adding mermaid.js support to draw fancy diagrams.
 
 You can install both with:
 
@@ -128,9 +187,7 @@ cargo install editorconfig-checker
 editorconfig-checker
 ```
 
-## Testing & CI
-
-TODO
+### Testing
 
 ## Unit Tests
 
@@ -150,6 +207,3 @@ TODO
 
 TODO
 
-## Contributing documentation
-
-TODO
