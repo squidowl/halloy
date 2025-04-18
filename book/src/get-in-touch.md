@@ -5,6 +5,7 @@ For feature requests or reporting issues, please open a ticket on [GitHub](https
 
 ## Maintainers
 
+* andymandias ([https://github.com/andymandias](https://github.com/andymandias))
 * casperstorm ([https://github.com/casperstorm](https://github.com/casperstorm))
 * tarkah ([https://github.com/tarkah](https://github.com/tarkah))
 
@@ -17,7 +18,6 @@ Special thanks to all the people who makes Halloy happens
 * adamperkowski ([https://github.com/adamperkowski](https://github.com/adamperkowski))
 * ameknite ([https://github.com/ameknite](https://github.com/ameknite))
 * anarsoul ([https://github.com/anarsoul](https://github.com/anarsoul))
-* andymandias ([https://github.com/andymandias](https://github.com/andymandias))
 * auronandace ([https://github.com/auronandace](https://github.com/auronandace))
 * bbb651 ([https://github.com/bbb651](https://github.com/bbb651))
 * Daeraxa ([https://github.com/Daeraxa](https://github.com/Daeraxa))
