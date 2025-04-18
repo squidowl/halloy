@@ -2,6 +2,30 @@ Halloy! If you don't know it yet, but "Halløj" is the a danish "Hello" or "Hi".
 
 You have various options for contributing to Halloy. Before you start working on Halloy, read the topics “[Be nice](#be-nice)”, "[Goals](#goals)" and "[Licensing](#licensing)"
 
+- [Be nice](#be-nice)
+- [Goals](#goals)
+- [Licensing](#licensing)
+- [Contributing code](#contributing-code)
+  - [Prerequisites](#prerequisites)
+  - [Codebase Overview](#codebase-overview)
+    - [Project Structure](#project-structure)
+    - [Data Flow](#data-flow)
+  - [Architecture](#architecture)
+  - [Coding-Standards \& Guidelines](#coding-standards--guidelines)
+    - [Formatting \& Linting](#formatting--linting)
+      - [Rust](#rust)
+      - [Markdown](#markdown)
+      - [Other](#other)
+  - [Testing \& CI](#testing--ci)
+  - [Unit Tests](#unit-tests)
+  - [CI with Github Actions](#ci-with-github-actions)
+  - [Pull-Requests](#pull-requests)
+    - [Rebase vs. Merge](#rebase-vs-merge)
+    - [Open a PR](#open-a-pr)
+- [Contributing documentation](#contributing-documentation)
+  - [Tooling](#tooling)
+  - [File structure](#file-structure)
+
 ## Be nice
 
 **TBD:** Do we need such a policy? Do we want to adopt the [Rust CoC](https://www.rust-lang.org/policies/code-of-conduct)?
