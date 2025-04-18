@@ -161,6 +161,12 @@
       "css": "ok",
       "code": 59413,
       "src": "fontawesome"
+    },
+    {
+      "uid": "26613a2e6bc41593c54bead46f8c8ee3",
+      "css": "file-code",
+      "code": 61897,
+      "src": "fontawesome"
     }
   ]
 }

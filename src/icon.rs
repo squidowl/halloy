@@ -100,6 +100,10 @@ pub fn mark_as_read<'a>() -> Text<'a> {
     to_text('\u{E815}')
 }
 
+pub fn config<'a>() -> Text<'a> {
+    to_text('\u{F1C9}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .line_height(LineHeight::Relative(1.0))
