@@ -87,7 +87,7 @@ pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
         .iter()
         .rev()
         .find(|message| message.can_reference())
-        .map(|message| message.references())
+        .map(Message::references)
 }
 
 pub async fn load(kind: Kind) -> Result<Metadata, Error> {
