@@ -16,7 +16,13 @@ You have various options for contributing to Halloy. Before you start working on
 
 ## Licensing
 
-TODO
+Halloy is released under the **GNU General Public License v3.0 or later (GPL‑3.0‑or‑later)**, which means you’re free to use, modify, and distribute the code — but any derivative work must also carry the same copyleft terms.
+
+By contributing code, you automatically license your contributions under GPL‑3.0‑or‑later. No Contributor License Agreement (CLA) needed — opening a pull request is enough.
+
+Make sure any third‑party libraries or snippets you add are compatible with GPL‑3.0‑or‑later.
+
+You’ll find the full license text in the [LICENSE](https://github.com/squidowl/halloy/blob/main/LICENSE) file, and it’s also declared in each Cargo.toml (license = "GPL-3.0-or-later").
 
 ## Contributing code
 
