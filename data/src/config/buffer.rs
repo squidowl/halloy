@@ -62,6 +62,8 @@ pub struct Emojis {
     pub skin_tone: SkinTone,
     #[serde(default = "default_bool_true")]
     pub auto_replace: bool,
+    #[serde(default = "default_characters_to_trigger_picker")]
+    pub characters_to_trigger_picker: usize,
 }
 
 impl Default for Emojis {
@@ -70,6 +72,8 @@ impl Default for Emojis {
             show_picker: default_bool_true(),
             skin_tone: SkinTone::default(),
             auto_replace: default_bool_true(),
+            characters_to_trigger_picker: default_characters_to_trigger_picker(
+            ),
         }
     }
 }
@@ -288,4 +292,8 @@ impl Buffer {
             )
         ))
     }
+}
+
+fn default_characters_to_trigger_picker() -> usize {
+    2
 }
