@@ -1,6 +1,6 @@
 # `[scale_factor]`
 
-Application wide scale factor.  
+Application wide scale factor.
 Note: `scale_factor` is a root key, so it must be placed before any section.
 
 ```toml

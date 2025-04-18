@@ -17,7 +17,7 @@ echo "Decoding certificate"
 echo $MACOS_CERTIFICATE | base64 --decode > certificate.p12
 
 echo "Installing cert in a new key chain"
-security create-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain 
+security create-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
 security default-keychain -s build.keychain
 security unlock-keychain -p "$MACOS_CI_KEYCHAIN_PWD" build.keychain
 security import certificate.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
