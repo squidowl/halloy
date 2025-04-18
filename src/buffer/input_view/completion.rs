@@ -1971,7 +1971,7 @@ impl Emojis {
     fn process(&mut self, last_word: &str, config: &Config) {
         let last_word = last_word.strip_prefix(":").unwrap_or("");
 
-        if last_word.is_empty() {
+        if last_word.len() < config.buffer.emojis.characters_to_trigger_picker {
             *self = Self::default();
             return;
         }
