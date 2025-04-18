@@ -1,5 +1,3 @@
-# Contributing
-
 Halloy! If you don't know it yet, but "Halløj" is the a danish "Hello" or "Hi". Thank you for visiting our development guide.
 
 You have various options for contributing to Halloy. Before you start working on Halloy, read the topics “[Be nice](#be-nice)”, "[Goals](#goals)" and "[Licensing](#licensing)"
@@ -37,11 +35,38 @@ Before diving into Halloy development, make sure you're comfortable with the fol
 - **GitHub:** The platform we use for hosting the Halloy repository, tracking issues, and collaborating on code. You can find Halloy on [GitHub](https://github.com/squidowl/halloy).
 - **IRC:** Halloy is an IRC client, so understanding the Internet Relay Chat protocol is beneficial. The [IRCv3 specifications](https://ircv3.net) provide comprehensive information about the protocol.
 
+### Codebase Overview
+
+Halloy is a modern IRC client built with Rust, leveraging the iced GUI library and the asynchronous capabilities of Tokio. The codebase is organized to promote clarity and ease of contribution.​
+
+#### Project Structure
+
+Here's a high-level overview of the main directories and their purposes:​
+Software Engineering Stack Exchange
+
+- ```src/``` – Contains the main application code.
+  - ```main.rs``` – Entry point of the application.
+  - ```ui/``` – Modules related to the user interface built with iced.
+  - ```etwork/``` – Handles IRC protocol communication and networking logic.
+  - ```config/``` – Manages configuration files and settings.
+  - ```utils/``` – Utility functions and helpers used across the application.
+- ```assets/``` – Static files like icons and themes.
+- ```docs/``` – Documentation files, including the user guide and developer notes.
+- ```tests/``` – Integration and unit tests to ensure code reliability.​
+
+Each module is designed to be as self-contained as possible, making it easier to navigate and understand specific parts of the application.​
+
+#### Data Flow
+
+Halloy follows an event-driven architecture:​
+
+User Input – User actions are captured through the UI components.
+Event Handling – Inputs are translated into events that modify the application state.
+State Update – The application state is updated accordingly.
+UI Rendering – The UI reacts to state changes and re-renders components as needed.​
+This unidirectional data flow ensures predictable behavior and simplifies debugging.​
+
 ### Architecture
-
-TODO
-
-### Codebase
 
 TODO
 
