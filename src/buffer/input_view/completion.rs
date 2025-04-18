@@ -880,7 +880,7 @@ impl Text {
             .filter(|&channel| {
                 channel.as_str().starts_with(input_channel.as_str())
             })
-            .map(|channel| channel.to_string())
+            .map(ToString::to_string)
             .collect();
 
         true
@@ -1982,7 +1982,7 @@ impl Emojis {
             .auto_replace
             .then(|| last_word.strip_suffix(":"))
             .flatten()
-            .map(|last_word| last_word.to_lowercase())
+            .map(str::to_lowercase)
         {
             if let Some(emoji) =
                 pick_emoji(&shortcode, config.buffer.emojis.skin_tone)
@@ -2034,7 +2034,7 @@ impl Emojis {
                 *self = Self::Idle;
 
                 return pick_emoji(shortcode, config.buffer.emojis.skin_tone)
-                    .map(|emoji| emoji.to_string());
+                    .map(ToString::to_string);
             }
         }
 
