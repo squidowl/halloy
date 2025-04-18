@@ -384,6 +384,16 @@ skin_tone = "default"
 [buffer.emojis]
 auto_replace = true
 </code></pre>
+<h3 id="characters_to_trigger_picker"><a class="header" href="#characters_to_trigger_picker"><code>characters_to_trigger_picker</code></a></h3>
+<p>Minimum number of characters after <code>:</code> required for the emoji picker to show.
+E.g. <code>:D</code> will not show the emoji picker unless <code>characters_to_trigger_picker</code> is less than or equal to <code>1</code>.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any non-negative integer
+# Default: 2
+
+[buffer.emojis]
+characters_to_trigger_picker = 2
+</code></pre>
 <h2 id="bufferinternal_messages"><a class="header" href="#bufferinternal_messages"><code>[buffer.internal_messages]</code></a></h2>
 <p>Internal messages are messages sent from Halloy itself.</p>
 <h3 id="bufferinternal_messagessuccess"><a class="header" href="#bufferinternal_messagessuccess"><code>[buffer.internal_messages.success]</code></a></h3>
