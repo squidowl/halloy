@@ -41,15 +41,39 @@ TODO
 
 ### Coding-Standards & Guidelines
 
-TODO
+To keep things tidy, readable, and high-quality across Halloy — from source code to docs and config files — we follow a few simple rules. Sticking to these makes collaboration smoother, helps avoid unnecessary diffs, and ensures that contributions fit in nicely with the rest of the project.
 
-#### Formatting
+If you're thinking about opening a PR, take a minute to go through the standards below. It’ll save everyone time — including you.
 
-TODO
+#### Formatting & Linting
 
-#### Linting
+##### Rust
 
-TODO
+We use [rustfmt](https://github.com/rust-lang/rustfmt) to keep the Rust codebase clean and consistently formatted. Our config slightly deviates from the default — check out the [rustfmt.toml](https://github.com/squidowl/halloy/blob/main/rustfmt.toml) in the Halloy repo for the current setup.
+
+Before committing, make sure to run: ```cargo +nightly fmt --all```
+
+##### Markdown
+
+Our documentations are written in [markdown](https://rust-lang.github.io/mdBook/format/markdown.html) and built using [mdBook](https://github.com/rust-lang/mdBook). We use a couple of extra pre-processors to improve the output:
+
+- **[mdbook-external-links](https://github.com/jonahgoldwastaken/mdbook-external-links):** Makes external links open in a new tab.
+- **[mdbook-linkcheck](https://github.com/Michael-F-Bryan/mdbook-linkcheck):** Verifies that internal links aren’t broken.
+
+You can install both with:
+
+```sh
+cargo install mdbook-linkcheck mdbook-external-links
+```
+
+##### Other
+
+If your editor supports [EditorConfig](https://editorconfig.org), it will automatically pick up the formatting rules from the [.editorconfig](https://github.com/squidowl/halloy/blob/main/.editorconfig) file in the repo. To double-check everything before committing, you can run [editorconfig-checker](https://github.com/editorconfig-checker/editorconfig-checker):
+
+```sh
+cargo install editorconfig-checker
+editorconfig-checker
+```
 
 ### Testing & CI
 
