@@ -313,6 +313,20 @@ Automatically replace `:shortcode:` in text input with the corresponding emoji.
 auto_replace = true
 ```
 
+### `characters_to_trigger_picker`
+
+Minimum number of characters after `:` required for the emoji picker to show.
+E.g. `:D` will not show the emoji picker unless `characters_to_trigger_picker` is less than or equal to `1`.
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 2
+
+[buffer.emojis]
+characters_to_trigger_picker = 2
+```
+
 ## `[buffer.internal_messages]`
 
 Internal messages are messages sent from Halloy itself.
