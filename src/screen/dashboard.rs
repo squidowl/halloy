@@ -845,6 +845,10 @@ impl Dashboard {
                                 command_bar::Configuration::Reload => {
                                     (Task::perform(Config::load(), Message::ConfigReloaded), None)
                                 }
+                                command_bar::Configuration::OpenConfigFile => {
+                                    let _ = open::that_detached(Config::path());
+                                    (Task::none(), None)
+                                },
                             },
                             command_bar::Command::UI(command) => match command {
                                 command_bar::Ui::ToggleSidebarVisibility => {
