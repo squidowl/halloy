@@ -1,30 +1,28 @@
+# Contributing
+
 Halloy! If you don't know it yet, but "Halløj" is the a danish "Hello" or "Hi". Thank you for visiting our development guide.
 
 You have various options for contributing to Halloy. Before you start working on Halloy, read the topics “[Be nice](#be-nice)”, "[Goals](#goals)" and "[Licensing](#licensing)"
 
-- [Be nice](#be-nice)
-- [Goals](#goals)
-- [Licensing](#licensing)
-- [Contributing code](#contributing-code)
-  - [Prerequisites](#prerequisites)
+- [Contributing](#contributing)
+  - [Be nice](#be-nice)
+  - [Goals](#goals)
+  - [Licensing](#licensing)
+  - [Contributing code](#contributing-code)
+    - [Prerequisites](#prerequisites)
   - [Codebase Overview](#codebase-overview)
     - [Project Structure](#project-structure)
     - [Data Flow](#data-flow)
   - [Architecture](#architecture)
   - [Coding-Standards \& Guidelines](#coding-standards--guidelines)
     - [Formatting \& Linting](#formatting--linting)
-      - [Rust](#rust)
-      - [Markdown](#markdown)
-      - [Other](#other)
   - [Testing \& CI](#testing--ci)
   - [Unit Tests](#unit-tests)
   - [CI with Github Actions](#ci-with-github-actions)
   - [Pull-Requests](#pull-requests)
     - [Rebase vs. Merge](#rebase-vs-merge)
     - [Open a PR](#open-a-pr)
-- [Contributing documentation](#contributing-documentation)
-  - [Tooling](#tooling)
-  - [File structure](#file-structure)
+  - [Contributing documentation](#contributing-documentation)
 
 ## Be nice
 
@@ -53,17 +51,17 @@ You’ll find the full license text in the [LICENSE](https://github.com/squidowl
 Before diving into Halloy development, make sure you're comfortable with the following tools and technologies:
 
 - **Rust:** The programming language Halloy is built with. If you're new to Rust, check out the [official learning resources](https://www.rust-lang.org/learn) to get started.​
-- **iced:** A cross-platform GUI library for Rust that powers Halloy's user interface. Learn more at the[iced homepage](https://book.iced.rs).
+- **iced:** A cross-platform GUI library for Rust that powers Halloy's user interface. Learn more at the [iced homepage](https://book.iced.rs).
 - **Tokio:** An asynchronous runtime for Rust, essential for handling concurrent operations in Halloy. Visit the [Tokio project page](https://tokio.rs) for more information.​
-- **Git:**  distributed version control system that helps manage changes to the source code. If you're unfamiliar, the [Git book](https://git-scm.com/book/en/v2) is a great place to start.​
+- **Git:** distributed version control system that helps manage changes to the source code. If you're unfamiliar, the [Git book](https://git-scm.com/book/en/v2) is a great place to start.​
 - **GitHub:** The platform we use for hosting the Halloy repository, tracking issues, and collaborating on code. You can find Halloy on [GitHub](https://github.com/squidowl/halloy).
 - **IRC:** Halloy is an IRC client, so understanding the Internet Relay Chat protocol is beneficial. The [IRCv3 specifications](https://ircv3.net) provide comprehensive information about the protocol.
 
-### Codebase Overview
+## Codebase Overview
 
 Halloy is a modern IRC client built with Rust, leveraging the iced GUI library and the asynchronous capabilities of Tokio. The codebase is organized to promote clarity and ease of contribution.​
 
-#### Project Structure
+### Project Structure
 
 Here's a high-level overview of the main directories and their purposes:​
 Software Engineering Stack Exchange
@@ -80,7 +78,7 @@ Software Engineering Stack Exchange
 
 Each module is designed to be as self-contained as possible, making it easier to navigate and understand specific parts of the application.​
 
-#### Data Flow
+### Data Flow
 
 Halloy follows an event-driven architecture:​
 
@@ -90,25 +88,25 @@ State Update – The application state is updated accordingly.
 UI Rendering – The UI reacts to state changes and re-renders components as needed.​
 This unidirectional data flow ensures predictable behavior and simplifies debugging.​
 
-### Architecture
+## Architecture
 
 TODO
 
-### Coding-Standards & Guidelines
+## Coding-Standards & Guidelines
 
 To keep things tidy, readable, and high-quality across Halloy — from source code to docs and config files — we follow a few simple rules. Sticking to these makes collaboration smoother, helps avoid unnecessary diffs, and ensures that contributions fit in nicely with the rest of the project.
 
 If you're thinking about opening a PR, take a minute to go through the standards below. It’ll save everyone time — including you.
 
-#### Formatting & Linting
+### Formatting & Linting
 
-##### Rust
+#### Rust
 
 We use [rustfmt](https://github.com/rust-lang/rustfmt) to keep the Rust codebase clean and consistently formatted. Our config slightly deviates from the default — check out the [rustfmt.toml](https://github.com/squidowl/halloy/blob/main/rustfmt.toml) in the Halloy repo for the current setup.
 
 Before committing, make sure to run: ```cargo +nightly fmt --all```
 
-##### Markdown
+#### Markdown
 
 Our documentations are written in [markdown](https://rust-lang.github.io/mdBook/format/markdown.html) and built using [mdBook](https://github.com/rust-lang/mdBook). We use a couple of extra pre-processors to improve the output:
 
@@ -121,7 +119,7 @@ You can install both with:
 cargo install mdbook-linkcheck mdbook-external-links
 ```
 
-##### Other
+#### Other
 
 If your editor supports [EditorConfig](https://editorconfig.org), it will automatically pick up the formatting rules from the [.editorconfig](https://github.com/squidowl/halloy/blob/main/.editorconfig) file in the repo. To double-check everything before committing, you can run [editorconfig-checker](https://github.com/editorconfig-checker/editorconfig-checker):
 
@@ -130,36 +128,28 @@ cargo install editorconfig-checker
 editorconfig-checker
 ```
 
-### Testing & CI
+## Testing & CI
 
 TODO
 
-### Unit Tests
+## Unit Tests
 
 TODO
 
-### CI with Github Actions
+## CI with Github Actions
 
 TODO
 
-### Pull-Requests
+## Pull-Requests
 
-#### Rebase vs. Merge
+### Rebase vs. Merge
 
 TODO
 
-#### Open a PR
+### Open a PR
 
 TODO
 
 ## Contributing documentation
-
-TODO
-
-### Tooling
-
-TODO
-
-### File structure
 
 TODO
