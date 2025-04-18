@@ -1,8 +1,11 @@
+use std::path::PathBuf;
+
 use data::{Server, config};
 
 use crate::widget::Element;
 
 pub mod connect_to_server;
+pub mod image_preview;
 pub mod prompt_before_open_url;
 pub mod reload_configuration_error;
 
@@ -15,6 +18,7 @@ pub enum Modal {
         config: config::Server,
     },
     PromptBeforeOpenUrl(String),
+    ImagePreview(PathBuf),
 }
 
 #[derive(Debug, Clone)]
@@ -60,6 +64,7 @@ impl Modal {
             Modal::PromptBeforeOpenUrl(payload) => {
                 prompt_before_open_url::view(payload)
             }
+            Modal::ImagePreview(path) => image_preview::view(path),
         }
     }
 }
