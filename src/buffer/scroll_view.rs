@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::dashboard::BufferAction;
@@ -33,6 +34,7 @@ pub enum Message {
     },
     UserContext(user_context::Message),
     Link(message::Link),
+    ImagePreview(PathBuf),
     ScrollTo(keyed::Hit),
     RequestOlderChatHistory,
     EnteringViewport(message::Hash, Vec<url::Url>),
@@ -53,6 +55,7 @@ pub enum Event {
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead,
     OpenUrl(String),
+    ImagePreview(PathBuf),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -640,6 +643,9 @@ impl State {
             Message::MarkAsRead => {
                 return (Task::none(), Some(Event::MarkAsRead));
             }
+            Message::ImagePreview(path) => {
+                return (Task::none(), Some(Event::ImagePreview(path)));
+            }
         }
 
         (Task::none(), None)
@@ -1149,7 +1155,7 @@ fn preview_row<'a>(
                         .max_width(550)
                         .max_height(350),
                 )
-                .on_press(Message::Link(message::Link::Url(url.to_string())))
+                .on_press(Message::ImagePreview(path.to_path_buf()))
                 .padding(0)
                 .style(theme::button::bare),
             )

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use data::dashboard::BufferAction;
 use data::target::Target;
 use data::{Config, buffer, history, message};
@@ -20,6 +22,7 @@ pub enum Event {
     History(Task<history::manager::Message>),
     MarkAsRead(history::Kind),
     OpenUrl(String),
+    ImagePreview(PathBuf),
 }
 
 pub fn view<'a>(
@@ -188,7 +191,12 @@ impl Server {
                         ))
                         .map(Event::MarkAsRead)
                     }
-                    scroll_view::Event::OpenUrl(url) => Some(Event::OpenUrl(url)),
+                    scroll_view::Event::OpenUrl(url) => {
+                        Some(Event::OpenUrl(url))
+                    }
+                    scroll_view::Event::ImagePreview(url) => {
+                        Some(Event::ImagePreview(url))
+                    }
                 });
 
                 (command.map(Message::ScrollView), event)

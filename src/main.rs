@@ -385,13 +385,20 @@ impl Halloy {
                             Task::none()
                         }
                     }
-                    Some(dashboard::Event::OpenUrl(url, prompt_before_open)) => {
+                    Some(dashboard::Event::OpenUrl(
+                        url,
+                        prompt_before_open,
+                    )) => {
                         if prompt_before_open {
                             self.modal = Some(Modal::PromptBeforeOpenUrl(url));
                         } else {
                             let _ = open::that_detached(url);
                         }
 
+                        Task::none()
+                    }
+                    Some(dashboard::Event::ImagePreview(path)) => {
+                        self.modal = Some(Modal::ImagePreview(path));
                         Task::none()
                     }
                     None => Task::none(),
