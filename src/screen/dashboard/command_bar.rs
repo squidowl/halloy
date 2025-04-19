@@ -286,8 +286,8 @@ impl Version {
 impl Configuration {
     fn list() -> Vec<Self> {
         vec![
-            Configuration::OpenConfigDirectory,
             Configuration::OpenConfigFile,
+            Configuration::OpenConfigDirectory,
             Configuration::OpenDataDirectory,
             Configuration::OpenCacheDirectory,
             Configuration::OpenWebsite,
