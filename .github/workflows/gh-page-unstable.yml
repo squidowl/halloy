@@ -18,7 +18,7 @@ jobs:
           mdbook-version: 'latest'
 
       - name: Install mdbook plugins
-        run: cargo install mdbook-linkcheck
+        run: cargo install mdbook-linkcheck mdbook-external-links mdbook-mermaid
 
       - run: mdbook build book
 
