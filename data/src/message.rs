@@ -964,57 +964,11 @@ fn target(
                 source: Source::Action(None),
             })
         }
-        Command::PRIVMSG(target, text) => {
+        Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
             let is_action = is_action(&text);
-            let source = |user| {
-                if is_action {
-                    Source::Action(Some(user))
-                } else {
-                    Source::User(user)
-                }
-            };
 
-            match (
-                target::Target::parse(
-                    &target,
-                    chantypes,
-                    statusmsg,
-                    casemapping,
-                ),
-                user,
-            ) {
-                (target::Target::Channel(channel), Some(user)) => {
-                    let source = source(
-                        resolve_attributes(&user, &channel).unwrap_or(user),
-                    );
-                    Some(Target::Channel { channel, source })
-                }
-                (target::Target::Query(query), Some(user)) => {
-                    let query = if user.nickname() == *our_nick {
-                        // Message from ourself, from another client.
-                        query
-                    } else {
-                        // Message from conversation partner.
-                        target::Query::parse(
-                            user.as_str(),
-                            chantypes,
-                            statusmsg,
-                            casemapping,
-                        )
-                        .ok()?
-                    };
-
-                    Some(Target::Query {
-                        query,
-                        source: source(user),
-                    })
-                }
-                _ => None,
-            }
-        }
-        Command::NOTICE(target, text) => {
             // CTCP Handling.
-            if ctcp::parse_query(&text).is_some() {
+            if ctcp::is_query(&text) && !is_action {
                 let user = user?;
                 let target = User::from(Nick::from(target));
 
@@ -1030,7 +984,6 @@ fn target(
                     source: Source::Server(None),
                 })
             } else {
-                let is_action = is_action(&text);
                 let source = |user| {
                     if is_action {
                         Source::Action(Some(user))
@@ -1056,10 +1009,10 @@ fn target(
                     }
                     (target::Target::Query(query), Some(user)) => {
                         let query = if user.nickname() == *our_nick {
-                            // Notice from ourself, from another client.
+                            // Message from ourself, from another client.
                             query
                         } else {
-                            // Notice from conversation partner.
+                            // Message from conversation partner.
                             target::Query::parse(
                                 user.as_str(),
                                 chantypes,
@@ -1074,9 +1027,7 @@ fn target(
                             source: source(user),
                         })
                     }
-                    _ => Some(Target::Server {
-                        source: Source::Server(None),
-                    }),
+                    _ => None,
                 }
             }
         }
@@ -1350,7 +1301,7 @@ fn content<'a>(
                     )
                 })
         }
-        Command::PRIVMSG(target, text) => {
+        Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
             let channel_users = target::Channel::parse(
                 target,
                 chantypes,
@@ -1361,6 +1312,7 @@ fn content<'a>(
             .unwrap_or_default();
 
             // Check if a synthetic action message
+
             if let Some(nick) = message.user().as_ref().map(User::nickname) {
                 if let Some(action) = parse_action(
                     nick,
@@ -1374,34 +1326,23 @@ fn content<'a>(
                 }
             }
 
-            Some(parse_fragments_with_highlights(
-                text.clone(),
-                channel_users,
-                target,
-                Some(our_nick),
-                &config.highlights,
-            ))
-        }
-        Command::NOTICE(target, text) => {
             if let Some(query) = ctcp::parse_query(text) {
-                let command = query.command.as_ref();
-                let text = match &query.params {
-                    Some("") => "(empty)",
-                    Some(text) => text,
-                    None => return None, // Return if we don't have any params.
+                let arrow = if target == our_nick.as_ref() {
+                    "⟵"
+                } else {
+                    "⟶"
                 };
 
-                return Some(parse_fragments(format!("{command} {text}")));
-            }
+                let command = query.command.as_ref();
 
-            let channel_users = target::Channel::parse(
-                target,
-                chantypes,
-                statusmsg,
-                casemapping,
-            )
-            .map(|channel| channel_users(&channel))
-            .unwrap_or_default();
+                let text = if let Some(params) = query.params {
+                    [arrow, command, params].join(" ")
+                } else {
+                    [arrow, command].join(" ")
+                };
+
+                return Some(parse_fragments(text));
+            }
 
             Some(parse_fragments_with_highlights(
                 text.clone(),
@@ -1672,6 +1613,10 @@ fn parse_action(
     our_nick: Option<&Nick>,
     highlights: &Highlights,
 ) -> Option<Content> {
+    if !is_action(text) {
+        return None;
+    }
+
     let query = ctcp::parse_query(text)?;
 
     Some(action_text(
