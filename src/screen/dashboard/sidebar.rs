@@ -29,10 +29,11 @@ pub enum Message {
     ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
     ToggleThemeEditor,
-    ReloadingConfigFile,
+    ReloadConfigFile,
     ConfigReloaded(Result<Config, config::Error>),
     OpenReleaseWebsite,
     OpenDocumentation,
+    OpenConfigFile,
     ReloadComplete,
     MarkAsRead(buffer::Upstream),
 }
@@ -51,6 +52,7 @@ pub enum Event {
     ToggleThemeEditor,
     OpenReleaseWebsite,
     OpenDocumentation,
+    OpenConfigFile,
     ConfigReloaded(Result<Config, config::Error>),
     MarkAsRead(buffer::Upstream),
 }
@@ -112,7 +114,7 @@ impl Sidebar {
             Message::ToggleThemeEditor => {
                 (Task::none(), Some(Event::ToggleThemeEditor))
             }
-            Message::ReloadingConfigFile => {
+            Message::ReloadConfigFile => {
                 self.reloading_config = true;
                 (Task::perform(Config::load(), Message::ConfigReloaded), None)
             }
@@ -134,6 +136,9 @@ impl Sidebar {
             }
             Message::MarkAsRead(buffer) => {
                 (Task::none(), Some(Event::MarkAsRead(buffer)))
+            }
+            Message::OpenConfigFile => {
+                (Task::none(), Some(Event::OpenConfigFile))
             }
         }
     }
@@ -180,10 +185,10 @@ impl Sidebar {
 
                     match menu {
                         Menu::RefreshConfig => context_button(
-                            text("Reload configuration"),
+                            text("Reload config file"),
                             Some(&keyboard.reload_configuration),
                             icon::refresh(),
-                            Message::ReloadingConfigFile,
+                            Message::ReloadConfigFile,
                         ),
                         Menu::CommandBar => context_button(
                             text("Command Bar"),
@@ -259,6 +264,12 @@ impl Sidebar {
                             None,
                             icon::documentation(),
                             Message::OpenDocumentation,
+                        ),
+                        Menu::OpenConfigFile => context_button(
+                            text("Open config file"),
+                            None,
+                            icon::config(),
+                            Message::OpenConfigFile,
                         ),
                     }
                 },
@@ -465,6 +476,7 @@ enum Menu {
     Version,
     HorizontalRule,
     Documentation,
+    OpenConfigFile,
 }
 
 impl Menu {
@@ -473,12 +485,13 @@ impl Menu {
             Menu::Version,
             Menu::HorizontalRule,
             Menu::CommandBar,
+            Menu::Documentation,
             Menu::FileTransfers,
             Menu::Highlights,
             Menu::Logs,
+            Menu::OpenConfigFile,
             Menu::RefreshConfig,
             Menu::ThemeEditor,
-            Menu::Documentation,
         ]
     }
 }
