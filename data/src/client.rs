@@ -1133,12 +1133,7 @@ impl Client {
                         let is_action = message::is_action(text);
 
                         // Ignore CTCP Action queries.
-                        if !is_action {
-                            // Ignore CTCP echo
-                            if is_echo {
-                                return Ok(vec![]);
-                            }
-
+                        if !is_action && !is_echo {
                             // Response to us sending a CTCP request to another client
                             if matches!(&message.command, Command::NOTICE(_, _))
                             {
