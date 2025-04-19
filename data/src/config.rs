@@ -10,6 +10,7 @@ use tokio_stream::wrappers::ReadDirStream;
 
 pub use self::actions::Actions;
 pub use self::buffer::Buffer;
+pub use self::ctcp::Ctcp;
 pub use self::file_transfer::FileTransfer;
 pub use self::highlights::Highlights;
 pub use self::keys::Keyboard;
@@ -28,6 +29,7 @@ use crate::{Theme, environment};
 
 pub mod actions;
 pub mod buffer;
+pub mod ctcp;
 pub mod file_transfer;
 pub mod highlights;
 pub mod keys;
@@ -58,6 +60,7 @@ pub struct Config {
     pub preview: Preview,
     pub highlights: Highlights,
     pub actions: Actions,
+    pub ctcp: Ctcp,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -180,6 +183,8 @@ impl Config {
             pub highlights: Highlights,
             #[serde(default)]
             pub actions: Actions,
+            #[serde(default)]
+            pub ctcp: Ctcp,
         }
 
         let path = Self::path();
@@ -208,6 +213,7 @@ impl Config {
             pane,
             highlights,
             actions,
+            ctcp,
         } = toml::from_str(content.as_ref())
             .map_err(|e| Error::Parse(e.to_string()))?;
 
@@ -235,6 +241,7 @@ impl Config {
             pane,
             highlights,
             actions,
+            ctcp,
         })
     }
 
