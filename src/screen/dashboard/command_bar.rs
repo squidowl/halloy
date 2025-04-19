@@ -154,6 +154,7 @@ pub enum Buffer {
 pub enum Configuration {
     Reload,
     OpenConfigDirectory,
+    OpenConfigFile,
     OpenWebsite,
     OpenCacheDirectory,
     OpenDataDirectory,
@@ -285,6 +286,7 @@ impl Version {
 impl Configuration {
     fn list() -> Vec<Self> {
         vec![
+            Configuration::OpenConfigFile,
             Configuration::OpenConfigDirectory,
             Configuration::OpenDataDirectory,
             Configuration::OpenCacheDirectory,
@@ -399,6 +401,9 @@ impl std::fmt::Display for Configuration {
             }
             Configuration::OpenDataDirectory => {
                 write!(f, "Open data directory")
+            }
+            Configuration::OpenConfigFile => {
+                write!(f, "Open config file in default editor")
             }
         }
     }

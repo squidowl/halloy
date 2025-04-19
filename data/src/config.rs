@@ -121,7 +121,7 @@ impl Config {
         dir
     }
 
-    fn path() -> PathBuf {
+    pub fn path() -> PathBuf {
         Self::config_dir().join(environment::CONFIG_FILE_NAME)
     }
 
