@@ -490,6 +490,39 @@ impl Commands {
                     subcommands: None,
                 }
             },
+            // CTCP
+            {
+                Command {
+                title: "CTCP",
+                args: vec![
+                    Arg {
+                        text: "nick",
+                        optional: false,
+                        tooltip: None,
+                    },
+                    Arg {
+                        text: "command",
+                        optional: false,
+                        tooltip: Some(
+                            "    ACTION: Display <text> as a third-person action or emote\
+                           \nCLIENTINFO: Request a list of the CTCP messages <nick> supports\
+                           \n      PING: Request a reply containing the same <info> that was sent\
+                           \n    SOURCE: Request a URL where the source code for <nick>'s IRC client can be found\
+                           \n      TIME: Request the <nick>'s local time in a human-readable format\
+                           \n   VERSION: Request the name and version of <nick>'s IRC client".to_string(),
+                        ),
+                    },
+                ],
+                subcommands: Some(vec![
+                        ctcp_action_command(),
+                        ctcp_clientinfo_command(),
+                        ctcp_ping_command(),
+                        ctcp_source_command(),
+                        ctcp_time_command(),
+                        ctcp_version_command()
+                    ]),
+            }
+            },
         ];
 
         let isupport_commands = isupport
@@ -1055,6 +1088,66 @@ fn away_command(max_len: Option<u16>) -> Command {
             optional: true,
             tooltip,
         }],
+        subcommands: None,
+    }
+}
+
+fn ctcp_action_command() -> Command {
+    Command {
+        title: "CTCP ACTION",
+        args: vec![Arg {
+            text: "text",
+            optional: false,
+            tooltip: Some(String::from(
+                "message to display as a third-person action or emote",
+            )),
+        }],
+        subcommands: None,
+    }
+}
+
+fn ctcp_clientinfo_command() -> Command {
+    Command {
+        title: "CTCP CLIENTINFO",
+        args: vec![],
+        subcommands: None,
+    }
+}
+
+fn ctcp_ping_command() -> Command {
+    Command {
+        title: "CTCP PING",
+        args: vec![Arg {
+            text: "info",
+            optional: false,
+            tooltip: Some(String::from(
+                "text that should be exactly reproduced in the reply PING",
+            )),
+        }],
+        subcommands: None,
+    }
+}
+
+fn ctcp_source_command() -> Command {
+    Command {
+        title: "CTCP SOURCE",
+        args: vec![],
+        subcommands: None,
+    }
+}
+
+fn ctcp_time_command() -> Command {
+    Command {
+        title: "CTCP TIME",
+        args: vec![],
+        subcommands: None,
+    }
+}
+
+fn ctcp_version_command() -> Command {
+    Command {
+        title: "CTCP VERSION",
+        args: vec![],
         subcommands: None,
     }
 }
