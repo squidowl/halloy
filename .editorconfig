@@ -9,7 +9,11 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 
 [*.rs]
-indent_size = 4
+indent_size = unset
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
 
 [*.md]
 # double whitespace at end of line
