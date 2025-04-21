@@ -83,7 +83,7 @@ pub enum Event {
     IrcError(anyhow::Error),
     Exit,
     OpenUrl(String, bool),
-    ImagePreview(PathBuf),
+    ImagePreview(PathBuf, url::Url),
 }
 
 impl Dashboard {
@@ -537,10 +537,10 @@ impl Dashboard {
                                         )),
                                     );
                                 }
-                                buffer::Event::ImagePreview(path) => {
+                                buffer::Event::ImagePreview(path, url) => {
                                     return (
                                         Task::none(),
-                                        Some(Event::ImagePreview(path)),
+                                        Some(Event::ImagePreview(path, url)),
                                     );
                                 }
                             }

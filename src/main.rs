@@ -397,8 +397,12 @@ impl Halloy {
 
                         Task::none()
                     }
-                    Some(dashboard::Event::ImagePreview(path)) => {
-                        self.modal = Some(Modal::ImagePreview(path));
+                    Some(dashboard::Event::ImagePreview(path, url)) => {
+                        self.modal = Some(Modal::ImagePreview {
+                            source: path,
+                            url,
+                            timer: None,
+                        });
                         Task::none()
                     }
                     None => Task::none(),
@@ -994,7 +998,9 @@ impl Halloy {
                     return Task::none();
                 };
 
-                if let Some(event) = modal.update(message) {
+                let (command, event) = modal.update(message);
+
+                if let Some(event) = event {
                     match event {
                         modal::Event::CloseModal => {
                             self.modal = None;
@@ -1046,7 +1052,7 @@ impl Halloy {
                     }
                 }
 
-                Task::none()
+                command.map(Message::Modal)
             }
             Message::RouteReceived(route) => {
                 log::info!("RouteRecived: {:?}", route);
