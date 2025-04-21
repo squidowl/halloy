@@ -102,6 +102,20 @@ delay_ms = 500
 
 Specific image preview settings.
 
+### `action`
+
+Action when clicking on a image. `open-url` will open the image in the browser, and `preview` will display a larger version of the image in-app.
+
+```toml
+# Type: string
+# Values: "open-url", "preview"
+# Default: "preview"
+
+[preview.image]
+action = "preview"
+```
+
+
 ### `include`
 
 Include image previews from channels.

@@ -34,7 +34,7 @@ pub enum Message {
     },
     UserContext(user_context::Message),
     Link(message::Link),
-    ImagePreview(PathBuf),
+    ImagePreview(PathBuf, url::Url),
     ScrollTo(keyed::Hit),
     RequestOlderChatHistory,
     EnteringViewport(message::Hash, Vec<url::Url>),
@@ -55,7 +55,7 @@ pub enum Event {
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead,
     OpenUrl(String),
-    ImagePreview(PathBuf),
+    ImagePreview(PathBuf, url::Url),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -643,8 +643,8 @@ impl State {
             Message::MarkAsRead => {
                 return (Task::none(), Some(Event::MarkAsRead));
             }
-            Message::ImagePreview(path) => {
-                return (Task::none(), Some(Event::ImagePreview(path)));
+            Message::ImagePreview(path, url) => {
+                return (Task::none(), Some(Event::ImagePreview(path, url)));
             }
         }
 
@@ -1155,7 +1155,14 @@ fn preview_row<'a>(
                         .max_width(550)
                         .max_height(350),
                 )
-                .on_press(Message::ImagePreview(path.to_path_buf()))
+                .on_press(match config.preview.image.action {
+                    data::config::preview::ImageAction::OpenUrl => {
+                        Message::Link(message::Link::Url(url.to_string()))
+                    }
+                    data::config::preview::ImageAction::Preview => {
+                        Message::ImagePreview(path.to_path_buf(), url.clone())
+                    }
+                })
                 .padding(0)
                 .style(theme::button::bare),
             )

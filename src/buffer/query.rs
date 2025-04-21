@@ -28,7 +28,7 @@ pub enum Event {
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead(history::Kind),
     OpenUrl(String),
-    ImagePreview(PathBuf),
+    ImagePreview(PathBuf, url::Url),
 }
 
 pub fn view<'a>(
@@ -352,8 +352,8 @@ impl Query {
                     scroll_view::Event::OpenUrl(url) => {
                         Some(Event::OpenUrl(url))
                     }
-                    scroll_view::Event::ImagePreview(path) => {
-                        Some(Event::ImagePreview(path))
+                    scroll_view::Event::ImagePreview(path, url) => {
+                        Some(Event::ImagePreview(path, url))
                     }
                 });
 
