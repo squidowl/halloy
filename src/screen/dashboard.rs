@@ -2117,11 +2117,6 @@ impl Dashboard {
         window: window::Id,
         pane: pane_grid::Pane,
     ) -> Task<Message> {
-        if self.is_pane_maximized() && window == self.main_window() {
-            self.panes.main.restore();
-            self.panes.main.maximize(pane);
-        }
-
         if (self.focus != Focus { window, pane }) {
             self.focus = Focus { window, pane };
 
@@ -2131,6 +2126,11 @@ impl Dashboard {
                 self.focus_history.push_front(pane);
 
                 self.focus_history.truncate(FOCUS_HISTORY_LEN);
+
+                if self.is_pane_maximized() {
+                    self.panes.main.restore();
+                    self.panes.main.maximize(pane);
+                }
             }
         }
 
