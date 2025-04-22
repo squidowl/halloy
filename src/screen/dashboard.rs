@@ -611,21 +611,7 @@ impl Dashboard {
                         None,
                     ),
                     sidebar::Event::Focus(window, pane) => {
-                        let task = self.focus_pane(window, pane);
-
-                        let new_buffer = {
-                            let state_ref = self.panes.get(window, pane).unwrap();
-                            state_ref.buffer.clone()
-                        };
-
-                        if let Some(maxed) = self.panes.main.maximized() {
-                            if let Some(state) = self.panes.get_mut(window, maxed)
-                            {
-                                state.buffer = new_buffer;
-                            }
-                        }
-
-                        (task, None)
+                        (self.focus_pane(window, pane), None)
                     }
                     sidebar::Event::Replace(buffer) => (
                         self.open_buffer(
