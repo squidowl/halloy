@@ -1126,6 +1126,51 @@ brackets = { left = "[", right = "]" }
 [buffer.url]
 prompt_before_open = true
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ctcp"><a class="header" href="#ctcp"><code>[ctcp]</code></a></h1>
+<p><a href="https://modern.ircdocs.horse/ctcp">Client-to-Client Protocol</a> response settings.</p>
+<p><strong>Example</strong></p>
+<pre><code class="language-toml"># Disable responses for TIME and VERSION responses
+
+[ctcp]
+time = false
+version = false
+</code></pre>
+<h1 id="ping"><a class="header" href="#ping"><code>ping</code></a></h1>
+<p>Whether Halloy will respond to a <a href="https://modern.ircdocs.horse/ctcp#ping">CTCP PING</a> message.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[ctcp]
+ping = true
+</code></pre>
+<h1 id="source"><a class="header" href="#source"><code>source</code></a></h1>
+<p>Whether Halloy will respond to a <a href="https://modern.ircdocs.horse/ctcp#source">CTCP TIME</a> message.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[ctcp]
+source = true
+</code></pre>
+<h1 id="time"><a class="header" href="#time"><code>time</code></a></h1>
+<p>Whether Halloy will respond to a <a href="https://modern.ircdocs.horse/ctcp#time">CTCP TIME</a> message.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[ctcp]
+time = true
+</code></pre>
+<h1 id="version"><a class="header" href="#version"><code>version</code></a></h1>
+<p>Whether Halloy will respond to a <a href="https://modern.ircdocs.horse/ctcp#version">CTCP VERSION</a> message.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[ctcp]
+version = true
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="file_transfer"><a class="header" href="#file_transfer"><code>[file_transfer]</code></a></h1>
 <p>File transfer configuration options.</p>
 <h2 id="save_directory"><a class="header" href="#save_directory"><code>save_directory</code></a></h2>
@@ -2259,6 +2304,7 @@ A list of community created themes can be found <a href="./configuration/themes/
 <tr><td><code>raw</code></td><td></td><td>Send data to the server without modifying it</td></tr>
 <tr><td><code>topic</code></td><td><code>t</code></td><td>Retrieve the topic of a channel or set a new topic</td></tr>
 <tr><td><code>whois</code></td><td></td><td>Retrieve information about user(s)</td></tr>
+<tr><td><code>ctcp</code></td><td></td><td>Client-To-Client requests</td></tr>
 </tbody></table>
 </div>
                     </main>
