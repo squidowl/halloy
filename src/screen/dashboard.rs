@@ -2129,6 +2129,11 @@ impl Dashboard {
             }
         }
 
+        if self.is_pane_maximized() && window == self.main_window() {
+            self.panes.main.restore();
+            self.panes.main.maximize(pane);
+        }
+
         self.refocus_pane()
     }
 
