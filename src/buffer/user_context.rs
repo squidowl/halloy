@@ -1,6 +1,6 @@
 use data::dashboard::BufferAction;
 use data::user::Nick;
-use data::{Config, Server, User, config, isupport, target};
+use data::{Config, Server, User, config, ctcp, isupport, target};
 use iced::widget::{
     Space, button, column, container, horizontal_rule, row, text,
 };
@@ -18,6 +18,8 @@ pub enum Entry {
     SendFile,
     UserInfo,
     HorizontalRule,
+    CtcpRequestTime,
+    CtcpRequestVersion,
 }
 
 impl Entry {
@@ -31,9 +33,13 @@ impl Entry {
                     Entry::HorizontalRule,
                     Entry::Whois,
                     Entry::Query,
+                    Entry::SendFile,
+                    Entry::HorizontalRule,
                     Entry::ToggleAccessLevelOp,
                     Entry::ToggleAccessLevelVoice,
-                    Entry::SendFile,
+                    Entry::HorizontalRule,
+                    Entry::CtcpRequestVersion,
+                    Entry::CtcpRequestTime,
                 ]
             } else {
                 vec![
@@ -42,6 +48,9 @@ impl Entry {
                     Entry::Whois,
                     Entry::Query,
                     Entry::SendFile,
+                    Entry::HorizontalRule,
+                    Entry::CtcpRequestVersion,
+                    Entry::CtcpRequestTime,
                 ]
             }
         } else {
@@ -148,6 +157,26 @@ impl Entry {
                 }
                 _ => Space::new(length, 1).into(),
             },
+            Entry::CtcpRequestTime => menu_button(
+                "Local Time (TIME)",
+                Message::CtcpRequest(
+                    ctcp::Command::Time,
+                    server.clone(),
+                    nickname,
+                    None,
+                ),
+                length,
+            ),
+            Entry::CtcpRequestVersion => menu_button(
+                "Client (VERSION)",
+                Message::CtcpRequest(
+                    ctcp::Command::Version,
+                    server.clone(),
+                    nickname,
+                    None,
+                ),
+                length,
+            ),
         }
     }
 }
@@ -159,6 +188,7 @@ pub enum Message {
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, Nick),
     InsertNickname(Nick),
+    CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -168,6 +198,7 @@ pub enum Event {
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, Nick),
     InsertNickname(Nick),
+    CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
 }
 
 pub fn update(message: Message) -> Event {
@@ -181,6 +212,9 @@ pub fn update(message: Message) -> Event {
         }
         Message::SendFile(server, nick) => Event::SendFile(server, nick),
         Message::InsertNickname(nick) => Event::InsertNickname(nick),
+        Message::CtcpRequest(command, server, nick, params) => {
+            Event::CtcpRequest(command, server, nick, params)
+        }
     }
 }
 
