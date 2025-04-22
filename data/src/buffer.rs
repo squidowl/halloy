@@ -171,6 +171,8 @@ pub struct Autocomplete {
     pub sort_direction: SortDirection,
     #[serde(default = "default_completion_suffixes")]
     pub completion_suffixes: [String; 2],
+    #[serde(default = "default_bool_true")]
+    pub order_by_recency: bool,
 }
 
 impl Default for Autocomplete {
@@ -178,6 +180,7 @@ impl Default for Autocomplete {
         Self {
             sort_direction: SortDirection::default(),
             completion_suffixes: default_completion_suffixes(),
+            order_by_recency: default_bool_true(),
         }
     }
 }

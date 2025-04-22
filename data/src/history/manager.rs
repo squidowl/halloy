@@ -322,6 +322,19 @@ impl Manager {
         self.data.history_view(kind, limit, buffer_config)
     }
 
+    pub fn get_last_seen(
+        &self,
+        buffer: &buffer::Upstream,
+    ) -> HashMap<Nick, DateTime<Utc>> {
+        let kind = history::Kind::from_input_buffer(buffer.clone());
+
+        self.data
+            .map
+            .get(&kind)
+            .map(History::last_seen)
+            .unwrap_or_default()
+    }
+
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
         let queries = self
             .data
@@ -339,10 +352,7 @@ impl Manager {
     }
 
     pub fn has_unread(&self, kind: &history::Kind) -> bool {
-        self.data
-            .map
-            .get(kind)
-            .is_some_and(History::has_unread)
+        self.data.map.get(kind).is_some_and(History::has_unread)
     }
 
     pub fn read_marker(
@@ -556,39 +566,53 @@ impl Data {
                     messages: new_messages,
                     last_updated_at,
                     read_marker: partial_read_marker,
+                    last_seen,
                     ..
                 } => {
                     let read_marker =
                         (*partial_read_marker).max(metadata.read_marker);
 
                     let last_updated_at = *last_updated_at;
+
+                    let mut last_seen = last_seen.clone();
+
                     std::mem::take(new_messages).into_iter().for_each(
                         |message| {
+                            history::update_last_seen(&mut last_seen, &message);
+
                             history::insert_message(&mut messages, message);
                         },
                     );
+
                     entry.insert(History::Full {
                         kind,
                         messages,
                         last_updated_at,
                         read_marker,
+                        last_seen,
                     });
                 }
                 _ => {
+                    let last_seen = history::get_last_seen(&messages);
+
                     entry.insert(History::Full {
                         kind,
                         messages,
                         last_updated_at: None,
                         read_marker: metadata.read_marker,
+                        last_seen,
                     });
                 }
             },
             hash_map::Entry::Vacant(entry) => {
+                let last_seen = history::get_last_seen(&messages);
+
                 entry.insert(History::Full {
                     kind,
                     messages,
                     last_updated_at: None,
                     read_marker: metadata.read_marker,
+                    last_seen,
                 });
             }
         }
@@ -615,7 +639,7 @@ impl Data {
             return None;
         };
 
-        let mut most_recent_messages = HashMap::<Nick, DateTime<Utc>>::new();
+        let mut last_seen = HashMap::<Nick, DateTime<Utc>>::new();
 
         let filtered = messages
             .iter()
@@ -653,7 +677,7 @@ impl Data {
                             return !smart_filter_message(
                                 message,
                                 &seconds,
-                                most_recent_messages.get(&nick),
+                                last_seen.get(&nick),
                             );
                         }
                     }
@@ -661,7 +685,7 @@ impl Data {
                     true
                 }
                 crate::message::Source::User(message_user) => {
-                    most_recent_messages.insert(
+                    last_seen.insert(
                         message_user.nickname().to_owned(),
                         message.server_time,
                     );
@@ -908,15 +932,11 @@ impl Data {
     }
 
     fn mark_as_read(&mut self, kind: &history::Kind) -> Option<ReadMarker> {
-        self.map
-            .get_mut(kind)
-            .and_then(History::mark_as_read)
+        self.map.get_mut(kind).and_then(History::mark_as_read)
     }
 
     fn can_mark_as_read(&self, kind: &history::Kind) -> bool {
-        self.map
-            .get(kind)
-            .is_some_and(History::can_mark_as_read)
+        self.map.get(kind).is_some_and(History::can_mark_as_read)
     }
 
     fn untrack(
@@ -964,9 +984,9 @@ impl Data {
 fn smart_filter_message(
     message: &crate::Message,
     seconds: &i64,
-    most_recent_message_server_time: Option<&DateTime<Utc>>,
+    last_seen_server_time: Option<&DateTime<Utc>>,
 ) -> bool {
-    let Some(server_time) = most_recent_message_server_time else {
+    let Some(server_time) = last_seen_server_time else {
         return true;
     };
 
