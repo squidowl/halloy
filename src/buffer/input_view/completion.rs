@@ -8,7 +8,7 @@ use data::user::User;
 use data::{Config, target};
 use iced::Length;
 use iced::widget::{column, container, row, text, tooltip};
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 use strsim::jaro_winkler;
 
 use crate::theme;
@@ -214,10 +214,12 @@ impl Entry {
 
                 let mut new_input = words.join(" ");
 
-                // If next is not the original prompt, then append the configured suffix
+                // If next is not the original prompt, then append the
+                // configured suffix
                 if *append_suffix {
                     if words.len() == 1 && !is_channel {
-                        // If completed at the beginning of the input line and not a channel.
+                        // If completed at the beginning of the input line and
+                        // not a channel.
                         let suffix = &autocomplete.completion_suffixes[0];
                         new_input.push_str(suffix);
                     } else {
@@ -488,6 +490,39 @@ impl Commands {
                     subcommands: None,
                 }
             },
+            // CTCP
+            {
+                Command {
+                title: "CTCP",
+                args: vec![
+                    Arg {
+                        text: "nick",
+                        optional: false,
+                        tooltip: None,
+                    },
+                    Arg {
+                        text: "command",
+                        optional: false,
+                        tooltip: Some(
+                            "    ACTION: Display <text> as a third-person action or emote\
+                           \nCLIENTINFO: Request a list of the CTCP messages <nick> supports\
+                           \n      PING: Request a reply containing the same <info> that was sent\
+                           \n    SOURCE: Request a URL where the source code for <nick>'s IRC client can be found\
+                           \n      TIME: Request the <nick>'s local time in a human-readable format\
+                           \n   VERSION: Request the name and version of <nick>'s IRC client".to_string(),
+                        ),
+                    },
+                ],
+                subcommands: Some(vec![
+                        ctcp_action_command(),
+                        ctcp_clientinfo_command(),
+                        ctcp_ping_command(),
+                        ctcp_source_command(),
+                        ctcp_time_command(),
+                        ctcp_version_command()
+                    ]),
+            }
+            },
         ];
 
         let isupport_commands = isupport
@@ -563,27 +598,36 @@ impl Commands {
                     *self = Self::Idle;
                 }
             }
-            // Command fully typed & already selected, check for subcommand if any exist
+            // Command fully typed & already selected, check for subcommand if
+            // any exist
             Self::Selected { command, .. } => {
                 if let Some(subcommands) = &command.subcommands {
-                    let subcmd =
-                        if let Some(index) = &rest[cmd.len() + 1..].find(' ') {
-                            &rest[0..cmd.len() + 1 + index]
-                        } else {
-                            rest
+                    if let Some(subcmd) = rest[cmd.len() + 1..]
+                        .split_ascii_whitespace()
+                        .nth(command.args.len() - 1)
+                    {
+                        let subcmd =
+                            (String::from(command.title) + " " + subcmd)
+                                .to_lowercase();
+
+                        let subcommand =
+                            subcommands.iter().find(|subcommand| {
+                                subcommand.title.to_lowercase() == subcmd
+                                    || subcommand.alias().iter().any(|alias| {
+                                        alias.to_lowercase() == subcmd
+                                    })
+                            });
+
+                        *self = Self::Selected {
+                            command: command.clone(),
+                            subcommand: subcommand.cloned(),
                         };
-
-                    let subcommand = subcommands.iter().find(|subcommand| {
-                        subcommand.title.to_lowercase() == subcmd.to_lowercase()
-                            || subcommand.alias().iter().any(|alias| {
-                                alias.to_lowercase() == subcmd.to_lowercase()
-                            })
-                    });
-
-                    *self = Self::Selected {
-                        command: command.clone(),
-                        subcommand: subcommand.cloned(),
-                    };
+                    } else {
+                        *self = Self::Selected {
+                            command: command.clone(),
+                            subcommand: None,
+                        };
+                    }
                 }
             }
         }
@@ -687,10 +731,7 @@ impl Commands {
                 subcommand,
             } => {
                 if config.buffer.commands.show_description {
-                    subcommand
-                        .as_ref()
-                        .map(|sub| sub.view(input))
-                        .or_else(|| Some(command.view(input)))
+                    Some(command.view(input, subcommand.as_ref()))
                 } else {
                     None
                 }
@@ -735,7 +776,23 @@ impl Command {
             "topic" => "Retrieve the topic of a channel or set a new topic",
             "whois" => "Retrieve information about user(s)",
             "format" => "Format text using markdown or $ sequences",
-
+            "ctcp" => "Send Client-To-Client requests",
+            "ctcp action" => "Display <text> as a third-person action or emote",
+            "ctcp clientinfo" => {
+                "Request a list of the CTCP messages <nick> supports"
+            }
+            "ctcp ping" => {
+                "Request a reply containing the same <info> that was sent"
+            }
+            "ctcp source" => {
+                "Request a URL where the source code for <nick>'s IRC client can be found"
+            }
+            "ctcp time" => {
+                "Request the <nick>'s local time in a human-readable format"
+            }
+            "ctcp version" => {
+                "Request the name and version of <nick>'s IRC client"
+            }
             _ => return None,
         })
     }
@@ -759,7 +816,11 @@ impl Command {
         }
     }
 
-    fn view<'a, Message: 'a>(&self, input: &str) -> Element<'a, Message> {
+    fn view<'a, Message: 'a>(
+        &self,
+        input: &str,
+        subcommand: Option<&Command>,
+    ) -> Element<'a, Message> {
         let command_prefix = format!("/{}", self.title.to_lowercase());
 
         let active_arg = [
@@ -774,11 +835,15 @@ impl Command {
         .split_ascii_whitespace()
         .count()
         .saturating_sub(2)
-        .min(self.args.len().saturating_sub(1));
+        .min(
+            (self.args.len()
+                + subcommand.map_or(0, |subcommand| subcommand.args.len()))
+            .saturating_sub(1),
+        );
 
         let title = Some(Element::from(text(self.title)));
 
-        let args = self.args.iter().enumerate().map(|(index, arg)| {
+        let arg_text = |index: usize, arg: &Arg| {
             let content = text(format!("{arg}")).style(move |theme| {
                 if index == active_arg {
                     theme::text::tertiary(theme)
@@ -820,13 +885,45 @@ impl Command {
             } else {
                 Element::from(row![text(" "), content])
             }
-        });
+        };
+
+        let args = if let Some(subcommand) = subcommand {
+            Either::Left(
+                self.args
+                    .iter()
+                    .take(self.args.len() - 1)
+                    .enumerate()
+                    .map(|(index, arg)| arg_text(index, arg))
+                    .chain(std::iter::once(Element::from(row![text(
+                        subcommand
+                            .title
+                            .strip_prefix(self.title)
+                            .unwrap_or_default()
+                    )])))
+                    .chain(subcommand.args.iter().enumerate().map(
+                        |(index, arg)| arg_text(self.args.len() + index, arg),
+                    )),
+            )
+        } else {
+            Either::Right(
+                self.args
+                    .iter()
+                    .enumerate()
+                    .map(|(index, arg)| arg_text(index, arg)),
+            )
+        };
 
         container(
             column![]
-                .push_maybe(self.description().map(|description| {
-                    text(description).style(theme::text::secondary)
-                }))
+                .push_maybe(
+                    subcommand
+                        .map_or(self.description(), |subcommand| {
+                            subcommand.description()
+                        })
+                        .map(|description| {
+                            text(description).style(theme::text::secondary)
+                        }),
+                )
                 .push(row(title.into_iter().chain(args))),
         )
         .style(theme::container::tooltip)
@@ -991,6 +1088,66 @@ fn away_command(max_len: Option<u16>) -> Command {
             optional: true,
             tooltip,
         }],
+        subcommands: None,
+    }
+}
+
+fn ctcp_action_command() -> Command {
+    Command {
+        title: "CTCP ACTION",
+        args: vec![Arg {
+            text: "text",
+            optional: false,
+            tooltip: Some(String::from(
+                "message to display as a third-person action or emote",
+            )),
+        }],
+        subcommands: None,
+    }
+}
+
+fn ctcp_clientinfo_command() -> Command {
+    Command {
+        title: "CTCP CLIENTINFO",
+        args: vec![],
+        subcommands: None,
+    }
+}
+
+fn ctcp_ping_command() -> Command {
+    Command {
+        title: "CTCP PING",
+        args: vec![Arg {
+            text: "info",
+            optional: false,
+            tooltip: Some(String::from(
+                "text that should be exactly reproduced in the reply PING",
+            )),
+        }],
+        subcommands: None,
+    }
+}
+
+fn ctcp_source_command() -> Command {
+    Command {
+        title: "CTCP SOURCE",
+        args: vec![],
+        subcommands: None,
+    }
+}
+
+fn ctcp_time_command() -> Command {
+    Command {
+        title: "CTCP TIME",
+        args: vec![],
+        subcommands: None,
+    }
+}
+
+fn ctcp_version_command() -> Command {
+    Command {
+        title: "CTCP VERSION",
+        args: vec![],
         subcommands: None,
     }
 }

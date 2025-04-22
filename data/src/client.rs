@@ -14,6 +14,7 @@ use log::error;
 use tokio::fs;
 
 use crate::dashboard::BufferAction;
+use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
 use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
@@ -320,13 +321,14 @@ impl Client {
     fn receive(
         &mut self,
         message: message::Encoded,
-        config: &config::Actions,
+        actions_config: &config::Actions,
+        ctcp_config: &config::Ctcp,
     ) -> Result<Vec<Event>> {
         log::trace!("Message received => {:?}", *message);
 
         let stop_reroute = stop_reroute(&message.command);
 
-        let events = self.handle(message, None, config)?;
+        let events = self.handle(message, None, actions_config, ctcp_config)?;
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -339,7 +341,8 @@ impl Client {
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
-        config: &config::Actions,
+        actions_config: &config::Actions,
+        ctcp_config: &config::Ctcp,
     ) -> Result<Vec<Event>> {
         use irc::proto::command::Numeric::*;
 
@@ -726,7 +729,7 @@ impl Client {
                         }
                     }
                 } else {
-                    self.handle(message, context, config)?
+                    self.handle(message, context, actions_config, ctcp_config)?
                 };
 
                 if let Some(batch) = self.batches.get_mut(&Target::parse(
@@ -1104,7 +1107,11 @@ impl Client {
             }
             Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
                 if let Some(user) = message.user() {
-                    if let Some(command) = dcc::decode(text) {
+                    let dcc_command = dcc::decode(text);
+                    let ctcp_query = ctcp::parse_query(text);
+
+                    // DCC Handling
+                    if let Some(command) = dcc_command {
                         match command {
                             dcc::Command::Send(request) => {
                                 log::trace!("DCC Send => {request:?}");
@@ -1121,28 +1128,47 @@ impl Client {
                                 bail!("Unsupported DCC command: {command}",);
                             }
                         }
-                    } else {
-                        // Handle CTCP queries except ACTION and DCC
-                        if user.nickname() != self.nickname()
-                            && ctcp::is_query(text)
-                            && !message::is_action(text)
-                        {
-                            if let Some(query) = ctcp::parse_query(text) {
-                                if matches!(
-                                    &message.command,
-                                    Command::PRIVMSG(_, _)
-                                ) {
-                                    match query.command {
-                                        ctcp::Command::Action => (),
-                                        ctcp::Command::ClientInfo => {
-                                            self.handle.try_send(ctcp::response_message(
+                    };
+
+                    // CTCP Handling
+                    if let Some(query) = ctcp_query {
+                        let is_echo = user.nickname() == self.nickname();
+                        let is_action = message::is_action(text);
+
+                        // Ignore CTCP Action queries.
+                        if !is_action && !is_echo {
+                            // Response to us sending a CTCP request to another client
+                            if matches!(&message.command, Command::NOTICE(_, _))
+                            {
+                                let event = Event::PrivOrNotice(
+                                    message,
+                                    self.nickname().to_owned(),
+                                    self.highlight_notification_blackout
+                                        .allowed(),
+                                );
+
+                                return Ok(vec![event]);
+                            }
+
+                            // Response to a client sending us a CTCP request
+                            if matches!(
+                                &message.command,
+                                Command::PRIVMSG(_, _)
+                            ) {
+                                match query.command {
+                                    ctcp::Command::Action => (),
+                                    ctcp::Command::ClientInfo => {
+                                        self.handle.try_send(
+                                            ctcp::response_message(
                                                 &query.command,
                                                 user.nickname().to_string(),
-                                                Some("ACTION CLIENTINFO DCC PING SOURCE VERSION"),
-                                            ))?;
-                                        }
-                                        ctcp::Command::DCC => (),
-                                        ctcp::Command::Ping => {
+                                                Some(ctcp_config.client_info()),
+                                            ),
+                                        )?;
+                                    }
+                                    ctcp::Command::DCC => (),
+                                    ctcp::Command::Ping => {
+                                        if ctcp_config.ping {
                                             self.handle.try_send(
                                                 ctcp::response_message(
                                                     &query.command,
@@ -1151,61 +1177,80 @@ impl Client {
                                                 ),
                                             )?;
                                         }
-                                        ctcp::Command::Source => {
-                                            self.handle.try_send(ctcp::response_message(
-                                                &query.command,
-                                                user.nickname().to_string(),
-                                                Some(crate::environment::SOURCE_WEBSITE),
-                                            ))?;
+                                    }
+                                    ctcp::Command::Source => {
+                                        if ctcp_config.source {
+                                            self.handle.try_send(
+                                                ctcp::response_message(
+                                                    &query.command,
+                                                    user.nickname().to_string(),
+                                                    Some(SOURCE_WEBSITE),
+                                                ),
+                                            )?;
                                         }
-                                        ctcp::Command::Version => {
+                                    }
+                                    ctcp::Command::Version => {
+                                        if ctcp_config.version {
                                             self.handle.try_send(
                                                 ctcp::response_message(
                                                     &query.command,
                                                     user.nickname().to_string(),
                                                     Some(format!(
-                                                    "Halloy {}",
-                                                    crate::environment::VERSION
-                                                )),
+                                                        "Halloy {VERSION}"
+                                                    )),
                                                 ),
                                             )?;
                                         }
-                                        ctcp::Command::Unknown(command) => {
-                                            log::debug!(
-                                                "Ignorning CTCP command {command}: Unknown command"
+                                    }
+                                    ctcp::Command::Time => {
+                                        if ctcp_config.time {
+                                            let utc_time = Utc::now();
+                                            let formatted = utc_time
+                                                .to_rfc3339_opts(
+                                                chrono::SecondsFormat::Millis,
+                                                true,
                                             );
+
+                                            self.handle.try_send(
+                                                ctcp::response_message(
+                                                    &query.command,
+                                                    user.nickname().to_string(),
+                                                    Some(formatted),
+                                                ),
+                                            )?;
                                         }
                                     }
+                                    ctcp::Command::Unknown(command) => {
+                                        log::debug!(
+                                            "Ignorning CTCP command {command}: Unknown command"
+                                        );
+                                    }
                                 }
-
-                                return Ok(vec![]);
                             }
+
+                            return Ok(vec![]);
                         }
+                    }
 
-                        // use `target` to confirm the direct message
-                        let direct_message =
-                            target == &self.nickname().to_string();
+                    // use `target` to confirm the direct message
+                    let direct_message = target == &self.nickname().to_string();
 
-                        if direct_message {
-                            self.resolved_queries.replace(
-                                target::Query::from_user(
-                                    &user,
-                                    self.casemapping(),
-                                ),
-                            );
-                        }
-
-                        let event = Event::PrivOrNotice(
-                            message.clone(),
-                            self.nickname().to_owned(),
-                            self.highlight_notification_blackout.allowed(),
+                    if direct_message {
+                        self.resolved_queries.replace(
+                            target::Query::from_user(&user, self.casemapping()),
                         );
+                    }
 
-                        if direct_message {
-                            return Ok(vec![event, Event::DirectMessage(user)]);
-                        } else {
-                            return Ok(vec![event]);
-                        }
+                    let event = Event::PrivOrNotice(
+                        message.clone(),
+                        self.nickname().to_owned(),
+                        self.highlight_notification_blackout.allowed(),
+                    );
+
+                    if direct_message {
+                        return Ok(vec![event, Event::DirectMessage(user)]);
+                    } else {
+                        return Ok(vec![event]);
                     }
                 }
             }
@@ -2216,13 +2261,15 @@ impl Client {
                                             .map(|target| match target {
                                                 Target::Channel(_) => (
                                                     target,
-                                                    config
+                                                    actions_config
                                                         .buffer
                                                         .message_channel,
                                                 ),
                                                 Target::Query(_) => (
                                                     target,
-                                                    config.buffer.message_user,
+                                                    actions_config
+                                                        .buffer
+                                                        .message_user,
                                                 ),
                                             })
                                             .collect(),
@@ -2926,10 +2973,11 @@ impl Map {
         &mut self,
         server: &Server,
         message: message::Encoded,
-        config: &config::Actions,
+        actions_config: &config::Actions,
+        ctcp_config: &config::Ctcp,
     ) -> Result<Vec<Event>> {
         if let Some(client) = self.client_mut(server) {
-            client.receive(message, config)
+            client.receive(message, actions_config, ctcp_config)
         } else {
             Ok(Vec::default())
         }

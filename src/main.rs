@@ -571,6 +571,7 @@ impl Halloy {
                                 &server,
                                 message,
                                 &self.config.actions,
+                                &self.config.ctcp,
                             ) {
                                 Ok(events) => events,
                                 Err(e) => {
