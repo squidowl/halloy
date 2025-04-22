@@ -1,10 +1,12 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::LazyLock;
 
+use chrono::{DateTime, Utc};
 use data::buffer::{SkinTone, SortDirection};
 use data::isupport::{self, find_target_limit};
-use data::user::User;
+use data::user::{Nick, User};
 use data::{Config, target};
 use iced::Length;
 use iced::widget::{column, container, row, text, tooltip};
@@ -34,6 +36,7 @@ impl Completion {
         &mut self,
         input: &str,
         users: &[User],
+        last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
@@ -56,8 +59,14 @@ impl Completion {
             if matches!(self.commands, Commands::Selecting { .. }) {
                 self.text = Text::default();
             } else {
-                self.text
-                    .process(input, casemapping, users, channels, config);
+                self.text.process(
+                    input,
+                    casemapping,
+                    users,
+                    last_seen,
+                    channels,
+                    config,
+                );
             }
 
             self.emojis = Emojis::default();
@@ -76,8 +85,14 @@ impl Completion {
             self.commands = Commands::default();
             self.text = Text::default();
         } else {
-            self.text
-                .process(input, casemapping, users, channels, config);
+            self.text.process(
+                input,
+                casemapping,
+                users,
+                last_seen,
+                channels,
+                config,
+            );
 
             self.commands = Commands::default();
 
@@ -963,15 +978,23 @@ impl Text {
         input: &str,
         casemapping: isupport::CaseMap,
         users: &[User],
+        last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         config: &Config,
     ) {
         if !self.process_channels(input, casemapping, channels, config) {
-            self.process_users(input, users, config);
+            self.process_users(input, casemapping, users, last_seen, config);
         }
     }
 
-    fn process_users(&mut self, input: &str, users: &[User], config: &Config) {
+    fn process_users(
+        &mut self,
+        input: &str,
+        casemapping: isupport::CaseMap,
+        users: &[User],
+        last_seen: &HashMap<Nick, DateTime<Utc>>,
+        config: &Config,
+    ) {
         let autocomplete = &config.buffer.text_input.autocomplete;
         let (_, rest) = input.rsplit_once(' ').unwrap_or(("", input));
 
@@ -980,19 +1003,48 @@ impl Text {
             return;
         }
 
-        let nick = rest.to_lowercase();
+        let nick = casemapping.normalize(rest);
 
         self.selected = None;
         self.prompt = rest.to_string();
         self.filtered = users
             .iter()
-            .sorted_by(|a, b| match autocomplete.sort_direction {
-                SortDirection::Asc => a.nickname().cmp(&b.nickname()),
-                SortDirection::Desc => b.nickname().cmp(&a.nickname()),
+            .sorted_by(|a, b| {
+                if autocomplete.order_by_recency {
+                    if let Some(a_last_seen) =
+                        last_seen.get(&a.nickname().to_owned())
+                    {
+                        if let Some(b_last_seen) =
+                            last_seen.get(&b.nickname().to_owned())
+                        {
+                            b_last_seen.cmp(a_last_seen)
+                        } else {
+                            Ordering::Less
+                        }
+                    } else if last_seen.get(&b.nickname().to_owned()).is_some()
+                    {
+                        Ordering::Greater
+                    } else {
+                        match autocomplete.sort_direction {
+                            SortDirection::Asc => {
+                                a.nickname().cmp(&b.nickname())
+                            }
+                            SortDirection::Desc => {
+                                b.nickname().cmp(&a.nickname())
+                            }
+                        }
+                    }
+                } else {
+                    match autocomplete.sort_direction {
+                        SortDirection::Asc => a.nickname().cmp(&b.nickname()),
+                        SortDirection::Desc => b.nickname().cmp(&a.nickname()),
+                    }
+                }
             })
             .filter_map(|user| {
-                let lower_nick = user.nickname().as_ref().to_lowercase();
-                lower_nick
+                let normalized_nick =
+                    casemapping.normalize(user.nickname().as_ref());
+                normalized_nick
                     .starts_with(&nick)
                     .then(|| user.nickname().to_string())
             })
