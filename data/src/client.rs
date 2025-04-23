@@ -250,6 +250,60 @@ impl Client {
         }
     }
 
+    fn stop_reroute(&self, command: &Command) -> bool {
+        use command::Numeric::*;
+
+        match &command {
+            Command::Numeric(RPL_ENDOFWHO, args) => {
+                let mask = args.get(1).cloned().unwrap_or_default();
+
+                if let Ok(target_channel) = target::Channel::parse(
+                    &mask,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                ) {
+                    self.user_who_request(&target_channel)
+                    // Some servers respond with the mask * instead of the requested
+                    // channel name when rate-limiting WHO requests
+                } else if mask == "*" {
+                    // Either the user requested the mask, in which case the request
+                    // should be in who_polls and rerouting should be stopped, or it
+                    // is treated as part of a rate-limiting response and if there
+                    // are any outstanding user requests rerouting should be stopped.
+                    self.who_polls.iter().any(|who_poll| {
+                        matches!(
+                            who_poll.status,
+                            WhoStatus::Requested(WhoSource::User, _, _)
+                                | WhoStatus::Receiving(WhoSource::User, _)
+                        )
+                    })
+                } else {
+                    let target_channel =
+                        target::Channel::from_str(&mask, self.casemapping());
+
+                    self.user_who_request(&target_channel)
+                }
+            }
+            _ => matches!(
+                command,
+                Command::Numeric(
+                    RPL_ENDOFWHOIS
+                        | RPL_ENDOFWHOWAS
+                        | ERR_NOSUCHNICK
+                        | ERR_NOSUCHSERVER
+                        | ERR_NONICKNAMEGIVEN
+                        | ERR_WASNOSUCHNICK
+                        | ERR_NEEDMOREPARAMS
+                        | ERR_USERSDONTMATCH
+                        | RPL_UMODEIS
+                        | ERR_UMODEUNKNOWNFLAG,
+                    _
+                )
+            ),
+        }
+    }
+
     fn send(
         &mut self,
         buffer: &buffer::Upstream,
@@ -326,7 +380,7 @@ impl Client {
     ) -> Result<Vec<Event>> {
         log::trace!("Message received => {:?}", *message);
 
-        let stop_reroute = stop_reroute(&message.command);
+        let stop_reroute = self.stop_reroute(&message.command);
 
         let events = self.handle(message, None, actions_config, ctcp_config)?;
 
@@ -757,10 +811,19 @@ impl Client {
                     )]);
                 }
             }
-            // Reroute responses
-            Command::Numeric(..) | Command::Unknown(..)
-                if self.reroute_responses_to.is_some() =>
-            {
+            // Reroute whois, whowas, and user mode responses
+            Command::Numeric(
+                RPL_WHOISCERTFP | RPL_WHOISREGNICK | RPL_WHOISUSER
+                | RPL_WHOISSERVER | RPL_WHOISOPERATOR | RPL_WHOISIDLE
+                | RPL_WHOISCHANNELS | RPL_WHOISSPECIAL | RPL_WHOISACCOUNT
+                | RPL_WHOISACTUALLY | RPL_WHOISHOST | RPL_WHOISMODES
+                | RPL_WHOISSECURE | RPL_AWAY | RPL_ENDOFWHOIS | RPL_WHOWASUSER
+                | RPL_ENDOFWHOWAS | RPL_UMODEIS | ERR_NOSUCHNICK
+                | ERR_NOSUCHSERVER | ERR_NONICKNAMEGIVEN | ERR_WASNOSUCHNICK
+                | ERR_NEEDMOREPARAMS | ERR_USERSDONTMATCH
+                | ERR_UMODEUNKNOWNFLAG,
+                _,
+            ) if self.reroute_responses_to.is_some() => {
                 if let Some(source) = self
                     .reroute_responses_to
                     .clone()
@@ -1443,6 +1506,8 @@ impl Client {
                     self.statusmsg(),
                     self.casemapping(),
                 ) {
+                    let user_request = self.user_who_request(&target_channel);
+
                     if let Some(client_channel) =
                         self.chanmap.get_mut(&target_channel)
                     {
@@ -1451,7 +1516,7 @@ impl Client {
                             ok!(args.get(6)),
                         );
 
-                        let user_request = if let Some(who_poll) = self
+                        if let Some(who_poll) = self
                             .who_polls
                             .iter_mut()
                             .find(|who_poll| who_poll.channel == target_channel)
@@ -1466,19 +1531,23 @@ impl Client {
                                     self.server
                                 );
                             }
-
-                            matches!(
-                                who_poll.status,
-                                WhoStatus::Receiving(WhoSource::User, None)
-                            )
-                        } else {
-                            false
-                        };
-
-                        if !user_request {
-                            // User did not request, don't save to history
-                            return Ok(vec![]);
                         }
+                    }
+
+                    if !user_request {
+                        // User did not request, don't save to history
+                        return Ok(vec![]);
+                    // Reroute who responses
+                    } else if let Some(source) = self
+                        .reroute_responses_to
+                        .clone()
+                        .map(|buffer| buffer.server_message_target(None))
+                    {
+                        return Ok(vec![Event::WithTarget(
+                            message,
+                            self.nickname().to_owned(),
+                            source,
+                        )]);
                     }
                 }
             }
@@ -1491,10 +1560,12 @@ impl Client {
                     self.statusmsg(),
                     self.casemapping(),
                 ) {
+                    let user_request = self.user_who_request(&target_channel);
+
                     if let Some(client_channel) =
                         self.chanmap.get_mut(&target_channel)
                     {
-                        let user_request = if let Some(who_poll) = self
+                        if let Some(who_poll) = self
                             .who_polls
                             .iter_mut()
                             .find(|who_poll| who_poll.channel == target_channel)
@@ -1573,19 +1644,23 @@ impl Client {
                                     }
                                 }
                             }
-
-                            matches!(
-                                &who_poll.status,
-                                WhoStatus::Receiving(WhoSource::User, Some(_))
-                            )
-                        } else {
-                            false
-                        };
-
-                        if !user_request {
-                            // User did not request, don't save to history
-                            return Ok(vec![]);
                         }
+                    }
+
+                    if !user_request {
+                        // User did not request, don't save to history
+                        return Ok(vec![]);
+                    // Reroute who responses
+                    } else if let Some(source) = self
+                        .reroute_responses_to
+                        .clone()
+                        .map(|buffer| buffer.server_message_target(None))
+                    {
+                        return Ok(vec![Event::WithTarget(
+                            message,
+                            self.nickname().to_owned(),
+                            source,
+                        )]);
                     }
                 }
             }
@@ -1598,19 +1673,13 @@ impl Client {
                     self.statusmsg(),
                     self.casemapping(),
                 ) {
-                    let pos = self.who_polls.iter().position(|who_poll| {
-                        who_poll.channel == target_channel
-                    });
+                    let user_request = self.user_who_request(&target_channel);
 
-                    let user_request = pos.is_some_and(|pos| {
-                        matches!(
-                            self.who_polls[pos].status,
-                            WhoStatus::Requested(WhoSource::User, _, _)
-                                | WhoStatus::Receiving(WhoSource::User, _)
-                        )
-                    });
-
-                    if let Some(pos) = pos {
+                    if let Some(pos) = self
+                        .who_polls
+                        .iter()
+                        .position(|who_poll| who_poll.channel == target_channel)
+                    {
                         self.who_polls[pos].status = WhoStatus::Received;
 
                         if let Some(who_poll) = self.who_polls.remove(pos) {
@@ -1658,6 +1727,17 @@ impl Client {
 
                         // User did not request, don't save to history
                         return Ok(vec![]);
+                    // Reroute who responses
+                    } else if let Some(source) = self
+                        .reroute_responses_to
+                        .clone()
+                        .map(|buffer| buffer.server_message_target(None))
+                    {
+                        return Ok(vec![Event::WithTarget(
+                            message,
+                            self.nickname().to_owned(),
+                            source,
+                        )]);
                     }
                 } else if mask == "*" {
                     // Some servers respond with the mask * instead of the requested
@@ -1672,7 +1752,7 @@ impl Client {
                     {
                         self.who_polls.remove(pos);
                     } else {
-                        // User did not request, treat as part of rate-limiting reesponse
+                        // User did not request, treat as part of rate-limiting response
                         // (in conjunction with RPL_TRYAGAIN) and don't save to history.
                         if let Some(who_poll) = self.who_polls.front_mut() {
                             who_poll.status =
@@ -2324,6 +2404,22 @@ impl Client {
             ))?;
         }
         Ok(())
+    }
+
+    fn user_who_request(&self, channel: &target::Channel) -> bool {
+        if let Some(who_poll) = self
+            .who_polls
+            .iter()
+            .find(|who_poll| who_poll.channel == *channel)
+        {
+            matches!(
+                who_poll.status,
+                WhoStatus::Requested(WhoSource::User, _, _)
+                    | WhoStatus::Receiving(WhoSource::User, _)
+            )
+        } else {
+            false
+        }
     }
 
     // TODO allow configuring the "sorting method"
@@ -3329,28 +3425,6 @@ fn generate_label() -> String {
 fn remove_tag(key: &str, tags: &mut Vec<irc::proto::Tag>) -> Option<String> {
     tags.remove(tags.iter().position(|tag| tag.key == key)?)
         .value
-}
-
-fn stop_reroute(command: &Command) -> bool {
-    use command::Numeric::*;
-
-    matches!(
-        command,
-        Command::Numeric(
-            RPL_ENDOFWHO
-                | RPL_ENDOFWHOIS
-                | RPL_ENDOFWHOWAS
-                | ERR_NOSUCHNICK
-                | ERR_NOSUCHSERVER
-                | ERR_NONICKNAMEGIVEN
-                | ERR_WASNOSUCHNICK
-                | ERR_NEEDMOREPARAMS
-                | ERR_USERSDONTMATCH
-                | RPL_UMODEIS
-                | ERR_UMODEUNKNOWNFLAG,
-            _
-        )
-    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
