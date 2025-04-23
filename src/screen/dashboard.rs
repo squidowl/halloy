@@ -2152,6 +2152,11 @@ impl Dashboard {
                 self.focus_history.push_front(pane);
 
                 self.focus_history.truncate(FOCUS_HISTORY_LEN);
+
+                if self.is_pane_maximized() {
+                    self.panes.main.restore();
+                    self.panes.main.maximize(pane);
+                }
             }
         }
 
