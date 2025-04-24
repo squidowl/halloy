@@ -7,7 +7,10 @@ use itertools::Itertools;
 
 use crate::isupport::{self, find_target_limit};
 use crate::message::formatting;
-use crate::{buffer::{self, Upstream}, ctcp};
+use crate::{
+    buffer::{self, Upstream},
+    ctcp,
+};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -18,6 +21,11 @@ pub enum Command {
 #[derive(Debug, Clone)]
 pub enum Internal {
     OpenBuffers(String),
+    /// Part the current channel and join a new one.
+    ///
+    /// - Channel to join
+    /// - Part message
+    Hop(Option<String>, Option<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +66,7 @@ enum Kind {
     Away,
     SetName,
     Ctcp,
+    Hop,
     Notice,
     Raw,
 }
@@ -84,6 +93,7 @@ impl FromStr for Kind {
             "notice" => Ok(Kind::Notice),
             "raw" => Ok(Kind::Raw),
             "ctcp" => Ok(Kind::Ctcp),
+            "hop" | "rejoin" => Ok(Kind::Hop),
             _ => Err(()),
         }
     }
@@ -474,13 +484,20 @@ pub fn parse(
                     Ok(unknown())
                 }
             }
-            Kind::Ctcp => validated::<2, 1, true>(args, |[target, command], [params]| {
-                Ok(Command::Irc(Irc::Ctcp(
-                    ctcp::Command::from(command.as_str()),
-                    target,
-                    params,
-                )))
-            }),
+            Kind::Ctcp => {
+                validated::<2, 1, true>(args, |[target, command], [params]| {
+                    Ok(Command::Irc(Irc::Ctcp(
+                        ctcp::Command::from(command.as_str()),
+                        target,
+                        params,
+                    )))
+                })
+            }
+            Kind::Hop => {
+                validated::<0, 2, true>(args, |_, [channel, message]| {
+                    Ok(Command::Internal(Internal::Hop(channel, message)))
+                })
+            }
         },
         Err(()) => Ok(unknown()),
     }
@@ -556,7 +573,9 @@ impl TryFrom<Irc> for proto::Command {
             Irc::Notice(target, msg) => proto::Command::NOTICE(target, msg),
             Irc::Raw(raw) => proto::Command::Raw(raw),
             Irc::Unknown(command, args) => proto::Command::new(&command, args),
-            Irc::Ctcp(command, target, params) => ctcp::query_command(&command, target, params),
+            Irc::Ctcp(command, target, params) => {
+                ctcp::query_command(&command, target, params)
+            }
         })
     }
 }

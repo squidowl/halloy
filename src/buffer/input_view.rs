@@ -1,4 +1,7 @@
 use data::buffer::{self, Autocomplete};
+use std::time::Duration;
+
+use data::buffer::Upstream;
 use data::dashboard::BufferAction;
 use data::input::{self, Cache, Draft};
 use data::target::Target;
@@ -6,6 +9,7 @@ use data::user::Nick;
 use data::{Config, client, command, history};
 use iced::Task;
 use iced::widget::{column, container, text, text_input};
+use tokio::time;
 
 use self::completion::Completion;
 use crate::theme;
@@ -30,6 +34,10 @@ pub enum Message {
     Up,
     Down,
     Escape,
+    SendCommand {
+        buffer: Upstream,
+        command: command::Irc,
+    },
 }
 
 pub fn view<'a>(
@@ -271,6 +279,128 @@ impl State {
                                         }),
                                     );
                                 }
+                                command::Internal::Hop(first, rest) => {
+                                    let has_channel_argument = first
+                                        .as_ref()
+                                        .is_some_and(|s| s.starts_with('#'));
+
+                                    // Channel to join, either from first argument or buffer channel
+                                    let target_channel = if has_channel_argument
+                                    {
+                                        // Use first argument as channel.
+                                        first.clone()
+                                    } else {
+                                        // If first argument isn't a channel, we use buffer channel
+                                        buffer.channel().map(|chan| {
+                                            chan.as_str().to_string()
+                                        })
+                                    };
+
+                                    // If we don't have a target channel for some reason we return
+                                    let Some(target_channel) = target_channel
+                                    else {
+                                        return (Task::none(), None);
+                                    };
+
+                                    let message = if has_channel_argument {
+                                        // If first argument is a channel, we use second argument as message
+                                        rest
+                                    } else {
+                                        // Otherwise we use both arguments
+                                        match (
+                                            first.as_deref(),
+                                            rest.as_deref(),
+                                        ) {
+                                            (Some(a), Some(b)) => {
+                                                Some(format!("{a} {b}"))
+                                            }
+                                            (Some(a), None) => {
+                                                Some(a.to_string())
+                                            }
+                                            (None, Some(b)) => {
+                                                Some(b.to_string())
+                                            }
+                                            (None, None) => None,
+                                        }
+                                    };
+
+                                    // Part channel. Might not exsist if we execute on a query/server.
+                                    let part_command =
+                                        buffer.channel().and_then(|channel| {
+                                            data::Input::command(
+                                                buffer.clone(),
+                                                command::Irc::Part(
+                                                    channel
+                                                        .as_str()
+                                                        .to_string(),
+                                                    message,
+                                                ),
+                                            )
+                                            .encoded()
+                                        });
+
+                                    // Send part command.
+                                    if let Some(part_command) = part_command {
+                                        clients.send(buffer, part_command);
+                                    }
+
+                                    // Create a delay task that will execute the join after waiting
+                                    let buffer_clone = buffer.clone();
+                                    let target_channel_clone =
+                                        target_channel.clone();
+
+                                    let delayed_join_task = Task::perform(
+                                        time::sleep(Duration::from_millis(100)),
+                                        move |()| Message::SendCommand {
+                                            buffer: buffer_clone,
+                                            command: command::Irc::Join(
+                                                target_channel_clone,
+                                                None,
+                                            ),
+                                        },
+                                    );
+
+                                    let chantypes =
+                                        clients.get_chantypes(buffer.server());
+                                    let statusmsg =
+                                        clients.get_statusmsg(buffer.server());
+                                    let casemapping = clients
+                                        .get_casemapping(buffer.server());
+
+                                    let target = Target::parse(
+                                        target_channel.as_str(),
+                                        chantypes,
+                                        statusmsg,
+                                        casemapping,
+                                    );
+
+                                    let event =
+                                        has_channel_argument.then_some({
+                                            let buffer_action = match buffer {
+                                                // If it's a channel, we want to replace it when hopping to a new channel.
+                                                Upstream::Channel(..) => {
+                                                    BufferAction::ReplacePane
+                                                }
+                                                // If it's a server or query, we want to follow config for actions.
+                                                Upstream::Server(..)
+                                                | Upstream::Query(..) => {
+                                                    config
+                                                        .actions
+                                                        .buffer
+                                                        .message_channel
+                                                }
+                                            };
+
+                                            Event::OpenBuffers {
+                                                targets: vec![(
+                                                    target,
+                                                    buffer_action,
+                                                )],
+                                            }
+                                        });
+
+                                    return (delayed_join_task, event);
+                                }
                             }
                         }
                         Ok(input::Parsed::Input(input)) => input,
@@ -426,6 +556,17 @@ impl State {
             // Capture escape so that closing context menu or commands/emojis picker
             // does not defocus input
             Message::Escape => (Task::none(), None),
+            Message::SendCommand { buffer, command } => {
+                let input =
+                    data::Input::command(buffer.clone(), command).encoded();
+
+                // Send command.
+                if let Some(input) = input {
+                    clients.send(&buffer, input);
+                }
+
+                (Task::none(), None)
+            }
         }
     }
 
