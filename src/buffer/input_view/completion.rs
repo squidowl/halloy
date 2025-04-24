@@ -4,7 +4,7 @@ use std::fmt;
 use std::sync::LazyLock;
 
 use chrono::{DateTime, Utc};
-use data::buffer::{SkinTone, SortDirection};
+use data::buffer::{OrderBy, SkinTone, SortDirection};
 use data::isupport::{self, find_target_limit};
 use data::user::{Nick, User};
 use data::{Config, target};
@@ -1010,7 +1010,7 @@ impl Text {
         self.filtered = users
             .iter()
             .sorted_by(|a, b| {
-                if autocomplete.order_by_recency {
+                if matches!(autocomplete.order_by, OrderBy::Recent) {
                     if let Some(a_last_seen) =
                         last_seen.get(&a.nickname().to_owned())
                     {

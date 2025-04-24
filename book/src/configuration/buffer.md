@@ -658,9 +658,28 @@ auto_format = "markdown"
 
 Customize autocomplete.
 
+#### `order_by`
+
+Ordering that autocomplete uses to select from matching users.
+
+- `"recent"`: Autocomplete users by their last message in the channel;  the user with most recent message autocompletes first, then increasingly older messages.  Users with no seen messages are matched last, in the order specified by `sort_direction`.
+- `"alpha"`: Autocomplete users based on alphabetical ordering of potential matches.  Ordering is asecnding/descinding based on `sort_direction`.
+
+```toml
+# Type: string
+# Values: "alpha", "recent"
+# Default: "recent"
+
+[buffer.text_input.autocomplete]
+order_by = "recent"
+```
+
 #### `sort_direction`
 
-Sort direction when autocompleting.
+Sort direction when autocompleting alphabetically.
+
+- `"asc"`: ascending alphabetical (a→z)
+- `"desc"`: descending alphabetical (z→a)
 
 ```toml
 # Type: string
@@ -682,19 +701,6 @@ Sets what suffix is added after autocompleting. The first option is for when a n
 
 [buffer.text_input.autocomplete]
 completion_suffixes = [": ", " "]
-```
-
-#### `order_by_recency`
-
-Autocomplete users by their last message in the channel;  the user with most recent message autocompletes first, then increasing older messages.  Users with no seen messages are matched last, in the order specified by `sort_direction`.
-
-```toml
-# Type: bool
-# Values: true, false
-# Default: true
-
-[buffer.text_input.autocomplete]
-order_by_recency = true
 ```
 
 ## `[buffer.timestamp]`
