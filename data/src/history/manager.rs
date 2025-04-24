@@ -52,12 +52,14 @@ pub enum Message {
             Result<Option<history::ReadMarker>, history::Error>,
         )>,
     ),
+    SentMessageUpdated(history::Kind, history::ReadMarker),
 }
 
 pub enum Event {
     Loaded(history::Kind),
     Closed(history::Kind, Option<history::ReadMarker>),
     Exited(Vec<(history::Kind, Option<history::ReadMarker>)>),
+    SentMessageUpdated(history::Kind, history::ReadMarker),
 }
 
 #[derive(Debug, Default)]
@@ -162,6 +164,9 @@ impl Manager {
 
                 return Some(Event::Exited(output));
             }
+            Message::SentMessageUpdated(kind, read_marker) => {
+                return Some(Event::SentMessageUpdated(kind, read_marker));
+            }
         }
 
         None
@@ -216,8 +221,12 @@ impl Manager {
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         config: &Config,
-    ) -> Vec<impl Future<Output = Message> + use<>> {
-        let mut tasks = vec![];
+    ) -> (
+        Vec<impl Future<Output = Message> + use<>>,
+        Vec<impl Future<Output = Message> + use<>>,
+    ) {
+        let mut record_message_tasks = vec![];
+        let mut update_read_marker_tasks = vec![];
 
         if let Some(messages) = input.messages(
             user,
@@ -228,11 +237,28 @@ impl Manager {
             config,
         ) {
             for message in messages {
-                tasks.extend(self.record_message(input.server(), message));
+                if config.buffer.mark_as_read.on_message_sent {
+                    if let Some(kind) = history::Kind::from_server_message(
+                        input.server().clone(),
+                        &message,
+                    ) {
+                        update_read_marker_tasks.extend(
+                            self.update_read_marker(
+                                kind,
+                                history::ReadMarker::from_date_time(
+                                    message.server_time,
+                                ),
+                            ),
+                        );
+                    }
+                }
+
+                record_message_tasks
+                    .extend(self.record_message(input.server(), message));
             }
         }
 
-        tasks
+        (record_message_tasks, update_read_marker_tasks)
     }
 
     pub fn record_input_history(
@@ -827,12 +853,17 @@ impl Data {
 
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().add_message(message);
+                let read_marker = entry.get_mut().add_message(message);
 
-                None
+                read_marker.map(|read_marker| {
+                    async move {
+                        Message::SentMessageUpdated(kind.clone(), read_marker)
+                    }
+                    .boxed()
+                })
             }
             hash_map::Entry::Vacant(entry) => {
-                entry
+                let _ = entry
                     .insert(History::partial(kind.clone()))
                     .add_message(message);
 
