@@ -6,8 +6,7 @@ use std::{fmt, io};
 
 use anyhow::{Context as ErrorContext, Result, anyhow, bail};
 use chrono::{DateTime, Utc};
-use futures::channel::mpsc;
-use futures::{Future, FutureExt};
+use futures::{Future, FutureExt, channel::mpsc};
 use irc::proto::{self, Command, command};
 use itertools::{Either, Itertools};
 use log::error;
@@ -2355,6 +2354,8 @@ impl Client {
                                             .collect(),
                                     ));
                                 }
+                                // We don't handle hop when called from on_connect.
+                                crate::command::Internal::Hop(_, _) => (),
                             },
                             Err(_) => (),
                         }
