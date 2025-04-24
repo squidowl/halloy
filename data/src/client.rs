@@ -2392,19 +2392,16 @@ impl Client {
         Ok(vec![Event::Single(message, self.nickname().to_owned())])
     }
 
-    pub fn send_markread(
-        &mut self,
-        target: Target,
-        read_marker: ReadMarker,
-    ) -> Result<()> {
+    pub fn send_markread(&mut self, target: Target, read_marker: ReadMarker) {
         if self.supports_read_marker {
-            self.handle.try_send(command!(
+            if let Err(e) = self.handle.try_send(command!(
                 "MARKREAD",
                 target.as_str().to_string(),
                 format!("timestamp={read_marker}"),
-            ))?;
+            )) {
+                log::warn!("Error sending markread: {e}");
+            }
         }
-        Ok(())
     }
 
     fn user_who_request(&self, channel: &target::Channel) -> bool {
@@ -3101,11 +3098,10 @@ impl Map {
         server: &Server,
         target: Target,
         read_marker: ReadMarker,
-    ) -> Result<()> {
+    ) {
         if let Some(client) = self.client_mut(server) {
-            client.send_markread(target, read_marker)?;
+            client.send_markread(target, read_marker);
         }
-        Ok(())
     }
 
     pub fn join(&mut self, server: &Server, channels: &[target::Channel]) {

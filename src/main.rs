@@ -636,7 +636,10 @@ impl Halloy {
                                         ) {
                                             commands.push(
                                                 dashboard
-                                                    .record_message(&server, message)
+                                                    .record_message(
+                                                        &server,
+                                                        message,
+                                                    )
                                                     .map(Message::Dashboard),
                                             );
                                         }
@@ -676,7 +679,10 @@ impl Halloy {
 
                                             commands.push(
                                                 dashboard
-                                                    .record_message(&server, message)
+                                                    .record_message(
+                                                        &server,
+                                                        message,
+                                                    )
                                                     .map(Message::Dashboard),
                                             );
                                         }

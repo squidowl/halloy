@@ -320,7 +320,7 @@ impl History {
         }
     }
 
-    fn add_message(&mut self, message: Message) {
+    fn add_message(&mut self, message: Message) -> Option<ReadMarker> {
         if message.triggers_unread() {
             if let History::Partial {
                 max_triggers_unread,
@@ -349,7 +349,7 @@ impl History {
 
                 update_last_seen(last_seen, &message);
 
-                insert_message(messages, message);
+                insert_message(messages, message)
             }
         }
     }
@@ -660,7 +660,13 @@ impl History {
 /// Deduplication is only checked +/- 1 second around the server time
 /// of the incoming message. Either message IDs match, or server times
 /// have an exact match + target & content.
-pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
+///
+/// A non-None return value indicates whether a message sent from
+/// this client was replaced by an echo
+pub fn insert_message(
+    messages: &mut Vec<Message>,
+    message: Message,
+) -> Option<ReadMarker> {
     let fuzz_seconds =
         if matches!(message.direction, message::Direction::Received)
             && message.is_echo
@@ -673,7 +679,7 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
     if messages.is_empty() {
         messages.push(message);
 
-        return;
+        return None;
     }
 
     let start = message.server_time - fuzz_seconds;
@@ -729,7 +735,22 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
             } else {
                 messages[index] = message;
             }
+
+            None
         } else {
+            let read_marker = if matches!(
+                messages[index].direction,
+                message::Direction::Sent
+            ) && matches!(
+                message.direction,
+                message::Direction::Received
+            ) && message.is_echo
+            {
+                Some(ReadMarker::from_date_time(message.server_time))
+            } else {
+                None
+            };
+
             match insert_at.cmp(&index) {
                 Ordering::Less => {
                     messages.remove(index);
@@ -741,9 +762,13 @@ pub fn insert_message(messages: &mut Vec<Message>, message: Message) {
                     messages.remove(index);
                 }
             }
+
+            read_marker
         }
     } else {
         messages.insert(insert_at, message);
+
+        None
     }
 }
 
