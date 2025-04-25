@@ -201,119 +201,119 @@ impl Dashboard {
                                 buffer::Event::UserContext(event) => {
                                     match event {
                                         buffer::user_context::Event::ToggleAccessLevel(
-                                                                        server,
-                                                                        channel,
-                                                                        nick,
-                                                                        mode,
-                                                                    ) => {
-                                                                        let buffer = buffer::Upstream::Channel(
-                                                                            server.clone(),
-                                                                            channel.clone(),
-                                                                        );
+                                            server,
+                                            channel,
+                                            nick,
+                                            mode,
+                                        ) => {
+                                            let buffer = buffer::Upstream::Channel(
+                                                server.clone(),
+                                                channel.clone(),
+                                            );
 
-                                                                        let command = command::Irc::Mode(
-                                                                            channel.to_string(),
-                                                                            Some(mode),
-                                                                            Some(vec![nick.to_string()]),
-                                                                        );
-                                                                        let input = data::Input::command(buffer, command);
+                                            let command = command::Irc::Mode(
+                                                channel.to_string(),
+                                                Some(mode),
+                                                Some(vec![nick.to_string()]),
+                                            );
+                                            let input = data::Input::command(buffer, command);
 
-                                                                        if let Some(encoded) = input.encoded() {
-                                                                            clients.send(&input.buffer, encoded);
-                                                                        }
-                                                                    }
-                                                                    buffer::user_context::Event::SendWhois(server, nick) => {
-                                                                        let buffer =
-                                                                            pane.buffer.upstream().cloned().unwrap_or_else(
-                                                                                || buffer::Upstream::Server(server.clone()),
-                                                                            );
+                                            if let Some(encoded) = input.encoded() {
+                                                clients.send(&input.buffer, encoded);
+                                            }
+                                        }
+                                        buffer::user_context::Event::SendWhois(server, nick) => {
+                                            let buffer =
+                                                pane.buffer.upstream().cloned().unwrap_or_else(
+                                                    || buffer::Upstream::Server(server.clone()),
+                                                );
 
-                                                                        let command =
-                                                                            command::Irc::Whois(None, nick.to_string());
+                                            let command =
+                                                command::Irc::Whois(None, nick.to_string());
 
-                                                                        let input =
-                                                                            data::Input::command(buffer.clone(), command);
+                                            let input =
+                                                data::Input::command(buffer.clone(), command);
 
-                                                                        if let Some(encoded) = input.encoded() {
-                                                                            clients.send(&input.buffer, encoded);
-                                                                        }
+                                            if let Some(encoded) = input.encoded() {
+                                                clients.send(&input.buffer, encoded);
+                                            }
 
-                                                                        if let Some(nick) = clients.nickname(buffer.server()) {
-                                                                            let mut user = nick.to_owned().into();
-                                                                            let mut channel_users = &[][..];
-                                                                            let chantypes =
-                                                                                clients.get_chantypes(buffer.server());
-                                                                            let statusmsg =
-                                                                                clients.get_statusmsg(buffer.server());
-                                                                            let casemapping =
-                                                                                clients.get_casemapping(buffer.server());
+                                            if let Some(nick) = clients.nickname(buffer.server()) {
+                                                let mut user = nick.to_owned().into();
+                                                let mut channel_users = &[][..];
+                                                let chantypes =
+                                                    clients.get_chantypes(buffer.server());
+                                                let statusmsg =
+                                                    clients.get_statusmsg(buffer.server());
+                                                let casemapping =
+                                                    clients.get_casemapping(buffer.server());
 
-                                                                            // Resolve our attributes if sending this message in a channel
-                                                                            if let buffer::Upstream::Channel(server, channel) =
-                                                                                &buffer
-                                                                            {
-                                                                                channel_users =
-                                                                                    clients.get_channel_users(server, channel);
+                                                // Resolve our attributes if sending this message in a channel
+                                                if let buffer::Upstream::Channel(server, channel) =
+                                                    &buffer
+                                                {
+                                                    channel_users =
+                                                        clients.get_channel_users(server, channel);
 
-                                                                                if let Some(user_with_attributes) = clients
-                                                                                    .resolve_user_attributes(
-                                                                                        server, channel, &user,
-                                                                                    )
-                                                                                {
-                                                                                    user = user_with_attributes.clone();
-                                                                                }
-                                                                            }
+                                                    if let Some(user_with_attributes) = clients
+                                                        .resolve_user_attributes(
+                                                            server, channel, &user,
+                                                        )
+                                                    {
+                                                        user = user_with_attributes.clone();
+                                                    }
+                                                }
 
-                                                                            if let Some(messages) = input.messages(
-                                                                                user,
-                                                                                channel_users,
-                                                                                chantypes,
-                                                                                statusmsg,
-                                                                                casemapping,
-                                                                                config,
-                                                                            ) {
-                                                                                let mut tasks = vec![task];
+                                                if let Some(messages) = input.messages(
+                                                    user,
+                                                    channel_users,
+                                                    chantypes,
+                                                    statusmsg,
+                                                    casemapping,
+                                                    config,
+                                                ) {
+                                                    let mut tasks = vec![task];
 
-                                                                                for message in messages {
-                                                                                    if let Some(task) = self
-                                                                                        .history
-                                                                                        .record_message(input.server(), message)
-                                                                                    {
-                                                                                        tasks.push(Task::perform(
-                                                                                            task,
-                                                                                            Message::History,
-                                                                                        ));
-                                                                                    }
-                                                                                }
+                                                    for message in messages {
+                                                        if let Some(task) = self
+                                                            .history
+                                                            .record_message(input.server(), message)
+                                                        {
+                                                            tasks.push(Task::perform(
+                                                                task,
+                                                                Message::History,
+                                                            ));
+                                                        }
+                                                    }
 
-                                                                                return (Task::batch(tasks), None);
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                    buffer::user_context::Event::OpenQuery(
-                                                                        server,
-                                                                        query,
-                                                                        buffer_action,
-                                                                    ) => {
-                                                                        let buffer = buffer::Upstream::Query(server, query);
-                                                                        return (
-                                                                            Task::batch(vec![
-                                                                                task,
-                                                                                self.open_buffer(
-                                                                                    data::Buffer::Upstream(buffer),
-                                                                                    buffer_action,
-                                                                                    config,
-                                                                                ),
-                                                                            ]),
-                                                                            None,
-                                                                        );
-                                                                    }
-                                                                    buffer::user_context::Event::InsertNickname(nick) => {
-                                                                        let Some((_, pane, history)) =
-                                                                            self.get_focused_with_history_mut()
-                                                                        else {
-                                                                            return (task, None);
-                                                                        };
+                                                    return (Task::batch(tasks), None);
+                                                }
+                                            }
+                                        }
+                                        buffer::user_context::Event::OpenQuery(
+                                            server,
+                                            query,
+                                            buffer_action,
+                                        ) => {
+                                            let buffer = buffer::Upstream::Query(server, query);
+                                            return (
+                                                Task::batch(vec![
+                                                    task,
+                                                    self.open_buffer(
+                                                        data::Buffer::Upstream(buffer),
+                                                        buffer_action,
+                                                        config,
+                                                    ),
+                                                ]),
+                                                None,
+                                            );
+                                        }
+                                        buffer::user_context::Event::InsertNickname(nick) => {
+                                            let Some((_, pane, history)) =
+                                                self.get_focused_with_history_mut()
+                                            else {
+                                                return (task, None);
+                                            };
 
                                             return (
                                                 Task::batch(vec![
