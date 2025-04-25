@@ -1,5 +1,3 @@
-use std::string::FromUtf8Error;
-
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
@@ -13,7 +11,7 @@ use nom::{Finish, IResult};
 use crate::{Command, Message, Source, Tag, User};
 
 pub fn message_bytes(bytes: Vec<u8>) -> Result<Message, Error> {
-    let input = String::from_utf8(bytes)?;
+    let input = String::from_utf8_lossy(&bytes);
     message(&input)
 }
 
@@ -180,8 +178,6 @@ fn user(input: &str) -> IResult<&str, User> {
 pub enum Error {
     #[error("parsing failed: {:?}", input)]
     Parse { input: String, nom: String },
-    #[error("invalid utf-8 encoding")]
-    InvalidUtf8(#[from] FromUtf8Error),
 }
 
 #[cfg(test)]
