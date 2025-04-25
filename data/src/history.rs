@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{fmt, io};
@@ -11,8 +12,9 @@ use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
-use crate::message::{self, MessageReferences};
+use crate::message::{self, MessageReferences, Source};
 use crate::target::{self, Target};
+use crate::user::Nick;
 use crate::{
     Buffer, Message, Server, buffer, compression, environment, isupport,
 };
@@ -256,12 +258,14 @@ pub enum History {
         max_triggers_unread: Option<DateTime<Utc>>,
         read_marker: Option<ReadMarker>,
         chathistory_references: Option<MessageReferences>,
+        last_seen: HashMap<Nick, DateTime<Utc>>,
     },
     Full {
         kind: Kind,
         messages: Vec<Message>,
         last_updated_at: Option<Instant>,
         read_marker: Option<ReadMarker>,
+        last_seen: HashMap<Nick, DateTime<Utc>>,
     },
 }
 
@@ -274,6 +278,7 @@ impl History {
             max_triggers_unread: None,
             read_marker: None,
             chathistory_references: None,
+            last_seen: HashMap::new(),
         }
     }
 
@@ -331,14 +336,18 @@ impl History {
             History::Partial {
                 messages,
                 last_updated_at,
+                last_seen,
                 ..
             }
             | History::Full {
                 messages,
                 last_updated_at,
+                last_seen,
                 ..
             } => {
                 *last_updated_at = Some(Instant::now());
+
+                update_last_seen(last_seen, &message);
 
                 insert_message(messages, message);
             }
@@ -429,6 +438,7 @@ impl History {
                 kind,
                 messages,
                 read_marker,
+                last_seen,
                 ..
             } => {
                 let kind = kind.clone();
@@ -453,6 +463,7 @@ impl History {
                     read_marker,
                     max_triggers_unread,
                     chathistory_references,
+                    last_seen: last_seen.clone(),
                 };
 
                 Some(async move {
@@ -634,6 +645,13 @@ impl History {
             }
         }
     }
+
+    pub fn last_seen(&self) -> HashMap<Nick, DateTime<Utc>> {
+        match self {
+            History::Partial { last_seen, .. }
+            | History::Full { last_seen, .. } => last_seen.clone(),
+        }
+    }
 }
 
 /// Insert the incoming message into the provided vector, sorted
@@ -761,6 +779,33 @@ fn has_matching_content(
     } else {
         false
     }
+}
+
+pub fn update_last_seen(
+    last_seen: &mut HashMap<Nick, DateTime<Utc>>,
+    message: &Message,
+) {
+    if let Source::User(user) = message.target.source() {
+        let nickname = user.nickname().to_owned();
+
+        if let Some(date_time) = last_seen.get_mut(&nickname) {
+            if message.server_time > *date_time {
+                *date_time = message.server_time;
+            }
+        } else {
+            last_seen.insert(nickname, message.server_time);
+        }
+    }
+}
+
+pub fn get_last_seen(messages: &[Message]) -> HashMap<Nick, DateTime<Utc>> {
+    let mut last_seen = HashMap::new();
+
+    messages.iter().for_each(|message| {
+        update_last_seen(&mut last_seen, message);
+    });
+
+    last_seen
 }
 
 #[derive(Debug)]
