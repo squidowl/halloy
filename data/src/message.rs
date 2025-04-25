@@ -13,7 +13,7 @@ use itertools::{Either, Itertools};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-pub use self::formatting::Formatting;
+pub use self::formatting::{Color, Formatting};
 pub use self::source::Source;
 pub use self::source::server::{Kind, StandardReply};
 use crate::config::Highlights;
@@ -1878,20 +1878,20 @@ mod tests {
             assert_eq!(Content::Fragments(expected), actual);
         }
     }
+
     #[test]
     fn fragment_highlight_parsing() {
-        let nick = Nick::from("Bob");
         let tests = [
             (
                 (
                     "Bob: I'm in #interesting with Greg. I hope Dave doesn't notice.".to_string(),
-                    &[
+                    &Vec::from([
                         User::try_from("Greg").unwrap(),
                         User::try_from("Dave").unwrap(),
                         User::try_from("Bob").unwrap(),
-                    ],
+                    ]),
                     "#interesting",
-                    Some(&nick),
+                    Some(Nick::from("Bob")),
                     &Highlights {
                         nickname: Nickname {exclude: vec![], include: vec!["#interesting".into()]},
                         matches: vec![],
@@ -1908,6 +1908,24 @@ mod tests {
                     Fragment::Text(" doesn't notice.".into()),
                 ],
             ),
+            (
+                (
+                    "\u{3}14<\u{3}\u{3}04lurk_\u{3}\u{3}14/rx>\u{3} f_~oftc: > A��\u{1f}qj\u{14}��L�5�g���5�P��yn_?�i3g�1\u{7f}mE�\\X��� Xe�\u{5fa}{d�+�`@�^��NK��~~ޏ\u{7}\u{8}\u{15}\\�\u{4}A� \u{f}\u{1c}�N\u{11}6�r�\u{4}t��Q��\u{1c}�m\u{19}��".to_string(),
+                    &Vec::from([
+                        User::try_from("f_").unwrap(),
+                        User::try_from("rx").unwrap(),
+                    ]),
+                    "#funderscore-sucks",
+                    Some(Nick::from("f_")),
+                    &Highlights {
+                        nickname: Nickname {exclude: vec![], include: vec!["*".into()]},
+                        matches: vec![],
+                    },
+                ),
+                vec![
+                    Fragment::Formatted{ text: "hmm".into(), formatting: Formatting { fg: Some(Color::Grey), ..Formatting::default() }},
+                ],
+            ),
         ];
         for ((text, channel_users, target, our_nick, highlights), expected) in
             tests
@@ -1916,7 +1934,7 @@ mod tests {
                 text,
                 channel_users,
                 target,
-                our_nick,
+                our_nick.as_ref(),
                 highlights,
             ) {
                 assert_eq!(expected, actual);
