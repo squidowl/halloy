@@ -1077,8 +1077,25 @@ auto_format = "markdown"
 </blockquote>
 <h3 id="buffertext_inputautocomplete"><a class="header" href="#buffertext_inputautocomplete"><code>[buffer.text_input.autocomplete]</code></a></h3>
 <p>Customize autocomplete.</p>
+<h4 id="order_by"><a class="header" href="#order_by"><code>order_by</code></a></h4>
+<p>Ordering that autocomplete uses to select from matching users.</p>
+<ul>
+<li><code>"recent"</code>: Autocomplete users by their last message in the channel;  the user with most recent message autocompletes first, then increasingly older messages.  Users with no seen messages are matched last, in the order specified by <code>sort_direction</code>.</li>
+<li><code>"alpha"</code>: Autocomplete users based on alphabetical ordering of potential matches.  Ordering is asecnding/descinding based on <code>sort_direction</code>.</li>
+</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "alpha", "recent"
+# Default: "recent"
+
+[buffer.text_input.autocomplete]
+order_by = "recent"
+</code></pre>
 <h4 id="sort_direction"><a class="header" href="#sort_direction"><code>sort_direction</code></a></h4>
-<p>Sort direction when autocompleting.</p>
+<p>Sort direction when autocompleting alphabetically.</p>
+<ul>
+<li><code>"asc"</code>: ascending alphabetical (a→z)</li>
+<li><code>"desc"</code>: descending alphabetical (z→a)</li>
+</ul>
 <pre><code class="language-toml"># Type: string
 # Values: "asc", "desc"
 # Default: "asc"
