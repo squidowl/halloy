@@ -159,8 +159,14 @@ impl State {
                 let channels = clients.get_channels(buffer.server());
                 let isupport = clients.get_isupport(buffer.server());
 
-                self.completion
-                    .process(&input, users, channels, &isupport, config);
+                self.completion.process(
+                    &input,
+                    users,
+                    &history.get_last_seen(buffer),
+                    channels,
+                    &isupport,
+                    config,
+                );
 
                 let input =
                     self.completion.complete_emoji(&input).unwrap_or(input);
@@ -506,7 +512,12 @@ impl State {
                     let isupport = clients.get_isupport(buffer.server());
 
                     self.completion.process(
-                        &new_input, users, channels, &isupport, config,
+                        &new_input,
+                        users,
+                        &history.get_last_seen(buffer),
+                        channels,
+                        &isupport,
+                        config,
                     );
 
                     return self.on_completion(buffer, history, new_input);
@@ -543,7 +554,12 @@ impl State {
                         let isupport = clients.get_isupport(buffer.server());
 
                         self.completion.process(
-                            &new_input, users, channels, &isupport, config,
+                            &new_input,
+                            users,
+                            &history.get_last_seen(buffer),
+                            channels,
+                            &isupport,
+                            config,
                         );
                         new_input
                     };

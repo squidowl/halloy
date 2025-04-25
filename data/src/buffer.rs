@@ -159,6 +159,14 @@ pub struct TextInput {
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+pub enum OrderBy {
+    Alpha,
+    #[default]
+    Recent,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum SortDirection {
     #[default]
     Asc,
@@ -168,6 +176,8 @@ pub enum SortDirection {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Autocomplete {
     #[serde(default)]
+    pub order_by: OrderBy,
+    #[serde(default)]
     pub sort_direction: SortDirection,
     #[serde(default = "default_completion_suffixes")]
     pub completion_suffixes: [String; 2],
@@ -176,6 +186,7 @@ pub struct Autocomplete {
 impl Default for Autocomplete {
     fn default() -> Self {
         Self {
+            order_by: OrderBy::default(),
             sort_direction: SortDirection::default(),
             completion_suffixes: default_completion_suffixes(),
         }
