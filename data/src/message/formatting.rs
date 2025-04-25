@@ -89,14 +89,26 @@ pub fn parse(
                     if let Some(c) = iter.peeking_next(char::is_ascii_hexdigit)
                     {
                         // 6 digits (hex)
-                        let mut hex = c.to_string();
+                        let mut hex = Vec::from([c]);
                         for _ in 0..5 {
                             hex.push(iter.next()?);
                         }
 
-                        let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-                        let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-                        let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+                        let r = u8::from_str_radix(
+                            &hex.iter().take(2).collect::<String>(),
+                            16,
+                        )
+                        .ok()?;
+                        let g = u8::from_str_radix(
+                            &hex.iter().skip(2).take(2).collect::<String>(),
+                            16,
+                        )
+                        .ok()?;
+                        let b = u8::from_str_radix(
+                            &hex.iter().skip(4).take(2).collect::<String>(),
+                            16,
+                        )
+                        .ok()?;
 
                         *fg = Some(Color::Rgb(r, g, b));
 
@@ -106,17 +118,32 @@ pub fn parse(
                                 iter.peeking_next(char::is_ascii_hexdigit)
                             {
                                 // 6 digits (hex)
-                                let mut hex = c.to_string();
+                                let mut hex = Vec::from([c]);
                                 for _ in 0..5 {
                                     hex.push(iter.next()?);
                                 }
 
-                                let r =
-                                    u8::from_str_radix(&hex[0..2], 16).ok()?;
-                                let g =
-                                    u8::from_str_radix(&hex[2..4], 16).ok()?;
-                                let b =
-                                    u8::from_str_radix(&hex[4..6], 16).ok()?;
+                                let r = u8::from_str_radix(
+                                    &hex.iter().take(2).collect::<String>(),
+                                    16,
+                                )
+                                .ok()?;
+                                let g = u8::from_str_radix(
+                                    &hex.iter()
+                                        .skip(2)
+                                        .take(2)
+                                        .collect::<String>(),
+                                    16,
+                                )
+                                .ok()?;
+                                let b = u8::from_str_radix(
+                                    &hex.iter()
+                                        .skip(4)
+                                        .take(2)
+                                        .collect::<String>(),
+                                    16,
+                                )
+                                .ok()?;
 
                                 *bg = Some(Color::Rgb(r, g, b));
                             }
@@ -156,11 +183,9 @@ pub fn parse(
         }
     }
 
-    if fragments.is_empty() {
-        None
-    } else {
-        Some(fragments)
-    }
+    // Only return None if parsing failed; return an empty fragments if there
+    // are no non-formatting characters after parsing
+    Some(fragments)
 }
 
 #[derive(
