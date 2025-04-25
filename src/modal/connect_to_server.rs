@@ -17,9 +17,9 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
                 "Accept invalid certificates",
                 config.dangerously_accept_invalid_certs,
             )
-            .on_toggle(|toogle| {
+            .on_toggle(|toggle| {
                 Message::ServerConnect(
-                    super::ServerConnect::DangerouslyAcceptInvalidCerts(toogle),
+                    super::ServerConnect::DangerouslyAcceptInvalidCerts(toggle),
                 )
             }),
         )
