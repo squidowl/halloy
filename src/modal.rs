@@ -1,9 +1,11 @@
-use std::{path::PathBuf, time::Instant};
+use std::path::PathBuf;
+use std::time::Instant;
 
 use data::{Server, config};
 use iced::Task;
 
 use crate::widget::Element;
+use crate::window;
 
 pub mod connect_to_server;
 pub mod image_preview;
@@ -18,11 +20,15 @@ pub enum Modal {
         server: Server,
         config: config::Server,
     },
-    PromptBeforeOpenUrl(String),
+    PromptBeforeOpenUrl {
+        url: String,
+        window: window::Id,
+    },
     ImagePreview {
         source: PathBuf,
         url: url::Url,
         timer: Option<Instant>,
+        window: window::Id,
     },
 }
 
@@ -53,6 +59,20 @@ pub enum Event {
 }
 
 impl Modal {
+    pub fn window_id(&self) -> Option<window::Id> {
+        match self {
+            Modal::ReloadConfigurationError(..) => None,
+            Modal::ServerConnect { .. } => None,
+            Modal::PromptBeforeOpenUrl { url: _, window } => Some(*window),
+            Modal::ImagePreview {
+                source: _,
+                url: _,
+                timer: _,
+                window,
+            } => Some(*window),
+        }
+    }
+
     pub fn update(
         &mut self,
         message: Message,
@@ -127,12 +147,15 @@ impl Modal {
             Modal::ServerConnect {
                 url: raw, config, ..
             } => connect_to_server::view(raw, config),
-            Modal::PromptBeforeOpenUrl(payload) => {
-                prompt_before_open_url::view(payload)
+            Modal::PromptBeforeOpenUrl { url, window: _ } => {
+                prompt_before_open_url::view(url)
             }
-            Modal::ImagePreview { source, url, timer } => {
-                image_preview::view(source, url, timer)
-            }
+            Modal::ImagePreview {
+                source,
+                url,
+                timer,
+                window: _,
+            } => image_preview::view(source, url, timer),
         }
     }
 }

@@ -2097,7 +2097,7 @@ impl Dashboard {
             .map(|task| Task::perform(task, Message::Client))
     }
 
-    fn get_focused(&self) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
+    pub fn get_focused(&self) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
         let Focus { window, pane } = self.focus;
         self.panes
             .get(window, pane)
@@ -2733,11 +2733,7 @@ impl Dashboard {
         let buffer = buffer::Upstream::Channel(server.clone(), channel.clone());
 
         // Need to join channel
-        if !clients
-            .get_channels(&server)
-            .iter()
-            .any(|joined| channel == *joined)
-        {
+        if !clients.get_channels(&server).contains(&channel) {
             clients.join(&server, slice::from_ref(&channel));
         }
 

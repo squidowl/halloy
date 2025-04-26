@@ -389,8 +389,15 @@ impl Halloy {
                         url,
                         prompt_before_open,
                     )) => {
+                        let Some((id, _, _)) = dashboard.get_focused() else {
+                            return Task::none();
+                        };
+
                         if prompt_before_open {
-                            self.modal = Some(Modal::PromptBeforeOpenUrl(url));
+                            self.modal = Some(Modal::PromptBeforeOpenUrl {
+                                url,
+                                window: id,
+                            });
                         } else {
                             let _ = open::that_detached(url);
                         }
@@ -398,10 +405,15 @@ impl Halloy {
                         Task::none()
                     }
                     Some(dashboard::Event::ImagePreview(path, url)) => {
+                        let Some((id, _, _)) = dashboard.get_focused() else {
+                            return Task::none();
+                        };
+
                         self.modal = Some(Modal::ImagePreview {
                             source: path,
                             url,
                             timer: None,
+                            window: id,
                         });
                         Task::none()
                     }
@@ -1164,7 +1176,13 @@ impl Halloy {
     }
 
     fn view(&self, id: window::Id) -> Element<Message> {
-        let content = if id == self.main_window.id {
+        // The height margin varies across different operating systems due to design differences.
+        // For instance, on macOS, the menubar is hidden, resulting in a need for additional padding to accommodate the
+        // space occupied by the traffic light buttons.
+        let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
+
+        // Main window.
+        if id == self.main_window.id {
             let screen = match &self.screen {
                 Screen::Dashboard(dashboard) => dashboard
                     .view(
@@ -1184,39 +1202,47 @@ impl Halloy {
                 Screen::Exit { .. } => column![].into(),
             };
 
-            let content = container(screen)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .style(theme::container::general);
+            let content = container(
+                container(screen)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .style(theme::container::general),
+            )
+            .padding(padding::top(height_margin));
 
-            if let (Some(modal), Screen::Dashboard(_)) =
-                (&self.modal, &self.screen)
-            {
-                widget::modal(content, modal.view().map(Message::Modal), || {
-                    Message::Modal(modal::Message::Cancel)
-                })
-            } else {
-                // Align `content` into same view tree shape as `modal`
-                // to prevent diff from firing when displaying modal
-                column![content].into()
+            match (&self.modal, &self.screen) {
+                (Some(modal), Screen::Dashboard(_))
+                    if modal.window_id() == Some(self.main_window.id)
+                        || modal.window_id().is_none() =>
+                {
+                    widget::modal(
+                        content,
+                        modal.view().map(Message::Modal),
+                        || Message::Modal(modal::Message::Cancel),
+                    )
+                }
+                _ => column![content].into(),
             }
+        // Popped out window.
         } else if let Screen::Dashboard(dashboard) = &self.screen {
-            dashboard
-                .view_window(id, &self.clients, &self.config, &self.theme)
-                .map(Message::Dashboard)
+            let content = container(
+                dashboard
+                    .view_window(id, &self.clients, &self.config, &self.theme)
+                    .map(Message::Dashboard),
+            )
+            .padding(padding::top(height_margin));
+
+            match &self.modal {
+                Some(modal) if modal.window_id() == Some(id) => widget::modal(
+                    content,
+                    modal.view().map(Message::Modal),
+                    || Message::Modal(modal::Message::Cancel),
+                ),
+                _ => column![content].into(),
+            }
         } else {
             column![].into()
-        };
-
-        // The height margin varies across different operating systems due to design differences.
-        // For instance, on macOS, the menubar is hidden, resulting in a need for additional padding to accommodate the
-        // space occupied by the traffic light buttons.
-        let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
-
-        container(content)
-            .padding(padding::top(height_margin))
-            .style(theme::container::general)
-            .into()
+        }
     }
 
     fn theme(&self, _window: window::Id) -> Theme {
