@@ -1210,6 +1210,8 @@ impl Halloy {
             )
             .padding(padding::top(height_margin));
 
+            // Modals might have a id representing which window to be presented on.
+            // If modal has no id, we show them on main_window.
             match (&self.modal, &self.screen) {
                 (Some(modal), Screen::Dashboard(_))
                     if modal.window_id() == Some(self.main_window.id)
@@ -1232,6 +1234,8 @@ impl Halloy {
             )
             .padding(padding::top(height_margin));
 
+            // Modals might have a id representing which window to be presented on.
+            // If modal id match the current id we show it.
             match &self.modal {
                 Some(modal) if modal.window_id() == Some(id) => widget::modal(
                     content,
