@@ -6,6 +6,7 @@ use irc::connection;
 use serde::{Deserialize, Deserializer};
 
 use crate::config;
+use crate::serde::default_bool_true;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Server {
@@ -15,6 +16,9 @@ pub struct Server {
     pub nick_password: Option<String>,
     /// The client's NICKSERV password file.
     pub nick_password_file: Option<String>,
+    /// Truncate read from NICKSERV password file to first newline
+    #[serde(default = "default_bool_true")]
+    pub nick_password_file_first_line_only: bool,
     /// The client's NICKSERV password command.
     pub nick_password_command: Option<String>,
     /// The server's NICKSERV IDENTIFY syntax.
@@ -35,6 +39,9 @@ pub struct Server {
     pub password: Option<String>,
     /// The file with the password to connect to the server.
     pub password_file: Option<String>,
+    /// Truncate read from password file to first newline
+    #[serde(default = "default_bool_true")]
+    pub password_file_first_line_only: bool,
     /// The command which outputs a password to connect to the server.
     pub password_command: Option<String>,
     /// A list of channels to join on connection.
@@ -153,6 +160,7 @@ impl Default for Server {
             nickname: String::default(),
             nick_password: Option::default(),
             nick_password_file: Option::default(),
+            nick_password_file_first_line_only: default_bool_true(),
             nick_password_command: Option::default(),
             nick_identify_syntax: Option::default(),
             alt_nicks: Vec::default(),
@@ -162,6 +170,7 @@ impl Default for Server {
             port: default_tls_port(),
             password: Option::default(),
             password_file: Option::default(),
+            password_file_first_line_only: default_bool_true(),
             password_command: Option::default(),
             channels: Vec::default(),
             channel_keys: HashMap::default(),
@@ -201,6 +210,8 @@ pub enum Sasl {
         password: Option<String>,
         /// Account password file
         password_file: Option<String>,
+        /// Truncate read from password file to first newline
+        password_file_first_line_only: Option<bool>,
         /// Account password command
         password_command: Option<String>,
     },

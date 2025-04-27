@@ -108,7 +108,14 @@ impl Map {
                 {
                     return Err(Error::DuplicatePassword);
                 }
-                let pass = fs::read_to_string(pass_file).await?;
+                let mut pass = fs::read_to_string(pass_file).await?;
+                if config.password_file_first_line_only {
+                    pass = pass
+                        .lines()
+                        .next()
+                        .map(String::from)
+                        .unwrap_or_default();
+                }
                 config.password = Some(pass);
             }
             if let Some(pass_command) = &config.password_command {
@@ -123,7 +130,14 @@ impl Map {
                 {
                     return Err(Error::DuplicateNickPassword);
                 }
-                let nick_pass = fs::read_to_string(nick_pass_file).await?;
+                let mut nick_pass = fs::read_to_string(nick_pass_file).await?;
+                if config.nick_password_file_first_line_only {
+                    nick_pass = nick_pass
+                        .lines()
+                        .next()
+                        .map(String::from)
+                        .unwrap_or_default();
+                }
                 config.nick_password = Some(nick_pass);
             }
             if let Some(nick_pass_command) = &config.nick_password_command {
@@ -144,10 +158,21 @@ impl Map {
                     Sasl::Plain {
                         password: password @ None,
                         password_file: Some(pass_file),
+                        password_file_first_line_only,
                         password_command: None,
                         ..
                     } => {
-                        let pass = fs::read_to_string(pass_file).await?;
+                        let mut pass = fs::read_to_string(pass_file).await?;
+                        if password_file_first_line_only
+                            .is_none_or(|first_line_only| first_line_only)
+                        {
+                            pass = pass
+                                .lines()
+                                .next()
+                                .map(String::from)
+                                .unwrap_or_default();
+                        }
+
                         *password = Some(pass);
                     }
                     Sasl::Plain {
