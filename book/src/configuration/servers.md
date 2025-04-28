@@ -39,7 +39,7 @@ nick_password = ""
 
 ## `nick_password_file`
 
-Read nick_password from the file at the given path.[^1] [^2]
+Read `nick_password` from the file at the given path.[^1] [^2]
 
 ```toml
 # Type: string
@@ -48,6 +48,19 @@ Read nick_password from the file at the given path.[^1] [^2]
 
 [servers.<name>]
 nick_password_file = ""
+```
+
+## `nick_password_file_first_line_only`
+
+Read `nick_password` from the first line of `nick_password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+nick_password_file_first_line_only = true
 ```
 
 ## `nick_password_command`
@@ -166,6 +179,19 @@ Read password from the file at the given path.[^1] [^2]
 
 [servers.<name>]
 password_file = ""
+```
+
+## `password_file_first_line_only`
+
+Read `password` from the first line of `password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+password_file_first_line_only = true
 ```
 
 ## `password_command`
@@ -433,6 +459,19 @@ Read `password` from the file at the given path.[^1] [^2]
 
 [servers.<name>.sasl.plain]
 password_file = ""
+```
+
+## `password_file_first_line_only`
+
+Read `password` from the first line of `password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+password_file_first_line_only = true
 ```
 
 ### `password_command`
