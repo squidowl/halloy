@@ -1088,7 +1088,6 @@ fn preview_row<'a>(
             image: preview::Image { path, .. },
             title,
             description,
-            canonical_url,
             ..
         }) => keyed(
             keyed::Key::Preview(message.hash, idx),
@@ -1120,32 +1119,23 @@ fn preview_row<'a>(
                 )
                 .padding(4)
                 .style(theme::container::image_card),
+            ),
+        ),
+        data::Preview::Image(preview::Image { path, url, .. }) => keyed(
+            keyed::Key::Preview(message.hash, idx),
+            button(
+                container(image(path).content_fit(ContentFit::ScaleDown))
+                    .max_width(550)
+                    .max_height(350),
             )
-        }
-        data::Preview::Image(preview::Image { path, url, .. }) => {
-            if !config.preview.image.visible(&target, casemapping) {
-                return None;
-            }
-
-            keyed(
-                keyed::Key::Preview(message.hash, idx),
-                button(
-                    container(image(path).content_fit(ContentFit::ScaleDown))
-                        .max_width(550)
-                        .max_height(350),
-                )
-                .on_press(match config.preview.image.action {
-                    data::config::preview::ImageAction::OpenUrl => {
-                        Message::Link(message::Link::Url(url.to_string()))
-                    }
-                    data::config::preview::ImageAction::Preview => {
-                        Message::ImagePreview(path.to_path_buf(), url.clone())
-                    }
-                })
-                .padding(0)
-                .style(theme::button::bare),
-            )
-            .on_press(Message::Link(message::Link::Url(url.to_string())))
+            .on_press(match config.preview.image.action {
+                data::config::preview::ImageAction::OpenUrl => {
+                    Message::Link(message::Link::Url(url.to_string()))
+                }
+                data::config::preview::ImageAction::Preview => {
+                    Message::ImagePreview(path.to_path_buf(), url.clone())
+                }
+            })
             .padding(0)
             .style(theme::button::bare),
         ),
