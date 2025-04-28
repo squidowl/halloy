@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 pub use data::buffer::{Autocomplete, Internal, Settings, Upstream};
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
@@ -57,6 +59,7 @@ pub enum Event {
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead(history::Kind),
     OpenUrl(String),
+    ImagePreview(PathBuf, url::Url),
 }
 
 impl Buffer {
@@ -156,6 +159,9 @@ impl Buffer {
                     }
                     channel::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
                     channel::Event::OpenUrl(url) => Event::OpenUrl(url),
+                    channel::Event::ImagePreview(path, url) => {
+                        Event::ImagePreview(path, url)
+                    }
                 });
 
                 (command.map(Message::Channel), event)
@@ -174,6 +180,9 @@ impl Buffer {
                     server::Event::History(task) => Event::History(task),
                     server::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
                     server::Event::OpenUrl(url) => Event::OpenUrl(url),
+                    server::Event::ImagePreview(path, url) => {
+                        Event::ImagePreview(path, url)
+                    }
                 });
 
                 (command.map(Message::Server), event)
@@ -199,6 +208,9 @@ impl Buffer {
                     }
                     query::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
                     query::Event::OpenUrl(url) => Event::OpenUrl(url),
+                    query::Event::ImagePreview(path, url) => {
+                        Event::ImagePreview(path, url)
+                    }
                 });
 
                 (command.map(Message::Query), event)
@@ -224,6 +236,9 @@ impl Buffer {
                         Event::MarkAsRead(history::Kind::Logs)
                     }
                     logs::Event::OpenUrl(url) => Event::OpenUrl(url),
+                    logs::Event::ImagePreview(path, url) => {
+                        Event::ImagePreview(path, url)
+                    }
                 });
 
                 (command.map(Message::Logs), event)
@@ -246,6 +261,9 @@ impl Buffer {
                     ) => Event::GoToMessage(server, channel, message),
                     highlights::Event::History(task) => Event::History(task),
                     highlights::Event::OpenUrl(url) => Event::OpenUrl(url),
+                    highlights::Event::ImagePreview(path, url) => {
+                        Event::ImagePreview(path, url)
+                    }
                 });
 
                 (command.map(Message::Highlights), event)

@@ -73,5 +73,5 @@ fn xdg_config_dir() -> Option<PathBuf> {
         .ok()
         .and_then(|xdg| xdg.find_config_file(CONFIG_FILE_NAME))?;
 
-    config_dir.parent().map(|p| p.to_path_buf())
+    config_dir.parent().map(std::path::Path::to_path_buf)
 }

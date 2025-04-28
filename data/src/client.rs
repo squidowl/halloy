@@ -6,7 +6,8 @@ use std::{fmt, io};
 
 use anyhow::{Context as ErrorContext, Result, anyhow, bail};
 use chrono::{DateTime, Utc};
-use futures::{Future, FutureExt, channel::mpsc};
+use futures::channel::mpsc;
+use futures::{Future, FutureExt};
 use irc::proto::{self, Command, command};
 use itertools::{Either, Itertools};
 use log::error;
@@ -689,10 +690,9 @@ impl Client {
                             .and_then(ChatHistoryBatch::target)
                     })
                     .and_then(|target| {
-                        if self.chathistory_requests.contains_key(&target) {
-                            Some(target)
-                        } else {
-                            None
+                        match self.chathistory_requests.contains_key(&target) {
+                            true => Some(target),
+                            false => None,
                         }
                     }) {
                     if Some(User::from(Nick::from("HistServ")))

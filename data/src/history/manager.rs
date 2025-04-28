@@ -336,8 +336,7 @@ impl Manager {
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
-        let queries = self
-            .data
+        self.data
             .map
             .keys()
             .filter_map(|kind| match kind {
@@ -346,9 +345,7 @@ impl Manager {
                 }
                 _ => None,
             })
-            .collect::<Vec<_>>();
-
-        queries
+            .collect::<Vec<_>>()
     }
 
     pub fn has_unread(&self, kind: &history::Kind) -> bool {
