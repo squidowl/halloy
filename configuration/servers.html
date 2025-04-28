@@ -188,13 +188,22 @@ nickname = ""
 nick_password = ""
 </code></pre>
 <h2 id="nick_password_file"><a class="header" href="#nick_password_file"><code>nick_password_file</code></a></h2>
-<p>Read nick_password from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
+<p>Read <code>nick_password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
 
 [servers.&lt;name&gt;]
 nick_password_file = ""
+</code></pre>
+<h2 id="nick_password_file_first_line_only"><a class="header" href="#nick_password_file_first_line_only"><code>nick_password_file_first_line_only</code></a></h2>
+<p>Read <code>nick_password</code> from the first line of <code>nick_password_file</code> only.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;]
+nick_password_file_first_line_only = true
 </code></pre>
 <h2 id="nick_password_command"><a class="header" href="#nick_password_command"><code>nick_password_command</code></a></h2>
 <p>Executes the command with <code>sh</code> (or equivalent) and reads <code>nick_password</code> as the output.</p>
@@ -276,6 +285,15 @@ password = ""
 
 [servers.&lt;name&gt;]
 password_file = ""
+</code></pre>
+<h2 id="password_file_first_line_only"><a class="header" href="#password_file_first_line_only"><code>password_file_first_line_only</code></a></h2>
+<p>Read <code>password</code> from the first line of <code>password_file</code> only.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;]
+password_file_first_line_only = true
 </code></pre>
 <h2 id="password_command"><a class="header" href="#password_command"><code>password_command</code></a></h2>
 <p>Executes the command with <code>sh</code> (or equivalent) and reads <code>password</code> as the output.</p>
@@ -461,6 +479,15 @@ password = "password"
 
 [servers.&lt;name&gt;.sasl.plain]
 password_file = ""
+</code></pre>
+<h2 id="password_file_first_line_only-1"><a class="header" href="#password_file_first_line_only-1"><code>password_file_first_line_only</code></a></h2>
+<p>Read <code>password</code> from the first line of <code>password_file</code> only.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;]
+password_file_first_line_only = true
 </code></pre>
 <h3 id="password_command-1"><a class="header" href="#password_command-1"><code>password_command</code></a></h3>
 <p>Executes the command with <code>sh</code> (or equivalent) and reads <code>password</code> as the output.</p>
