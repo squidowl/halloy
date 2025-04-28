@@ -17,7 +17,11 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
                 "Accept invalid certificates",
                 config.dangerously_accept_invalid_certs,
             )
-            .on_toggle(Message::DangerouslyAcceptInvalidCerts),
+            .on_toggle(|toggle| {
+                Message::ServerConnect(
+                    super::ServerConnect::DangerouslyAcceptInvalidCerts(toggle),
+                )
+            }),
         )
         .push(
             column![
@@ -31,7 +35,9 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
                 .style(|theme, status| theme::button::secondary(
                     theme, status, false
                 ))
-                .on_press(Message::AcceptNewServer),
+                .on_press(Message::ServerConnect(
+                    super::ServerConnect::AcceptNewServer
+                )),
                 button(
                     container(text("Close"))
                         .align_x(alignment::Horizontal::Center)

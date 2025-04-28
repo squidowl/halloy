@@ -102,9 +102,19 @@ impl Card {
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Image {
     #[serde(default)]
+    pub action: ImageAction,
+    #[serde(default)]
     pub exclude: Vec<String>,
     #[serde(default)]
     pub include: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum ImageAction {
+    OpenUrl,
+    #[default]
+    Preview,
 }
 
 impl Image {
