@@ -1,7 +1,6 @@
-use data::buffer::{self, Autocomplete};
 use std::time::Duration;
 
-use data::buffer::Upstream;
+use data::buffer::{self, Autocomplete, Upstream};
 use data::dashboard::BufferAction;
 use data::history::{self, ReadMarker};
 use data::input::{self, Cache, Draft};
@@ -472,26 +471,19 @@ impl State {
                             }
                         }
 
-                        let (record_message_tasks, update_read_marker_tasks) =
-                            history.record_input_message(
-                                input,
-                                user,
-                                channel_users,
-                                chantypes,
-                                statusmsg,
-                                casemapping,
-                                config,
-                            );
-
                         history_task = Task::batch(
-                            record_message_tasks
+                            history
+                                .record_input_message(
+                                    input,
+                                    user,
+                                    channel_users,
+                                    chantypes,
+                                    statusmsg,
+                                    casemapping,
+                                    config,
+                                )
                                 .into_iter()
-                                .map(Task::future)
-                                .chain(
-                                    update_read_marker_tasks
-                                        .into_iter()
-                                        .map(Task::future),
-                                ),
+                                .map(Task::future),
                         );
                     }
 
