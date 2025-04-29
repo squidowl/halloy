@@ -123,6 +123,13 @@ impl Hash for KeyBind {
     }
 }
 
+// For defaults checkt the platform specific defaults:
+// macOS: https://support.apple.com/en-us/102650
+// Windows: https://support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec
+// Linux FreeDesktop (not ready yet): https://wiki.freedesktop.org/www/Specifications/default-keys-spec/
+// Linux - KDE: https://docs.kde.org/stable5/en/khelpcenter/fundamentals/kbd.html
+// Linux - Gnome: https://help.gnome.org/users/gnome-help/stable/keyboard-nav.html.en
+
 impl KeyBind {
     default!(move_up, ArrowUp, COMMAND | ALT);
     default!(move_down, ArrowDown, COMMAND | ALT);
@@ -137,7 +144,12 @@ impl KeyBind {
     default!(toggle_nick_list, "m", COMMAND | ALT);
     default!(toggle_sidebar, "b", COMMAND | ALT);
     default!(toggle_topic, "t", COMMAND | ALT);
-    default!(toggle_fullscreen, "f", CTRL | SHIFT);
+    #[cfg(target_os = "macos")]
+    default!(toggle_fullscreen, "f", COMMAND | CTRL);
+    #[cfg(target_os = "linux")]
+    default!(toggle_fullscreen, F11);
+    #[cfg(target_os = "windows")]
+    default!(toggle_fullscreen, F11);
     default!(command_bar, "k", COMMAND);
     default!(reload_configuration, "r", COMMAND);
     default!(file_transfers, "j", COMMAND);
