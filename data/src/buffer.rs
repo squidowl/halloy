@@ -1,13 +1,11 @@
 use core::fmt;
 
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 use crate::config::buffer::NicknameClickAction;
-use crate::preview::{self, Preview};
 use crate::serde::default_bool_true;
 use crate::target::{self, Target};
-use crate::{Server, channel, config, isupport, message};
+use crate::{Server, channel, config, message};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -356,41 +354,6 @@ impl From<SkinTone> for emojis::SkinTone {
             SkinTone::MediumDark => emojis::SkinTone::MediumDark,
             SkinTone::Dark => emojis::SkinTone::Dark,
         }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Previews<'a> {
-    collection: &'a preview::Collection,
-    cards_are_visible: bool,
-    images_are_visible: bool,
-}
-
-impl<'a> Previews<'a> {
-    pub fn from(
-        collection: &'a preview::Collection,
-        target: &Target,
-        config: &config::Preview,
-        casemapping: isupport::CaseMap,
-    ) -> Previews<'a> {
-        Self {
-            collection,
-            cards_are_visible: config.enabled
-                && config.card.visible(target, casemapping),
-            images_are_visible: config.enabled
-                && config.image.visible(target, casemapping),
-        }
-    }
-
-    pub fn get(&self, url: &Url) -> Option<&'a preview::State> {
-        self.collection.get(url).filter(|state| match state {
-            preview::State::Loading => true,
-            preview::State::Loaded(preview) => match preview {
-                Preview::Card(_) => self.cards_are_visible,
-                Preview::Image(_) => self.images_are_visible,
-            },
-            preview::State::Error(_) => true,
-        })
     }
 }
 

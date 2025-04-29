@@ -5,9 +5,10 @@ use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
+use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Preview, client, history, preview};
+use data::{Config, Preview, client, history};
 use iced::widget::{
     Scrollable, button, center, column, container, horizontal_rule,
     horizontal_space, image, mouse_area, row, scrollable, text,
@@ -98,7 +99,7 @@ pub fn view<'a>(
     state: &State,
     kind: Kind,
     history: &'a history::Manager,
-    previews: Option<data::buffer::Previews<'a>>,
+    previews: Option<Previews<'a>>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
     format: impl Fn(
