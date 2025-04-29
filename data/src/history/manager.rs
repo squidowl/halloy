@@ -221,12 +221,8 @@ impl Manager {
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         config: &Config,
-    ) -> (
-        Vec<impl Future<Output = Message> + use<>>,
-        Vec<impl Future<Output = Message> + use<>>,
-    ) {
-        let mut record_message_tasks = vec![];
-        let mut update_read_marker_tasks = vec![];
+    ) -> Vec<BoxFuture<'static, Message>> {
+        let mut tasks = vec![];
 
         if let Some(messages) = input.messages(
             user,
@@ -242,23 +238,26 @@ impl Manager {
                         input.server().clone(),
                         &message,
                     ) {
-                        update_read_marker_tasks.extend(
+                        tasks.extend(
                             self.update_read_marker(
                                 kind,
                                 history::ReadMarker::from_date_time(
                                     message.server_time,
                                 ),
-                            ),
+                            )
+                            .map(futures::FutureExt::boxed),
                         );
                     }
                 }
 
-                record_message_tasks
-                    .extend(self.record_message(input.server(), message));
+                tasks.extend(
+                    self.record_message(input.server(), message)
+                        .map(futures::FutureExt::boxed),
+                );
             }
         }
 
-        (record_message_tasks, update_read_marker_tasks)
+        tasks
     }
 
     pub fn record_input_history(
