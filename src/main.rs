@@ -87,15 +87,17 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    iced::daemon("Halloy", Halloy::update, Halloy::view)
+    //tarkah: guess we need to move some stuff into the Halloy::new now.
+    iced::daemon(Halloy::new, Halloy::update, Halloy::view)
+        .title(Halloy::title)
         .theme(Halloy::theme)
         .scale_factor(Halloy::scale_factor)
         .subscription(Halloy::subscription)
-        .settings(settings(&config_load))
-        .run_with(move || {
-            Halloy::new(config_load, window_load, destination, log_stream)
-        })
-        .inspect_err(|err| log::error!("{}", err))?;
+        .settings(settings(&config_load));
+        // .run_with(move || {
+        //     Halloy::new(config_load, window_load, destination, log_stream)
+        // })
+        // .inspect_err(|err| log::error!("{}", err))?;
 
     Ok(())
 }
@@ -299,6 +301,10 @@ impl Halloy {
         }
 
         Task::none()
+    }
+
+    fn title(&self, _window_id: window::Id) -> String {
+        String::from("Halloy")
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {

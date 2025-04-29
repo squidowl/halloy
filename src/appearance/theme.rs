@@ -17,6 +17,7 @@ pub mod scrollable;
 pub mod selectable_text;
 pub mod text;
 pub mod text_input;
+pub mod image;
 
 // TODO: If we use non-standard font sizes, we should consider
 // Config.font.size since it's user configurable
@@ -78,6 +79,10 @@ impl iced::theme::Base for Theme {
             background_color: self.colors().general.background,
             text_color: self.colors().text.primary,
         }
+    }
+    
+    fn palette(&self) -> Option<iced::theme::Palette> {
+        None
     }
 }
 
