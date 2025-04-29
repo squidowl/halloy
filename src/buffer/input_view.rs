@@ -143,6 +143,9 @@ impl State {
         history: &mut history::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
+        let current_channel = buffer
+                                        .channel()
+                                        .map(|channel| channel.to_string());
         match message {
             Message::Input(input) => {
                 // Reset error state
@@ -164,6 +167,7 @@ impl State {
                     users,
                     &history.get_last_seen(buffer),
                     channels,
+                    current_channel,
                     &isupport,
                     config,
                 );
@@ -516,6 +520,7 @@ impl State {
                         users,
                         &history.get_last_seen(buffer),
                         channels,
+                        current_channel,
                         &isupport,
                         config,
                     );
@@ -558,6 +563,7 @@ impl State {
                             users,
                             &history.get_last_seen(buffer),
                             channels,
+                            current_channel,
                             &isupport,
                             config,
                         );

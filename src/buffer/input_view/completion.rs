@@ -38,6 +38,7 @@ impl Completion {
         users: &[User],
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
+        current_channel: Option<String>,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
     ) {
@@ -65,6 +66,7 @@ impl Completion {
                     users,
                     last_seen,
                     channels,
+                    current_channel,
                     config,
                 );
             }
@@ -91,6 +93,7 @@ impl Completion {
                 users,
                 last_seen,
                 channels,
+                current_channel,
                 config,
             );
 
@@ -1004,9 +1007,10 @@ impl Text {
         users: &[User],
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
+        current_channel: Option<String>,
         config: &Config,
     ) {
-        if !self.process_channels(input, casemapping, channels, config) {
+        if !self.process_channels(input, casemapping, channels, current_channel, config) {
             self.process_users(input, casemapping, users, last_seen, config);
         }
     }
@@ -1080,6 +1084,7 @@ impl Text {
         input: &str,
         casemapping: isupport::CaseMap,
         channels: &[target::Channel],
+        current_channel: Option<String>,
         config: &Config,
     ) -> bool {
         let autocomplete = &config.buffer.text_input.autocomplete;
@@ -1110,6 +1115,10 @@ impl Text {
             })
             .map(ToString::to_string)
             .collect();
+
+        if current_channel.is_some() {
+            self.filtered.insert(0, current_channel.expect("Current channel"));
+        }
 
         true
     }
