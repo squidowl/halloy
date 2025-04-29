@@ -16,7 +16,8 @@ use url::Url;
 
 pub use self::card::Card;
 pub use self::image::Image;
-use crate::config;
+use crate::target::Target;
+use crate::{config, isupport};
 
 mod cache;
 pub mod card;
@@ -32,6 +33,41 @@ static OPENGRAPH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     )
     .expect("valid opengraph regex")
 });
+
+#[derive(Clone, Copy)]
+pub struct Previews<'a> {
+    collection: &'a Collection,
+    cards_are_visible: bool,
+    images_are_visible: bool,
+}
+
+impl<'a> Previews<'a> {
+    pub fn new(
+        collection: &'a Collection,
+        target: &Target,
+        config: &config::Preview,
+        casemapping: isupport::CaseMap,
+    ) -> Previews<'a> {
+        Self {
+            collection,
+            cards_are_visible: config.enabled
+                && config.card.visible(target, casemapping),
+            images_are_visible: config.enabled
+                && config.image.visible(target, casemapping),
+        }
+    }
+
+    pub fn get(&self, url: &Url) -> Option<&'a State> {
+        self.collection.get(url).filter(|state| match state {
+            State::Loading => true,
+            State::Loaded(preview) => match preview {
+                Preview::Card(_) => self.cards_are_visible,
+                Preview::Image(_) => self.images_are_visible,
+            },
+            State::Error(_) => true,
+        })
+    }
+}
 
 pub type Collection = HashMap<Url, State>;
 

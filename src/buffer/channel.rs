@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
 use data::dashboard::BufferAction;
+use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{Config, User, buffer, history, message, preview};
+use data::{Config, User, buffer, history, message};
 use iced::advanced::text;
 use iced::widget::{column, container, row};
 use iced::{Length, Task, padding};
@@ -65,7 +66,7 @@ pub fn view<'a>(
     let chathistory_state =
         clients.get_chathistory_state(server, &channel.to_target());
 
-    let previews = Some(buffer::Previews::from(
+    let previews = Some(Previews::new(
         previews,
         &channel.to_target(),
         &config.preview,
