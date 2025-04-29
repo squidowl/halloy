@@ -145,7 +145,7 @@ impl State {
     ) -> (Task<Message>, Option<Event>) {
         let current_channel = buffer
                                         .channel()
-                                        .map(|channel| channel.to_string());
+                                        .map(ToString::to_string);
         match message {
             Message::Input(input) => {
                 // Reset error state
