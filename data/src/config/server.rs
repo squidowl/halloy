@@ -287,17 +287,12 @@ where
 
     let filters = Filters::deserialize(deserializer)?;
 
-    let sources: Vec<Source> = filters.ignore.map_or(Vec::new(), |ignore_list| {
-        ignore_list
-            .into_iter()
-            .filter_map(|string| {
-                let Ok(user) = User::try_from(string) else {
-                    return None;
-                };
-                Some(Source::User(user))
-            })
-            .collect()
-    });
+    let sources = filters.ignore
+    .unwrap_or_default()
+    .into_iter()
+    .filter_map(|user| User::try_from(user).ok().map(Source::User))
+    .collect();
+
     let filter = Filter::ExcludeSources(sources);
     log::debug!("loaded filter for ignored nicks {:?}", filter);
     Ok(vec![filter])
