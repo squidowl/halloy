@@ -144,7 +144,7 @@ server = "irc.libera.chat"
 
 ## `port`
 
-The port to connect on.	
+The port to connect on. If you want to use a plain text port like 6667 you MUST also change the `use_tls` setting.
 
 ```toml
 # Type: integer
