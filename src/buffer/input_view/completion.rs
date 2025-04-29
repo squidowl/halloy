@@ -1116,8 +1116,8 @@ impl Text {
             .map(ToString::to_string)
             .collect();
 
-        if current_channel.is_some() {
-            self.filtered.insert(0, current_channel.expect("Current channel"));
+        if let Some(channel) = current_channel {
+            self.filtered.insert(0, channel);
         }
 
         true
