@@ -143,9 +143,8 @@ impl State {
         history: &mut history::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
-        let current_channel = buffer
-                                        .channel()
-                                        .map(ToString::to_string);
+        let current_channel = buffer.channel();
+
         match message {
             Message::Input(input) => {
                 // Reset error state

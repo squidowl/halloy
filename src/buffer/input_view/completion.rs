@@ -38,7 +38,7 @@ impl Completion {
         users: &[User],
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
-        current_channel: Option<String>,
+        current_channel: Option<&target::Channel>,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
     ) {
@@ -1007,10 +1007,16 @@ impl Text {
         users: &[User],
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
-        current_channel: Option<String>,
+        current_channel: Option<&target::Channel>,
         config: &Config,
     ) {
-        if !self.process_channels(input, casemapping, channels, current_channel, config) {
+        if !self.process_channels(
+            input,
+            casemapping,
+            channels,
+            current_channel,
+            config,
+        ) {
             self.process_users(input, casemapping, users, last_seen, config);
         }
     }
@@ -1084,7 +1090,7 @@ impl Text {
         input: &str,
         casemapping: isupport::CaseMap,
         channels: &[target::Channel],
-        current_channel: Option<String>,
+        current_channel: Option<&target::Channel>,
         config: &Config,
     ) -> bool {
         let autocomplete = &config.buffer.text_input.autocomplete;
@@ -1096,29 +1102,42 @@ impl Text {
 
         let input_channel = format!("#{}", casemapping.normalize(rest));
 
+        let compare_channels =
+            |a: &&target::Channel, b: &&target::Channel| match autocomplete
+                .sort_direction
+            {
+                SortDirection::Asc => {
+                    a.as_normalized_str().cmp(b.as_normalized_str())
+                }
+                SortDirection::Desc => {
+                    b.as_normalized_str().cmp(a.as_normalized_str())
+                }
+            };
+
         self.selected = None;
         self.prompt = format!("#{rest}");
         self.filtered = channels
             .iter()
-            .sorted_by(|a, b: &&target::Channel| {
-                match autocomplete.sort_direction {
-                    SortDirection::Asc => {
-                        a.as_normalized_str().cmp(b.as_normalized_str())
-                    }
-                    SortDirection::Desc => {
-                        b.as_normalized_str().cmp(a.as_normalized_str())
+            .sorted_by(|a, b: &&target::Channel| match current_channel {
+                Some(current_channel) => {
+                    let a_is_current_channel = a.as_normalized_str()
+                        == current_channel.as_normalized_str();
+                    let b_is_current_channel = b.as_normalized_str()
+                        == current_channel.as_normalized_str();
+
+                    match (a_is_current_channel, b_is_current_channel) {
+                        (true, false) => std::cmp::Ordering::Less,
+                        (false, true) => std::cmp::Ordering::Greater,
+                        _ => compare_channels(a, b),
                     }
                 }
+                None => compare_channels(a, b),
             })
             .filter(|&channel| {
                 channel.as_str().starts_with(input_channel.as_str())
             })
             .map(ToString::to_string)
             .collect();
-
-        if let Some(channel) = current_channel {
-            self.filtered.insert(0, channel);
-        }
 
         true
     }
