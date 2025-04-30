@@ -247,6 +247,7 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let base_state = tree.children.first_mut().unwrap();
@@ -254,6 +255,7 @@ where
             base_state,
             layout,
             renderer,
+            viewport,
             translation,
         );
 

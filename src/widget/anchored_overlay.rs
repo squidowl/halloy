@@ -148,6 +148,7 @@ impl<Message> Widget<Message, Theme, Renderer>
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let (first, second) = tree.children.split_at_mut(1);
@@ -156,6 +157,7 @@ impl<Message> Widget<Message, Theme, Renderer>
             &mut first[0],
             layout,
             renderer,
+            viewport,
             translation,
         );
 

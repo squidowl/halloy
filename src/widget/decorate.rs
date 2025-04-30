@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::slice;
 
-use iced::Element;
+use iced::{Element, Rectangle};
 use iced::advanced::{self, Widget, layout};
 
 pub fn decorate<'a, Message, Theme, Renderer>(
@@ -589,6 +589,7 @@ pub trait Overlay<'a, Message, Theme, Renderer, State> {
         tree: &'b mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: iced::Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>>;
 }
@@ -605,11 +606,12 @@ where
         tree: &'b mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: iced::Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         inner
             .as_widget_mut()
-            .overlay(tree, layout, renderer, translation)
+            .overlay(tree, layout, renderer, viewport, translation)
     }
 }
 
@@ -634,6 +636,7 @@ where
         tree: &'b mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
         renderer: &Renderer,
+        _viewport: &Rectangle,
         translation: iced::Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         self(state, inner, tree, layout, renderer, translation)
@@ -806,6 +809,7 @@ where
         tree: &'b mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: iced::Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         self.overlay.overlay(
@@ -814,6 +818,7 @@ where
             &mut tree.children[0],
             layout,
             renderer,
+            viewport,
             translation,
         )
     }
