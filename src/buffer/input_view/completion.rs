@@ -1102,36 +1102,33 @@ impl Text {
 
         let input_channel = format!("#{}", casemapping.normalize(rest));
 
-        let compare_channels =
-            |a: &&target::Channel, b: &&target::Channel| match autocomplete
-                .sort_direction
-            {
-                SortDirection::Asc => {
-                    a.as_normalized_str().cmp(b.as_normalized_str())
-                }
-                SortDirection::Desc => {
-                    b.as_normalized_str().cmp(a.as_normalized_str())
-                }
-            };
-
         self.selected = None;
         self.prompt = format!("#{rest}");
         self.filtered = channels
             .iter()
-            .sorted_by(|a, b: &&target::Channel| match current_channel {
-                Some(current_channel) => {
+            .sorted_by(|a, b: &&target::Channel| {
+                if let Some(current_channel) = current_channel {
                     let a_is_current_channel = a.as_normalized_str()
                         == current_channel.as_normalized_str();
                     let b_is_current_channel = b.as_normalized_str()
                         == current_channel.as_normalized_str();
 
                     match (a_is_current_channel, b_is_current_channel) {
-                        (true, false) => std::cmp::Ordering::Less,
-                        (false, true) => std::cmp::Ordering::Greater,
-                        _ => compare_channels(a, b),
+                        (false, false) => (),
+                        (true, false) => return std::cmp::Ordering::Less,
+                        (false, true) => return std::cmp::Ordering::Greater,
+                        (true, true) => return std::cmp::Ordering::Equal,
                     }
                 }
-                None => compare_channels(a, b),
+
+                match autocomplete.sort_direction {
+                    SortDirection::Asc => {
+                        a.as_normalized_str().cmp(b.as_normalized_str())
+                    }
+                    SortDirection::Desc => {
+                        b.as_normalized_str().cmp(a.as_normalized_str())
+                    }
+                }
             })
             .filter(|&channel| {
                 channel.as_str().starts_with(input_channel.as_str())
