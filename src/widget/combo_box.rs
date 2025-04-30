@@ -726,6 +726,7 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         _renderer: &Renderer,
+        _viewport: &Rectangle,
         _translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let Menu {
