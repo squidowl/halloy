@@ -168,6 +168,7 @@ impl<Message> Widget<Message, Theme, Renderer>
             offset: self.offset,
             base_layout: layout.bounds(),
             position: layout.position(),
+            viewport: *viewport,
         }));
 
         Some(
@@ -195,6 +196,7 @@ struct Overlay<'a, 'b, Message> {
     offset: f32,
     base_layout: Rectangle,
     position: Point,
+    viewport: Rectangle,
 }
 
 impl<Message> overlay::Overlay<Message, Theme, Renderer>
@@ -319,6 +321,7 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
             self.tree,
             layout,
             renderer,
+            &self.viewport,
             Vector::default(),
         )
     }

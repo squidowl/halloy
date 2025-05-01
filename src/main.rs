@@ -17,6 +17,7 @@ mod widget;
 mod window;
 
 use std::collections::HashSet;
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use std::{env, mem};
 
@@ -87,17 +88,35 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    let settings = settings(&config_load);
+    let log_stream = Mutex::new(Some(log_stream));
+
     //tarkah: guess we need to move some stuff into the Halloy::new now.
-    iced::daemon(Halloy::new, Halloy::update, Halloy::view)
-        .title(Halloy::title)
-        .theme(Halloy::theme)
-        .scale_factor(Halloy::scale_factor)
-        .subscription(Halloy::subscription)
-        .settings(settings(&config_load));
-        // .run_with(move || {
-        //     Halloy::new(config_load, window_load, destination, log_stream)
-        // })
-        // .inspect_err(|err| log::error!("{}", err))?;
+    iced::daemon(
+        move || {
+            let log_stream = log_stream
+                .lock()
+                .unwrap()
+                .take()
+                .expect("will only panic if using iced_devtools");
+
+            Halloy::new(
+                config_load.clone(),
+                window_load.clone(),
+                destination.clone(),
+                log_stream,
+            )
+        },
+        Halloy::update,
+        Halloy::view,
+    )
+    .title(Halloy::title)
+    .theme(Halloy::theme)
+    .scale_factor(Halloy::scale_factor)
+    .subscription(Halloy::subscription)
+    .settings(settings)
+    .run()
+    .inspect_err(|err| log::error!("{}", err))?;
 
     Ok(())
 }
