@@ -5,12 +5,10 @@ use fancy_regex::Regex;
 use irc::proto;
 use itertools::Itertools;
 
+use crate::buffer::{self, Upstream};
+use crate::ctcp;
 use crate::isupport::{self, find_target_limit};
 use crate::message::formatting;
-use crate::{
-    buffer::{self, Upstream},
-    ctcp,
-};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -80,7 +78,7 @@ impl FromStr for Kind {
             "motd" => Ok(Kind::Motd),
             "nick" => Ok(Kind::Nick),
             "quit" => Ok(Kind::Quit),
-            "msg" => Ok(Kind::Msg),
+            "msg" | "query" => Ok(Kind::Msg),
             "me" | "describe" => Ok(Kind::Me),
             "whois" => Ok(Kind::Whois),
             "part" | "leave" => Ok(Kind::Part),
