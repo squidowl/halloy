@@ -1,5 +1,5 @@
-use std::io;
 use std::path::PathBuf;
+use std::{io, sync::Arc};
 
 use iced_core::{Point, Size};
 use serde::{Deserialize, Serialize};
@@ -69,12 +69,24 @@ fn path() -> Result<PathBuf, Error> {
     Ok(parent.join("window.json"))
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Serde(#[from] serde_json::Error),
+    Serde(Arc<serde_json::Error>),
     #[error(transparent)]
-    Io(#[from] io::Error),
+    Io(Arc<io::Error>),
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(error: serde_json::Error) -> Self {
+        Self::Serde(Arc::new(error))
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Self::Io(Arc::new(error))
+    }
 }
 
 mod serde_position {
