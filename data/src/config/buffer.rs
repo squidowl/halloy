@@ -140,6 +140,8 @@ pub struct ServerMessages {
     pub standard_reply_warn: ServerMessage,
     #[serde(default)]
     pub standard_reply_note: ServerMessage,
+    #[serde(default)]
+    pub wallops: ServerMessage,
 }
 
 impl ServerMessages {
@@ -165,6 +167,7 @@ impl ServerMessages {
             source::server::Kind::StandardReply(
                 source::server::StandardReply::Note,
             ) => Some(&self.standard_reply_note),
+            source::server::Kind::Wallops => Some(&self.wallops),
         }
     }
 }
