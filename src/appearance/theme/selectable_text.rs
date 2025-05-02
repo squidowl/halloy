@@ -85,6 +85,7 @@ pub fn server(
             Kind::StandardReply(StandardReply::Note) => {
                 colors.standard_reply_note
             }
+            Kind::Wallops => colors.wallops,
         })
         .or(Some(colors.default));
 

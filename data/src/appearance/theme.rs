@@ -168,6 +168,8 @@ pub struct ServerMessages {
     pub standard_reply_warn: Option<Color>,
     #[serde(default, with = "color_serde_maybe")]
     pub standard_reply_note: Option<Color>,
+    #[serde(default, with = "color_serde_maybe")]
+    pub wallops: Option<Color>,
     #[serde(default = "default_transparent", with = "color_serde")]
     pub default: Color,
 }
@@ -476,6 +478,7 @@ mod binary {
         BufferServerMessagesStandardReplyFail = 38,
         BufferServerMessagesStandardReplyWarn = 39,
         BufferServerMessagesStandardReplyNote = 40,
+        BufferServerMessagesWallops = 41,
     }
 
     impl Tag {
@@ -536,6 +539,9 @@ mod binary {
                 }
                 Tag::BufferServerMessagesStandardReplyNote => {
                     colors.buffer.server_messages.standard_reply_note?
+                }
+                Tag::BufferServerMessagesWallops => {
+                    colors.buffer.server_messages.wallops?
                 }
                 Tag::BufferServerMessagesDefault => {
                     colors.buffer.server_messages.default
@@ -637,6 +643,9 @@ mod binary {
                 Tag::BufferServerMessagesStandardReplyNote => {
                     colors.buffer.server_messages.standard_reply_note =
                         Some(color);
+                }
+                Tag::BufferServerMessagesWallops => {
+                    colors.buffer.server_messages.wallops = Some(color);
                 }
                 Tag::BufferServerMessagesDefault => {
                     colors.buffer.server_messages.default = color;
