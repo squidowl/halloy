@@ -180,26 +180,23 @@ where
         let state = tree.state.downcast_mut::<State>();
         let prev_status = state.status;
 
-        let position = match self.activation_button {
-            mouse::Button::Left => {
-                if let Event::Mouse(mouse::Event::ButtonReleased(
-                    mouse::Button::Left,
-                )) = event
-                {
-                    cursor.position_over(layout.bounds())
-                } else {
-                    None
-                }
-            }
-            mouse::Button::Right => {
-                if let Event::Mouse(mouse::Event::ButtonPressed(
-                    mouse::Button::Right,
-                )) = event
-                {
-                    cursor.position_over(layout.bounds())
-                } else {
-                    None
-                }
+        let position = match(self.activation_button, event)
+        {
+            (
+                mouse::Button::Left,
+                Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
+            )
+            |
+            (
+                mouse::Button::Right,
+                Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)),
+            ) =>
+            {
+                cursor.position_over(layout.bounds())
+                .map(|_| {
+                    let bounds = layout.bounds();
+                    Point::new(bounds.x + bounds.width, bounds.y + bounds.height)
+                })
             }
             _ => None,
         };
