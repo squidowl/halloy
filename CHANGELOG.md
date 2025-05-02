@@ -9,6 +9,7 @@ Added:
 - Mark as Read settings to control when buffers are automatically marked as read
 - `/hop` command. `/hop` parts the current channel and joins a new one
 - Settings to limit passwords read from a file to the first line of the file only (on by default)
+- Receive `WALLOPS` messages in the server buffer (color configurable in themes)
 
 Changed:
 - Clicking to insert a username will now use same suffixes specified for autocomplete
