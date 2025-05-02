@@ -611,6 +611,7 @@ pub enum ServerMessages {
     StandardReplyFail,
     StandardReplyWarn,
     StandardReplyNote,
+    Wallops,
     Default,
 }
 
@@ -627,6 +628,7 @@ impl ServerMessages {
             ServerMessages::StandardReplyFail => colors.standard_reply_fail,
             ServerMessages::StandardReplyWarn => colors.standard_reply_warn,
             ServerMessages::StandardReplyNote => colors.standard_reply_note,
+            ServerMessages::Wallops => colors.wallops,
             ServerMessages::Default => Some(colors.default),
         }
     }
@@ -651,6 +653,7 @@ impl ServerMessages {
             ServerMessages::StandardReplyNote => {
                 colors.standard_reply_note = color;
             }
+            ServerMessages::Wallops => colors.wallops = color,
             ServerMessages::Default => {
                 colors.default = color.unwrap_or(Color::TRANSPARENT);
             }

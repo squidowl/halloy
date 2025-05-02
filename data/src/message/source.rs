@@ -70,6 +70,7 @@ pub mod server {
         MonitoredOnline,
         MonitoredOffline,
         StandardReply(StandardReply),
+        Wallops,
     }
 
     #[derive(

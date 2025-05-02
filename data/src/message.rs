@@ -199,6 +199,7 @@ impl Message {
                         Kind::MonitoredOnline
                             | Kind::MonitoredOffline
                             | Kind::StandardReply(_)
+                            | Kind::Wallops
                     )
                 }
                 Source::Internal(source::Internal::Logs) => true,
@@ -1075,6 +1076,12 @@ fn target(
                 None,
             ))),
         }),
+        Command::WALLOPS(_) => Some(Target::Server {
+            source: Source::Server(Some(source::Server::new(
+                Kind::Wallops,
+                None,
+            ))),
+        }),
 
         // Server
         Command::PASS(_)
@@ -1105,7 +1112,6 @@ fn target(
         | Command::AWAY(_)
         | Command::REHASH
         | Command::RESTART
-        | Command::WALLOPS(_)
         | Command::USERHOST(_)
         | Command::CAP(_, _, _, _)
         | Command::AUTHENTICATE(_)
@@ -1570,6 +1576,14 @@ fn content<'a>(
             } else {
                 Some(plain(format!("{command} notice: {description}")))
             }
+        }
+        Command::WALLOPS(text) => {
+            let user = message.user()?;
+
+            Some(parse_fragments_with_user(
+                format!("WALLOPS from {}: {}", user.nickname(), text.clone()),
+                &user,
+            ))
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => {
             Some(parse_fragments(
