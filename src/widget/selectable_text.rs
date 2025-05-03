@@ -61,7 +61,7 @@ where
             shaping: Shaping::Basic,
             #[cfg(not(debug_assertions))]
             shaping: Shaping::Advanced,
-            wrapping: Wrapping::default(),
+            wrapping: Wrapping::WordOrGlyph,
             class: Theme::default(),
         }
     }
