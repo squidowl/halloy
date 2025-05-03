@@ -794,6 +794,7 @@ where
         tree: &'b mut Tree,
         _layout: Layout<'_>,
         _renderer: &Renderer,
+        _viewport: &Rectangle,
         translation: Vector,
     ) -> Option<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>>
     {

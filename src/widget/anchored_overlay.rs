@@ -148,6 +148,7 @@ impl<Message> Widget<Message, Theme, Renderer>
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let (first, second) = tree.children.split_at_mut(1);
@@ -156,6 +157,7 @@ impl<Message> Widget<Message, Theme, Renderer>
             &mut first[0],
             layout,
             renderer,
+            viewport,
             translation,
         );
 
@@ -166,6 +168,7 @@ impl<Message> Widget<Message, Theme, Renderer>
             offset: self.offset,
             base_layout: layout.bounds(),
             position: layout.position(),
+            viewport: *viewport,
         }));
 
         Some(
@@ -193,6 +196,7 @@ struct Overlay<'a, 'b, Message> {
     offset: f32,
     base_layout: Rectangle,
     position: Point,
+    viewport: Rectangle,
 }
 
 impl<Message> overlay::Overlay<Message, Theme, Renderer>
@@ -317,6 +321,7 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
             self.tree,
             layout,
             renderer,
+            &self.viewport,
             Vector::default(),
         )
     }

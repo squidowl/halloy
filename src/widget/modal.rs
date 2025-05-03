@@ -123,6 +123,7 @@ where
         state: &'b mut widget::Tree,
         layout: Layout<'_>,
         _renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         Some(overlay::Element::new(Box::new(Overlay {
@@ -131,6 +132,7 @@ where
             tree: &mut state.children[1],
             size: layout.bounds().size(),
             on_blur: &self.on_blur,
+            viewport: *viewport,
         })))
     }
 
@@ -173,6 +175,7 @@ struct Overlay<'a, 'b, Message, Theme, Renderer> {
     tree: &'b mut widget::Tree,
     size: Size,
     on_blur: &'b dyn Fn() -> Message,
+    viewport: Rectangle,
 }
 
 impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
@@ -306,6 +309,7 @@ where
             self.tree,
             layout.children().next().unwrap(),
             renderer,
+            &self.viewport,
             Vector::ZERO,
         )
     }

@@ -727,6 +727,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1282,9 +1291,9 @@ dependencies = [
 
 [[package]]
 name = "cosmic-text"
-version = "0.13.2"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e418dd4f5128c3e93eab12246391c54a20c496811131f85754dc8152ee207892"
+checksum = "da46a9d5a8905cc538a4a5bceb6a4510de7a51049c5588c0114efce102bcbbe8"
 dependencies = [
  "bitflags 2.7.0",
  "fontdb",
@@ -1387,7 +1396,7 @@ checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 [[package]]
 name = "cryoglyph"
 version = "0.1.0"
-source = "git+https://github.com/iced-rs/cryoglyph.git?rev=be2defe4a13fd7c97c6f4c81e8e085463eb578dc#be2defe4a13fd7c97c6f4c81e8e085463eb578dc"
+source = "git+https://github.com/iced-rs/cryoglyph.git?rev=a456d1c17bbcf33afcca41d9e5e299f9f1193819#a456d1c17bbcf33afcca41d9e5e299f9f1193819"
 dependencies = [
  "cosmic-text",
  "etagere",
@@ -3030,9 +3039,11 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
 dependencies = [
  "iced_core",
+ "iced_debug",
+ "iced_devtools",
  "iced_futures",
  "iced_renderer",
  "iced_runtime",
@@ -3043,9 +3054,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "iced_beacon"
+version = "0.14.0-dev"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
+dependencies = [
+ "bincode",
+ "futures",
+ "iced_core",
+ "log",
+ "semver",
+ "serde",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "iced_core"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
 dependencies = [
  "bitflags 2.7.0",
  "bytes",
@@ -3054,15 +3080,36 @@ dependencies = [
  "log",
  "num-traits",
  "rustc-hash 2.1.0",
+ "serde",
  "smol_str",
  "thiserror 1.0.69",
  "web-time",
 ]
 
 [[package]]
+name = "iced_debug"
+version = "0.14.0-dev"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
+dependencies = [
+ "iced_beacon",
+ "iced_core",
+ "log",
+]
+
+[[package]]
+name = "iced_devtools"
+version = "0.14.0-dev"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
+dependencies = [
+ "iced_debug",
+ "iced_program",
+ "iced_widget",
+]
+
+[[package]]
 name = "iced_futures"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
 dependencies = [
  "futures",
  "iced_core",
@@ -3076,7 +3123,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
 dependencies = [
  "bitflags 2.7.0",
  "bytemuck",
@@ -3094,9 +3141,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "iced_program"
+version = "0.14.0-dev"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
+dependencies = [
+ "iced_graphics",
+ "iced_runtime",
+]
+
+[[package]]
 name = "iced_renderer"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -3108,10 +3164,11 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
 dependencies = [
  "bytes",
  "iced_core",
+ "iced_debug",
  "iced_futures",
  "raw-window-handle",
  "thiserror 1.0.69",
@@ -3120,10 +3177,11 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
 dependencies = [
  "bytemuck",
  "cosmic-text",
+ "iced_debug",
  "iced_graphics",
  "kurbo",
  "log",
@@ -3135,7 +3193,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
 dependencies = [
  "bitflags 2.7.0",
  "bytemuck",
@@ -3143,6 +3201,7 @@ dependencies = [
  "futures",
  "glam",
  "guillotiere",
+ "iced_debug",
  "iced_graphics",
  "log",
  "rustc-hash 2.1.0",
@@ -3153,7 +3212,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -3168,11 +3227,10 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?rev=1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8#1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8"
+source = "git+https://github.com/iced-rs/iced?rev=aa633f6832c93d81fc829bcd351b369f0aada282#aa633f6832c93d81fc829bcd351b369f0aada282"
 dependencies = [
- "iced_futures",
- "iced_graphics",
- "iced_runtime",
+ "iced_debug",
+ "iced_program",
  "log",
  "rustc-hash 2.1.0",
  "thiserror 1.0.69",
@@ -5849,6 +5907,9 @@ name = "semver"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cb6eb87a131f756572d7fb904f6e7b68633f09cca868c5df1c4b8d1a694bbba"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "serde"
