@@ -195,7 +195,7 @@ where
                 cursor.position_over(layout.bounds())
                 .map(|_| {
                     let bounds = layout.bounds();
-                    Point::new(bounds.x + bounds.width, bounds.y + bounds.height)
+                    Point::new(bounds.x + bounds.width + 5.0, bounds.y + bounds.height)
                 })
             }
             _ => None,
