@@ -452,7 +452,7 @@ where
                     align_x: self.align_x,
                     align_y: self.align_y,
                     shaping: Shaping::Advanced,
-                    wrapping: text::Wrapping::default(),
+                    wrapping: text::Wrapping::WordOrGlyph,
                 };
 
                 // Check spoiler
@@ -864,7 +864,7 @@ where
             align_x,
             align_y,
             shaping: Shaping::Advanced,
-            wrapping: text::Wrapping::default(),
+            wrapping: text::Wrapping::WordOrGlyph,
         };
 
         if state.spans != spans {
@@ -891,7 +891,7 @@ where
                 align_x,
                 align_y,
                 shaping: Shaping::Advanced,
-                wrapping: text::Wrapping::default(),
+                wrapping: text::Wrapping::WordOrGlyph,
             }) {
                 text::Difference::None => {}
                 text::Difference::Bounds => {
