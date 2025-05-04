@@ -128,6 +128,34 @@ impl Input {
         }
     }
 
+    pub fn targets(
+        &self,
+        chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
+    ) -> Option<Vec<Target>> {
+        let command = self.content.command(&self.buffer)?;
+
+        match command {
+            command::Irc::Msg(targets, _)
+            | command::Irc::Notice(targets, _) => Some(
+                targets
+                    .split(',')
+                    .map(|target| {
+                        Target::parse(target, chantypes, statusmsg, casemapping)
+                    })
+                    .collect(),
+            ),
+            command::Irc::Me(target, _) => Some(vec![Target::parse(
+                &target,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )]),
+            _ => None,
+        }
+    }
+
     pub fn encoded(&self) -> Option<message::Encoded> {
         self.content.proto(&self.buffer).map(message::Encoded::from)
     }

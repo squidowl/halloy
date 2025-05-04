@@ -434,6 +434,19 @@ When scrolling to the bottom of a buffer.
 on_scroll_to_bottom = true
 ```
 
+### `on_message_sent`
+
+When sending a message to the buffer.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_message_sent = true
+```
+
 ## `[buffer.nickname]`
 
 Customize how nicknames are displayed within a buffer.

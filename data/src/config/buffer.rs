@@ -92,6 +92,8 @@ pub struct MarkAsRead {
     pub on_buffer_close: bool,
     #[serde(default = "default_bool_true")]
     pub on_scroll_to_bottom: bool,
+    #[serde(default = "default_bool_true")]
+    pub on_message_sent: bool,
 }
 
 impl Default for MarkAsRead {
@@ -100,6 +102,7 @@ impl Default for MarkAsRead {
             on_application_exit: bool::default(),
             on_buffer_close: default_bool_true(),
             on_scroll_to_bottom: default_bool_true(),
+            on_message_sent: default_bool_true(),
         }
     }
 }
