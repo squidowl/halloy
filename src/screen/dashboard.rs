@@ -277,8 +277,10 @@ impl Dashboard {
                                                     for message in messages {
                                                         if let Some(task) = self
                                                             .history
-                                                            .record_message(input.server(), message)
-                                                        {
+                                                            .record_message(
+                                                                input.server(),
+                                                                message,
+                                                        ) {
                                                             tasks.push(Task::perform(
                                                                 task,
                                                                 Message::History,
@@ -771,16 +773,11 @@ impl Dashboard {
                                 Some(read_marker),
                             ) = (kind.server(), kind.target(), read_marker)
                             {
-                                if let Err(e) = clients.send_markread(
+                                clients.send_markread(
                                     server,
                                     target,
                                     read_marker,
-                                ) {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::IrcError(e)),
-                                    );
-                                };
+                                );
                             }
                         }
                         history::manager::Event::Exited(results) => {
@@ -792,20 +789,31 @@ impl Dashboard {
                                 ) =
                                     (kind.server(), kind.target(), read_marker)
                                 {
-                                    if let Err(e) = clients.send_markread(
+                                    clients.send_markread(
                                         server,
                                         target,
                                         read_marker,
-                                    ) {
-                                        return (
-                                            Task::none(),
-                                            Some(Event::IrcError(e)),
-                                        );
-                                    };
+                                    );
                                 }
                             }
 
                             return (Task::none(), Some(Event::Exit));
+                        }
+                        history::manager::Event::SentMessageUpdated(
+                            kind,
+                            read_marker,
+                        ) => {
+                            if config.buffer.mark_as_read.on_message_sent {
+                                if let (Some(server), Some(target)) =
+                                    (kind.server(), kind.target())
+                                {
+                                    clients.send_markread(
+                                        server,
+                                        target,
+                                        read_marker,
+                                    );
+                                }
+                            }
                         }
                     }
                 }
@@ -2780,7 +2788,7 @@ impl Dashboard {
         if let (Some(server), Some(target), Some(read_marker)) =
             (kind.server(), kind.target(), read_marker)
         {
-            let _ = clients.send_markread(server, target, read_marker);
+            clients.send_markread(server, target, read_marker);
         }
     }
 }

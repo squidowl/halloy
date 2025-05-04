@@ -1,12 +1,13 @@
-use data::buffer::{self, Autocomplete};
 use std::time::Duration;
 
-use data::buffer::Upstream;
+use data::buffer::{self, Autocomplete, Upstream};
 use data::dashboard::BufferAction;
+use data::history::{self, ReadMarker};
 use data::input::{self, Cache, Draft};
+use data::message::server_time;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, client, command, history};
+use data::{Config, client, command};
 use iced::Task;
 use iced::widget::{column, container, text, text_input};
 use tokio::time;
@@ -419,7 +420,30 @@ impl State {
                     history.record_input_history(buffer, raw_input.to_owned());
 
                     if let Some(encoded) = input.encoded() {
+                        let sent_time = server_time(&encoded);
+
                         clients.send(buffer, encoded);
+
+                        if config.buffer.mark_as_read.on_message_sent {
+                            let chantypes =
+                                clients.get_chantypes(buffer.server());
+                            let statusmsg =
+                                clients.get_statusmsg(buffer.server());
+                            let casemapping =
+                                clients.get_casemapping(buffer.server());
+
+                            if let Some(targets) =
+                                input.targets(chantypes, statusmsg, casemapping)
+                            {
+                                for target in targets {
+                                    clients.send_markread(
+                                        buffer.server(),
+                                        target,
+                                        ReadMarker::from_date_time(sent_time),
+                                    );
+                                }
+                            }
+                        }
                     }
 
                     let mut history_task = Task::none();
@@ -427,6 +451,7 @@ impl State {
                     if let Some(nick) = clients.nickname(buffer.server()) {
                         let mut user = nick.to_owned().into();
                         let mut channel_users = &[][..];
+
                         let chantypes = clients.get_chantypes(buffer.server());
                         let statusmsg = clients.get_statusmsg(buffer.server());
                         let casemapping =
