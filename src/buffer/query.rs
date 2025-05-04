@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 use data::dashboard::BufferAction;
+use data::preview::{self, Previews};
 use data::target::{self, Target};
-use data::{Config, Server, buffer, history, message, preview};
+use data::{Config, Server, buffer, history, message};
 use iced::advanced::text;
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Length, Task};
@@ -50,12 +51,19 @@ pub fn view<'a>(
     let chathistory_state =
         clients.get_chathistory_state(server, &query.to_target());
 
+    let previews = Some(Previews::new(
+        previews,
+        &query.to_target(),
+        &config.preview,
+        casemapping,
+    ));
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
             scroll_view::Kind::Query(server, query),
             history,
-            Some(previews),
+            previews,
             chathistory_state,
             config,
             move |message, max_nick_width, _| {
