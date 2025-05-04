@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
-use crate::Target;
 use crate::serde::default_bool_true;
+use crate::{Target, isupport};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Preview {
@@ -94,8 +94,12 @@ impl Default for Card {
 }
 
 impl Card {
-    pub fn visible(&self, target: &Target) -> bool {
-        is_visible(&self.include, &self.exclude, target)
+    pub fn visible(
+        &self,
+        target: &Target,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_visible(&self.include, &self.exclude, target, casemapping)
     }
 }
 
@@ -118,31 +122,38 @@ pub enum ImageAction {
 }
 
 impl Image {
-    pub fn visible(&self, target: &Target) -> bool {
-        is_visible(&self.include, &self.exclude, target)
+    pub fn visible(
+        &self,
+        target: &Target,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_visible(&self.include, &self.exclude, target, casemapping)
     }
 }
 
-fn is_visible(include: &[String], exclude: &[String], target: &Target) -> bool {
-    match target {
-        Target::Query(_) => true,
-        Target::Channel(channel) => {
-            let is_channel_filtered =
-                |list: &[String], channel: &str| -> bool {
-                    let wildcards = ["*", "all"];
-                    list.iter().any(|item| {
-                        wildcards.contains(&item.as_str()) || item == channel
-                    })
-                };
+fn is_visible(
+    include: &[String],
+    exclude: &[String],
+    target: &Target,
+    casemapping: isupport::CaseMap,
+) -> bool {
+    let target = match target {
+        Target::Query(user) => user.as_normalized_str(),
+        Target::Channel(channel) => channel.as_normalized_str(),
+    };
 
-            let channel_included =
-                is_channel_filtered(include, channel.as_str());
-            let channel_excluded =
-                is_channel_filtered(exclude, channel.as_str());
+    let is_target_filtered = |list: &[String], target: &str| -> bool {
+        let wildcards = ["*", "all"];
+        list.iter().any(|item| {
+            wildcards.contains(&item.as_str())
+                || casemapping.normalize(item) == target
+        })
+    };
 
-            channel_included || !channel_excluded
-        }
-    }
+    let target_included = is_target_filtered(include, target);
+    let target_excluded = is_target_filtered(exclude, target);
+
+    target_included || !target_excluded
 }
 
 fn default_user_agent() -> String {
