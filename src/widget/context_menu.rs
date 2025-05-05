@@ -21,6 +21,7 @@ pub enum MouseButton {
 
 pub fn context_menu<'a, T, Message, Theme, Renderer>(
     activation_button: MouseButton,
+    anchor_to_widget: bool,
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     entries: Vec<T>,
     entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
@@ -33,6 +34,7 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
             MouseButton::Left => iced::mouse::Button::Left,
             MouseButton::Right => iced::mouse::Button::Right,
         },
+        anchor_to_widget,
 
         menu: None,
     }
@@ -43,6 +45,7 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     entries: Vec<T>,
     entry: Box<dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
     activation_button: iced::mouse::Button,
+    anchor_to_widget: bool,
 
     // Cached, recreated during `overlay` if menu is open
     menu: Option<Element<'a, Message, Theme, Renderer>>,
@@ -180,22 +183,40 @@ where
         let state = tree.state.downcast_mut::<State>();
         let prev_status = state.status;
 
-        let position = match(self.activation_button, event)
-        {
+        let position = match (self.activation_button, event, self.anchor_to_widget) {
             (
                 mouse::Button::Left,
                 Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
+                true,
             )
             |
             (
                 mouse::Button::Right,
                 Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)),
+                true,
             ) =>
             {
                 cursor.position_over(layout.bounds())
                 .map(|_| {
                     let bounds = layout.bounds();
-                    Point::new(bounds.x + bounds.width + 5.0, bounds.y + bounds.height)
+                    Point::new(bounds.x + bounds.width, bounds.y + bounds.height)
+                })
+            }
+            (
+                mouse::Button::Left,
+                Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
+                false,
+            )
+            |
+            (
+                mouse::Button::Right,
+                Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)),
+                false,
+            ) =>
+            {
+                cursor.position_over(layout.bounds())
+                .map(|pos| {
+                    Point::new(pos.x+ 5.0, pos.y + 5.0)
                 })
             }
             _ => None,
