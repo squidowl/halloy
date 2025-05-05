@@ -38,6 +38,7 @@ impl Completion {
         users: &[User],
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
+        current_channel: Option<&target::Channel>,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
     ) {
@@ -65,6 +66,7 @@ impl Completion {
                     users,
                     last_seen,
                     channels,
+                    current_channel,
                     config,
                 );
             }
@@ -91,6 +93,7 @@ impl Completion {
                 users,
                 last_seen,
                 channels,
+                current_channel,
                 config,
             );
 
@@ -1004,9 +1007,16 @@ impl Text {
         users: &[User],
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
+        current_channel: Option<&target::Channel>,
         config: &Config,
     ) {
-        if !self.process_channels(input, casemapping, channels, config) {
+        if !self.process_channels(
+            input,
+            casemapping,
+            channels,
+            current_channel,
+            config,
+        ) {
             self.process_users(input, casemapping, users, last_seen, config);
         }
     }
@@ -1080,6 +1090,7 @@ impl Text {
         input: &str,
         casemapping: isupport::CaseMap,
         channels: &[target::Channel],
+        current_channel: Option<&target::Channel>,
         config: &Config,
     ) -> bool {
         let autocomplete = &config.buffer.text_input.autocomplete;
@@ -1096,6 +1107,20 @@ impl Text {
         self.filtered = channels
             .iter()
             .sorted_by(|a, b: &&target::Channel| {
+                if let Some(current_channel) = current_channel {
+                    let a_is_current_channel = a.as_normalized_str()
+                        == current_channel.as_normalized_str();
+                    let b_is_current_channel = b.as_normalized_str()
+                        == current_channel.as_normalized_str();
+
+                    match (a_is_current_channel, b_is_current_channel) {
+                        (false, false) => (),
+                        (true, false) => return std::cmp::Ordering::Less,
+                        (false, true) => return std::cmp::Ordering::Greater,
+                        (true, true) => return std::cmp::Ordering::Equal,
+                    }
+                }
+
                 match autocomplete.sort_direction {
                     SortDirection::Asc => {
                         a.as_normalized_str().cmp(b.as_normalized_str())
