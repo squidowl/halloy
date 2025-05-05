@@ -165,6 +165,7 @@ impl Sidebar {
         } else {
             context_menu(
                 context_menu::MouseButton::Left,
+                true,
                 base,
                 menu,
                 move |menu, length| {
@@ -764,6 +765,7 @@ fn upstream_buffer_button<'a>(
     } else {
         context_menu(
             context_menu::MouseButton::default(),
+            false,
             base,
             entries,
             move |entry, length| {
