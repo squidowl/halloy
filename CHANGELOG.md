@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.5 (2025-05-05)
+
 Added:
 
 - Ability to show a modal prompt before opening a URL
@@ -12,6 +14,7 @@ Added:
 - Receive `WALLOPS` messages in the server buffer (color configurable in themes)
 
 Changed:
+
 - Clicking to insert a username will now use same suffixes specified for autocomplete
 - Emoji picker will only show once there are two characters after `:` (by default, configurable)
 - Autocomplete will match users based on how recently they were seen in the channel (by default, configurable)
