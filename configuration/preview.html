@@ -174,7 +174,7 @@ enabled = true
 <h2 id="request"><a class="header" href="#request"><code>request</code></a></h2>
 <p>Request settings for previews.</p>
 <h3 id="user_agent"><a class="header" href="#user_agent"><code>user_agent</code></a></h3>
-<p>Some servers will only send opengraph metadata to browser-like user agents. We default to <code>WhatsApp/2</code> for wide compatability.</p>
+<p>Some servers will only send opengraph metadata to browser-like user agents. We default to <code>WhatsApp/2</code> for wide compatibility.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: "WhatsApp/2"
@@ -183,7 +183,7 @@ enabled = true
 user_agent = "WhatsApp/2"
 </code></pre>
 <h3 id="timeout_ms"><a class="header" href="#timeout_ms"><code>timeout_ms</code></a></h3>
-<p>Request timeout in millisceonds. Defaults is 10s.</p>
+<p>Request timeout in milliseconds. Defaults is 10s.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer
 # Default: 10000
@@ -219,7 +219,7 @@ max_scrape_size = 512000
 concurrency = 4
 </code></pre>
 <h3 id="delay_ms"><a class="header" href="#delay_ms"><code>delay_ms</code></a></h3>
-<p>Numer of milliseconds to wait before requesting another preview when number of requested previews &gt; <code>concurrency</code>.</p>
+<p>Number of milliseconds to wait before requesting another preview when number of requested previews &gt; <code>concurrency</code>.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer
 # Default: 500
@@ -229,9 +229,18 @@ delay_ms = 500
 </code></pre>
 <h2 id="image"><a class="header" href="#image"><code>image</code></a></h2>
 <p>Specific image preview settings.</p>
+<h3 id="action"><a class="header" href="#action"><code>action</code></a></h3>
+<p>Action when clicking on a image. <code>open-url</code> will open the image in the browser, and <code>preview</code> will display a larger version of the image in-app.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "open-url", "preview"
+# Default: "preview"
+
+[preview.image]
+action = "preview"
+</code></pre>
 <h3 id="include"><a class="header" href="#include"><code>include</code></a></h3>
-<p>Include image previews from channels.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
+<p>Include image previews from channels &amp; queries.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels &amp; queries with <code>["*"]</code> and then only include a few specific channels.</p>
 <pre><code class="language-toml"># Type: array of strings
 # Values: array of any strings
 # Default: []
@@ -240,8 +249,8 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show
 include = []
 </code></pre>
 <h3 id="exclude"><a class="header" href="#exclude"><code>exclude</code></a></h3>
-<p>Exclude image previews from channels.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<p>Exclude image previews from channels &amp; queries.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels &amp; queries by using a wildcard: <code>["*"]</code>.</p>
 <pre><code class="language-toml"># Type: array of strings
 # Values: array of any strings
 # Default: []
@@ -266,8 +275,8 @@ include = ["#halloy"] # show image previews in #halloy
 show_image = true
 </code></pre>
 <h3 id="include-1"><a class="header" href="#include-1"><code>include</code></a></h3>
-<p>Include card previews from channels.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
+<p>Include card previews from channels &amp; queries.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels &amp; queries with <code>["*"]</code> and then only include a few specific channels.</p>
 <pre><code class="language-toml"># Type: array of strings
 # Values: array of any strings
 # Default: []
@@ -276,8 +285,8 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show
 include = []
 </code></pre>
 <h3 id="exclude-1"><a class="header" href="#exclude-1"><code>exclude</code></a></h3>
-<p>Exclude card previews from channels.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
+<p>Exclude card previews from channels &amp; queries.
+If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels &amp; queries by using a wildcard: <code>["*"]</code>.</p>
 <pre><code class="language-toml"># Type: array of strings
 # Values: array of any strings
 # Default: []

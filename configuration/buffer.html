@@ -176,11 +176,13 @@
 <li><a href="#bufferdate_separators">Date Separators</a> - Customize how date separators are displayed within a buffer</li>
 <li><a href="#bufferemojis">Emojis</a> - Emojis settings</li>
 <li><a href="#bufferinternal_messages">Internal Messages</a> - Internal messages are messages sent from Halloy itself</li>
+<li><a href="#buffermark_as_read">Mark as Read</a> - When to automatically mark a buffer as read</li>
 <li><a href="#buffernickname">Nickname</a> - Customize how nicknames are displayed within a buffer</li>
 <li><a href="#bufferserver_messages">Server Messages</a> - Server messages are messages sent from a irc server.</li>
 <li><a href="#bufferstatus_message_prefix">Status Message Prefix</a> - Status message prefix settings</li>
 <li><a href="#buffertext_input">Text Input</a> - Customize the text input for in buffers</li>
 <li><a href="#buffertimestamp">Timestamp</a> - Customize how timestamps are displayed within a buffer</li>
+<li><a href="#bufferurl">Url</a> - URLs in buffers</li>
 </ol>
 <h2 id="bufferaway"><a class="header" href="#bufferaway"><code>[buffer.away]</code></a></h2>
 <p>Controls the appearance of away nicknames.</p>
@@ -382,10 +384,20 @@ skin_tone = "default"
 [buffer.emojis]
 auto_replace = true
 </code></pre>
+<h3 id="characters_to_trigger_picker"><a class="header" href="#characters_to_trigger_picker"><code>characters_to_trigger_picker</code></a></h3>
+<p>Minimum number of characters after <code>:</code> required for the emoji picker to show.
+E.g. <code>:D</code> will not show the emoji picker unless <code>characters_to_trigger_picker</code> is less than or equal to <code>1</code>.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any non-negative integer
+# Default: 2
+
+[buffer.emojis]
+characters_to_trigger_picker = 2
+</code></pre>
 <h2 id="bufferinternal_messages"><a class="header" href="#bufferinternal_messages"><code>[buffer.internal_messages]</code></a></h2>
 <p>Internal messages are messages sent from Halloy itself.</p>
 <h3 id="bufferinternal_messagessuccess"><a class="header" href="#bufferinternal_messagessuccess"><code>[buffer.internal_messages.success]</code></a></h3>
-<p>A internal messages which is considered a "success" such as when a connection was restored, or when connected succesfully to a server.</p>
+<p>A internal messages which is considered a "success" such as when a connection was restored, or when connected successfully to a server.</p>
 <h4 id="enabled-2"><a class="header" href="#enabled-2"><code>enabled</code></a></h4>
 <p>Control if internal message type is enabled.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -423,6 +435,44 @@ enabled = true
 
 [buffer.internal_messages.error]
 smart = 180
+</code></pre>
+<h2 id="buffermark_as_read"><a class="header" href="#buffermark_as_read"><code>[buffer.mark_as_read]</code></a></h2>
+<p>When to mark a buffer as read</p>
+<h3 id="on_application_exit"><a class="header" href="#on_application_exit"><code>on_application_exit</code></a></h3>
+<p>When exiting the application (all buffers, opened or closed, will be marked as read when the application exits).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.mark_as_read]
+on_application_exit = false
+</code></pre>
+<h3 id="on_buffer_close"><a class="header" href="#on_buffer_close"><code>on_buffer_close</code></a></h3>
+<p>When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_buffer_close = true
+</code></pre>
+<h3 id="on_scroll_to_bottom"><a class="header" href="#on_scroll_to_bottom"><code>on_scroll_to_bottom</code></a></h3>
+<p>When scrolling to the bottom of a buffer.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_scroll_to_bottom = true
+</code></pre>
+<h3 id="on_message_sent"><a class="header" href="#on_message_sent"><code>on_message_sent</code></a></h3>
+<p>When sending a message to the buffer.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_message_sent = true
 </code></pre>
 <h2 id="buffernickname"><a class="header" href="#buffernickname"><code>[buffer.nickname]</code></a></h2>
 <p>Customize how nicknames are displayed within a buffer.</p>
@@ -520,7 +570,7 @@ enabled = true
 smart = 180
 </code></pre>
 <h3 id="exclude"><a class="header" href="#exclude"><code>exclude</code></a></h3>
-<p>Exclude channels from receiving the server messag.
+<p>Exclude channels from receiving the server message.
 If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not receive the server message. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
 <pre><code class="language-toml"># Type: array of strings
 # Values: array of any strings
@@ -585,8 +635,25 @@ auto_format = "markdown"
 </blockquote>
 <h3 id="buffertext_inputautocomplete"><a class="header" href="#buffertext_inputautocomplete"><code>[buffer.text_input.autocomplete]</code></a></h3>
 <p>Customize autocomplete.</p>
+<h4 id="order_by"><a class="header" href="#order_by"><code>order_by</code></a></h4>
+<p>Ordering that autocomplete uses to select from matching users.</p>
+<ul>
+<li><code>"recent"</code>: Autocomplete users by their last message in the channel;  the user with most recent message autocompletes first, then increasingly older messages.  Users with no seen messages are matched last, in the order specified by <code>sort_direction</code>.</li>
+<li><code>"alpha"</code>: Autocomplete users based on alphabetical ordering of potential matches.  Ordering is asecnding/descinding based on <code>sort_direction</code>.</li>
+</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "alpha", "recent"
+# Default: "recent"
+
+[buffer.text_input.autocomplete]
+order_by = "recent"
+</code></pre>
 <h4 id="sort_direction"><a class="header" href="#sort_direction"><code>sort_direction</code></a></h4>
-<p>Sort direction when autocompleting.</p>
+<p>Sort direction when autocompleting alphabetically.</p>
+<ul>
+<li><code>"asc"</code>: ascending alphabetical (a→z)</li>
+<li><code>"desc"</code>: descending alphabetical (z→a)</li>
+</ul>
 <pre><code class="language-toml"># Type: string
 # Values: "asc", "desc"
 # Default: "asc"
@@ -623,6 +690,17 @@ format = "%R"
 [buffer.timestamp]
 brackets = { left = "[", right = "]" }
 </code></pre>
+<h2 id="bufferurl"><a class="header" href="#bufferurl"><code>[buffer.url]</code></a></h2>
+<p>Customize how urls behave in buffers</p>
+<h3 id="prompt_before_open"><a class="header" href="#prompt_before_open"><code>prompt_before_open</code></a></h3>
+<p>Prompt before opening a hyperlink.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.url]
+prompt_before_open = true
+</code></pre>
 
                     </main>
 
@@ -632,7 +710,7 @@ brackets = { left = "[", right = "]" }
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../configuration/file_transfer.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../configuration/ctcp.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -646,7 +724,7 @@ brackets = { left = "[", right = "]" }
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../configuration/file_transfer.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../configuration/ctcp.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
