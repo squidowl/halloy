@@ -1,18 +1,20 @@
 {
     "app-id": "org.squidowl.halloy",
     "runtime": "org.freedesktop.Platform",
-    "runtime-version": "23.08",
+    "runtime-version": "24.08",
     "sdk": "org.freedesktop.Sdk",
     "sdk-extensions" : [
         "org.freedesktop.Sdk.Extension.rust-stable"
     ],
     "command": "halloy",
     "finish-args": [
-        "--share=ipc",
-        "--socket=fallback-x11",
-        "--socket=wayland",
         "--device=dri",
-        "--share=network"
+        "--share=ipc",
+        "--share=network",
+        "--socket=fallback-x11",
+        "--socket=pulseaudio",
+        "--socket=wayland",
+        "--talk-name=org.freedesktop.Notifications"
     ],
     "build-options": {
         "append-path" : "/usr/lib/sdk/rust-stable/bin"
