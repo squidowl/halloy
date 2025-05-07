@@ -86,14 +86,20 @@ impl From<ScaleFactor> for f64 {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Font {
     pub family: Option<String>,
     pub size: Option<u8>,
     #[serde(
-        deserialize_with = "deserialize_font_weight_from_string",
-        default = "default_font_weight"
+        default = "default_font_weight",
+        deserialize_with = "deserialize_font_weight_from_string"
     )]
     pub weight: font::Weight,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_font_weight_from_string"
+    )]
+    pub bold_weight: Option<font::Weight>,
 }
 
 fn deserialize_font_weight_from_string<'de, D>(
@@ -128,6 +134,15 @@ where
               \"black\"",
         )),
     }
+}
+
+fn deserialize_optional_font_weight_from_string<'de, D>(
+    deserializer: D,
+) -> Result<Option<font::Weight>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Some(deserialize_font_weight_from_string(deserializer)?))
 }
 
 fn default_font_weight() -> font::Weight {

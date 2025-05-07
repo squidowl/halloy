@@ -46,3 +46,16 @@ Font weight.
 [font]
 weight = "light"
 ```
+
+## `size`
+
+Bold font weight.  If not set, then the font weight three steps above the regular font weight (e.g. font weight `"light"` → bold font weight `"semibold"`).
+
+```toml
+# Type: string
+# Values: "thin", "extra-light", "light", "normal", "medium", "semibold", "bold", "extra-bold", and "black"
+# Default: not set
+
+[font]
+bold-weight = "semibold"
+```
