@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Handling of RPL_NOWAWAY & RPL_UNAWAY to reflect users own AWAY state
+
 # 2025.5 (2025-05-05)
 
 Added:
