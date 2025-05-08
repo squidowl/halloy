@@ -1777,29 +1777,23 @@ impl Client {
                     }
                 }
             }
-            Command::Numeric(RPL_UNAWAY, args) => {
-                let nick = ok!(args.first()).as_str();
-                let user = User::try_from(nick)?;
+            Command::Numeric(RPL_UNAWAY, _) => {
+                let user = User::try_from(self.nickname().as_ref())?;
 
-                if user.nickname() == self.nickname() {
-                    for channel in self.chanmap.values_mut() {
-                        if let Some(mut user) = channel.users.take(&user) {
-                            user.update_away(false);
-                            channel.users.insert(user);
-                        }
+                for channel in self.chanmap.values_mut() {
+                    if let Some(mut user) = channel.users.take(&user) {
+                        user.update_away(false);
+                        channel.users.insert(user);
                     }
                 }
             }
-            Command::Numeric(RPL_NOWAWAY, args) => {
-                let nick = ok!(args.first()).as_str();
-                let user = User::try_from(nick)?;
+            Command::Numeric(RPL_NOWAWAY, _) => {
+                let user = User::try_from(self.nickname().as_ref())?;
 
-                if user.nickname() == self.nickname() {
-                    for channel in self.chanmap.values_mut() {
-                        if let Some(mut user) = channel.users.take(&user) {
-                            user.update_away(true);
-                            channel.users.insert(user);
-                        }
+                for channel in self.chanmap.values_mut() {
+                    if let Some(mut user) = channel.users.take(&user) {
+                        user.update_away(true);
+                        channel.users.insert(user);
                     }
                 }
             }
