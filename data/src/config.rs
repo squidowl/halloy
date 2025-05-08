@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 use std::{str, string};
 
+use iced_core::font;
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use thiserror::Error;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::ReadDirStream;
@@ -85,9 +86,67 @@ impl From<ScaleFactor> for f64 {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Font {
     pub family: Option<String>,
     pub size: Option<u8>,
+    #[serde(
+        default = "default_font_weight",
+        deserialize_with = "deserialize_font_weight_from_string"
+    )]
+    pub weight: font::Weight,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_font_weight_from_string"
+    )]
+    pub bold_weight: Option<font::Weight>,
+}
+
+fn deserialize_font_weight_from_string<'de, D>(
+    deserializer: D,
+) -> Result<font::Weight, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let string = String::deserialize(deserializer)?;
+
+    match string.as_ref() {
+        "thin" => Ok(font::Weight::Thin),
+        "extra-light" => Ok(font::Weight::ExtraLight),
+        "light" => Ok(font::Weight::Light),
+        "normal" => Ok(font::Weight::Normal),
+        "medium" => Ok(font::Weight::Medium),
+        "semibold" => Ok(font::Weight::Semibold),
+        "bold" => Ok(font::Weight::Bold),
+        "extra-bold" => Ok(font::Weight::ExtraBold),
+        "black" => Ok(font::Weight::Black),
+        _ => Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Str(&string),
+            &"expected one of font weight names: \
+              \"thin\", \
+              \"extra-light\", \
+              \"light\", \
+              \"normal\", \
+              \"medium\", \
+              \"semibold\", \
+              \"bold\", \
+              \"extra-bold\", and \
+              \"black\"",
+        )),
+    }
+}
+
+fn deserialize_optional_font_weight_from_string<'de, D>(
+    deserializer: D,
+) -> Result<Option<font::Weight>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Some(deserialize_font_weight_from_string(deserializer)?))
+}
+
+fn default_font_weight() -> font::Weight {
+    font::Weight::Normal
 }
 
 impl Config {
