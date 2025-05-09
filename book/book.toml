@@ -8,5 +8,11 @@ src = "src"
 cname = "halloy.chat"
 git-repository-url = "https://github.com/squidowl/halloy"
 edit-url-template = "https://github.com/squidowl/halloy/edit/main/book/{path}"
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[preprocessor.external-links]
 
 [output.linkcheck]
