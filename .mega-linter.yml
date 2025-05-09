@@ -1,0 +1,24 @@
+APPLY_FIXES: none
+
+ENABLE_LINTERS:
+  - EDITORCONFIG_EDITORCONFIG_CHECKER
+  - RUST_CLIPPY
+  - SPELL_CSPELL
+  - SPELL_LYCHEE
+
+EDITORCONFIG_EDITORCONFIG_CHECKER_FILTER_REGEX_EXCLUDE: "assets/fontello/config.json"
+
+RUST_CLIPPY_PRE_COMMANDS:
+  - command: apk add openssl-dev
+    cwd: "root"
+  - command: apk add alsa-lib-dev
+RUST_CLIPPY_ARGUMENTS:
+  - --profile ci --workspace --all-targets -- -D warnings
+
+SPELL_CSPELL_FILE_EXTENSIONS:
+  - ".md"
+SPELL_CSPELL_FILTER_REGEX_EXCLUDE: "get-in-touch.md"
+
+SPELL_LYCHEE_ARGUMENTS: "--offline"
+SPELL_LYCHEE_FILE_EXTENSIONS:
+  - ".md"
