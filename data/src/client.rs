@@ -1777,8 +1777,10 @@ impl Client {
                     }
                 }
             }
+            // RPL_UNAWAY is a reply to "/AWAY" from the server
+            // for the client/user itself.
             Command::Numeric(RPL_UNAWAY, _) => {
-                let user = User::try_from(self.nickname().as_ref())?;
+                let user = User::from(self.nickname().to_owned());
 
                 for channel in self.chanmap.values_mut() {
                     if let Some(mut user) = channel.users.take(&user) {
@@ -1787,8 +1789,10 @@ impl Client {
                     }
                 }
             }
+            // RPL_UNAWAY is a reply to "/AWAY <msg>" from the server
+            // for the client/user itself.
             Command::Numeric(RPL_NOWAWAY, _) => {
-                let user = User::try_from(self.nickname().as_ref())?;
+                let user = User::from(self.nickname().to_owned());
 
                 for channel in self.chanmap.values_mut() {
                     if let Some(mut user) = channel.users.take(&user) {
