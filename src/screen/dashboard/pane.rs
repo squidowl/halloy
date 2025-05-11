@@ -79,16 +79,9 @@ impl Pane {
             Buffer::Highlights(_) => "Highlights".to_string(),
         };
 
-        let can_mark_as_read = if let Some(kind) =
-            self.buffer.data().and_then(history::Kind::from_buffer)
-        {
-            history.can_mark_as_read(&kind)
-        } else {
-            false
-        };
-
         let title_bar = self.title_bar.view(
             &self.buffer,
+            history,
             title_bar_text,
             id,
             panes,
@@ -98,7 +91,6 @@ impl Pane {
             settings,
             config.tooltips,
             is_popout,
-            can_mark_as_read,
             config,
         );
 
@@ -165,6 +157,7 @@ impl TitleBar {
     fn view<'a>(
         &'a self,
         buffer: &Buffer,
+        history: &'a history::Manager,
         value: String,
         _id: pane_grid::Pane,
         panes: usize,
@@ -174,50 +167,67 @@ impl TitleBar {
         settings: Option<&'a buffer::Settings>,
         show_tooltips: bool,
         is_popout: bool,
-        can_mark_as_read: bool,
         config: &'a Config,
     ) -> widget::TitleBar<'a, Message> {
+        let maybe_buffer_kind =
+            buffer.data().and_then(history::Kind::from_buffer);
+        let can_mark_as_read = if let Some(kind) = &maybe_buffer_kind {
+            history.can_mark_as_read(kind)
+        } else {
+            false
+        };
+
         // Pane controls.
         let mut controls = row![].spacing(2);
 
-        // Show scroll-to-bottom if scrollable isnt scrolled to bottom.
-        if !buffer.is_scrolled_to_bottom().unwrap_or_default() {
-            let scrollable_button = button(center(icon::scroll_to_bottom()))
-                .padding(5)
-                .width(22)
-                .height(22)
-                .on_press(Message::ScrollToBottom)
-                .style(|theme, status| {
-                    theme::button::secondary(theme, status, false)
-                });
-
-            let scrollable_button_with_tooltip = tooltip(
-                scrollable_button,
-                show_tooltips.then_some("Scroll to Bottom"),
-                tooltip::Position::Bottom,
-            );
-
-            controls = controls.push(scrollable_button_with_tooltip);
-        }
-
-        if can_mark_as_read {
+        if maybe_buffer_kind.is_some() {
             let mark_as_read_button = button(center(icon::mark_as_read()))
                 .padding(5)
                 .width(22)
                 .height(22)
-                .on_press(Message::MarkAsRead)
+                .on_press_maybe(can_mark_as_read.then_some(Message::MarkAsRead))
                 .style(move |theme, status| {
                     theme::button::secondary(theme, status, false)
                 });
 
             let mark_as_read_button_with_tooltip = tooltip(
                 mark_as_read_button,
-                show_tooltips.then_some("Mark as Read"),
+                show_tooltips.then_some(if can_mark_as_read {
+                    "Mark messages as read"
+                } else {
+                    "No unread messages"
+                }),
                 tooltip::Position::Bottom,
             );
 
             controls = controls.push(mark_as_read_button_with_tooltip);
         }
+
+        let can_scroll_to_bottom =
+            !buffer.is_scrolled_to_bottom().unwrap_or_default();
+
+        let scroll_to_bottom_button = button(center(icon::scroll_to_bottom()))
+            .padding(5)
+            .width(22)
+            .height(22)
+            .on_press_maybe(
+                can_scroll_to_bottom.then_some(Message::ScrollToBottom),
+            )
+            .style(|theme, status| {
+                theme::button::secondary(theme, status, false)
+            });
+
+        let scroll_to_bottom_button_with_tooltip = tooltip(
+            scroll_to_bottom_button,
+            show_tooltips.then_some(if can_scroll_to_bottom {
+                "Scroll to bottom"
+            } else {
+                "Already at bottom"
+            }),
+            tooltip::Position::Bottom,
+        );
+
+        controls = controls.push(scroll_to_bottom_button_with_tooltip);
 
         if let Buffer::Channel(state) = &buffer {
             // Show topic button only if there is a topic to show
