@@ -1,4 +1,4 @@
-use data::appearance::theme::randomize_color;
+use data::appearance::theme::{FontStyle, randomize_color};
 use data::{Config, isupport, message, target};
 use iced::widget::span;
 use iced::widget::text::Span;
@@ -13,6 +13,7 @@ pub fn message_content<'a, M: 'a>(
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
+    font_style: impl Fn(&Theme) -> FontStyle,
     config: &Config,
 ) -> Element<'a, M> {
     message_content_impl::<(), M>(
@@ -21,6 +22,7 @@ pub fn message_content<'a, M: 'a>(
         theme,
         on_link,
         style,
+        font_style,
         Option::<(fn(&message::Link) -> _, fn(&message::Link, _, _) -> _)>::None,
         config,
     )
@@ -32,6 +34,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
+    font_style: impl Fn(&Theme) -> FontStyle,
     link_entries: impl Fn(&message::Link) -> Vec<T> + 'a,
     entry: impl Fn(&message::Link, T, Length) -> Element<'a, M> + 'a,
     config: &Config,
@@ -42,6 +45,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
         theme,
         on_link,
         style,
+        font_style,
         Some((link_entries, entry)),
         config,
     )
@@ -54,6 +58,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
+    font_style: impl Fn(&Theme) -> FontStyle,
     context_menu: Option<(
         impl Fn(&message::Link) -> Vec<T> + 'a,
         impl Fn(&message::Link, T, Length) -> Element<'a, M> + 'a,
@@ -61,9 +66,10 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
     config: &Config,
 ) -> Element<'a, M> {
     match content {
-        data::message::Content::Plain(text) => {
-            selectable_text(text).style(style).into()
-        }
+        data::message::Content::Plain(text) => selectable_text(text)
+            .font_maybe(font::get(font_style(theme)))
+            .style(style)
+            .into(),
         data::message::Content::Fragments(fragments) => {
             let mut text = selectable_rich_text::<
                 M,
@@ -77,7 +83,10 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                     .map(|fragment| match fragment {
                         data::message::Fragment::Text(s) => span(s),
                         data::message::Fragment::Channel(s) => span(s.as_str())
-                            .color(theme.colors().buffer.url)
+                            .font_maybe(font::get(
+                                theme.styles().buffer.url.font_style,
+                            ))
+                            .color(theme.styles().buffer.url.color)
                             .link(message::Link::Channel(
                                 target::Channel::from_str(
                                     s.as_str(),
@@ -85,7 +94,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 ),
                             )),
                         data::message::Fragment::User(user, text) => {
-                            let color = theme.colors().buffer.nickname;
+                            let color = theme.styles().buffer.nickname.color;
                             let seed = match &config
                                 .buffer
                                 .channel
@@ -100,15 +109,18 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
 
                             let color = match seed {
                                 Some(seed) => randomize_color(color, seed),
-                                None => theme.colors().text.primary,
+                                None => theme.styles().text.primary.color,
                             };
 
                             span(text)
+                                .font_maybe(font::get(
+                                    theme.styles().buffer.nickname.font_style,
+                                ))
                                 .color(color)
                                 .link(message::Link::User(user.clone()))
                         }
                         data::message::Fragment::HighlightNick(user, text) => {
-                            let color = theme.colors().buffer.nickname;
+                            let color = theme.styles().buffer.nickname.color;
                             let seed = match &config
                                 .buffer
                                 .channel
@@ -123,21 +135,30 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
 
                             let color = match seed {
                                 Some(seed) => randomize_color(color, seed),
-                                None => theme.colors().text.primary,
+                                None => theme.styles().text.primary.color,
                             };
 
                             span(text)
+                                .font_maybe(font::get(
+                                    theme.styles().buffer.nickname.font_style,
+                                ))
                                 .color(color)
-                                .background(theme.colors().buffer.highlight)
+                                .background(theme.styles().buffer.highlight)
                                 .link(message::Link::User(user.clone()))
                         }
                         data::message::Fragment::HighlightMatch(text) => {
                             span(text.as_str())
-                                .color(theme.colors().text.primary)
-                                .background(theme.colors().buffer.highlight)
+                                .font_maybe(font::get(
+                                    theme.styles().text.primary.font_style,
+                                ))
+                                .color(theme.styles().text.primary.color)
+                                .background(theme.styles().buffer.highlight)
                         }
                         data::message::Fragment::Url(s) => span(s.as_str())
-                            .color(theme.colors().buffer.url)
+                            .font_maybe(font::get(
+                                theme.styles().buffer.url.font_style,
+                            ))
+                            .color(theme.styles().buffer.url.color)
                             .link(message::Link::Url(s.as_str().to_string())),
                         data::message::Fragment::Formatted {
                             text,
@@ -145,48 +166,45 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                         } => {
                             let mut span = span(text)
                                 .color_maybe(formatting.fg.and_then(|color| {
-                                    color.into_iced(theme.colors())
+                                    color.into_iced(theme.styles())
                                 }))
                                 .background_maybe(formatting.bg.and_then(
-                                    |color| color.into_iced(theme.colors()),
+                                    |color| color.into_iced(theme.styles()),
                                 ))
                                 .underline(formatting.underline)
                                 .strikethrough(formatting.strikethrough);
 
+                            let mut formatted_style = FontStyle::new(
+                                formatting.bold,
+                                formatting.italics,
+                            );
+
                             if formatting.monospace {
                                 span = span
                                     .padding([0, 4])
-                                    .color(theme.colors().buffer.code)
+                                    .color(theme.styles().buffer.code.color)
                                     .border(
                                         border::rounded(3)
                                             .color(
-                                                theme.colors().general.border,
+                                                theme.styles().general.border,
                                             )
                                             .width(1),
                                     );
+
+                                formatted_style = formatted_style
+                                    + theme.styles().buffer.code.font_style;
+                            } else {
+                                formatted_style =
+                                    formatted_style + font_style(theme);
                             }
 
-                            match (formatting.bold, formatting.italics) {
-                                (true, true) => {
-                                    span = span
-                                        .font(font::MONO_BOLD_ITALICS.clone());
-                                }
-                                (true, false) => {
-                                    span = span.font(font::MONO_BOLD.clone());
-                                }
-                                (false, true) => {
-                                    span =
-                                        span.font(font::MONO_ITALICS.clone());
-                                }
-                                (false, false) => {}
-                            }
-
-                            span
+                            span.font_maybe(font::get(formatted_style))
                         }
                     })
                     .collect::<Vec<_>>(),
             )
             .on_link(on_link)
+            .font_maybe(font::get(font_style(theme)))
             .style(style);
 
             if let Some((link_entries, view)) = context_menu {

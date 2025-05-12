@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use data::appearance::theme::set_optional_text_style_color;
 use data::{Config, url};
 use futures::TryFutureExt;
 use iced::Length::*;
@@ -11,7 +12,7 @@ use iced::{Color, Length, Task, Vector, alignment, clipboard};
 use strum::IntoEnumIterator;
 use tokio::time;
 
-use crate::theme::{self, Colors, Theme};
+use crate::theme::{self, Styles, Theme};
 use crate::widget::{Element, color_picker, combo_box, tooltip};
 use crate::window::{self, Window};
 use crate::{icon, widget};
@@ -92,12 +93,12 @@ impl ThemeEditor {
             Message::Color(color) => {
                 self.hex_input = None;
 
-                let mut colors = *theme.colors();
+                let mut styles = *theme.styles();
 
-                self.component.update(&mut colors, Some(color));
+                self.component.update(&mut styles, Some(color));
 
                 *theme = theme
-                    .preview(data::Theme::new("Custom Theme".into(), colors));
+                    .preview(data::Theme::new("Custom Theme".into(), styles));
             }
             Message::Component(component) => {
                 self.hex_input = None;
@@ -107,13 +108,13 @@ impl ThemeEditor {
             }
             Message::HexInput(input) => {
                 if let Some(color) = theme::hex_to_color(&input) {
-                    let mut colors = *theme.colors();
+                    let mut styles = *theme.styles();
 
-                    self.component.update(&mut colors, Some(color));
+                    self.component.update(&mut styles, Some(color));
 
                     *theme = theme.preview(data::Theme::new(
                         "Custom Theme".into(),
-                        colors,
+                        styles,
                     ));
                 }
 
@@ -145,28 +146,28 @@ impl ThemeEditor {
             Message::Revert => {
                 self.hex_input = None;
 
-                let mut colors = *theme.selected().colors();
-                let original = self.component.color(&colors);
+                let mut styles = *theme.selected().styles();
+                let original = self.component.color(&styles);
 
-                self.component.update(&mut colors, original);
+                self.component.update(&mut styles, original);
 
                 *theme = theme
-                    .preview(data::Theme::new("Custom Theme".into(), colors));
+                    .preview(data::Theme::new("Custom Theme".into(), styles));
             }
             Message::Clear => {
                 self.hex_input = None;
 
-                let mut colors = *theme.colors();
+                let mut styles = *theme.styles();
 
-                self.component.update(&mut colors, None);
+                self.component.update(&mut styles, None);
 
                 *theme = theme
-                    .preview(data::Theme::new("Custom Theme".into(), colors));
+                    .preview(data::Theme::new("Custom Theme".into(), styles));
             }
             Message::Copy => {
                 self.copied = true;
 
-                let url = url::theme(theme.colors());
+                let url = url::theme(theme.styles());
 
                 return (
                     Task::batch(vec![
@@ -180,7 +181,7 @@ impl ThemeEditor {
                 );
             }
             Message::Share => {
-                let url = url::theme_submit(theme.colors());
+                let url = url::theme_submit(theme.styles());
                 let _ = open::that_detached(url);
 
                 return (Task::none(), None);
@@ -189,11 +190,11 @@ impl ThemeEditor {
             Message::SavePath(Some(path)) => {
                 log::debug!("Saving theme to {path:?}");
 
-                let colors = *theme.colors();
+                let styles = *theme.styles();
 
                 return (
                     Task::perform(
-                        colors.save(path).map_err(|e| e.to_string()),
+                        styles.save(path).map_err(|e| e.to_string()),
                         Message::Saved,
                     ),
                     None,
@@ -235,7 +236,7 @@ impl ThemeEditor {
     pub fn view<'a>(&'a self, theme: &'a Theme) -> Element<'a, Message> {
         let color = self
             .component
-            .color(theme.colors())
+            .color(theme.styles())
             .unwrap_or(Color::TRANSPARENT);
 
         let component = combo_box(
@@ -401,26 +402,26 @@ pub enum Component {
 }
 
 impl Component {
-    fn color(&self, colors: &Colors) -> Option<Color> {
+    fn color(&self, styles: &Styles) -> Option<Color> {
         match self {
-            Component::General(general) => Some(general.color(&colors.general)),
-            Component::Text(text) => text.color(&colors.text),
-            Component::Buffer(buffer) => buffer.color(&colors.buffer),
-            Component::Buttons(buttons) => Some(buttons.color(&colors.buttons)),
+            Component::General(general) => Some(general.color(&styles.general)),
+            Component::Text(text) => text.color(&styles.text),
+            Component::Buffer(buffer) => buffer.color(&styles.buffer),
+            Component::Buttons(buttons) => Some(buttons.color(&styles.buttons)),
         }
     }
 
-    fn update(&self, colors: &mut Colors, color: Option<Color>) {
+    fn update(&self, styles: &mut Styles, color: Option<Color>) {
         match self {
             Component::General(general) => {
-                general.update(&mut colors.general, color);
+                general.update(&mut styles.general, color);
             }
-            Component::Text(text) => text.update(&mut colors.text, color),
+            Component::Text(text) => text.update(&mut styles.text, color),
             Component::Buffer(buffer) => {
-                buffer.update(&mut colors.buffer, color);
+                buffer.update(&mut styles.buffer, color);
             }
             Component::Buttons(buttons) => {
-                buttons.update(&mut colors.buttons, color);
+                buttons.update(&mut styles.buttons, color);
             }
         }
     }
@@ -438,28 +439,28 @@ pub enum General {
 }
 
 impl General {
-    fn color(&self, colors: &theme::General) -> Color {
+    fn color(&self, styles: &theme::General) -> Color {
         match self {
-            General::Background => colors.background,
-            General::Border => colors.border,
-            General::HorizontalRule => colors.horizontal_rule,
-            General::UnreadIndicator => colors.unread_indicator,
+            General::Background => styles.background,
+            General::Border => styles.border,
+            General::HorizontalRule => styles.horizontal_rule,
+            General::UnreadIndicator => styles.unread_indicator,
         }
     }
 
-    fn update(&self, colors: &mut theme::General, color: Option<Color>) {
+    fn update(&self, styles: &mut theme::General, color: Option<Color>) {
         match self {
             General::Background => {
-                colors.background = color.unwrap_or(Color::TRANSPARENT);
+                styles.background = color.unwrap_or(Color::TRANSPARENT);
             }
             General::Border => {
-                colors.border = color.unwrap_or(Color::TRANSPARENT);
+                styles.border = color.unwrap_or(Color::TRANSPARENT);
             }
             General::HorizontalRule => {
-                colors.horizontal_rule = color.unwrap_or(Color::TRANSPARENT);
+                styles.horizontal_rule = color.unwrap_or(Color::TRANSPARENT);
             }
             General::UnreadIndicator => {
-                colors.unread_indicator = color.unwrap_or(Color::TRANSPARENT);
+                styles.unread_indicator = color.unwrap_or(Color::TRANSPARENT);
             }
         }
     }
@@ -482,39 +483,49 @@ pub enum Text {
 }
 
 impl Text {
-    fn color(&self, colors: &theme::Text) -> Option<Color> {
+    fn color(&self, styles: &theme::Text) -> Option<Color> {
         match self {
-            Text::Primary => Some(colors.primary),
-            Text::Secondary => Some(colors.secondary),
-            Text::Tertiary => Some(colors.tertiary),
-            Text::Success => Some(colors.success),
-            Text::Error => Some(colors.error),
-            Text::Warning => colors.warning,
-            Text::Info => colors.info,
-            Text::Debug => colors.debug,
-            Text::Trace => colors.trace,
+            Text::Primary => Some(styles.primary.color),
+            Text::Secondary => Some(styles.secondary.color),
+            Text::Tertiary => Some(styles.tertiary.color),
+            Text::Success => Some(styles.success.color),
+            Text::Error => Some(styles.error.color),
+            Text::Warning => styles.warning.map(|style| style.color),
+            Text::Info => styles.info.map(|style| style.color),
+            Text::Debug => styles.debug.map(|style| style.color),
+            Text::Trace => styles.trace.map(|style| style.color),
         }
     }
 
-    fn update(&self, colors: &mut theme::Text, color: Option<Color>) {
+    fn update(&self, styles: &mut theme::Text, color: Option<Color>) {
         match self {
             Text::Primary => {
-                colors.primary = color.unwrap_or(Color::TRANSPARENT);
+                styles.primary.color = color.unwrap_or(Color::TRANSPARENT);
             }
             Text::Secondary => {
-                colors.secondary = color.unwrap_or(Color::TRANSPARENT);
+                styles.secondary.color = color.unwrap_or(Color::TRANSPARENT);
             }
             Text::Tertiary => {
-                colors.tertiary = color.unwrap_or(Color::TRANSPARENT);
+                styles.tertiary.color = color.unwrap_or(Color::TRANSPARENT);
             }
             Text::Success => {
-                colors.success = color.unwrap_or(Color::TRANSPARENT);
+                styles.success.color = color.unwrap_or(Color::TRANSPARENT);
             }
-            Text::Error => colors.error = color.unwrap_or(Color::TRANSPARENT),
-            Text::Warning => colors.warning = color,
-            Text::Info => colors.info = color,
-            Text::Debug => colors.debug = color,
-            Text::Trace => colors.trace = color,
+            Text::Error => {
+                styles.error.color = color.unwrap_or(Color::TRANSPARENT);
+            }
+            Text::Warning => {
+                set_optional_text_style_color(&mut styles.warning, color);
+            }
+            Text::Info => {
+                set_optional_text_style_color(&mut styles.info, color);
+            }
+            Text::Debug => {
+                set_optional_text_style_color(&mut styles.debug, color);
+            }
+            Text::Trace => {
+                set_optional_text_style_color(&mut styles.trace, color);
+            }
         }
     }
 }
@@ -542,67 +553,73 @@ pub enum Buffer {
 }
 
 impl Buffer {
-    fn color(&self, colors: &theme::Buffer) -> Option<Color> {
+    fn color(&self, styles: &theme::Buffer) -> Option<Color> {
         match self {
-            Buffer::Action => Some(colors.action),
-            Buffer::Background => Some(colors.background),
-            Buffer::BackgroundTextInput => Some(colors.background_text_input),
-            Buffer::BackgroundTitleBar => Some(colors.background_title_bar),
-            Buffer::Border => Some(colors.border),
-            Buffer::BorderSelected => Some(colors.border_selected),
-            Buffer::Code => Some(colors.code),
-            Buffer::Highlight => Some(colors.highlight),
-            Buffer::Nickname => Some(colors.nickname),
-            Buffer::Selection => Some(colors.selection),
+            Buffer::Action => Some(styles.action.color),
+            Buffer::Background => Some(styles.background),
+            Buffer::BackgroundTextInput => Some(styles.background_text_input),
+            Buffer::BackgroundTitleBar => Some(styles.background_title_bar),
+            Buffer::Border => Some(styles.border),
+            Buffer::BorderSelected => Some(styles.border_selected),
+            Buffer::Code => Some(styles.code.color),
+            Buffer::Highlight => Some(styles.highlight),
+            Buffer::Nickname => Some(styles.nickname.color),
+            Buffer::Selection => Some(styles.selection),
             Buffer::ServerMessages(server_messages) => {
-                server_messages.color(&colors.server_messages)
+                server_messages.color(&styles.server_messages)
             }
-            Buffer::Timestamp => Some(colors.timestamp),
-            Buffer::Topic => Some(colors.topic),
-            Buffer::Url => Some(colors.url),
+            Buffer::Timestamp => Some(styles.timestamp.color),
+            Buffer::Topic => Some(styles.topic.color),
+            Buffer::Url => Some(styles.url.color),
         }
     }
 
-    fn update(&self, colors: &mut theme::Buffer, color: Option<Color>) {
+    fn update(&self, styles: &mut theme::Buffer, color: Option<Color>) {
         match self {
             Buffer::Action => {
-                colors.action = color.unwrap_or(Color::TRANSPARENT);
+                styles.action.color = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Background => {
-                colors.background = color.unwrap_or(Color::TRANSPARENT);
+                styles.background = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::BackgroundTextInput => {
-                colors.background_text_input =
+                styles.background_text_input =
                     color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::BackgroundTitleBar => {
-                colors.background_title_bar =
+                styles.background_title_bar =
                     color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Border => {
-                colors.border = color.unwrap_or(Color::TRANSPARENT);
+                styles.border = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::BorderSelected => {
-                colors.border_selected = color.unwrap_or(Color::TRANSPARENT);
+                styles.border_selected = color.unwrap_or(Color::TRANSPARENT);
             }
-            Buffer::Code => colors.code = color.unwrap_or(Color::TRANSPARENT),
+            Buffer::Code => {
+                styles.code.color = color.unwrap_or(Color::TRANSPARENT);
+            }
             Buffer::Highlight => {
-                colors.highlight = color.unwrap_or(Color::TRANSPARENT);
+                styles.highlight = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Nickname => {
-                colors.nickname = color.unwrap_or(Color::TRANSPARENT);
+                styles.nickname.color = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::Selection => {
-                colors.selection = color.unwrap_or(Color::TRANSPARENT);
+                styles.selection = color.unwrap_or(Color::TRANSPARENT);
             }
             Buffer::ServerMessages(server_messages) => {
-                server_messages.update(&mut colors.server_messages, color);
+                server_messages.update(&mut styles.server_messages, color);
             }
             Buffer::Timestamp => {
-                colors.timestamp = color.unwrap_or(Color::TRANSPARENT);
+                styles.timestamp.color = color.unwrap_or(Color::TRANSPARENT);
             }
-            Buffer::Topic => colors.topic = color.unwrap_or(Color::TRANSPARENT),
-            Buffer::Url => colors.url = color.unwrap_or(Color::TRANSPARENT),
+            Buffer::Topic => {
+                styles.topic.color = color.unwrap_or(Color::TRANSPARENT);
+            }
+            Buffer::Url => {
+                styles.url.color = color.unwrap_or(Color::TRANSPARENT);
+            }
         }
     }
 }
@@ -630,50 +647,99 @@ pub enum ServerMessages {
 }
 
 impl ServerMessages {
-    fn color(&self, colors: &theme::ServerMessages) -> Option<Color> {
+    fn color(&self, styles: &theme::ServerMessages) -> Option<Color> {
         match self {
-            ServerMessages::Join => colors.join,
-            ServerMessages::Part => colors.part,
-            ServerMessages::Quit => colors.quit,
-            ServerMessages::ReplyTopic => colors.reply_topic,
-            ServerMessages::ChangeHost => colors.change_host,
-            ServerMessages::MonitoredOnline => colors.monitored_online,
-            ServerMessages::MonitoredOffline => colors.monitored_offline,
-            ServerMessages::StandardReplyFail => colors.standard_reply_fail,
-            ServerMessages::StandardReplyWarn => colors.standard_reply_warn,
-            ServerMessages::StandardReplyNote => colors.standard_reply_note,
-            ServerMessages::Wallops => colors.wallops,
-            ServerMessages::ChangeMode => colors.change_mode,
-            ServerMessages::ChangeNick => colors.change_nick,
-            ServerMessages::Default => Some(colors.default),
+            ServerMessages::Join => styles.join.map(|style| style.color),
+            ServerMessages::Part => styles.part.map(|style| style.color),
+            ServerMessages::Quit => styles.quit.map(|style| style.color),
+            ServerMessages::ReplyTopic => {
+                styles.reply_topic.map(|style| style.color)
+            }
+            ServerMessages::ChangeHost => {
+                styles.change_host.map(|style| style.color)
+            }
+            ServerMessages::MonitoredOnline => {
+                styles.monitored_online.map(|style| style.color)
+            }
+            ServerMessages::MonitoredOffline => {
+                styles.monitored_offline.map(|style| style.color)
+            }
+            ServerMessages::StandardReplyFail => {
+                styles.standard_reply_fail.map(|style| style.color)
+            }
+            ServerMessages::StandardReplyWarn => {
+                styles.standard_reply_warn.map(|style| style.color)
+            }
+            ServerMessages::StandardReplyNote => {
+                styles.standard_reply_note.map(|style| style.color)
+            }
+            ServerMessages::Wallops => styles.wallops.map(|style| style.color),
+            ServerMessages::ChangeMode => {
+                styles.change_mode.map(|style| style.color)
+            }
+            ServerMessages::ChangeNick => {
+                styles.change_nick.map(|style| style.color)
+            }
+            ServerMessages::Default => Some(styles.default.color),
         }
     }
 
-    fn update(&self, colors: &mut theme::ServerMessages, color: Option<Color>) {
+    fn update(&self, styles: &mut theme::ServerMessages, color: Option<Color>) {
         match self {
-            ServerMessages::Join => colors.join = color,
-            ServerMessages::Part => colors.part = color,
-            ServerMessages::Quit => colors.quit = color,
-            ServerMessages::ReplyTopic => colors.reply_topic = color,
-            ServerMessages::ChangeHost => colors.change_host = color,
-            ServerMessages::MonitoredOnline => colors.monitored_online = color,
+            ServerMessages::Join => {
+                set_optional_text_style_color(&mut styles.join, color);
+            }
+            ServerMessages::Part => {
+                set_optional_text_style_color(&mut styles.part, color);
+            }
+            ServerMessages::Quit => {
+                set_optional_text_style_color(&mut styles.quit, color);
+            }
+            ServerMessages::ReplyTopic => {
+                set_optional_text_style_color(&mut styles.reply_topic, color);
+            }
+            ServerMessages::ChangeHost => {
+                set_optional_text_style_color(&mut styles.change_host, color);
+            }
+            ServerMessages::MonitoredOnline => set_optional_text_style_color(
+                &mut styles.monitored_online,
+                color,
+            ),
             ServerMessages::MonitoredOffline => {
-                colors.monitored_offline = color;
+                set_optional_text_style_color(
+                    &mut styles.monitored_offline,
+                    color,
+                );
             }
             ServerMessages::StandardReplyFail => {
-                colors.standard_reply_fail = color;
+                set_optional_text_style_color(
+                    &mut styles.standard_reply_fail,
+                    color,
+                );
             }
             ServerMessages::StandardReplyWarn => {
-                colors.standard_reply_warn = color;
+                set_optional_text_style_color(
+                    &mut styles.standard_reply_warn,
+                    color,
+                );
             }
             ServerMessages::StandardReplyNote => {
-                colors.standard_reply_note = color;
+                set_optional_text_style_color(
+                    &mut styles.standard_reply_note,
+                    color,
+                );
             }
-            ServerMessages::Wallops => colors.wallops = color,
-            ServerMessages::ChangeMode => colors.change_mode = color,
-            ServerMessages::ChangeNick => colors.change_nick = color,
+            ServerMessages::Wallops => {
+                set_optional_text_style_color(&mut styles.wallops, color);
+            }
+            ServerMessages::ChangeMode => {
+                set_optional_text_style_color(&mut styles.change_mode, color);
+            }
+            ServerMessages::ChangeNick => {
+                set_optional_text_style_color(&mut styles.change_nick, color);
+            }
             ServerMessages::Default => {
-                colors.default = color.unwrap_or(Color::TRANSPARENT);
+                styles.default.color = color.unwrap_or(Color::TRANSPARENT);
             }
         }
     }
@@ -690,20 +756,20 @@ pub enum Buttons {
 }
 
 impl Buttons {
-    fn color(&self, colors: &theme::Buttons) -> Color {
+    fn color(&self, styles: &theme::Buttons) -> Color {
         match self {
-            Buttons::Primary(button) => button.color(&colors.primary),
-            Buttons::Secondary(button) => button.color(&colors.secondary),
+            Buttons::Primary(button) => button.color(&styles.primary),
+            Buttons::Secondary(button) => button.color(&styles.secondary),
         }
     }
 
-    fn update(&self, colors: &mut theme::Buttons, color: Option<Color>) {
+    fn update(&self, styles: &mut theme::Buttons, color: Option<Color>) {
         match self {
             Buttons::Primary(button) => {
-                button.update(&mut colors.primary, color);
+                button.update(&mut styles.primary, color);
             }
             Buttons::Secondary(button) => {
-                button.update(&mut colors.secondary, color);
+                button.update(&mut styles.secondary, color);
             }
         }
     }
@@ -722,29 +788,29 @@ pub enum Button {
 }
 
 impl Button {
-    fn color(&self, colors: &theme::Button) -> Color {
+    fn color(&self, styles: &theme::Button) -> Color {
         match self {
-            Button::Background => colors.background,
-            Button::BackgroundHover => colors.background_hover,
-            Button::BackgroundSelected => colors.background_selected,
-            Button::BackgroundSelectedHover => colors.background_selected_hover,
+            Button::Background => styles.background,
+            Button::BackgroundHover => styles.background_hover,
+            Button::BackgroundSelected => styles.background_selected,
+            Button::BackgroundSelectedHover => styles.background_selected_hover,
         }
     }
 
-    fn update(&self, colors: &mut theme::Button, color: Option<Color>) {
+    fn update(&self, styles: &mut theme::Button, color: Option<Color>) {
         match self {
             Button::Background => {
-                colors.background = color.unwrap_or(Color::TRANSPARENT);
+                styles.background = color.unwrap_or(Color::TRANSPARENT);
             }
             Button::BackgroundHover => {
-                colors.background_hover = color.unwrap_or(Color::TRANSPARENT);
+                styles.background_hover = color.unwrap_or(Color::TRANSPARENT);
             }
             Button::BackgroundSelected => {
-                colors.background_selected =
+                styles.background_selected =
                     color.unwrap_or(Color::TRANSPARENT);
             }
             Button::BackgroundSelectedHover => {
-                colors.background_selected_hover =
+                styles.background_selected_hover =
                     color.unwrap_or(Color::TRANSPARENT);
             }
         }
