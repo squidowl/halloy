@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
+use data::appearance::theme::FontStyle;
 use data::{Config, config};
 use iced::font;
 
@@ -118,4 +119,13 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
     .min_bounds()
     .expand(Size::new(1.0, 0.0))
     .width
+}
+
+pub fn get(font_style: FontStyle) -> Option<Font> {
+    match font_style {
+        FontStyle::Normal => None,
+        FontStyle::Bold => Some(MONO_BOLD.clone()),
+        FontStyle::Italic => Some(MONO_ITALICS.clone()),
+        FontStyle::ItalicBold => Some(MONO_BOLD_ITALICS.clone()),
+    }
 }
