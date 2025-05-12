@@ -81,6 +81,14 @@ where
         self
     }
 
+    pub fn font_maybe(
+        mut self,
+        font: Option<impl Into<Renderer::Font>>,
+    ) -> Self {
+        self.font = font.map(Into::into);
+        self
+    }
+
     pub fn style(mut self, style: impl Fn(&Theme) -> Style + 'a) -> Self
     where
         Theme::Class<'a>: From<StyleFn<'a, Theme>>,

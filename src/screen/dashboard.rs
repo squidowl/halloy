@@ -2697,11 +2697,11 @@ impl Dashboard {
 
     pub fn preview_theme_in_editor(
         &mut self,
-        colors: theme::Colors,
+        styles: theme::Styles,
         main_window: &Window,
         theme: &mut Theme,
     ) -> Task<Message> {
-        *theme = theme.preview(data::Theme::new("Custom Theme".into(), colors));
+        *theme = theme.preview(data::Theme::new("Custom Theme".into(), styles));
 
         if let Some(editor) = &self.theme_editor {
             window::gain_focus(editor.window)

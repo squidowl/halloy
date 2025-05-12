@@ -7,7 +7,7 @@ use iced::widget::{
 
 use super::user_context;
 use crate::widget::{Element, double_pass, message_content, selectable_text};
-use crate::{Theme, theme};
+use crate::{Theme, font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -60,13 +60,15 @@ pub fn view<'a>(
                 // Otherwise selectable_text component.
                 let content = if let Some(user) = channel_user {
                     user_context::view(
-                        selectable_text(user.nickname().to_string()).style(
-                            |theme| {
+                        selectable_text(user.nickname().to_string())
+                            .font_maybe(font::get(theme::font_style::nickname(
+                                theme,
+                            )))
+                            .style(|theme| {
                                 theme::selectable_text::topic_nickname(
                                     theme, config, user,
                                 )
-                            },
-                        ),
+                            }),
                         server,
                         casemapping,
                         Some(channel),
@@ -74,10 +76,14 @@ pub fn view<'a>(
                         Some(user),
                         our_user,
                         config,
+                        theme,
                         &config.buffer.nickname.click,
                     )
                 } else {
                     selectable_text(user.display(false))
+                        .font_maybe(font::get(theme::font_style::nickname(
+                            theme,
+                        )))
                         .style(move |theme| {
                             theme::selectable_text::topic_nickname(
                                 theme, config, &user,
@@ -89,9 +95,15 @@ pub fn view<'a>(
                 Some(
                     Element::new(row![
                         selectable_text("set by ")
+                            .font_maybe(font::get(theme::font_style::topic(
+                                theme
+                            ),))
                             .style(theme::selectable_text::topic),
                         content,
                         selectable_text(format!(" at {}", time?.to_rfc2822()))
+                            .font_maybe(font::get(theme::font_style::topic(
+                                theme
+                            ),))
                             .style(theme::selectable_text::topic),
                     ])
                     .map(Message::UserContext),
@@ -104,6 +116,7 @@ pub fn view<'a>(
         theme,
         Message::Link,
         theme::selectable_text::topic,
+        theme::font_style::topic,
         config,
     )]
     .push_maybe(set_by);

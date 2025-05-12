@@ -21,7 +21,7 @@ impl Catalog for Theme {
 pub fn default(theme: &Theme) -> Style {
     Style {
         color: None,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -30,7 +30,7 @@ pub fn action(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -39,7 +39,7 @@ pub fn tertiary(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -48,7 +48,7 @@ pub fn timestamp(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -57,7 +57,7 @@ pub fn topic(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -65,35 +65,36 @@ pub fn server(
     theme: &Theme,
     server: Option<&message::source::Server>,
 ) -> Style {
-    let colors = theme.colors().buffer.server_messages;
+    let styles = theme.styles().buffer.server_messages;
     let color = server
         .and_then(|server| match server.kind() {
-            Kind::Join => colors.join,
-            Kind::Part => colors.part,
-            Kind::Quit => colors.quit,
-            Kind::ReplyTopic => colors.reply_topic,
-            Kind::ChangeHost => colors.change_host,
-            Kind::ChangeMode => colors.change_mode,
-            Kind::ChangeNick => colors.change_nick,
-            Kind::MonitoredOnline => colors.monitored_online,
-            Kind::MonitoredOffline => colors.monitored_offline,
-            Kind::StandardReply(StandardReply::Fail) => colors
+            Kind::Join => styles.join,
+            Kind::Part => styles.part,
+            Kind::Quit => styles.quit,
+            Kind::ReplyTopic => styles.reply_topic,
+            Kind::ChangeHost => styles.change_host,
+            Kind::ChangeMode => styles.change_mode,
+            Kind::ChangeNick => styles.change_nick,
+            Kind::MonitoredOnline => styles.monitored_online,
+            Kind::MonitoredOffline => styles.monitored_offline,
+            Kind::StandardReply(StandardReply::Fail) => styles
                 .standard_reply_fail
-                .or(Some(theme.colors().text.error)),
-            Kind::StandardReply(StandardReply::Warn) => colors
+                .or(Some(theme.styles().text.error)),
+            Kind::StandardReply(StandardReply::Warn) => styles
                 .standard_reply_warn
-                .or(theme.colors().text.warning)
-                .or(Some(theme.colors().text.error)),
+                .or(theme.styles().text.warning)
+                .or(Some(theme.styles().text.error)),
             Kind::StandardReply(StandardReply::Note) => {
-                colors.standard_reply_note.or(theme.colors().text.info)
+                colors.standard_reply_note.or(theme.styles().text.info)
             }
-            Kind::Wallops => colors.wallops,
+            Kind::Wallops => styles.wallops,
         })
-        .or(Some(colors.default));
+        .or(Some(styles.default))
+        .map(|style| style.color);
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -139,7 +140,7 @@ fn nickname_style(
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -151,7 +152,7 @@ pub fn status(theme: &Theme, status: message::source::Status) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 

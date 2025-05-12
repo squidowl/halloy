@@ -20,36 +20,36 @@ impl Catalog for Theme {
 }
 
 pub fn primary(theme: &Theme, status: Status) -> Style {
-    let general = theme.colors().general;
-    let text = theme.colors().text;
+    let general = theme.styles().general;
+    let text = theme.styles().text;
 
     match status {
         Status::Active { .. } => Style {
             background: iced::Background::Color(general.background),
-            icon_color: text.primary,
+            icon_color: text.primary.color,
             border: Border {
                 color: general.border,
                 width: 1.0,
                 radius: 4.0.into(),
             },
-            text_color: Some(text.primary),
+            text_color: Some(text.primary.color),
         },
         Status::Hovered { .. } => Style {
             background: iced::Background::Color(general.background),
-            icon_color: text.primary,
+            icon_color: text.primary.color,
             border: Border {
                 color: general.border,
                 width: 1.0,
                 radius: 4.0.into(),
             },
-            text_color: Some(text.primary),
+            text_color: Some(text.primary.color),
         },
         Status::Disabled { .. } => Style {
             background: iced::Background::Color(general.background),
 
             icon_color: Color {
                 a: 0.2,
-                ..text.primary
+                ..text.primary.color
             },
             border: Border {
                 color: Color::TRANSPARENT,
@@ -58,7 +58,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
             },
             text_color: Some(Color {
                 a: 0.2,
-                ..text.primary
+                ..text.primary.color
             }),
         },
     }

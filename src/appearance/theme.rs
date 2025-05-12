@@ -1,5 +1,5 @@
 pub use data::appearance::theme::{
-    Buffer, Button, Buttons, Colors, General, ServerMessages, Text,
+    Buffer, Button, Buttons, General, ServerMessages, Styles, Text,
     color_to_hex, hex_to_color,
 };
 
@@ -9,6 +9,8 @@ pub mod button;
 pub mod checkbox;
 pub mod container;
 pub mod context_menu;
+pub mod font_style;
+pub mod image;
 pub mod menu;
 pub mod pane_grid;
 pub mod progress_bar;
@@ -17,7 +19,6 @@ pub mod scrollable;
 pub mod selectable_text;
 pub mod text;
 pub mod text_input;
-pub mod image;
 
 // TODO: If we use non-standard font sizes, we should consider
 // Config.font.size since it's user configurable
@@ -53,10 +54,10 @@ impl Theme {
         }
     }
 
-    pub fn colors(&self) -> &Colors {
+    pub fn styles(&self) -> &Styles {
         match self {
-            Theme::Selected(selected) => &selected.colors,
-            Theme::Preview { preview, .. } => &preview.colors,
+            Theme::Selected(selected) => &selected.styles,
+            Theme::Preview { preview, .. } => &preview.styles,
         }
     }
 }
@@ -76,11 +77,11 @@ impl Default for Theme {
 impl iced::theme::Base for Theme {
     fn base(&self) -> iced::theme::Style {
         iced::theme::Style {
-            background_color: self.colors().general.background,
-            text_color: self.colors().text.primary,
+            background_color: self.styles().general.background,
+            text_color: self.styles().text.primary.color,
         }
     }
-    
+
     fn palette(&self) -> Option<iced::theme::Palette> {
         None
     }

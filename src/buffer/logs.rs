@@ -73,6 +73,7 @@ pub fn view<'a>(
                         theme,
                         scroll_view::Message::Link,
                         theme::selectable_text::default,
+                        theme::font_style::default,
                         config,
                     );
 

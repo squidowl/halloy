@@ -98,9 +98,16 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let nick_list =
-        nick_list::view(server, casemapping, channel, users, our_user, config)
-            .map(Message::UserContext);
+    let nick_list = nick_list::view(
+        server,
+        casemapping,
+        channel,
+        users,
+        our_user,
+        config,
+        theme,
+    )
+    .map(Message::UserContext);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
@@ -332,7 +339,7 @@ mod nick_list {
 
     use crate::buffer::user_context;
     use crate::widget::{Element, selectable_text};
-    use crate::{font, theme};
+    use crate::{Theme, font, theme};
 
     pub fn view<'a>(
         server: &'a Server,
@@ -341,6 +348,7 @@ mod nick_list {
         users: &'a [User],
         our_user: Option<&'a User>,
         config: &'a Config,
+        theme: &'a Theme,
     ) -> Element<'a, Message> {
         let nicklist_config = &config.buffer.channel.nicklist;
 
@@ -365,6 +373,7 @@ mod nick_list {
             let content = selectable_text(
                 user.display(nicklist_config.show_access_levels),
             )
+            .font_maybe(font::get(theme::font_style::nickname(theme)))
             .style(|theme| {
                 theme::selectable_text::nicklist_nickname(theme, config, user)
             })
@@ -387,6 +396,7 @@ mod nick_list {
                 Some(user),
                 our_user,
                 config,
+                theme,
                 &config.buffer.channel.nicklist.click,
             )
         }));
