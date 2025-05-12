@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Configuration options for font weight and bold weight
+
 Fixed:
 
 - Handling of RPL_NOWAWAY & RPL_UNAWAY to reflect user's own AWAY state
@@ -16,7 +20,6 @@ Added:
 - `/hop` command. `/hop` parts the current channel and joins a new one
 - Settings to limit passwords read from a file to the first line of the file only (on by default)
 - Receive `WALLOPS` messages in the server buffer (color configurable in themes)
-- Configuration options for font weight and bold weight
 
 Changed:
 
