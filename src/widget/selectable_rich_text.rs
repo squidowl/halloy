@@ -127,6 +127,15 @@ where
         self
     }
 
+    /// Sets the default font of the [`Rich`] text, if `Some`.
+    pub fn font_maybe(
+        mut self,
+        font: Option<impl Into<Renderer::Font>>,
+    ) -> Self {
+        self.font = font.map(Into::into);
+        self
+    }
+
     /// Sets the width of the [`Rich`] text boundaries.
     pub fn width(mut self, width: impl Into<Length>) -> Self {
         self.width = width.into();
@@ -187,7 +196,7 @@ where
 
         self.style(move |_theme| Style {
             color,
-            selection_color: Color::WHITE,
+            ..Style::default()
         })
     }
 

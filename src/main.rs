@@ -313,11 +313,11 @@ impl Halloy {
                     config,
                 });
             }
-            data::Url::Theme { colors, .. } => {
+            data::Url::Theme { styles, .. } => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     return dashboard
                         .preview_theme_in_editor(
-                            colors,
+                            styles,
                             &self.main_window,
                             &mut self.theme,
                         )
