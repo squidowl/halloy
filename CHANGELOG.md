@@ -8,6 +8,12 @@ Fixed:
 
 - Handling of RPL_NOWAWAY & RPL_UNAWAY to reflect user's own AWAY state
 
+Thanks:
+
+- Contributions: @englut, @KaiKorla, @kit-ty-kate
+- Bug reports: @awbradle
+- Feature requests: @darienm
+
 # 2025.5 (2025-05-05)
 
 Added:
