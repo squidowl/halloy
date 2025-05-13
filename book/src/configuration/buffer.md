@@ -174,7 +174,7 @@ Control if topic should be shown or not by default.
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: true
+# Default: false
 
 [buffer.channel.topic]
 enabled = true
@@ -187,7 +187,7 @@ Amount of visible lines before you have to scroll in topic banner.
 ```toml
 # Type: integer
 # Values: any positive integer
-# Default: 2z
+# Default: 2
 
 [buffer.channel.topic]
 max_lines = 2
