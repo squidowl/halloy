@@ -16,7 +16,7 @@ impl Catalog for Theme {
 }
 
 pub fn buffer(theme: &Theme, selected: bool) -> Style {
-    let buffer = theme.colors().buffer;
+    let buffer = theme.styles().buffer;
 
     Style {
         background: Some(Background::Color(buffer.background)),
@@ -34,11 +34,11 @@ pub fn buffer(theme: &Theme, selected: bool) -> Style {
 }
 
 pub fn buffer_title_bar(theme: &Theme) -> Style {
-    let colors = theme.colors().buffer;
+    let styles = theme.styles().buffer;
 
     Style {
-        background: Some(Background::Color(colors.background_title_bar)),
-        text_color: Some(theme.colors().text.secondary),
+        background: Some(Background::Color(styles.background_title_bar)),
+        text_color: Some(theme.styles().text.secondary.color),
         border: Border {
             radius: border::top_left(4).top_right(4),
             width: 1.0,
@@ -49,8 +49,8 @@ pub fn buffer_title_bar(theme: &Theme) -> Style {
 }
 
 pub fn table(theme: &Theme, idx: usize) -> Style {
-    let general = theme.colors().general;
-    let buffer = theme.colors().buffer;
+    let general = theme.styles().general;
+    let buffer = theme.styles().buffer;
 
     let background = if idx % 2 != 0 {
         general.background
@@ -60,7 +60,7 @@ pub fn table(theme: &Theme, idx: usize) -> Style {
 
     Style {
         background: Some(Background::Color(background)),
-        text_color: Some(theme.colors().text.primary),
+        text_color: Some(theme.styles().text.primary.color),
         ..Default::default()
     }
 }
@@ -75,7 +75,7 @@ pub fn none(_theme: &Theme) -> Style {
 pub fn primary_background_hover(theme: &Theme) -> Style {
     Style {
         background: Some(Background::Color(
-            theme.colors().buttons.primary.background_hover,
+            theme.styles().buttons.primary.background_hover,
         )),
         border: Border {
             radius: 4.0.into(),
@@ -87,14 +87,14 @@ pub fn primary_background_hover(theme: &Theme) -> Style {
 
 pub fn general(theme: &Theme) -> Style {
     Style {
-        background: Some(Background::Color(theme.colors().general.background)),
-        text_color: Some(theme.colors().text.primary),
+        background: Some(Background::Color(theme.styles().general.background)),
+        text_color: Some(theme.styles().text.primary.color),
         ..Default::default()
     }
 }
 
 pub fn image_card(theme: &Theme) -> Style {
-    let general = theme.colors().general;
+    let general = theme.styles().general;
 
     Style {
         background: Some(Background::Color(general.background)),
@@ -108,7 +108,7 @@ pub fn image_card(theme: &Theme) -> Style {
 }
 
 pub fn tooltip(theme: &Theme) -> Style {
-    let general = theme.colors().general;
+    let general = theme.styles().general;
 
     Style {
         background: Some(Background::Color(general.background)),
@@ -122,22 +122,22 @@ pub fn tooltip(theme: &Theme) -> Style {
 }
 
 pub fn error_tooltip(theme: &Theme) -> Style {
-    let general = theme.colors().general;
-    let text = theme.colors().text;
+    let general = theme.styles().general;
+    let text = theme.styles().text;
 
     Style {
         background: Some(Background::Color(general.background)),
         border: Border {
             radius: 4.0.into(),
             width: 1.0,
-            color: text.error,
+            color: text.error.color,
         },
         ..Default::default()
     }
 }
 
 pub fn transparent_overlay(theme: &Theme) -> Style {
-    let general = theme.colors().general;
+    let general = theme.styles().general;
 
     Style {
         //TODO: Blur background when possible?

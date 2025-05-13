@@ -14,7 +14,7 @@ use super::{input_view, scroll_view, user_context};
 use crate::widget::{
     Element, message_content, message_marker, selectable_text,
 };
-use crate::{Theme, theme};
+use crate::{Theme, font, theme};
 
 mod topic;
 
@@ -87,6 +87,9 @@ pub fn view<'a>(
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| {
                         selectable_text(timestamp)
+                            .font_maybe(font::get(
+                                theme::font_style::timestamp(theme),
+                            ))
                             .style(theme::selectable_text::timestamp)
                     });
 
@@ -107,6 +110,9 @@ pub fn view<'a>(
                                 .brackets
                                 .format(String::from_iter(prefixes))
                         ))
+                        .font_maybe(font::get(theme::font_style::tertiary(
+                            theme,
+                        )))
                         .style(theme::selectable_text::tertiary);
 
                         if let Some(width) = max_prefix_width {
@@ -137,6 +143,9 @@ pub fn view<'a>(
                                 .brackets
                                 .format(user.display(with_access_levels)),
                         )
+                        .font_maybe(font::get(theme::font_style::nickname(
+                            theme,
+                        )))
                         .style(|theme| {
                             theme::selectable_text::nickname(
                                 theme, config, user,
@@ -158,6 +167,7 @@ pub fn view<'a>(
                             current_user,
                             our_user,
                             config,
+                            theme,
                             &config.buffer.nickname.click,
                         )
                         .map(scroll_view::Message::UserContext);
@@ -168,6 +178,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
+                            theme::font_style::default,
                             move |link| match link {
                                 message::Link::User(_) => {
                                     user_context::Entry::list(true, our_user)
@@ -184,6 +195,7 @@ pub fn view<'a>(
                                         current_user,
                                         length,
                                         config,
+                                        theme,
                                     )
                                     .map(scroll_view::Message::UserContext),
                                 _ => row![].into(),
@@ -232,6 +244,12 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             message_style,
+                            move |message_theme: &Theme| {
+                                theme::font_style::server(
+                                    message_theme,
+                                    server_message.as_ref(),
+                                )
+                            },
                             move |link| match link {
                                 message::Link::User(_) => {
                                     user_context::Entry::list(true, our_user)
@@ -250,6 +268,7 @@ pub fn view<'a>(
                                         }),
                                         length,
                                         config,
+                                        theme,
                                     )
                                     .map(scroll_view::Message::UserContext),
                                 _ => row![].into(),
@@ -283,6 +302,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::action,
+                            theme::font_style::action,
                             config,
                         );
 
@@ -319,6 +339,12 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             message_style,
+                            move |message_theme: &Theme| {
+                                theme::font_style::status(
+                                    message_theme,
+                                    *status,
+                                )
+                            },
                             config,
                         );
 
@@ -345,9 +371,16 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let nick_list =
-        nick_list::view(server, casemapping, channel, users, our_user, config)
-            .map(Message::UserContext);
+    let nick_list = nick_list::view(
+        server,
+        casemapping,
+        channel,
+        users,
+        our_user,
+        config,
+        theme,
+    )
+    .map(Message::UserContext);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
@@ -579,7 +612,7 @@ mod nick_list {
 
     use crate::buffer::user_context;
     use crate::widget::{Element, selectable_text};
-    use crate::{font, theme};
+    use crate::{Theme, font, theme};
 
     pub fn view<'a>(
         server: &'a Server,
@@ -588,6 +621,7 @@ mod nick_list {
         users: &'a [User],
         our_user: Option<&'a User>,
         config: &'a Config,
+        theme: &'a Theme,
     ) -> Element<'a, Message> {
         let nicklist_config = &config.buffer.channel.nicklist;
 
@@ -612,6 +646,7 @@ mod nick_list {
             let content = selectable_text(
                 user.display(nicklist_config.show_access_levels),
             )
+            .font_maybe(font::get(theme::font_style::nickname(theme)))
             .style(|theme| {
                 theme::selectable_text::nicklist_nickname(theme, config, user)
             })
@@ -634,6 +669,7 @@ mod nick_list {
                 Some(user),
                 our_user,
                 config,
+                theme,
                 &config.buffer.channel.nicklist.click,
             )
         }));
