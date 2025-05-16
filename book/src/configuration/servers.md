@@ -352,7 +352,7 @@ root_cert_path = ""
 
 ## `on_connect`
 
-Commands which are executed once connected. 
+Commands which are executed once connected, in the order they are specified. The `/delay <seconds>` command can be used to add a delay between commands.
 
 ```toml
 # Type: array of string
@@ -360,7 +360,7 @@ Commands which are executed once connected.
 # Default: not set
 
 [servers.<name>]
-on_connect = ["/msg NickServ IDENTIFY foo bar"]
+on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-club"]
 ```
   
 ## `who_poll_enabled`
