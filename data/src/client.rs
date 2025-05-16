@@ -13,7 +13,6 @@ use itertools::{Either, Itertools};
 use log::error;
 use tokio::fs;
 
-use crate::dashboard::BufferAction;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
 use crate::isupport::{
@@ -112,7 +111,7 @@ pub enum Event {
     DirectMessage(User),
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
-    OpenBuffers(Vec<(Target, BufferAction)>),
+    OnConnect(VecDeque<crate::Command>),
 }
 
 struct ChatHistoryRequest {
@@ -375,14 +374,13 @@ impl Client {
     fn receive(
         &mut self,
         message: message::Encoded,
-        actions_config: &config::Actions,
         ctcp_config: &config::Ctcp,
     ) -> Result<Vec<Event>> {
         log::trace!("Message received => {:?}", *message);
 
         let stop_reroute = self.stop_reroute(&message.command);
 
-        let events = self.handle(message, None, actions_config, ctcp_config)?;
+        let events = self.handle(message, None, ctcp_config)?;
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -395,7 +393,6 @@ impl Client {
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
-        actions_config: &config::Actions,
         ctcp_config: &config::Ctcp,
     ) -> Result<Vec<Event>> {
         use irc::proto::command::Numeric::*;
@@ -782,7 +779,7 @@ impl Client {
                         }
                     }
                 } else {
-                    self.handle(message, context, actions_config, ctcp_config)?
+                    self.handle(message, context, ctcp_config)?
                 };
 
                 if let Some(batch) = self.batches.get_mut(&Target::parse(
@@ -2324,61 +2321,6 @@ impl Client {
                             .try_send(command!("MODE", nick, modestring))?;
                     }
 
-                    let mut events = vec![];
-
-                    // Loop on connect commands
-                    for command in self.config.on_connect.iter() {
-                        match crate::command::parse(
-                            command,
-                            None,
-                            &self.isupport,
-                        ) {
-                            Ok(crate::Command::Irc(cmd)) => {
-                                if let Ok(command) =
-                                    proto::Command::try_from(cmd)
-                                {
-                                    self.handle.try_send(command.into())?;
-                                }
-                            }
-                            Ok(crate::Command::Internal(cmd)) => match cmd {
-                                crate::command::Internal::OpenBuffers(
-                                    targets,
-                                ) => {
-                                    events.push(Event::OpenBuffers(
-                                        targets
-                                            .split(",")
-                                            .map(|target| {
-                                                Target::parse(
-                                                    target,
-                                                    self.chantypes(),
-                                                    self.statusmsg(),
-                                                    self.casemapping(),
-                                                )
-                                            })
-                                            .map(|target| match target {
-                                                Target::Channel(_) => (
-                                                    target,
-                                                    actions_config
-                                                        .buffer
-                                                        .message_channel,
-                                                ),
-                                                Target::Query(_) => (
-                                                    target,
-                                                    actions_config
-                                                        .buffer
-                                                        .message_user,
-                                                ),
-                                            })
-                                            .collect(),
-                                    ));
-                                }
-                                // We don't handle hop when called from on_connect.
-                                crate::command::Internal::Hop(_, _) => (),
-                            },
-                            Err(_) => (),
-                        }
-                    }
-
                     let channels = self
                         .config
                         .channels
@@ -2401,7 +2343,20 @@ impl Client {
                         self.handle.try_send(message)?;
                     }
 
-                    return Ok(events);
+                    return Ok(vec![Event::OnConnect(
+                        self.config
+                            .on_connect
+                            .iter()
+                            .filter_map(|command| {
+                                crate::command::parse(
+                                    command,
+                                    None,
+                                    &self.isupport,
+                                )
+                                .ok()
+                            })
+                            .collect(),
+                    )]);
                 }
             }
             _ => {}
@@ -2915,36 +2870,15 @@ impl Client {
     }
 
     pub fn casemapping(&self) -> isupport::CaseMap {
-        if let Some(isupport::Parameter::CASEMAPPING(casemapping)) =
-            self.isupport.get(&isupport::Kind::CASEMAPPING)
-        {
-            return *casemapping;
-        }
-
-        isupport::CaseMap::default()
+        isupport::get_casemapping(&self.isupport)
     }
 
     pub fn chantypes(&self) -> &[char] {
-        self.isupport
-            .get(&isupport::Kind::CHANTYPES)
-            .and_then(|chantypes| {
-                let isupport::Parameter::CHANTYPES(types) = chantypes else {
-                    unreachable!("Corruption in isupport table.")
-                };
-                types.as_deref()
-            })
-            .unwrap_or(proto::DEFAULT_CHANNEL_PREFIXES)
+        isupport::get_chantypes(&self.isupport)
     }
 
     pub fn statusmsg(&self) -> &[char] {
-        self.isupport
-            .get(&isupport::Kind::STATUSMSG)
-            .map_or(&[], |statusmsg| {
-                let isupport::Parameter::STATUSMSG(prefixes) = statusmsg else {
-                    unreachable!("Corruption in isupport table.")
-                };
-                prefixes.as_ref()
-            })
+        isupport::get_statusmsg(&self.isupport)
     }
 
     pub fn is_channel(&self, target: &str) -> bool {
@@ -3089,11 +3023,10 @@ impl Map {
         &mut self,
         server: &Server,
         message: message::Encoded,
-        actions_config: &config::Actions,
         ctcp_config: &config::Ctcp,
     ) -> Result<Vec<Event>> {
         if let Some(client) = self.client_mut(server) {
-            client.receive(message, actions_config, ctcp_config)
+            client.receive(message, ctcp_config)
         } else {
             Ok(Vec::default())
         }

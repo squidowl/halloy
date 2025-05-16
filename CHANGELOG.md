@@ -5,6 +5,7 @@ Added:
 - New application icon
 - Show channel mode in panel if available
 - Configuration options for font weight and bold weight
+- `/delay <seconds>` command that can be used to control the timing of commands sent on connect
 
 Fixed:
 
