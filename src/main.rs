@@ -25,10 +25,11 @@ use appearance::{Theme, theme};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::history::manager::Broadcast;
-use data::history::{self};
 use data::target::{self, Target};
 use data::version::Version;
-use data::{Notification, Server, Url, User, environment, server, version};
+use data::{
+    Notification, Server, Url, User, environment, history, server, version,
+};
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
 use screen::{dashboard, help, migration, welcome};
@@ -618,7 +619,6 @@ impl Halloy {
                             let events = match self.clients.receive(
                                 &server,
                                 message,
-                                &self.config.actions,
                                 &self.config.ctcp,
                             ) {
                                 Ok(events) => events,
@@ -942,19 +942,18 @@ impl Halloy {
                                             &server,
                                         );
                                     }
-                                    data::client::Event::OpenBuffers(targets) => {
-                                        for (target, buffer_action) in targets {
-                                            commands.push(
-                                                dashboard
-                                                    .open_target(
+                                    data::client::Event::OnConnect(
+                                        on_connect_commands,
+                                    ) => {
+                                        if !on_connect_commands.is_empty() {
+                                            commands.push(Task::done(
+                                                Message::Dashboard(
+                                                    dashboard::Message::OnConnect(
                                                         server.clone(),
-                                                        target,
-                                                        &mut self.clients,
-                                                        buffer_action,
-                                                        &self.config,
-                                                    )
-                                                    .map(Message::Dashboard),
-                                            );
+                                                        on_connect_commands,
+                                                    ),
+                                                ),
+                                            ));
                                         }
                                     }
                                 }

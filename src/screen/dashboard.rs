@@ -13,13 +13,14 @@ use data::target::{self, Target};
 use data::user::Nick;
 use data::{
     Config, Notification, Server, Version, client, command, config,
-    environment, file_transfer, history, preview,
+    environment, file_transfer, history, message, preview,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
 use iced::window::get_position;
 use iced::{Length, Task, Vector, clipboard};
 use log::{debug, error};
+use tokio::time;
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -73,6 +74,7 @@ pub enum Message {
     Client(client::Message),
     LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
     NewWindow(window::Id, Pane),
+    OnConnect(Server, VecDeque<data::Command>),
 }
 
 #[derive(Debug)]
@@ -1480,6 +1482,71 @@ impl Dashboard {
                 self.panes.popout.insert(window, state);
 
                 return (self.focus_pane(window, pane), None);
+            }
+            Message::OnConnect(server, mut commands) => {
+                let mut tasks = Vec::new();
+
+                let mut delay = 0;
+
+                if let Some(command) = commands.pop_front() {
+                    match command {
+                        data::Command::Irc(command) => {
+                            if let Ok(message) =
+                                message::Encoded::try_from(command)
+                            {
+                                clients.send(
+                                    &buffer::Upstream::Server(server.clone()),
+                                    message,
+                                );
+                            }
+                        }
+                        data::Command::Internal(cmd) => match cmd {
+                            data::command::Internal::OpenBuffers(targets) => {
+                                for target in targets {
+                                    let buffer_action = match target {
+                                        Target::Channel(_) => {
+                                            config
+                                                .actions
+                                                .buffer
+                                                .message_channel
+                                        }
+                                        Target::Query(_) => {
+                                            config.actions.buffer.message_user
+                                        }
+                                    };
+
+                                    tasks.push(self.open_target(
+                                        server.clone(),
+                                        target,
+                                        clients,
+                                        buffer_action,
+                                        config,
+                                    ));
+                                }
+                            }
+                            // We don't handle hop when called from on_connect.
+                            data::command::Internal::Hop(_, _) => (),
+                            data::command::Internal::Delay(seconds) => {
+                                delay = seconds;
+                            }
+                        },
+                    }
+                }
+
+                if !commands.is_empty() {
+                    if delay > 0 {
+                        tasks.push(Task::perform(
+                            time::sleep(Duration::from_secs(delay)),
+                            move |()| Message::OnConnect(server, commands),
+                        ));
+                    } else {
+                        tasks.push(Task::done(Message::OnConnect(
+                            server, commands,
+                        )));
+                    }
+                }
+
+                return (Task::batch(tasks), None);
             }
         }
 

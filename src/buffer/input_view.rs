@@ -205,6 +205,9 @@ impl State {
                         input::Error::Command(
                             command::Error::TooManyTargets { .. },
                         ) => true,
+                        input::Error::Command(
+                            command::Error::NotPositiveInteger,
+                        ) => true,
                     } {
                         self.error = Some(error.to_string());
                     }
@@ -254,26 +257,11 @@ impl State {
 
                             match command {
                                 command::Internal::OpenBuffers(targets) => {
-                                    let chantypes =
-                                        clients.get_chantypes(buffer.server());
-                                    let statusmsg =
-                                        clients.get_statusmsg(buffer.server());
-                                    let casemapping = clients
-                                        .get_casemapping(buffer.server());
-
                                     return (
                                         Task::none(),
                                         Some(Event::OpenBuffers {
                                             targets: targets
-                                                .split(",")
-                                                .map(|target| {
-                                                    Target::parse(
-                                                        target,
-                                                        chantypes,
-                                                        statusmsg,
-                                                        casemapping,
-                                                    )
-                                                })
+                                                .into_iter()
                                                 .map(|target| match target {
                                                     Target::Channel(_) => (
                                                         target,
@@ -415,6 +403,10 @@ impl State {
                                         });
 
                                     return (delayed_join_task, event);
+                                }
+                                // Ignore any delay command sent from input.
+                                command::Internal::Delay(_) => {
+                                    return (Task::none(), None);
                                 }
                             }
                         }
