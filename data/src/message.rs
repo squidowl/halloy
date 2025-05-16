@@ -69,7 +69,7 @@ static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)([\w"\-\[\]\\`^{|}*\/\@]+)(?!\w)"#)
+    RegexBuilder::new(r#"(?i)(?<!\w)([\w"\-\[\]\\`^{|}\/]+)(?!\w)"#)
         .build()
         .unwrap()
 });
@@ -1906,11 +1906,13 @@ mod tests {
         let tests = [
             (
                 (
-                    "Bob: I'm in #interesting with Greg. I hope Dave doesn't notice.".to_string(),
+                    "Bob: I'm in #interesting with Greg, George_, &`Bill`. I hope @Dave doesn't notice.".to_string(),
                     &Vec::from([
                         User::try_from("Greg").unwrap(),
                         User::try_from("Dave").unwrap(),
                         User::try_from("Bob").unwrap(),
+                        User::try_from("George_").unwrap(),
+                        User::try_from("`Bill`").unwrap(),
                     ]),
                     "#interesting",
                     Some(Nick::from("Bob")),
@@ -1925,7 +1927,11 @@ mod tests {
                     Fragment::Channel("#interesting".into()),
                     Fragment::Text(" with ".into()),
                     Fragment::User(User::try_from("Greg").unwrap(), "Greg".into()),
-                    Fragment::Text(". I hope ".into()),
+                    Fragment::Text(", ".into()),
+                    Fragment::User(User::try_from("George_").unwrap(), "George_".into()),
+                    Fragment::Text(", &".into()),
+                    Fragment::User(User::try_from("`Bill`").unwrap(), "`Bill`".into()),
+                    Fragment::Text(". I hope @".into()),
                     Fragment::User(User::try_from("Dave").unwrap(), "Dave".into()),
                     Fragment::Text(" doesn't notice.".into()),
                 ],
