@@ -1969,6 +1969,29 @@ impl Client {
                 #[cfg(feature = "dev")]
                 return Ok(vec![]);
             }
+            Command::Numeric(RPL_CHANNELMODEIS, args) => {
+                let channel = ok!(args.get(1));
+
+                if let Some(channel) =
+                    self.chanmap.get_mut(&context!(target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )))
+                {
+                    // channel.topic.who = Some(ok!(args.get(2)).to_string());
+                    // let timestamp =
+                    //     Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
+                    // channel.topic.time =
+                    //     Some(timestamp.datetime().ok_or_else(|| {
+                    //         anyhow!(
+                    //             "Unable to parse timestamp: {:?}",
+                    //             timestamp
+                    //         )
+                    //     })?);
+                }
+            }
             Command::Numeric(ERR_NOCHANMODES, args) => {
                 let channel = context!(target::Channel::parse(
                     ok!(args.get(1)),
@@ -3438,6 +3461,7 @@ pub struct Channel {
     pub topic: Topic,
     pub names_init: bool,
     pub who_init: bool,
+    pub mode: Option<String>,
 }
 
 impl Channel {
