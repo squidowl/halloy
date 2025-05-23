@@ -19,8 +19,24 @@ pub enum MouseButton {
     Right,
 }
 
+#[derive(Debug, Default, Clone, Copy)]
+pub enum ContextMenuAnchor {
+    #[default]
+    Cursor,
+    Widget,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub enum ContextMenuReclickMode {
+    #[default]
+    KeepOpen,
+    Close,
+}
+
 pub fn context_menu<'a, T, Message, Theme, Renderer>(
     activation_button: MouseButton,
+    anchor: ContextMenuAnchor,
+    reclick: ContextMenuReclickMode,
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     entries: Vec<T>,
     entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
@@ -33,6 +49,8 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
             MouseButton::Left => iced::mouse::Button::Left,
             MouseButton::Right => iced::mouse::Button::Right,
         },
+        anchor,
+        reclick,
 
         menu: None,
     }
@@ -43,8 +61,10 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     entries: Vec<T>,
     entry: Box<dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
     activation_button: iced::mouse::Button,
+    anchor: ContextMenuAnchor,
+    reclick: ContextMenuReclickMode,
 
-    // Cached, recreated during `overlay` if menu is open
+    // Cached, recreated during overlay if menu is open
     menu: Option<Element<'a, Message, Theme, Renderer>>,
 }
 
@@ -177,43 +197,67 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        let state = tree.state.downcast_mut::<State>();
-        let prev_status = state.status;
+        // is this a mouse event we are waiting for?
+        let is_mouse_event = matches!(event,
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+            |
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right))
+        );
 
-        let position = match self.activation_button {
-            mouse::Button::Left => {
-                if let Event::Mouse(mouse::Event::ButtonReleased(
-                    mouse::Button::Left,
-                )) = event
-                {
-                    cursor.position_over(layout.bounds())
-                } else {
-                    None
+        if is_mouse_event {
+            let state = tree.state.downcast_mut::<State>();
+            let prev_status = state.status;
+
+            // is this a mouse event for that we should do something?
+            let is_activation_mouse_event = *event
+                == Event::Mouse(mouse::Event::ButtonPressed(self.activation_button));
+
+            let position = if is_activation_mouse_event {
+                match self.anchor {
+                    ContextMenuAnchor::Widget => {
+                        cursor.position_over(layout.bounds()).map(|_| {
+                            let widget = layout.bounds();
+                            Point::new(
+                                widget.x + widget.width,
+                                widget.y + widget.height,
+                            )
+                        })
+                    }
+                    ContextMenuAnchor::Cursor => {
+                        cursor.position_over(layout.bounds()).map(|cursor| {
+                            Point::new(cursor.x + 5.0, cursor.y + 5.0)
+                        })
+                    }
                 }
-            }
-            mouse::Button::Right => {
-                if let Event::Mouse(mouse::Event::ButtonPressed(
-                    mouse::Button::Right,
-                )) = event
-                {
-                    cursor.position_over(layout.bounds())
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
+            } else {
+                None
+            };
 
-        if let Some(position) = position {
-            state.status = Status::Open(position);
-        }
+            // determinate next status
+            let next_status = match (
+                is_activation_mouse_event,
+                prev_status,
+                self.reclick,
+                position,
+            ) {
+                (true, _, ContextMenuReclickMode::KeepOpen, Some(position))
+                |
+                (true, Status::Closed, ContextMenuReclickMode::Close, Some(position))
+                => Status::Open(position),
 
-        match (state.status, prev_status) {
-            (Status::Closed, Status::Open(_))
-            | (Status::Open(_), Status::Closed) => {
+                (false, Status::Open(_), _, None)
+                |
+                (true, Status::Open(_), _, None)
+                |
+                (true, Status::Open(_), ContextMenuReclickMode::Close, Some(_))
+                => Status::Closed,
+                _ => prev_status, // keep status
+            };
+
+            if next_status != prev_status {
+                state.status = next_status;
                 shell.request_redraw();
             }
-            _ => {}
         }
 
         self.base.as_widget_mut().update(
@@ -510,12 +554,6 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        if let Event::Mouse(mouse::Event::ButtonPressed(_)) = &event {
-            if cursor.position_over(layout.bounds()).is_none() {
-                self.state.status = Status::Closed;
-            }
-        }
-
         if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) =
             &event
         {
