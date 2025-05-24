@@ -12,7 +12,7 @@ use super::{input_view, scroll_view, user_context};
 use crate::widget::{
     Element, message_content, message_marker, selectable_text,
 };
-use crate::{Theme, theme};
+use crate::{Theme, font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -72,6 +72,9 @@ pub fn view<'a>(
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| {
                         selectable_text(timestamp)
+                            .font_maybe(font::get(
+                                theme::font_style::timestamp(theme),
+                            ))
                             .style(theme::selectable_text::timestamp)
                     });
 
@@ -88,6 +91,9 @@ pub fn view<'a>(
                                 .brackets
                                 .format(user.display(with_access_levels)),
                         )
+                        .font_maybe(font::get(theme::font_style::nickname(
+                            theme,
+                        )))
                         .style(|theme| {
                             theme::selectable_text::nickname(
                                 theme, config, user,
@@ -109,6 +115,7 @@ pub fn view<'a>(
                             None,
                             None,
                             config,
+                            theme,
                             &config.buffer.nickname.click,
                         )
                         .map(scroll_view::Message::UserContext);
@@ -119,6 +126,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
+                            theme::font_style::default,
                             move |link| match link {
                                 message::Link::User(_) => {
                                     user_context::Entry::list(false, None)
@@ -135,6 +143,7 @@ pub fn view<'a>(
                                         None,
                                         length,
                                         config,
+                                        theme,
                                     )
                                     .map(scroll_view::Message::UserContext),
                                 _ => row![].into(),
@@ -180,6 +189,12 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             message_style,
+                            move |message_theme: &Theme| {
+                                theme::font_style::server(
+                                    message_theme,
+                                    server.as_ref(),
+                                )
+                            },
                             config,
                         );
 
@@ -206,6 +221,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::action,
+                            theme::font_style::action,
                             config,
                         );
 
@@ -241,6 +257,12 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             message_style,
+                            move |message_theme: &Theme| {
+                                theme::font_style::status(
+                                    message_theme,
+                                    *status,
+                                )
+                            },
                             config,
                         );
 
