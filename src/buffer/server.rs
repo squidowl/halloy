@@ -46,6 +46,7 @@ pub fn view<'a>(
             None,
             None,
             config,
+            theme,
             move |message: &'a data::Message, _, _| {
                 let timestamp = config
                     .buffer
@@ -132,7 +133,8 @@ pub fn view<'a>(
                 input,
                 is_focused,
                 !status.connected(),
-                config
+                config,
+                theme,
             )
             .map(Message::InputView)
         ]

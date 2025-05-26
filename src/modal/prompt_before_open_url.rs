@@ -4,15 +4,16 @@ use iced::{
 };
 
 use super::Message;
-use crate::{theme, widget::Element};
+use crate::{Theme, font, theme, widget::Element};
 
-pub fn view(payload: &str) -> Element<Message> {
+pub fn view<'a>(payload: &'a str, theme: &'a Theme) -> Element<'a, Message> {
     container(
         column![
             column![
                 text("This hyperlink will take you to"),
                 text(payload)
                     .style(theme::text::url)
+                    .font_maybe(font::get(theme::font_style::url(theme)))
                     .wrapping(text::Wrapping::Glyph)
                     .width(Length::Shrink),
                 vertical_space().height(8),
