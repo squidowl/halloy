@@ -38,6 +38,7 @@ pub fn view<'a>(
             None,
             None,
             config,
+            theme,
             move |message, _, _| match message.target.source() {
                 message::Source::Internal(message::source::Internal::Logs) => {
                     Some(

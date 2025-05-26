@@ -81,6 +81,7 @@ pub fn view<'a>(
             previews,
             chathistory_state,
             config,
+            theme,
             move |message, max_nick_width, max_prefix_width| {
                 let timestamp = config
                     .buffer
@@ -402,6 +403,7 @@ pub fn view<'a>(
             is_focused,
             !is_connected_to_channel,
             config,
+            theme,
         )
         .map(Message::InputView)
     });
