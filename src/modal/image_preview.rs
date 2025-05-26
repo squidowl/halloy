@@ -10,7 +10,7 @@ use iced::{
 
 use super::Message;
 use crate::{
-    icon, theme,
+    Theme, icon, theme,
     widget::{Element, button::transparent_button, tooltip},
 };
 
@@ -18,6 +18,7 @@ pub fn view<'a>(
     source: &'a PathBuf,
     url: &'a url::Url,
     timer: &'a Option<Instant>,
+    theme: &'a Theme,
 ) -> Element<'a, Message> {
     container(transparent_button(
         column![
@@ -53,7 +54,8 @@ pub fn view<'a>(
                                 }
                             ),
                             Some("Save Image"),
-                            tooltip::Position::Bottom
+                            tooltip::Position::Bottom,
+                            theme,
                         ),
                         tooltip(
                             button(center(icon::share()))
@@ -67,7 +69,8 @@ pub fn view<'a>(
                                     )
                                 }),
                             Some("Open in Browser"),
-                            tooltip::Position::Bottom
+                            tooltip::Position::Bottom,
+                            theme,
                         ),
                         tooltip(
                             button(center(icon::cancel()))
@@ -81,7 +84,8 @@ pub fn view<'a>(
                                     )
                                 }),
                             Some("Close"),
-                            tooltip::Position::Bottom
+                            tooltip::Position::Bottom,
+                            theme,
                         )
                     ]
                     .spacing(2)

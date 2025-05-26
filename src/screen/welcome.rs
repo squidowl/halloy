@@ -6,7 +6,7 @@ use iced::widget::{
 use iced::{Length, alignment};
 
 use crate::widget::Element;
-use crate::{font, theme};
+use crate::{Theme, font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -47,7 +47,7 @@ impl Welcome {
         }
     }
 
-    pub fn view<'a>(&self) -> Element<'a, Message> {
+    pub fn view<'a>(&self, theme: &Theme) -> Element<'a, Message> {
         let config_dir = String::from(Config::config_dir().to_string_lossy());
 
         let config_button = button(
@@ -90,7 +90,9 @@ impl Welcome {
             .push(text("Halloy is configured through a config file."))
             .push(row![
                 text("You can find the "),
-                text("config.toml").style(theme::text::action),
+                text("config.toml")
+                    .style(theme::text::action)
+                    .font_maybe(font::get(theme::font_style::action(theme))),
                 text(" file at the following path:"),
             ])
             .push(vertical_space().height(8))

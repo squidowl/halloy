@@ -267,7 +267,7 @@ impl ThemeEditor {
             }
         });
 
-        let undo = icon(icon::undo(), "Revert Color", Message::Revert);
+        let undo = icon(icon::undo(), "Revert Color", Message::Revert, theme);
 
         let save = match self.save_result {
             Some(is_success) => status_button(is_success),
@@ -278,11 +278,15 @@ impl ThemeEditor {
         let copy = if self.copied {
             success_icon()
         } else {
-            icon(icon::copy(), "Copy Theme to URL", Message::Copy)
+            icon(icon::copy(), "Copy Theme to URL", Message::Copy, theme)
         };
 
-        let share =
-            icon(icon::share(), "Share Theme with community", Message::Share);
+        let share = icon(
+            icon::share(),
+            "Share Theme with community",
+            Message::Share,
+            theme,
+        );
 
         let color_picker = color_picker(color, Message::Color);
 
@@ -314,6 +318,7 @@ fn icon<'a>(
     icon: widget::Text<'a>,
     tip: &'a str,
     message: Message,
+    theme: &'a Theme,
 ) -> Element<'a, Message> {
     tooltip(
         button(center(icon.style(theme::text::primary)))
@@ -324,6 +329,7 @@ fn icon<'a>(
             .on_press(message),
         Some(tip),
         tooltip::Position::Bottom,
+        theme,
     )
 }
 

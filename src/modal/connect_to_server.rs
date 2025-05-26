@@ -3,14 +3,20 @@ use iced::widget::{button, checkbox, column, container, text};
 use iced::{Length, alignment};
 
 use super::Message;
-use crate::theme;
 use crate::widget::Element;
+use crate::{Theme, font, theme};
 
-pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
+pub fn view<'a>(
+    raw: &'a str,
+    config: &config::Server,
+    theme: &Theme,
+) -> Element<'a, Message> {
     container(
         column![
             text("Connect to server?"),
-            text(raw).style(theme::text::tertiary),
+            text(raw)
+                .style(theme::text::tertiary)
+                .font_maybe(font::get(theme::font_style::tertiary(theme))),
         ]
         .push(
             checkbox(

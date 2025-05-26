@@ -8,6 +8,14 @@ pub fn default(_theme: &Theme) -> FontStyle {
     FontStyle::default()
 }
 
+pub fn primary(theme: &Theme) -> FontStyle {
+    theme.styles().text.primary.font_style
+}
+
+pub fn secondary(theme: &Theme) -> FontStyle {
+    theme.styles().text.secondary.font_style
+}
+
 pub fn tertiary(theme: &Theme) -> FontStyle {
     theme.styles().text.tertiary.font_style
 }
@@ -69,4 +77,12 @@ pub fn timestamp(theme: &Theme) -> FontStyle {
 
 pub fn topic(theme: &Theme) -> FontStyle {
     theme.styles().buffer.topic.font_style
+}
+
+pub fn buffer_title_bar(theme: &Theme) -> FontStyle {
+    theme.styles().buffer.topic.font_style
+}
+
+pub fn url(theme: &Theme) -> FontStyle {
+    theme.styles().buffer.url.font_style
 }

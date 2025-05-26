@@ -76,6 +76,7 @@ impl Entry {
                 "Whois",
                 Message::Whois(server.clone(), nickname),
                 length,
+                theme,
             ),
             Entry::Query => menu_button(
                 "Message",
@@ -85,6 +86,7 @@ impl Entry {
                     config.actions.buffer.message_user,
                 ),
                 length,
+                theme,
             ),
             Entry::ToggleAccessLevelOp => {
                 if let Some(channel) = channel {
@@ -98,6 +100,7 @@ impl Entry {
                                 "-o".to_owned(),
                             ),
                             length,
+                            theme,
                         )
                     } else {
                         menu_button(
@@ -109,6 +112,7 @@ impl Entry {
                                 "+o".to_owned(),
                             ),
                             length,
+                            theme,
                         )
                     }
                 } else {
@@ -127,6 +131,7 @@ impl Entry {
                                 "-v".to_owned(),
                             ),
                             length,
+                            theme,
                         )
                     } else {
                         menu_button(
@@ -138,6 +143,7 @@ impl Entry {
                                 "+v".to_owned(),
                             ),
                             length,
+                            theme,
                         )
                     }
                 } else {
@@ -148,6 +154,7 @@ impl Entry {
                 "Send File",
                 Message::SendFile(server.clone(), user.clone()),
                 length,
+                theme,
             ),
             Entry::UserInfo => {
                 user_info(current_user, nickname, length, config, theme)
@@ -167,6 +174,7 @@ impl Entry {
                     None,
                 ),
                 length,
+                theme,
             ),
             Entry::CtcpRequestVersion => menu_button(
                 "Client (VERSION)",
@@ -177,6 +185,7 @@ impl Entry {
                     None,
                 ),
                 length,
+                theme,
             ),
         }
     }
@@ -266,16 +275,21 @@ pub fn view<'a>(
     .into()
 }
 
-fn menu_button(
-    content: &str,
+fn menu_button<'a>(
+    content: &'a str,
     message: Message,
     length: Length,
-) -> Element<'_, Message> {
-    button(text(content).style(theme::text::primary))
-        .padding(5)
-        .width(length)
-        .on_press(message)
-        .into()
+    theme: &Theme,
+) -> Element<'a, Message> {
+    button(
+        text(content)
+            .style(theme::text::primary)
+            .font_maybe(font::get(theme::font_style::primary(theme))),
+    )
+    .padding(5)
+    .width(length)
+    .on_press(message)
+    .into()
 }
 
 fn right_justified_padding() -> Padding {
@@ -292,14 +306,24 @@ fn user_info<'a>(
     let state = match current_user {
         Some(user) => {
             if user.is_away() {
-                Some(text("Away").style(theme::text::secondary).width(length))
+                Some(
+                    text("Away")
+                        .style(theme::text::secondary)
+                        .font_maybe(font::get(theme::font_style::secondary(
+                            theme,
+                        )))
+                        .width(length),
+                )
             } else {
                 None
             }
         }
-        None => {
-            Some(text("Offline").style(theme::text::secondary).width(length))
-        }
+        None => Some(
+            text("Offline")
+                .style(theme::text::secondary)
+                .font_maybe(font::get(theme::font_style::secondary(theme)))
+                .width(length),
+        ),
     };
 
     // Dimmed if away or offline.
@@ -310,15 +334,12 @@ fn user_info<'a>(
         data::buffer::Color::Unique => Some(nickname.to_string()),
     };
 
-    let mut nickname = text(nickname.to_string())
+    let nickname = text(nickname.to_string())
         .style(move |theme| {
             theme::text::nickname(theme, seed.clone(), away_appearance)
         })
+        .font_maybe(font::get(theme::font_style::nickname(theme)))
         .width(length);
-
-    if let Some(font) = font::get(theme::font_style::nickname(theme)) {
-        nickname = nickname.font(font);
-    }
 
     column![container(nickname).padding(right_justified_padding()),]
         .push_maybe(
