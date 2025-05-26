@@ -2,7 +2,7 @@
 
 To connect with a [**soju**](https://soju.im/) bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.
 
-*as of 2025.1 Halloy supports chathistory, so the machinename(like @desktop) is no longer needed*
+> 💡  as of 2025.1 Halloy supports [`chathistory`](../configuration/buffer.md#bufferchathistory), so the machine name (like `@desktop`) is no longer needed when `chathistory` is enabled
 
 ```toml
 [servers.libera]
