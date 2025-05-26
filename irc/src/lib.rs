@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant)]
+
 pub use tokio_util::codec::BytesCodec;
 
 pub use self::codec::Codec;
