@@ -13,7 +13,8 @@ use iced::widget::{column, container, row, text, tooltip};
 use itertools::{Either, Itertools};
 use strsim::jaro_winkler;
 
-use crate::theme;
+use crate::font;
+use crate::theme::{self, Theme};
 use crate::widget::{Element, double_pass};
 
 const MAX_SHOWN_COMMAND_ENTRIES: usize = 5;
@@ -168,9 +169,10 @@ impl Completion {
         &self,
         input: &str,
         config: &Config,
+        theme: &'a Theme,
     ) -> Option<Element<'a, Message>> {
         self.commands
-            .view(input, config)
+            .view(input, config, theme)
             .or(self.emojis.view(config))
     }
 
@@ -709,6 +711,7 @@ impl Commands {
         &self,
         input: &str,
         config: &Config,
+        theme: &'a Theme,
     ) -> Option<Element<'a, Message>> {
         match self {
             Self::Idle => None,
@@ -770,7 +773,7 @@ impl Commands {
                 subcommand,
             } => {
                 if config.buffer.commands.show_description {
-                    Some(command.view(input, subcommand.as_ref()))
+                    Some(command.view(input, subcommand.as_ref(), theme))
                 } else {
                     None
                 }
@@ -862,6 +865,7 @@ impl Command {
         &self,
         input: &str,
         subcommand: Option<&Command>,
+        theme: &'a Theme,
     ) -> Element<'a, Message> {
         let command_prefix = format!("/{}", self.title.to_lowercase());
 
@@ -886,13 +890,18 @@ impl Command {
         let title = Some(Element::from(text(self.title)));
 
         let arg_text = |index: usize, arg: &Arg| {
-            let content = text(format!("{arg}")).style(move |theme| {
-                if index == active_arg {
-                    theme::text::tertiary(theme)
-                } else {
-                    theme::text::none(theme)
-                }
-            });
+            let content = text(format!("{arg}"))
+                .style(move |theme| {
+                    if index == active_arg {
+                        theme::text::tertiary(theme)
+                    } else {
+                        theme::text::none(theme)
+                    }
+                })
+                .font_maybe(
+                    font::get(theme::font_style::tertiary(theme))
+                        .filter(|_| index == active_arg),
+                );
 
             if let Some(arg_tooltip) = &arg.tooltip {
                 let tooltip_indicator = text("*")
@@ -903,6 +912,10 @@ impl Command {
                             theme::text::none(theme)
                         }
                     })
+                    .font_maybe(
+                        font::get(theme::font_style::tertiary(theme))
+                            .filter(|_| index == active_arg),
+                    )
                     .size(8);
 
                 Element::from(row![
@@ -910,15 +923,25 @@ impl Command {
                     tooltip(
                         row![content, tooltip_indicator]
                             .align_y(iced::Alignment::Start),
-                        container(text(arg_tooltip.clone()).style(
-                            move |theme| {
-                                if index == active_arg {
-                                    theme::text::tertiary(theme)
+                        container(
+                            text(arg_tooltip.clone())
+                                .style(move |theme| {
+                                    if index == active_arg {
+                                        theme::text::tertiary(theme)
+                                    } else {
+                                        theme::text::secondary(theme)
+                                    }
+                                })
+                                .font_maybe(if index == active_arg {
+                                    font::get(theme::font_style::tertiary(
+                                        theme,
+                                    ))
                                 } else {
-                                    theme::text::secondary(theme)
-                                }
-                            }
-                        ))
+                                    font::get(theme::font_style::secondary(
+                                        theme,
+                                    ))
+                                })
+                        )
                         .style(theme::container::tooltip)
                         .padding(8),
                         tooltip::Position::Top,
@@ -963,7 +986,11 @@ impl Command {
                             subcommand.description()
                         })
                         .map(|description| {
-                            text(description).style(theme::text::secondary)
+                            text(description)
+                                .style(theme::text::secondary)
+                                .font_maybe(font::get(
+                                    theme::font_style::secondary(theme),
+                                ))
                         }),
                 )
                 .push(row(title.into_iter().chain(args))),

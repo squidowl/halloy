@@ -129,6 +129,7 @@ pub fn view<'a>(
             is_focused,
             !is_connected_to_channel,
             config,
+            theme,
         )
         .map(Message::InputView)
     });
