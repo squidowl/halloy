@@ -1595,6 +1595,7 @@ impl Dashboard {
                 config,
                 &self.file_transfers,
                 version,
+                theme,
             )
             .map(|e| e.map(Message::Sidebar));
 

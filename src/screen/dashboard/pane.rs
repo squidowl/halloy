@@ -4,7 +4,7 @@ use iced::widget::{button, center, container, pane_grid, row, text};
 use super::sidebar;
 use crate::buffer::{self, Buffer};
 use crate::widget::tooltip;
-use crate::{Theme, icon, theme, widget};
+use crate::{Theme, font, icon, theme, widget};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -92,6 +92,7 @@ impl Pane {
             config.tooltips,
             is_popout,
             config,
+            theme,
         );
 
         let content = self
@@ -168,6 +169,7 @@ impl TitleBar {
         show_tooltips: bool,
         is_popout: bool,
         config: &'a Config,
+        theme: &'a Theme,
     ) -> widget::TitleBar<'a, Message> {
         let maybe_buffer_kind =
             buffer.data().and_then(history::Kind::from_buffer);
@@ -198,6 +200,7 @@ impl TitleBar {
                     "No unread messages"
                 }),
                 tooltip::Position::Bottom,
+                theme,
             );
 
             controls = controls.push(mark_as_read_button_with_tooltip);
@@ -225,6 +228,7 @@ impl TitleBar {
                 "Already at bottom"
             }),
             tooltip::Position::Bottom,
+            theme,
         );
 
         controls = controls.push(scroll_to_bottom_button_with_tooltip);
@@ -257,6 +261,7 @@ impl TitleBar {
                         topic_button,
                         show_tooltips.then_some("Topic Banner"),
                         tooltip::Position::Bottom,
+                        theme,
                     );
 
                     controls = controls.push(topic_button_with_tooltip);
@@ -281,6 +286,7 @@ impl TitleBar {
                 nicklist_button,
                 show_tooltips.then_some("Nicklist"),
                 tooltip::Position::Bottom,
+                theme,
             );
 
             controls = controls.push(nicklist_button_with_tooltip);
@@ -309,6 +315,7 @@ impl TitleBar {
                     "Maximize"
                 }),
                 tooltip::Position::Bottom,
+                theme,
             );
 
             controls = controls.push(maximize_button_with_tooltip);
@@ -329,6 +336,7 @@ impl TitleBar {
                 merge_button,
                 show_tooltips.then_some("Merge"),
                 tooltip::Position::Bottom,
+                theme,
             );
 
             controls = controls.push(close_button_with_tooltip);
@@ -348,6 +356,7 @@ impl TitleBar {
                 popout_button,
                 show_tooltips.then_some("Pop Out"),
                 tooltip::Position::Bottom,
+                theme,
             );
 
             controls = controls.push(close_button_with_tooltip);
@@ -368,6 +377,7 @@ impl TitleBar {
                 close_button,
                 show_tooltips.then_some("Close"),
                 tooltip::Position::Bottom,
+                theme,
             );
 
             controls = controls.push(close_button_with_tooltip);
@@ -376,6 +386,9 @@ impl TitleBar {
         let title = container(
             text(value)
                 .style(theme::text::buffer_title_bar)
+                .font_maybe(font::get(theme::font_style::buffer_title_bar(
+                    theme,
+                )))
                 .shaping(text::Shaping::Advanced),
         )
         .height(22)

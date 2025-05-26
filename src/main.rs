@@ -1223,9 +1223,9 @@ impl Halloy {
                         &self.theme,
                     )
                     .map(Message::Dashboard),
-                Screen::Help(help) => help.view().map(Message::Help),
+                Screen::Help(help) => help.view(&self.theme).map(Message::Help),
                 Screen::Welcome(welcome) => {
-                    welcome.view().map(Message::Welcome)
+                    welcome.view(&self.theme).map(Message::Welcome)
                 }
                 Screen::Migration(migration) => {
                     migration.view().map(Message::Migration)
@@ -1250,7 +1250,7 @@ impl Halloy {
                 {
                     widget::modal(
                         content,
-                        modal.view().map(Message::Modal),
+                        modal.view(&self.theme).map(Message::Modal),
                         || Message::Modal(modal::Message::Cancel),
                     )
                 }
@@ -1270,7 +1270,7 @@ impl Halloy {
             match &self.modal {
                 Some(modal) if modal.window_id() == Some(id) => widget::modal(
                     content,
-                    modal.view().map(Message::Modal),
+                    modal.view(&self.theme).map(Message::Modal),
                     || Message::Modal(modal::Message::Cancel),
                 ),
                 _ => column![content].into(),
