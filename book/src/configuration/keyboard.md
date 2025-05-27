@@ -25,8 +25,8 @@ move_right = "alt+l"
 | `cycle_previous_buffer`        | Cycle to previous buffer     | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> |
 | `cycle_next_unread_buffer`     | Cycle to next buffer         | <kbd>ctrl</kbd> + <kbd>tab</kbd>                    | <kbd>ctrl</kbd> + <kbd>tab</kbd>                    |
 | `cycle_previous_unread_buffer` | Cycle to previous buffer     | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> |
-| `scroll_page_up`               | Scroll buffer up a page      | <kbd>Fn</kbd> + <kbd>↑</kbd>                        | <kbd>pageup</kbd>                                   |
-| `scroll_page_down`             | Scroll buffer down a page    | <kbd>Fn</kbd> + <kbd>↓</kbd>                        | <kbd>pagedown</kbd>                                 |
+| `scroll_up_page`               | Scroll buffer up a page      | <kbd>Fn</kbd> + <kbd>↑</kbd>                        | <kbd>pageup</kbd>                                   |
+| `scroll_down_page`             | Scroll buffer down a page    | <kbd>Fn</kbd> + <kbd>↓</kbd>                        | <kbd>pagedown</kbd>                                 |
 | `scroll_to_top`                | Scroll to top of buffer      | <kbd>⌘</kbd> + <kbd>↑</kbd>                         | <kbd>ctrl</kbd> + <kbd>↑</kbd>                      |
 | `scroll_to_bottom`             | Scroll to bottom of buffer   | <kbd>⌘</kbd> + <kbd>↓</kbd>                         | <kbd>ctrl</kbd> + <kbd>↓</kbd>                      |
 | `leave_buffer`                 | Leave channel or close query | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>w</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>w</kbd>   |
