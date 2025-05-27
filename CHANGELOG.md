@@ -2,6 +2,7 @@
 
 Added:
 
+- Show channel mode in panel if available
 - Configuration options for font weight and bold weight
 
 Fixed:
