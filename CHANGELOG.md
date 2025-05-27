@@ -10,7 +10,7 @@ Fixed:
 
 Thanks:
 
-- Contributions: @englut, @KaiKorla, @kit-ty-kate, @mhegreberg
+- Contributions: @englut, @KaiKorla, @kit-ty-kate, @mhegreberg, @ohhskar
 - Bug reports: @awbradle
 - Feature requests: @darienm
 
