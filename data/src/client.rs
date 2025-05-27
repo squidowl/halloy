@@ -1980,16 +1980,7 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
-                    // channel.topic.who = Some(ok!(args.get(2)).to_string());
-                    // let timestamp =
-                    //     Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
-                    // channel.topic.time =
-                    //     Some(timestamp.datetime().ok_or_else(|| {
-                    //         anyhow!(
-                    //             "Unable to parse timestamp: {:?}",
-                    //             timestamp
-                    //         )
-                    //     })?);
+                    channel.mode = args.get(2).cloned();
                 }
             }
             Command::Numeric(ERR_NOCHANMODES, args) => {
@@ -2762,6 +2753,10 @@ impl Client {
         self.chanmap.get(channel).map(|channel| &channel.topic)
     }
 
+    fn mode<'a>(&'a self, channel: &target::Channel) -> Option<&'a String> {
+        self.chanmap.get(channel).and_then(|channel| channel.mode.as_ref())
+    }
+
     fn resolve_user_attributes<'a>(
         &'a self,
         channel: &target::Channel,
@@ -3188,6 +3183,16 @@ impl Map {
     ) -> Option<&'a Topic> {
         self.client(server)
             .map(|client| client.topic(channel))
+            .unwrap_or_default()
+    }
+
+    pub fn get_channel_mode<'a>(
+        &'a self,
+        server: &Server,
+        channel: &target::Channel,
+    ) -> Option<&'a String> {
+        self.client(server)
+            .map(|client| client.mode(channel))
             .unwrap_or_default()
     }
 
