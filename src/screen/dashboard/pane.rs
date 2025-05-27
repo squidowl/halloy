@@ -60,7 +60,6 @@ impl Pane {
             Buffer::Empty => String::new(),
             Buffer::Channel(state) => {
                 let channel = state.target.as_str();
-
                 let server = &state.server;
                 let users = clients
                     .get_channel_users(&state.server, &state.target)
