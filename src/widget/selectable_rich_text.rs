@@ -740,7 +740,7 @@ where
         widget::text::draw(
             renderer,
             defaults,
-            layout,
+            bounds,
             &state.paragraph,
             widget::text::Style { color: style.color },
             viewport,
