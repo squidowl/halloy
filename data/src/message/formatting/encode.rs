@@ -123,7 +123,7 @@ fn markdown<'a>(
     let right_flanking = move |d, n| {
         move |i: &'a str| {
             alt((
-                // delimiter run that is not preceded by Unicode whitespace or punctutation
+                // delimiter run that is not preceded by Unicode whitespace or punctuation
                 map(
                     verify(delimiter_run(d, n), move |_: &Vec<_>| {
                         !prev_is_ws_or_punc(d, i)

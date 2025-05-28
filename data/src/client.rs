@@ -1284,7 +1284,7 @@ impl Client {
                                     }
                                     ctcp::Command::Unknown(command) => {
                                         log::debug!(
-                                            "Ignorning CTCP command {command}: Unknown command"
+                                            "Ignoring CTCP command {command}: Unknown command"
                                         );
                                     }
                                 }
@@ -2420,7 +2420,7 @@ impl Client {
 
     // TODO allow configuring the "sorting method"
     // this function sorts channels together which have similar names when the chantype prefix
-    // (sometimes multipled) is removed
+    // (sometimes multiplied) is removed
     // e.g. '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
     // wildly different places.
     fn compare_channels(&self, a: &str, b: &str) -> Ordering {
