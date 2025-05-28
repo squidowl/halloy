@@ -23,7 +23,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  Check-Clippy-Test:
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
