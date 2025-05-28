@@ -326,7 +326,7 @@ Changed:
 
 # 2024.5 (2024-03-21)
 
-**BREAKING** Configuration file format has switched from `YAML` to `TOML`. Please vist the migration guide here: [halloy.squidowl.org/guides/migrating-from-yaml](https://halloy.squidowl.org/guides/migrating-from-yaml.html).
+**BREAKING** Configuration file format has switched from `YAML` to `TOML`. Please visit the migration guide here: [halloy.squidowl.org/guides/migrating-from-yaml](https://halloy.squidowl.org/guides/migrating-from-yaml.html).
 
 Added:
 

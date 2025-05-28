@@ -41,6 +41,6 @@ case "$1" in
   "archive_name") archive_name;;
   "archive_path") archive_path;;
   *)
-    echo "avaiable commands: package, archive_name, archive_path"
+    echo "available commands: package, archive_name, archive_path"
     ;;
 esac

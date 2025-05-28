@@ -75,7 +75,7 @@ pub enum Direction {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
-    /// Pending appoval
+    /// Pending approval
     PendingApproval,
     /// Pending reverse confirmation
     PendingReverseConfirmation,
@@ -87,7 +87,7 @@ pub enum Status {
     Active { transferred: u64, elapsed: Duration },
     /// Transfer is complete
     Completed { elapsed: Duration, sha256: String },
-    /// An error occured
+    /// An error occurred
     Failed { error: String },
 }
 
