@@ -5,7 +5,6 @@ Halloy! If you don't know it yet, but "Halløj" is the a danish "Hello" or "Hi".
 You have various options for contributing to Halloy. Before you start working on Halloy, read the topics “[Be nice](#be-nice)”, "[Goals](#goals)" and "[Licensing](#licensing)"
 
 - [Contributing](#contributing)
-  - [Be nice](#be-nice)
   - [Goals](#goals)
   - [Licensing](#licensing)
   - [Contributing code](#contributing-code)
@@ -21,10 +20,6 @@ You have various options for contributing to Halloy. Before you start working on
   - [Submitting a Pull-Requests](#submitting-a-pull-requests)
     - [Rebase vs. Merge](#rebase-vs-merge)
     - [Open a PR](#open-a-pr)
-
-## Be nice
-
-**TBD:** Do we need such a policy? Do we want to adopt the [Rust CoC](https://www.rust-lang.org/policies/code-of-conduct)?
 
 ## Goals
 
