@@ -268,8 +268,12 @@ impl Manager {
         self.data.input.record(buffer, text);
     }
 
-    pub fn record_draft(&mut self, draft: input::Draft) {
-        self.data.input.store_draft(draft);
+    pub fn record_draft(&mut self, raw_input: input::RawInput) {
+        self.data.input.store_draft(raw_input);
+    }
+
+    pub fn record_text(&mut self, raw_input: input::RawInput) {
+        self.data.input.store_text(raw_input);
     }
 
     pub fn record_message(

@@ -186,7 +186,7 @@ impl Content {
 }
 
 #[derive(Debug, Clone)]
-pub struct Draft {
+pub struct RawInput {
     pub buffer: buffer::Upstream,
     pub text: String,
 }
@@ -195,6 +195,7 @@ pub struct Draft {
 pub struct Storage {
     sent: HashMap<buffer::Upstream, Vec<String>>,
     draft: HashMap<buffer::Upstream, String>,
+    text: HashMap<buffer::Upstream, String>,
 }
 
 impl Storage {
@@ -210,18 +211,24 @@ impl Storage {
                 .get(buffer)
                 .map(AsRef::as_ref)
                 .unwrap_or_default(),
+            text: self.text.get(buffer).map(AsRef::as_ref).unwrap_or_default(),
         }
     }
 
     pub fn record(&mut self, buffer: &buffer::Upstream, text: String) {
         self.draft.remove(buffer);
+        self.text.remove(buffer);
         let history = self.sent.entry(buffer.clone()).or_default();
         history.insert(0, text);
         history.truncate(INPUT_HISTORY_LENGTH);
     }
 
-    pub fn store_draft(&mut self, draft: Draft) {
-        self.draft.insert(draft.buffer, draft.text);
+    pub fn store_draft(&mut self, raw_input: RawInput) {
+        self.draft.insert(raw_input.buffer, raw_input.text);
+    }
+
+    pub fn store_text(&mut self, raw_input: RawInput) {
+        self.text.insert(raw_input.buffer, raw_input.text);
     }
 }
 
@@ -230,6 +237,7 @@ impl Storage {
 pub struct Cache<'a> {
     pub history: &'a [String],
     pub draft: &'a str,
+    pub text: &'a str,
 }
 
 #[derive(Debug, thiserror::Error)]
