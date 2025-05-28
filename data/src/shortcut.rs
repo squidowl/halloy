@@ -123,7 +123,7 @@ impl Hash for KeyBind {
     }
 }
 
-// For defaults checkt the platform specific defaults:
+// For defaults check the platform specific defaults:
 // macOS: https://support.apple.com/en-us/102650
 // Windows: https://support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec
 // Linux FreeDesktop (not ready yet): https://wiki.freedesktop.org/www/Specifications/default-keys-spec/

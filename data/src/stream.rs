@@ -141,7 +141,7 @@ async fn _run(
                         let error = match e {
                             // unwrap Tls-specific error enums to access more error info
                             connection::Error::Tls(e) => {
-                                format!("a TLS error occured: {e}")
+                                format!("a TLS error occurred: {e}")
                             }
                             _ => e.to_string(),
                         };

@@ -514,7 +514,7 @@ impl Halloy {
                     };
 
                     if is_initial {
-                        // Intial is sent when first trying to connect
+                        // Initial is sent when first trying to connect
                         dashboard
                             .broadcast(
                                 &server,
@@ -1098,7 +1098,7 @@ impl Halloy {
                 command.map(Message::Modal)
             }
             Message::RouteReceived(route) => {
-                log::info!("RouteRecived: {:?}", route);
+                log::info!("RouteReceived: {:?}", route);
 
                 if let Ok(url) = route.parse() {
                     return self.handle_url(url);

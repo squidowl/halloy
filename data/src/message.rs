@@ -450,7 +450,7 @@ impl Serialize for Message {
             content: &'a Content,
             id: &'a Option<String>,
             // Old field before we had fragments,
-            // added for downgrade compatability
+            // added for downgrade compatibility
             text: Cow<'a, str>,
             hidden_urls: &'a HashSet<url::Url>,
             is_echo: &'a bool,
@@ -482,7 +482,7 @@ impl<'de> Deserialize<'de> for Message {
             server_time: DateTime<Utc>,
             direction: Direction,
             target: Target,
-            // New field, optional for upgrade compatability
+            // New field, optional for upgrade compatibility
             #[serde(default, deserialize_with = "fail_as_none")]
             content: Option<Content>,
             // Old field before we had fragments
@@ -490,7 +490,7 @@ impl<'de> Deserialize<'de> for Message {
             id: Option<String>,
             #[serde(default)]
             hidden_urls: HashSet<url::Url>,
-            // New field, optional for upgrade compatability
+            // New field, optional for upgrade compatibility
             #[serde(default, deserialize_with = "fail_as_none")]
             is_echo: Option<bool>,
         }
@@ -1827,9 +1827,9 @@ mod tests {
                 ],
             ),
             (
-                "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/",
+                "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/", // spellchecker:disable-line
                 vec![Fragment::Url(
-                    "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/"
+                    "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/" // spellchecker:disable-line
                     .parse()
                     .unwrap()
                 )],

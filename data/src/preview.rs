@@ -285,7 +285,7 @@ async fn fetch(
         }
     };
 
-    // Artifically wait before releasing this permit for rate limiting
+    // Artificially wait before releasing this permit for rate limiting
     time::sleep(Duration::from_millis(config.request.delay_ms)).await;
 
     Ok(fetched)

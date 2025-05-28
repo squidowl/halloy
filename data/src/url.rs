@@ -141,7 +141,7 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
         });
 
         if !url.path().is_empty() {
-            // We also consider path as channels seperated by ','.
+            // We also consider path as channels separated by ','.
             // Eg: [...]/channel1,channel2
             channels.extend(
                 url.path()[1..]

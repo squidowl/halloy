@@ -32,7 +32,7 @@ pub struct Request {
     ///
     /// Some servers will only send opengraph metadata to
     /// browser-like user agents. We default to `WhatsApp/2`
-    /// for wide compatability
+    /// for wide compatibility
     #[serde(default = "default_user_agent")]
     pub user_agent: String,
     /// Request timeout in millisceonds
@@ -54,7 +54,7 @@ pub struct Request {
     /// Reduce this to prevent rate-limiting
     #[serde(default = "default_concurrency")]
     pub concurrency: usize,
-    /// Numer of milliseconds to wait before requesting another preview
+    /// Number of milliseconds to wait before requesting another preview
     /// when number of requested previews > `concurrency`
     #[serde(default = "default_delay_ms")]
     pub delay_ms: u64,
