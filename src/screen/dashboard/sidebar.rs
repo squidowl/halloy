@@ -165,8 +165,8 @@ impl Sidebar {
         } else {
             context_menu(
                 context_menu::MouseButton::Left,
-                context_menu::ContextMenuAnchor::Widget,
-                context_menu::ContextMenuReclickMode::Close,
+                context_menu::Anchor::Widget,
+                context_menu::ToggleBehavior::Close,
                 base,
                 menu,
                 move |menu, length| {
@@ -766,8 +766,8 @@ fn upstream_buffer_button<'a>(
     } else {
         context_menu(
             context_menu::MouseButton::default(),
-            context_menu::ContextMenuAnchor::Cursor,
-            context_menu::ContextMenuReclickMode::KeepOpen,
+            context_menu::Anchor::Cursor,
+            context_menu::ToggleBehavior::KeepOpen,
             base,
             entries,
             move |entry, length| {
