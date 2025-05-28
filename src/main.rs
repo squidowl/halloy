@@ -1148,7 +1148,7 @@ impl Halloy {
                     {
                         tasks.push(
                             dashboard
-                                .focus_window(self.main_window.id)
+                                .focus_window_pane(self.main_window.id)
                                 .map(Message::Dashboard),
                         );
                     }
