@@ -9,17 +9,11 @@ You have various options for contributing to Halloy. Before you start working on
   - [Licensing](#licensing)
   - [Contributing code](#contributing-code)
     - [Coding Prerequisites](#coding-prerequisites)
-  - [Contributing documentation](#contributing-documentation)
-    - [Documenting Prerequisites](#documenting-prerequisites)
   - [Codebase Overview](#codebase-overview)
     - [Project Structure](#project-structure)
     - [Data Flow](#data-flow)
-    - [Architecture](#architecture)
   - [Coding-Standards \& Guidelines](#coding-standards--guidelines)
     - [Formatting \& Linting](#formatting--linting)
-  - [Submitting a Pull-Requests](#submitting-a-pull-requests)
-    - [Rebase vs. Merge](#rebase-vs-merge)
-    - [Open a PR](#open-a-pr)
 
 ## Goals
 
@@ -50,12 +44,6 @@ Before diving into Halloy development, make sure you're comfortable with the fol
 - **GitHub:** The platform we use for hosting the Halloy repository, tracking issues, and collaborating on code. You can find Halloy on [GitHub](https://github.com/squidowl/halloy).
 - **IRC:** Halloy is an IRC client, so understanding the Internet Relay Chat protocol is beneficial. The [IRCv3 specifications](https://ircv3.net) provide comprehensive information about the protocol.
 
-## Contributing documentation
-
-### Documenting Prerequisites
-
-TODO
-
 ## Codebase Overview
 
 Halloy is a modern IRC client built with Rust, leveraging the iced GUI library and the asynchronous capabilities of Tokio. The codebase is organized to promote clarity and ease of contribution.​
@@ -68,7 +56,7 @@ Software Engineering Stack Exchange
 - ```src/``` – Contains the main application code.
   - ```main.rs``` – Entry point of the application.
   - ```ui/``` – Modules related to the user interface built with iced.
-  - ```etwork/``` – Handles IRC protocol communication and networking logic.
+  - ```network/``` – Handles IRC protocol communication and networking logic.
   - ```config/``` – Manages configuration files and settings.
   - ```utils/``` – Utility functions and helpers used across the application.
 - ```assets/``` – Static files like icons and themes.
@@ -86,9 +74,6 @@ Event Handling – Inputs are translated into events that modify the application
 State Update – The application state is updated accordingly.
 UI Rendering – The UI reacts to state changes and re-renders components as needed.​
 This unidirectional data flow ensures predictable behavior and simplifies debugging.​
-
-### Architecture
-TODO
 
 ## Coding-Standards & Guidelines
 
@@ -114,7 +99,6 @@ Our documentations are written in [markdown](https://rust-lang.github.io/mdBook/
 
 - **[mdbook-external-links](https://github.com/jonahgoldwastaken/mdbook-external-links):** Makes external links open in a new tab.
 - **[mdbook-linkcheck](https://github.com/Michael-F-Bryan/mdbook-linkcheck):** Verifies that internal links aren’t broken.
-- **[mdbook-mermaid](https://github.com/badboy/mdbook-mermaid)** Adding mermaid.js support to draw fancy diagrams.
 
 You can install both with:
 
@@ -130,13 +114,3 @@ If your editor supports [EditorConfig](https://editorconfig.org), it will automa
 cargo install editorconfig-checker
 editorconfig-checker
 ```
-
-## Submitting a Pull-Requests
-
-### Rebase vs. Merge
-
-TODO
-
-### Open a PR
-
-TODO
