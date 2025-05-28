@@ -73,7 +73,7 @@ pub fn parse_channel_from_target(
     chantypes: &[char],
     statusmsg_prefixes: &[char],
 ) -> Option<(Vec<char>, String)> {
-    // We parse the target by finding the first character in chantypes, and returing (even if that
+    // We parse the target by finding the first character in chantypes, and returning (even if that
     // character is in statusmsg_prefixes)
     // If the characters before the first chantypes character are all valid prefixes, then we have
     // a valid channel name with those prefixes.

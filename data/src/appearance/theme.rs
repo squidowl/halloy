@@ -425,7 +425,7 @@ mod binary {
     }
 
     // IMPORTANT: Tags cannot be rearranged or deleted to preserve
-    // backwards compatability. Only append new items in the future
+    // backwards compatibility. Only append new items in the future
     #[derive(
         Debug,
         Clone,

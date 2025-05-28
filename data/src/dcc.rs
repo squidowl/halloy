@@ -74,7 +74,7 @@ impl Send {
         }
 
         // Host will always be 3rd or 4th arg in reverse order
-        // The last arg to succesfully decode as host will be host
+        // The last arg to successfully decode as host will be host
         let host_pos = args.len()
             - 1
             - args

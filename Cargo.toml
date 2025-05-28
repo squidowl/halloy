@@ -134,3 +134,12 @@ redundant_closure_for_method_calls = "deny"
 semicolon_if_nothing_returned = "deny"
 uninlined_format_args = "deny"
 unnecessary_wraps = "deny"
+
+[workspace.metadata.typos.default]
+extend-ignore-re = [
+    "(?Rm)^.*(#|//)\\s*spellchecker:disable-line$", # Ignore lines with trailing spellchecker:disable-line
+]
+extend-ignore-identifiers-re = [
+    "ERR_[A-Z]+", # IRC Error Numeric
+    "RPL_[A-Z]+", # IRC Reply Numeric
+]

@@ -334,7 +334,7 @@ impl State {
                                         }
                                     };
 
-                                    // Part channel. Might not exsist if we execute on a query/server.
+                                    // Part channel. Might not exist if we execute on a query/server.
                                     let part_command =
                                         buffer.channel().and_then(|channel| {
                                             data::Input::command(
