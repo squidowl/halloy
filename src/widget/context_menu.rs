@@ -20,14 +20,14 @@ pub enum MouseButton {
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub enum ContextMenuAnchor {
+pub enum Anchor {
     #[default]
     Cursor,
     Widget,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub enum ContextMenuReclickMode {
+pub enum ToggleBehavior  {
     #[default]
     KeepOpen,
     Close,
@@ -35,8 +35,8 @@ pub enum ContextMenuReclickMode {
 
 pub fn context_menu<'a, T, Message, Theme, Renderer>(
     activation_button: MouseButton,
-    anchor: ContextMenuAnchor,
-    reclick: ContextMenuReclickMode,
+    anchor: Anchor,
+    toggle_behavior: ToggleBehavior,
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     entries: Vec<T>,
     entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
@@ -50,7 +50,7 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
             MouseButton::Right => iced::mouse::Button::Right,
         },
         anchor,
-        reclick,
+        toggle_behavior,
 
         menu: None,
     }
@@ -61,8 +61,8 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     entries: Vec<T>,
     entry: Box<dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
     activation_button: iced::mouse::Button,
-    anchor: ContextMenuAnchor,
-    reclick: ContextMenuReclickMode,
+    anchor: Anchor,
+    toggle_behavior: ToggleBehavior,
 
     // Cached, recreated during overlay if menu is open
     menu: Option<Element<'a, Message, Theme, Renderer>>,
@@ -214,7 +214,7 @@ where
 
             let position = if is_activation_mouse_event {
                 match self.anchor {
-                    ContextMenuAnchor::Widget => {
+                    Anchor::Widget => {
                         cursor.position_over(layout.bounds()).map(|_| {
                             let widget = layout.bounds();
                             Point::new(
@@ -223,7 +223,7 @@ where
                             )
                         })
                     }
-                    ContextMenuAnchor::Cursor => {
+                    Anchor::Cursor => {
                         cursor.position_over(layout.bounds()).map(|cursor| {
                             Point::new(cursor.x + 5.0, cursor.y + 5.0)
                         })
@@ -237,19 +237,19 @@ where
             let next_status = match (
                 is_activation_mouse_event,
                 prev_status,
-                self.reclick,
+                self.toggle_behavior,
                 position,
             ) {
-                (true, _, ContextMenuReclickMode::KeepOpen, Some(position))
+                (true, _, ToggleBehavior::KeepOpen, Some(position))
                 |
-                (true, Status::Closed, ContextMenuReclickMode::Close, Some(position))
+                (true, Status::Closed, ToggleBehavior::Close, Some(position))
                 => Status::Open(position),
 
                 (false, Status::Open(_), _, None)
                 |
                 (true, Status::Open(_), _, None)
                 |
-                (true, Status::Open(_), ContextMenuReclickMode::Close, Some(_))
+                (true, Status::Open(_), ToggleBehavior::Close, Some(_))
                 => Status::Closed,
                 _ => prev_status, // keep status
             };
