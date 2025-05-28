@@ -8,7 +8,7 @@ use iced::{Length, Task};
 
 use super::{input_view, scroll_view, user_context};
 use crate::widget::{Element, message_content, selectable_text};
-use crate::{Theme, theme};
+use crate::{Theme, font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -46,12 +46,16 @@ pub fn view<'a>(
             None,
             None,
             config,
+            theme,
             move |message, _, _| {
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| {
                         selectable_text(timestamp)
+                            .font_maybe(font::get(
+                                theme::font_style::timestamp(theme),
+                            ))
                             .style(theme::selectable_text::timestamp)
                     });
 
@@ -64,6 +68,12 @@ pub fn view<'a>(
                             scroll_view::Message::Link,
                             move |theme| {
                                 theme::selectable_text::server(
+                                    theme,
+                                    server.as_ref(),
+                                )
+                            },
+                            move |theme| {
+                                theme::font_style::server(
                                     theme,
                                     server.as_ref(),
                                 )
@@ -88,6 +98,9 @@ pub fn view<'a>(
                             scroll_view::Message::Link,
                             move |theme| {
                                 theme::selectable_text::status(theme, *status)
+                            },
+                            move |theme| {
+                                theme::font_style::status(theme, *status)
                             },
                             config,
                         );
@@ -120,7 +133,8 @@ pub fn view<'a>(
                 input,
                 is_focused,
                 !status.connected(),
-                config
+                config,
+                theme,
             )
             .map(Message::InputView)
         ]

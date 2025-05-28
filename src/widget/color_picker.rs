@@ -59,7 +59,7 @@ fn bordered<'a, Message: 'a>(
             background: None,
             border: border::rounded(2)
                 .width(1)
-                .color(theme.colors().general.border),
+                .color(theme.styles().general.border),
             shadow: iced::Shadow::default(),
         })
 }

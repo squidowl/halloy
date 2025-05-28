@@ -21,7 +21,7 @@ use super::user_context;
 use crate::widget::{
     Element, MESSAGE_MARKER_TEXT, notify_visibility, selectable_text,
 };
-use crate::{font, icon, theme};
+use crate::{Theme, font, icon, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -102,6 +102,7 @@ pub fn view<'a>(
     previews: Option<Previews<'a>>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
+    theme: &'a Theme,
     format: impl Fn(
         &'a data::Message,
         Option<f32>,
@@ -254,6 +255,7 @@ pub fn view<'a>(
                                     max_prefix_width,
                                     is_hovered,
                                     config,
+                                    theme,
                                 ));
                             }
                         }
@@ -280,7 +282,12 @@ pub fn view<'a>(
                                     .to_string()
                                 )
                                 .size(divider_font_size)
-                                .style(theme::text::secondary),
+                                .style(theme::text::secondary)
+                                .font_maybe(
+                                    font::get(theme::font_style::secondary(
+                                        theme
+                                    ))
+                                ),
                                 container(horizontal_rule(1))
                                     .width(Length::Fill)
                                     .padding(padding::left(6))
@@ -322,7 +329,8 @@ pub fn view<'a>(
                 .padding(padding::right(6)),
             text("backlog")
                 .size(divider_font_size)
-                .style(theme::text::secondary),
+                .style(theme::text::secondary)
+                .font_maybe(font::get(theme::font_style::error(theme))),
             container(horizontal_rule(1))
                 .width(Length::Fill)
                 .padding(padding::left(6))
@@ -1083,6 +1091,7 @@ fn preview_row<'a>(
     max_prefix_width: Option<f32>,
     is_hovered: bool,
     config: &'a Config,
+    theme: &'a Theme,
 ) -> Element<'a, Message> {
     let content = match preview {
         data::Preview::Card(preview::Card {
@@ -1099,11 +1108,17 @@ fn preview_row<'a>(
                             text(title)
                                 .shaping(text::Shaping::Advanced)
                                 .style(theme::text::primary)
+                                .font_maybe(font::get(
+                                    theme::font_style::primary(theme)
+                                ))
                         ]
                         .push_maybe(description.as_ref().map(|description| {
                             text(description)
                                 .shaping(text::Shaping::Advanced)
                                 .style(theme::text::secondary)
+                                .font_maybe(font::get(
+                                    theme::font_style::secondary(theme),
+                                ))
                         }))
                         .push_maybe(
                             config.preview.card.show_image.then_some(
