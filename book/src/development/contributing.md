@@ -10,6 +10,8 @@ You have various options for contributing to Halloy. Before you start working on
   - [Licensing](#licensing)
   - [Contributing code](#contributing-code)
     - [Coding Prerequisites](#coding-prerequisites)
+  - [Contributing documentation](#contributing-documentation)
+    - [Documenting Prerequisites](#documenting-prerequisites)
   - [Codebase Overview](#codebase-overview)
     - [Project Structure](#project-structure)
     - [Data Flow](#data-flow)
@@ -53,11 +55,11 @@ Before diving into Halloy development, make sure you're comfortable with the fol
 - **GitHub:** The platform we use for hosting the Halloy repository, tracking issues, and collaborating on code. You can find Halloy on [GitHub](https://github.com/squidowl/halloy).
 - **IRC:** Halloy is an IRC client, so understanding the Internet Relay Chat protocol is beneficial. The [IRCv3 specifications](https://ircv3.net) provide comprehensive information about the protocol.
 
-<!--
 ## Contributing documentation
 
 ### Documenting Prerequisites
--->
+
+TODO
 
 ## Codebase Overview
 
@@ -91,57 +93,7 @@ UI Rendering – The UI reacts to state changes and re-renders components as nee
 This unidirectional data flow ensures predictable behavior and simplifies debugging.​
 
 ### Architecture
-
-```mermaid
-flowchart TD
-  %% UI Layer
-  subgraph "UI Layer"
-    A["main.rs
-    (iced)"]
-    B["UI Components
-    (src/ui)"]
-  end
-
-  %% Core Layer
-  subgraph "Core Layer"
-    C["Event Loop
-    (iced + Tokio)"]
-    D["State Management
-    (src/core)"]
-    E["Config Loader
-    (src/config)"]
-    F["Utils
-    (src/utils)"]
-  end
-
-  %% Network Layer
-  subgraph "Network Layer"
-    G["IRC Protocol Handler
-    (src/network)"]
-    H["Async Runtime
-    (Tokio)"]
-  end
-
-  %% Support Files
-  subgraph "Support Files"
-    I["Assets
-    (icons, themes)"]
-    J["Docs & Tests"]
-  end
-
-  %% Connections
-  A --> B
-  B --> C
-  C --> D
-  D --> E
-  D --> F
-  D --> G
-  G --> H
-  E --> D
-  F --> D
-  I --> B
-  J --> D
-```
+TODO
 
 ## Coding-Standards & Guidelines
 
