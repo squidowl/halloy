@@ -1969,6 +1969,20 @@ impl Client {
                 #[cfg(feature = "dev")]
                 return Ok(vec![]);
             }
+            Command::Numeric(RPL_CHANNELMODEIS, args) => {
+                let channel = ok!(args.get(1));
+
+                if let Some(channel) =
+                    self.chanmap.get_mut(&context!(target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )))
+                {
+                    channel.mode = args.get(2).cloned();
+                }
+            }
             Command::Numeric(ERR_NOCHANMODES, args) => {
                 let channel = context!(target::Channel::parse(
                     ok!(args.get(1)),
@@ -2739,6 +2753,10 @@ impl Client {
         self.chanmap.get(channel).map(|channel| &channel.topic)
     }
 
+    fn mode<'a>(&'a self, channel: &target::Channel) -> Option<&'a String> {
+        self.chanmap.get(channel).and_then(|channel| channel.mode.as_ref())
+    }
+
     fn resolve_user_attributes<'a>(
         &'a self,
         channel: &target::Channel,
@@ -3168,6 +3186,16 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_channel_mode<'a>(
+        &'a self,
+        server: &Server,
+        channel: &target::Channel,
+    ) -> Option<&'a String> {
+        self.client(server)
+            .map(|client| client.mode(channel))
+            .unwrap_or_default()
+    }
+
     pub fn get_channels<'a>(
         &'a self,
         server: &Server,
@@ -3438,6 +3466,7 @@ pub struct Channel {
     pub topic: Topic,
     pub names_init: bool,
     pub who_init: bool,
+    pub mode: Option<String>,
 }
 
 impl Channel {
