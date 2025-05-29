@@ -3,7 +3,7 @@ use std::time::Duration;
 use data::buffer::{self, Autocomplete, Upstream};
 use data::dashboard::BufferAction;
 use data::history::{self, ReadMarker};
-use data::input::{self, Cache, Draft};
+use data::input::{self, Cache, RawInput};
 use data::message::server_time;
 use data::target::Target;
 use data::user::Nick;
@@ -54,7 +54,7 @@ pub fn view<'a>(
         theme::text_input::primary
     };
 
-    let mut text_input = text_input("Send message...", cache.draft)
+    let mut text_input = text_input("Send message...", cache.text)
         .on_submit(Message::Send)
         .id(state.input_id.clone())
         .padding(8)
@@ -99,7 +99,7 @@ pub fn view<'a>(
 
     let overlay = column![]
         .spacing(4)
-        .push_maybe(state.completion.view(cache.draft, config))
+        .push_maybe(state.completion.view(cache.text, config))
         .push_maybe(state.error.as_deref().map(error));
 
     anchored_overlay(input, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
@@ -210,7 +210,12 @@ impl State {
                     }
                 }
 
-                history.record_draft(Draft {
+                history.record_text(RawInput {
+                    buffer: buffer.clone(),
+                    text: input.clone(),
+                });
+
+                history.record_draft(RawInput {
                     buffer: buffer.clone(),
                     text: input,
                 });
@@ -218,7 +223,7 @@ impl State {
                 (Task::none(), None)
             }
             Message::Send => {
-                let raw_input = history.input(buffer).draft;
+                let raw_input = history.input(buffer).text;
 
                 // Reset error
                 self.error = None;
@@ -230,7 +235,7 @@ impl State {
                     let new_input =
                         entry.complete_input(raw_input, chantypes, config);
 
-                    self.on_completion(buffer, history, new_input)
+                    self.on_completion(buffer, history, new_input, true)
                 } else if !raw_input.is_empty() {
                     self.completion.reset();
 
@@ -496,14 +501,14 @@ impl State {
                 }
             }
             Message::Tab(reverse) => {
-                let input = history.input(buffer).draft;
+                let input = history.input(buffer).text;
 
                 if let Some(entry) = self.completion.tab(reverse) {
                     let chantypes = clients.get_chantypes(buffer.server());
                     let new_input =
                         entry.complete_input(input, chantypes, config);
 
-                    self.on_completion(buffer, history, new_input)
+                    self.on_completion(buffer, history, new_input, true)
                 } else {
                     (Task::none(), None)
                 }
@@ -549,7 +554,8 @@ impl State {
                         config,
                     );
 
-                    return self.on_completion(buffer, history, new_input);
+                    return self
+                        .on_completion(buffer, history, new_input, false);
                 }
 
                 (Task::none(), None)
@@ -566,7 +572,7 @@ impl State {
                 if let Some(index) = self.selected_history.as_mut() {
                     let new_input = if *index == 0 {
                         self.selected_history = None;
-                        String::new()
+                        cache.draft.to_string()
                     } else {
                         *index -= 1;
                         let new_input =
@@ -594,7 +600,8 @@ impl State {
                         new_input
                     };
 
-                    return self.on_completion(buffer, history, new_input);
+                    return self
+                        .on_completion(buffer, history, new_input, false);
                 }
 
                 (Task::none(), None)
@@ -621,11 +628,19 @@ impl State {
         buffer: &buffer::Upstream,
         history: &mut history::Manager,
         text: String,
+        record_draft: bool,
     ) -> (Task<Message>, Option<Event>) {
-        history.record_draft(Draft {
+        history.record_text(RawInput {
             buffer: buffer.clone(),
-            text,
+            text: text.clone(),
         });
+
+        if record_draft {
+            history.record_draft(RawInput {
+                buffer: buffer.clone(),
+                text,
+            });
+        }
 
         (text_input::move_cursor_to_end(self.input_id.clone()), None)
     }
@@ -655,7 +670,7 @@ impl State {
         history: &mut history::Manager,
         autocomplete: &Autocomplete,
     ) -> Task<Message> {
-        let mut text = history.input(&buffer).draft.to_string();
+        let mut text = history.input(&buffer).text.to_string();
 
         let suffix = if text.is_empty() {
             text = format!("{nick}");
@@ -672,7 +687,12 @@ impl State {
         };
         text.push_str(suffix);
 
-        history.record_draft(Draft { buffer, text });
+        history.record_text(RawInput {
+            buffer: buffer.clone(),
+            text: text.clone(),
+        });
+
+        history.record_draft(RawInput { buffer, text });
 
         text_input::move_cursor_to_end(self.input_id.clone())
     }
