@@ -8,12 +8,13 @@ Added:
 Fixed:
 
 - Handling of RPL_NOWAWAY & RPL_UNAWAY to reflect user's own AWAY state
+- Draft messages are saved while navigating message history (i.e. pressing ↑ then ↓ in the input box will restore an unsent message after displaying sent message history)
 
 Thanks:
 
 - Contributions: @englut, @KaiKorla, @kit-ty-kate, @mhegreberg, @ohhskar
 - Bug reports: @awbradle
-- Feature requests: @darienm
+- Feature requests: @darienm, @kasper93
 
 # 2025.5 (2025-05-05)
 
