@@ -16,6 +16,9 @@ pub struct FileTransfer {
     /// Time in seconds to wait before timing out a transfer waiting to be accepted.
     #[serde(default = "default_timeout")]
     pub timeout: u64,
+    /// If true, automatically accept incoming file transfers. Requires save_directory to be set.
+    #[serde(default = "default_auto_accept")]
+    pub auto_accept_files: bool,
     pub server: Option<Server>,
 }
 
@@ -25,6 +28,7 @@ impl Default for FileTransfer {
             save_directory: None,
             passive: default_passive(),
             timeout: default_timeout(),
+            auto_accept_files: default_auto_accept(),
             server: None,
         }
     }
@@ -36,6 +40,10 @@ fn default_passive() -> bool {
 
 fn default_timeout() -> u64 {
     60 * 5
+}
+
+fn default_auto_accept() -> bool {
+    false
 }
 
 #[derive(Debug, Clone)]
