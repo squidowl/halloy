@@ -15,6 +15,19 @@ Default directory to save files in. If not set, user will see a file dialog.
 save_directory = "/Users/halloy/Downloads"
 ```
 
+## `auto_accept_files`
+
+If true, automatically accept incoming file transfers. Requires `save_directory` to be set.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[file_transfer]
+auto_accept_files = false
+```
+
 ## `passive`
 
 If true, act as the "client" for the transfer. Requires the remote user act as the [server](#file_transferserver).
