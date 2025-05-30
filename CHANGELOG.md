@@ -3,6 +3,7 @@
 Added:
 
 - Configuration options for font weight and bold weight
+- `/delay <seconds>` command that can be used to control the timing of commands sent on connect
 
 Fixed:
 

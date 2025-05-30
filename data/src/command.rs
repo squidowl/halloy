@@ -6,9 +6,9 @@ use irc::proto;
 use itertools::Itertools;
 
 use crate::buffer::{self, Upstream};
-use crate::ctcp;
 use crate::isupport::{self, find_target_limit};
-use crate::message::formatting;
+use crate::message::{self, formatting};
+use crate::{Target, ctcp};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -18,12 +18,13 @@ pub enum Command {
 
 #[derive(Debug, Clone)]
 pub enum Internal {
-    OpenBuffers(String),
+    OpenBuffers(Vec<Target>),
     /// Part the current channel and join a new one.
     ///
     /// - Channel to join
     /// - Part message
     Hop(Option<String>, Option<String>),
+    Delay(u64),
 }
 
 #[derive(Debug, Clone)]
@@ -66,6 +67,7 @@ enum Kind {
     Ctcp,
     Hop,
     Notice,
+    Delay,
     Raw,
 }
 
@@ -92,6 +94,7 @@ impl FromStr for Kind {
             "raw" => Ok(Kind::Raw),
             "ctcp" => Ok(Kind::Ctcp),
             "hop" | "rejoin" => Ok(Kind::Hop),
+            "delay" => Ok(Kind::Delay),
             _ => Err(()),
         }
     }
@@ -254,7 +257,23 @@ pub fn parse(
                 if let Some(msg) = msg {
                     Ok(Command::Irc(Irc::Msg(targets, msg)))
                 } else {
-                    Ok(Command::Internal(Internal::OpenBuffers(targets)))
+                    let casemapping = isupport::get_casemapping(isupport);
+                    let chantypes = isupport::get_chantypes(isupport);
+                    let statusmsg = isupport::get_statusmsg(isupport);
+
+                    Ok(Command::Internal(Internal::OpenBuffers(
+                        targets
+                            .split(",")
+                            .map(|target| {
+                                Target::parse(
+                                    target,
+                                    chantypes,
+                                    statusmsg,
+                                    casemapping,
+                                )
+                            })
+                            .collect(),
+                    )))
                 }
             }),
             Kind::Me => {
@@ -467,7 +486,23 @@ pub fn parse(
                     if let Some(msg) = msg {
                         Ok(Command::Irc(Irc::Notice(targets, msg)))
                     } else {
-                        Ok(Command::Internal(Internal::OpenBuffers(targets)))
+                        let casemapping = isupport::get_casemapping(isupport);
+                        let chantypes = isupport::get_chantypes(isupport);
+                        let statusmsg = isupport::get_statusmsg(isupport);
+
+                        Ok(Command::Internal(Internal::OpenBuffers(
+                            targets
+                                .split(",")
+                                .map(|target| {
+                                    Target::parse(
+                                        target,
+                                        chantypes,
+                                        statusmsg,
+                                        casemapping,
+                                    )
+                                })
+                                .collect(),
+                        )))
                     }
                 })
             }
@@ -496,6 +531,17 @@ pub fn parse(
                     Ok(Command::Internal(Internal::Hop(channel, message)))
                 })
             }
+            Kind::Delay => validated::<1, 0, false>(args, |[seconds], _| {
+                if let Ok(seconds) = seconds.parse::<u64>() {
+                    if seconds > 0 {
+                        Ok(Command::Internal(Internal::Delay(seconds)))
+                    } else {
+                        Err(Error::NotPositiveInteger)
+                    }
+                } else {
+                    Err(Error::NotPositiveInteger)
+                }
+            }),
         },
         Err(()) => Ok(unknown()),
     }
@@ -578,6 +624,16 @@ impl TryFrom<Irc> for proto::Command {
     }
 }
 
+impl TryFrom<Irc> for message::Encoded {
+    type Error = ();
+
+    fn try_from(command: Irc) -> Result<Self, Self::Error> {
+        Ok(message::Encoded::from(proto::Message::from(
+            proto::Command::try_from(command)?,
+        )))
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("{}", fmt_incorrect_arg_count(*min, *max, *actual))]
@@ -604,6 +660,8 @@ pub enum Error {
         number: usize,
         max_number: usize,
     },
+    #[error("must be a number greater than zero")]
+    NotPositiveInteger,
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
