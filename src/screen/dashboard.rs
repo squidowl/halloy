@@ -2187,8 +2187,10 @@ impl Dashboard {
         pane.map_or(Task::none(), |pane| self.focus_pane(window, pane))
     }
 
-    pub fn focus_window(&mut self, window: window::Id) -> Task<Message> {
-        let task = if let Some(pane) = self
+    pub fn focus_window_pane(&mut self, window: window::Id) -> Task<Message> {
+        if self.focus.window == window {
+            Task::none()
+        } else if let Some(pane) = self
             .focus_history
             .front()
             .filter(|_| window == self.main_window())
@@ -2196,7 +2198,11 @@ impl Dashboard {
             self.focus_pane(window, *pane)
         } else {
             self.focus_first_pane(window)
-        };
+        }
+    }
+
+    pub fn focus_window(&mut self, window: window::Id) -> Task<Message> {
+        let task = self.focus_window_pane(window);
 
         window::gain_focus(window).chain(task)
     }
@@ -2657,7 +2663,7 @@ impl Dashboard {
                     return window::close(id);
                 }
                 window::Event::Focused => {
-                    return self.focus_window(id);
+                    return self.focus_window_pane(id);
                 }
                 window::Event::Moved(_)
                 | window::Event::Resized(_)
