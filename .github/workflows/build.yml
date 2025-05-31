@@ -23,13 +23,14 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  Check-Clippy-Test:
+  build-check-clippy-test:
+    name: Build, Check, Clippy, & Test
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
     steps:
     - uses: actions/checkout@v4
-    - name: Install Dependencies
+    - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install \
@@ -52,17 +53,15 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
     - name: Check
       run: cargo check --profile ci
+
     - name: Clippy
       run: cargo clippy --profile ci --workspace --all-targets -- -D warnings
+
+    - uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-nextest
     - name: Test
-      run: cargo test --profile ci --workspace --all-targets
-  spelling:
-    name: Spell Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Actions Repository
-        uses: actions/checkout@v4
-      - name: Spell Check Repository
-        uses: crate-ci/typos@v1.32.0
+      run: cargo nextest run --profile ci --workspace --all-targets

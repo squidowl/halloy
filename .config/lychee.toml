@@ -1,0 +1,5 @@
+verbose = "info"
+no_progress = true
+
+include_fragments = true
+exclude = [ '^https://halloy\.squidowl\.org/.*', '^irc://.*', '^ircs://.*' ]
