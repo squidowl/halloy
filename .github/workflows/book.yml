@@ -1,14 +1,24 @@
-name: Github Pages
+name: Book
 
 on:
-  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'book/**.md'
+      - 'book/book.toml'
   push:
-    tags:
-      - '*'
+    branches:
+      - main
+    paths:
+      - 'book/**.md'
+      - 'book/book.toml'
+  merge_group:
+    paths:
+      - 'book/**.md'
+      - 'book/book.toml'
 
 jobs:
-  deploy:
-    name: Deploy
+  build-linkcheck:
+    name: Build & Link Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,9 +37,3 @@ jobs:
 
       - name: Build book
         run: mdbook build book
-
-      - name: Publish book
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./book/book
