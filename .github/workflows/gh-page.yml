@@ -19,7 +19,6 @@ jobs:
         with:
           args: --config ./.config/lychee.toml './**/*.md'
           fail: true
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
