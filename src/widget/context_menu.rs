@@ -554,16 +554,6 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) =
-            &event
-            && cursor.position_over(layout.bounds()).is_some() {
-                self.state.status = Status::Closed;
-            }
-
-        if matches!(self.state.status, Status::Closed) {
-            shell.request_redraw();
-        }
-
         self.menu.as_widget_mut().update(
             &mut self.state.menu_tree,
             event,
@@ -574,6 +564,14 @@ where
             shell,
             &layout.bounds(),
         );
+
+        // a menu entry was clicked => close the overlay
+        if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) = event {
+            if cursor.position_over(layout.bounds()).is_some() {
+                self.state.status = Status::Closed;
+                shell.request_redraw();
+            }
+        }
     }
 
     fn mouse_interaction(
