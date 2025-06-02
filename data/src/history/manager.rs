@@ -251,7 +251,7 @@ impl Manager {
                 }
 
                 tasks.extend(
-                    self.record_message(input.server(), message)
+                    self.record_message(input.server(), message, config)
                         .map(futures::FutureExt::boxed),
                 );
             }
@@ -280,24 +280,31 @@ impl Manager {
         &mut self,
         server: &Server,
         message: crate::Message,
+        config: &Config,
     ) -> Option<impl Future<Output = Message> + use<>> {
         history::Kind::from_server_message(server.clone(), &message)
-            .and_then(|kind| self.data.add_message(kind, message))
+            .and_then(|kind| self.data.add_message(kind, message, config))
     }
 
     pub fn record_log(
         &mut self,
         record: crate::log::Record,
+        config: &Config,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data
-            .add_message(history::Kind::Logs, crate::Message::log(record))
+        self.data.add_message(
+            history::Kind::Logs,
+            crate::Message::log(record),
+            config,
+        )
     }
 
     pub fn record_highlight(
         &mut self,
         message: crate::Message,
+        config: &Config,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data.add_message(history::Kind::Highlights, message)
+        self.data
+            .add_message(history::Kind::Highlights, message, config)
     }
 
     pub fn update_read_marker<T: Into<history::Kind>>(
@@ -535,7 +542,7 @@ impl Manager {
 
         messages
             .into_iter()
-            .filter_map(|message| self.record_message(server, message))
+            .filter_map(|message| self.record_message(server, message, config))
             .collect()
     }
 
@@ -851,12 +858,15 @@ impl Data {
         &mut self,
         kind: history::Kind,
         message: crate::Message,
+        config: &Config,
     ) -> Option<impl Future<Output = Message> + use<>> {
         use std::collections::hash_map;
 
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let read_marker = entry.get_mut().add_message(message);
+                let read_marker = entry
+                    .get_mut()
+                    .add_message(message, &config.buffer.server_messages);
 
                 read_marker.map(|read_marker| {
                     async move {
@@ -868,7 +878,7 @@ impl Data {
             hash_map::Entry::Vacant(entry) => {
                 let _ = entry
                     .insert(History::partial(kind.clone()))
-                    .add_message(message);
+                    .add_message(message, &config.buffer.server_messages);
 
                 Some(
                     async move {
