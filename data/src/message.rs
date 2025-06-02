@@ -16,8 +16,8 @@ use url::Url;
 pub use self::formatting::{Color, Formatting};
 pub use self::source::Source;
 pub use self::source::server::{Kind, StandardReply};
-use crate::config::Highlights;
 use crate::config::buffer::UsernameFormat;
+use crate::config::{self, Highlights};
 use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
@@ -205,6 +205,14 @@ impl Message {
                 Source::Internal(source::Internal::Logs) => true,
                 _ => false,
             }
+    }
+
+    /// Server message should not be shown due to user's preferences.
+    pub fn suppressed(&self, config: &config::buffer::ServerMessages) -> bool {
+        matches!(self.target.source(),
+            Source::Server(Some(server))
+            if config.get(server).is_some_and(|kind| !kind.enabled)
+        )
     }
 
     pub fn can_reference(&self) -> bool {
