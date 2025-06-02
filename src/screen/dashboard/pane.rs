@@ -65,7 +65,12 @@ impl Pane {
                     .get_channel_users(&state.server, &state.target)
                     .len();
 
-                format!("{channel} @ {server} - {users} users")
+                let mode = clients
+                    .get_channel_mode(&state.server, &state.target)
+                    .map(|mode| format!(" ({mode})"))
+                    .unwrap_or_default();
+
+                format!("{channel}{mode} @ {server} - {users} users")
             }
             Buffer::Server(state) => state.server.to_string(),
             Buffer::Query(state) => {
