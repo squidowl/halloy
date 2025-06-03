@@ -199,35 +199,38 @@ impl Manager {
         };
 
         let task = Task::receive(id, dcc_send, from.clone(), server_handle);
-        let (handle, stream) = task.spawn(
+        let (mut handle, stream) = task.spawn(
             self.server(),
             Duration::from_secs(self.config.timeout),
             proxy.cloned(),
         );
 
-        let item = Item::Working {
-            file_transfer: file_transfer.clone(),
-            task: handle,
-        };
-
-        self.items.insert(id, item);
-
         // Auto-accept if enabled and save directory is set
         if self.config.auto_accept_files {
             if let Some(save_directory) = &self.config.save_directory {
                 let save_path = save_directory.join(&file_transfer.filename);
-                if let Some(Item::Working { task, .. }) = self.items.get_mut(&id) {
-                    log::debug!(
-                        "Auto-accepting file transfer from {} for {:?}",
-                        from,
-                        file_transfer.filename
-                    );
-                    task.approve(save_path);
-                }
+
+                log::debug!(
+                    "Auto-accepting file transfer from {} for {:?}",
+                    from,
+                    file_transfer.filename
+                );
+
+                handle.approve(save_path);
             } else {
-                log::warn!("Auto-accept is enabled but save_directory is not set. File transfer will require manual approval.");
+                log::warn!(
+                    "Auto-accept is enabled but save_directory is not set. File transfer will require manual approval."
+                );
             }
         }
+
+        self.items.insert(
+            id,
+            Item::Working {
+                file_transfer: file_transfer.clone(),
+                task: handle,
+            },
+        );
 
         Some(Event::NewTransfer(file_transfer, stream.boxed()))
     }
