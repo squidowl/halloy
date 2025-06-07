@@ -33,6 +33,9 @@ const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
 const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 
+// Reference: https://modern.ircdocs.horse/#user-modes
+const DEFAULT_AVAILABLE_USER_MODES: &str = "ioOrw";
+
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
     Unavailable,
@@ -146,6 +149,7 @@ pub struct Client {
     chathistory_targets_request: Option<ChatHistoryRequest>,
     highlight_notification_blackout: HighlightNotificationBlackout,
     registration_required_channels: Vec<target::Channel>,
+    available_user_modes: String,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
     who_polls: VecDeque<WhoPoll>,
     who_poll_interval: BackoffInterval,
@@ -190,6 +194,7 @@ impl Client {
             highlight_notification_blackout:
                 HighlightNotificationBlackout::Blackout(Instant::now()),
             registration_required_channels: vec![],
+            available_user_modes: String::from(DEFAULT_AVAILABLE_USER_MODES),
             isupport: HashMap::new(),
             who_polls: VecDeque::new(),
             who_poll_interval: BackoffInterval::from_duration(
@@ -1799,64 +1804,63 @@ impl Client {
                 }
             }
             Command::MODE(target, Some(modes), Some(args)) => {
-                match Target::parse(
+                if let Ok(channel) = target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
                 ) {
-                    Target::Channel(ref channel) => {
-                        if let Some(channel) = self.chanmap.get_mut(channel) {
-                            let modes =
-                                mode::parse::<mode::Channel>(modes, args);
+                    let modes = mode::parse::<mode::Channel>(
+                        modes,
+                        args,
+                        self.chanmodes(),
+                        self.prefix(),
+                    );
 
-                            for mode in modes {
-                                if let Some((op, lookup)) =
-                                    mode.operation().zip(mode.arg().map(
-                                        |nick| User::from(Nick::from(nick)),
-                                    ))
+                    if let Some(channel) = self.chanmap.get_mut(&channel) {
+                        for mode in modes {
+                            if let Some((op, lookup)) = mode.operation().zip(
+                                mode.arg()
+                                    .map(|nick| User::from(Nick::from(nick))),
+                            ) {
+                                if let Some(mut user) =
+                                    channel.users.take(&lookup)
                                 {
-                                    if let Some(mut user) =
-                                        channel.users.take(&lookup)
-                                    {
-                                        user.update_access_level(
-                                            op,
-                                            *mode.value(),
-                                        );
-                                        channel.users.insert(user);
-                                    }
+                                    user.update_access_level(op, *mode.value());
+                                    channel.users.insert(user);
                                 }
                             }
                         }
                     }
-                    Target::Query(_) => {
-                        // Only check for being logged in via mode if account-notify is not available,
-                        // since it is not standardized across networks.
+                } else {
+                    // Only check for being logged in via mode if account-notify is not available,
+                    // since it is not standardized across networks.
 
-                        if target == self.nickname().as_ref()
-                            && !self.supports_account_notify
-                            && !self.registration_required_channels.is_empty()
-                        {
-                            let modes = mode::parse::<mode::User>(modes, args);
+                    if target == self.nickname().as_ref()
+                        && !self.supports_account_notify
+                        && !self.registration_required_channels.is_empty()
+                    {
+                        let modes = mode::parse::<mode::User>(
+                            modes,
+                            args,
+                            self.chanmodes(),
+                            self.prefix(),
+                        );
 
-                            if modes.into_iter().any(|mode| {
-                                matches!(
-                                    mode,
-                                    mode::Mode::Add(
-                                        mode::User::Registered,
-                                        None
-                                    )
-                                )
-                            }) {
-                                for message in group_joins(
-                                    &self.registration_required_channels,
-                                    &self.config.channel_keys,
-                                ) {
-                                    self.handle.try_send(message)?;
-                                }
-
-                                self.registration_required_channels.clear();
+                        if modes.into_iter().any(|mode| {
+                            matches!(
+                                mode,
+                                mode::Mode::Add(mode::User::Registered, None)
+                            )
+                        }) {
+                            for message in group_joins(
+                                &self.registration_required_channels,
+                                &self.config.channel_keys,
+                            ) {
+                                self.handle.try_send(message)?;
                             }
+
+                            self.registration_required_channels.clear();
                         }
                     }
                 }
@@ -2338,6 +2342,11 @@ impl Client {
                             .collect(),
                     )]);
                 }
+            }
+            Command::Numeric(RPL_MYINFO, args) => {
+                self.available_user_modes = ok!(args.get(3)).to_string();
+
+                // Available channel modes are determined via the CHANMODES ISUPPORT parameter
             }
             _ => {}
         }
@@ -2845,12 +2854,24 @@ impl Client {
         Ok(())
     }
 
+    pub fn available_user_modes(&self) -> &str {
+        self.available_user_modes.as_ref()
+    }
+
     pub fn casemapping(&self) -> isupport::CaseMap {
         isupport::get_casemapping(&self.isupport)
     }
 
+    pub fn chanmodes(&self) -> &[isupport::ChannelMode] {
+        isupport::get_chanmodes(&self.isupport)
+    }
+
     pub fn chantypes(&self) -> &[char] {
         isupport::get_chantypes(&self.isupport)
+    }
+
+    pub fn prefix(&self) -> &[isupport::PrefixMap] {
+        isupport::get_prefix(&self.isupport)
     }
 
     pub fn statusmsg(&self) -> &[char] {
@@ -3119,6 +3140,12 @@ impl Map {
             .and_then(|client| client.resolve_query(query))
     }
 
+    pub fn get_available_user_modes<'a>(&'a self, server: &Server) -> &'a str {
+        self.client(server)
+            .map(Client::available_user_modes)
+            .unwrap_or_default()
+    }
+
     pub fn get_isupport(
         &self,
         server: &Server,
@@ -3134,10 +3161,26 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_chanmodes<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [isupport::ChannelMode] {
+        self.client(server)
+            .map(Client::chanmodes)
+            .unwrap_or_default()
+    }
+
     pub fn get_chantypes<'a>(&'a self, server: &Server) -> &'a [char] {
         self.client(server)
             .map(Client::chantypes)
             .unwrap_or_default()
+    }
+
+    pub fn get_prefix<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [isupport::PrefixMap] {
+        self.client(server).map(Client::prefix).unwrap_or_default()
     }
 
     pub fn get_statusmsg<'a>(&'a self, server: &Server) -> &'a [char] {

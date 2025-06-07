@@ -160,6 +160,8 @@ impl State {
                     })
                     .unwrap_or_default();
                 let channels = clients.get_channels(buffer.server());
+                let available_user_modes =
+                    clients.get_available_user_modes(buffer.server());
                 let isupport = clients.get_isupport(buffer.server());
 
                 self.completion.process(
@@ -168,6 +170,7 @@ impl State {
                     &history.get_last_seen(buffer),
                     channels,
                     current_channel,
+                    available_user_modes,
                     &isupport,
                     config,
                 );
@@ -196,6 +199,9 @@ impl State {
                         input::Error::Command(
                             command::Error::MissingCommand,
                         ) => false,
+                        input::Error::Command(command::Error::NoModeString) => {
+                            false
+                        }
                         input::Error::Command(
                             command::Error::InvalidModeString,
                         ) => true,
@@ -529,6 +535,9 @@ impl State {
                         })
                         .unwrap_or_default();
                     let channels = clients.get_channels(buffer.server());
+                    let available_user_modes =
+                        clients.get_available_user_modes(buffer.server());
+
                     let isupport = clients.get_isupport(buffer.server());
 
                     self.completion.process(
@@ -537,6 +546,7 @@ impl State {
                         &history.get_last_seen(buffer),
                         channels,
                         current_channel,
+                        available_user_modes,
                         &isupport,
                         config,
                     );
@@ -572,6 +582,8 @@ impl State {
                             })
                             .unwrap_or_default();
                         let channels = clients.get_channels(buffer.server());
+                        let available_user_modes =
+                            clients.get_available_user_modes(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
 
                         self.completion.process(
@@ -580,6 +592,7 @@ impl State {
                             &history.get_last_seen(buffer),
                             channels,
                             current_channel,
+                            available_user_modes,
                             &isupport,
                             config,
                         );

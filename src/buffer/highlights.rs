@@ -88,11 +88,13 @@ pub fn view<'a>(
                     });
 
                     let casemapping = clients.get_casemapping(server);
+                    let prefix = clients.get_prefix(server);
 
                     let nick = user_context::view(
                         text,
                         server,
                         casemapping,
+                        prefix,
                         Some(channel),
                         user,
                         current_user,
@@ -118,7 +120,8 @@ pub fn view<'a>(
                             message::Link::User(user) => entry
                                 .view(
                                     server,
-                                    clients.get_casemapping(server),
+                                    casemapping,
+                                    prefix,
                                     Some(channel),
                                     user,
                                     current_user,
