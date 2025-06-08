@@ -1,6 +1,6 @@
 # Halloy
 
-<img src="images/banner-logo.png" style="width: 100%">
+<img src="images/banner.png" style="width: 100%">
 
 ![halloy](./images/animation.gif)
 
