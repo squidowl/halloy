@@ -1169,11 +1169,18 @@ impl Client {
             }
             Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
                 if let Some(user) = message.user() {
+                    let is_echo = user.nickname() == self.nickname();
+
                     let dcc_command = dcc::decode(text);
                     let ctcp_query = ctcp::parse_query(text);
 
                     // DCC Handling
                     if let Some(command) = dcc_command {
+                        // Ignore echoed DCC messages
+                        if is_echo {
+                            return Ok(vec![]);
+                        }
+
                         match command {
                             dcc::Command::Send(request) => {
                                 log::trace!("DCC Send => {request:?}");
@@ -1194,7 +1201,6 @@ impl Client {
 
                     // CTCP Handling
                     if let Some(query) = ctcp_query {
-                        let is_echo = user.nickname() == self.nickname();
                         let is_action = message::is_action(text);
 
                         // Ignore CTCP Action queries.
