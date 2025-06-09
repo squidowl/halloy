@@ -1817,64 +1817,63 @@ impl Client {
                 }
             }
             Command::MODE(target, Some(modes), Some(args)) => {
-                match Target::parse(
+                if let Ok(channel) = target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
                 ) {
-                    Target::Channel(ref channel) => {
-                        if let Some(channel) = self.chanmap.get_mut(channel) {
-                            let modes =
-                                mode::parse::<mode::Channel>(modes, args);
+                    let modes = mode::parse::<mode::Channel>(
+                        modes,
+                        args,
+                        self.chanmodes(),
+                        self.prefix(),
+                    );
 
-                            for mode in modes {
-                                if let Some((op, lookup)) =
-                                    mode.operation().zip(mode.arg().map(
-                                        |nick| User::from(Nick::from(nick)),
-                                    ))
+                    if let Some(channel) = self.chanmap.get_mut(&channel) {
+                        for mode in modes {
+                            if let Some((op, lookup)) = mode.operation().zip(
+                                mode.arg()
+                                    .map(|nick| User::from(Nick::from(nick))),
+                            ) {
+                                if let Some(mut user) =
+                                    channel.users.take(&lookup)
                                 {
-                                    if let Some(mut user) =
-                                        channel.users.take(&lookup)
-                                    {
-                                        user.update_access_level(
-                                            op,
-                                            *mode.value(),
-                                        );
-                                        channel.users.insert(user);
-                                    }
+                                    user.update_access_level(op, *mode.value());
+                                    channel.users.insert(user);
                                 }
                             }
                         }
                     }
-                    Target::Query(_) => {
-                        // Only check for being logged in via mode if account-notify is not available,
-                        // since it is not standardized across networks.
+                } else {
+                    // Only check for being logged in via mode if account-notify is not available,
+                    // since it is not standardized across networks.
 
-                        if target == self.nickname().as_ref()
-                            && !self.supports_account_notify
-                            && !self.registration_required_channels.is_empty()
-                        {
-                            let modes = mode::parse::<mode::User>(modes, args);
+                    if target == self.nickname().as_ref()
+                        && !self.supports_account_notify
+                        && !self.registration_required_channels.is_empty()
+                    {
+                        let modes = mode::parse::<mode::User>(
+                            modes,
+                            args,
+                            self.chanmodes(),
+                            self.prefix(),
+                        );
 
-                            if modes.into_iter().any(|mode| {
-                                matches!(
-                                    mode,
-                                    mode::Mode::Add(
-                                        mode::User::Registered,
-                                        None
-                                    )
-                                )
-                            }) {
-                                for message in group_joins(
-                                    &self.registration_required_channels,
-                                    &self.config.channel_keys,
-                                ) {
-                                    self.handle.try_send(message)?;
-                                }
-
-                                self.registration_required_channels.clear();
+                        if modes.into_iter().any(|mode| {
+                            matches!(
+                                mode,
+                                mode::Mode::Add(mode::User::Registered, None)
+                            )
+                        }) {
+                            for message in group_joins(
+                                &self.registration_required_channels,
+                                &self.config.channel_keys,
+                            ) {
+                                self.handle.try_send(message)?;
                             }
+
+                            self.registration_required_channels.clear();
                         }
                     }
                 }
@@ -2878,8 +2877,16 @@ impl Client {
         isupport::get_casemapping(&self.isupport)
     }
 
+    pub fn chanmodes(&self) -> &[isupport::ChannelMode] {
+        isupport::get_chanmodes(&self.isupport)
+    }
+
     pub fn chantypes(&self) -> &[char] {
         isupport::get_chantypes(&self.isupport)
+    }
+
+    pub fn prefix(&self) -> &[isupport::PrefixMap] {
+        isupport::get_prefix(&self.isupport)
     }
 
     pub fn statusmsg(&self) -> &[char] {
@@ -3173,10 +3180,26 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_chanmodes<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [isupport::ChannelMode] {
+        self.client(server)
+            .map(Client::chanmodes)
+            .unwrap_or_default()
+    }
+
     pub fn get_chantypes<'a>(&'a self, server: &Server) -> &'a [char] {
         self.client(server)
             .map(Client::chantypes)
             .unwrap_or_default()
+    }
+
+    pub fn get_prefix<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [isupport::PrefixMap] {
+        self.client(server).map(Client::prefix).unwrap_or_default()
     }
 
     pub fn get_statusmsg<'a>(&'a self, server: &Server) -> &'a [char] {
