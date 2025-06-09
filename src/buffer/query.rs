@@ -43,6 +43,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let server = &state.server;
     let casemapping = clients.get_casemapping(server);
+    let prefix = clients.get_prefix(server);
     let query = &state.target;
     let status = clients.status(server);
     let buffer = &state.buffer;
@@ -104,6 +105,7 @@ pub fn view<'a>(
                             text,
                             server,
                             casemapping,
+                            prefix,
                             None,
                             user,
                             None,
@@ -130,6 +132,7 @@ pub fn view<'a>(
                                     .view(
                                         server,
                                         casemapping,
+                                        prefix,
                                         None,
                                         user,
                                         None,
