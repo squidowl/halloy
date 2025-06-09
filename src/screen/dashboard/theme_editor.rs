@@ -803,7 +803,7 @@ pub enum ServerMessages {
     StandardReplyFail,
     StandardReplyWarn,
     StandardReplyNote,
-    Wallops,
+    WAllOps,
 }
 
 impl ServerMessages {
@@ -856,7 +856,7 @@ impl ServerMessages {
             ServerMessages::StandardReplyNote => {
                 styles.standard_reply_note.font_style
             }
-            ServerMessages::Wallops => styles.wallops.font_style,
+            ServerMessages::WAllOps => styles.wallops.font_style,
             ServerMessages::Default => styles.default.font_style,
         }
     }
@@ -916,7 +916,7 @@ impl ServerMessages {
                 styles.standard_reply_note.color = color;
                 styles.standard_reply_note.font_style = font_style;
             }
-            ServerMessages::Wallops => {
+            ServerMessages::WAllOps => {
                 styles.wallops.color = color;
                 styles.wallops.font_style = font_style;
             }

@@ -176,7 +176,7 @@ impl ServerMessages {
             source::server::Kind::StandardReply(
                 source::server::StandardReply::Note,
             ) => Some(&self.standard_reply_note),
-            source::server::Kind::Wallops => Some(&self.wallops),
+            source::server::Kind::WAllOps => Some(&self.wallops),
         }
     }
 }

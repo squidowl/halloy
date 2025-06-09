@@ -397,29 +397,86 @@ pub fn parse(
             Kind::Mode => validated::<1, 2, true>(
                 args,
                 |[target], [mode_string, mode_arguments]| {
+                    let mode_limit = isupport::get_mode_limit(isupport);
+
                     if let Some(mode_string) = mode_string {
-                        let mode_string_regex =
-                            Regex::new(r"^((\+|\-)[A-Za-z]*)+$").unwrap();
-
-                        if !mode_string_regex
-                            .is_match(&mode_string)
-                            .unwrap_or_default()
-                        {
-                            Err(Error::InvalidModeString)
+                        if mode_string == "+" || mode_string == "-" {
+                            Err(Error::NoModeString)
                         } else {
-                            let mode_arguments =
-                                mode_arguments.map(|mode_arguments| {
-                                    mode_arguments
-                                        .split_ascii_whitespace()
-                                        .map(String::from)
-                                        .collect()
-                                });
+                            let mode_string_regex = if proto::is_channel(
+                                &target,
+                                isupport::get_chantypes(isupport),
+                            ) {
+                                let chanmodes =
+                                    isupport::get_chanmodes(isupport);
+                                let prefix = isupport::get_prefix(isupport);
 
-                            Ok(Command::Irc(Irc::Mode(
-                                target.to_string(),
-                                Some(mode_string.to_string()),
-                                mode_arguments,
-                            )))
+                                let mut channel_modes_regex =
+                                    String::from(r"^((\+|\-)[");
+                                for chanmode in chanmodes {
+                                    channel_modes_regex +=
+                                        chanmode.modes.as_ref();
+                                }
+                                for prefix_map in prefix {
+                                    channel_modes_regex.push(prefix_map.mode);
+                                }
+                                channel_modes_regex += r"]";
+                                if let Some(mode_limit) = mode_limit {
+                                    channel_modes_regex += r"{1,";
+                                    channel_modes_regex +=
+                                        &format!("{mode_limit}");
+                                    channel_modes_regex += r"}";
+                                } else {
+                                    channel_modes_regex += r"+";
+                                }
+                                channel_modes_regex += r")+$";
+
+                                Regex::new(&channel_modes_regex).unwrap_or(
+                                    Regex::new(r"^((\+|\-)[A-Za-z]+)+$")
+                                        .unwrap(),
+                                )
+                            } else {
+                                // User modes from RPL_MYINFO is unreliable,
+                                // so use the most permissive regex instead of
+                                // crafting a regex for the server
+
+                                let mut user_modes_regex =
+                                    String::from(r"^((\+|\-)[A-Za-z]");
+                                if let Some(mode_limit) = mode_limit {
+                                    user_modes_regex += r"{1,";
+                                    user_modes_regex +=
+                                        &format!("{mode_limit}");
+                                    user_modes_regex += r"}";
+                                } else {
+                                    user_modes_regex += r"+";
+                                }
+                                user_modes_regex += r")+$";
+                                Regex::new(&user_modes_regex).unwrap_or(
+                                    Regex::new(r"^((\+|\-)[A-Za-z]+)+$")
+                                        .unwrap(),
+                                )
+                            };
+
+                            if !mode_string_regex
+                                .is_match(&mode_string)
+                                .unwrap_or_default()
+                            {
+                                Err(Error::InvalidModeString)
+                            } else {
+                                let mode_arguments =
+                                    mode_arguments.map(|mode_arguments| {
+                                        mode_arguments
+                                            .split_ascii_whitespace()
+                                            .map(String::from)
+                                            .collect()
+                                    });
+
+                                Ok(Command::Irc(Irc::Mode(
+                                    target.to_string(),
+                                    Some(mode_string.to_string()),
+                                    mode_arguments,
+                                )))
+                            }
                         }
                     } else {
                         Ok(Command::Irc(Irc::Mode(
@@ -646,6 +703,8 @@ pub enum Error {
     MissingSlash,
     #[error("missing command")]
     MissingCommand,
+    #[error("no modes in modestring")]
+    NoModeString,
     #[error("invalid modestring")]
     InvalidModeString,
     #[error("{name} is too long ({len}/{max_len} characters)")]
