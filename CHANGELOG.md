@@ -14,7 +14,7 @@ Thanks:
 
 - Contributions: @englut, @KaiKorla, @kit-ty-kate, @mhegreberg, @ohhskar
 - Bug reports: @awbradle
-- Feature requests: @darienm, @kasper93
+- Feature requests: @darienm, @kasper93, @auronandace
 
 # 2025.5 (2025-05-05)
 
