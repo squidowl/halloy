@@ -15,7 +15,7 @@ fi
 # Ensure target directory exists
 mkdir -p "$TARGET_DIR"
 
-# Create resized PNGs
+# Create resized PNG
 echo "🔧 Resizing images..."
 for SIZE in 512 256 128 64 48 32 16; do
   magick "$INPUT" -resize ${SIZE}x${SIZE} "${BASENAME}-${SIZE}.png"
@@ -33,7 +33,7 @@ magick \
   "${BASENAME}-16.png" \
   "$OUTPUT"
 
-# Clean up intermediate PNGs
+# Clean up intermediate PNG
 echo "🧹 Cleaning up temporary files..."
 # rm "${BASENAME}"-{512,256,128,64,48,32,16}.png
 
