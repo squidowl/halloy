@@ -17,7 +17,7 @@ fi
 for SIZE in "${SIZES[@]}"; do
     TARGET_DIR="../assets/linux/icons/hicolor/${SIZE}x${SIZE}/apps"
     mkdir -p "$TARGET_DIR"
-    sips -z "$SIZE" "$SIZE" "$INPUT" --out "$TARGET_DIR/$IMAGE_NAME" >/dev/null
+    magick "$INPUT" -resize "${SIZE}x${SIZE}" -strip PNG32:"$TARGET_DIR/$IMAGE_NAME"
     echo "Created: $TARGET_DIR/$IMAGE_NAME"
 done
 
