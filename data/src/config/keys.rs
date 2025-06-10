@@ -42,8 +42,9 @@ pub struct Keyboard {
     pub logs: KeyBind,
     #[serde(default = "KeyBind::theme_editor")]
     pub theme_editor: KeyBind,
-    #[serde(default = "KeyBind::highlight")]
-    pub highlight: KeyBind,
+    // Keep highlight as alias for backwards compatibility
+    #[serde(default = "KeyBind::highlights", alias = "highlight")]
+    pub highlights: KeyBind,
     #[serde(default = "KeyBind::scroll_up_page")]
     pub scroll_up_page: KeyBind,
     #[serde(default = "KeyBind::scroll_down_page")]
@@ -84,7 +85,7 @@ impl Default for Keyboard {
             file_transfers: KeyBind::file_transfers(),
             logs: KeyBind::logs(),
             theme_editor: KeyBind::theme_editor(),
-            highlight: KeyBind::highlight(),
+            highlights: KeyBind::highlights(),
             scroll_up_page: KeyBind::scroll_up_page(),
             scroll_down_page: KeyBind::scroll_down_page(),
             scroll_to_top: KeyBind::scroll_to_top(),
@@ -126,7 +127,7 @@ impl Keyboard {
             shortcut(self.scroll_down_page.clone(), ScrollDownPage),
             shortcut(self.scroll_to_top.clone(), ScrollToTop),
             shortcut(self.scroll_to_bottom.clone(), ScrollToBottom),
-            shortcut(self.highlight.clone(), Highlight),
+            shortcut(self.highlights.clone(), Highlights),
             shortcut(
                 self.cycle_next_unread_buffer.clone(),
                 CycleNextUnreadBuffer,
