@@ -1,6 +1,6 @@
 #!/bin/bash
 
-INPUT="../assets/logo-rounded.png"
+INPUT="../assets/logo-macos.png"
 ICONSET="icon.iconset"
 OUTPUT="../assets/macos/Halloy.app/Contents/Resources/halloy.icns"
 
