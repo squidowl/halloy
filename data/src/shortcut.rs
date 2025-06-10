@@ -42,7 +42,7 @@ pub enum Command {
     FileTransfers,
     Logs,
     ThemeEditor,
-    Highlight,
+    Highlights,
     QuitApplication,
     ScrollUpPage,
     ScrollDownPage,
@@ -153,7 +153,7 @@ impl KeyBind {
     default!(file_transfers, "j", COMMAND);
     default!(logs, "l", COMMAND);
     default!(theme_editor, "t", COMMAND);
-    default!(highlight, "i", COMMAND);
+    default!(highlights, "i", COMMAND);
     default!(scroll_up_page, PageUp);
     default!(scroll_down_page, PageDown);
     // Don't use HOME / END since text input is always focused
