@@ -1132,7 +1132,7 @@ impl Dashboard {
                             None,
                         );
                     }
-                    Highlight => {
+                    Highlights => {
                         return (
                             self.toggle_internal_buffer(
                                 config,
