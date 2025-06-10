@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::{fmt, str};
+use std::{cmp, fmt, str};
 
 use futures::channel::mpsc::Sender;
 use futures::{StreamExt, TryStreamExt, stream};
@@ -15,9 +15,7 @@ use crate::config::server::Sasl;
 
 pub type Handle = Sender<proto::Message>;
 
-#[derive(
-    Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Server(Arc<str>);
 
 impl From<&str> for Server {
@@ -35,6 +33,26 @@ impl fmt::Display for Server {
 impl AsRef<str> for Server {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+// Use case-insensitive comparison first, falling back to case-sensitive
+// only when server names are equal (in a case-insensitive context).
+impl Ord for Server {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        let case_insensitive_ordering =
+            self.0.to_lowercase().cmp(&other.0.to_lowercase());
+
+        match case_insensitive_ordering {
+            cmp::Ordering::Equal => self.0.cmp(&other.0),
+            _ => case_insensitive_ordering,
+        }
+    }
+}
+
+impl PartialOrd for Server {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
