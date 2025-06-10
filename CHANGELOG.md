@@ -16,7 +16,7 @@ Thanks:
 
 - Contributions: @englut, @KaiKorla, @kit-ty-kate, @mhegreberg, @ohhskar, Rune Seir
 - Bug reports: @awbradle
-- Feature requests: @darienm, @kasper93, @auronandace
+- Feature requests: @darienm, @kasper93, @auronandace, @n-kalosha
 
 # 2025.5 (2025-05-05)
 
