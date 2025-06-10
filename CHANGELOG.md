@@ -2,6 +2,7 @@
 
 Added:
 
+- New application icon
 - Show channel mode in panel if available
 - Configuration options for font weight and bold weight
 
