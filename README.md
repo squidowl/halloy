@@ -1,6 +1,7 @@
 # Halloy - IRC Client
 
-![banner](./assets//banner.png)
+<img src="./assets/banner.png" alt="banner" title="Icon by Rune Seir">
+
 ![halloy](./assets/animation.gif)
 
 Halloy is an open-source IRC client written in Rust, with the Iced GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.
@@ -60,8 +61,6 @@ Halloy is also available from [Flathub](https://flathub.org/apps/org.squidowl.ha
 <a href="https://xkcd.com/1782/">
   <img src="https://imgs.xkcd.com/comics/team_chat.png" title="2078: He announces that he's finally making the jump from screen+irssi to tmux+weechat.">
 </a>
-
-
 
 ## License
 
