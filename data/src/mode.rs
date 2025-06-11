@@ -291,7 +291,7 @@ enum ModeSet<'a> {
 pub fn parse<T>(
     encoded: &str,
     args: &[String],
-    chanmodes: &[isupport::ChannelMode],
+    chanmodes: &[isupport::ModeKind],
     prefix: &[isupport::PrefixMap],
 ) -> Vec<Mode<T>>
 where
@@ -353,7 +353,7 @@ where
 fn takes_arg(
     mode: char,
     mode_set: &ModeSet,
-    chanmodes: &[isupport::ChannelMode],
+    chanmodes: &[isupport::ModeKind],
     prefix: &[isupport::PrefixMap],
 ) -> bool {
     let known = if let Some(kind) = chanmodes.iter().find_map(|chanmode| {

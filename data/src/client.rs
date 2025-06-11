@@ -2869,7 +2869,7 @@ impl Client {
         isupport::get_casemapping(&self.isupport)
     }
 
-    pub fn chanmodes(&self) -> &[isupport::ChannelMode] {
+    pub fn chanmodes(&self) -> &[isupport::ModeKind] {
         isupport::get_chanmodes(&self.isupport)
     }
 
@@ -3175,7 +3175,7 @@ impl Map {
     pub fn get_chanmodes<'a>(
         &'a self,
         server: &Server,
-    ) -> &'a [isupport::ChannelMode] {
+    ) -> &'a [isupport::ModeKind] {
         self.client(server)
             .map(Client::chanmodes)
             .unwrap_or_default()
