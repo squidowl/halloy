@@ -152,7 +152,7 @@ impl FromStr for Operation {
                                         .chars()
                                         .all(|c| c.is_ascii_alphabetic())
                                     {
-                                        channel_modes.push(ChannelMode {
+                                        channel_modes.push(ModeKind {
                                             kind,
                                             modes: Cow::Owned(
                                                 modes.to_string(),
@@ -662,7 +662,7 @@ pub enum Parameter {
     CALLERID(char),
     CASEMAPPING(CaseMap),
     CHANLIMIT(Vec<ChannelLimit>),
-    CHANMODES(Vec<ChannelMode>),
+    CHANMODES(Vec<ModeKind>),
     CHANNELLEN(u16),
     CHANTYPES(Option<Vec<char>>),
     CHATHISTORY(u16),
@@ -846,12 +846,12 @@ pub struct ChannelLimit {
 
 // Reference: https://datatracker.ietf.org/doc/html/draft-hardy-irc-isupport-00#section-4.3
 #[derive(Clone, Debug)]
-pub struct ChannelMode {
+pub struct ModeKind {
     pub kind: char,
     pub modes: Cow<'static, str>,
 }
 
-impl fmt::Display for ChannelMode {
+impl fmt::Display for ModeKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.kind {
             'A' => {
@@ -964,20 +964,20 @@ const DEFAULT_BAN_EXCEPTION_CHANNEL_LETTER: char = 'e';
 const DEFAULT_CALLER_ID_LETTER: char = 'g';
 
 // Reference: https://modern.ircdocs.horse/#channel-modes
-pub const DEFAULT_CHANMODES: &[ChannelMode] = &[
-    ChannelMode {
+pub const DEFAULT_CHANMODES: &[ModeKind] = &[
+    ModeKind {
         kind: 'A',
         modes: Cow::Borrowed("beI"),
     },
-    ChannelMode {
+    ModeKind {
         kind: 'B',
         modes: Cow::Borrowed("k"),
     },
-    ChannelMode {
+    ModeKind {
         kind: 'C',
         modes: Cow::Borrowed("l"),
     },
-    ChannelMode {
+    ModeKind {
         kind: 'D',
         modes: Cow::Borrowed("imstn"),
     },
@@ -1205,7 +1205,7 @@ pub fn get_casemapping(isupport: &HashMap<Kind, Parameter>) -> CaseMap {
 }
 
 // https://modern.ircdocs.horse/#chanmodes-parameter
-pub fn get_chanmodes(isupport: &HashMap<Kind, Parameter>) -> &[ChannelMode] {
+pub fn get_chanmodes(isupport: &HashMap<Kind, Parameter>) -> &[ModeKind] {
     isupport
         .get(&Kind::CHANMODES)
         .and_then(|chanmodes| {

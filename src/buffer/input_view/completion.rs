@@ -1857,7 +1857,7 @@ static MONITOR_STATUS_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 });
 
 fn mode_channel_command(
-    chanmodes: &[isupport::ChannelMode],
+    chanmodes: &[isupport::ModeKind],
     prefix: &[isupport::PrefixMap],
     mode_limit: Option<u16>,
 ) -> Command {
