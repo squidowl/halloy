@@ -28,8 +28,11 @@ use crate::{
     file_transfer, isupport, message, mode, server,
 };
 
-const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
+pub use self::on_connect::on_connect;
 
+pub mod on_connect;
+
+const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
 const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -111,7 +114,7 @@ pub enum Event {
     DirectMessage(User),
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
-    OnConnect(VecDeque<crate::Command>),
+    OnConnect(on_connect::Stream),
 }
 
 struct ChatHistoryRequest {
@@ -2343,20 +2346,11 @@ impl Client {
                         self.handle.try_send(message)?;
                     }
 
-                    return Ok(vec![Event::OnConnect(
-                        self.config
-                            .on_connect
-                            .iter()
-                            .filter_map(|command| {
-                                crate::command::parse(
-                                    command,
-                                    None,
-                                    &self.isupport,
-                                )
-                                .ok()
-                            })
-                            .collect(),
-                    )]);
+                    return Ok(vec![Event::OnConnect(on_connect(
+                        self.handle.clone(),
+                        self.config.clone(),
+                        &self.isupport,
+                    ))]);
                 }
             }
             _ => {}
@@ -2715,7 +2709,9 @@ impl Client {
     }
 
     fn mode<'a>(&'a self, channel: &target::Channel) -> Option<&'a String> {
-        self.chanmap.get(channel).and_then(|channel| channel.mode.as_ref())
+        self.chanmap
+            .get(channel)
+            .and_then(|channel| channel.mode.as_ref())
     }
 
     fn resolve_user_attributes<'a>(
