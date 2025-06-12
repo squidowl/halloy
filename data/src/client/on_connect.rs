@@ -1,9 +1,10 @@
-use std::{collections::HashMap, fmt, time::Duration};
+use std::collections::HashMap;
+use std::fmt;
+use std::sync::Arc;
+use std::time::Duration;
 
-use futures::{
-    SinkExt, StreamExt,
-    stream::{self, BoxStream},
-};
+use futures::stream::{self, BoxStream};
+use futures::{SinkExt, StreamExt};
 use tokio::time;
 
 use crate::{Command, Target, command, config, isupport, message, server};
@@ -34,7 +35,7 @@ impl fmt::Debug for Stream {
 
 pub fn on_connect(
     handle: server::Handle,
-    config: config::Server,
+    config: Arc<config::Server>,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
 ) -> Stream {
     let commands = config
