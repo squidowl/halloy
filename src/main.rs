@@ -26,7 +26,6 @@ use chrono::Utc;
 use data::config::{self, Config};
 use data::history::manager::Broadcast;
 use data::history::{self};
-use data::server::ServerConfig;
 use data::target::{self, Target};
 use data::version::Version;
 use data::{Notification, Server, Url, User, environment, server, version};
@@ -1089,7 +1088,7 @@ impl Halloy {
                                             .collect::<Vec<_>>(),
                                     );
                                 } else {
-                                    self.servers.insert(server, ServerConfig::from(config));
+                                    self.servers.insert(server, config);
                                 }
                             }
                         }

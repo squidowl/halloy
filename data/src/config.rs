@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{str, string};
 
@@ -25,7 +26,7 @@ use crate::appearance::theme::Colors;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self, Sound};
 use crate::environment::config_dir;
-use crate::server::Map as ServerMap;
+use crate::server::{Map as ServerMap, Server as ServerName};
 use crate::{Theme, environment};
 
 pub mod actions;
@@ -216,7 +217,7 @@ impl Config {
         pub struct Configuration {
             #[serde(default)]
             pub theme: ThemeKeys,
-            pub servers: ServerMap,
+            pub servers: BTreeMap<ServerName, Server>,
             pub proxy: Option<Proxy>,
             #[serde(default)]
             pub font: Font,
@@ -258,7 +259,7 @@ impl Config {
 
         let Configuration {
             theme,
-            mut servers,
+            servers,
             font,
             proxy,
             scale_factor,
@@ -276,7 +277,7 @@ impl Config {
         } = toml::from_str(content.as_ref())
             .map_err(|e| Error::Parse(e.to_string()))?;
 
-        servers.read_passwords().await?;
+        let servers = ServerMap::new(servers).await?;
 
         let loaded_notifications = notifications.load_sounds()?;
 

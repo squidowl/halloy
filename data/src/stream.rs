@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -9,7 +10,7 @@ use irc::{Connection, codec, connection};
 use tokio::time::{self, Instant, Interval};
 
 use crate::client::Client;
-use crate::server::{Server, ServerConfig};
+use crate::server::Server;
 use crate::time::Posix;
 use crate::{config, message, server};
 
@@ -301,7 +302,7 @@ async fn _run(
 
 async fn connect(
     server: Server,
-    config: ServerConfig,
+    config: Arc<config::Server>,
     proxy: Option<config::Proxy>,
 ) -> Result<(Stream, Client), connection::Error> {
     let connection =
