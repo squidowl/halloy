@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fmt, io};
 
@@ -21,7 +22,6 @@ use crate::isupport::{
     WhoXPollParameters,
 };
 use crate::message::{message_id, server_time, source};
-use crate::server::ServerConfig;
 use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -123,7 +123,7 @@ struct ChatHistoryRequest {
 
 pub struct Client {
     server: Server,
-    config: ServerConfig,
+    config: Arc<config::Server>,
     handle: server::Handle,
     alt_nick: Option<usize>,
     resolved_nick: Option<String>,
@@ -162,7 +162,7 @@ impl fmt::Debug for Client {
 impl Client {
     pub fn new(
         server: Server,
-        config: ServerConfig,
+        config: Arc<config::Server>,
         sender: mpsc::Sender<proto::Message>,
     ) -> Self {
         Self {
@@ -2761,7 +2761,9 @@ impl Client {
     }
 
     fn mode<'a>(&'a self, channel: &target::Channel) -> Option<&'a String> {
-        self.chanmap.get(channel).and_then(|channel| channel.mode.as_ref())
+        self.chanmap
+            .get(channel)
+            .and_then(|channel| channel.mode.as_ref())
     }
 
     fn resolve_user_attributes<'a>(
