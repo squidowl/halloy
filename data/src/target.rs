@@ -1,4 +1,5 @@
 use std::hash::Hash;
+use std::sync::Arc;
 use std::{cmp, fmt};
 
 use irc::proto;
@@ -44,16 +45,16 @@ impl Target {
         if let Some((prefixes, channel)) =
             proto::parse_channel_from_target(target, chantypes, statusmsg)
         {
-            Target::Channel(Channel {
+            Target::Channel(Channel::from(ChannelData {
                 prefixes,
                 normalized: casemapping.normalize(&channel),
                 raw: target.to_string(),
-            })
+            }))
         } else {
-            Target::Query(Query {
+            Target::Query(Query::from(QueryData {
                 normalized: casemapping.normalize(target),
                 raw: target.to_string(),
-            })
+            }))
         }
     }
 }
@@ -62,10 +63,10 @@ impl PartialEq for Target {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Target::Channel(channel), Target::Channel(other_channel)) => {
-                channel.normalized.eq(&other_channel.normalized)
+                channel.eq(other_channel)
             }
             (Target::Query(query), Target::Query(other_query)) => {
-                query.normalized.eq(&other_query.normalized)
+                query.eq(other_query)
             }
             _ => false,
         }
@@ -87,11 +88,11 @@ impl Ord for Target {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match (self, other) {
             (Target::Channel(channel), Target::Channel(other_channel)) => {
-                channel.normalized.cmp(&other_channel.normalized)
+                channel.cmp(other_channel)
             }
             (Target::Channel(_), Target::Query(_)) => cmp::Ordering::Less,
             (Target::Query(query), Target::Query(other_query)) => {
-                query.normalized.cmp(&other_query.normalized)
+                query.cmp(other_query)
             }
             (Target::Query(_), Target::Channel(_)) => cmp::Ordering::Greater,
         }
@@ -113,40 +114,51 @@ impl fmt::Display for Target {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Channel {
+#[derive(Debug, Serialize, Deserialize)]
+struct ChannelData {
     prefixes: Vec<char>,
     normalized: String,
     raw: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Channel(Arc<ChannelData>);
+
+impl From<ChannelData> for Channel {
+    fn from(inner: ChannelData) -> Self {
+        Channel(Arc::new(inner))
+    }
+}
+
 impl Channel {
     pub fn as_normalized_str(&self) -> &str {
-        self.normalized.as_ref()
+        self.0.normalized.as_ref()
     }
 
     pub fn as_str(&self) -> &str {
-        self.raw.as_ref()
+        self.0.raw.as_ref()
     }
 
     pub fn from_str(target: &str, casemapping: isupport::CaseMap) -> Self {
-        if let Some(index) = target.find(proto::DEFAULT_CHANNEL_PREFIXES) {
-            // This will not panic, since `find` always returns a valid codepoint index.
-            // We call `find` -> `split_at` because it is an _inclusive_ split, which includes the match.
-            let (prefixes, channel) = target.split_at(index);
+        let inner =
+            if let Some(index) = target.find(proto::DEFAULT_CHANNEL_PREFIXES) {
+                // This will not panic, since `find` always returns a valid codepoint index.
+                // We call `find` -> `split_at` because it is an _inclusive_ split, which includes the match.
+                let (prefixes, channel) = target.split_at(index);
 
-            return Channel {
-                prefixes: prefixes.chars().collect(),
-                normalized: casemapping.normalize(channel),
-                raw: target.to_string(),
+                ChannelData {
+                    prefixes: prefixes.chars().collect(),
+                    normalized: casemapping.normalize(channel),
+                    raw: target.to_string(),
+                }
+            } else {
+                ChannelData {
+                    prefixes: vec![],
+                    normalized: casemapping.normalize(target),
+                    raw: target.to_string(),
+                }
             };
-        }
-
-        Channel {
-            prefixes: vec![],
-            normalized: casemapping.normalize(target),
-            raw: target.to_string(),
-        }
+        Channel::from(inner)
     }
 
     pub fn parse(
@@ -158,18 +170,18 @@ impl Channel {
         if let Some((prefixes, channel)) =
             proto::parse_channel_from_target(target, chantypes, statusmsg)
         {
-            Ok(Channel {
+            Ok(Channel::from(ChannelData {
                 prefixes,
                 normalized: casemapping.normalize(&channel),
                 raw: target.to_string(),
-            })
+            }))
         } else {
             Err(ParseError::InvalidChannel(target.to_string()))
         }
     }
 
     pub fn prefixes(&self) -> &[char] {
-        &self.prefixes
+        &self.0.prefixes
     }
 
     pub fn to_target(&self) -> Target {
@@ -179,7 +191,7 @@ impl Channel {
 
 impl PartialEq for Channel {
     fn eq(&self, other: &Self) -> bool {
-        self.normalized.eq(&other.normalized)
+        self.0.normalized.eq(&other.0.normalized)
     }
 }
 
@@ -187,13 +199,13 @@ impl Eq for Channel {}
 
 impl Hash for Channel {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.normalized.hash(state);
+        self.0.normalized.hash(state);
     }
 }
 
 impl Ord for Channel {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.normalized.cmp(&other.normalized)
+        self.0.normalized.cmp(&other.0.normalized)
     }
 }
 
@@ -205,30 +217,39 @@ impl PartialOrd for Channel {
 
 impl fmt::Display for Channel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.fmt(f)
+        self.0.raw.fmt(f)
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Query {
+#[derive(Debug, Serialize, Deserialize)]
+struct QueryData {
     normalized: String,
     raw: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Query(Arc<QueryData>);
+
+impl From<QueryData> for Query {
+    fn from(inner: QueryData) -> Self {
+        Query(Arc::new(inner))
+    }
+}
+
 impl Query {
     pub fn as_normalized_str(&self) -> &str {
-        self.normalized.as_ref()
+        self.0.normalized.as_ref()
     }
 
     pub fn as_str(&self) -> &str {
-        self.raw.as_ref()
+        self.0.raw.as_ref()
     }
 
     pub fn from_user(user: &User, casemapping: isupport::CaseMap) -> Self {
-        Query {
+        Query::from(QueryData {
             normalized: casemapping.normalize(user.as_str()),
             raw: user.as_str().to_string(),
-        }
+        })
     }
 
     pub fn parse(
@@ -242,10 +263,10 @@ impl Query {
         {
             Err(ParseError::InvalidQuery(target.to_string()))
         } else {
-            Ok(Query {
+            Ok(Query::from(QueryData {
                 normalized: casemapping.normalize(target),
                 raw: target.to_string(),
-            })
+            }))
         }
     }
 
@@ -256,7 +277,7 @@ impl Query {
 
 impl PartialEq for Query {
     fn eq(&self, other: &Self) -> bool {
-        self.normalized.eq(&other.normalized)
+        self.0.normalized.eq(&other.0.normalized)
     }
 }
 
@@ -264,13 +285,13 @@ impl Eq for Query {}
 
 impl Hash for Query {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.normalized.hash(state);
+        self.0.normalized.hash(state);
     }
 }
 
 impl Ord for Query {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.normalized.cmp(&other.normalized)
+        self.0.normalized.cmp(&other.0.normalized)
     }
 }
 
@@ -282,7 +303,7 @@ impl PartialOrd for Query {
 
 impl fmt::Display for Query {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.raw.fmt(f)
+        self.0.raw.fmt(f)
     }
 }
 

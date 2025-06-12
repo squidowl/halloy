@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -301,7 +302,7 @@ async fn _run(
 
 async fn connect(
     server: Server,
-    config: config::Server,
+    config: Arc<config::Server>,
     proxy: Option<config::Proxy>,
 ) -> Result<(Stream, Client), connection::Error> {
     let connection =
