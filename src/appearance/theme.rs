@@ -9,6 +9,7 @@ pub mod button;
 pub mod checkbox;
 pub mod container;
 pub mod context_menu;
+pub mod image;
 pub mod menu;
 pub mod pane_grid;
 pub mod progress_bar;
@@ -17,7 +18,6 @@ pub mod scrollable;
 pub mod selectable_text;
 pub mod text;
 pub mod text_input;
-pub mod image;
 
 // TODO: If we use non-standard font sizes, we should consider
 // Config.font.size since it's user configurable
@@ -80,7 +80,7 @@ impl iced::theme::Base for Theme {
             text_color: self.colors().text.primary,
         }
     }
-    
+
     fn palette(&self) -> Option<iced::theme::Palette> {
         None
     }
