@@ -9,7 +9,7 @@ use irc::{Connection, codec, connection};
 use tokio::time::{self, Instant, Interval};
 
 use crate::client::Client;
-use crate::server::Server;
+use crate::server::{Server, ServerConfig};
 use crate::time::Posix;
 use crate::{config, message, server};
 
@@ -301,7 +301,7 @@ async fn _run(
 
 async fn connect(
     server: Server,
-    config: config::Server,
+    config: ServerConfig,
     proxy: Option<config::Proxy>,
 ) -> Result<(Stream, Client), connection::Error> {
     let connection =

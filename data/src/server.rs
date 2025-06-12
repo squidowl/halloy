@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::{fmt, str};
+use std::sync::Arc;
 
+use std::ops::Deref;
 use futures::channel::mpsc::Sender;
 use irc::proto;
 use serde::{Deserialize, Serialize};
@@ -16,11 +18,32 @@ pub type Handle = Sender<proto::Message>;
 #[derive(
     Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
 )]
-pub struct Server(String);
+pub struct Server(Arc<str>);
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ServerConfig(Arc<config::Server>);
+
+impl AsRef<config::Server> for ServerConfig {
+    fn as_ref(&self) -> &config::Server {
+        &self.0
+    }
+}
+impl Deref for ServerConfig {
+    type Target = config::Server;
+
+    fn deref(&self) -> &config::Server {
+        &self.0
+    }
+}
+impl From<config::Server> for ServerConfig {
+    fn from(inner: config::Server) -> Self {
+        Self(Arc::new(inner))
+    }
+}
 
 impl From<&str> for Server {
     fn from(value: &str) -> Self {
-        Server(value.to_string())
+        Server(Arc::from(value))
     }
 }
 
@@ -39,11 +62,11 @@ impl AsRef<str> for Server {
 #[derive(Debug, Clone)]
 pub struct Entry {
     pub server: Server,
-    pub config: config::Server,
+    pub config: ServerConfig,
 }
 
-impl<'a> From<(&'a Server, &'a config::Server)> for Entry {
-    fn from((server, config): (&'a Server, &'a config::Server)) -> Self {
+impl<'a> From<(&'a Server, &'a ServerConfig)> for Entry {
+    fn from((server, config): (&'a Server, &'a ServerConfig)) -> Self {
         Self {
             server: server.clone(),
             config: config.clone(),
@@ -51,8 +74,8 @@ impl<'a> From<(&'a Server, &'a config::Server)> for Entry {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct Map(BTreeMap<Server, config::Server>);
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct Map(BTreeMap<Server, ServerConfig>);
 
 async fn read_from_command(pass_command: &str) -> Result<String, Error> {
     let output = if cfg!(target_os = "windows") {
@@ -80,7 +103,7 @@ async fn read_from_command(pass_command: &str) -> Result<String, Error> {
 }
 
 impl Map {
-    pub fn insert(&mut self, name: Server, server: config::Server) {
+    pub fn insert(&mut self, name: Server, server: ServerConfig) {
         self.0.insert(name, server);
     }
 
@@ -101,7 +124,10 @@ impl Map {
     }
 
     pub async fn read_passwords(&mut self) -> Result<(), Error> {
-        for (_, config) in self.0.iter_mut() {
+        for (_, config_arc) in self.0.iter_mut() {
+            // Here the config is unlikely to be shared anywhere,
+            // as we are initializing the config.
+            let config = Arc::make_mut(&mut config_arc.0);
             if let Some(pass_file) = &config.password_file {
                 if config.password.is_some()
                     || config.password_command.is_some()

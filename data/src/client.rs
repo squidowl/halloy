@@ -21,6 +21,7 @@ use crate::isupport::{
     WhoXPollParameters,
 };
 use crate::message::{message_id, server_time, source};
+use crate::server::ServerConfig;
 use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -122,7 +123,7 @@ struct ChatHistoryRequest {
 
 pub struct Client {
     server: Server,
-    config: config::Server,
+    config: ServerConfig,
     handle: server::Handle,
     alt_nick: Option<usize>,
     resolved_nick: Option<String>,
@@ -161,7 +162,7 @@ impl fmt::Debug for Client {
 impl Client {
     pub fn new(
         server: Server,
-        config: config::Server,
+        config: ServerConfig,
         sender: mpsc::Sender<proto::Message>,
     ) -> Self {
         Self {
