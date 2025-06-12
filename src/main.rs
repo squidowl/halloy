@@ -25,10 +25,12 @@ use appearance::{Theme, theme};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::history::manager::Broadcast;
-use data::history::{self};
 use data::target::{self, Target};
 use data::version::Version;
-use data::{Notification, Server, Url, User, environment, server, version};
+use data::{
+    Notification, Server, Url, User, client, environment, history, server,
+    version,
+};
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
 use screen::{dashboard, help, migration, welcome};
@@ -250,6 +252,7 @@ pub enum Message {
     Window(window::Id, window::Event),
     WindowSettingsSaved(Result<(), window::Error>),
     Logging(Vec<logger::Record>),
+    OnConnect(Server, client::on_connect::Event),
 }
 
 impl Halloy {
@@ -618,7 +621,6 @@ impl Halloy {
                             let events = match self.clients.receive(
                                 &server,
                                 message,
-                                &self.config.actions,
                                 &self.config.ctcp,
                             ) {
                                 Ok(events) => events,
@@ -942,20 +944,19 @@ impl Halloy {
                                             &server,
                                         );
                                     }
-                                    data::client::Event::OpenBuffers(targets) => {
-                                        for (target, buffer_action) in targets {
-                                            commands.push(
-                                                dashboard
-                                                    .open_target(
+                                    data::client::Event::OnConnect(
+                                        on_connect,
+                                    ) => {
+                                        let server = server.clone();
+                                        commands.push(
+                                            Task::stream(on_connect)
+                                                .map(move |event| {
+                                                    Message::OnConnect(
                                                         server.clone(),
-                                                        target,
-                                                        &mut self.clients,
-                                                        buffer_action,
-                                                        &self.config,
+                                                        event
                                                     )
-                                                    .map(Message::Dashboard),
-                                            );
-                                        }
+                                                })
+                                        );
                                     }
                                 }
                             }
@@ -1203,6 +1204,36 @@ impl Halloy {
                 )
                 .map(Message::Dashboard)
             }
+            Message::OnConnect(server, event) => match event {
+                client::on_connect::Event::OpenBuffers(targets) => {
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
+                        return Task::none();
+                    };
+
+                    let mut commands = vec![];
+
+                    for target in targets {
+                        let buffer_action = match target {
+                            Target::Channel(_) => {
+                                self.config.actions.buffer.message_channel
+                            }
+                            Target::Query(_) => {
+                                self.config.actions.buffer.message_user
+                            }
+                        };
+
+                        commands.push(dashboard.open_target(
+                            server.clone(),
+                            target,
+                            &mut self.clients,
+                            buffer_action,
+                            &self.config,
+                        ));
+                    }
+
+                    Task::batch(commands).map(Message::Dashboard)
+                }
+            },
         }
     }
 

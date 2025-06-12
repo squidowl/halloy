@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use chrono::format::SecondsFormat;
 use chrono::{DateTime, Utc};
+use irc::proto;
 
 use crate::Message;
 use crate::target::Target;
@@ -1120,4 +1121,41 @@ pub fn find_target_limit(
     } else {
         None
     }
+}
+
+pub fn get_casemapping(isupport: &HashMap<Kind, Parameter>) -> CaseMap {
+    if let Some(Parameter::CASEMAPPING(casemapping)) =
+        isupport.get(&Kind::CASEMAPPING)
+    {
+        return *casemapping;
+    }
+
+    CaseMap::default()
+}
+
+pub fn get_chantypes(isupport: &HashMap<Kind, Parameter>) -> &[char] {
+    isupport
+        .get(&Kind::CHANTYPES)
+        .and_then(|chantypes| {
+            if let Parameter::CHANTYPES(types) = chantypes {
+                types.as_deref()
+            } else {
+                log::debug!("Corruption in isupport table.");
+
+                None
+            }
+        })
+        .unwrap_or(proto::DEFAULT_CHANNEL_PREFIXES)
+}
+
+pub fn get_statusmsg(isupport: &HashMap<Kind, Parameter>) -> &[char] {
+    isupport.get(&Kind::STATUSMSG).map_or(&[], |statusmsg| {
+        if let Parameter::STATUSMSG(prefixes) = statusmsg {
+            prefixes.as_ref()
+        } else {
+            log::debug!("Corruption in isupport table.");
+
+            &[]
+        }
+    })
 }
