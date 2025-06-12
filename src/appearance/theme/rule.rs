@@ -20,5 +20,6 @@ pub fn primary(theme: &Theme) -> Style {
         width: 1,
         radius: 0.0.into(),
         fill_mode: FillMode::Full,
+        snap: true,
     }
 }

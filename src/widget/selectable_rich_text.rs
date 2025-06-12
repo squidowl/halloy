@@ -584,7 +584,7 @@ where
         let style = <Theme as Catalog>::style(theme, &self.class);
 
         let hovered_span = cursor
-            .position_in(layout.bounds())
+            .position_in(bounds)
             .and_then(|position| state.paragraph.hit_span(position));
 
         for (index, span) in state.spans.iter().enumerate() {
@@ -731,6 +731,7 @@ where
                             color: Color::TRANSPARENT,
                         },
                         shadow: Shadow::default(),
+                        snap: true,
                     },
                     style.selection_color,
                 );
@@ -740,7 +741,7 @@ where
         widget::text::draw(
             renderer,
             defaults,
-            layout,
+            bounds,
             &state.paragraph,
             widget::text::Style { color: style.color },
             viewport,

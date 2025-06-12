@@ -10,7 +10,6 @@ pub mod checkbox;
 pub mod container;
 pub mod context_menu;
 pub mod font_style;
-pub mod image;
 pub mod menu;
 pub mod pane_grid;
 pub mod progress_bar;

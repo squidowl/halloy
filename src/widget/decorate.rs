@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 use std::slice;
 
-use iced::{Element, Rectangle};
 use iced::advanced::{self, Widget, layout};
+use iced::{Element, Rectangle};
 
 pub fn decorate<'a, Message, Theme, Renderer>(
     element: impl Into<Element<'a, Message, Theme, Renderer>>,
@@ -587,7 +587,7 @@ pub trait Overlay<'a, Message, Theme, Renderer, State> {
         state: &'b mut State,
         inner: &'b mut Element<'a, Message, Theme, Renderer>,
         tree: &'b mut advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::Layout<'b>,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
@@ -604,14 +604,18 @@ where
         _state: &'b mut State,
         inner: &'b mut Element<'a, Message, Theme, Renderer>,
         tree: &'b mut advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::Layout<'b>,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
-        inner
-            .as_widget_mut()
-            .overlay(tree, layout, renderer, viewport, translation)
+        inner.as_widget_mut().overlay(
+            tree,
+            layout,
+            renderer,
+            viewport,
+            translation,
+        )
     }
 }
 
@@ -807,7 +811,7 @@ where
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut advanced::widget::Tree,
-        layout: advanced::Layout<'_>,
+        layout: advanced::Layout<'b>,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: iced::Vector,
