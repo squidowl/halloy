@@ -50,7 +50,7 @@ path = "../irc"
 
 [dependencies.serde]
 version = "1.0"
-features = ["derive"]
+features = ["derive", "rc"]
 
 [lints]
 workspace = true

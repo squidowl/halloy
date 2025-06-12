@@ -1,4 +1,6 @@
 use std::hash::Hash;
+use std::ops::Deref;
+use std::sync::Arc;
 use std::{cmp, fmt};
 
 use irc::proto;
@@ -44,16 +46,16 @@ impl Target {
         if let Some((prefixes, channel)) =
             proto::parse_channel_from_target(target, chantypes, statusmsg)
         {
-            Target::Channel(Channel {
+            Target::Channel(Channel::from(ChannelInner {
                 prefixes,
                 normalized: casemapping.normalize(&channel),
                 raw: target.to_string(),
-            })
+            }))
         } else {
-            Target::Query(Query {
+            Target::Query(Query::from(QueryInner {
                 normalized: casemapping.normalize(target),
                 raw: target.to_string(),
-            })
+            }))
         }
     }
 }
@@ -113,11 +115,32 @@ impl fmt::Display for Target {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Channel {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChannelInner {
     prefixes: Vec<char>,
     normalized: String,
     raw: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Channel(Arc<ChannelInner>);
+
+impl AsRef<ChannelInner> for Channel {
+    fn as_ref(&self) -> &ChannelInner {
+        &self.0
+    }
+}
+impl Deref for Channel {
+    type Target = ChannelInner;
+
+    fn deref(&self) -> &ChannelInner {
+        &self.0
+    }
+}
+
+impl From<ChannelInner> for Channel {
+    fn from(inner: ChannelInner) -> Self {
+        Channel(Arc::new(inner))
+    }
 }
 
 impl Channel {
@@ -130,23 +153,24 @@ impl Channel {
     }
 
     pub fn from_str(target: &str, casemapping: isupport::CaseMap) -> Self {
-        if let Some(index) = target.find(proto::DEFAULT_CHANNEL_PREFIXES) {
+        let inner = if let Some(index) = target.find(proto::DEFAULT_CHANNEL_PREFIXES) {
             // This will not panic, since `find` always returns a valid codepoint index.
             // We call `find` -> `split_at` because it is an _inclusive_ split, which includes the match.
             let (prefixes, channel) = target.split_at(index);
 
-            return Channel {
+            ChannelInner {
                 prefixes: prefixes.chars().collect(),
                 normalized: casemapping.normalize(channel),
                 raw: target.to_string(),
-            };
-        }
-
-        Channel {
-            prefixes: vec![],
-            normalized: casemapping.normalize(target),
-            raw: target.to_string(),
-        }
+            }
+        } else {
+            ChannelInner {
+                prefixes: vec![],
+                normalized: casemapping.normalize(target),
+                raw: target.to_string(),
+            }
+        };
+        Channel::from(inner)
     }
 
     pub fn parse(
@@ -158,11 +182,11 @@ impl Channel {
         if let Some((prefixes, channel)) =
             proto::parse_channel_from_target(target, chantypes, statusmsg)
         {
-            Ok(Channel {
+            Ok(Channel::from(ChannelInner {
                 prefixes,
                 normalized: casemapping.normalize(&channel),
                 raw: target.to_string(),
-            })
+            }))
         } else {
             Err(ParseError::InvalidChannel(target.to_string()))
         }
@@ -209,10 +233,31 @@ impl fmt::Display for Channel {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Query {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QueryInner {
     normalized: String,
     raw: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Query(Arc<QueryInner>);
+
+impl AsRef<QueryInner> for Query {
+    fn as_ref(&self) -> &QueryInner {
+        &self.0
+    }
+}
+impl Deref for Query {
+    type Target = QueryInner;
+
+    fn deref(&self) -> &QueryInner {
+        &self.0
+    }
+}
+
+impl From<QueryInner> for Query {
+    fn from(inner: QueryInner) -> Self {
+        Query(Arc::new(inner))
+    }
 }
 
 impl Query {
@@ -225,10 +270,10 @@ impl Query {
     }
 
     pub fn from_user(user: &User, casemapping: isupport::CaseMap) -> Self {
-        Query {
+        Query::from(QueryInner {
             normalized: casemapping.normalize(user.as_str()),
             raw: user.as_str().to_string(),
-        }
+        })
     }
 
     pub fn parse(
@@ -242,10 +287,10 @@ impl Query {
         {
             Err(ParseError::InvalidQuery(target.to_string()))
         } else {
-            Ok(Query {
+            Ok(Query::from(QueryInner {
                 normalized: casemapping.normalize(target),
                 raw: target.to_string(),
-            })
+            }))
         }
     }
 
