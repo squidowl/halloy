@@ -415,13 +415,13 @@ dangerously_accept_invalid_certs = false
 root_cert_path = ""
 </code></pre>
 <h2 id="on_connect"><a class="header" href="#on_connect"><code>on_connect</code></a></h2>
-<p>Commands which are executed once connected.</p>
+<p>Commands which are executed once connected, in the order they are specified. The <code>/delay &lt;seconds&gt;</code> command can be used to add a delay between commands.</p>
 <pre><code class="language-toml"># Type: array of string
 # Values: array of any strings
 # Default: not set
 
 [servers.&lt;name&gt;]
-on_connect = ["/msg NickServ IDENTIFY foo bar"]
+on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-club"]
 </code></pre>
 <h2 id="who_poll_enabled"><a class="header" href="#who_poll_enabled"><code>who_poll_enabled</code></a></h2>
 <p>Whether or not to WHO polling is enabled.</p>
