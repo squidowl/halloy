@@ -3304,6 +3304,10 @@ impl Map {
         })
     }
 
+    pub fn state(&self, server: &Server) -> Option<&State> {
+        self.0.get(server)
+    }
+
     pub fn tick(&mut self, now: Instant) -> Result<()> {
         for client in self.0.values_mut() {
             if let State::Ready(client) = client {

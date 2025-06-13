@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{str, string};
 
 use iced_core::font;
+use indexmap::IndexMap;
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Deserializer};
@@ -217,7 +217,7 @@ impl Config {
         pub struct Configuration {
             #[serde(default)]
             pub theme: ThemeKeys,
-            pub servers: BTreeMap<ServerName, Server>,
+            pub servers: IndexMap<ServerName, Server>,
             pub proxy: Option<Proxy>,
             #[serde(default)]
             pub font: Font,
@@ -259,7 +259,7 @@ impl Config {
 
         let Configuration {
             theme,
-            servers,
+            mut servers,
             font,
             proxy,
             scale_factor,
@@ -276,6 +276,11 @@ impl Config {
             ctcp,
         } = toml::from_str(content.as_ref())
             .map_err(|e| Error::Parse(e.to_string()))?;
+
+        match sidebar.order_by {
+            sidebar::OrderBy::Alpha => servers.sort_keys(),
+            sidebar::OrderBy::Config => (),
+        }
 
         let servers = ServerMap::new(servers).await?;
 

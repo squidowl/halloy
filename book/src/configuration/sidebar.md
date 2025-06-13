@@ -43,7 +43,7 @@ max_width = 200
 
 ## `show_menu_button`
 
-Show or hide the user menu button in the sidemenu.
+Show or hide the user menu button in the sidebar.
 
 ```toml
 # Type: bool
@@ -52,4 +52,20 @@ Show or hide the user menu button in the sidemenu.
 
 [sidebar]
 show_menu_button = true
+```
+
+## `order_by`
+
+Ordering that servers are listed in the sidebar uses to select from matching users.
+
+- `"config"`: The same order they are specified in the configuration file.
+- `"alpha"`: Case-insensitive alphabetical ordering.
+
+```toml
+# Type: string
+# Values: "alpha", "config"
+# Default: "alpha"
+
+[sidebar]
+order_by = "config"
 ```
