@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.6 (2025-06-14)
+
 Added:
 
 - New application icon
