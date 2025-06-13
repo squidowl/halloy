@@ -201,13 +201,26 @@ position = "left"
 max_width = 200
 </code></pre>
 <h2 id="show_menu_button"><a class="header" href="#show_menu_button"><code>show_menu_button</code></a></h2>
-<p>Show or hide the user menu button in the sidemenu.</p>
+<p>Show or hide the user menu button in the sidebar.</p>
 <pre><code class="language-toml"># Type: bool
 # Values: true, false
 # Default: true
 
 [sidebar]
 show_menu_button = true
+</code></pre>
+<h2 id="order_by"><a class="header" href="#order_by"><code>order_by</code></a></h2>
+<p>Ordering that servers are listed in the sidebar uses to select from matching users.</p>
+<ul>
+<li><code>"config"</code>: The same order they are specified in the configuration file.</li>
+<li><code>"alpha"</code>: Case-insensitive alphabetical ordering.</li>
+</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "alpha", "config"
+# Default: "alpha"
+
+[sidebar]
+order_by = "config"
 </code></pre>
 
                     </main>
