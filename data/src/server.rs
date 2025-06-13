@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::{fmt, str};
+use std::{cmp, fmt, str};
 
 use futures::channel::mpsc::Sender;
 use futures::{StreamExt, TryStreamExt, stream};
+use indexmap::IndexMap;
 use irc::proto;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
@@ -15,9 +15,7 @@ use crate::config::server::Sasl;
 
 pub type Handle = Sender<proto::Message>;
 
-#[derive(
-    Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Server(Arc<str>);
 
 impl From<&str> for Server {
@@ -38,6 +36,26 @@ impl AsRef<str> for Server {
     }
 }
 
+// Use case-insensitive comparison first, falling back to case-sensitive
+// only when server names are equal (in a case-insensitive context).
+impl Ord for Server {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        let case_insensitive_ordering =
+            self.0.to_lowercase().cmp(&other.0.to_lowercase());
+
+        match case_insensitive_ordering {
+            cmp::Ordering::Equal => self.0.cmp(&other.0),
+            _ => case_insensitive_ordering,
+        }
+    }
+}
+
+impl PartialOrd for Server {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Entry {
     pub server: Server,
@@ -54,7 +72,7 @@ impl<'a> From<(&'a Server, &'a Arc<config::Server>)> for Entry {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct Map(BTreeMap<Server, Arc<config::Server>>);
+pub struct Map(IndexMap<Server, Arc<config::Server>>);
 
 async fn read_from_command(pass_command: &str) -> Result<String, Error> {
     let output = if cfg!(target_os = "windows") {
@@ -194,7 +212,7 @@ impl Map {
     }
 
     pub fn remove(&mut self, server: &Server) {
-        self.0.remove(server);
+        self.0.shift_remove(server);
     }
 
     pub fn contains(&self, server: &Server) -> bool {
