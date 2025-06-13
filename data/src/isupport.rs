@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
@@ -17,6 +18,7 @@ pub enum Kind {
     AWAYLEN,
     CASEMAPPING,
     CHANLIMIT,
+    CHANMODES,
     CHANNELLEN,
     CHANTYPES,
     CHATHISTORY,
@@ -26,10 +28,12 @@ pub enum Kind {
     KEYLEN,
     KICKLEN,
     KNOCK,
+    MODES,
     MONITOR,
     MSGREFTYPES,
     NAMELEN,
     NICKLEN,
+    PREFIX,
     SAFELIST,
     STATUSMSG,
     TARGMAX,
@@ -143,14 +147,16 @@ impl FromStr for Operation {
                             let mut channel_modes = vec![];
 
                             ('A'..='Z').zip(value.split(',')).for_each(
-                                |(letter, modes)| {
+                                |(kind, modes)| {
                                     if modes
                                         .chars()
                                         .all(|c| c.is_ascii_alphabetic())
                                     {
-                                        channel_modes.push(ChannelMode {
-                                            letter,
-                                            modes: modes.to_string(),
+                                        channel_modes.push(ModeKind {
+                                            kind,
+                                            modes: Cow::Owned(
+                                                modes.to_string(),
+                                            ),
                                         });
                                     }
                                 },
@@ -609,6 +615,7 @@ impl Operation {
                 "AWAYLEN" => Some(Kind::AWAYLEN),
                 "CASEMAPPING" => Some(Kind::CASEMAPPING),
                 "CHANLIMIT" => Some(Kind::CHANLIMIT),
+                "CHANMODES" => Some(Kind::CHANMODES),
                 "CHANNELLEN" => Some(Kind::CHANNELLEN),
                 "CHANTYPES" => Some(Kind::CHANTYPES),
                 "CHATHISTORY" => Some(Kind::CHATHISTORY),
@@ -618,10 +625,12 @@ impl Operation {
                 "KEYLEN" => Some(Kind::KEYLEN),
                 "KICKLEN" => Some(Kind::KICKLEN),
                 "KNOCK" => Some(Kind::KNOCK),
+                "MODES" => Some(Kind::MODES),
                 "MONITOR" => Some(Kind::MONITOR),
                 "MSGREFTYPES" => Some(Kind::MSGREFTYPES),
                 "NAMELEN" => Some(Kind::NAMELEN),
                 "NICKLEN" => Some(Kind::NICKLEN),
+                "PREFIX" => Some(Kind::PREFIX),
                 "SAFELIST" => Some(Kind::SAFELIST),
                 "STATUSMSG" => Some(Kind::STATUSMSG),
                 "TARGMAX" => Some(Kind::TARGMAX),
@@ -653,7 +662,7 @@ pub enum Parameter {
     CALLERID(char),
     CASEMAPPING(CaseMap),
     CHANLIMIT(Vec<ChannelLimit>),
-    CHANMODES(Vec<ChannelMode>),
+    CHANMODES(Vec<ModeKind>),
     CHANNELLEN(u16),
     CHANTYPES(Option<Vec<char>>),
     CHATHISTORY(u16),
@@ -711,6 +720,7 @@ impl Parameter {
             Parameter::AWAYLEN(_) => Some(Kind::AWAYLEN),
             Parameter::CASEMAPPING(_) => Some(Kind::CASEMAPPING),
             Parameter::CHANLIMIT(_) => Some(Kind::CHANLIMIT),
+            Parameter::CHANMODES(_) => Some(Kind::CHANMODES),
             Parameter::CHANNELLEN(_) => Some(Kind::CHANNELLEN),
             Parameter::CHANTYPES(_) => Some(Kind::CHANTYPES),
             Parameter::CHATHISTORY(_) => Some(Kind::CHATHISTORY),
@@ -720,10 +730,12 @@ impl Parameter {
             Parameter::KEYLEN(_) => Some(Kind::KEYLEN),
             Parameter::KICKLEN(_) => Some(Kind::KICKLEN),
             Parameter::KNOCK => Some(Kind::KNOCK),
+            Parameter::MODES(_) => Some(Kind::MODES),
             Parameter::MONITOR(_) => Some(Kind::MONITOR),
             Parameter::MSGREFTYPES(_) => Some(Kind::MSGREFTYPES),
             Parameter::NAMELEN(_) => Some(Kind::NAMELEN),
             Parameter::NICKLEN(_) => Some(Kind::NICKLEN),
+            Parameter::PREFIX(_) => Some(Kind::PREFIX),
             Parameter::SAFELIST => Some(Kind::SAFELIST),
             Parameter::STATUSMSG(_) => Some(Kind::STATUSMSG),
             Parameter::TARGMAX(_) => Some(Kind::TARGMAX),
@@ -832,10 +844,25 @@ pub struct ChannelLimit {
     pub limit: Option<u16>,
 }
 
+// Reference: https://datatracker.ietf.org/doc/html/draft-hardy-irc-isupport-00#section-4.3
 #[derive(Clone, Debug)]
-pub struct ChannelMode {
-    pub letter: char,
-    pub modes: String,
+pub struct ModeKind {
+    pub kind: char,
+    pub modes: Cow<'static, str>,
+}
+
+impl fmt::Display for ModeKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.kind {
+            'A' => {
+                write!(f, "requires argument to modify & no argument to query")
+            }
+            'B' => write!(f, "requires argument"),
+            'C' => write!(f, "requires argument to set & no argument to clear"),
+            'D' => write!(f, "requires no argument"),
+            _ => write!(f, "unknown mode type"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -936,9 +963,53 @@ const DEFAULT_BAN_EXCEPTION_CHANNEL_LETTER: char = 'e';
 
 const DEFAULT_CALLER_ID_LETTER: char = 'g';
 
+// Reference: https://modern.ircdocs.horse/#channel-modes
+pub const DEFAULT_CHANMODES: &[ModeKind] = &[
+    ModeKind {
+        kind: 'A',
+        modes: Cow::Borrowed("beI"),
+    },
+    ModeKind {
+        kind: 'B',
+        modes: Cow::Borrowed("k"),
+    },
+    ModeKind {
+        kind: 'C',
+        modes: Cow::Borrowed("l"),
+    },
+    ModeKind {
+        kind: 'D',
+        modes: Cow::Borrowed("imstn"),
+    },
+];
+
 const DEFAULT_DEAF_LETTER: char = 'D';
 
 const DEFAULT_INVITE_EXCEPTION_LETTER: char = 'I';
+
+// Reference: https://modern.ircdocs.horse/#channel-membership-prefixes
+const DEFAULT_PREFIX: &[PrefixMap] = &[
+    PrefixMap {
+        prefix: proto::FOUNDER_PREFIX,
+        mode: 'q',
+    },
+    PrefixMap {
+        prefix: proto::PROTECTED_PREFIX_STD,
+        mode: 'a',
+    },
+    PrefixMap {
+        prefix: proto::OPERATOR_PREFIX,
+        mode: 'o',
+    },
+    PrefixMap {
+        prefix: proto::HALF_OPERATOR_PREFIX,
+        mode: 'h',
+    },
+    PrefixMap {
+        prefix: proto::VOICED_PREFIX,
+        mode: 'v',
+    },
+];
 
 const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(5);
 
@@ -1133,6 +1204,22 @@ pub fn get_casemapping(isupport: &HashMap<Kind, Parameter>) -> CaseMap {
     CaseMap::default()
 }
 
+// https://modern.ircdocs.horse/#chanmodes-parameter
+pub fn get_chanmodes(isupport: &HashMap<Kind, Parameter>) -> &[ModeKind] {
+    isupport
+        .get(&Kind::CHANMODES)
+        .and_then(|chanmodes| {
+            if let Parameter::CHANMODES(modes) = chanmodes {
+                Some(modes.as_ref())
+            } else {
+                log::debug!("Corruption in isupport table.");
+
+                None
+            }
+        })
+        .unwrap_or(DEFAULT_CHANMODES)
+}
+
 pub fn get_chantypes(isupport: &HashMap<Kind, Parameter>) -> &[char] {
     isupport
         .get(&Kind::CHANTYPES)
@@ -1146,6 +1233,37 @@ pub fn get_chantypes(isupport: &HashMap<Kind, Parameter>) -> &[char] {
             }
         })
         .unwrap_or(proto::DEFAULT_CHANNEL_PREFIXES)
+}
+
+// https://modern.ircdocs.horse/#modes-parameter
+pub fn get_mode_limit(isupport: &HashMap<Kind, Parameter>) -> Option<u16> {
+    isupport
+        .get(&Kind::MODES)
+        .and_then(|modes| {
+            if let Parameter::MODES(mode_limit) = modes {
+                Some(*mode_limit)
+            } else {
+                log::debug!("Corruption in isupport table.");
+
+                None
+            }
+        })
+        .unwrap_or(Some(3))
+}
+
+pub fn get_prefix(isupport: &HashMap<Kind, Parameter>) -> &[PrefixMap] {
+    isupport
+        .get(&Kind::PREFIX)
+        .and_then(|prefix| {
+            if let Parameter::PREFIX(prefix) = prefix {
+                Some(prefix.as_ref())
+            } else {
+                log::debug!("Corruption in isupport table.");
+
+                None
+            }
+        })
+        .unwrap_or(DEFAULT_PREFIX)
 }
 
 pub fn get_statusmsg(isupport: &HashMap<Kind, Parameter>) -> &[char] {

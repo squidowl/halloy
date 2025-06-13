@@ -50,6 +50,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let server = &state.server;
     let casemapping = clients.get_casemapping(server);
+    let prefix = clients.get_prefix(server);
     let channel = &state.target;
     let buffer = &state.buffer;
     let input = history.input(buffer);
@@ -153,6 +154,7 @@ pub fn view<'a>(
                             text,
                             server,
                             casemapping,
+                            prefix,
                             Some(channel),
                             user,
                             current_user,
@@ -179,6 +181,7 @@ pub fn view<'a>(
                                     .view(
                                         server,
                                         casemapping,
+                                        prefix,
                                         Some(channel),
                                         user,
                                         current_user,
@@ -243,6 +246,7 @@ pub fn view<'a>(
                                     .view(
                                         server,
                                         casemapping,
+                                        prefix,
                                         Some(channel),
                                         user,
                                         users.iter().find(|current_user| {
@@ -345,9 +349,16 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let nick_list =
-        nick_list::view(server, casemapping, channel, users, our_user, config)
-            .map(Message::UserContext);
+    let nick_list = nick_list::view(
+        server,
+        casemapping,
+        prefix,
+        channel,
+        users,
+        our_user,
+        config,
+    )
+    .map(Message::UserContext);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
@@ -549,6 +560,7 @@ fn topic<'a>(
     }
 
     let casemapping = clients.get_casemapping(&state.server);
+    let prefix = clients.get_prefix(&state.server);
 
     let topic = clients.get_channel_topic(&state.server, &state.target)?;
 
@@ -556,6 +568,7 @@ fn topic<'a>(
         topic::view(
             &state.server,
             casemapping,
+            prefix,
             &state.target,
             topic.content.as_ref()?,
             topic.who.as_deref(),
@@ -584,6 +597,7 @@ mod nick_list {
     pub fn view<'a>(
         server: &'a Server,
         casemapping: isupport::CaseMap,
+        prefix: &'a [isupport::PrefixMap],
         channel: &'a target::Channel,
         users: &'a [User],
         our_user: Option<&'a User>,
@@ -629,6 +643,7 @@ mod nick_list {
                 content,
                 server,
                 casemapping,
+                prefix,
                 Some(channel),
                 user,
                 Some(user),
