@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::{cmp, fmt, str};
 
 use futures::channel::mpsc::Sender;
 use futures::{StreamExt, TryStreamExt, stream};
+use indexmap::IndexMap;
 use irc::proto;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
@@ -72,7 +72,7 @@ impl<'a> From<(&'a Server, &'a Arc<config::Server>)> for Entry {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct Map(BTreeMap<Server, Arc<config::Server>>);
+pub struct Map(IndexMap<Server, Arc<config::Server>>);
 
 async fn read_from_command(pass_command: &str) -> Result<String, Error> {
     let output = if cfg!(target_os = "windows") {
@@ -212,7 +212,7 @@ impl Map {
     }
 
     pub fn remove(&mut self, server: &Server) {
-        self.0.remove(server);
+        self.0.shift_remove(server);
     }
 
     pub fn contains(&self, server: &Server) -> bool {

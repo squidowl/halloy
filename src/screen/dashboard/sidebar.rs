@@ -298,8 +298,9 @@ impl Sidebar {
             });
 
             let mut buffers = vec![];
+            let mut client_enumeration = 0;
 
-            for (i, (server, state)) in clients.iter().enumerate() {
+            for server in config.servers.keys() {
                 let button = |buffer: buffer::Upstream,
                               connected: bool,
                               has_unread: bool| {
@@ -317,76 +318,83 @@ impl Sidebar {
                     )
                 };
 
-                match state {
-                    data::client::State::Disconnected => {
-                        // Disconnected server.
-                        buffers.push(button(
-                            buffer::Upstream::Server(server.clone()),
-                            false,
-                            history.has_unread(&history::Kind::Server(
-                                server.clone(),
-                            )),
-                        ));
-                    }
-                    data::client::State::Ready(connection) => {
-                        // Connected server.
-                        buffers.push(button(
-                            buffer::Upstream::Server(server.clone()),
-                            true,
-                            history.has_unread(&history::Kind::Server(
-                                server.clone(),
-                            )),
-                        ));
+                if let Some(state) = clients.state(server) {
+                    client_enumeration += 1;
 
-                        // Channels from the connected server.
-                        for channel in connection.channels() {
+                    match state {
+                        data::client::State::Disconnected => {
+                            // Disconnected server.
                             buffers.push(button(
-                                buffer::Upstream::Channel(
+                                buffer::Upstream::Server(server.clone()),
+                                false,
+                                history.has_unread(&history::Kind::Server(
                                     server.clone(),
-                                    channel.clone(),
-                                ),
-                                true,
-                                history.has_unread(&history::Kind::Channel(
-                                    server.clone(),
-                                    channel.clone(),
                                 )),
                             ));
                         }
-
-                        // Queries from the connected server.
-                        let queries = history.get_unique_queries(server);
-                        for query in queries {
-                            let query = clients
-                                .resolve_query(server, query)
-                                .unwrap_or(query);
-
+                        data::client::State::Ready(connection) => {
+                            // Connected server.
                             buffers.push(button(
-                                buffer::Upstream::Query(
-                                    server.clone(),
-                                    query.clone(),
-                                ),
+                                buffer::Upstream::Server(server.clone()),
                                 true,
-                                history.has_unread(&history::Kind::Query(
+                                history.has_unread(&history::Kind::Server(
                                     server.clone(),
-                                    query.clone(),
                                 )),
                             ));
-                        }
 
-                        // Separator between servers.
-                        if config.sidebar.position.is_horizontal() {
-                            if i + 1 < clients.len() {
-                                buffers.push(
-                                    container(vertical_rule(1))
-                                        .padding(padding::top(6))
-                                        .height(20)
-                                        .width(12)
-                                        .align_x(Alignment::Center)
-                                        .into(),
-                                );
+                            // Channels from the connected server.
+                            for channel in connection.channels() {
+                                buffers.push(button(
+                                    buffer::Upstream::Channel(
+                                        server.clone(),
+                                        channel.clone(),
+                                    ),
+                                    true,
+                                    history.has_unread(
+                                        &history::Kind::Channel(
+                                            server.clone(),
+                                            channel.clone(),
+                                        ),
+                                    ),
+                                ));
                             }
-                        } else {
-                            buffers.push(vertical_space().height(12).into());
+
+                            // Queries from the connected server.
+                            let queries = history.get_unique_queries(server);
+                            for query in queries {
+                                let query = clients
+                                    .resolve_query(server, query)
+                                    .unwrap_or(query);
+
+                                buffers.push(button(
+                                    buffer::Upstream::Query(
+                                        server.clone(),
+                                        query.clone(),
+                                    ),
+                                    true,
+                                    history.has_unread(&history::Kind::Query(
+                                        server.clone(),
+                                        query.clone(),
+                                    )),
+                                ));
+                            }
+
+                            // Separator between servers.
+                            if config.sidebar.position.is_horizontal() {
+                                if client_enumeration < clients.len() {
+                                    buffers.push(
+                                        container(vertical_rule(1))
+                                            .padding(padding::top(6))
+                                            .height(20)
+                                            .width(12)
+                                            .align_x(Alignment::Center)
+                                            .into(),
+                                    );
+                                }
+                            } else {
+                                buffers
+                                    .push(vertical_space().height(12).into());
+                            }
                         }
                     }
                 }
