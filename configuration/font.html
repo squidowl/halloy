@@ -40,6 +40,17 @@
         <script src="../toc.js"></script>
     </head>
     <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
     <div id="body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
@@ -117,7 +128,7 @@
                             <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
                             <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
                         </ul>
-                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
                             <i class="fa fa-search"></i>
                         </button>
                     </div>
@@ -165,6 +176,9 @@
 <blockquote>
 <p>⚠️  Changes to font settings require an application restart to take effect.</p>
 </blockquote>
+<blockquote>
+<p>💡  If Halloy is unable to load the specified font &amp; weight, an fallback font may be used.  If the font looks wrong, double-check the family name and that the font family has the specified weight.</p>
+</blockquote>
 <h2 id="family"><a class="header" href="#family"><code>family</code></a></h2>
 <p>Monospaced font family to use.</p>
 <pre><code class="language-toml"># Type: string
@@ -184,6 +198,24 @@ family = "Comic Mono"
 
 [font]
 size = 13
+</code></pre>
+<h2 id="size-1"><a class="header" href="#size-1"><code>size</code></a></h2>
+<p>Font weight.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "thin", "extra-light", "light", "normal", "medium", "semibold", "bold", "extra-bold", and "black"
+# Default: "normal"
+
+[font]
+weight = "light"
+</code></pre>
+<h2 id="size-2"><a class="header" href="#size-2"><code>size</code></a></h2>
+<p>Bold font weight.  If not set, then the font weight three steps above the regular font weight (e.g. font weight <code>"light"</code> → bold font weight <code>"semibold"</code>).</p>
+<pre><code class="language-toml"># Type: string
+# Values: "thin", "extra-light", "light", "normal", "medium", "semibold", "bold", "extra-bold", and "black"
+# Default: not set
+
+[font]
+bold-weight = "semibold"
 </code></pre>
 
                     </main>
