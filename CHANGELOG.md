@@ -1,5 +1,9 @@
 # Unreleased
 
+Thanks:
+
+- Bug reports: @darienm
+
 # 2025.6 (2025-06-14)
 
 Added:
