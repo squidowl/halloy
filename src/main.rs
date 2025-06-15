@@ -666,6 +666,7 @@ impl Halloy {
                                                     .record_message(
                                                         &server,
                                                         message,
+                                                        &self.config
                                                     )
                                                     .map(Message::Dashboard),
                                             );
@@ -691,7 +692,7 @@ impl Halloy {
                                             {
                                                 commands.push(
                                                     dashboard
-                                                        .record_highlight(message)
+                                                        .record_highlight(message, &self.config)
                                                         .map(Message::Dashboard),
                                                 );
 
@@ -709,6 +710,7 @@ impl Halloy {
                                                     .record_message(
                                                         &server,
                                                         message,
+                                                        &self.config
                                                     )
                                                     .map(Message::Dashboard),
                                             );
@@ -729,7 +731,7 @@ impl Halloy {
                                                 dashboard
                                                     .record_message(
                                                         &server,
-                                                        message.with_target(target),
+                                                        message.with_target(target), &self.config,
                                                     )
                                                     .map(Message::Dashboard),
                                             );
@@ -1198,9 +1200,9 @@ impl Halloy {
                 }
 
                 Task::batch(
-                    records
-                        .into_iter()
-                        .map(|record| dashboard.record_log(record)),
+                    records.into_iter().map(|record| {
+                        dashboard.record_log(record, &self.config)
+                    }),
                 )
                 .map(Message::Dashboard)
             }
