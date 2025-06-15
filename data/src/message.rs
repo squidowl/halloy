@@ -365,6 +365,10 @@ impl Message {
         }
     }
 
+    pub fn text(&self) -> String {
+        self.content.text().to_string()
+    }
+
     pub fn log(record: crate::log::Record) -> Self {
         let received_at = Posix::now();
         let server_time = record.timestamp;
