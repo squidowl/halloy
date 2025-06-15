@@ -73,49 +73,90 @@ impl Notifications {
                     );
                 });
             }
-            Notification::FileTransferRequest(nick) => {
+            Notification::FileTransferRequest { nick, filename } => {
                 if config
                     .file_transfer_request
                     .should_notify(vec![nick.to_string()])
                 {
+                    let (title, body) = if config
+                        .file_transfer_request
+                        .show_content
+                    {
+                        (
+                            &format!("File transfer from {nick} on {server}"),
+                            filename.as_ref(),
+                        )
+                    } else {
+                        (&format!("File transfer from {nick}"), server.as_ref())
+                    };
+
                     self.execute(
                         &config.file_transfer_request,
                         notification,
-                        &format!("File transfer from {nick}"),
-                        server,
+                        title,
+                        body,
                     );
                 }
             }
-            Notification::DirectMessage(user) => {
+            Notification::DirectMessage { user, message } => {
                 if config
                     .direct_message
                     .should_notify(vec![user.nickname().to_string()])
                 {
+                    let (title, body) = if config.direct_message.show_content {
+                        (
+                            &format!(
+                                "{} sent you a direct message on {server}",
+                                user.nickname()
+                            ),
+                            message.as_ref(),
+                        )
+                    } else {
+                        (
+                            &format!(
+                                "{} sent you a direct message",
+                                user.nickname()
+                            ),
+                            server.as_ref(),
+                        )
+                    };
+
                     self.execute(
                         &config.direct_message,
                         notification,
-                        "Direct message",
-                        format!(
-                            "{} sent you a direct message on {server}",
-                            user.nickname()
-                        ),
+                        title,
+                        body,
                     );
                 }
             }
-            Notification::Highlight { user, channel } => {
+            Notification::Highlight {
+                user,
+                channel,
+                message,
+            } => {
                 if config.highlight.should_notify(vec![
                     channel.to_string(),
                     user.nickname().to_string(),
                 ]) {
-                    self.execute(
-                        &config.highlight,
-                        notification,
-                        "Highlight",
-                        format!(
-                            "{} highlighted you in {channel} on {server}",
-                            user.nickname()
-                        ),
-                    );
+                    let (title, body) = if config.highlight.show_content {
+                        (
+                            &format!(
+                                "{} highlighted you in {channel} on {server}",
+                                user.nickname()
+                            ),
+                            message.as_ref(),
+                        )
+                    } else {
+                        (
+                            &format!(
+                                "{} highlighted you in {channel}",
+                                user.nickname()
+                            ),
+                            server.as_ref(),
+                        )
+                    };
+
+                    self.execute(&config.highlight, notification, title, body);
                 }
             }
         }
