@@ -41,6 +41,7 @@ pub fn update(message: Message) -> Option<Event> {
 pub fn view<'a>(
     server: &'a Server,
     casemapping: isupport::CaseMap,
+    prefix: &'a [isupport::PrefixMap],
     channel: &'a target::Channel,
     content: &'a message::Content,
     who: Option<&'a str>,
@@ -69,6 +70,7 @@ pub fn view<'a>(
                         ),
                         server,
                         casemapping,
+                        prefix,
                         Some(channel),
                         user,
                         Some(user),
