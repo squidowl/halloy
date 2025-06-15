@@ -17,19 +17,19 @@ impl Catalog for Theme {
 }
 
 pub fn primary(theme: &Theme) -> Style {
-    let buttons = theme.colors().buttons;
-    let general = theme.colors().general;
-    let text = theme.colors().text;
+    let buttons = theme.styles().buttons;
+    let general = theme.styles().general;
+    let text = theme.styles().text;
 
     Style {
-        text_color: text.primary,
+        text_color: text.primary.color,
         background: Background::Color(general.background),
         border: Border {
             width: 1.0,
             radius: 4.0.into(),
             color: general.border,
         },
-        selected_text_color: text.primary,
+        selected_text_color: text.primary.color,
         selected_background: Background::Color(
             buttons.primary.background_hover,
         ),
