@@ -2493,7 +2493,15 @@ impl Dashboard {
 
         self.notifications.notify(
             &config.notifications,
-            &Notification::FileTransferRequest(request.from.clone()),
+            &Notification::FileTransferRequest {
+                nick: request.from.clone(),
+                filename: match event {
+                    file_transfer::manager::Event::NewTransfer(
+                        ref transfer,
+                        _,
+                    ) => transfer.filename.clone(),
+                },
+            },
             server,
         );
 
