@@ -8,6 +8,8 @@ pub type Loaded = Notification<Sound>;
 pub struct Notification<T = String> {
     #[serde(default)]
     pub show_toast: bool,
+    #[serde(default)]
+    pub show_content: bool,
     pub sound: Option<T>,
     pub delay: Option<u64>,
     #[serde(default)]
@@ -20,6 +22,7 @@ impl<T> Default for Notification<T> {
     fn default() -> Self {
         Self {
             show_toast: false,
+            show_content: false,
             sound: None,
             delay: Some(500),
             exclude: Vec::default(),
@@ -87,6 +90,7 @@ impl Notifications {
         let load = |notification: &Notification<String>| -> Result<_, audio::LoadError> {
             Ok(Notification {
                 show_toast: notification.show_toast,
+                show_content: notification.show_content,
                 sound: notification.sound.as_deref().map(Sound::load).transpose()?,
                 delay: notification.delay,
                 exclude: notification.exclude.to_owned(),

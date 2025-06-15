@@ -1,5 +1,13 @@
 # Unreleased
 
+Added:
+
+- Configuration option per toast type for showing content in toasts
+
+Thanks:
+
+- Feature requests: @rossburton
+
 # 2025.6 (2025-06-14)
 
 Added:
