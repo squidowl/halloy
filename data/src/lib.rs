@@ -41,6 +41,10 @@ pub mod mode;
 pub mod notification;
 pub mod pane;
 pub mod preview;
+
+#[cfg(feature = "hexchat-compat")]
+pub mod python;
+
 pub mod serde;
 pub mod server;
 pub mod shortcut;

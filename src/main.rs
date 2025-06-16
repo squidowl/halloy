@@ -21,6 +21,11 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use std::{env, mem};
 
+#[cfg(feature = "hexchat-compat")]
+use data::python;
+#[cfg(feature = "hexchat-compat")]
+use std::fs;
+
 use appearance::{Theme, theme};
 use chrono::Utc;
 use data::config::{self, Config};
@@ -177,6 +182,21 @@ impl Halloy {
         let (screen, config, command) = match config_load {
             Ok(config) => {
                 let (screen, command) = load_dashboard(&config);
+
+                #[cfg(feature = "hexchat-compat")]
+                for plugin in config.hexchat_plugins.auto_load.iter() {
+                    let cmd = match fs::read_to_string(plugin) {
+                        Ok(string) => string,
+                        _ => "print(\"An error occured while reading your plugin file\")".to_owned()
+                    };
+                    let _ = python::exec(python::RustpythonExec {
+                        cmd: cmd.clone(),
+                        interp: None,
+                        scope: None,
+                        clear_actions: false, // we need actions to be executed in input_view.rs,
+                                              // therefore we do not clear them
+                    });
+                }
 
                 (
                     Screen::Dashboard(screen),

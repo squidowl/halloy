@@ -67,8 +67,12 @@ pub fn on_connect(
                             command::Internal::OpenBuffers(targets) => {
                                 Some(Event::OpenBuffers(targets))
                             }
-                            // We don't handle hop when called from connected.
+                            // We don't handle hop or py when called from connected.
                             command::Internal::Hop(_, _) => None,
+
+                            #[cfg(feature = "hexchat-compat")]
+                            command::Internal::Py(_, _) => None,
+
                             command::Internal::Delay(seconds) => {
                                 time::sleep(Duration::from_secs(seconds)).await;
                                 None

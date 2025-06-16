@@ -249,7 +249,7 @@ async fn path(kind: &Kind) -> Result<PathBuf, Error> {
     Ok(dir.join(format!("{hashed_name}.json.gz")))
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum History {
     Partial {
         kind: Kind,

@@ -21,6 +21,9 @@ use crate::isupport::{
     WhoXPollParameters,
 };
 use crate::message::{message_id, server_time, source};
+#[cfg(feature = "hexchat-compat")]
+use crate::python::run_hook;
+
 use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
@@ -36,6 +39,16 @@ pub mod on_connect;
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
 const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
+
+#[cfg(not(feature = "hexchat-compat"))]
+fn run_hook(
+    _: Option<&buffer::Upstream>,
+    _: String,
+    _: Vec<String>,
+    _: bool,
+    _: bool,
+) {
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -204,6 +217,18 @@ impl Client {
     }
 
     pub fn connect(&mut self) -> Result<()> {
+        run_hook(
+            None,
+            "Connecting".to_owned(),
+            vec![
+                self.config.server.clone(),
+                self.config.server.clone(),
+                self.config.port.to_string(),
+            ],
+            false,
+            false,
+        );
+
         // Begin registration
         self.handle.try_send(command!("CAP", "LS", "302"))?;
 
@@ -218,13 +243,37 @@ impl Client {
         self.handle.try_send(command!("NICK", nick))?;
         self.handle.try_send(command!("USER", user, real))?;
         self.registration_step = RegistrationStep::List;
+
+        run_hook(None, "Connected".to_owned(), vec![], false, false);
         Ok(())
     }
 
     fn quit(&mut self, reason: Option<String>) {
         if let Err(e) = if let Some(reason) = reason {
+            run_hook(
+                None,
+                "Quit".to_owned(),
+                vec![
+                    self.config.nickname.clone(),
+                    reason.clone().to_owned(),
+                    self.config.server.clone(),
+                ],
+                false,
+                false,
+            );
             self.handle.try_send(command!("QUIT", reason))
         } else {
+            run_hook(
+                None,
+                "Quit".to_owned(),
+                vec![
+                    self.config.nickname.clone(),
+                    "".to_owned(),
+                    self.config.server.clone(),
+                ],
+                false,
+                false,
+            );
             self.handle.try_send(command!("QUIT"))
         } {
             log::warn!("Error sending quit: {e}");
@@ -235,6 +284,20 @@ impl Client {
         let keys = HashMap::new();
 
         let messages = group_joins(channels, &keys);
+
+        for channel in channels {
+            run_hook(
+                None,
+                "You Join".to_owned(),
+                vec![
+                    self.config.nickname.clone(),
+                    channel.as_normalized_str().to_owned().clone(),
+                    "".to_owned(),
+                ],
+                false,
+                false,
+            );
+        }
 
         for message in messages {
             if let Err(e) = self.handle.try_send(message) {
@@ -307,7 +370,7 @@ impl Client {
         }
     }
 
-    fn send(
+    pub fn send(
         &mut self,
         buffer: &buffer::Upstream,
         mut message: message::Encoded,
@@ -1334,6 +1397,18 @@ impl Client {
                 let inviter = ok!(message.user());
                 let user_channels = self.user_channels(user.nickname());
 
+                run_hook(
+                    None,
+                    "Invited".to_owned(),
+                    vec![
+                        channel.to_string(),
+                        inviter.nickname().to_string(),
+                        self.server.to_string(),
+                    ],
+                    false,
+                    false,
+                );
+
                 return Ok(vec![Event::Broadcast(Broadcast::Invite {
                     inviter,
                     channel,
@@ -1402,6 +1477,18 @@ impl Client {
             Command::QUIT(comment) => {
                 let user = ok!(message.user());
 
+                run_hook(
+                    None,
+                    "Quit".to_owned(),
+                    vec![
+                        user.nickname().to_string(),
+                        comment.clone().unwrap_or("".to_owned()).to_owned(),
+                        user.hostname().unwrap_or("0.0.0.0").to_owned(),
+                    ],
+                    false,
+                    false,
+                );
+
                 self.chanmap.values_mut().for_each(|channel| {
                     channel.users.remove(&user);
                 });
@@ -1418,7 +1505,30 @@ impl Client {
             Command::PART(channel, _) => {
                 let user = ok!(message.user());
 
+                run_hook(
+                    None,
+                    "Part".to_owned(),
+                    vec![
+                        user.nickname().to_string(),
+                        user.hostname().unwrap_or("0.0.0.0").to_owned(),
+                        channel.to_string(),
+                    ],
+                    false,
+                    false,
+                );
+
                 if user.nickname() == self.nickname() {
+                    run_hook(
+                        None,
+                        "You Part".to_owned(),
+                        vec![
+                            self.nickname().to_string(),
+                            user.hostname().unwrap_or("0.0.0.0").to_owned(),
+                            channel.to_string(),
+                        ],
+                        false,
+                        false,
+                    );
                     self.chanmap.remove(&context!(target::Channel::parse(
                         channel,
                         self.chantypes(),
@@ -1447,6 +1557,20 @@ impl Client {
                 ));
 
                 if user.nickname() == self.nickname() {
+                    run_hook(
+                        None,
+                        "You Join".to_owned(),
+                        vec![
+                            user.nickname().to_string().clone(),
+                            channel.clone(),
+                            user.hostname()
+                                .unwrap_or("0.0.0.0")
+                                .to_string()
+                                .clone(),
+                        ],
+                        false,
+                        false,
+                    );
                     self.chanmap
                         .insert(target_channel.clone(), Channel::default());
 
@@ -1483,21 +1607,38 @@ impl Client {
                 }
             }
             Command::KICK(channel, victim, _) => {
+                let chnl = target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )
+                .unwrap();
+                let nick = self.nickname().to_string().clone();
+
                 if victim == self.nickname().as_ref() {
-                    self.chanmap.remove(&context!(target::Channel::parse(
-                        channel,
-                        self.chantypes(),
-                        self.statusmsg(),
-                        self.casemapping(),
-                    )));
+                    run_hook(
+                        None,
+                        "You Kicked".to_owned(),
+                        vec![nick.clone(), channel.to_owned(), "".to_owned()],
+                        false,
+                        false,
+                    );
+                    self.chanmap.remove(&chnl.clone());
                 } else if let Some(channel) =
-                    self.chanmap.get_mut(&context!(target::Channel::parse(
-                        channel,
-                        self.chantypes(),
-                        self.statusmsg(),
-                        self.casemapping(),
-                    )))
+                    self.chanmap.get_mut(&chnl.clone())
                 {
+                    run_hook(
+                        None,
+                        "Kick".to_owned(),
+                        vec![
+                            nick.clone(),
+                            chnl.clone().as_normalized_str().to_owned(),
+                            "".to_owned(),
+                        ],
+                        false,
+                        false,
+                    );
                     channel
                         .users
                         .remove(&User::from(Nick::from(victim.as_str())));
@@ -3041,7 +3182,7 @@ impl Map {
         message: message::Encoded,
     ) {
         if let Some(client) = self.client_mut(buffer.server()) {
-            client.send(buffer, message);
+            client.send(buffer, message.clone());
         }
     }
 

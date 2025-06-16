@@ -297,6 +297,24 @@ impl Commands {
         };
 
         let mut command_list = vec![
+            // PY
+            #[cfg(feature = "hexchat-compat")]
+            {
+                Command {
+                    title: "PY",
+                    args: vec![Arg {
+                        text: "command",
+                        optional: false,
+                        tooltip: Some(
+                            "CONSOLE: Open an interactive python console\
+                            \nHELP: Display help\
+                            \nLOAD <script file>: Load a <script file>"
+                                .to_owned(),
+                        ),
+                    }],
+                    subcommands: None,
+                }
+            },
             // MOTD
             {
                 Command {

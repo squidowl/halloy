@@ -63,6 +63,25 @@ pub struct Config {
     pub highlights: Highlights,
     pub actions: Actions,
     pub ctcp: Ctcp,
+
+    #[cfg(feature = "hexchat-compat")]
+    pub hexchat_plugins: Plugins,
+}
+
+#[cfg(feature = "hexchat-compat")]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Plugins {
+    pub auto_load: Vec<String>,
+}
+
+#[cfg(feature = "hexchat-compat")]
+impl Default for Plugins {
+    fn default() -> Self {
+        Self {
+            auto_load: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -245,6 +264,9 @@ impl Config {
             pub actions: Actions,
             #[serde(default)]
             pub ctcp: Ctcp,
+            #[cfg(feature = "hexchat-compat")]
+            #[serde(default)]
+            pub hexchat_plugins: Plugins,
         }
 
         let path = Self::path();
@@ -274,6 +296,8 @@ impl Config {
             highlights,
             actions,
             ctcp,
+            #[cfg(feature = "hexchat-compat")]
+            hexchat_plugins,
         } = toml::from_str(content.as_ref())
             .map_err(|e| Error::Parse(e.to_string()))?;
 
@@ -291,6 +315,9 @@ impl Config {
             .unwrap_or_default();
 
         Ok(Config {
+            #[cfg(feature = "hexchat-compat")]
+            hexchat_plugins,
+
             appearance,
             servers,
             font,

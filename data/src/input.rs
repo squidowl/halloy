@@ -64,6 +64,13 @@ impl Input {
         }
     }
 
+    pub fn plain(buffer: buffer::Upstream, plain_text: String) -> Self {
+        Self {
+            buffer,
+            content: Content::Text(plain_text),
+        }
+    }
+
     pub fn server(&self) -> &Server {
         self.buffer.server()
     }
