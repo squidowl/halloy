@@ -107,6 +107,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 window_load.clone(),
                 destination.clone(),
                 log_stream,
+                // we start with an unspecified mode because we are guaranteed to
+                // receive a message from mundy containing the correct mode on startup.
+                appearance::Mode::Unspecified,
             )
         },
         Halloy::update,
@@ -146,6 +149,7 @@ fn handle_irc_error(e: anyhow::Error) {
 struct Halloy {
     version: Version,
     screen: Screen,
+    current_mode: appearance::Mode,
     theme: Theme,
     config: Config,
     clients: data::client::Map,
@@ -160,6 +164,7 @@ impl Halloy {
     pub fn load_from_state(
         main_window: window::Id,
         config_load: Result<Config, config::Error>,
+        current_mode: appearance::Mode,
     ) -> (Halloy, Task<Message>) {
         let main_window = Window::new(main_window);
 
@@ -212,7 +217,8 @@ impl Halloy {
             Halloy {
                 version: Version::new(),
                 screen,
-                theme: appearance::theme(&config.appearance.selected).into(),
+                current_mode,
+                theme: current_mode.theme(&config.appearance.selected).into(),
                 clients: data::client::Map::default(),
                 servers: config.servers.clone(),
                 config,
@@ -261,6 +267,7 @@ impl Halloy {
         window_load: Result<data::Window, window::Error>,
         url_received: Option<data::Url>,
         log_stream: ReceiverStream<Vec<logger::Record>>,
+        current_mode: appearance::Mode,
     ) -> (Halloy, Task<Message>) {
         let data::Window { size, position } = window_load.unwrap_or_default();
         let position =
@@ -275,7 +282,7 @@ impl Halloy {
         });
 
         let (mut halloy, command) =
-            Halloy::load_from_state(main_window, config_load);
+            Halloy::load_from_state(main_window, config_load, current_mode);
         let latest_remote_version =
             Task::perform(version::latest_remote_version(), Message::Version);
 
@@ -337,7 +344,7 @@ impl Halloy {
             }
             Message::ScreenConfigReloaded(updated) => {
                 let (halloy, command) =
-                    Halloy::load_from_state(self.main_window.id, updated);
+                    Halloy::load_from_state(self.main_window.id, updated, self.current_mode);
                 *self = halloy;
                 command
             }
@@ -372,7 +379,7 @@ impl Halloy {
                                     .collect::<Vec<_>>();
 
                                 self.servers = updated.servers.clone();
-                                self.theme = appearance::theme(
+                                self.theme = self.current_mode.theme(
                                     &updated.appearance.selected,
                                 )
                                 .into();
@@ -1171,13 +1178,11 @@ impl Halloy {
                 Task::none()
             }
             Message::AppearanceChange(mode) => {
-                if let data::appearance::Selected::Dynamic { light, dark } =
+                if let data::appearance::Selected::Dynamic { .. } =
                     &self.config.appearance.selected
                 {
-                    self.theme = match mode {
-                        appearance::Mode::Dark => dark.clone().into(),
-                        appearance::Mode::Light => light.clone().into(),
-                    }
+                    self.current_mode = mode;
+                    self.theme = self.current_mode.theme(&self.config.appearance.selected).into();
                 }
 
                 Task::none()
