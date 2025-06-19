@@ -182,15 +182,15 @@ sound = "dong"
 exclude = ["NickServ", "#halloy"]
 </code></pre>
 <p>Following notifications are available:</p>
-<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>connected</code></td><td>Triggered when a server is connected</td></tr>
-<tr><td><code>direct_message</code></td><td>Triggered when a direct message is received</td></tr>
-<tr><td><code>disconnected</code></td><td>Triggered when a server disconnects</td></tr>
-<tr><td><code>file_transfer_request</code></td><td>Triggered when a file transfer request is received</td></tr>
-<tr><td><code>highlight</code></td><td>Triggered when you were highlighted in a buffer</td></tr>
-<tr><td><code>monitored_online</code></td><td>Triggered when a user you're monitoring is online</td></tr>
-<tr><td><code>monitored_offline</code></td><td>Triggered when a user you're monitoring is offline</td></tr>
-<tr><td><code>reconnected</code></td><td>Triggered when a server reconnects</td></tr>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th><th><span id="content">Content</span></th></tr></thead><tbody>
+<tr><td><code>connected</code></td><td>Triggered when a server is connected</td><td>N/A</td></tr>
+<tr><td><code>direct_message</code></td><td>Triggered when a direct message is received</td><td>Message text</td></tr>
+<tr><td><code>disconnected</code></td><td>Triggered when a server disconnects</td><td>N/A</td></tr>
+<tr><td><code>file_transfer_request</code></td><td>Triggered when a file transfer request is received</td><td>File name</td></tr>
+<tr><td><code>highlight</code></td><td>Triggered when you were highlighted in a buffer</td><td>Message text</td></tr>
+<tr><td><code>monitored_online</code></td><td>Triggered when a user you're monitoring is online</td><td>N/A</td></tr>
+<tr><td><code>monitored_offline</code></td><td>Triggered when a user you're monitoring is offline</td><td>N/A</td></tr>
+<tr><td><code>reconnected</code></td><td>Triggered when a server reconnects</td><td>N/A</td></tr>
 </tbody></table>
 </div>
 <h2 id="sound"><a class="header" href="#sound"><code>sound</code></a></h2>
@@ -211,6 +211,15 @@ sound = "dong"
 
 [notifications.&lt;notification&gt;]
 show_toast = true
+</code></pre>
+<h2 id="show_content"><a class="header" href="#show_content"><code>show_content</code></a></h2>
+<p>Notification should show the content of the trigger (as described in the <a href="#content">table above</a>).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[notifications.&lt;notification&gt;]
+show_content = true
 </code></pre>
 <h2 id="delay"><a class="header" href="#delay"><code>delay</code></a></h2>
 <p>Delay in milliseconds before triggering the next notification.</p>
