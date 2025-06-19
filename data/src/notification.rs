@@ -7,9 +7,19 @@ pub enum Notification {
     Connected,
     Disconnected,
     Reconnected,
-    DirectMessage(User),
-    Highlight { user: User, channel: Channel },
-    FileTransferRequest(Nick),
+    DirectMessage {
+        user: User,
+        message: String,
+    },
+    Highlight {
+        user: User,
+        channel: Channel,
+        message: String,
+    },
+    FileTransferRequest {
+        nick: Nick,
+        filename: String,
+    },
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
 }

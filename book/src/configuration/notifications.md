@@ -15,16 +15,16 @@ exclude = ["NickServ", "#halloy"]
 
 Following notifications are available:
 
-| Name                    | Description                                        |
-| ----------------------- | -------------------------------------------------- |
-| `connected`             | Triggered when a server is connected               |
-| `direct_message`        | Triggered when a direct message is received        |
-| `disconnected`          | Triggered when a server disconnects                |
-| `file_transfer_request` | Triggered when a file transfer request is received |
-| `highlight`             | Triggered when you were highlighted in a buffer    |
-| `monitored_online`      | Triggered when a user you're monitoring is online  |
-| `monitored_offline`     | Triggered when a user you're monitoring is offline |
-| `reconnected`           | Triggered when a server reconnects                 |
+| Name                    | Description                                        | <span id="content">Content</span> |
+| ----------------------- | -------------------------------------------------- | --------------------------------- |
+| `connected`             | Triggered when a server is connected               | N/A                               |
+| `direct_message`        | Triggered when a direct message is received        | Message text                      |
+| `disconnected`          | Triggered when a server disconnects                | N/A                               |
+| `file_transfer_request` | Triggered when a file transfer request is received | File name                         |
+| `highlight`             | Triggered when you were highlighted in a buffer    | Message text                      |
+| `monitored_online`      | Triggered when a user you're monitoring is online  | N/A                               |
+| `monitored_offline`     | Triggered when a user you're monitoring is offline | N/A                               |
+| `reconnected`           | Triggered when a server reconnects                 | N/A                               |
 
 
 ## `sound`
@@ -52,6 +52,19 @@ Notification should trigger a OS toast.
 
 [notifications.<notification>]
 show_toast = true
+```
+
+## `show_content`
+
+Notification should show the content of the trigger (as described in the [table above](#content)).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[notifications.<notification>]
+show_content = true
 ```
 
 ## `delay`
