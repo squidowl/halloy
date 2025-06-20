@@ -17,6 +17,7 @@ use iced::{ContentFit, Length, Task, alignment, padding};
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
+use super::message_view::MessageFormat;
 use super::user_context;
 use crate::widget::{
     Element, MESSAGE_MARKER_TEXT, notify_visibility, selectable_text,
@@ -102,12 +103,7 @@ pub fn view<'a>(
     previews: Option<Previews<'a>>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
-    format: impl Fn(
-        &'a data::Message,
-        Option<f32>,
-        Option<f32>,
-    ) -> Option<Element<'a, Message>>
-    + 'a,
+    formatter: impl MessageFormat<'a> + 'a
 ) -> Element<'a, Message> {
     let divider_font_size =
         config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
@@ -177,7 +173,7 @@ pub fn view<'a>(
         messages
             .iter()
             .filter_map(|message| {
-                format(message, max_nick_width, max_prefix_width).map(
+                formatter.format(message, max_nick_width, max_prefix_width).map(
                     |element| {
                         (message, keyed(keyed::Key::message(message), element))
                     },

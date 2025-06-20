@@ -41,7 +41,7 @@ pub fn view<'a>(
             None,
             None,
             config,
-            move |message, _, _| match &message.target {
+            move |message: &'a data::Message, _, _| match &message.target {
                 message::Target::Highlights {
                     server,
                     channel,
