@@ -5,11 +5,43 @@ use data::dashboard::BufferAction;
 use data::history::{self, ReadMarker};
 use data::input::{self, Cache, RawInput};
 use data::message::server_time;
+
+// there is probably a better way to do this
+#[cfg(feature = "hexchat-compat")]
+use data::Command;
+#[cfg(feature = "hexchat-compat")]
+use data::python::{self, HalloyAction, RustpythonExec, run_hook};
+#[cfg(feature = "hexchat-compat")]
+use once_cell::sync::Lazy;
+#[cfg(feature = "hexchat-compat")]
+use rustpython_vm::{Interpreter, scope::Scope};
+#[cfg(feature = "hexchat-compat")]
+use std::cell::RefCell;
+#[cfg(feature = "hexchat-compat")]
+use std::collections::HashMap;
+#[cfg(feature = "hexchat-compat")]
+use std::fs;
+#[cfg(feature = "hexchat-compat")]
+use std::path::PathBuf;
+#[cfg(feature = "hexchat-compat")]
+use std::rc::Rc;
+
+#[cfg(not(feature = "hexchat-compat"))]
+fn run_hook(
+    _: Option<&buffer::Upstream>,
+    _: String,
+    _: Vec<String>,
+    _: bool,
+    _: bool,
+) {
+}
+
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, client, command};
 use iced::Task;
 use iced::widget::{column, container, text, text_input};
+use irc::proto;
 use tokio::time;
 
 use self::completion::Completion;
@@ -39,6 +71,15 @@ pub enum Message {
         buffer: Upstream,
         command: command::Irc,
     },
+}
+
+#[cfg(feature = "hexchat-compat")]
+thread_local! {
+    static PY_SCOPES: Lazy<RefCell<HashMap<String, Option<Scope>>>> = Lazy::new(|| RefCell::new(HashMap::new()));
+}
+#[cfg(feature = "hexchat-compat")]
+thread_local! {
+    static PY_INTERPRS: Lazy<RefCell<HashMap<String, Option<Rc<Interpreter>>>>> = Lazy::new(|| RefCell::new(HashMap::new()));
 }
 
 pub fn view<'a>(
@@ -136,6 +177,86 @@ impl State {
         }
     }
 
+    #[cfg(feature = "hexchat-compat")]
+    pub fn python(code: String) {
+        let mut scope: Option<Scope> = None;
+        let mut inter: Option<Rc<Interpreter>> = None;
+        PY_SCOPES.with(|scopes| {
+            let scopes = scopes.borrow();
+            match scopes.clone().get("console") {
+                Some(console_scope) => {
+                    scope = console_scope.clone();
+                }
+
+                None => {}
+            }
+        });
+        PY_INTERPRS.with(|inters| {
+            let inters = inters.borrow();
+            if let Some(console_inter) = inters.get("console") {
+                inter = Some(console_inter.clone().unwrap());
+            }
+        });
+        let rpexec = RustpythonExec {
+            cmd: code.to_string().clone(),
+            scope: scope.clone(),
+            interp: inter,
+            clear_actions: true,
+        };
+        let result = python::exec(rpexec);
+        PY_SCOPES.with(|scopes| {
+            let mut scopes = scopes.borrow_mut();
+            scopes.insert("console".to_owned(), Some(result.scope.clone()))
+        });
+        PY_INTERPRS.with(|inters| {
+            let mut inters = inters.borrow_mut();
+            inters.insert("console".to_owned(), Some(result.interp));
+        });
+        let txt: String;
+
+        if let Some(err) = result.error {
+            txt = err
+        } else {
+            txt = result.out.clone()
+        };
+
+        for action_ in result.actions.clone() {
+            if let Some(action) = action_ {
+                match action {
+                    HalloyAction::Print(string) => {
+                        if string.clone().replace("\n", "") != "" {
+                            python::print_to_log(string);
+                        }
+                    }
+
+                    HalloyAction::Hook(hooks) => {
+                        for hook in hooks {
+                            data::python::append_to_hooks(hook);
+                        }
+                    }
+
+                    HalloyAction::Command(cmd) => {
+                        match command::parse(&cmd, None, &HashMap::new()) {
+                            Ok(parsed_cmd) => {
+                                python::push_command(parsed_cmd.clone());
+                            }
+
+                            Err(_) => {
+                                log::debug!(
+                                    "py: user passed invalid command in python!"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if txt.clone().replace("\n", "") != "" {
+            python::print_to_log(txt.clone());
+        }
+    }
+
     pub fn update(
         &mut self,
         message: Message,
@@ -145,6 +266,95 @@ impl State {
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         let current_channel = buffer.channel();
+        #[cfg(feature = "hexchat-compat")]
+        python::print_queue(buffer, history, config);
+
+        #[cfg(feature = "hexchat-compat")]
+        let actions = python::get_actions();
+        #[cfg(feature = "hexchat-compat")]
+        for action_ in actions.clone() {
+            if let Some(action) = action_ {
+                match action {
+                    HalloyAction::Print(string) => {
+                        if string.clone().replace("\n", "") != "" {
+                            python::print_to_log(string);
+                        }
+                    }
+
+                    HalloyAction::Hook(hooks) => {
+                        for hook in hooks {
+                            data::python::append_to_hooks(hook);
+                        }
+                    }
+
+                    HalloyAction::Command(cmd) => {
+                        match command::parse(&cmd, None, &HashMap::new()) {
+                            Ok(parsed_cmd) => {
+                                python::push_command(parsed_cmd.clone());
+                            }
+
+                            Err(_) => {
+                                log::debug!(
+                                    "py: user passed invalid command in python!"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        #[cfg(feature = "hexchat-compat")]
+        for cmd in python::list_commands() {
+            if let Command::Irc(irc_cmd) = cmd {
+                log::debug!("py: running IRC command from command queue!");
+
+                let command;
+
+                match irc_cmd.clone() {
+                    command::Irc::Unknown(key, value) => {
+                        if key.to_lowercase() == "me".to_lowercase().to_owned()
+                        {
+                            command = data::Input::command(
+                                buffer.clone(),
+                                command::Irc::Me(
+                                    buffer
+                                        .channel()
+                                        .unwrap()
+                                        .to_owned()
+                                        .to_string(),
+                                    value.join(" "),
+                                ),
+                            )
+                            .encoded()
+                            .unwrap();
+                        } else {
+                            command = data::Input::command(
+                                buffer.clone(),
+                                irc_cmd.clone(),
+                            )
+                            .encoded()
+                            .unwrap();
+                        }
+                    }
+
+                    _ => {
+                        command = data::Input::command(
+                            buffer.clone(),
+                            irc_cmd.clone(),
+                        )
+                        .encoded()
+                        .unwrap();
+                    }
+                }
+                clients
+                    .client_mut(buffer.server())
+                    .unwrap()
+                    .send(buffer, command);
+            }
+
+            // Internal commands are not handled (yet), but no HexChat plugin seems to use them...
+        }
 
         match message {
             Message::Input(input) => {
@@ -256,6 +466,105 @@ impl State {
                             );
 
                             match command {
+                                #[cfg(feature = "hexchat-compat")]
+                                #[allow(unused_variables, unused_assignments)]
+                                command::Internal::Py(cmd, args_optional) => {
+                                    let mut event: Option<Event> = None;
+                                    match cmd.as_str() {
+                                        "console" | "CONSOLE" => {
+                                            let chantypes = clients
+                                                .get_chantypes(buffer.server());
+                                            let statusmsg = clients
+                                                .get_statusmsg(buffer.server());
+                                            let casemapping = clients
+                                                .get_casemapping(
+                                                    buffer.server(),
+                                                );
+
+                                            let target = Target::parse(
+                                                "python-log",
+                                                chantypes,
+                                                statusmsg,
+                                                casemapping,
+                                            );
+
+                                            let buffer_action = config
+                                                .actions
+                                                .buffer
+                                                .message_channel;
+
+                                            event = Some(Event::OpenBuffers {
+                                                targets: vec![(
+                                                    target,
+                                                    buffer_action,
+                                                )],
+                                            })
+                                        }
+
+                                        "load" | "LOAD" => {
+                                            if let Some(args) = args_optional {
+                                                if args.len() >= 1 {
+                                                    let path = PathBuf::from(
+                                                        args[0].clone(),
+                                                    );
+                                                    if path.exists()
+                                                        && (path.is_file()
+                                                            || path
+                                                                .is_symlink())
+                                                    {
+                                                        let code =
+                                                            fs::read_to_string(
+                                                                path,
+                                                            )
+                                                            .unwrap();
+                                                        Self::python(code);
+                                                    } else {
+                                                        self.error = Some("Script does not exist or is a directory!".to_owned());
+                                                    }
+                                                } else {
+                                                    self.error = Some(
+                                                        "No path specified..."
+                                                            .to_owned(),
+                                                    );
+                                                }
+                                            } else {
+                                                self.error = Some("No path specified, or path is invalid...".to_owned());
+                                            }
+                                        }
+
+                                        "help" | "HELP" => {
+                                            self.error = Some(
+                                                "Available commands:
+                                                - /py load {filename} - load a HexChat or XChat extension at {filename}
+                                                - /py console - open a interactive console buffer".to_owned()
+                                            )
+                                        }
+
+                                        cmd => {
+                                            if !python::command_hooked(cmd.to_owned().clone()) {
+                                                self.error = Some(
+                                                    "Invalid command specified. Check /py help."
+                                                        .to_owned(),
+                                                )
+                                            };
+
+                                            let mut words_: Vec<String> = Vec::new();
+                                            if let Some(args) = args_optional {
+                                                words_ = args.clone()
+                                            }
+
+                                            let mut words: Vec<String> = vec![cmd.to_owned().clone()];
+                                            for word in words_ {
+                                                words.push(word.to_owned());
+                                            }
+
+                                            python::run_hook(None, cmd.to_owned(), words, false, true);
+                                            // ensure the result shows up
+                                            python::print_queue(buffer, history, config);
+                                        }
+                                    }
+                                    return (Task::none(), event);
+                                }
                                 command::Internal::OpenBuffers(targets) => {
                                     return (
                                         Task::none(),
@@ -418,9 +727,81 @@ impl State {
                     };
 
                     history.record_input_history(buffer, raw_input.to_owned());
+                    #[cfg(feature = "hexchat-compat")]
+                    let mut send_user_message: bool = true;
+                    #[cfg(not(feature = "hexchat-compat"))]
+                    let send_user_message = true;
 
                     if let Some(encoded) = input.encoded() {
                         let sent_time = server_time(&encoded);
+
+                        run_hook(
+                            Some(buffer),
+                            encoded.command.clone().command(),
+                            encoded
+                                .command
+                                .clone()
+                                .parameters()
+                                .drain(1..)
+                                .collect(),
+                            true,
+                            false,
+                        );
+
+                        #[allow(unused_variables)]
+                        if let proto::Command::PRIVMSG(target, msg) =
+                            &encoded.command.clone()
+                        {
+                            #[cfg(feature = "hexchat-compat")]
+                            if *target == "python-log".to_owned() {
+                                // let the user message show up first
+                                if let Some(nick) =
+                                    clients.nickname(buffer.server())
+                                {
+                                    let mut user = nick.to_owned().into();
+                                    let mut channel_users = &[][..];
+
+                                    let chantypes =
+                                        clients.get_chantypes(buffer.server());
+                                    let statusmsg =
+                                        clients.get_statusmsg(buffer.server());
+                                    let casemapping = clients
+                                        .get_casemapping(buffer.server());
+
+                                    // Resolve our attributes if sending this message in a channel
+                                    if let buffer::Upstream::Channel(
+                                        server,
+                                        channel,
+                                    ) = &buffer
+                                    {
+                                        channel_users = clients
+                                            .get_channel_users(server, channel);
+
+                                        if let Some(user_with_attributes) =
+                                            clients.resolve_user_attributes(
+                                                server, channel, &user,
+                                            )
+                                        {
+                                            user = user_with_attributes.clone();
+                                        }
+                                    }
+                                    history.record_input_message(
+                                        input.clone(),
+                                        user,
+                                        channel_users,
+                                        chantypes,
+                                        statusmsg,
+                                        casemapping,
+                                        config,
+                                    );
+                                }
+
+                                send_user_message = false;
+                                Self::python(msg.clone());
+                                // ensure the result shows up
+                                python::print_queue(buffer, history, config);
+                            };
+                        }
 
                         clients.send(buffer, encoded);
 
@@ -447,6 +828,10 @@ impl State {
                     }
 
                     let mut history_task = Task::none();
+
+                    if !send_user_message {
+                        return (Task::none(), None);
+                    }
 
                     if let Some(nick) = clients.nickname(buffer.server()) {
                         let mut user = nick.to_owned().into();

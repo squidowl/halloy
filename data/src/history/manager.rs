@@ -62,7 +62,7 @@ pub enum Event {
     SentMessageUpdated(history::Kind, history::ReadMarker),
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Manager {
     resources: HashSet<Resource>,
     data: Data,
@@ -571,7 +571,7 @@ fn with_limit<'a>(
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct Data {
     map: HashMap<history::Kind, History>,
     input: input::Storage,

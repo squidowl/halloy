@@ -25,6 +25,9 @@ pub enum Internal {
     /// - Part message
     Hop(Option<String>, Option<String>),
     Delay(u64),
+
+    #[cfg(feature = "hexchat-compat")]
+    Py(String, Option<Vec<String>>),
 }
 
 #[derive(Debug, Clone)]
@@ -69,6 +72,8 @@ enum Kind {
     Notice,
     Delay,
     Raw,
+    #[cfg(feature = "hexchat-compat")]
+    Py,
 }
 
 impl FromStr for Kind {
@@ -95,6 +100,9 @@ impl FromStr for Kind {
             "ctcp" => Ok(Kind::Ctcp),
             "hop" | "rejoin" => Ok(Kind::Hop),
             "delay" => Ok(Kind::Delay),
+            #[cfg(feature = "hexchat-compat")]
+            "py" | "python" => Ok(Kind::Py),
+
             _ => Err(()),
         }
     }
@@ -337,6 +345,25 @@ pub fn parse(
                     Ok(Command::Irc(Irc::Part(chanlist, reason)))
                 })
             }
+            #[cfg(feature = "hexchat-compat")]
+            Kind::Py => validated::<1, 2, true>(args, |[cmd], [cmd1, cmd2]| {
+                let splitargs: Option<Vec<String>>;
+                let mut splitargs_tmp = Vec::new();
+                if let Some(cmd_1) = cmd1 {
+                    splitargs_tmp.push(cmd_1.clone().to_owned());
+                }
+                if let Some(cmd_2) = cmd2 {
+                    if splitargs_tmp.len() != 0 {
+                        splitargs_tmp.push(cmd_2.clone().to_owned());
+                    }
+                }
+                if splitargs_tmp.len() != 0 {
+                    splitargs = Some(splitargs_tmp)
+                } else {
+                    splitargs = None
+                }
+                Ok(Command::Internal(Internal::Py(cmd.to_owned(), splitargs)))
+            }),
             Kind::Topic => {
                 validated::<1, 1, true>(args, |[channel], [topic]| {
                     if let Some(ref topic) = topic {
