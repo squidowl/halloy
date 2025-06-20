@@ -14,6 +14,7 @@ use itertools::{Either, Itertools};
 use log::error;
 use tokio::fs;
 
+pub use self::on_connect::on_connect;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
 use crate::isupport::{
@@ -31,8 +32,6 @@ use crate::{
     Server, User, buffer, compression, config, ctcp, dcc, environment,
     file_transfer, isupport, message, mode, server,
 };
-
-pub use self::on_connect::on_connect;
 
 pub mod on_connect;
 
@@ -125,7 +124,7 @@ pub enum Event {
     LoggedIn(DateTime<Utc>),
     ChatHistoryTargetReceived(Target, DateTime<Utc>),
     ChatHistoryTargetsReceived(DateTime<Utc>),
-    DirectMessage(User),
+    DirectMessage(message::Encoded, Nick, User),
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
     OnConnect(on_connect::Stream),
@@ -1380,7 +1379,14 @@ impl Client {
                     );
 
                     if direct_message {
-                        return Ok(vec![event, Event::DirectMessage(user)]);
+                        return Ok(vec![
+                            event,
+                            Event::DirectMessage(
+                                message,
+                                self.nickname().to_owned(),
+                                user,
+                            ),
+                        ]);
                     } else {
                         return Ok(vec![event]);
                     }

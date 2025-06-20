@@ -709,6 +709,8 @@ impl Halloy {
                                             if let Some((message, channel, user)) =
                                                 message.into_highlight(server.clone())
                                             {
+                                                let message_text = message.text();
+
                                                 commands.push(
                                                     dashboard
                                                         .record_highlight(message)
@@ -718,7 +720,11 @@ impl Halloy {
                                                 if highlight_notification_enabled {
                                                     self.notifications.notify(
                                                         &self.config.notifications,
-                                                        &Notification::Highlight { user, channel },
+                                                        &Notification::Highlight {
+                                                            user,
+                                                            channel,
+                                                            message: message_text,
+                                                        },
                                                         &server,
                                                     );
                                                 }
@@ -931,22 +937,36 @@ impl Halloy {
                                             commands.push(command);
                                         }
                                     }
-                                    data::client::Event::DirectMessage(user) => {
-                                        if let Ok(query) = target::Query::parse(
-                                            user.as_str(),
+                                    data::client::Event::DirectMessage(encoded, our_nick, user) => {
+                                        if let Some(message) = data::Message::received(
+                                            encoded,
+                                            our_nick,
+                                            &self.config,
+                                            resolve_user_attributes,
+                                            channel_users,
                                             chantypes,
                                             statusmsg,
                                             casemapping,
                                         ) {
-                                            if dashboard.history().has_unread(
-                                                &history::Kind::Query(server.clone(), query),
-                                            ) || !self.main_window.focused
-                                            {
-                                                self.notifications.notify(
-                                                    &self.config.notifications,
-                                                    &Notification::DirectMessage(user),
-                                                    &server,
-                                                );
+                                            if let Ok(query) = target::Query::parse(
+                                                user.as_str(),
+                                                chantypes,
+                                                statusmsg,
+                                                casemapping,
+                                            ) {
+                                                if dashboard.history().has_unread(
+                                                    &history::Kind::Query(server.clone(), query),
+                                                ) || !self.main_window.focused
+                                                {
+                                                    self.notifications.notify(
+                                                        &self.config.notifications,
+                                                        &Notification::DirectMessage{
+                                                            user,
+                                                            message: message.text(),
+                                                        },
+                                                        &server,
+                                                    );
+                                                }
                                             }
                                         }
                                     }

@@ -2,6 +2,17 @@
 
 Added:
 
+- Configuration option per toast type for showing content in toasts
+
+Thanks:
+
+- Bug reports: @darienm
+- Feature requests: @rossburton
+
+# 2025.6 (2025-06-14)
+
+Added:
+
 - New application icon
 - Show channel mode in panel if available
 - Configuration options for font weight and bold weight

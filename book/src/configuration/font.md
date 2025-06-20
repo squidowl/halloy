@@ -34,7 +34,7 @@ Font size.
 size = 13
 ```
 
-## `size`
+## `weight`
 
 Font weight.
 
@@ -47,7 +47,7 @@ Font weight.
 weight = "light"
 ```
 
-## `size`
+## `bold-weight`
 
 Bold font weight.  If not set, then the font weight three steps above the regular font weight (e.g. font weight `"light"` → bold font weight `"semibold"`).
 
