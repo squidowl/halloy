@@ -6,15 +6,13 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{Config, User, buffer, history, message};
-use iced::advanced::text;
 use iced::widget::{column, container, row};
 use iced::{Length, Task, padding};
 
+use super::message_view::ChannelFormat;
 use super::{input_view, scroll_view, user_context};
-use crate::widget::{
-    Element, message_content, message_marker, selectable_text,
-};
-use crate::{Theme, theme};
+use crate::widget::Element;
+use crate::Theme;
 
 mod topic;
 
@@ -73,6 +71,16 @@ pub fn view<'a>(
         casemapping,
     ));
 
+    let message_formatter = ChannelFormat {
+        config,
+        users,
+        casemapping,
+        server,
+        channel: Some(channel),
+        our_user,
+        theme,
+    };
+
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
@@ -81,264 +89,7 @@ pub fn view<'a>(
             previews,
             chathistory_state,
             config,
-            move |message, max_nick_width, max_prefix_width| {
-                let timestamp = config
-                    .buffer
-                    .format_timestamp(&message.server_time)
-                    .map(|timestamp| {
-                        selectable_text(timestamp)
-                            .style(theme::selectable_text::timestamp)
-                    });
-
-                let prefixes = message.target.prefixes().map_or(
-                    max_nick_width.and_then(|_| {
-                        max_prefix_width.map(|width| {
-                            selectable_text("")
-                                .width(width)
-                                .align_x(text::Alignment::Right)
-                        })
-                    }),
-                    |prefixes| {
-                        let text = selectable_text(format!(
-                            "{} ",
-                            config
-                                .buffer
-                                .status_message_prefix
-                                .brackets
-                                .format(String::from_iter(prefixes))
-                        ))
-                        .style(theme::selectable_text::tertiary);
-
-                        if let Some(width) = max_prefix_width {
-                            Some(
-                                text.width(width)
-                                    .align_x(text::Alignment::Right),
-                            )
-                        } else {
-                            Some(text)
-                        }
-                    },
-                );
-
-                let space = selectable_text(" ");
-                let with_access_levels =
-                    config.buffer.nickname.show_access_levels;
-
-                match message.target.source() {
-                    message::Source::User(user) => {
-                        let current_user: Option<&User> = users
-                            .iter()
-                            .find(|current_user| *current_user == user);
-
-                        let mut text = selectable_text(
-                            config
-                                .buffer
-                                .nickname
-                                .brackets
-                                .format(user.display(with_access_levels)),
-                        )
-                        .style(|theme| {
-                            theme::selectable_text::nickname(
-                                theme, config, user,
-                            )
-                        });
-
-                        if let Some(width) = max_nick_width {
-                            text = text
-                                .width(width)
-                                .align_x(text::Alignment::Right);
-                        }
-
-                        let nick = user_context::view(
-                            text,
-                            server,
-                            casemapping,
-                            Some(channel),
-                            user,
-                            current_user,
-                            our_user,
-                            config,
-                            &config.buffer.nickname.click,
-                        )
-                        .map(scroll_view::Message::UserContext);
-
-                        let message_content = message_content::with_context(
-                            &message.content,
-                            casemapping,
-                            theme,
-                            scroll_view::Message::Link,
-                            theme::selectable_text::default,
-                            move |link| match link {
-                                message::Link::User(_) => {
-                                    user_context::Entry::list(true, our_user)
-                                }
-                                _ => vec![],
-                            },
-                            move |link, entry, length| match link {
-                                message::Link::User(user) => entry
-                                    .view(
-                                        server,
-                                        casemapping,
-                                        Some(channel),
-                                        user,
-                                        current_user,
-                                        length,
-                                        config,
-                                    )
-                                    .map(scroll_view::Message::UserContext),
-                                _ => row![].into(),
-                            },
-                            config,
-                        );
-
-                        let timestamp_nickname_row = row![]
-                            .push_maybe(timestamp)
-                            .push_maybe(prefixes)
-                            .push(nick)
-                            .push(space);
-
-                        let text_container = container(message_content);
-
-                        match &config.buffer.nickname.alignment {
-                            data::buffer::Alignment::Left
-                            | data::buffer::Alignment::Right => Some(
-                                row![]
-                                    .push(timestamp_nickname_row)
-                                    .push(text_container)
-                                    .into(),
-                            ),
-                            data::buffer::Alignment::Top => Some(
-                                column![]
-                                    .push(timestamp_nickname_row)
-                                    .push(text_container)
-                                    .into(),
-                            ),
-                        }
-                    }
-                    message::Source::Server(server_message) => {
-                        let message_style = move |message_theme: &Theme| {
-                            theme::selectable_text::server(
-                                message_theme,
-                                server_message.as_ref(),
-                            )
-                        };
-
-                        let marker =
-                            message_marker(max_nick_width, message_style);
-
-                        let message_content = message_content::with_context(
-                            &message.content,
-                            casemapping,
-                            theme,
-                            scroll_view::Message::Link,
-                            message_style,
-                            move |link| match link {
-                                message::Link::User(_) => {
-                                    user_context::Entry::list(true, our_user)
-                                }
-                                _ => vec![],
-                            },
-                            move |link, entry, length| match link {
-                                message::Link::User(user) => entry
-                                    .view(
-                                        server,
-                                        casemapping,
-                                        Some(channel),
-                                        user,
-                                        users.iter().find(|current_user| {
-                                            *current_user == user
-                                        }),
-                                        length,
-                                        config,
-                                    )
-                                    .map(scroll_view::Message::UserContext),
-                                _ => row![].into(),
-                            },
-                            config,
-                        );
-
-                        let text_container = container(message_content);
-
-                        Some(
-                            container(
-                                row![]
-                                    .push_maybe(timestamp)
-                                    .push_maybe(prefixes)
-                                    .push(marker)
-                                    .push(space)
-                                    .push(text_container),
-                            )
-                            .into(),
-                        )
-                    }
-                    message::Source::Action(_) => {
-                        let marker = message_marker(
-                            max_nick_width,
-                            theme::selectable_text::action,
-                        );
-
-                        let message_content = message_content(
-                            &message.content,
-                            casemapping,
-                            theme,
-                            scroll_view::Message::Link,
-                            theme::selectable_text::action,
-                            config,
-                        );
-
-                        let text_container = container(message_content);
-
-                        Some(
-                            container(
-                                row![]
-                                    .push_maybe(timestamp)
-                                    .push_maybe(prefixes)
-                                    .push(marker)
-                                    .push(space)
-                                    .push(text_container),
-                            )
-                            .into(),
-                        )
-                    }
-                    message::Source::Internal(
-                        message::source::Internal::Status(status),
-                    ) => {
-                        let message_style = move |message_theme: &Theme| {
-                            theme::selectable_text::status(
-                                message_theme,
-                                *status,
-                            )
-                        };
-
-                        let marker =
-                            message_marker(max_nick_width, message_style);
-
-                        let message = message_content(
-                            &message.content,
-                            casemapping,
-                            theme,
-                            scroll_view::Message::Link,
-                            message_style,
-                            config,
-                        );
-
-                        Some(
-                            container(
-                                row![]
-                                    .push_maybe(timestamp)
-                                    .push_maybe(prefixes)
-                                    .push(marker)
-                                    .push(space)
-                                    .push(message),
-                            )
-                            .into(),
-                        )
-                    }
-                    message::Source::Internal(
-                        message::source::Internal::Logs,
-                    ) => None,
-                }
-            },
+            message_formatter,
         )
         .map(Message::ScrollView),
     )
