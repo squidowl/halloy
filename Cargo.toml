@@ -75,13 +75,13 @@ open = "5.0.1"
 bytesize = "2.0.1"
 rodio = "0.20.1"
 humantime = "2.1.0"
-dark-light = { git = "https://github.com/rust-dark-light/dark-light", rev = "8e1f745f91e1e805fa772a83e4744afe95d70aa1" }
 strsim = "0.11.1"
 rfd = { version = "0.15.2", default-features = false, features = [
     "xdg-portal",
     "tokio",
 ] }
 uuid = { version = "1.15", features = ["v4"] }
+mundy = { version = "0.1.9", default-features = false, features = ["color-scheme", "tokio", "log"] }
 
 [target.'cfg(windows)'.dependencies]
 image = "0.24.6"
