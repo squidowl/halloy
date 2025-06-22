@@ -134,14 +134,14 @@ mod transfer_row {
                     file_transfer::Direction::Sent => container(
                         text(format!(
                             "Transfer to {}. Waiting for them to accept.",
-                            transfer.remote_user
+                            transfer.remote_user.nickname()
                         ))
                         .style(theme::text::secondary),
                     ),
                     file_transfer::Direction::Received => container(
                         text(format!(
                             "Transfer from {}. Accept to begin.",
-                            transfer.remote_user
+                            transfer.remote_user.nickname()
                         ))
                         .style(theme::text::secondary),
                     ),
@@ -156,7 +156,8 @@ mod transfer_row {
                 container(
                     text(format!(
                         "Transfer {} {}. Waiting for open port.",
-                        direction, transfer.remote_user,
+                        direction,
+                        transfer.remote_user.nickname(),
                     ))
                     .style(theme::text::secondary),
                 )
@@ -170,7 +171,8 @@ mod transfer_row {
                 container(
                     text(format!(
                         "Transfer {} {}. Waiting for remote user to connect.",
-                        direction, transfer.remote_user
+                        direction,
+                        transfer.remote_user.nickname()
                     ))
                     .style(theme::text::secondary),
                 )
@@ -242,7 +244,8 @@ mod transfer_row {
                 container(
                     text(format!(
                         "Completed {} {} in {elapsed}. sha256: {sha256}",
-                        direction, transfer.remote_user,
+                        direction,
+                        transfer.remote_user.nickname(),
                     ))
                     .style(theme::text::secondary),
                 )

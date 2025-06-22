@@ -302,13 +302,16 @@ impl Message {
     }
 
     pub fn file_transfer_request_received(
-        from: &Nick,
+        from: &User,
         query: &target::Query,
         filename: &str,
     ) -> Message {
         let received_at = Posix::now();
         let server_time = Utc::now();
-        let content = plain(format!("{from} wants to send you \"{filename}\""));
+        let content = plain(format!(
+            "{} wants to send you \"{filename}\"",
+            from.nickname()
+        ));
         let hash = Hash::new(&server_time, &content);
 
         Message {
@@ -328,13 +331,14 @@ impl Message {
     }
 
     pub fn file_transfer_request_sent(
-        to: &Nick,
+        to: &User,
         query: &target::Query,
         filename: &str,
     ) -> Message {
         let received_at = Posix::now();
         let server_time = Utc::now();
-        let content = plain(format!("offering to send {to} \"{filename}\""));
+        let content =
+            plain(format!("offering to send {} \"{filename}\"", to.nickname()));
         let hash = Hash::new(&server_time, &content);
 
         Message {
