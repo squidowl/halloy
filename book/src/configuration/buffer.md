@@ -14,7 +14,7 @@ Buffer settings for Halloy.
 7. [Internal Messages](#bufferinternal_messages) - Internal messages are messages sent from Halloy itself
 8. [Mark as Read](#buffermark_as_read) - When to automatically mark a buffer as read
 9. [Nickname](#buffernickname) - Customize how nicknames are displayed within a buffer
-10. [Server Messages](#bufferserver_messages) - Server messages are messages sent from a irc server.
+10. [Server Messages](#bufferserver_messages) - Server messages are messages sent from an IRC server.
 11. [Status Message Prefix](#bufferstatus_message_prefix) - Status message prefix settings
 12. [Text Input](#buffertext_input) - Customize the text input for in buffers
 13. [Timestamp](#buffertimestamp) - Customize how timestamps are displayed within a buffer
@@ -521,7 +521,7 @@ click = "open-query"
 
 ## `[buffer.server_messages]`
 
-Server messages are messages sent from a irc server.
+Server messages are messages sent from an IRC server.
 
 - **change_host** - Message is sent when a user changes host  
 - **join** - Message is sent when a user joins a channel  
@@ -532,7 +532,7 @@ Server messages are messages sent from a irc server.
 - **standard_reply_fail** - Message is sent when a command/function fails or an error with the session  
 - **standard_reply_note** - Message is sent when there is information about a command/function or session  
 - **standard_reply_warn** - Message is sent when there is feedback about a command/function or session  
-- **topic** - Message is sent when a user changes channel topic
+- **topic** - Message is sent when the client joins a channel to inform them of the current topic
 
 Example
 
