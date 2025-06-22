@@ -100,7 +100,10 @@ impl Manager {
             .unwrap_or_default()
             .replace(' ', "_");
 
-        log::debug!("File transfer send request to {to} for {filename:?}");
+        log::debug!(
+            "File transfer send request to {} for {filename:?}",
+            to.nickname()
+        );
 
         let id = self.get_random_id();
 
@@ -169,7 +172,8 @@ impl Manager {
                 {
                     if file_transfer.filename == *filename {
                         log::debug!(
-                            "File transfer received reverse confirmation from {from} for {:?}",
+                            "File transfer received reverse confirmation from {} for {:?}",
+                            from.nickname(),
                             filename,
                         );
                         task.confirm_reverse(*host, *port);
@@ -180,7 +184,8 @@ impl Manager {
         }
 
         log::debug!(
-            "File transfer request received from {from} for {:?}",
+            "File transfer request received from {} for {:?}",
+            from.nickname(),
             dcc_send.filename()
         );
 
@@ -212,7 +217,7 @@ impl Manager {
 
                 log::debug!(
                     "Auto-accepting file transfer from {} for {:?}",
-                    from,
+                    from.nickname(),
                     file_transfer.filename
                 );
 
@@ -279,7 +284,7 @@ impl Manager {
                             Direction::Sent => "to",
                             Direction::Received => "from",
                         },
-                        file_transfer.remote_user,
+                        file_transfer.remote_user.nickname(),
                         file_transfer.filename,
                         transferred as f32 / file_transfer.size as f32 * 100.0,
                     );
@@ -303,7 +308,7 @@ impl Manager {
                             Direction::Sent => "to",
                             Direction::Received => "from",
                         },
-                        &file_transfer.remote_user,
+                        &file_transfer.remote_user.nickname(),
                         &file_transfer.filename,
                         elapsed.as_secs_f32()
                     );
@@ -328,7 +333,7 @@ impl Manager {
                             Direction::Sent => "to",
                             Direction::Received => "from",
                         },
-                        &file_transfer.remote_user,
+                        &file_transfer.remote_user.nickname(),
                         &file_transfer.filename,
                     );
                     file_transfer.status = Status::Failed { error };
