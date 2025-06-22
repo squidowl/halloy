@@ -5,7 +5,6 @@ use chrono::{DateTime, Utc};
 
 pub use self::manager::Manager;
 pub use self::task::Task;
-use crate::user::Nick;
 use crate::{Server, User, dcc, server};
 
 pub mod manager;

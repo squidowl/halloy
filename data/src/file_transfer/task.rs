@@ -18,7 +18,6 @@ use tokio::time;
 use tokio_stream::StreamExt;
 
 use super::Id;
-use crate::user::Nick;
 use crate::{User, config, dcc, server};
 
 /// 16 KiB

@@ -10,9 +10,8 @@ use data::history::ReadMarker;
 use data::history::manager::Broadcast;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
-use data::user::Nick;
 use data::{
-    Config, Notification, Server, Version, client, command, config,
+    Config, Notification, Server, User, Version, client, command, config,
     environment, file_transfer, history, preview,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
@@ -66,7 +65,7 @@ pub enum Message {
     Task(command_bar::Message),
     Shortcut(shortcut::Command),
     FileTransfer(file_transfer::task::Update),
-    SendFileSelected(Server, Nick, Option<PathBuf>),
+    SendFileSelected(Server, User, Option<PathBuf>),
     CloseContextMenu(window::Id, bool),
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
@@ -1317,7 +1316,7 @@ impl Dashboard {
                 {
                     if let Some(path) = path {
                         if let Ok(query) = target::Query::parse(
-                            to.as_ref(),
+                            to.nickname().as_ref(),
                             clients.get_chantypes(&server),
                             clients.get_statusmsg(&server),
                             clients.get_casemapping(&server),
@@ -2499,7 +2498,7 @@ impl Dashboard {
         self.notifications.notify(
             &config.notifications,
             &Notification::FileTransferRequest {
-                nick: request.from.clone(),
+                nick: request.from.nickname().to_owned(),
                 filename: match event {
                     file_transfer::manager::Event::NewTransfer(
                         ref transfer,
@@ -2511,7 +2510,7 @@ impl Dashboard {
         );
 
         let query = target::Query::parse(
-            request.from.as_ref(),
+            request.from.nickname().as_ref(),
             chantypes,
             statusmsg,
             casemapping,
