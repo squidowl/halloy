@@ -6,7 +6,7 @@ Added:
 
 Thanks:
 
-- Bug reports: @darienm
+- Bug reports: @darienm, @mercster
 - Feature requests: @rossburton
 
 # 2025.6 (2025-06-14)
