@@ -16,10 +16,23 @@ pub struct FileTransfer {
     /// Time in seconds to wait before timing out a transfer waiting to be accepted.
     #[serde(default = "default_timeout")]
     pub timeout: u64,
+    /// Auto-accept configuration for incoming file transfers.
+    #[serde(default)]
+    pub auto_accept: AutoAccept,
+    pub server: Option<Server>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AutoAccept {
     /// If true, automatically accept incoming file transfers. Requires save_directory to be set.
     #[serde(default = "default_auto_accept")]
-    pub auto_accept_files: bool,
-    pub server: Option<Server>,
+    pub enabled: bool,
+    /// Auto-accept incoming file transfers from these nicks. Requires enabled to be true.
+    #[serde(default)]
+    pub nicks: Option<Vec<String>>,
+    /// Auto-accept incoming file transfers from these masks (regex patterns). Requires enabled to be true.
+    #[serde(default)]
+    pub masks: Option<Vec<String>>,
 }
 
 impl Default for FileTransfer {
@@ -28,8 +41,18 @@ impl Default for FileTransfer {
             save_directory: None,
             passive: default_passive(),
             timeout: default_timeout(),
-            auto_accept_files: default_auto_accept(),
+            auto_accept: AutoAccept::default(),
             server: None,
+        }
+    }
+}
+
+impl Default for AutoAccept {
+    fn default() -> Self {
+        Self {
+            enabled: default_auto_accept(),
+            nicks: None,
+            masks: None,
         }
     }
 }

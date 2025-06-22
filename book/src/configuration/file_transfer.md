@@ -15,19 +15,6 @@ Default directory to save files in. If not set, user will see a file dialog.
 save_directory = "/Users/halloy/Downloads"
 ```
 
-## `auto_accept_files`
-
-If true, automatically accept incoming file transfers. Requires `save_directory` to be set.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: false
-
-[file_transfer]
-auto_accept_files = false
-```
-
 ## `passive`
 
 If true, act as the "client" for the transfer. Requires the remote user act as the [server](#file_transferserver).
@@ -109,4 +96,49 @@ Last port in port range to bind to.
 
 [file_transfer.server]
 bind_port_last = "5000"
+```
+
+# `[file_transfer.auto_accept]`
+
+Configuration for automatically accepting incoming file transfers.
+
+## `enabled`
+
+If true, automatically accept incoming file transfers. Requires `save_directory` to be set.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[file_transfer.auto_accept]
+enabled = false
+```
+
+## `nicks`
+
+If true, automatically accept incoming file transfers from these nicks.
+Note `auto_accept` has to be enabled.
+
+```toml
+# Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[file_transfer.auto_accept]
+nicks = ["nick1", "nick2"]
+```
+
+## `masks`
+
+If true, automatically accept incoming file transfers from these nicks. 
+Note `auto_accept` has to be enabled.
+
+```toml
+# Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[file_transfer.auto_accept]
+masks = ["nick!ident@example.com", ".*@foobar.com"]
 ```
