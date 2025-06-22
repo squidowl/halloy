@@ -14,6 +14,7 @@ Changed:
 
 Thanks:
 
+- Contributions: @4e554c4c
 - Bug reports: @darienm, @mercster
 - Feature requests: @rossburton, death916, @Celeo
 
