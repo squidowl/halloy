@@ -6,6 +6,7 @@ Added:
 
 Thanks:
 
+- Contributions: @4e554c4c
 - Bug reports: @darienm
 - Feature requests: @rossburton
 
