@@ -25,11 +25,6 @@ impl<'f> FilterChain<'f> {
     }
 
     pub fn pass(&self, message: &Message) -> bool {
-        for filter in self.filters {
-            if !filter.pass(message) {
-                return false;
-            }
-        }
-        true
+        self.filters.iter().all(|filter| filter.pass(message))
     }
 }
